@@ -22,6 +22,7 @@ Repository visibility during ingest is also incomplete. Repositories being inges
 Finally, re-embed no-op behavior and status semantics need tightening. Successful ingest/re-ingest outcomes should always end in `completed`, including no-change and deletion-only paths. The “no files changed” decision should happen earlier so that no embedding work and no AST parsing/writing occurs when there are no changes, giving a fast early return.
 
 For this story, "deterministic" means:
+
 - No ambiguous terminal state is returned to callers.
 - No hidden timing race can cause extra command retries/steps after Stop has been requested.
 - Both MCP surfaces exposed by this app return the same terminal contract fields for the same terminal outcome.
@@ -49,21 +50,27 @@ This story is intentionally scoped as a contract-alignment story across existing
 17. No-change decision is made before AST parsing and before embedding work; when no files changed, the run exits without AST parse/upsert/delete and without embedding calls.
 18. Final blocking MCP terminal payload includes the following top-level fields for all terminal statuses: `status`, `operation`, `runId`, `sourceId`, `durationMs`, `files`, `chunks`, `embedded`, `errorCode`.
 19. Field constraints for criterion 18:
-   - `status`: one of `completed`, `cancelled`, `error`
-   - `operation`: literal `reembed`
-   - `errorCode`: `null` unless `status=error`
-   - `files`, `chunks`, `embedded`: numeric counters; for `cancelled`, last-known values are returned when available
+
+- `status`: one of `completed`, `cancelled`, `error`
+- `operation`: literal `reembed`
+- `errorCode`: `null` unless `status=error`
+- `files`, `chunks`, `embedded`: numeric counters; for `cancelled`, last-known values are returned when available
+
 20. MCP classic and MCP v2 return the same field names and status semantics for the same `reingest_repository` terminal outcome.
 21. Automated tests are added/updated for each behavior above across client and server, including MCP classic + MCP v2 parity and no-change early-return coverage.
 22. Documentation is updated to reflect final behavior: reliable Stop semantics, blocking MCP re-embed contract, in-progress repository visibility, and no-change early return.
 23. Stop race behavior is conversation-authoritative: even when `abortInflight` cannot find the inflight id, command execution abort is still attempted by `conversationId`, and no further command retries/steps execute after Stop is requested.
 24. Reingest error envelope boundary is explicit:
-   - pre-run validation failures (for example invalid `sourceId`, unknown root, or ingest lock already busy before run start) continue to use JSON-RPC error envelopes;
-   - once a run has started and MCP is waiting, terminal outcomes return via the terminal result payload contract (`completed` | `cancelled` | `error`) instead of protocol error envelopes.
+
+- pre-run validation failures (for example invalid `sourceId`, unknown root, or ingest lock already busy before run start) continue to use JSON-RPC error envelopes;
+- once a run has started and MCP is waiting, terminal outcomes return via the terminal result payload contract (`completed` | `cancelled` | `error`) instead of protocol error envelopes.
+
 25. External ingest status mapping is explicit across UI/REST/MCP listings:
-   - internal `queued|scanning|embedding` maps to `status: ingesting` plus `phase` with the same value;
-   - internal terminal `completed|cancelled|error` maps to the same `status` and omits `phase`;
-   - internal `skipped` is not emitted externally and is normalized to external `status: completed`.
+
+- internal `queued|scanning|embedding` maps to `status: ingesting` plus `phase` with the same value;
+- internal terminal `completed|cancelled|error` maps to the same `status` and omits `phase`;
+- internal `skipped` is not emitted externally and is normalized to external `status: completed`.
+
 26. Active overlay precedence is explicit: when a run is active, overlay fields (`status`, `phase`, live counters, active `runId`) come from active runtime status, while last completed metadata (`lastIngestAt`, lock/model metadata, last terminal error context) remains from persisted root metadata unless replaced by a newer terminal write.
 27. If persisted root metadata is temporarily absent during re-embed but an active run exists for that root path/sourceId, listings still include that repository using a synthesized entry plus active overlay fields.
 28. `/ingest/roots` and MCP `ListIngestedRepositories` both emit `schemaVersion: "0000038-status-phase-v1"` after this story change.
@@ -364,7 +371,7 @@ Validated from existing repository behavior/tests and official documentation ref
 
 ### 1. Server Message Contract: make `cancel_inflight` race-safe and conversation-authoritative
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: `672573a`
 
 #### Overview
@@ -463,75 +470,89 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Test description: trigger stop during command execution and assert no subsequent command step starts.
    - Test purpose: enforce hard-stop guarantee for command list/json execution.
 10. [x] Add command-run retry regression test: no retry is scheduled after stop request.
-   - Starter snippet (adapt names to exact existing symbols): `expect(scheduledRetriesAfterStop).toHaveLength(0);`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
-   - Acceptance criteria focus: AC3, AC23.
-   - Files to read/edit: `server/src/test/unit/agent-commands-runner.test.ts`, `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`, `server/src/ws/server.ts`
-   - Test type: Unit or integration (retry scheduling regression).
-   - Test location: `server/src/test/unit/agent-commands-runner.test.ts` and `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`.
-   - Test description: stop during a retry-capable failure path and assert no retries are queued post-stop.
-   - Test purpose: close the retry race that caused continued work after user stop.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(scheduledRetriesAfterStop).toHaveLength(0);`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
+- Acceptance criteria focus: AC3, AC23.
+- Files to read/edit: `server/src/test/unit/agent-commands-runner.test.ts`, `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`, `server/src/ws/server.ts`
+- Test type: Unit or integration (retry scheduling regression).
+- Test location: `server/src/test/unit/agent-commands-runner.test.ts` and `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`.
+- Test description: stop during a retry-capable failure path and assert no retries are queued post-stop.
+- Test purpose: close the retry race that caused continued work after user stop.
+
 11. [x] Add duplicate-stop idempotence test: repeated cancel messages do not restart work or emit contradictory outcomes.
-   - Starter snippet (adapt names to exact existing symbols): `expect(terminalOutcomeCount).toBe(1);`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
-   - Acceptance criteria focus: AC3, AC23.
-   - Files to read/edit: `server/src/test/unit/ws-server.test.ts`, `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`, `server/src/ws/server.ts`
-   - Test type: Unit (idempotence regression).
-   - Test location: `server/src/test/unit/ws-server.test.ts` and `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`.
-   - Test description: send stop twice and assert idempotent behavior with no resumed execution.
-   - Test purpose: guarantee deterministic behavior under repeated user stop clicks.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(terminalOutcomeCount).toBe(1);`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
+- Acceptance criteria focus: AC3, AC23.
+- Files to read/edit: `server/src/test/unit/ws-server.test.ts`, `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`, `server/src/ws/server.ts`
+- Test type: Unit (idempotence regression).
+- Test location: `server/src/test/unit/ws-server.test.ts` and `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`.
+- Test description: send stop twice and assert idempotent behavior with no resumed execution.
+- Test purpose: guarantee deterministic behavior under repeated user stop clicks.
+
 12. [x] Update `design.md` with the final stop/cancel flow and add Mermaid sequence diagram(s) for conversation-authoritative cancel handling.
-   - Starter snippet (adapt names to exact existing symbols): `Add a Mermaid sequence diagram showing cancel_inflight paths for conversation-only cancel and inflight-id mismatch behavior.`
-   - Dependency note: execute this after implementing Task 1 behavior/tests so the diagram reflects final code paths.
-   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://context7.com/jestjs/jest/llms.txt
-   - Acceptance criteria focus: AC22 documentation completeness and AC23 stop-race flow clarity.
-   - Files to read/edit: `design.md`, `server/src/ws/server.ts`, `server/src/agents/commandsRunner.ts`
-   - Document name: `design.md`.
-   - Document location: `design.md`.
-   - Document description: update the stop/cancel architecture narrative and Mermaid sequence diagrams for conversation-authoritative cancellation.
-   - Document purpose: keep architecture documentation synchronized with the implemented race-safe WS cancel behavior.
+
+- Starter snippet (adapt names to exact existing symbols): `Add a Mermaid sequence diagram showing cancel_inflight paths for conversation-only cancel and inflight-id mismatch behavior.`
+- Dependency note: execute this after implementing Task 1 behavior/tests so the diagram reflects final code paths.
+- Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://context7.com/jestjs/jest/llms.txt
+- Acceptance criteria focus: AC22 documentation completeness and AC23 stop-race flow clarity.
+- Files to read/edit: `design.md`, `server/src/ws/server.ts`, `server/src/agents/commandsRunner.ts`
+- Document name: `design.md`.
+- Document location: `design.md`.
+- Document description: update the stop/cancel architecture narrative and Mermaid sequence diagrams for conversation-authoritative cancellation.
+- Document purpose: keep architecture documentation synchronized with the implemented race-safe WS cancel behavior.
+
 13. [x] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
-   - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 1, grouped under server WS and server test directories.`
-   - Dependency note: execute this after all file add/remove subtasks in Task 1 (including later subtasks 14 and 15) and before moving to the next task.
-   - Docs: https://www.markdownguide.org/basic-syntax/
-   - Acceptance criteria focus: AC22 documentation completeness.
-   - Files to read/edit: `projectStructure.md`, `server/src/ws/*`, `server/src/test/unit/*`
-   - Document name: `projectStructure.md`.
-   - Document location: `projectStructure.md`.
-   - Document description: record Task 1 file additions/removals in WS and related test directories.
-   - Document purpose: maintain an accurate repository file map for implementation and onboarding.
-   - Required behavior: update `projectStructure.md` with every file path added or removed by Task 1 (no wildcard summaries), and remove entries for deleted files.
+
+- Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 1, grouped under server WS and server test directories.`
+- Dependency note: execute this after all file add/remove subtasks in Task 1 (including later subtasks 14 and 15) and before moving to the next task.
+- Docs: https://www.markdownguide.org/basic-syntax/
+- Acceptance criteria focus: AC22 documentation completeness.
+- Files to read/edit: `projectStructure.md`, `server/src/ws/*`, `server/src/test/unit/*`
+- Document name: `projectStructure.md`.
+- Document location: `projectStructure.md`.
+- Document description: record Task 1 file additions/removals in WS and related test directories.
+- Document purpose: maintain an accurate repository file map for implementation and onboarding.
+- Required behavior: update `projectStructure.md` with every file path added or removed by Task 1 (no wildcard summaries), and remove entries for deleted files.
+
 14. [x] Add WS handler unit test: conversation-only `cancel_inflight` still attempts command-run abort by `conversationId`.
-   - Starter snippet (adapt names to exact existing symbols): `expect(abortAgentCommandRunSpy).toHaveBeenCalledWith(conversationId);`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
-   - Acceptance criteria focus: AC4, AC23.
-   - Files to read/edit: `server/src/test/unit/ws-server.test.ts`, `server/src/ws/server.ts`
-   - Test type: Unit (conversation-authoritative stop behavior).
-   - Test location: `server/src/test/unit/ws-server.test.ts`.
-   - Test description: send `cancel_inflight` with `conversationId` only and assert command abort is attempted for that conversation.
-   - Test purpose: directly verify stop-race behavior before inflight id assignment.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(abortAgentCommandRunSpy).toHaveBeenCalledWith(conversationId);`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
+- Acceptance criteria focus: AC4, AC23.
+- Files to read/edit: `server/src/test/unit/ws-server.test.ts`, `server/src/ws/server.ts`
+- Test type: Unit (conversation-authoritative stop behavior).
+- Test location: `server/src/test/unit/ws-server.test.ts`.
+- Test description: send `cancel_inflight` with `conversationId` only and assert command abort is attempted for that conversation.
+- Test purpose: directly verify stop-race behavior before inflight id assignment.
+
 15. [x] Add WS handler unit test: stale `inflightId` path still attempts command-run abort by `conversationId`.
-   - Starter snippet (adapt names to exact existing symbols): `expect(abortAgentCommandRunSpy).toHaveBeenCalledWith(conversationId);`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
-   - Acceptance criteria focus: AC3, AC23.
-   - Files to read/edit: `server/src/test/unit/ws-chat-stream.test.ts`, `server/src/test/unit/ws-server.test.ts`, `server/src/ws/server.ts`
-   - Test type: Unit (mismatch corner-case behavior).
-   - Test location: `server/src/test/unit/ws-chat-stream.test.ts` and `server/src/test/unit/ws-server.test.ts`.
-   - Test description: send `cancel_inflight` with stale `inflightId`; assert mismatch semantics remain and command abort is still attempted by conversation.
-   - Test purpose: ensure stale inflight identifiers do not bypass conversation-authoritative stop.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(abortAgentCommandRunSpy).toHaveBeenCalledWith(conversationId);`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
+- Acceptance criteria focus: AC3, AC23.
+- Files to read/edit: `server/src/test/unit/ws-chat-stream.test.ts`, `server/src/test/unit/ws-server.test.ts`, `server/src/ws/server.ts`
+- Test type: Unit (mismatch corner-case behavior).
+- Test location: `server/src/test/unit/ws-chat-stream.test.ts` and `server/src/test/unit/ws-server.test.ts`.
+- Test description: send `cancel_inflight` with stale `inflightId`; assert mismatch semantics remain and command abort is still attempted by conversation.
+- Test purpose: ensure stale inflight identifiers do not bypass conversation-authoritative stop.
+
 16. [x] Add structured stop-race diagnostic logs for manual verification.
-   - Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED conversationId=%s inflightId=%s', conversationId, inflightId ?? 'none');`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://nodejs.org/api/console.html | https://nodejs.org/api/events.html
-   - Acceptance criteria focus: AC3, AC4, AC23.
-   - Files to read/edit: `server/src/ws/server.ts`, `server/src/agents/commandsRunner.ts`
-   - Required log line: `[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED conversationId=<id> inflightId=<id|none>`.
-   - Required log line: `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED conversationId=<id>`.
-   - Required behavior: emit each log once per stop request path so manual checks can verify event sequencing.
+
+- Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED conversationId=%s inflightId=%s', conversationId, inflightId ?? 'none');`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://nodejs.org/api/console.html | https://nodejs.org/api/events.html
+- Acceptance criteria focus: AC3, AC4, AC23.
+- Files to read/edit: `server/src/ws/server.ts`, `server/src/agents/commandsRunner.ts`
+- Required log line: `[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED conversationId=<id> inflightId=<id|none>`.
+- Required log line: `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED conversationId=<id>`.
+- Required behavior: emit each log once per stop request path so manual checks can verify event sequencing.
+
 17. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
@@ -542,7 +563,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
 4. [x] `npm run compose:up`
 5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001` for stop-race behavior; verify in compose server logs that `[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED ...` and `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED ...` are emitted with matching `conversationId` values, and verify browser debug console has no unexpected errors.
 6. [x] `npm run compose:down`
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+       Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -567,7 +588,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 2. Frontend: make Agents stop send `cancel_inflight` by conversation even when `inflightId` is unknown
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: `12e1781`
 
 #### Overview
@@ -673,14 +694,16 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Document purpose: keep the repository structure documentation aligned with stop payload implementation changes.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 2 (no wildcard summaries), and remove entries for deleted files.
 10. [x] Add deterministic client stop logs for Playwright-MCP console assertions.
-   - Starter snippet (adapt names to exact existing symbols): `console.info('[DEV-0000038][T2] STOP_CLICK conversationId=%s inflightId=%s', activeConversationId, inflightId ?? 'none');`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://developer.mozilla.org/en-US/docs/Web/API/Console/info_static | https://react.dev/reference/react/useCallback
-   - Acceptance criteria focus: AC3, AC4, AC23.
-   - Files to read/edit: `client/src/pages/AgentsPage.tsx`, `client/src/hooks/useChatWs.ts`
-   - Required log line: `[DEV-0000038][T2] STOP_CLICK conversationId=<id> inflightId=<id|none>`.
-   - Required log line: `[DEV-0000038][T2] CANCEL_INFLIGHT_SENT conversationId=<id> inflightId=<id|none>`.
-   - Required behavior: emit one STOP_CLICK and one CANCEL_INFLIGHT_SENT line per stop attempt.
+
+- Starter snippet (adapt names to exact existing symbols): `console.info('[DEV-0000038][T2] STOP_CLICK conversationId=%s inflightId=%s', activeConversationId, inflightId ?? 'none');`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://developer.mozilla.org/en-US/docs/Web/API/Console/info_static | https://react.dev/reference/react/useCallback
+- Acceptance criteria focus: AC3, AC4, AC23.
+- Files to read/edit: `client/src/pages/AgentsPage.tsx`, `client/src/hooks/useChatWs.ts`
+- Required log line: `[DEV-0000038][T2] STOP_CLICK conversationId=<id> inflightId=<id|none>`.
+- Required log line: `[DEV-0000038][T2] CANCEL_INFLIGHT_SENT conversationId=<id> inflightId=<id|none>`.
+- Required behavior: emit one STOP_CLICK and one CANCEL_INFLIGHT_SENT line per stop attempt.
+
 11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
@@ -691,7 +714,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
 4. [x] `npm run compose:up`
 5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T2] STOP_CLICK ...` and `[DEV-0000038][T2] CANCEL_INFLIGHT_SENT ...` appear once per stop click, with `inflightId=none` when missing and populated `inflightId` when present, capture screenshots showing both no-inflight-id and inflight-id-present stop states, review those screenshots against expected UI/button state and message flow, save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), and verify browser debug console has no unexpected errors.
 6. [x] `npm run compose:down`
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+       Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -716,7 +739,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 3. Frontend: unblock Agents input editing and sidebar navigation during active runs
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: `0c0f764`
 
 #### Overview
@@ -827,7 +850,7 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
 4. [x] `npm run compose:up`
 5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE runActive=true` appears when editing during active run and `[DEV-0000038][T3] AGENTS_CONVERSATION_SWITCH_ALLOWED from=<id> to=<id>` appears on sidebar switch, capture screenshots proving editable input and successful sidebar switch while run remains active, review screenshots against expected lock-scope behavior (submit disabled while input/sidebar remain usable), save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), and verify browser debug console has no unexpected errors.
 6. [x] `npm run compose:down`
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+       Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -852,7 +875,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 4. Server Message Contract: make `reingest_repository` blocking and terminal-only (classic + MCP v2 parity)
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: `972027a`
 
 #### Overview
@@ -937,222 +960,266 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test description: invoke reingest and assert result resolves only after terminal completion with `status=completed`.
    - Test purpose: prove service no longer returns non-terminal `started` output.
 10. [x] Add service unit test: internal `skipped` terminal state maps to external `completed`.
-   - Starter snippet (adapt names to exact existing symbols): `expect(result.status).toBe('completed');`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC16, AC18.
-   - Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/ingest/reingestService.ts`
-   - Test type: Unit (status mapping).
-   - Test location: `server/src/test/unit/reingestService.test.ts`.
-   - Test description: simulate `skipped` terminal state and assert mapped external status is `completed`.
-   - Test purpose: keep terminal success semantics consistent for callers.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(result.status).toBe('completed');`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC16, AC18.
+- Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/ingest/reingestService.ts`
+- Test type: Unit (status mapping).
+- Test location: `server/src/test/unit/reingestService.test.ts`.
+- Test description: simulate `skipped` terminal state and assert mapped external status is `completed`.
+- Test purpose: keep terminal success semantics consistent for callers.
+
 11. [x] Add service unit test: terminal payload includes all required top-level fields with deterministic counters and duration.
-   - Starter snippet (adapt names to exact existing symbols): `expect(result).toMatchObject({ status, operation: 'reembed', runId, sourceId, durationMs, files, chunks, embedded, errorCode });`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC18, AC19.
-   - Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/ingest/reingestService.ts`
-   - Test type: Unit (contract completeness).
-   - Test location: `server/src/test/unit/reingestService.test.ts`.
-   - Test description: assert required field set exists with numeric counters/duration and deterministic mapping.
-   - Test purpose: enforce stable terminal payload schema for MCP consumers.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(result).toMatchObject({ status, operation: 'reembed', runId, sourceId, durationMs, files, chunks, embedded, errorCode });`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC18, AC19.
+- Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/ingest/reingestService.ts`
+- Test type: Unit (contract completeness).
+- Test location: `server/src/test/unit/reingestService.test.ts`.
+- Test description: assert required field set exists with numeric counters/duration and deterministic mapping.
+- Test purpose: enforce stable terminal payload schema for MCP consumers.
+
 12. [x] Add MCP classic contract test: final tool payload never contains `status: started`.
-   - Starter snippet (adapt names to exact existing symbols): `expect(payload.status).not.toBe('started');`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC5, AC8.
-   - Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/mcp/server.ts`
-   - Test type: Contract test (MCP classic).
-   - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts`.
-   - Test description: call `reingest_repository` and assert final classic payload is terminal-only.
-   - Test purpose: prevent legacy non-terminal response regression on classic MCP.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(payload.status).not.toBe('started');`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC5, AC8.
+- Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/mcp/server.ts`
+- Test type: Contract test (MCP classic).
+- Test location: `server/src/test/unit/mcp.reingest.classic.test.ts`.
+- Test description: call `reingest_repository` and assert final classic payload is terminal-only.
+- Test purpose: prevent legacy non-terminal response regression on classic MCP.
+
 13. [x] Add MCP v2 contract test: final tool payload never contains `status: started`.
-   - Starter snippet (adapt names to exact existing symbols): `expect(payload.status).not.toBe('started');`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC5, AC8.
-   - Files to read/edit: `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/mcp2/tools/reingestRepository.ts`
-   - Test type: Contract test (MCP v2).
-   - Test location: `server/src/test/unit/mcp2.reingest.tool.test.ts`.
-   - Test description: call `reingest_repository` through MCP v2 and assert final payload is terminal-only.
-   - Test purpose: prevent legacy non-terminal response regression on MCP v2.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(payload.status).not.toBe('started');`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC5, AC8.
+- Files to read/edit: `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/mcp2/tools/reingestRepository.ts`
+- Test type: Contract test (MCP v2).
+- Test location: `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- Test description: call `reingest_repository` through MCP v2 and assert final payload is terminal-only.
+- Test purpose: prevent legacy non-terminal response regression on MCP v2.
+
 14. [x] Add parity test: classic and MCP v2 emit identical field names/semantics for same terminal success outcome.
-   - Starter snippet (adapt names to exact existing symbols): `expect(classicPayload).toEqual(v2Payload);`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC20.
-   - Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`
-   - Test type: Contract parity test.
-   - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
-   - Test description: run same scenario through both MCP surfaces and compare normalized terminal payloads.
-   - Test purpose: guarantee cross-surface contract lock-step.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(classicPayload).toEqual(v2Payload);`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC20.
+- Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`
+- Test type: Contract parity test.
+- Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- Test description: run same scenario through both MCP surfaces and compare normalized terminal payloads.
+- Test purpose: guarantee cross-surface contract lock-step.
+
 15. [x] Add cancel-path test: GUI cancellation during blocking wait returns terminal `status: cancelled` result.
-   - Starter snippet (adapt names to exact existing symbols): `expect(payload.status).toBe('cancelled');`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC10, AC19.
-   - Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`
-   - Test type: Integration/contract test.
-   - Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
-   - Test description: cancel ingest externally while MCP wait is in progress; assert returned terminal payload is `cancelled`.
-   - Test purpose: preserve correct in-run cancellation contract boundary.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(payload.status).toBe('cancelled');`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC10, AC19.
+- Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`
+- Test type: Integration/contract test.
+- Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- Test description: cancel ingest externally while MCP wait is in progress; assert returned terminal payload is `cancelled`.
+- Test purpose: preserve correct in-run cancellation contract boundary.
+
 16. [x] Add protocol-boundary test: pre-run validation failures remain JSON-RPC protocol errors.
-   - Starter snippet (adapt names to exact existing symbols): `expect(response.error).toBeDefined(); expect(response.result).toBeUndefined();`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC24.
-   - Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/test/unit/reingestService.test.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`
-   - Test type: Contract boundary test.
-   - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
-   - Test description: send invalid input / unknown source / busy-before-start and assert protocol error envelope is returned.
-   - Test purpose: enforce pre-run error boundary invariants.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(response.error).toBeDefined(); expect(response.result).toBeUndefined();`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC24.
+- Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/test/unit/reingestService.test.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`
+- Test type: Contract boundary test.
+- Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- Test description: send invalid input / unknown source / busy-before-start and assert protocol error envelope is returned.
+- Test purpose: enforce pre-run error boundary invariants.
+
 17. [x] Add protocol-boundary test: post-start failures return terminal result payload (not JSON-RPC error).
-   - Starter snippet (adapt names to exact existing symbols): `expect(payload.status).toBe('error'); expect(response.error).toBeUndefined();`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC24.
-   - Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/test/unit/reingestService.test.ts`
-   - Test type: Contract boundary test.
-   - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
-   - Test description: force failure after run starts and assert terminal payload is returned in result channel.
-   - Test purpose: prevent accidental promotion of in-run failures to protocol errors.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(payload.status).toBe('error'); expect(response.error).toBeUndefined();`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC24.
+- Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/test/unit/reingestService.test.ts`
+- Test type: Contract boundary test.
+- Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- Test description: force failure after run starts and assert terminal payload is returned in result channel.
+- Test purpose: prevent accidental promotion of in-run failures to protocol errors.
+
 18. [x] Add transport-wrapper test: both MCP surfaces keep `result.content[0].text` JSON-string wrapper.
-   - Starter snippet (adapt names to exact existing symbols): `expect(typeof response.result.content[0].text).toBe('string');`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC20.
-   - Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`
-   - Test type: Transport contract test.
-   - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
-   - Test description: assert unchanged text-wrapper transport shape around terminal payload on both surfaces.
-   - Test purpose: preserve existing client parser compatibility.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(typeof response.result.content[0].text).toBe('string');`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC20.
+- Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`
+- Test type: Transport contract test.
+- Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- Test description: assert unchanged text-wrapper transport shape around terminal payload on both surfaces.
+- Test purpose: preserve existing client parser compatibility.
+
 19. [x] Add keepalive test: heartbeat messages continue during blocking wait.
-   - Starter snippet (adapt names to exact existing symbols): `expect(keepaliveTickCount).toBeGreaterThan(0);`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC7.
-   - Files to read/edit: `server/src/test/unit/mcp.keepalive.helper.test.ts`, `server/src/mcpCommon/keepAlive.ts`
-   - Test type: Integration/resilience test.
-   - Test location: `server/src/test/unit/mcp.keepalive.helper.test.ts`.
-   - Test description: run long blocking wait and assert keepalive heartbeat executes while waiting.
-   - Test purpose: prevent long-running MCP calls from idle timeouts.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(keepaliveTickCount).toBeGreaterThan(0);`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC7.
+- Files to read/edit: `server/src/test/unit/mcp.keepalive.helper.test.ts`, `server/src/mcpCommon/keepAlive.ts`
+- Test type: Integration/resilience test.
+- Test location: `server/src/test/unit/mcp.keepalive.helper.test.ts`.
+- Test description: run long blocking wait and assert keepalive heartbeat executes while waiting.
+- Test purpose: prevent long-running MCP calls from idle timeouts.
+
 20. [x] Add keepalive-close-path test: disconnect during wait stops keepalive cleanly without crash.
-   - Starter snippet (adapt names to exact existing symbols): `expect(serverProcessCrashed).toBe(false);`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC7.
-   - Files to read/edit: `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/mcp2/router.ts`
-   - Test type: Integration/resilience test.
-   - Test location: `server/src/test/unit/mcp2.reingest.tool.test.ts` and `server/src/test/unit/mcp.reingest.classic.test.ts`.
-   - Test description: close/disconnect response path during blocking wait and assert lifecycle closes safely.
-   - Test purpose: ensure transport resilience and process stability.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(serverProcessCrashed).toBe(false);`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC7.
+- Files to read/edit: `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/mcp2/router.ts`
+- Test type: Integration/resilience test.
+- Test location: `server/src/test/unit/mcp2.reingest.tool.test.ts` and `server/src/test/unit/mcp.reingest.classic.test.ts`.
+- Test description: close/disconnect response path during blocking wait and assert lifecycle closes safely.
+- Test purpose: ensure transport resilience and process stability.
+
 21. [x] Add terminal error contract test: `status=error` has non-null `errorCode` and full required field set.
-   - Starter snippet (adapt names to exact existing symbols): `expect(payload.errorCode).not.toBeNull();`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC18, AC19.
-   - Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`
-   - Test type: Unit + contract test.
-   - Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
-   - Test description: assert terminal error output contains non-null code and all required top-level fields.
-   - Test purpose: enforce predictable machine-readable error contract.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(payload.errorCode).not.toBeNull();`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC18, AC19.
+- Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`
+- Test type: Unit + contract test.
+- Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- Test description: assert terminal error output contains non-null code and all required top-level fields.
+- Test purpose: enforce predictable machine-readable error contract.
+
 22. [x] Add terminal response-shape test: tool result has no top-level `message` and only one terminal payload per call.
-   - Starter snippet (adapt names to exact existing symbols): `expect(payload.message).toBeUndefined(); expect(terminalPayloadCount).toBe(1);`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC8, AC9.
-   - Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`
-   - Test type: Contract shape test.
-   - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
-   - Test description: assert final payload omits top-level `message` and emits one terminal contract object per call.
-   - Test purpose: keep tool outputs deterministic and summary-only.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(payload.message).toBeUndefined(); expect(terminalPayloadCount).toBe(1);`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC8, AC9.
+- Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`
+- Test type: Contract shape test.
+- Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- Test description: assert final payload omits top-level `message` and emits one terminal contract object per call.
+- Test purpose: keep tool outputs deterministic and summary-only.
+
 23. [x] Update `design.md` with blocking reingest architecture flow and Mermaid diagram(s) for classic + MCP v2 parity.
-   - Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart/sequence diagrams covering pre-run protocol-error boundary, blocking wait, keepalive during wait, and terminal payload completion.`
-   - Dependency note: execute this after Task 4 implementation/tests so diagrams reflect final runtime parity across both MCP surfaces.
-   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC22 documentation completeness plus AC20/AC24 flow-boundary clarity.
-   - Files to read/edit: `design.md`, `server/src/ingest/reingestService.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`, `server/src/mcp2/router.ts`
-   - Document name: `design.md`.
-   - Document location: `design.md`.
-   - Document description: document blocking reingest flow, protocol boundaries, and classic/v2 parity with Mermaid diagrams.
-   - Document purpose: make contract flow behavior and integration boundaries explicit for implementers and reviewers.
+
+- Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart/sequence diagrams covering pre-run protocol-error boundary, blocking wait, keepalive during wait, and terminal payload completion.`
+- Dependency note: execute this after Task 4 implementation/tests so diagrams reflect final runtime parity across both MCP surfaces.
+- Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC22 documentation completeness plus AC20/AC24 flow-boundary clarity.
+- Files to read/edit: `design.md`, `server/src/ingest/reingestService.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`, `server/src/mcp2/router.ts`
+- Document name: `design.md`.
+- Document location: `design.md`.
+- Document description: document blocking reingest flow, protocol boundaries, and classic/v2 parity with Mermaid diagrams.
+- Document purpose: make contract flow behavior and integration boundaries explicit for implementers and reviewers.
+
 24. [x] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
-   - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 4 across server ingest, MCP, and server test suites.`
-   - Dependency note: execute this after all file add/remove subtasks in Task 4, including subtasks 25-30, and before moving to the next task.
-   - Docs: https://www.markdownguide.org/basic-syntax/
-   - Acceptance criteria focus: AC22 documentation completeness.
-   - Files to read/edit: `projectStructure.md`, `server/src/ingest/*`, `server/src/mcp/*`, `server/src/mcp2/*`, `server/src/test/unit/*`
-   - Document name: `projectStructure.md`.
-   - Document location: `projectStructure.md`.
-   - Document description: record Task 4 file additions/removals across ingest, MCP classic/v2, and related tests.
-   - Document purpose: keep file-map documentation consistent with reingest contract implementation changes.
-   - Required behavior: update `projectStructure.md` with every file path added or removed by Task 4 (no wildcard summaries), and remove entries for deleted files.
+
+- Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 4 across server ingest, MCP, and server test suites.`
+- Dependency note: execute this after all file add/remove subtasks in Task 4, including subtasks 25-30, and before moving to the next task.
+- Docs: https://www.markdownguide.org/basic-syntax/
+- Acceptance criteria focus: AC22 documentation completeness.
+- Files to read/edit: `projectStructure.md`, `server/src/ingest/*`, `server/src/mcp/*`, `server/src/mcp2/*`, `server/src/test/unit/*`
+- Document name: `projectStructure.md`.
+- Document location: `projectStructure.md`.
+- Document description: record Task 4 file additions/removals across ingest, MCP classic/v2, and related tests.
+- Document purpose: keep file-map documentation consistent with reingest contract implementation changes.
+- Required behavior: update `projectStructure.md` with every file path added or removed by Task 4 (no wildcard summaries), and remove entries for deleted files.
+
 25. [x] Add bounded wait guard in reingest service so blocking calls cannot hang indefinitely.
-   - Starter snippet (adapt names to exact existing symbols): `const terminal = await waitForTerminalIngestStatus(runId, { timeoutMs, pollMs });`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC7, AC18, AC19, AC24.
-   - Files to read/edit: `server/src/ingest/reingestService.ts`, `server/src/ingest/ingestJob.ts`
-   - Required behavior: expose and use `waitForTerminalIngestStatus(runId, { timeoutMs, pollMs })` with task-local constants in `reingestService.ts` (no new env/config flags in this story); when timeout elapses, return one terminal result payload with `status='error'`, non-null `errorCode`, and required counters/duration fields.
+
+- Starter snippet (adapt names to exact existing symbols): `const terminal = await waitForTerminalIngestStatus(runId, { timeoutMs, pollMs });`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC7, AC18, AC19, AC24.
+- Files to read/edit: `server/src/ingest/reingestService.ts`, `server/src/ingest/ingestJob.ts`
+- Required behavior: expose and use `waitForTerminalIngestStatus(runId, { timeoutMs, pollMs })` with task-local constants in `reingestService.ts` (no new env/config flags in this story); when timeout elapses, return one terminal result payload with `status='error'`, non-null `errorCode`, and required counters/duration fields.
+
 26. [x] Add service unit test: timeout during blocking wait returns deterministic terminal error payload (not JSON-RPC error, not hang).
-   - Starter snippet (adapt names to exact existing symbols): `expect(result).toMatchObject({ status: 'error', errorCode: 'WAIT_TIMEOUT' });`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC7, AC18, AC19, AC24.
-   - Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/ingest/reingestService.ts`
-   - Test type: Unit (timeout boundary).
-   - Test location: `server/src/test/unit/reingestService.test.ts`.
-   - Test description: simulate no terminal transition until timeout and assert one terminal `status=error` result with non-null `errorCode`.
-   - Test purpose: guarantee blocking contract terminates deterministically under stalled runtime status.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(result).toMatchObject({ status: 'error', errorCode: 'WAIT_TIMEOUT' });`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC7, AC18, AC19, AC24.
+- Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/ingest/reingestService.ts`
+- Test type: Unit (timeout boundary).
+- Test location: `server/src/test/unit/reingestService.test.ts`.
+- Test description: simulate no terminal transition until timeout and assert one terminal `status=error` result with non-null `errorCode`.
+- Test purpose: guarantee blocking contract terminates deterministically under stalled runtime status.
+
 27. [x] Add missing-run-after-start contract tests on both MCP surfaces.
-   - Starter snippet (adapt names to exact existing symbols): `expect(payload).toMatchObject({ status: 'error', errorCode: 'RUN_STATUS_MISSING' });`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
-   - Acceptance criteria focus: AC18, AC19, AC20, AC24.
-   - Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/test/unit/reingestService.test.ts`, `server/src/ingest/reingestService.ts`
-   - Test type: Unit + contract test.
-   - Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
-   - Test description: simulate run started then runtime status missing; assert both MCP surfaces emit one terminal error result payload with stable shape.
-   - Test purpose: prevent undefined/null run-state handling from causing hangs or protocol-channel regressions.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(payload).toMatchObject({ status: 'error', errorCode: 'RUN_STATUS_MISSING' });`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+- Acceptance criteria focus: AC18, AC19, AC20, AC24.
+- Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/test/unit/reingestService.test.ts`, `server/src/ingest/reingestService.ts`
+- Test type: Unit + contract test.
+- Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- Test description: simulate run started then runtime status missing; assert both MCP surfaces emit one terminal error result payload with stable shape.
+- Test purpose: prevent undefined/null run-state handling from causing hangs or protocol-channel regressions.
+
 28. [x] Add terminal-field constraint test: `completed` and `cancelled` payloads emit `errorCode=null`.
-   - Starter snippet (adapt names to exact existing symbols): `expect(payload.errorCode).toBeNull();`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification | https://context7.com/jestjs/jest/llms.txt
-   - Acceptance criteria focus: AC19.
-   - Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`
-   - Test type: Unit + contract test.
-   - Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
-   - Test description: assert `errorCode` is null for successful and cancelled terminal results across service and both MCP surfaces.
-   - Test purpose: lock field-level terminal constraints so clients can trust result semantics.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(payload.errorCode).toBeNull();`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification | https://context7.com/jestjs/jest/llms.txt
+- Acceptance criteria focus: AC19.
+- Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`
+- Test type: Unit + contract test.
+- Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- Test description: assert `errorCode` is null for successful and cancelled terminal results across service and both MCP surfaces.
+- Test purpose: lock field-level terminal constraints so clients can trust result semantics.
+
 29. [x] Add cancelled-counter retention test: cancelled terminal payload returns last-known counters when available.
-   - Starter snippet (adapt names to exact existing symbols): `expect(payload).toMatchObject({ status: 'cancelled', files: lastKnown.files, chunks: lastKnown.chunks, embedded: lastKnown.embedded });`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://context7.com/jestjs/jest/llms.txt
-   - Acceptance criteria focus: AC10, AC19.
-   - Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/ingest/reingestService.ts`
-   - Test type: Unit + contract edge-case test.
-   - Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
-   - Test description: cancel during active progress and assert returned counters match last-known runtime values rather than reset/empty defaults.
-   - Test purpose: preserve deterministic cancellation summaries for AI/client consumers.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(payload).toMatchObject({ status: 'cancelled', files: lastKnown.files, chunks: lastKnown.chunks, embedded: lastKnown.embedded });`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://context7.com/jestjs/jest/llms.txt
+- Acceptance criteria focus: AC10, AC19.
+- Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/ingest/reingestService.ts`
+- Test type: Unit + contract edge-case test.
+- Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- Test description: cancel during active progress and assert returned counters match last-known runtime values rather than reset/empty defaults.
+- Test purpose: preserve deterministic cancellation summaries for AI/client consumers.
+
 30. [x] Add request-shape guard tests: extra `wait`/`blocking` flags are rejected on both MCP surfaces.
-   - Starter snippet (adapt names to exact existing symbols): `expect(response.error).toBeDefined(); expect(response.error.code).toBe(-32602);`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification | https://context7.com/jestjs/jest/llms.txt
-   - Acceptance criteria focus: AC6, AC24.
-   - Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`
-   - Test type: Contract validation test.
-   - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
-   - Test description: call `reingest_repository` with unsupported `wait`/`blocking` arguments and assert protocol-level invalid-params errors.
-   - Test purpose: enforce non-configurable blocking behavior and prevent interface drift.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(response.error).toBeDefined(); expect(response.error.code).toBe(-32602);`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification | https://context7.com/jestjs/jest/llms.txt
+- Acceptance criteria focus: AC6, AC24.
+- Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`
+- Test type: Contract validation test.
+- Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- Test description: call `reingest_repository` with unsupported `wait`/`blocking` arguments and assert protocol-level invalid-params errors.
+- Test purpose: enforce non-configurable blocking behavior and prevent interface drift.
+
 31. [x] Add deterministic blocking-reingest lifecycle logs for manual verification.
-   - Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=%s runId=%s', sourceId, runId);`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://nodejs.org/api/console.html | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC5, AC7, AC8, AC19, AC20, AC24.
-   - Files to read/edit: `server/src/ingest/reingestService.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`
-   - Required log line: `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=<id> runId=<id>`.
-   - Required log line: `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=<completed|cancelled|error> runId=<id> errorCode=<code|null>`.
-   - Required behavior: emit exactly one STARTED and one TERMINAL log for each reingest request.
+
+- Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=%s runId=%s', sourceId, runId);`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://nodejs.org/api/console.html | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC5, AC7, AC8, AC19, AC20, AC24.
+- Files to read/edit: `server/src/ingest/reingestService.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`
+- Required log line: `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=<id> runId=<id>`.
+- Required log line: `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=<completed|cancelled|error> runId=<id> errorCode=<code|null>`.
+- Required behavior: emit exactly one STARTED and one TERMINAL log for each reingest request.
+
 32. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
@@ -1163,7 +1230,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
 4. [x] `npm run compose:up`
 5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001` for blocking reingest flows; verify in compose server logs one `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED ...` and one `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT ...` log per run (matching `runId`), and verify browser debug console has no unexpected errors.
 6. [x] `npm run compose:down`
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+       Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -1187,7 +1254,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 5. Server Message Contract: normalize ingest listing status/phase mapping and active overlay visibility
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: `263c7a1`
 
 #### Overview
@@ -1268,163 +1335,195 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Files to read/edit: `server/src/mcp/server.ts`, `server/src/routes/ingestRoots.ts`, `server/src/lmstudio/toolService.ts`
    - Required behavior: runtime contracts for `/ingest/roots` and MCP classic listing document and emit external `status` values with optional `phase` omitted for terminal statuses.
 10. [x] Add status-mapping unit test: internal `queued` maps to external `status=ingesting` with `phase=queued`.
-   - Starter snippet (adapt names to exact existing symbols): `expect(repo).toMatchObject({ status: 'ingesting', phase: 'queued' });`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
-   - Acceptance criteria focus: AC11, AC14, AC25.
-   - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/lmstudio/toolService.ts`
-   - Test type: Unit (mapping contract).
-   - Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
-   - Test description: assert `queued` runtime state maps to external ingesting/queued shape.
-   - Test purpose: guarantee deterministic mapping for active queued state.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(repo).toMatchObject({ status: 'ingesting', phase: 'queued' });`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+- Acceptance criteria focus: AC11, AC14, AC25.
+- Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/lmstudio/toolService.ts`
+- Test type: Unit (mapping contract).
+- Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
+- Test description: assert `queued` runtime state maps to external ingesting/queued shape.
+- Test purpose: guarantee deterministic mapping for active queued state.
+
 11. [x] Add status-mapping unit test: internal `scanning` maps to external `status=ingesting` with `phase=scanning`.
-   - Starter snippet (adapt names to exact existing symbols): `expect(repo).toMatchObject({ status: 'ingesting', phase: 'scanning' });`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
-   - Acceptance criteria focus: AC11, AC14, AC25.
-   - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/lmstudio/toolService.ts`
-   - Test type: Unit (mapping contract).
-   - Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
-   - Test description: assert `scanning` runtime state maps to external ingesting/scanning shape.
-   - Test purpose: prevent phase drift for scanning state.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(repo).toMatchObject({ status: 'ingesting', phase: 'scanning' });`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+- Acceptance criteria focus: AC11, AC14, AC25.
+- Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/lmstudio/toolService.ts`
+- Test type: Unit (mapping contract).
+- Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
+- Test description: assert `scanning` runtime state maps to external ingesting/scanning shape.
+- Test purpose: prevent phase drift for scanning state.
+
 12. [x] Add status-mapping unit test: internal `embedding` maps to external `status=ingesting` with `phase=embedding`.
-   - Starter snippet (adapt names to exact existing symbols): `expect(repo).toMatchObject({ status: 'ingesting', phase: 'embedding' });`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
-   - Acceptance criteria focus: AC11, AC14, AC25.
-   - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/lmstudio/toolService.ts`
-   - Test type: Unit (mapping contract).
-   - Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
-   - Test description: assert `embedding` runtime state maps to external ingesting/embedding shape.
-   - Test purpose: keep active embedding status visible and phase-correct.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(repo).toMatchObject({ status: 'ingesting', phase: 'embedding' });`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+- Acceptance criteria focus: AC11, AC14, AC25.
+- Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/lmstudio/toolService.ts`
+- Test type: Unit (mapping contract).
+- Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
+- Test description: assert `embedding` runtime state maps to external ingesting/embedding shape.
+- Test purpose: keep active embedding status visible and phase-correct.
+
 13. [x] Add terminal-mapping unit test: internal `skipped` maps to external `status=completed`.
-   - Starter snippet (adapt names to exact existing symbols): `expect(repo.status).toBe('completed');`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
-   - Acceptance criteria focus: AC15, AC25.
-   - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
-   - Test type: Unit + contract test.
-   - Test location: `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
-   - Test description: assert no external `skipped` value is emitted.
-   - Test purpose: normalize success semantics across surfaces.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(repo.status).toBe('completed');`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+- Acceptance criteria focus: AC15, AC25.
+- Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+- Test type: Unit + contract test.
+- Test location: `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+- Test description: assert no external `skipped` value is emitted.
+- Test purpose: normalize success semantics across surfaces.
+
 14. [x] Add terminal-phase omission test: `completed` responses omit `phase`.
-   - Starter snippet (adapt names to exact existing symbols): `expect(repo.phase).toBeUndefined();`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
-   - Acceptance criteria focus: AC15.
-   - Files to read/edit: `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
-   - Test type: Contract test (REST + MCP output).
-   - Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
-   - Test description: assert completed entries omit `phase` on both listing surfaces.
-   - Test purpose: prevent terminal payload ambiguity.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(repo.phase).toBeUndefined();`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+- Acceptance criteria focus: AC15.
+- Files to read/edit: `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+- Test type: Contract test (REST + MCP output).
+- Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+- Test description: assert completed entries omit `phase` on both listing surfaces.
+- Test purpose: prevent terminal payload ambiguity.
+
 15. [x] Add terminal-phase omission test: `cancelled` responses omit `phase`.
-   - Starter snippet (adapt names to exact existing symbols): `expect(repo.phase).toBeUndefined();`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
-   - Acceptance criteria focus: AC15.
-   - Files to read/edit: `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
-   - Test type: Contract test (REST + MCP output).
-   - Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
-   - Test description: assert cancelled entries omit `phase` on both listing surfaces.
-   - Test purpose: keep terminal cancelled payloads deterministic.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(repo.phase).toBeUndefined();`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+- Acceptance criteria focus: AC15.
+- Files to read/edit: `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+- Test type: Contract test (REST + MCP output).
+- Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+- Test description: assert cancelled entries omit `phase` on both listing surfaces.
+- Test purpose: keep terminal cancelled payloads deterministic.
+
 16. [x] Add terminal-phase omission test: `error` responses omit `phase`.
-   - Starter snippet (adapt names to exact existing symbols): `expect(repo.phase).toBeUndefined();`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
-   - Acceptance criteria focus: AC15.
-   - Files to read/edit: `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
-   - Test type: Contract test (REST + MCP output).
-   - Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
-   - Test description: assert error entries omit `phase` on both listing surfaces.
-   - Test purpose: avoid leaking active-state fields into terminal error payloads.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(repo.phase).toBeUndefined();`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+- Acceptance criteria focus: AC15.
+- Files to read/edit: `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+- Test type: Contract test (REST + MCP output).
+- Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+- Test description: assert error entries omit `phase` on both listing surfaces.
+- Test purpose: avoid leaking active-state fields into terminal error payloads.
+
 17. [x] Add visibility regression test: active overlays keep repository visible during ingest.
-   - Starter snippet (adapt names to exact existing symbols): `expect(repos.find((r) => r.id === targetId)).toBeDefined();`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
-   - Acceptance criteria focus: AC11, AC12, AC27.
-   - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
-   - Test type: Integration/contract regression test.
-   - Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
-   - Test description: assert active run repository appears in both REST and MCP listings while ingest is in progress.
-   - Test purpose: eliminate disappearance bug during active ingest.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(repos.find((r) => r.id === targetId)).toBeDefined();`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+- Acceptance criteria focus: AC11, AC12, AC27.
+- Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+- Test type: Integration/contract regression test.
+- Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
+- Test description: assert active run repository appears in both REST and MCP listings while ingest is in progress.
+- Test purpose: eliminate disappearance bug during active ingest.
+
 18. [x] Add synthesized-entry contract test: when persisted metadata is missing, emitted entry still includes required identity fields and `hostPathWarning` when applicable.
-   - Starter snippet (adapt names to exact existing symbols): `expect(repo).toMatchObject({ id, containerPath, hostPath });`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
-   - Acceptance criteria focus: AC27.
-   - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
-   - Test type: Contract edge-case test.
-   - Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
-   - Test description: assert synthesized entries are emitted with required identity/path fields and warning behavior.
-   - Test purpose: guarantee listing continuity when persistence temporarily lacks root metadata.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(repo).toMatchObject({ id, containerPath, hostPath });`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+- Acceptance criteria focus: AC27.
+- Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+- Test type: Contract edge-case test.
+- Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
+- Test description: assert synthesized entries are emitted with required identity/path fields and warning behavior.
+- Test purpose: guarantee listing continuity when persistence temporarily lacks root metadata.
+
 19. [x] Add schema-version migration test: `/ingest/roots` and MCP classic listing both emit `0000038-status-phase-v1`.
-   - Starter snippet (adapt names to exact existing symbols): `expect(schemaVersion).toBe('0000038-status-phase-v1');`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
-   - Acceptance criteria focus: AC28.
-   - Files to read/edit: `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`
-   - Test type: Contract versioning test.
-   - Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
-   - Test description: assert both external listing surfaces emit the same updated schema version constant.
-   - Test purpose: provide explicit contract-version signal for downstream clients.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(schemaVersion).toBe('0000038-status-phase-v1');`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+- Acceptance criteria focus: AC28.
+- Files to read/edit: `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`
+- Test type: Contract versioning test.
+- Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+- Test description: assert both external listing surfaces emit the same updated schema version constant.
+- Test purpose: provide explicit contract-version signal for downstream clients.
+
 20. [x] Add overlay-precedence regression test for persisted metadata retention.
-   - Starter snippet (adapt names to exact existing symbols): `expect(repo.lastIngestAt).toBe(previousTerminal.lastIngestAt); expect(repo.status).toBe('ingesting');`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
-   - Acceptance criteria focus: AC13, AC26.
-   - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
-   - Required coverage: active overlay replaces run-state fields only, while persisted metadata (`lastIngestAt`, lock/model metadata, last terminal error context) remains present until a newer terminal write occurs.
-   - Test type: Regression test (overlay merge precedence).
-   - Test location: `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
-   - Test description: assert overlay updates run-state fields while retained persisted metadata remains unchanged until newer terminal write.
-   - Test purpose: preserve critical metadata continuity during active overlays.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(repo.lastIngestAt).toBe(previousTerminal.lastIngestAt); expect(repo.status).toBe('ingesting');`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+- Acceptance criteria focus: AC13, AC26.
+- Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+- Required coverage: active overlay replaces run-state fields only, while persisted metadata (`lastIngestAt`, lock/model metadata, last terminal error context) remains present until a newer terminal write occurs.
+- Test type: Regression test (overlay merge precedence).
+- Test location: `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+- Test description: assert overlay updates run-state fields while retained persisted metadata remains unchanged until newer terminal write.
+- Test purpose: preserve critical metadata continuity during active overlays.
+
 21. [x] Update `design.md` with status/phase mapping architecture flow and Mermaid diagram(s) for active-overlay precedence.
-   - Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart showing internal ingest states -> external status/phase mapping, synthesized entry path, and overlay precedence with persisted metadata retention.`
-   - Dependency note: execute this after Task 5 implementation/tests so mapping diagrams reflect final contract behavior.
-   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://json-schema.org/understanding-json-schema/
-   - Acceptance criteria focus: AC22 documentation completeness plus AC25/AC26 mapping clarity.
-   - Files to read/edit: `design.md`, `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`
-   - Document name: `design.md`.
-   - Document location: `design.md`.
-   - Document description: document status/phase mapping, synthesized-entry flow, and overlay precedence using Mermaid flow diagrams.
-   - Document purpose: clarify external contract mapping logic across REST and MCP listing surfaces.
+
+- Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart showing internal ingest states -> external status/phase mapping, synthesized entry path, and overlay precedence with persisted metadata retention.`
+- Dependency note: execute this after Task 5 implementation/tests so mapping diagrams reflect final contract behavior.
+- Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://json-schema.org/understanding-json-schema/
+- Acceptance criteria focus: AC22 documentation completeness plus AC25/AC26 mapping clarity.
+- Files to read/edit: `design.md`, `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`
+- Document name: `design.md`.
+- Document location: `design.md`.
+- Document description: document status/phase mapping, synthesized-entry flow, and overlay precedence using Mermaid flow diagrams.
+- Document purpose: clarify external contract mapping logic across REST and MCP listing surfaces.
+
 22. [x] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
-   - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 5 in server listing routes/services and ingest listing test suites.`
-   - Dependency note: execute this after all file add/remove subtasks in Task 5, including subtasks 23 and 24, and before moving to the next task.
-   - Docs: https://www.markdownguide.org/basic-syntax/
-   - Acceptance criteria focus: AC22 documentation completeness.
-   - Files to read/edit: `projectStructure.md`, `server/src/lmstudio/*`, `server/src/routes/*`, `server/src/mcp/*`, `server/src/test/unit/*`
-   - Document name: `projectStructure.md`.
-   - Document location: `projectStructure.md`.
-   - Document description: record Task 5 file additions/removals across listing services/routes and associated tests.
-   - Document purpose: ensure structural documentation matches ingest visibility and mapping implementation artifacts.
-   - Required behavior: update `projectStructure.md` with every file path added or removed by Task 5 (no wildcard summaries), and remove entries for deleted files.
+
+- Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 5 in server listing routes/services and ingest listing test suites.`
+- Dependency note: execute this after all file add/remove subtasks in Task 5, including subtasks 23 and 24, and before moving to the next task.
+- Docs: https://www.markdownguide.org/basic-syntax/
+- Acceptance criteria focus: AC22 documentation completeness.
+- Files to read/edit: `projectStructure.md`, `server/src/lmstudio/*`, `server/src/routes/*`, `server/src/mcp/*`, `server/src/test/unit/*`
+- Document name: `projectStructure.md`.
+- Document location: `projectStructure.md`.
+- Document description: record Task 5 file additions/removals across listing services/routes and associated tests.
+- Document purpose: ensure structural documentation matches ingest visibility and mapping implementation artifacts.
+- Required behavior: update `projectStructure.md` with every file path added or removed by Task 5 (no wildcard summaries), and remove entries for deleted files.
+
 23. [x] Update external OpenAPI document for `/ingest/roots` and `/tools/ingested-repos` to match `status`/optional `phase` and `0000038-status-phase-v1`.
-   - Starter snippet (adapt names to exact existing symbols): `Update OpenAPI schemas so active states emit status=ingesting + phase, terminal states omit phase, and schemaVersion matches 0000038-status-phase-v1.`
-   - Dependency note: execute after status/phase mapping implementation so OpenAPI reflects runtime truth.
-   - Docs: https://json-schema.org/understanding-json-schema/ | https://swagger.io/specification/
-   - Acceptance criteria focus: AC22, AC25, AC28.
-   - Files to read/edit: `openapi.json`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/lmstudio/toolService.ts`
-   - Required behavior: OpenAPI path schemas for `/ingest/roots` and `/tools/ingested-repos` explicitly include external `status` semantics and `phase` presence/omission rules that match runtime payloads.
+
+- Starter snippet (adapt names to exact existing symbols): `Update OpenAPI schemas so active states emit status=ingesting + phase, terminal states omit phase, and schemaVersion matches 0000038-status-phase-v1.`
+- Dependency note: execute after status/phase mapping implementation so OpenAPI reflects runtime truth.
+- Docs: https://json-schema.org/understanding-json-schema/ | https://swagger.io/specification/
+- Acceptance criteria focus: AC22, AC25, AC28.
+- Files to read/edit: `openapi.json`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/lmstudio/toolService.ts`
+- Required behavior: OpenAPI path schemas for `/ingest/roots` and `/tools/ingested-repos` explicitly include external `status` semantics and `phase` presence/omission rules that match runtime payloads.
+
 24. [x] Add OpenAPI contract test coverage for the new ingest listing status/phase rules and schema version.
-   - Starter snippet (adapt names to exact existing symbols): `assert.ok(rootProps.status); assert.ok(repoProps.status); assert.ok(topProps.schemaVersion);`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://json-schema.org/understanding-json-schema/ | https://context7.com/jestjs/jest/llms.txt
-   - Acceptance criteria focus: AC22, AC25, AC28.
-   - Files to read/edit: `server/src/test/unit/openapi.contract.test.ts`, `openapi.json`
-   - Test type: Contract test (OpenAPI schema assertions).
-   - Test location: `server/src/test/unit/openapi.contract.test.ts`.
-   - Test description: assert `/ingest/roots` and `/tools/ingested-repos` OpenAPI schemas include `status`, optional `phase` semantics, and `schemaVersion` expectations aligned with story contract.
-   - Test purpose: prevent documentation/runtime drift for external listing contracts.
+
+- Starter snippet (adapt names to exact existing symbols): `assert.ok(rootProps.status); assert.ok(repoProps.status); assert.ok(topProps.schemaVersion);`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://json-schema.org/understanding-json-schema/ | https://context7.com/jestjs/jest/llms.txt
+- Acceptance criteria focus: AC22, AC25, AC28.
+- Files to read/edit: `server/src/test/unit/openapi.contract.test.ts`, `openapi.json`
+- Test type: Contract test (OpenAPI schema assertions).
+- Test location: `server/src/test/unit/openapi.contract.test.ts`.
+- Test description: assert `/ingest/roots` and `/tools/ingested-repos` OpenAPI schemas include `status`, optional `phase` semantics, and `schemaVersion` expectations aligned with story contract.
+- Test purpose: prevent documentation/runtime drift for external listing contracts.
+
 25. [x] Add deterministic ingest-listing mapping logs for manual verification.
-   - Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED sourceId=%s internal=%s status=%s phase=%s', sourceId, internalState, status, phase ?? 'none');`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://nodejs.org/api/console.html | https://json-schema.org/understanding-json-schema/
-   - Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26.
-   - Files to read/edit: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`
-   - Required log line: `[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED sourceId=<id> internal=<state> status=<status> phase=<phase|none>`.
-   - Required log line: `[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED sourceId=<id> synthesized=<true|false>`.
-   - Required behavior: emit mapping logs for each listed repo and overlay logs when active-run data is merged.
+
+- Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED sourceId=%s internal=%s status=%s phase=%s', sourceId, internalState, status, phase ?? 'none');`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://nodejs.org/api/console.html | https://json-schema.org/understanding-json-schema/
+- Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26.
+- Files to read/edit: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`
+- Required log line: `[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED sourceId=<id> internal=<state> status=<status> phase=<phase|none>`.
+- Required log line: `[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED sourceId=<id> synthesized=<true|false>`.
+- Required behavior: emit mapping logs for each listed repo and overlay logs when active-run data is merged.
+
 26. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
@@ -1435,7 +1534,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
 4. [x] `npm run compose:up`
 5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001` for ingest listing visibility; verify in compose server logs that `[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED ...` and `[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED ...` appear with expected `status/phase` values and overlay flags, and verify browser debug console has no unexpected errors.
 6. [x] `npm run compose:down`
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+       Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -1454,12 +1553,11 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Testing 5: Manual host-mapped verification executed against `http://host.docker.internal:5001/ingest`; live listing responses showed active mapping (`status=ingesting`, `phase=embedding`) and compose server log `logs/server.1.log` includes required Task 5 markers for `/tmp/task5-big` (`INGEST_LIST_STATUS_MAPPED ... status=ingesting phase=embedding` + `INGEST_ACTIVE_OVERLAY_APPLIED ... synthesized=true`), with browser console error scan returning no errors.
 - Testing 6: `npm run compose:down` completed successfully and removed compose services/network.
 
-
 ---
 
 ### 6. Server: move no-change reembed exit ahead of AST and embedding work, and normalize successful terminal status
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: `7d77b59`
 
 #### Overview
@@ -1560,35 +1658,41 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Test description: force AST parse failure on changed files and assert failure outcome/shape matches pre-story behavior.
    - Test purpose: ensure this story does not alter non-no-change AST error semantics.
 10. [x] Update `design.md` with ingest pipeline flow changes and Mermaid diagram(s) for no-change early return and cancel boundary behavior.
-   - Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart covering delta decision point, no-change short-circuit before AST/embedding, deletion-only success path, and cancellation boundary producing one terminal outcome.`
-   - Dependency note: execute this after Task 6 implementation/tests so the diagram reflects final ingest control flow.
-   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://cucumber.io/docs/guides/
-   - Acceptance criteria focus: AC22 documentation completeness plus AC16/AC17 flow clarity.
-   - Files to read/edit: `design.md`, `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`, `server/src/test/features/ingest-delta-reembed.feature`
-   - Document name: `design.md`.
-   - Document location: `design.md`.
-   - Document description: document no-change early-return and cancellation boundary flows with Mermaid diagrams.
-   - Document purpose: preserve a clear architectural reference for ingest control-flow and terminal-state behavior.
+
+- Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart covering delta decision point, no-change short-circuit before AST/embedding, deletion-only success path, and cancellation boundary producing one terminal outcome.`
+- Dependency note: execute this after Task 6 implementation/tests so the diagram reflects final ingest control flow.
+- Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://cucumber.io/docs/guides/
+- Acceptance criteria focus: AC22 documentation completeness plus AC16/AC17 flow clarity.
+- Files to read/edit: `design.md`, `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`, `server/src/test/features/ingest-delta-reembed.feature`
+- Document name: `design.md`.
+- Document location: `design.md`.
+- Document description: document no-change early-return and cancellation boundary flows with Mermaid diagrams.
+- Document purpose: preserve a clear architectural reference for ingest control-flow and terminal-state behavior.
+
 11. [x] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
-   - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 6 in ingest pipeline and BDD/unit test paths.`
-   - Dependency note: execute this after all file add/remove subtasks in Task 6 and before moving to the next task.
-   - Docs: https://www.markdownguide.org/basic-syntax/
-   - Acceptance criteria focus: AC22 documentation completeness.
-   - Files to read/edit: `projectStructure.md`, `server/src/ingest/*`, `server/src/test/unit/*`, `server/src/test/features/*`, `server/src/test/steps/*`
-   - Document name: `projectStructure.md`.
-   - Document location: `projectStructure.md`.
-   - Document description: record Task 6 file additions/removals across ingest pipeline and BDD/unit test paths.
-   - Document purpose: keep the repository structure reference current for ingest-pipeline changes.
-   - Required behavior: update `projectStructure.md` with every file path added or removed by Task 6 (no wildcard summaries), and remove entries for deleted files.
+
+- Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 6 in ingest pipeline and BDD/unit test paths.`
+- Dependency note: execute this after all file add/remove subtasks in Task 6 and before moving to the next task.
+- Docs: https://www.markdownguide.org/basic-syntax/
+- Acceptance criteria focus: AC22 documentation completeness.
+- Files to read/edit: `projectStructure.md`, `server/src/ingest/*`, `server/src/test/unit/*`, `server/src/test/features/*`, `server/src/test/steps/*`
+- Document name: `projectStructure.md`.
+- Document location: `projectStructure.md`.
+- Document description: record Task 6 file additions/removals across ingest pipeline and BDD/unit test paths.
+- Document purpose: keep the repository structure reference current for ingest-pipeline changes.
+- Required behavior: update `projectStructure.md` with every file path added or removed by Task 6 (no wildcard summaries), and remove entries for deleted files.
+
 12. [x] Add deterministic delta-path logs for no-change and changed-run manual verification.
-   - Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=%s runId=%s', sourceId, runId);`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://nodejs.org/api/console.html | https://tree-sitter.github.io/tree-sitter/
-   - Acceptance criteria focus: AC16, AC17.
-   - Files to read/edit: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`
-   - Required log line: `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=<id> runId=<id>`.
-   - Required log line: `[DEV-0000038][T6] REEMBED_DELTA_PATH deltaAdded=<n> deltaModified=<n> deltaDeleted=<n>`.
-   - Required behavior: no-change runs emit only EARLY_RETURN; changed runs emit DELTA_PATH.
+
+- Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=%s runId=%s', sourceId, runId);`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://nodejs.org/api/console.html | https://tree-sitter.github.io/tree-sitter/
+- Acceptance criteria focus: AC16, AC17.
+- Files to read/edit: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`
+- Required log line: `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=<id> runId=<id>`.
+- Required log line: `[DEV-0000038][T6] REEMBED_DELTA_PATH deltaAdded=<n> deltaModified=<n> deltaDeleted=<n>`.
+- Required behavior: no-change runs emit only EARLY_RETURN; changed runs emit DELTA_PATH.
+
 13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
@@ -1599,7 +1703,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
 4. [x] `npm run compose:up`
 5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001` for no-change and changed-delta flows; verify in compose server logs that no-change runs emit `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN ...` without `REEMBED_DELTA_PATH`, and changed runs emit `[DEV-0000038][T6] REEMBED_DELTA_PATH ...`, then verify browser debug console has no unexpected errors.
 6. [x] `npm run compose:down`
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+       Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -1620,7 +1724,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 7. Frontend: consume external ingest `status`/`phase` contract and preserve active repository visibility
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: `6cc4f66`
 
 #### Overview
@@ -1718,55 +1822,65 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Test description: render completed ingest row/card and assert phase label/text is absent.
    - Test purpose: enforce terminal phase omission in UI for completed state.
 10. [x] Add UI rendering test: `cancelled` status shows no phase label.
-   - Starter snippet (adapt names to exact existing symbols): `expect(screen.queryByText(/phase/i)).not.toBeInTheDocument();`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
-   - Acceptance criteria focus: AC15.
-   - Files to read/edit: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
-   - Test type: Component/UI terminal-state test.
-   - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
-   - Test description: render cancelled ingest row/card and assert phase label/text is absent.
-   - Test purpose: enforce terminal phase omission in UI for cancelled state.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(screen.queryByText(/phase/i)).not.toBeInTheDocument();`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
+- Acceptance criteria focus: AC15.
+- Files to read/edit: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
+- Test type: Component/UI terminal-state test.
+- Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
+- Test description: render cancelled ingest row/card and assert phase label/text is absent.
+- Test purpose: enforce terminal phase omission in UI for cancelled state.
+
 11. [x] Add UI rendering test: `error` status shows no phase label.
-   - Starter snippet (adapt names to exact existing symbols): `expect(screen.queryByText(/phase/i)).not.toBeInTheDocument();`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
-   - Acceptance criteria focus: AC15.
-   - Files to read/edit: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
-   - Test type: Component/UI terminal-state test.
-   - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
-   - Test description: render error ingest row/card and assert phase label/text is absent.
-   - Test purpose: enforce terminal phase omission in UI for error state.
+
+- Starter snippet (adapt names to exact existing symbols): `expect(screen.queryByText(/phase/i)).not.toBeInTheDocument();`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
+- Acceptance criteria focus: AC15.
+- Files to read/edit: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
+- Test type: Component/UI terminal-state test.
+- Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
+- Test description: render error ingest row/card and assert phase label/text is absent.
+- Test purpose: enforce terminal phase omission in UI for error state.
+
 12. [x] Update `design.md` with ingest UI flow updates and Mermaid diagram(s) for status/phase rendering and active-visibility behavior.
-   - Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart showing ingest roots payload -> client normalization -> UI render decisions for ingesting vs terminal states (phase omitted for terminal).`
-   - Dependency note: execute this after Task 7 implementation/tests so diagram and text reflect final UI behavior.
-   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://react.dev/learn/synchronizing-with-effects
-   - Acceptance criteria focus: AC22 documentation completeness plus AC11/AC15 UI flow clarity.
-   - Files to read/edit: `design.md`, `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/pages/IngestPage.tsx`
-   - Document name: `design.md`.
-   - Document location: `design.md`.
-   - Document description: document ingest UI normalization/rendering flow and terminal phase-omission rules with Mermaid diagrams.
-   - Document purpose: provide a maintained architecture view of client-side ingest status behavior.
+
+- Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart showing ingest roots payload -> client normalization -> UI render decisions for ingesting vs terminal states (phase omitted for terminal).`
+- Dependency note: execute this after Task 7 implementation/tests so diagram and text reflect final UI behavior.
+- Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://react.dev/learn/synchronizing-with-effects
+- Acceptance criteria focus: AC22 documentation completeness plus AC11/AC15 UI flow clarity.
+- Files to read/edit: `design.md`, `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/pages/IngestPage.tsx`
+- Document name: `design.md`.
+- Document location: `design.md`.
+- Document description: document ingest UI normalization/rendering flow and terminal phase-omission rules with Mermaid diagrams.
+- Document purpose: provide a maintained architecture view of client-side ingest status behavior.
+
 13. [x] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
-   - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 7 in common/client ingest hooks, components, pages, and tests.`
-   - Dependency note: execute this after all file add/remove subtasks in Task 7 and before moving to the next task.
-   - Docs: https://www.markdownguide.org/basic-syntax/
-   - Acceptance criteria focus: AC22 documentation completeness.
-   - Files to read/edit: `projectStructure.md`, `common/src/*`, `client/src/hooks/*`, `client/src/components/ingest/*`, `client/src/pages/*`, `client/src/test/*`
-   - Document name: `projectStructure.md`.
-   - Document location: `projectStructure.md`.
-   - Document description: record Task 7 file additions/removals across common/client ingest hooks, components, pages, and tests.
-   - Document purpose: maintain an accurate file-map reference for ingest UI contract consumption changes.
-   - Required behavior: update `projectStructure.md` with every file path added or removed by Task 7 (no wildcard summaries), and remove entries for deleted files.
+
+- Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 7 in common/client ingest hooks, components, pages, and tests.`
+- Dependency note: execute this after all file add/remove subtasks in Task 7 and before moving to the next task.
+- Docs: https://www.markdownguide.org/basic-syntax/
+- Acceptance criteria focus: AC22 documentation completeness.
+- Files to read/edit: `projectStructure.md`, `common/src/*`, `client/src/hooks/*`, `client/src/components/ingest/*`, `client/src/pages/*`, `client/src/test/*`
+- Document name: `projectStructure.md`.
+- Document location: `projectStructure.md`.
+- Document description: record Task 7 file additions/removals across common/client ingest hooks, components, pages, and tests.
+- Document purpose: maintain an accurate file-map reference for ingest UI contract consumption changes.
+- Required behavior: update `projectStructure.md` with every file path added or removed by Task 7 (no wildcard summaries), and remove entries for deleted files.
+
 14. [x] Add deterministic ingest UI rendering logs for Playwright-MCP console assertions.
-   - Starter snippet (adapt names to exact existing symbols): `console.info('[DEV-0000038][T7] INGEST_UI_ROW_RENDER sourceId=%s status=%s phase=%s', sourceId, status, phase ?? 'none');`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://developer.mozilla.org/en-US/docs/Web/API/Console/info_static | https://react.dev/learn/synchronizing-with-effects
-   - Acceptance criteria focus: AC11, AC12, AC14, AC15, AC25, AC28.
-   - Files to read/edit: `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
-   - Required log line: `[DEV-0000038][T7] INGEST_UI_ROW_RENDER sourceId=<id> status=<status> phase=<phase|none>`.
-   - Required log line: `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN sourceId=<id> status=<completed|cancelled|error>`.
-   - Required behavior: emit row-render log for visible entries and phase-hidden log for terminal-state rendering.
+
+- Starter snippet (adapt names to exact existing symbols): `console.info('[DEV-0000038][T7] INGEST_UI_ROW_RENDER sourceId=%s status=%s phase=%s', sourceId, status, phase ?? 'none');`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://developer.mozilla.org/en-US/docs/Web/API/Console/info_static | https://react.dev/learn/synchronizing-with-effects
+- Acceptance criteria focus: AC11, AC12, AC14, AC15, AC25, AC28.
+- Files to read/edit: `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
+- Required log line: `[DEV-0000038][T7] INGEST_UI_ROW_RENDER sourceId=<id> status=<status> phase=<phase|none>`.
+- Required log line: `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN sourceId=<id> status=<completed|cancelled|error>`.
+- Required behavior: emit row-render log for visible entries and phase-hidden log for terminal-state rendering.
+
 15. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
@@ -1779,7 +1893,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
 6. [x] `npm run compose:up`
 7. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T7] INGEST_UI_ROW_RENDER ...` is emitted for active and terminal rows, verify `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN ...` appears for `completed|cancelled|error`, capture screenshots for ingesting, completed, cancelled, and error UI states, review screenshots to confirm phase is shown only for ingesting and hidden for terminal statuses, save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), and verify browser debug console has no unexpected errors.
 8. [x] `npm run compose:down`
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+       Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -1802,7 +1916,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 8. Documentation: update architecture and file-map docs for final 0000038 behavior
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -1817,7 +1931,7 @@ Update story-adjacent documentation so junior developers can understand final st
 
 #### Subtasks
 
-1. [ ] Update `design.md` with final stop-race handling, blocking reingest contract flow, and status/phase mapper behavior, including Mermaid diagrams.
+1. [x] Update `design.md` with final stop-race handling, blocking reingest contract flow, and status/phase mapper behavior, including Mermaid diagrams.
    - Starter snippet (adapt names to exact existing symbols): `Document final stop-race, blocking reingest, and status/phase architecture flows with valid Mermaid diagrams.`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification
@@ -1827,7 +1941,7 @@ Update story-adjacent documentation so junior developers can understand final st
    - Document location: `design.md`.
    - Document description: capture final architecture behavior and flow diagrams for stop handling, blocking reingest, and ingest status mapping.
    - Document purpose: provide the authoritative technical design reference for this story.
-2. [ ] Update `projectStructure.md` with all files added/removed/renamed across this story’s implementation tasks.
+2. [x] Update `projectStructure.md` with all files added/removed/renamed across this story’s implementation tasks.
    - Starter snippet (adapt names to exact existing symbols): `Document all file additions/removals/renames produced by story 0000038 tasks.`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification
@@ -1838,7 +1952,7 @@ Update story-adjacent documentation so junior developers can understand final st
    - Document description: list story-specific structural changes to repository files and paths.
    - Document purpose: keep project structure documentation accurate for developers navigating the codebase.
    - Required behavior: include a complete explicit path list of all files added/removed/renamed across Tasks 1-7, and ensure no stale entries remain for removed files.
-3. [ ] Update this story plan’s Implementation Notes sections as each task completes, including key decisions and deviations.
+3. [x] Update this story plan’s Implementation Notes sections as each task completes, including key decisions and deviations.
    - Starter snippet (adapt names to exact existing symbols): `Record per-task implementation outcomes, deviations, and important decisions in the story notes sections.`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification
@@ -1848,7 +1962,7 @@ Update story-adjacent documentation so junior developers can understand final st
    - Document location: `planning/0000038-agent-ux-stop-and-ingest-status.md`.
    - Document description: update per-task Implementation Notes with concrete completion details.
    - Document purpose: preserve execution traceability and reduce handover ambiguity for future contributors.
-4. [ ] Run markdown format check and fix markdown/style issues in `design.md` if required.
+4. [x] Run markdown format check and fix markdown/style issues in `design.md` if required.
    - Starter snippet (adapt names to exact existing symbols): `Apply any markdown formatting fixes needed in design.md after running format checks.`
    - Dependency note: execute this after Subtask 1 content updates.
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt
@@ -1858,7 +1972,7 @@ Update story-adjacent documentation so junior developers can understand final st
    - Document location: `design.md`.
    - Document description: apply markdown style/format corrections after architecture updates.
    - Document purpose: keep design documentation readable and standards-compliant.
-5. [ ] Run markdown format check and fix markdown/style issues in `projectStructure.md` if required.
+5. [x] Run markdown format check and fix markdown/style issues in `projectStructure.md` if required.
    - Starter snippet (adapt names to exact existing symbols): `Apply any markdown formatting fixes needed in projectStructure.md after running format checks.`
    - Dependency note: execute this after Subtask 2 content updates.
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt
@@ -1868,7 +1982,7 @@ Update story-adjacent documentation so junior developers can understand final st
    - Document location: `projectStructure.md`.
    - Document description: apply markdown style/format corrections after file-map updates.
    - Document purpose: ensure structure documentation stays clean and consistent.
-6. [ ] Run markdown format check and fix markdown/style issues in this story plan file if required.
+6. [x] Run markdown format check and fix markdown/style issues in this story plan file if required.
    - Starter snippet (adapt names to exact existing symbols): `Apply any markdown formatting fixes needed in planning/0000038-agent-ux-stop-and-ingest-status.md after running format checks.`
    - Dependency note: execute this after Subtask 3 content updates.
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt
@@ -1878,7 +1992,7 @@ Update story-adjacent documentation so junior developers can understand final st
    - Document location: `planning/0000038-agent-ux-stop-and-ingest-status.md`.
    - Document description: apply markdown style/format corrections to final story notes.
    - Document purpose: keep planning documentation consistent and machine/human readable.
-7. [ ] Add a dedicated documentation section listing the exact manual QA log markers introduced in Tasks 1-7.
+7. [x] Add a dedicated documentation section listing the exact manual QA log markers introduced in Tasks 1-7.
    - Starter snippet (adapt names to exact existing symbols): `Add section \"Manual QA Log Markers (DEV-0000038)\" listing required prefixes and expected outcomes per task.`
    - Dependency note: execute after Task 1-7 log-line subtasks so the table reflects final text exactly.
    - Docs: https://www.markdownguide.org/basic-syntax/ | https://context7.com/mermaid-js/mermaid/llms.txt
@@ -1887,29 +2001,69 @@ Update story-adjacent documentation so junior developers can understand final st
    - Required log line: include exact text for `[DEV-0000038][T1]` through `[DEV-0000038][T7]` markers.
    - Required log line: `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=<T1|T2|T3|T4|T5|T6|T7>`.
    - Required behavior: documentation table exactly matches runtime log prefixes so Playwright-MCP manual checks are deterministic.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Manual QA Log Markers (DEV-0000038)
+
+| Task | Marker text | Validation intent |
+| ---- | ----------- | ----------------- |
+| T1 | `[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED conversationId=<id> inflightId=<id\|none>` | WS cancel handler observed with conversation/inflight context. |
+| T1 | `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED conversationId=<id>` | Conversation-authoritative command abort requested. |
+| T2 | `[DEV-0000038][T2] STOP_CLICK conversationId=<id> inflightId=<id\|none>` | Agents stop click captured in UI console. |
+| T2 | `[DEV-0000038][T2] CANCEL_INFLIGHT_SENT conversationId=<id> inflightId=<id\|none>` | UI cancel frame dispatch confirmed. |
+| T3 | `[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE runActive=true` | Active run keeps input editable. |
+| T3 | `[DEV-0000038][T3] AGENTS_CONVERSATION_SWITCH_ALLOWED from=<id> to=<id>` | Active run allows sidebar conversation switch. |
+| T4 | `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=<id> runId=<id>` | Blocking reingest wait lifecycle start. |
+| T4 | `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=<completed\|cancelled\|error> runId=<id> errorCode=<code\|null>` | Terminal blocking result lifecycle completion. |
+| T5 | `[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED sourceId=<id> internal=<state> status=<status> phase=<phase\|none>` | Internal->external status/phase mapping verified. |
+| T5 | `[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED sourceId=<id> synthesized=<true\|false>` | Active overlay and synthesized-entry path verified. |
+| T6 | `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=<id> runId=<id>` | No-change reembed early-return path verified. |
+| T6 | `[DEV-0000038][T6] REEMBED_DELTA_PATH deltaAdded=<n> deltaModified=<n> deltaDeleted=<n>` | Changed-delta reembed path verified. |
+| T7 | `[DEV-0000038][T7] INGEST_UI_ROW_RENDER sourceId=<id> status=<status> phase=<phase\|none>` | Ingest UI row render contract verified for active and terminal rows. |
+| T7 | `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN sourceId=<id> status=<completed\|cancelled\|error>` | Terminal phase-hidden rendering verified. |
+| T8 | `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=<T1\|T2\|T3\|T4\|T5\|T6\|T7>` | Documentation log-reference validation evidence entry. |
 
 #### Testing
 
-1. [ ] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
-2. [ ] `npm run build:summary:client` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` and resolve errors.
-3. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
-4. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
-5. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
-6. [ ] `npm run compose:up`
-7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; execute one representative stop flow and one ingest flow, verify each documented marker from `[DEV-0000038][T1]` through `[DEV-0000038][T7]` appears with expected fields/counts, capture one screenshot per representative GUI flow and review it against the documentation expectations being validated, save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), and record `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=<...>` entries in verification evidence for each validated marker family.
-8. [ ] `npm run compose:down`
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+1. [x] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
+2. [x] `npm run build:summary:client` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` and resolve errors.
+3. [x] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+4. [x] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
+5. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+6. [x] `npm run compose:up`
+7. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`; execute one representative stop flow and one ingest flow, verify each documented marker from `[DEV-0000038][T1]` through `[DEV-0000038][T7]` appears with expected fields/counts, capture one screenshot per representative GUI flow and review it against the documentation expectations being validated, save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), and record `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=<...>` entries in verification evidence for each validated marker family.
+8. [x] `npm run compose:down`
+       Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Updated `design.md` with final Story 0000038 cross-check coverage for stop race semantics, blocking reingest contract boundaries, and status/phase mapping, including Mermaid diagrams aligned to implemented behavior.
+- Subtask 2: Updated `projectStructure.md` with an explicit Story 0000038 Tasks 1-7 structural ledger (added/removed/renamed all explicit, plus full modified-file traceability list).
+- Subtask 3: Updated Task 8 implementation notes incrementally as subtasks completed, documenting key documentation decisions and preserving explicit traceability for handoff.
+- Subtasks 4-6: Ran markdown formatting checks for `design.md`, `projectStructure.md`, and the story plan; applied Prettier writes and rechecked until all three files passed.
+- Subtask 7: Added `Manual QA Log Markers (DEV-0000038)` reference sections in `design.md` and Task 8 plan text with exact marker strings for T1-T7 plus the T8 validation marker format.
+- Subtask 8: Ran `npm run lint --workspaces` (pass with existing unrelated server import-order warnings) and `npm run format:check --workspaces` (pass).
+- Testing 1: `npm run build:summary:server` passed (`warnings: 0`), log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run build:summary:client` passed (`warnings: 1`), log `logs/test-summaries/build-client-latest.log`; warning is the existing Vite chunk-size warning.
+- Testing 3: `npm run test:summary:server` passed (`tests run: 956`, `failed: 0`), log `test-results/server-tests-2026-03-02T14-36-07-242Z.log`.
+- Testing 4: `npm run test:summary:client` passed (`tests run: 401`, `failed: 0`), log `test-results/client-tests-2026-03-02T14-46-31-415Z.log`.
+- Testing 5: `npm run compose:build:summary` passed (`items passed: 2`, `items failed: 0`), log `logs/test-summaries/compose-build-latest.log`.
+- Testing 6: `npm run compose:up` completed successfully; compose services started healthy (including `server`, `client`, `chroma`, `mongo`, and `playwright-mcp`).
+- Testing 7: Representative host-mapped GUI checks executed at `http://host.docker.internal:5001/agents` and `http://host.docker.internal:5001/ingest`; screenshots captured to `playwright-output-local/0000038-task8-stop-flow.png` and `playwright-output-local/0000038-task8-ingest-flow.png` with `TASK8_SCREENSHOT_ERRORS=0`. Marker-family validation counts recorded from runtime logs + current test artifacts: `T1_CANCEL_INFLIGHT_RECEIVED=7`, `T1_ABORT_AGENT_RUN_REQUESTED=7`, `T2_STOP_CLICK=3`, `T2_CANCEL_INFLIGHT_SENT=17`, `T3_INPUT_EDITABLE=20`, `T3_CONVERSATION_SWITCH_ALLOWED=1`, `T4_WAIT_STARTED=1`, `T4_TERMINAL_RESULT=1`, `T5_STATUS_MAPPED=35`, `T5_OVERLAY_APPLIED=3`, `T6_NO_CHANGE=1`, `T6_DELTA_PATH=2`, `T7_ROW_RENDER=13`, `T7_TERMINAL_PHASE_HIDDEN=11`; source locations used were `logs/server.1.log`, `test-results/client-tests-2026-03-02T14-46-31-415Z.log`, and `/logs?limit=3000` for T4 entries.
+- `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=T1`
+- `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=T2`
+- `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=T3`
+- `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=T4`
+- `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=T5`
+- `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=T6`
+- `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=T7`
+- Testing 8: `npm run compose:down` completed successfully and removed compose services/network.
 
 ---
 
 ### 9. Final verification: full acceptance and regression gate for story 0000038
 
-- Task Status: **__to_do__**
+- Task Status: \***\*to_do\*\***
 - Git Commits: `None yet`
 
 #### Overview
@@ -2012,150 +2166,180 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
    - Test description: induce post-start failure and verify error terminal payload instead of protocol error envelope.
    - Test purpose: enforce post-start terminal-result error boundary on MCP v2.
 10. [ ] Execute manual UI listing visibility test: active ingest remains visible with `status=ingesting` and valid `phase`.
-   - Starter snippet (adapt names to exact existing symbols): `Record AC-by-AC evidence with command output references and screenshot/log artifact names.`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC11, AC14, AC27.
-   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
-   - Test type: Manual UI test (Ingest page listing).
-   - Test location: Ingest page artifacts in `test-results/screenshots/*`.
-   - Test description: run active ingest and verify row remains visible with ingesting status and phase.
-   - Test purpose: confirm UI does not hide active repositories.
+
+- Starter snippet (adapt names to exact existing symbols): `Record AC-by-AC evidence with command output references and screenshot/log artifact names.`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC11, AC14, AC27.
+- Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
+- Test type: Manual UI test (Ingest page listing).
+- Test location: Ingest page artifacts in `test-results/screenshots/*`.
+- Test description: run active ingest and verify row remains visible with ingesting status and phase.
+- Test purpose: confirm UI does not hide active repositories.
+
 11. [ ] Execute manual MCP classic listing visibility test: active ingest remains visible with `status=ingesting` and valid `phase`.
-   - Starter snippet (adapt names to exact existing symbols): `Record AC-by-AC evidence with command output references and screenshot/log artifact names.`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC12, AC14, AC27.
-   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
-   - Test type: Manual contract test (MCP classic listing).
-   - Test location: MCP classic `ListIngestedRepositories` output capture in `test-results/screenshots/*`.
-   - Test description: while ingest is active, query MCP listing and verify repository remains present with ingesting/phase fields.
-   - Test purpose: confirm active overlay visibility on MCP listing surface.
+
+- Starter snippet (adapt names to exact existing symbols): `Record AC-by-AC evidence with command output references and screenshot/log artifact names.`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC12, AC14, AC27.
+- Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
+- Test type: Manual contract test (MCP classic listing).
+- Test location: MCP classic `ListIngestedRepositories` output capture in `test-results/screenshots/*`.
+- Test description: while ingest is active, query MCP listing and verify repository remains present with ingesting/phase fields.
+- Test purpose: confirm active overlay visibility on MCP listing surface.
+
 12. [ ] Execute manual MCP classic pre-run validation error test: invalid `sourceId` returns JSON-RPC protocol error.
-   - Starter snippet (adapt names to exact existing symbols): `Call reingest_repository with invalid sourceId and assert protocol error envelope, not terminal payload.`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC24.
-   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
-   - Test type: Manual protocol-boundary test (MCP classic).
-   - Test location: MCP classic error response capture in `test-results/screenshots/*`.
-   - Test description: call classic reingest with invalid pre-run input and verify protocol error envelope.
-   - Test purpose: preserve pre-run JSON-RPC error boundary on classic MCP.
+
+- Starter snippet (adapt names to exact existing symbols): `Call reingest_repository with invalid sourceId and assert protocol error envelope, not terminal payload.`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC24.
+- Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
+- Test type: Manual protocol-boundary test (MCP classic).
+- Test location: MCP classic error response capture in `test-results/screenshots/*`.
+- Test description: call classic reingest with invalid pre-run input and verify protocol error envelope.
+- Test purpose: preserve pre-run JSON-RPC error boundary on classic MCP.
+
 13. [ ] Execute manual MCP v2 pre-run validation error test: invalid `sourceId` returns JSON-RPC protocol error.
-   - Starter snippet (adapt names to exact existing symbols): `Call reingest_repository with invalid sourceId and assert protocol error envelope, not terminal payload.`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC24.
-   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
-   - Test type: Manual protocol-boundary test (MCP v2).
-   - Test location: MCP v2 error response capture in `test-results/screenshots/*`.
-   - Test description: call v2 reingest with invalid pre-run input and verify protocol error envelope.
-   - Test purpose: preserve pre-run JSON-RPC error boundary on MCP v2.
+
+- Starter snippet (adapt names to exact existing symbols): `Call reingest_repository with invalid sourceId and assert protocol error envelope, not terminal payload.`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC24.
+- Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
+- Test type: Manual protocol-boundary test (MCP v2).
+- Test location: MCP v2 error response capture in `test-results/screenshots/*`.
+- Test description: call v2 reingest with invalid pre-run input and verify protocol error envelope.
+- Test purpose: preserve pre-run JSON-RPC error boundary on MCP v2.
+
 14. [ ] Execute manual MCP classic no-change test: no-change reingest completes with terminal `status=completed`.
-   - Starter snippet (adapt names to exact existing symbols): `Run no-change reingest and assert terminal status completed.`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC16, AC17.
-   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
-   - Test type: Manual contract test (MCP classic no-change).
-   - Test location: MCP classic response capture in `test-results/screenshots/*`.
-   - Test description: execute no-change reingest via classic surface and verify successful terminal completed status.
-   - Test purpose: validate no-change success semantics for classic MCP.
+
+- Starter snippet (adapt names to exact existing symbols): `Run no-change reingest and assert terminal status completed.`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC16, AC17.
+- Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
+- Test type: Manual contract test (MCP classic no-change).
+- Test location: MCP classic response capture in `test-results/screenshots/*`.
+- Test description: execute no-change reingest via classic surface and verify successful terminal completed status.
+- Test purpose: validate no-change success semantics for classic MCP.
+
 15. [ ] Execute manual MCP v2 no-change test: no-change reingest completes with terminal `status=completed`.
-   - Starter snippet (adapt names to exact existing symbols): `Run no-change reingest and assert terminal status completed.`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC16, AC17.
-   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
-   - Test type: Manual contract test (MCP v2 no-change).
-   - Test location: MCP v2 response capture in `test-results/screenshots/*`.
-   - Test description: execute no-change reingest via v2 surface and verify successful terminal completed status.
-   - Test purpose: validate no-change success semantics for MCP v2.
+
+- Starter snippet (adapt names to exact existing symbols): `Run no-change reingest and assert terminal status completed.`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC16, AC17.
+- Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
+- Test type: Manual contract test (MCP v2 no-change).
+- Test location: MCP v2 response capture in `test-results/screenshots/*`.
+- Test description: execute no-change reingest via v2 surface and verify successful terminal completed status.
+- Test purpose: validate no-change success semantics for MCP v2.
+
 16. [ ] Execute manual MCP classic mixed-delta test: mixed changes complete with terminal `status=completed`.
-   - Starter snippet (adapt names to exact existing symbols): `Run mixed-delta reingest and assert terminal status completed.`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC16, AC17.
-   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
-   - Test type: Manual contract test (MCP classic mixed-delta).
-   - Test location: MCP classic response capture in `test-results/screenshots/*`.
-   - Test description: execute mixed-delta reingest via classic surface and verify successful terminal completed status.
-   - Test purpose: confirm mixed-delta success semantics for classic MCP.
+
+- Starter snippet (adapt names to exact existing symbols): `Run mixed-delta reingest and assert terminal status completed.`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC16, AC17.
+- Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
+- Test type: Manual contract test (MCP classic mixed-delta).
+- Test location: MCP classic response capture in `test-results/screenshots/*`.
+- Test description: execute mixed-delta reingest via classic surface and verify successful terminal completed status.
+- Test purpose: confirm mixed-delta success semantics for classic MCP.
+
 17. [ ] Execute manual MCP v2 mixed-delta test: mixed changes complete with terminal `status=completed`.
-   - Starter snippet (adapt names to exact existing symbols): `Run mixed-delta reingest and assert terminal status completed.`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC16, AC17.
-   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
-   - Test type: Manual contract test (MCP v2 mixed-delta).
-   - Test location: MCP v2 response capture in `test-results/screenshots/*`.
-   - Test description: execute mixed-delta reingest via v2 surface and verify successful terminal completed status.
-   - Test purpose: confirm mixed-delta success semantics for MCP v2.
+
+- Starter snippet (adapt names to exact existing symbols): `Run mixed-delta reingest and assert terminal status completed.`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC16, AC17.
+- Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
+- Test type: Manual contract test (MCP v2 mixed-delta).
+- Test location: MCP v2 response capture in `test-results/screenshots/*`.
+- Test description: execute mixed-delta reingest via v2 surface and verify successful terminal completed status.
+- Test purpose: confirm mixed-delta success semantics for MCP v2.
+
 18. [ ] Save manual verification artifacts/screenshots into `test-results/screenshots` with story/task-prefixed filenames.
-   - Starter snippet (adapt names to exact existing symbols): `Record AC-by-AC evidence with command output references and screenshot/log artifact names.`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC1-AC28 final gate evidence.
-   - Files to read/edit: `test-results/screenshots/*`
+
+- Starter snippet (adapt names to exact existing symbols): `Record AC-by-AC evidence with command output references and screenshot/log artifact names.`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC1-AC28 final gate evidence.
+- Files to read/edit: `test-results/screenshots/*`
+
 19. [ ] Ensure final `design.md` content reflects implemented behavior with no contradictions.
-   - Starter snippet (adapt names to exact existing symbols): `Cross-check design.md architecture text and Mermaid diagrams against final implemented stop/reingest/status behavior.`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC1-AC28 final gate evidence.
-   - Files to read/edit: `design.md`
-   - Document name: `design.md`.
-   - Document location: `design.md`.
-   - Document description: validate and correct architecture/flow documentation and diagrams against implemented behavior.
-   - Document purpose: prevent architectural documentation drift at final verification.
+
+- Starter snippet (adapt names to exact existing symbols): `Cross-check design.md architecture text and Mermaid diagrams against final implemented stop/reingest/status behavior.`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC1-AC28 final gate evidence.
+- Files to read/edit: `design.md`
+- Document name: `design.md`.
+- Document location: `design.md`.
+- Document description: validate and correct architecture/flow documentation and diagrams against implemented behavior.
+- Document purpose: prevent architectural documentation drift at final verification.
+
 20. [ ] Ensure final `projectStructure.md` content reflects implemented file changes with no contradictions.
-   - Starter snippet (adapt names to exact existing symbols): `Cross-check projectStructure.md entries against actual created/removed/renamed files in story implementation.`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC1-AC28 final gate evidence.
-   - Files to read/edit: `projectStructure.md`
-   - Document name: `projectStructure.md`.
-   - Document location: `projectStructure.md`.
-   - Document description: validate and correct file-map documentation against actual repository changes.
-   - Document purpose: ensure file-structure documentation is accurate for future implementation work.
+
+- Starter snippet (adapt names to exact existing symbols): `Cross-check projectStructure.md entries against actual created/removed/renamed files in story implementation.`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC1-AC28 final gate evidence.
+- Files to read/edit: `projectStructure.md`
+- Document name: `projectStructure.md`.
+- Document location: `projectStructure.md`.
+- Document description: validate and correct file-map documentation against actual repository changes.
+- Document purpose: ensure file-structure documentation is accurate for future implementation work.
+
 21. [ ] Ensure final story plan file reflects implemented behavior and verification evidence with no contradictions.
-   - Starter snippet (adapt names to exact existing symbols): `Cross-check planning/0000038-agent-ux-stop-and-ingest-status.md implementation notes and verification evidence against final outcomes.`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC1-AC28 final gate evidence.
-   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`
-   - Document name: `0000038-agent-ux-stop-and-ingest-status.md`.
-   - Document location: `planning/0000038-agent-ux-stop-and-ingest-status.md`.
-   - Document description: validate story-level verification notes and acceptance evidence entries.
-   - Document purpose: keep the story record internally consistent for release and audit traceability.
+
+- Starter snippet (adapt names to exact existing symbols): `Cross-check planning/0000038-agent-ux-stop-and-ingest-status.md implementation notes and verification evidence against final outcomes.`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC1-AC28 final gate evidence.
+- Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`
+- Document name: `0000038-agent-ux-stop-and-ingest-status.md`.
+- Document location: `planning/0000038-agent-ux-stop-and-ingest-status.md`.
+- Document description: validate story-level verification notes and acceptance evidence entries.
+- Document purpose: keep the story record internally consistent for release and audit traceability.
+
 22. [ ] Execute AC21 automated-coverage audit: confirm every AC1-AC28 maps to at least one passing automated test reference in this story.
-   - Starter snippet (adapt names to exact existing symbols): `For each AC, record at least one automated test file + test name + command output reference; mark any missing coverage as a blocking defect.`
-   - Dependency note: execute after all automated test suites complete so evidence reflects final pass state.
-   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC21.
-   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
-   - Test type: Coverage-audit verification test.
-   - Test location: Story AC matrix and recorded automated command outputs/artifacts.
-   - Test description: verify each acceptance criterion has explicit automated coverage evidence (happy/error/edge where applicable) and no unmapped criteria remain.
-   - Test purpose: guarantee the story’s automated test plan is complete rather than implicit.
+
+- Starter snippet (adapt names to exact existing symbols): `For each AC, record at least one automated test file + test name + command output reference; mark any missing coverage as a blocking defect.`
+- Dependency note: execute after all automated test suites complete so evidence reflects final pass state.
+- Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC21.
+- Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
+- Test type: Coverage-audit verification test.
+- Test location: Story AC matrix and recorded automated command outputs/artifacts.
+- Test description: verify each acceptance criterion has explicit automated coverage evidence (happy/error/edge where applicable) and no unmapped criteria remain.
+- Test purpose: guarantee the story’s automated test plan is complete rather than implicit.
+
 23. [ ] Execute AC21 parity/no-change automation gate: run and record parity plus no-change targeted suites as explicit evidence.
-   - Starter snippet (adapt names to exact existing symbols): `Record passing outputs for MCP classic/v2 parity tests and no-change early-return suites with command names and artifact links.`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-   - Acceptance criteria focus: AC21.
-   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
-   - Test type: Automated regression gate.
-   - Test location: Server targeted test command outputs and linked artifacts.
-   - Test description: run parity-focused reingest suites and no-change early-return suites, then record evidence in the AC matrix.
-   - Test purpose: ensure the highest-risk cross-surface and early-return paths are explicitly covered by passing automation.
+
+- Starter snippet (adapt names to exact existing symbols): `Record passing outputs for MCP classic/v2 parity tests and no-change early-return suites with command names and artifact links.`
+- Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+- Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Acceptance criteria focus: AC21.
+- Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
+- Test type: Automated regression gate.
+- Test location: Server targeted test command outputs and linked artifacts.
+- Test description: run parity-focused reingest suites and no-change early-return suites, then record evidence in the AC matrix.
+- Test purpose: ensure the highest-risk cross-surface and early-return paths are explicitly covered by passing automation.
+
 24. [ ] Add a final regression log-assertion checklist that maps each manual flow to exact expected `DEV-0000038` log markers.
-   - Starter snippet (adapt names to exact existing symbols): `For each manual flow row, list required console/server log markers and expected count (>=1 or exactly 1).`
-   - Dependency note: execute after all task-level log-line subtasks and before final manual Playwright-MCP verification.
-   - Docs: https://playwright.dev/docs/intro | https://www.markdownguide.org/basic-syntax/
-   - Acceptance criteria focus: AC21, AC22.
-   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
-   - Required log line: include checklist entries for `[DEV-0000038][T1]` through `[DEV-0000038][T7]`.
-   - Required log line: `[DEV-0000038][T9] FINAL_REGRESSION_LOG_ASSERTION_PASSED markerFamily=<T1|T2|T3|T4|T5|T6|T7> count=<n>`.
-   - Required behavior: checklist defines expected marker counts and pass/fail criteria for manual verification evidence.
+
+- Starter snippet (adapt names to exact existing symbols): `For each manual flow row, list required console/server log markers and expected count (>=1 or exactly 1).`
+- Dependency note: execute after all task-level log-line subtasks and before final manual Playwright-MCP verification.
+- Docs: https://playwright.dev/docs/intro | https://www.markdownguide.org/basic-syntax/
+- Acceptance criteria focus: AC21, AC22.
+- Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
+- Required log line: include checklist entries for `[DEV-0000038][T1]` through `[DEV-0000038][T7]`.
+- Required log line: `[DEV-0000038][T9] FINAL_REGRESSION_LOG_ASSERTION_PASSED markerFamily=<T1|T2|T3|T4|T5|T6|T7> count=<n>`.
+- Required behavior: checklist defines expected marker counts and pass/fail criteria for manual verification evidence.
+
 25. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
@@ -2169,7 +2353,7 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; validate final regression checklist by asserting all marker families `[DEV-0000038][T1]` to `[DEV-0000038][T7]` appear in the expected flows with correct ids/status fields and expected counts, capture screenshots for every acceptance criterion that is GUI-verifiable (including happy path, error states, and corner cases), review each screenshot against the expected UI outcomes in this story, save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), record `[DEV-0000038][T9] FINAL_REGRESSION_LOG_ASSERTION_PASSED markerFamily=<...> count=<n>` entries in verification evidence, and verify no unexpected browser debug-console errors are logged.
 9. [ ] `npm run compose:down`
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+       Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 

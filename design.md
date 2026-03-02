@@ -804,6 +804,63 @@ sequenceDiagram
   end
 ```
 
+## Story 0000038 Task 8: final documentation cross-check for stop, blocking reingest, and status mapping
+
+- Final stop handling semantics (Tasks 1-3):
+  - `cancel_inflight` is conversation-authoritative on the server side.
+  - stop requests still trigger command-abort-by-conversation when inflight-id lookup misses.
+  - Agents UI keeps input editable and sidebar navigation available while runs are active, while submit/execute actions remain disabled.
+- Final reingest semantics (Task 4):
+  - both MCP surfaces are blocking and return a single terminal summary payload (`completed|cancelled|error`).
+  - pre-run validation failures remain JSON-RPC protocol error envelopes.
+  - post-start terminal outcomes return result payloads, not protocol errors.
+- Final ingest listing semantics (Tasks 5-7):
+  - external status contract is `ingesting|completed|cancelled|error`.
+  - `phase` is retained only for `status=ingesting`; terminal statuses omit phase.
+  - `schemaVersion` for listing compatibility is `0000038-status-phase-v1`.
+
+```mermaid
+flowchart TD
+  A[Stop clicked in Agents UI] --> B[WS cancel_inflight sent with conversationId]
+  B --> C{Inflight id found?}
+  C -- yes --> D[Abort inflight stream]
+  C -- no --> E[Record inflight-not-found branch]
+  D --> F[Always abort command run by conversationId]
+  E --> F
+  F --> G[No new command retries/steps]
+```
+
+```mermaid
+flowchart LR
+  A[reingest_repository request] --> B{Pre-run validation fails?}
+  B -- yes --> C[JSON-RPC error envelope]
+  B -- no --> D[Start run + block until terminal]
+  D --> E{Terminal state}
+  E -- completed --> F[Terminal summary result]
+  E -- cancelled --> F
+  E -- error --> F
+```
+
+## Manual QA Log Markers (DEV-0000038)
+
+| Task | Exact marker text                                                                                        | Expected manual outcome                                                   |
+| ---- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------- | --- | ---- | ------------------------------------------------------------ |
+| T1   | `[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED conversationId=<id> inflightId=<id                           | none>`                                                                    | Emitted when WS cancel handler receives stop request.           |
+| T1   | `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED conversationId=<id>`                                        | Emitted when conversation-authoritative command abort is requested.       |
+| T2   | `[DEV-0000038][T2] STOP_CLICK conversationId=<id> inflightId=<id                                         | none>`                                                                    | Emitted in Agents UI on Stop click.                             |
+| T2   | `[DEV-0000038][T2] CANCEL_INFLIGHT_SENT conversationId=<id> inflightId=<id                               | none>`                                                                    | Emitted after UI dispatches cancel frame.                       |
+| T3   | `[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE runActive=true`                                    | Confirms draft input remains editable while run is active.                |
+| T3   | `[DEV-0000038][T3] AGENTS_CONVERSATION_SWITCH_ALLOWED from=<id> to=<id>`                                 | Confirms sidebar conversation switch remains enabled while run is active. |
+| T4   | `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=<id> runId=<id>`                              | Emitted when blocking wait begins for reingest run.                       |
+| T4   | `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=<completed                                            | cancelled                                                                 | error> runId=<id> errorCode=<code                               | null>`                                     | Emitted exactly once per terminal result payload. |
+| T5   | `[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED sourceId=<id> internal=<state> status=<status> phase=<phase | none>`                                                                    | Confirms internal->external status/phase mapping for listings.  |
+| T5   | `[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED sourceId=<id> synthesized=<true                         | false>`                                                                   | Confirms active overlay application and synthesized-entry path. |
+| T6   | `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=<id> runId=<id>`                              | Confirms no-change path exits before AST/embedding work.                  |
+| T6   | `[DEV-0000038][T6] REEMBED_DELTA_PATH deltaAdded=<n> deltaModified=<n> deltaDeleted=<n>`                 | Confirms changed-delta path execution.                                    |
+| T7   | `[DEV-0000038][T7] INGEST_UI_ROW_RENDER sourceId=<id> status=<status> phase=<phase                       | none>`                                                                    | Confirms per-row ingest UI rendering contract.                  |
+| T7   | `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN sourceId=<id> status=<completed                       | cancelled                                                                 | error>`                                                         | Confirms terminal rows hide phase details. |
+| T8   | `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=<T1                                                | T2                                                                        | T3                                                              | T4                                         | T5                                                | T6  | T7>` | Evidence line recorded during documentation validation pass. |
+
 ## Flows (schema)
 
 - Flow definitions live under `flows/<flowName>.json` and are validated with a strict Zod schema before use.
@@ -883,6 +940,7 @@ flowchart TD
   H1 -- yes --> I1[Log step_retry_exhausted and fail step]
   H1 -- no --> J1[Success path]
 ```
+
 - `command` steps load `commands/<commandName>.json` for the specified agent and run each command item as a flow instruction; missing/invalid commands return `invalid_request` and emit a failed `turn_final`.
 - Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
 - Flow turns attach `turn.command` metadata with `{ name: 'flow', stepIndex, totalSteps, loopDepth, agentType, identifier, label }` (label defaults to the step type) and log `flows.turn.metadata_attached`.
@@ -1255,6 +1313,7 @@ flowchart LR
   A --> D[Render match rows\nDistance + preview]
   C --> E[Render file list]
 ```
+
 - Errors show a trimmed code/message plus a toggle to reveal the full error payload (including stack/metadata) inside the expanded block.
 - Tool-result delivery: if a provider omits explicit tool completion callbacks, the server synthesizes a completion `tool_event` from the tool resolver output (success or error) and dedupes when native events do arrive. This ensures parameters and payloads always reach the client without duplicate tool rows.
 

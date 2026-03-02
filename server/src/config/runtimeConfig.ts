@@ -212,11 +212,19 @@ const TOP_LEVEL_STRING_KEYS = new Set([
 ]);
 
 const ALLOWED_WEB_SEARCH = new Set(['live', 'cached', 'disabled']);
+const UNSAFE_OBJECT_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
+function createNullPrototypeRecord(): Record<string, unknown> {
+  return Object.create(null) as Record<string, unknown>;
+}
+
+function isUnsafeObjectKey(key: string): boolean {
+  return UNSAFE_OBJECT_KEYS.has(key);
+}
 
 function collectRecord(
   input: RuntimeTomlConfig,
   key: string,
-  warnings: RuntimeConfigWarning[],
   pathLabel: string,
 ): Record<string, unknown> {
   const value = input[key];
@@ -224,7 +232,11 @@ function collectRecord(
   if (!isRecord(value)) {
     throw new Error(`invalid type at ${pathLabel}.${key}: expected table`);
   }
-  return { ...value };
+  const safeRecord = createNullPrototypeRecord();
+  for (const [entryKey, entryValue] of Object.entries(value)) {
+    safeRecord[entryKey] = entryValue;
+  }
+  return safeRecord;
 }
 
 function pushUnknownWarning(
@@ -265,9 +277,17 @@ export function validateRuntimeConfig(
   const pathLabel = params?.pathLabel ?? 'runtime';
   const warnings: RuntimeConfigWarning[] = [];
   const source = cloneConfig(input);
-  const sanitized: RuntimeTomlConfig = {};
+  const sanitized: RuntimeTomlConfig = createNullPrototypeRecord();
 
   for (const [key, value] of Object.entries(source)) {
+    if (isUnsafeObjectKey(key)) {
+      warnings.push({
+        path: `${pathLabel}.${key}`,
+        message: `Unsafe key ${pathLabel}.${key}; ignored to prevent prototype mutation`,
+      });
+      continue;
+    }
+
     if (TOP_LEVEL_STRING_KEYS.has(key)) {
       if (typeof value !== 'string') {
         throw new Error(`invalid type at ${pathLabel}.${key}: expected string`);
@@ -297,9 +317,17 @@ export function validateRuntimeConfig(
     }
 
     if (key === 'tools') {
-      const tools = collectRecord(source, key, warnings, pathLabel);
-      const normalizedTools: Record<string, unknown> = {};
+      const tools = collectRecord(source, key, pathLabel);
+      const normalizedTools: Record<string, unknown> =
+        createNullPrototypeRecord();
       for (const [toolKey, toolValue] of Object.entries(tools)) {
+        if (isUnsafeObjectKey(toolKey)) {
+          warnings.push({
+            path: `${pathLabel}.tools.${toolKey}`,
+            message: `Unsafe key ${pathLabel}.tools.${toolKey}; ignored to prevent prototype mutation`,
+          });
+          continue;
+        }
         if (toolKey === 'view_image') {
           if (typeof toolValue !== 'boolean') {
             throw new Error(
@@ -319,9 +347,17 @@ export function validateRuntimeConfig(
     }
 
     if (key === 'features') {
-      const features = collectRecord(source, key, warnings, pathLabel);
-      const normalizedFeatures: Record<string, unknown> = {};
+      const features = collectRecord(source, key, pathLabel);
+      const normalizedFeatures: Record<string, unknown> =
+        createNullPrototypeRecord();
       for (const [featureKey, featureValue] of Object.entries(features)) {
+        if (isUnsafeObjectKey(featureKey)) {
+          warnings.push({
+            path: `${pathLabel}.features.${featureKey}`,
+            message: `Unsafe key ${pathLabel}.features.${featureKey}; ignored to prevent prototype mutation`,
+          });
+          continue;
+        }
         if (
           featureKey === 'view_image_tool' ||
           featureKey === 'web_search_request'
@@ -344,18 +380,34 @@ export function validateRuntimeConfig(
     }
 
     if (key === 'projects') {
-      const projects = collectRecord(source, key, warnings, pathLabel);
-      const normalizedProjects: Record<string, unknown> = {};
+      const projects = collectRecord(source, key, pathLabel);
+      const normalizedProjects: Record<string, unknown> =
+        createNullPrototypeRecord();
       for (const [projectPath, projectValue] of Object.entries(projects)) {
+        if (isUnsafeObjectKey(projectPath)) {
+          warnings.push({
+            path: `${pathLabel}.projects.${projectPath}`,
+            message: `Unsafe key ${pathLabel}.projects.${projectPath}; ignored to prevent prototype mutation`,
+          });
+          continue;
+        }
         if (!isRecord(projectValue)) {
           throw new Error(
             `invalid type at ${pathLabel}.projects.${projectPath}: expected table`,
           );
         }
-        const normalizedProject: Record<string, unknown> = {};
+        const normalizedProject: Record<string, unknown> =
+          createNullPrototypeRecord();
         for (const [projectKey, projectEntryValue] of Object.entries(
           projectValue,
         )) {
+          if (isUnsafeObjectKey(projectKey)) {
+            warnings.push({
+              path: `${pathLabel}.projects.${projectPath}.${projectKey}`,
+              message: `Unsafe key ${pathLabel}.projects.${projectPath}.${projectKey}; ignored to prevent prototype mutation`,
+            });
+            continue;
+          }
           if (projectKey === 'trust_level') {
             if (typeof projectEntryValue !== 'string') {
               throw new Error(

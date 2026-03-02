@@ -2441,7 +2441,7 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
 
 ### 10. Security hardening: prevent prototype-pollution keys while preserving unknown runtime config fields
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: `_pending_`
 
 #### Overview
@@ -2450,29 +2450,35 @@ Harden runtime config validation so forward-compatible unknown-key preservation 
 
 #### Subtasks
 
-1. [ ] Introduce a shared guard/helper for unsafe object keys (`__proto__`, `prototype`, `constructor`) and use it for top-level, `tools`, `features`, and `projects.<path>` unknown-key preservation paths.
+1. [x] Introduce a shared guard/helper for unsafe object keys (`__proto__`, `prototype`, `constructor`) and use it for top-level, `tools`, `features`, and `projects.<path>` unknown-key preservation paths.
    - Files to read/edit: `server/src/config/runtimeConfig.ts`.
    - Required behavior: unsafe keys are ignored with explicit warnings; safe unknown keys continue to be preserved.
-2. [ ] Ensure preserved unknown keys are copied into null-prototype maps (or equivalent safe structure) before normalization.
+2. [x] Ensure preserved unknown keys are copied into null-prototype maps (or equivalent safe structure) before normalization.
    - Files to read/edit: `server/src/config/runtimeConfig.ts`.
    - Required behavior: preserved unknown-key handling cannot alter object prototype chains.
-3. [ ] Add/extend unit tests that prove unsafe keys are rejected and safe unknown keys are preserved.
+3. [x] Add/extend unit tests that prove unsafe keys are rejected and safe unknown keys are preserved.
    - Files to read/edit: `server/src/test/unit/runtimeConfig.test.ts`.
    - Test type: Unit.
    - Test location: `server/src/test/unit/runtimeConfig.test.ts`.
    - Test description: cover top-level and nested unknown-key paths for both safe and unsafe key names.
    - Test purpose: lock in secure forward-compat behavior.
-4. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+4. [x] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run test:summary:server`
+1. [x] `npm run build:summary:server`
+2. [x] `npm run test:summary:server`
 
 #### Implementation notes
 
-- Pending.
+- Subtasks 1-2: Added shared unsafe-key guard (`__proto__`, `prototype`, `constructor`) and applied it across top-level, `tools`, `features`, and `projects` unknown-key preservation paths in `runtimeConfig` validation; unsafe keys are now ignored with explicit warnings while safe unknown keys are preserved via safe assignment.
+- Subtask 2: Switched preserved unknown-key copy targets to null-prototype maps (`Object.create(null)`) for sanitized top-level and nested preserved objects, preventing prototype-chain mutation via forward-compat keys.
+- Subtask 3: Extended `runtimeConfig` unit coverage with explicit safe/unsafe key tests for top-level and nested (`tools`, `features`, `projects`) preservation behavior and non-pollution assertions.
+- Subtask 4: No files were added or removed for Task 10, so `projectStructure.md` required no changes.
+- Subtask 5: Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; lint returned the pre-existing 49 import-order warnings baseline (no new errors), and format check passed after applying `npm run format --workspace server`.
+- Testing 1: `npm run build:summary:server` passed (`warnings: 0`), log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run test:summary:server` passed; summary log `test-results/server-tests-2026-03-02T15-56-06-962Z.log` reports TAP totals `# tests 890`, `# pass 890`, `# fail 0`, and cucumber summary `68 scenarios (68 passed)`.
 
 ---
 

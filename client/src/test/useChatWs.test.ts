@@ -256,6 +256,62 @@ describe('useChatWs', () => {
     expect(onEvent).toHaveBeenCalledWith(event);
   });
 
+  it('sends conversation-only cancel_inflight payload when inflightId is absent', async () => {
+    const { result } = renderHook(() => useChatWs());
+    await waitFor(() => expect(result.current.connectionState).toBe('open'));
+
+    act(() => {
+      result.current.cancelInflight('c1');
+    });
+
+    const socket = lastSocket();
+    const cancelMessages = socket.sent
+      .map((entry) => {
+        try {
+          return JSON.parse(entry) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .filter((value): value is Record<string, unknown> => Boolean(value))
+      .filter((msg) => msg.type === 'cancel_inflight');
+
+    expect(cancelMessages).toHaveLength(1);
+    expect(cancelMessages[0]).toMatchObject({
+      type: 'cancel_inflight',
+      conversationId: 'c1',
+    });
+    expect(cancelMessages[0]).not.toHaveProperty('inflightId');
+  });
+
+  it('sends full cancel_inflight payload when inflightId is provided', async () => {
+    const { result } = renderHook(() => useChatWs());
+    await waitFor(() => expect(result.current.connectionState).toBe('open'));
+
+    act(() => {
+      result.current.cancelInflight('c1', 'i1');
+    });
+
+    const socket = lastSocket();
+    const cancelMessages = socket.sent
+      .map((entry) => {
+        try {
+          return JSON.parse(entry) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .filter((value): value is Record<string, unknown> => Boolean(value))
+      .filter((msg) => msg.type === 'cancel_inflight');
+
+    expect(cancelMessages).toHaveLength(1);
+    expect(cancelMessages[0]).toMatchObject({
+      type: 'cancel_inflight',
+      conversationId: 'c1',
+      inflightId: 'i1',
+    });
+  });
+
   it('does not subscribe or reconnect when realtime is disabled', async () => {
     const refresh = jest.fn();
     const { result } = renderHook(() =>

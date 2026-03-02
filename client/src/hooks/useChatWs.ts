@@ -237,7 +237,7 @@ type UseChatWsState = {
   unsubscribeConversation: (conversationId: string) => void;
   subscribeIngest: () => void;
   unsubscribeIngest: () => void;
-  cancelInflight: (conversationId: string, inflightId: string) => void;
+  cancelInflight: (conversationId: string, inflightId?: string) => void;
 };
 
 const makeRequestId = () =>
@@ -667,9 +667,18 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
   }, [realtimeEnabled, sendRaw]);
 
   const cancelInflight = useCallback(
-    (conversationId: string, inflightId: string) => {
-      if (!conversationId || !inflightId) return;
-      sendRaw({ type: 'cancel_inflight', conversationId, inflightId });
+    (conversationId: string, inflightId?: string) => {
+      if (!conversationId) return;
+      sendRaw({
+        type: 'cancel_inflight',
+        conversationId,
+        ...(inflightId ? { inflightId } : {}),
+      });
+      console.info(
+        '[DEV-0000038][T2] CANCEL_INFLIGHT_SENT conversationId=%s inflightId=%s',
+        conversationId,
+        inflightId ?? 'none',
+      );
       if (connectionState === 'closed') {
         connectNowRef.current();
       }

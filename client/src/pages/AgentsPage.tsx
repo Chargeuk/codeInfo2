@@ -739,12 +739,17 @@ export default function AgentsPage() {
 
   const handleStopClick = useCallback(() => {
     const inflightId = getInflightId();
+    console.info(
+      '[DEV-0000038][T2] STOP_CLICK conversationId=%s inflightId=%s',
+      activeConversationId ?? 'none',
+      inflightId ?? 'none',
+    );
     log('info', 'DEV-0000021[T6] agents.stop clicked', {
       conversationId: activeConversationId,
       inflightId,
     });
 
-    if (activeConversationId && inflightId) {
+    if (activeConversationId) {
       cancelInflight(activeConversationId, inflightId);
       log('info', 'DEV-0000021[T6] agents.ws cancel_inflight sent', {
         conversationId: activeConversationId,

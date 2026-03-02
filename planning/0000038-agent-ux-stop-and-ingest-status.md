@@ -567,7 +567,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 2. Frontend: make Agents stop send `cancel_inflight` by conversation even when `inflightId` is unknown
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -586,21 +586,21 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
 
 #### Subtasks
 
-1. [ ] Update WebSocket client hook API to allow optional `inflightId` on `cancelInflight`.
+1. [x] Update WebSocket client hook API to allow optional `inflightId` on `cancelInflight`.
    - Starter snippet (adapt names to exact existing symbols): `const cancelInflight = (conversationId, inflightId) => send({ type: "cancel_inflight", conversationId, ...(inflightId ? { inflightId } : {}) });`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/reference/react/useCallback | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://testing-library.com/docs/react-testing-library/intro
    - Acceptance criteria focus: AC3, AC4, AC23.
    - Files to read/edit: `client/src/hooks/useChatWs.ts`
    - Required behavior: send `{ type: 'cancel_inflight', conversationId }` when `inflightId` is unavailable; include `inflightId` when present. Keep existing 2-argument call sites in Chat and Flows working unchanged.
-2. [ ] Update Agents stop-click logic to always send cancel when there is an active conversation.
+2. [x] Update Agents stop-click logic to always send cancel when there is an active conversation.
    - Starter snippet (adapt names to exact existing symbols): `const cancelInflight = (conversationId, inflightId) => send({ type: "cancel_inflight", conversationId, ...(inflightId ? { inflightId } : {}) });`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/reference/react/useCallback | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://testing-library.com/docs/react-testing-library/intro
    - Acceptance criteria focus: AC3, AC4, AC23.
    - Files to read/edit: `client/src/pages/AgentsPage.tsx`
    - Required behavior: remove current hard dependency on a non-empty inflight id before sending cancel.
-3. [ ] Add hook unit test: `cancelInflight` sends conversation-only payload when `inflightId` is absent.
+3. [x] Add hook unit test: `cancelInflight` sends conversation-only payload when `inflightId` is absent.
    - Starter snippet (adapt names to exact existing symbols): `expect(sendSpy).toHaveBeenCalledWith({ type: 'cancel_inflight', conversationId: 'c1' });`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/reference/react/useCallback | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://testing-library.com/docs/react-testing-library/intro
@@ -610,7 +610,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Test location: `client/src/test/useChatWs.test.ts`.
    - Test description: call `cancelInflight(conversationId)` without inflight id and assert payload omits `inflightId`.
    - Test purpose: ensure stop works during race window before inflight id exists.
-4. [ ] Add hook unit test: `cancelInflight` sends full payload when `inflightId` is provided.
+4. [x] Add hook unit test: `cancelInflight` sends full payload when `inflightId` is provided.
    - Starter snippet (adapt names to exact existing symbols): `expect(sendSpy).toHaveBeenCalledWith({ type: 'cancel_inflight', conversationId: 'c1', inflightId: 'i1' });`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/reference/react/useCallback | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://testing-library.com/docs/react-testing-library/intro
@@ -620,7 +620,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Test location: `client/src/test/useChatWs.test.ts`.
    - Test description: call `cancelInflight(conversationId, inflightId)` and assert both ids are included.
    - Test purpose: preserve compatibility with existing inflight-aware stop paths.
-5. [ ] Add Agents page UI test: stop click without inflight id still sends conversation-level cancel.
+5. [x] Add Agents page UI test: stop click without inflight id still sends conversation-level cancel.
    - Starter snippet (adapt names to exact existing symbols): `expect(cancelInflightSpy).toHaveBeenCalledWith(activeConversationId, undefined);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/reference/react/useCallback | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://testing-library.com/docs/react-testing-library/intro
@@ -630,7 +630,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Test location: `client/src/test/agentsPage.commandsRun.abort.test.tsx`.
    - Test description: simulate active run with missing inflight id, click Stop, assert conversation-level cancel call.
    - Test purpose: validate UI behavior for race-prone stop timing.
-6. [ ] Add Chat page regression test: existing stop behavior with inflight id remains unchanged.
+6. [x] Add Chat page regression test: existing stop behavior with inflight id remains unchanged.
    - Starter snippet (adapt names to exact existing symbols): `expect(cancelInflightSpy).toHaveBeenCalledWith(conversationId, inflightId);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/reference/react/useCallback | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://testing-library.com/docs/react-testing-library/intro
@@ -640,7 +640,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Test location: `client/src/test/chatPage.stop.test.tsx`.
    - Test description: run existing chat stop path and assert unchanged cancel payload behavior.
    - Test purpose: prevent unintended chat stop regressions while changing Agents stop semantics.
-7. [ ] Add Flows page regression test: existing stop behavior with inflight id remains unchanged.
+7. [x] Add Flows page regression test: existing stop behavior with inflight id remains unchanged.
    - Starter snippet (adapt names to exact existing symbols): `expect(cancelInflightSpy).toHaveBeenCalledWith(conversationId, inflightId);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/reference/react/useCallback | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://testing-library.com/docs/react-testing-library/intro
@@ -650,7 +650,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Test location: `client/src/test/flowsPage.stop.test.tsx`.
    - Test description: run existing flows stop path and assert unchanged cancel payload behavior.
    - Test purpose: keep flows stop behavior stable while updating Agents stop logic.
-8. [ ] Add client stop-click test for no-active-conversation edge case.
+8. [x] Add client stop-click test for no-active-conversation edge case.
    - Starter snippet (adapt names to exact existing symbols): `if (!activeConversationId) return;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/reference/react/useCallback | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://testing-library.com/docs/react-testing-library/intro
@@ -661,7 +661,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Test location: `client/src/test/agentsPage.commandsRun.abort.test.tsx`.
    - Test description: click Stop with no active conversation and assert no WS cancel call and no thrown errors.
    - Test purpose: prevent null-context stop calls from generating invalid payloads.
-9. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+9. [x] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 2 under client hooks/pages/tests.`
    - Dependency note: execute this after all file add/remove subtasks in Task 2 and before moving to the next task.
    - Docs: https://www.markdownguide.org/basic-syntax/
@@ -672,7 +672,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Document description: record Task 2 file additions/removals in client hook/page/test paths.
    - Document purpose: keep the repository structure documentation aligned with stop payload implementation changes.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 2 (no wildcard summaries), and remove entries for deleted files.
-10. [ ] Add deterministic client stop logs for Playwright-MCP console assertions.
+10. [x] Add deterministic client stop logs for Playwright-MCP console assertions.
    - Starter snippet (adapt names to exact existing symbols): `console.info('[DEV-0000038][T2] STOP_CLICK conversationId=%s inflightId=%s', activeConversationId, inflightId ?? 'none');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/Console/info_static | https://react.dev/reference/react/useCallback
@@ -681,21 +681,36 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Required log line: `[DEV-0000038][T2] STOP_CLICK conversationId=<id> inflightId=<id|none>`.
    - Required log line: `[DEV-0000038][T2] CANCEL_INFLIGHT_SENT conversationId=<id> inflightId=<id|none>`.
    - Required behavior: emit one STOP_CLICK and one CANCEL_INFLIGHT_SENT line per stop attempt.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build:summary:client` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` and resolve errors.
-2. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
-3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T2] STOP_CLICK ...` and `[DEV-0000038][T2] CANCEL_INFLIGHT_SENT ...` appear once per stop click, with `inflightId=none` when missing and populated `inflightId` when present, capture screenshots showing both no-inflight-id and inflight-id-present stop states, review those screenshots against expected UI/button state and message flow, save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), and verify browser debug console has no unexpected errors.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` and resolve errors.
+2. [x] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
+3. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T2] STOP_CLICK ...` and `[DEV-0000038][T2] CANCEL_INFLIGHT_SENT ...` appear once per stop click, with `inflightId=none` when missing and populated `inflightId` when present, capture screenshots showing both no-inflight-id and inflight-id-present stop states, review those screenshots against expected UI/button state and message flow, save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), and verify browser debug console has no unexpected errors.
+6. [x] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Updated `client/src/hooks/useChatWs.ts` so `cancelInflight` accepts `inflightId` as optional and emits conversation-only `cancel_inflight` payloads when inflight id is unavailable.
+- Subtask 2: Updated `client/src/pages/AgentsPage.tsx` stop handler to send `cancelInflight(activeConversationId, inflightId)` whenever a conversation is active, even if `inflightId` is currently undefined.
+- Subtasks 3-4: Added `useChatWs` unit coverage in `client/src/test/useChatWs.test.ts` for both conversation-only cancel payloads (no `inflightId`) and full payloads (with `inflightId`).
+- Subtask 5: Updated `client/src/test/agentsPage.commandsRun.abort.test.tsx` so the pre-inflight Stop scenario now asserts `cancel_inflight` is still sent with `conversationId` and without `inflightId`.
+- Subtask 6: Kept Chat stop regression coverage in `client/src/test/chatPage.stop.test.tsx` and tightened test intent labels to explicitly assert inflight-id-preserving cancel payloads.
+- Subtask 7: Kept Flows stop regression coverage in `client/src/test/flowsPage.stop.test.tsx` and tightened test intent labels to explicitly assert inflight-id-preserving cancel payloads.
+- Subtask 8: Added a no-active-conversation stop test in `client/src/test/agentsPage.commandsRun.abort.test.tsx` to assert Stop does not send `cancel_inflight` and the click resolves without errors.
+- Subtask 9: No files were added or removed in Task 2, so `projectStructure.md` did not require updates.
+- Subtask 10: Added deterministic browser-console markers in `client/src/pages/AgentsPage.tsx` and `client/src/hooks/useChatWs.ts` for `STOP_CLICK` and `CANCEL_INFLIGHT_SENT` with `inflightId=none` fallback.
+- Subtask 11: Ran workspace lint and format checks; lint completed with existing unrelated server import-order warnings, `format:check` initially failed for `client/src/test/agentsPage.commandsRun.abort.test.tsx`, then passed after running Prettier write on that file.
+- Testing 1: `npm run build:summary:client` passed (`status: passed`); inspected `logs/test-summaries/build-client-latest.log` and confirmed the single warning is the existing Vite chunk-size advisory.
+- Testing 2: `npm run test:summary:client` passed (`tests run: 390`, `failed: 0`), log at `test-results/client-tests-2026-03-02T09-12-24-309Z.log`.
+- Testing 3: `npm run compose:build:summary` passed (`items passed: 2`, `items failed: 0`) using `logs/test-summaries/compose-build-latest.log`.
+- Testing 4: `npm run compose:up` completed successfully; local compose services (including client, server, and Playwright MCP) started healthy.
+- Testing 5: Manual browser verification executed against `http://host.docker.internal:5001/agents` (after Playwright MCP instability required fallback to Chrome DevTools for interaction); validated `[DEV-0000038][T2] STOP_CLICK ...` and `[DEV-0000038][T2] CANCEL_INFLIGHT_SENT ...` markers in browser console for stop flows, and saved screenshots to `playwright-output-local/task2-stop-no-inflight.png` and `playwright-output-local/task2-stop-with-inflight.png`.
+- Testing 6: `npm run compose:down` completed successfully and tore down the compose services/network.
 
 ---
 

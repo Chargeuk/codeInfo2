@@ -2531,7 +2531,7 @@ Reduce production log/console noise introduced by per-row/per-render DEV-0000038
 
 ### 12. Final verification (re-run): full acceptance and regression gate after Tasks 10-11
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: `_pending_`
 
 #### Overview
@@ -2540,24 +2540,70 @@ Re-run end-to-end verification of AC1-AC28 after post-review hardening tasks com
 
 #### Subtasks
 
-1. [ ] Refresh the AC-by-AC verification matrix for AC1-AC28 with updated evidence pointers from post-review changes.
-2. [ ] Re-run targeted manual checks for stop race, blocking reingest terminal semantics (classic + v2), ingest listing visibility/status mapping, and no-change early return behavior.
-3. [ ] Re-run final documentation consistency checks across `design.md`, `projectStructure.md`, and this story plan.
-4. [ ] Record final verification artifacts under `test-results/screenshots` with `0000038-task12-*` prefixes.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+1. [x] Refresh the AC-by-AC verification matrix for AC1-AC28 with updated evidence pointers from post-review changes.
+2. [x] Re-run targeted manual checks for stop race, blocking reingest terminal semantics (classic + v2), ingest listing visibility/status mapping, and no-change early return behavior.
+3. [x] Re-run final documentation consistency checks across `design.md`, `projectStructure.md`, and this story plan.
+4. [x] Record final verification artifacts under `test-results/screenshots` with `0000038-task12-*` prefixes.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run test:summary:server`
-4. [ ] `npm run test:summary:client`
-5. [ ] `timeout 7m npm run test:summary:e2e`
-6. [ ] `npm run compose:build:summary`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; re-validate AC-critical flows and record fresh marker/count evidence where debug gate is enabled.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server`
+2. [x] `npm run build:summary:client`
+3. [x] `npm run test:summary:server`
+4. [x] `npm run test:summary:client`
+5. [x] `timeout 7m npm run test:summary:e2e`
+6. [x] `npm run compose:build:summary`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`; re-validate AC-critical flows and record fresh marker/count evidence where debug gate is enabled.
+9. [x] `npm run compose:down`
+
+#### AC1-AC28 Matrix (Task 12 Refresh)
+
+| AC   | Task 12 refreshed evidence target                                                                                          |
+| ---- | -------------------------------------------------------------------------------------------------------------------------- |
+| AC1  | Subtask 2 + Testing 8 (`[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE`, `0000038-task12-agents-active-edit.png`) |
+| AC2  | Subtask 2 + Testing 8 (`[DEV-0000038][T3] AGENTS_CONVERSATION_SWITCH_ALLOWED`, sidebar switch capture)                   |
+| AC3  | Subtask 2 + Testing 8 (stop race marker pair + no post-stop progression check)                                           |
+| AC4  | Subtask 2 + Testing 8 (conversation-only cancel path evidence)                                                            |
+| AC5  | Subtask 2 + Testing 8 (classic + v2 blocking terminal payload captures)                                                   |
+| AC6  | Subtask 2 + Testing 8 (no wait/blocking request flag behavior regression check)                                           |
+| AC7  | Subtask 2 + Testing 8 (blocking call health with keepalive / no timeout regressions)                                     |
+| AC8  | Subtask 2 + Testing 8 (terminal payload only; no `started`)                                                               |
+| AC9  | Subtask 2 + Testing 8 (summary-only terminal payload shape)                                                               |
+| AC10 | Subtask 2 + Testing 8 (GUI cancel while MCP waiting => terminal `cancelled`)                                              |
+| AC11 | Subtask 2 + Testing 8 (Ingest UI active visibility with `status=ingesting`)                                               |
+| AC12 | Subtask 2 + Testing 8 (classic listing active visibility with `status=ingesting`)                                         |
+| AC13 | Subtask 2 + Testing 8 (active overlay keeps persisted metadata in listings)                                               |
+| AC14 | Subtask 2 + Testing 8 (active `phase` limited to queued/scanning/embedding)                                               |
+| AC15 | Subtask 2 + Testing 8 (terminal listing rows omit `phase`)                                                                |
+| AC16 | Subtask 2 + Testing 8 (no-change/deletion/mixed successful paths terminal `completed`)                                   |
+| AC17 | Subtask 2 + Testing 8 (`REEMBED_NO_CHANGE_EARLY_RETURN` evidence + no AST/embed work path)                               |
+| AC18 | Subtask 2 + Testing 8 (terminal payload top-level fields present)                                                         |
+| AC19 | Subtask 2 + Testing 8 (terminal field constraints + cancelled counters behavior)                                          |
+| AC20 | Subtask 2 + Testing 8 (classic/v2 parity on terminal payload semantics)                                                   |
+| AC21 | Testing 3 + Testing 4 + Testing 5 (updated automated regression suite pass)                                               |
+| AC22 | Subtask 3 (doc consistency check across design/projectStructure/plan)                                                     |
+| AC23 | Subtask 2 + Testing 8 (conversation-authoritative stop in race paths)                                                     |
+| AC24 | Subtask 2 + Testing 8 (pre-run JSON-RPC errors vs post-start terminal payloads)                                          |
+| AC25 | Subtask 2 + Testing 8 (explicit external status mapping checks)                                                           |
+| AC26 | Subtask 2 + Testing 8 (active overlay precedence checks)                                                                   |
+| AC27 | Subtask 2 + Testing 8 (synthesized entry visibility when persisted metadata missing)                                      |
+| AC28 | Subtask 2 + Testing 8 (`schemaVersion=0000038-status-phase-v1` on REST + classic listing)                                |
 
 #### Implementation notes
 
-- Pending.
+- Subtask 1: Refreshed Task 12 AC1-AC28 matrix with post-review evidence targets, including explicit marker-gated manual verification pointers needed after Task 11 observability gating.
+- Subtask 2: Re-ran targeted manual checks on host-mapped endpoints using `/Users/danielstapleton/Documents/dev/task12-manual-repo`; confirmed stop path emits T1 marker pair, classic+v2 blocking reingest return terminal completed payloads, active listing mapping shows `status=ingesting` with `phase=scanning` on REST/classic listing captures, and no-change reingest emits `REEMBED_NO_CHANGE_EARLY_RETURN`.
+- Subtask 3: Re-checked `design.md`, `projectStructure.md`, and this plan for Task 10/11 consistency; no contradictory behavior docs were found, and Task 11 marker-gating notes align with Task 12 manual verification wording.
+- Subtask 4: Saved Task 12 artifacts under `test-results/screenshots` with `0000038-task12-*` prefixes, including host-mapped manual screenshots, classic/v2 terminal payload captures, active listing snapshots, and consolidated marker evidence logs.
+- Subtask 5: Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; checks passed with the existing server import-order warning baseline (49 warnings) and no format violations.
+- Testing 1: `npm run build:summary:server` passed (`warnings: 0`), log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run build:summary:client` passed (`warnings: 1`), log `logs/test-summaries/build-client-latest.log`; warning remains the expected Vite chunk-size advisory baseline.
+- Testing 3: `npm run test:summary:server` passed (`tests run: 960`, `failed: 0`), log `test-results/server-tests-2026-03-02T16-58-02-532Z.log`.
+- Testing 4: `npm run test:summary:client` passed (`tests run: 403`, `failed: 0`), log `test-results/client-tests-2026-03-02T17-09-07-724Z.log`.
+- Testing 5: `timeout 7m npm run test:summary:e2e` passed (`tests run: 39`, `failed: 0`), log `logs/test-summaries/e2e-tests-latest.log`.
+- Testing 6: `npm run compose:build:summary` passed (`items passed: 2`, `items failed: 0`), log `logs/test-summaries/compose-build-latest.log`.
+- Testing 7: `npm run compose:up` completed successfully; compose services were confirmed running and healthy for final host-mapped manual verification.
+- Testing 8: Manual host-mapped verification completed at `http://host.docker.internal:5001` with debug gate enabled (`localStorage['codeinfo.dev0000038.markers']='true'` and `window.__codeinfoDebug.dev0000038Markers=true`); fresh artifacts captured at `test-results/screenshots/0000038-task12-agents-active-edit.png`, `test-results/screenshots/0000038-task12-ingest-page.png`, `test-results/screenshots/0000038-task12-mcp-classic-terminal.json`, `test-results/screenshots/0000038-task12-mcp-v2-terminal.json`, and `test-results/screenshots/0000038-task12-marker-evidence.log`. Console evidence included fresh T2/T3/T7 markers (`STOP_CLICK`/`CANCEL_INFLIGHT_SENT`, `AGENTS_INPUT_EDITABLE_WHILE_ACTIVE`, `AGENTS_CONVERSATION_SWITCH_ALLOWED`, `INGEST_UI_ROW_RENDER`, `INGEST_UI_TERMINAL_PHASE_HIDDEN`) and only baseline resource-load errors (`ERR_SOCKET_NOT_CONNECTED`/`ERR_CONNECTION_REFUSED`/favicon 404) with no app crash exceptions.
+- Testing 9: `npm run compose:down` completed successfully; compose containers and network were removed cleanly after final manual verification.

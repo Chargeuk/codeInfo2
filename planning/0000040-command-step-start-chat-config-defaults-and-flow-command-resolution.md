@@ -26,6 +26,12 @@ Working definitions used in this story (to remove ambiguity):
 - `Legacy env defaults` means existing environment-driven defaults currently used when config values are missing (for example `CHAT_DEFAULT_MODEL`, Codex-related env defaults).
 - `Hardcoded safe fallback` means final constant values in server code used only when both request override, config value, and legacy env value are unavailable.
 
+Scope control for this story (KISS):
+
+- This story remains one plan file, but implementation is constrained to four bounded change surfaces only: AGENTS start-step execution, chat default-source migration, Codex SDK/version gate update, and flow command resolution.
+- No shared utility rewrite is in scope unless required to satisfy one of those four surfaces.
+- Each surface must remain backward compatible for existing callers unless an acceptance criterion explicitly changes the contract.
+
 Decisions confirmed for this story:
 
 - Start-step selection uses `1..N` in both UI and API payloads, with server-side validation.
@@ -41,6 +47,12 @@ Decisions confirmed for this story:
 - Flow command lookup for repository-sourced flows resolves in this order: same source repository first, then the codeInfo2 repository, then other repositories by first match where "first" means source label alphabetical ascending, tie-broken by full source path alphabetical ascending.
 - Flow command fallback to codeInfo2/other repositories occurs only for command-not-found cases; if same-source command exists but is schema-invalid, resolution fails fast without fallback.
 - Investigation output must include an automated failing repro test and a fix.
+- `GET /agents/:agentName/commands` must include `stepCount` so AGENTS UI can render deterministic `Start step` options.
+- `POST /agents/:agentName/commands/run` accepts optional `startStep`; omitted means server default `1` for backward compatibility.
+- Invalid start-step uses deterministic validation contract with code `INVALID_START_STEP`.
+- SDK upgrade is complete only when dependency version and the runtime guard (`DEV_0000037_T01_REQUIRED_VERSION`) are both updated to `0.107.0`.
+- Upstream Codex docs currently describe top-level `web_search` default behavior as `cached`; this story intentionally keeps app compatibility behavior for legacy bool parity by mapping legacy `true -> live`, `false -> disabled`, and using explicit app fallback rather than relying on implicit upstream default.
+- Research confirms current flow command lookup is local-agent-home only; source-aware fallback behavior in this story is net-new and not already implemented.
 
 Expected end-user outcome:
 
@@ -72,6 +84,12 @@ Expected end-user outcome:
 19. For "other repositories", candidate sources are sorted deterministically by source label ascending, then full source path ascending, and first match is used.
 20. Cross-repository fallback is used only for command-not-found; if same-source command exists but is schema-invalid, execution fails immediately and does not fallback.
 21. Investigation and fix follow red-green evidence: add an automated failing repro test first, implement fix, then verify passing result on the same test.
+22. `GET /agents/:agentName/commands` response includes `stepCount` per command (`integer >= 1`) so client can render `Step 1..Step N` without reading command files in browser.
+23. `POST /agents/:agentName/commands/run` remains backward compatible: when `startStep` is omitted by older clients, server executes from step `1`.
+24. Invalid `startStep` responses use `400` with deterministic error payload including `code: "INVALID_START_STEP"` and message format `startStep must be between 1 and N`.
+25. `@openai/codex-sdk` upgrade includes updating server dependency version to `0.107.0`, updating the version guard constant in `server/src/config/codexSdkUpgrade.ts`, and keeping pre-release versions (`-alpha`, `-beta`, `-rc`) out of production manifests.
+26. Flow command resolution fix is covered by automated tests for: same-source success, same-source missing command with codeInfo2 fallback, deterministic "other repository" fallback ordering, and same-source schema-invalid fail-fast without fallback.
+27. Deterministic repository ordering comparison for fallback is case-insensitive ASCII on `sourceLabel`, then case-insensitive ASCII on full source path.
 
 ### Out Of Scope
 
@@ -80,6 +98,22 @@ Expected end-user outcome:
 - Introducing new chat providers beyond current Codex/LM Studio behavior.
 - Start-step controls for Flows page or non-Agents command execution surfaces.
 - Broad refactors unrelated to start-step execution, config-default sourcing, or flow-command resolution.
+
+### Scope Assessment (2026-03-03)
+
+Current assessment: the story is viable but broad, and required tighter boundaries to stay junior-friendly and low-risk.
+
+What was improved in this plan:
+
+- Added explicit bounded scope constraints so this story does not expand into unrelated refactors.
+- Added missing compatibility contracts (`startStep` optional defaulting and explicit error code/message contract).
+- Added missing API data dependency (`stepCount` in command-list response) needed for AGENTS UI to implement `1..N` deterministically.
+- Added explicit SDK upgrade completion conditions that include both package version and runtime version guard alignment.
+- Added explicit deterministic ordering rule semantics and concrete flow-resolution test expectations for the known bug surface.
+
+Remaining risk to monitor (already scoped in criteria):
+
+- Cross-surface change coupling (AGENTS + chat defaults + flows + SDK) increases regression chance if merged without surface-focused verification.
 
 ### Interface Draft (Web GUI)
 
@@ -167,9 +201,25 @@ None.
 
 ### Research Findings (2026-03-03)
 
-- Current server chat default resolution is env-driven (`Codex_*`, `CHAT_DEFAULT_MODEL`, etc.) in capability/validation paths.
-- Runtime config support already exists for `codex/chat/config.toml`, including bootstrap behavior that can copy base config when missing.
-- Runtime config normalization currently supports legacy aliases and canonical `web_search` modes (`live|cached|disabled`).
-- Flow execution supports repository-sourced flow files, but command validation/loading is agent-discovery based and appears to resolve commands from discovered agent homes only.
-- Latest npm stable for `@openai/codex-sdk` is `0.107.0` (from npm registry on 2026-03-03).
-- OpenAI Codex config reference currently marks `features.web_search_request` as deprecated in favor of top-level `web_search`.
+- `code_info` repository inspection confirms:
+  - AGENTS command-run route currently does not accept `startStep`.
+  - AGENTS command-list payload currently does not provide `stepCount`.
+  - Flow command loading currently reads only `<agentHome>/commands/<name>.json` and does not use flow source repository fallback order.
+  - REST chat and MCP codebase-question still source Codex defaults from env-backed paths in key locations.
+- `deepwiki` tool check failed because repository `Chargeuk/codeInfo2` is not indexed in this environment at research time.
+- `context7` tool check failed because no valid Context7 API key is configured in this environment at research time.
+- npm registry live checks (2026-03-03) confirm:
+  - latest stable `@openai/codex-sdk` is `0.107.0`
+  - latest pre-release is `0.108.0-alpha.3`
+  - package diff `0.106.0 -> 0.107.0` changes package version and bundled CLI dependency version, with no SDK API surface diff in published files.
+- OpenAI Codex config reference (developers.openai.com) confirms:
+  - `features.web_search_request` is a deprecated legacy toggle mapping to top-level `web_search` when canonical key is unset.
+  - `web_search` canonical modes are `disabled | cached | live`.
+  - `approval_policy`, `sandbox_mode`, and `model_reasoning_effort` remain canonical config keys.
+
+Source references used in this research pass:
+
+- npm package metadata: https://www.npmjs.com/package/@openai/codex-sdk and `npm view @openai/codex-sdk ...`
+- npm registry diff evidence: `npm diff --diff @openai/codex-sdk@0.106.0 --diff @openai/codex-sdk@0.107.0`
+- OpenAI Codex config reference: https://developers.openai.com/codex/config-reference
+- OpenAI Codex docs entrypoint: https://raw.githubusercontent.com/openai/codex/main/docs/config.md

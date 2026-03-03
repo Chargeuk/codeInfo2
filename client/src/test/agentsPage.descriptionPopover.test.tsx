@@ -44,6 +44,7 @@ type CommandResponse = {
   name: string;
   description?: string;
   disabled?: boolean;
+  stepCount?: number;
   sourceId?: string;
   sourceLabel?: string;
 };
@@ -195,9 +196,12 @@ describe('Agents page - command info popover', () => {
 
     const commandRow = await screen.findByTestId('agent-command-row');
     const commandInfoButton = await screen.findByTestId('agent-command-info');
-    const commandSelect = within(commandRow).getByTestId('agent-command-select');
-    const executeButton =
-      within(commandRow).getByTestId('agent-command-execute');
+    const commandSelect = within(commandRow).getByTestId(
+      'agent-command-select',
+    );
+    const executeButton = within(commandRow).getByTestId(
+      'agent-command-execute',
+    );
 
     expect(commandRow).toContainElement(commandInfoButton);
     expect(commandRow).toContainElement(commandSelect);
@@ -213,7 +217,9 @@ describe('Agents page - command info popover', () => {
   it('keeps command-info button disabled when no command is selected', async () => {
     mockAgentsFetch({
       agents: [{ name: 'coding_agent' }],
-      commands: [{ name: 'smoke', description: 'Smoke test command' }],
+      commands: [
+        { name: 'smoke', description: 'Smoke test command', stepCount: 1 },
+      ],
     });
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
@@ -226,7 +232,9 @@ describe('Agents page - command info popover', () => {
   it('opens command-info popover with selected command description', async () => {
     mockAgentsFetch({
       agents: [{ name: 'coding_agent' }],
-      commands: [{ name: 'smoke', description: 'Smoke test command' }],
+      commands: [
+        { name: 'smoke', description: 'Smoke test command', stepCount: 1 },
+      ],
     });
     const user = userEvent.setup();
 
@@ -249,7 +257,9 @@ describe('Agents page - command info popover', () => {
   it('does not open command-info popover when command remains unselected', async () => {
     mockAgentsFetch({
       agents: [{ name: 'coding_agent' }],
-      commands: [{ name: 'smoke', description: 'Smoke test command' }],
+      commands: [
+        { name: 'smoke', description: 'Smoke test command', stepCount: 1 },
+      ],
     });
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
@@ -264,7 +274,9 @@ describe('Agents page - command info popover', () => {
   it('closes command-info popover after open', async () => {
     mockAgentsFetch({
       agents: [{ name: 'coding_agent' }],
-      commands: [{ name: 'smoke', description: 'Smoke test command' }],
+      commands: [
+        { name: 'smoke', description: 'Smoke test command', stepCount: 1 },
+      ],
     });
     const user = userEvent.setup();
 

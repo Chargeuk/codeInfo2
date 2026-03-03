@@ -51,6 +51,20 @@ describe('Agents API runAgentCommand', () => {
     expect(body).toHaveProperty('sourceId', '/data/repo-a');
   });
 
+  it('includes startStep when provided', async () => {
+    await runAgentCommand({
+      agentName: 'planning_agent',
+      commandName: 'smoke',
+      startStep: 2,
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+
+    expect(body).toHaveProperty('commandName', 'smoke');
+    expect(body).toHaveProperty('startStep', 2);
+  });
+
   it('omits optional fields when not provided', async () => {
     await runAgentCommand({
       agentName: 'planning_agent',
@@ -61,6 +75,7 @@ describe('Agents API runAgentCommand', () => {
     const body = JSON.parse(init.body as string) as Record<string, unknown>;
 
     expect(body).toHaveProperty('commandName', 'smoke');
+    expect(body).not.toHaveProperty('startStep');
     expect(body).not.toHaveProperty('working_folder');
     expect(body).not.toHaveProperty('conversationId');
     expect(body).not.toHaveProperty('sourceId');

@@ -80,6 +80,27 @@ Modified files (implementation traceability):
 - `client/src/test/agentsPage.descriptionPopover.test.tsx`
 - `design.md`
 
+## Story 0000040 Task 4 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/api/agents.ts`
+- `client/src/test/agentsApi.commandsList.test.ts`
+- `client/src/test/agentsApi.commandsRun.test.ts`
+- `design.md`
+
 ## Story 0000038 Tasks 1-7 structural change ledger
 
 Added files:
@@ -793,9 +814,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - codex_agents/planning_agent/commands/smoke.json — smoke-test planning macro for validating `run_command` wiring
 - client/src/test/useConversations.source.test.ts — hook defaults missing source to REST and preserves MCP
 - client/src/test/chatPage.source.test.tsx — conversation list renders source labels for REST and MCP conversations
+- client/src/api/agents.ts — Agents REST client wrapper with strict command-list `stepCount` parsing, optional `startStep` run payload serialization, and marker `DEV_0000040_T04_CLIENT_AGENTS_API`
 - client/src/test/agentsApi.workingFolder.payload.test.ts — Agents API wrapper includes `working_folder` only when non-empty
-- client/src/test/agentsApi.commandsList.test.ts — Agents API wrapper calls `GET /agents/:agentName/commands` and preserves disabled command entries
-- client/src/test/agentsApi.commandsRun.test.ts — Agents API wrapper calls `POST /agents/:agentName/commands/run` and omits optional fields when absent
+- client/src/test/agentsApi.commandsList.test.ts — Agents API wrapper enforces required `stepCount` parsing (`integer >= 1`) and rejects missing/invalid command-list payloads
+- client/src/test/agentsApi.commandsRun.test.ts — Agents API wrapper calls `POST /agents/:agentName/commands/run`, includes `startStep` only when provided, and omits optional fields when absent
 - client/src/test/agentsApi.errors.test.ts — Agents API wrapper throws structured errors exposing HTTP status + server error codes (e.g., `RUN_IN_PROGRESS`)
 - client/src/test/flowsApi.test.ts — Flows API wrapper list/run request shapes, parsed responses, and structured error coverage
 - client/src/test/flowsApi.run.payload.test.ts — Flows API wrapper includes optional run payload fields (`working_folder`, `resumeStepPath`) when set

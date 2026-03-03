@@ -1076,7 +1076,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
 
 ### 4. Client Message Contract: consume `stepCount` and send `startStep` in agents API layer
 
-- Task Status: **to_do**
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1094,17 +1094,17 @@ Update the frontend API layer contracts to match backend message changes. This t
 
 #### Subtasks
 
-1. [ ] Add `stepCount` to command-list response types in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts) and ensure parser logic treats it as required.
+1. [x] Add `stepCount` to command-list response types in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts) and ensure parser logic treats it as required.
    - Docs to read first: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, https://www.typescriptlang.org/docs/handbook/type-compatibility.html.
    - Files to read/edit: [agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts).
    - Acceptance criteria coverage: AC 22, AC 23.
    - Done when: client API types compile only when `stepCount` is present.
-2. [ ] Add optional `startStep` to run-request types and serialization in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts), ensuring omitted field remains possible for backward compatibility.
+2. [x] Add optional `startStep` to run-request types and serialization in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts), ensuring omitted field remains possible for backward compatibility.
    - Docs to read first: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, https://www.typescriptlang.org/docs/handbook/type-compatibility.html.
    - Files to read/edit: [agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts).
    - Acceptance criteria coverage: AC 6, AC 24.
    - Done when: API wrapper sends `startStep` only when provided by caller.
-3. [ ] Add an API unit test for valid command-list payload parsing with required `stepCount`.
+3. [x] Add an API unit test for valid command-list payload parsing with required `stepCount`.
    - Test type: `Unit` (client API wrapper).
    - Test location: [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts).
    - Description: Mock command-list response including valid `stepCount` and assert parsed output is accepted.
@@ -1113,7 +1113,7 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Files to read/edit: [agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts).
    - Acceptance criteria coverage: AC 22.
    - Done when: test fails if valid `stepCount` payload is rejected.
-4. [ ] Add an API unit test that rejects command-list payloads missing required `stepCount`.
+4. [x] Add an API unit test that rejects command-list payloads missing required `stepCount`.
    - Test type: `Unit` (client API wrapper).
    - Test location: [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts).
    - Description: Mock response without `stepCount` and assert parser throws/rejects.
@@ -1122,7 +1122,7 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Files to read/edit: [agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts).
    - Acceptance criteria coverage: AC 23.
    - Done when: test fails if missing `stepCount` payload is accepted.
-5. [ ] Add an API unit test that includes `startStep` in run payload when caller provides it.
+5. [x] Add an API unit test that includes `startStep` in run payload when caller provides it.
    - Test type: `Unit` (client API wrapper).
    - Test location: [client/src/test/agentsApi.commandsRun.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsRun.test.ts).
    - Description: Call run API with `startStep` and assert serialized request includes integer `startStep`.
@@ -1131,7 +1131,7 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Files to read/edit: [agentsApi.commandsRun.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsRun.test.ts).
    - Acceptance criteria coverage: AC 6.
    - Done when: test fails if provided `startStep` is not serialized.
-6. [ ] Add an API unit test that omits `startStep` in run payload when caller does not provide it.
+6. [x] Add an API unit test that omits `startStep` in run payload when caller does not provide it.
    - Test type: `Unit` (client API wrapper).
    - Test location: [client/src/test/agentsApi.commandsRun.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsRun.test.ts).
    - Description: Call run API without `startStep` and assert request body does not include the field.
@@ -1140,7 +1140,7 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Files to read/edit: [agentsApi.commandsRun.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsRun.test.ts).
    - Acceptance criteria coverage: AC 24.
    - Done when: test fails if wrapper always sends `startStep`.
-7. [ ] Add an API unit test rejecting `stepCount = 0` payloads.
+7. [x] Add an API unit test rejecting `stepCount = 0` payloads.
    - Test type: `Unit` (client API wrapper).
    - Test location: [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts).
    - Description: Mock `stepCount: 0` and assert parser rejects invalid value.
@@ -1149,7 +1149,7 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Files to read/edit: [agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts).
    - Acceptance criteria coverage: AC 22, AC 23.
    - Done when: test fails if zero step count is accepted.
-8. [ ] Add an API unit test rejecting negative `stepCount` payloads.
+8. [x] Add an API unit test rejecting negative `stepCount` payloads.
    - Test type: `Unit` (client API wrapper).
    - Test location: [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts).
    - Description: Mock negative `stepCount` and assert parser rejects invalid value.
@@ -1158,7 +1158,7 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Files to read/edit: [agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts).
    - Acceptance criteria coverage: AC 22, AC 23.
    - Done when: test fails if negative step counts are accepted.
-9. [ ] Add an API unit test rejecting non-numeric `stepCount` payloads.
+9. [x] Add an API unit test rejecting non-numeric `stepCount` payloads.
    - Test type: `Unit` (client API wrapper).
    - Test location: [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts).
    - Description: Mock string/object `stepCount` and assert parser rejects invalid type.
@@ -1167,7 +1167,7 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Files to read/edit: [agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts).
    - Acceptance criteria coverage: AC 22, AC 23.
    - Done when: test fails if non-numeric step counts are accepted.
-10. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for client API contract changes to required `stepCount` and optional `startStep`.
+10. [x] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for client API contract changes to required `stepCount` and optional `startStep`.
 
 - Document name: `design.md`.
 - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
@@ -1178,7 +1178,7 @@ Update the frontend API layer contracts to match backend message changes. This t
 - Acceptance criteria coverage: documentation support for AC 6, AC 22, AC 24.
 - Done when: `design.md` accurately describes client API payload/response shapes and constraints.
 
-11. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-4 API/test files added, removed, or modified.
+11. [x] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-4 API/test files added, removed, or modified.
 
 - Document name: `projectStructure.md`.
 - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
@@ -1190,7 +1190,7 @@ Update the frontend API layer contracts to match backend message changes. This t
 - Acceptance criteria coverage: documentation support for AC 6, AC 22, AC 24.
 - Done when: `projectStructure.md` entries match task-4 file changes and include all added and removed files.
 
-12. [ ] Add deterministic diagnostic log marker [DEV_0000040_T04_CLIENT_AGENTS_API] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+12. [x] Add deterministic diagnostic log marker [DEV_0000040_T04_CLIENT_AGENTS_API] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
 
 - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
 - Files to read/edit: [agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts).
@@ -1198,7 +1198,7 @@ Update the frontend API layer contracts to match backend message changes. This t
 - Manual Playwright-MCP expected outcome: when executing from AGENTS UI, browser debug console logs marker with outbound payload shape showing `startStep` present when selected and omitted when not provided.
 - Done when: [DEV_0000040_T04_CLIENT_AGENTS_API] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
 
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
 - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
@@ -1210,24 +1210,38 @@ Update the frontend API layer contracts to match backend message changes. This t
 - Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
 - Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:client`
+1. [x] `npm run build:summary:client`
    - Use when client/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log`.
-2. [ ] `npm run test:summary:client`
+2. [x] `npm run test:summary:client`
    - Use when client/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/client-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--subset` / `--test-name`), then rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary`
+3. [x] `npm run compose:build:summary`
    - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log`.
-4. [ ] `npm run compose:up`
+4. [x] `npm run compose:up`
    - Start the dockerized app stack before manual Playwright-MCP checks.
-5. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001)
+5. [x] Manual Playwright-MCP check (http://host.docker.internal:5001)
    - Validate frontend API contract integration by executing AGENTS command flows and confirming marker `[DEV_0000040_T04_CLIENT_AGENTS_API]` appears with expected payload semantics.
    - Capture screenshots proving GUI/API integration outcomes (for example AGENTS command selection state before execute, and post-execute UI state) and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`).
    - Expected outcome: screenshots and console/network observations confirm the UI remains stable while `startStep` payload behavior matches this task contract, and the agent reviews screenshots to verify GUI expectations are met.
-6. [ ] `npm run compose:down`
+6. [x] `npm run compose:down`
    - Stop the dockerized app stack after manual checks complete.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Updated `listAgentCommands` contract/types to require `stepCount` and fail fast on invalid command entries missing integer `stepCount >= 1`.
+- Subtask 2: Extended `runAgentCommand` params with optional `startStep` and serialized it only when provided to preserve omission/backward compatibility.
+- Subtasks 3-4: Added client API list tests covering valid required `stepCount` parsing and rejection when `stepCount` is missing.
+- Subtasks 5-6: Added command-run API tests asserting `startStep` is included when provided and omitted when absent.
+- Subtasks 7-9: Added list payload rejection tests for invalid `stepCount` values (`0`, negative, non-numeric).
+- Subtask 10: Updated `design.md` with Task 4 client API contract expectations for required `stepCount`, optional `startStep`, and command-run request/response behavior.
+- Subtask 11: Updated `projectStructure.md` with a dedicated Story 0000040 Task 4 ledger and refreshed API/test file-map descriptions.
+- Subtask 12: Added deterministic client API marker `DEV_0000040_T04_CLIENT_AGENTS_API` in `runAgentCommand` with `includesStartStep` and `startStep` context fields.
+- Subtask 13: Ran `npm run lint --workspaces` (pass, warnings only) and `npm run format:check --workspaces`; formatted Task 4 API/test files, then re-ran format check (server/common pass; client still fails on pre-existing files `client/src/pages/AgentsPage.tsx` and `client/src/test/agentsPage.descriptionPopover.test.tsx`).
+- Testing 1: `npm run build:summary:client` passed (`status: passed`) with one Vite chunk-size warning (existing bundle-size warning class) and log `logs/test-summaries/build-client-latest.log`.
+- Testing 2: `npm run test:summary:client` passed (`458/458`, `failed: 0`) after updating Agents-page command-list fixtures to include required `stepCount`; log `test-results/client-tests-2026-03-03T20-34-38-579Z.log`.
+- Testing 3: `npm run compose:build:summary` passed (`items passed: 2`, `items failed: 0`) with log `logs/test-summaries/compose-build-latest.log`.
+- Testing 4: `npm run compose:up` succeeded and started the dockerized stack (`client`, `server`, `mongo`, `chroma`, and supporting services all up/healthy).
+- Testing 5: Manual Playwright verification against `http://host.docker.internal:5001/agents` confirmed marker `DEV_0000040_T04_CLIENT_AGENTS_API` on execute with payload context `{ includesStartStep: false, startStep: null }`; screenshots captured to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/task4-before-execute.png` and `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/task4-after-execute.png`.
+- Testing 6: `npm run compose:down` completed successfully and shut down all compose services/networks after manual verification.
 
 ---
 

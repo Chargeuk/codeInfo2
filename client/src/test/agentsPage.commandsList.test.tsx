@@ -56,7 +56,12 @@ describe('Agents page - commands list', () => {
       if (target.includes('/agents/a1/commands')) {
         return mockJsonResponse({
           commands: [
-            { name: 'first_cmd', description: 'First', disabled: false },
+            {
+              name: 'first_cmd',
+              description: 'First',
+              disabled: false,
+              stepCount: 1,
+            },
           ],
         });
       }
@@ -64,7 +69,12 @@ describe('Agents page - commands list', () => {
       if (target.includes('/agents/a2/commands')) {
         return mockJsonResponse({
           commands: [
-            { name: 'second_cmd', description: 'Second', disabled: false },
+            {
+              name: 'second_cmd',
+              description: 'Second',
+              disabled: false,
+              stepCount: 1,
+            },
           ],
         });
       }
@@ -123,11 +133,17 @@ describe('Agents page - commands list', () => {
       if (target.includes('/agents/a1/commands')) {
         return mockJsonResponse({
           commands: [
-            { name: 'good', description: 'Good', disabled: false },
+            {
+              name: 'good',
+              description: 'Good',
+              disabled: false,
+              stepCount: 1,
+            },
             {
               name: 'bad',
               description: 'Invalid command file',
               disabled: true,
+              stepCount: 1,
             },
           ],
         });
@@ -181,6 +197,7 @@ describe('Agents page - commands list', () => {
               name: 'improve_plan',
               description: 'd',
               disabled: false,
+              stepCount: 1,
             },
           ],
         });
@@ -229,6 +246,7 @@ describe('Agents page - commands list', () => {
               name: 'build',
               description: 'Repo B',
               disabled: false,
+              stepCount: 1,
               sourceId: '/data/repo-b',
               sourceLabel: 'Repo B',
             },
@@ -236,6 +254,7 @@ describe('Agents page - commands list', () => {
               name: 'build',
               description: 'Repo A',
               disabled: false,
+              stepCount: 1,
               sourceId: '/data/repo-a',
               sourceLabel: 'Repo A',
             },
@@ -243,6 +262,7 @@ describe('Agents page - commands list', () => {
               name: 'build',
               description: 'Local',
               disabled: false,
+              stepCount: 1,
             },
           ],
         });
@@ -299,6 +319,7 @@ describe('Agents page - commands list', () => {
               name: 'improve_plan',
               description: 'Improves a plan step-by-step.',
               disabled: false,
+              stepCount: 1,
             },
           ],
         });
@@ -337,6 +358,7 @@ describe('Agents page - commands list', () => {
               name: 'improve_plan',
               description: 'Improves a plan step-by-step.',
               disabled: false,
+              stepCount: 1,
             },
           ],
         });
@@ -378,6 +400,7 @@ describe('Agents page - commands list', () => {
               name: 'improve_plan',
               description: 'Improves a plan step-by-step.',
               disabled: false,
+              stepCount: 1,
             },
           ],
         });
@@ -429,6 +452,7 @@ describe('Agents page - commands list', () => {
               name: 'improve_plan',
               description: 'Improves a plan step-by-step.',
               disabled: false,
+              stepCount: 1,
             },
           ],
         });
@@ -501,6 +525,7 @@ describe('Agents page - commands list', () => {
               name: 'improve_plan',
               description: 'Improves a plan step-by-step.',
               disabled: false,
+              stepCount: 1,
             },
           ],
         });

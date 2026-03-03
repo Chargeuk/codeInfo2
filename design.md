@@ -219,6 +219,18 @@ sequenceDiagram
   end
 ```
 
+## Agents command client API contract (Story 0000040 Task 4)
+
+- `client/src/api/agents.ts` contract alignment:
+  - `listAgentCommands(agentName)` now requires `stepCount` on every returned command item.
+  - Client parsing fails fast with `Invalid agent commands response` when `stepCount` is missing, non-integer, or `< 1`.
+  - `runAgentCommand(...)` accepts optional `startStep`; payload includes `startStep` only when supplied by caller.
+- Request/response expectations:
+  - `GET /agents/:agentName/commands` consumes `{ commands: [{ name, description, disabled, stepCount, sourceId?, sourceLabel? }] }`.
+  - `POST /agents/:agentName/commands/run` sends `{ commandName, startStep?, sourceId?, conversationId?, working_folder? }`.
+- Required client observability marker:
+  - `DEV_0000040_T04_CLIENT_AGENTS_API` emitted on command-run dispatch with `includesStartStep` and selected `startStep` context.
+
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
 - Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
 - Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.

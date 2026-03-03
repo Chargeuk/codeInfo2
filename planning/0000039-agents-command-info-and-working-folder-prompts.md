@@ -539,7 +539,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 2. Server: implement prompt discovery service (case-insensitive `.github/prompts`, recursive markdown scan, deterministic ordering)
 
 - Task Status: **__completed__**
-- Git Commits: `d54cac36`
+- Git Commits: `d54cac36`, `61a394ff`
 
 #### Overview
 

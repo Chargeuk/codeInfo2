@@ -589,16 +589,13 @@ Add the backend response contract for command list items so the frontend can ren
    - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
+- Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
+- Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
 1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-list.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agents-commands-router-list.test.ts`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`
-8. [ ] `npm run lint --workspaces`
-9. [ ] `npm run format:check --workspaces`
-10. [ ] `npm run compose:down`
+   - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit`
+   - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
@@ -750,16 +747,13 @@ Add the run-request message contract for optional `startStep` with strict input 
    - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
+- Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
+- Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
 1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agents-commands-router-run.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-agents-commands-run.test.ts`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`
-8. [ ] `npm run lint --workspaces`
-9. [ ] `npm run format:check --workspaces`
-10. [ ] `npm run compose:down`
+   - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit`
+   - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
@@ -929,18 +923,15 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
+- Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
+- Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
 1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-runner.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-ws-stream.test.ts`
-8. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts`
-9. [ ] `npm run test:summary:server:cucumber`
-10. [ ] `npm run lint --workspaces`
-11. [ ] `npm run format:check --workspaces`
-12. [ ] `npm run compose:down`
+   - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit`
+   - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber`
+   - Use for server Cucumber feature/step coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands (`--tags` / `--feature` / `--scenario`), then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -1067,15 +1058,13 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/agentsApi.commandsList.test.ts`
-6. [ ] `npm run test:summary:client -- --file client/src/test/agentsApi.commandsRun.test.ts`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
-9. [ ] `npm run compose:down`
+- Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
+- Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:client`
+   - Use when client/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+2. [ ] `npm run test:summary:client`
+   - Use when client/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/client-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--subset` / `--test-name`), then rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
@@ -1243,17 +1232,23 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.commandsList.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.run.commandError.test.tsx`
-7. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx`
-8. [ ] `npm run test:summary:client`
-9. [ ] `npm run lint --workspaces`
-10. [ ] `npm run format:check --workspaces`
-11. [ ] `npm run compose:down`
+- Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
+- Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:client`
+   - Use when client/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+2. [ ] `npm run test:summary:client`
+   - Use when client/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/client-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--subset` / `--test-name`), then rerun full `npm run test:summary:client`.
+3. [ ] `npm run test:summary:e2e`
+   - Allow up to 7 minutes (for example `timeout 7m` or harness `timeout_ms=420000`). If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands (`--file` / `--grep`), then rerun full `npm run test:summary:e2e`.
+4. [ ] `npm run compose:build:summary`
+   - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log`.
+5. [ ] `npm run compose:up`
+   - Start the dockerized app stack before manual Playwright-MCP checks.
+6. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001)
+   - Manually confirm task-relevant story behavior and broad regressions using Playwright MCP, and verify there are no logged errors in the debug console.
+7. [ ] `npm run compose:down`
+   - Stop the dockerized app stack after manual checks complete.
 
 #### Implementation notes
 
@@ -1412,14 +1407,15 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
+- Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
+- Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
 1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/config.chatDefaults.test.ts`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] `npm run compose:down`
+   - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit`
+   - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber`
+   - Use for server Cucumber feature/step coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands (`--tags` / `--feature` / `--scenario`), then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -1551,16 +1547,15 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
+- Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
+- Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
 1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts`
-8. [ ] `npm run lint --workspaces`
-9. [ ] `npm run format:check --workspaces`
-10. [ ] `npm run compose:down`
+   - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit`
+   - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber`
+   - Use for server Cucumber feature/step coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands (`--tags` / `--feature` / `--scenario`), then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -1673,17 +1668,15 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
+- Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
+- Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
 1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
-8. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex-mcp.test.ts`
-9. [ ] `npm run lint --workspaces`
-10. [ ] `npm run format:check --workspaces`
-11. [ ] `npm run compose:down`
+   - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit`
+   - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber`
+   - Use for server Cucumber feature/step coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands (`--tags` / `--feature` / `--scenario`), then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -1819,14 +1812,13 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
+- Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
+- Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
 1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] `npm run compose:down`
+   - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit`
+   - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
@@ -1946,15 +1938,13 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
+- Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
+- Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
 1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/codexSdkUpgrade.test.ts`
-6. [ ] `npm run test:summary:server:unit`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
-9. [ ] `npm run compose:down`
+   - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit`
+   - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
@@ -2119,15 +2109,15 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
+- Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
+- Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
 1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts`
-6. [ ] `npm run test:summary:server:cucumber`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
-9. [ ] `npm run compose:down`
+   - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit`
+   - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber`
+   - Use for server Cucumber feature/step coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands (`--tags` / `--feature` / `--scenario`), then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -2194,14 +2184,13 @@ Perform documentation-only updates so product behavior, architecture notes, and 
    - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
+- Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
+- Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
 1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] `npm run compose:down`
+   - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit`
+   - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
@@ -2287,22 +2276,29 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
+- Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
+- Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
 1. [ ] `npm run build:summary:server`
+   - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
 2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-agents-commands-run.test.ts`
-7. [ ] `npm run test:summary:server:cucumber`
-8. [ ] `npm run test:summary:client`
-9. [ ] `npm run test:summary:e2e`
-10. [ ] Playwright manual check: AGENTS `Start step` behavior (`test-results/screenshots/` evidence for AC 1-8).
-11. [ ] Playwright manual check: chat default initialization/warning behavior (`test-results/screenshots/` evidence for AC 10-16).
-12. [ ] Playwright manual check: flow resolver success/failure behavior (`test-results/screenshots/` evidence for AC 18-21).
-13. [ ] Save screenshots to `test-results/screenshots/` using naming format `0000040-13-<short-name>.png`.
-14. [ ] `npm run lint --workspaces`
-15. [ ] `npm run format:check --workspaces`
-16. [ ] `npm run compose:down`
+   - Use when client/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+3. [ ] `npm run test:summary:server:unit`
+   - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber`
+   - Use for server Cucumber feature/step coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands (`--tags` / `--feature` / `--scenario`), then rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client`
+   - Use when client/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/client-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--subset` / `--test-name`), then rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e`
+   - Allow up to 7 minutes (for example `timeout 7m` or harness `timeout_ms=420000`). If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands (`--file` / `--grep`), then rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary`
+   - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log`.
+8. [ ] `npm run compose:up`
+   - Start the dockerized app stack before manual Playwright-MCP checks.
+9. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001)
+   - Manually confirm task-relevant story behavior and broad regressions using Playwright MCP, and verify there are no logged errors in the debug console.
+10. [ ] `npm run compose:down`
+   - Stop the dockerized app stack after manual checks complete.
 
 #### Implementation notes
 

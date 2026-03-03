@@ -862,7 +862,8 @@ Add the run-request message contract for optional `startStep` with strict input 
 ### 3. Server Behavior: execute command runs from `startStep` with backward compatibility
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits:
+  - `e9cc7692` — DEV-[0000040] - Implement Task 3 command runner startStep execution behavior
 
 #### Overview
 

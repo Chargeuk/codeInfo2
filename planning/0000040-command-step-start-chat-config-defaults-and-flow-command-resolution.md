@@ -561,15 +561,15 @@ Add the backend response contract for command list items so the frontend can ren
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 22, AC 23.
    - Done when: `design.md` explicitly documents `stepCount` generation rules and response guarantees.
-12. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for this task’s touched/added test and contract files.
+12. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for this task’s added, removed, and modified test/contract files.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-   - Description: Add/update file-map entries for any files introduced or changed in this task.
+   - Description: Add/update/remove file-map entries for every file added, removed, or modified in this task.
    - Purpose: Keep repository structure documentation current for junior implementation traceability.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 22, AC 23.
-   - Done when: `projectStructure.md` matches the post-task repository state.
+   - Done when: `projectStructure.md` matches the post-task repository state and explicitly includes all added and removed files.
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 22, AC 23 implementation.
@@ -705,15 +705,15 @@ Add the run-request message contract for optional `startStep` with strict input 
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 24, AC 25.
    - Done when: `design.md` clearly describes optional `startStep` and deterministic `INVALID_START_STEP` response behavior.
-15. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for all task-2 file and test changes.
+15. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for all task-2 added, removed, and modified files.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-   - Description: Reflect touched route/service/OpenAPI/test files for this task.
+   - Description: Reflect all route/service/OpenAPI/test files added, removed, or modified in this task.
    - Purpose: Keep the codebase map accurate for junior developers implementing or validating this task in isolation.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 24, AC 25.
-   - Done when: `projectStructure.md` contains accurate entries for all changed files.
+   - Done when: `projectStructure.md` contains accurate entries for all added and removed files (and any modified files) in this task.
 16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 6, AC 7, AC 24, AC 25.
@@ -866,15 +866,15 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
    - Done when: `design.md` includes correct runtime behavior and valid Mermaid syntax for the flow/error diagram.
-16. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-3 runner/service/test file changes.
+16. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-3 runner/service/test files added, removed, or modified.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-   - Description: Record all files changed for runner execution behavior and associated tests.
+   - Description: Record all runner/service/test files added, removed, or modified for this task.
    - Purpose: Keep repository structure documentation synchronized for isolated subtask implementation.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
-   - Done when: `projectStructure.md` accurately reflects task-3 file layout changes.
+   - Done when: `projectStructure.md` accurately reflects task-3 file layout and explicitly lists all added and removed files.
 17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 6, AC 7, AC 24, AC 25.
@@ -991,15 +991,15 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 6, AC 22, AC 24.
    - Done when: `design.md` accurately describes client API payload/response shapes and constraints.
-11. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-4 API/test file changes.
+11. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-4 API/test files added, removed, or modified.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-   - Description: Record files touched for AGENTS API client contract and tests.
+   - Description: Record every AGENTS API client contract/test file added, removed, or modified in this task.
    - Purpose: Provide a correct file map for junior developers working task-4 subtasks in isolation.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 6, AC 22, AC 24.
-   - Done when: `projectStructure.md` entries match task-4 file changes.
+   - Done when: `projectStructure.md` entries match task-4 file changes and include all added and removed files.
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 6, AC 22, AC 24.
@@ -1149,15 +1149,15 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 1-8, AC 25.
    - Done when: `design.md` captures UI behavior, request behavior, and error rendering contract.
-16. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for AGENTS page and test file changes in this task.
+16. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for AGENTS page/test files added, removed, or modified in this task.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-   - Description: Record modified/added client page and test files related to `Start step` UI behavior.
+   - Description: Record all client page/test files added, removed, or modified for `Start step` UI behavior.
    - Purpose: Ensure file-level implementation map is accurate for junior developers.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 1-8.
-   - Done when: `projectStructure.md` mirrors actual task-5 file changes.
+   - Done when: `projectStructure.md` mirrors actual task-5 file changes and explicitly includes all added and removed files.
 17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 1-8.
@@ -1301,15 +1301,15 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `design.md` includes precedence/warning behavior and valid Mermaid syntax.
-15. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-6 resolver and test file changes.
+15. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-6 resolver/test files added, removed, or modified.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-   - Description: Record all changed/added resolver and unit test files from this task.
+   - Description: Record all resolver/unit-test files added, removed, or modified in this task.
    - Purpose: Keep the repository map accurate for implementation and regression tracing.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
-   - Done when: `projectStructure.md` accurately reflects task-6 file changes.
+   - Done when: `projectStructure.md` accurately reflects task-6 file changes and includes all added and removed files.
 16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
@@ -1426,15 +1426,15 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `design.md` includes accurate route flow and valid Mermaid syntax.
-12. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-7 route/resolver/test file changes.
+12. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-7 route/resolver/test files added, removed, or modified.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-   - Description: Record all changed REST/capability route and test files touched by this task.
+   - Description: Record all REST/capability route and test files added, removed, or modified in this task.
    - Purpose: Keep implementation file maps accurate for junior execution.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
-   - Done when: `projectStructure.md` reflects all task-7 file changes.
+   - Done when: `projectStructure.md` reflects all task-7 file changes and explicitly includes all added and removed files.
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
@@ -1537,15 +1537,15 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `design.md` clearly documents MCP/REST parity and includes valid Mermaid syntax.
-9. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-8 MCP tool and test file changes.
+9. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-8 MCP tool/test files added, removed, or modified.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-   - Description: Record all MCP tool implementation/test files touched by this task.
+   - Description: Record all MCP tool implementation/test files added, removed, or modified in this task.
    - Purpose: Maintain an accurate repository map for isolated subtask execution.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
-   - Done when: `projectStructure.md` accurately lists task-8 file changes.
+   - Done when: `projectStructure.md` accurately lists task-8 file changes and includes all added and removed files.
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
@@ -1669,15 +1669,15 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 15.
    - Done when: `design.md` includes correct bootstrap flow and valid Mermaid syntax.
-12. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-9 runtime config and test file changes.
+12. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-9 runtime config/test files added, removed, or modified.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-   - Description: Record runtime config and test files added/updated in this task.
+   - Description: Record all runtime config/test files added, removed, or modified in this task.
    - Purpose: Maintain accurate file-level documentation for new contributors.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 15.
-   - Done when: `projectStructure.md` accurately mirrors task-9 repository changes.
+   - Done when: `projectStructure.md` accurately mirrors task-9 repository changes and includes all added and removed files.
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 15.
@@ -1783,15 +1783,15 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 17, AC 26.
    - Done when: `design.md` documents pin/guard coupling and rejection rules.
-11. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-10 dependency/guard/test file changes.
+11. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-10 dependency/guard/test files added, removed, or modified.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-   - Description: Record files touched for SDK pinning, runtime guard update, and associated tests.
+   - Description: Record all files added, removed, or modified for SDK pinning, runtime guard updates, and associated tests.
    - Purpose: Keep repository structure docs correct for targeted implementation and review.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 17, AC 26.
-   - Done when: `projectStructure.md` lists all task-10 file changes accurately.
+   - Done when: `projectStructure.md` lists all task-10 file changes accurately, including all added and removed files.
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 17, AC 26.
@@ -1938,15 +1938,15 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
    - Done when: `design.md` includes exact rules and valid Mermaid syntax for all required flow scenarios.
-16. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-11 flow service/integration test file changes.
+16. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-11 flow service/integration-test files added, removed, or modified.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-   - Description: Record all flow service and integration test files added/updated in this task.
+   - Description: Record all flow service/integration-test files added, removed, or modified in this task.
    - Purpose: Keep repository file-map documentation accurate for implementation and review.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
-   - Done when: `projectStructure.md` reflects all task-11 file changes with no omissions.
+   - Done when: `projectStructure.md` reflects all task-11 file changes with no omissions, including all added and removed files.
 17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 18-21 and AC 27-28.
@@ -2011,7 +2011,7 @@ Perform documentation-only updates so product behavior, architecture notes, and 
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals from tasks 1-11 are finished.
    - Acceptance criteria coverage: documentation support across whole story implementation.
-   - Done when: file/module map matches repository state after implementation.
+   - Done when: file/module map matches repository state after implementation and includes every file added and removed by tasks 1-11.
 4. [ ] Ensure [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) reflects final route contract shapes from tasks 1-2 and stays aligned with route runtime behavior.
    - Docs to read first: https://swagger.io/specification/.
    - Acceptance criteria coverage: AC 22, AC 23, AC 24, AC 25.
@@ -2167,15 +2167,15 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Ordering requirement: complete this subtask after all file additions/removals in this task (including screenshot files) are finished.
    - Acceptance criteria coverage: final documentation readiness for AC 1-28.
    - Done when: `design.md` has no known drift and all Mermaid blocks are syntax-valid and behavior-accurate.
-14. [ ] Confirm [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) is fully current after all code/test/documentation changes.
+14. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) so it is fully current after all code/test/documentation changes.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-   - Description: Verify all changed, added, and removed files for the story are correctly reflected in structure documentation.
+   - Description: Update and verify that all added, removed, and modified files for the story (including screenshot artifacts) are correctly reflected in structure documentation.
    - Purpose: Ensure file-map documentation remains accurate for maintainers and reviewers.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task (including screenshot files) are finished.
    - Acceptance criteria coverage: final documentation readiness for AC 1-28.
-   - Done when: `projectStructure.md` matches final repository state with no missing entries.
+   - Done when: `projectStructure.md` matches final repository state with no missing entries and explicitly includes all added and removed files from this task.
 15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: this task's implementation notes section for recording final lint/format results.

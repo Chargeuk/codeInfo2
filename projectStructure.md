@@ -41,6 +41,25 @@ Modified files (implementation traceability):
 - `design.md`
 - `server/src/agents/service.ts`
 
+## Story 0000039 Task 3 structural change ledger
+
+Added files:
+
+- `client/src/test/agentsApi.promptsList.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/api/agents.ts`
+- `design.md`
+
 ## Story 0000038 Tasks 1-7 structural change ledger
 
 Added files:

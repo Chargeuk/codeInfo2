@@ -146,6 +146,47 @@ flowchart TD
   M --> N[return prompts + discovery.complete]
 ```
 
+## Agents prompts client API contract (Story 0000039 Task 3)
+
+- Added `listAgentPrompts({ agentName, working_folder })` in `client/src/api/agents.ts`.
+- Client request contract:
+  - `GET /agents/{agentName}/prompts?working_folder=<value>` with `working_folder` encoded via `URLSearchParams`.
+  - Uses the shared agents API error parser + `throwAgentApiError(...)` for non-2xx responses.
+- Response contract:
+  - success shape `{ prompts: Array<{ relativePath, fullPath }> }`.
+  - malformed prompt records are ignored by the parser, preserving stable typed output.
+- Required client observability prefixes:
+  - `[agents.prompts.api.request]`
+  - `[agents.prompts.api.success]`
+  - `[agents.prompts.api.error]`
+
+```mermaid
+sequenceDiagram
+  participant UI as AgentsPage
+  participant API as listAgentPrompts
+  participant REST as GET /agents/{agentName}/prompts
+
+  UI->>API: listAgentPrompts({ agentName, working_folder })
+  API->>API: encode query with URLSearchParams
+  API->>API: log [agents.prompts.api.request]
+  API->>REST: fetch /agents/{agentName}/prompts?working_folder=...
+  alt 2xx success
+    REST-->>API: { prompts: [{ relativePath, fullPath }] }
+    API->>API: parse typed prompts array
+    API->>API: log [agents.prompts.api.success]
+    API-->>UI: { prompts }
+  else non-2xx response
+    REST-->>API: structured or text error body
+    API->>API: throwAgentApiError(...)
+    API->>API: log [agents.prompts.api.error]
+    API-->>UI: throw AgentApiError
+  else network failure
+    REST-->>API: fetch rejection
+    API->>API: log [agents.prompts.api.error]
+    API-->>UI: throw network error
+  end
+```
+
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
 - Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
 - Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.

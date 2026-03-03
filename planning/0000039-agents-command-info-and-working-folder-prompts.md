@@ -729,7 +729,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 3. Client Message Contract: add `listAgentPrompts` API client and contract tests
 
-- Task Status: **__to_do__**
+- Task Status: **__completed__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -746,7 +746,7 @@ Add the frontend API function that consumes the new server prompt-discovery cont
 
 #### Subtasks
 
-1. [ ] Add `listAgentPrompts(...)` API method.
+1. [x] Add `listAgentPrompts(...)` API method.
    - Files: [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts)
    - Read first: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API and https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
    - Implement exactly:
@@ -754,85 +754,85 @@ Add the frontend API function that consumes the new server prompt-discovery cont
      - return type `{ prompts: Array<{ relativePath: string; fullPath: string }> }`.
    - Reuse existing URL base and `encodeURIComponent(agentName)` style in the same file, and reuse the query-string construction pattern already used in [client/src/components/ingest/ingestDirsApi.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/components/ingest/ingestDirsApi.ts) (`URLSearchParams`) to avoid bespoke encoding logic.
 
-2. [ ] Reuse existing API error parsing behavior.
+2. [x] Reuse existing API error parsing behavior.
    - Files: [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts)
    - Read first: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Implement exactly: call existing non-2xx parser and `throwAgentApiError(...)` so status/code/message handling remains consistent with other agents APIs.
 
-3. [ ] Add API URL-path construction test for prompts endpoint.
+3. [x] Add API URL-path construction test for prompts endpoint.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: create `client/src/test/agentsApi.promptsList.test.ts` if it does not already exist, then add a test asserting the request uses `GET /agents/:agentName/prompts` with the correct path structure.
    - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify endpoint routing correctness in client API layer.
 
-4. [ ] Add API `working_folder` query-encoding test.
+4. [x] Add API `working_folder` query-encoding test.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test asserting `working_folder` is URL encoded correctly for spaces/slashes/backslashes.
    - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify query encoding safety and cross-platform path support.
 
-5. [ ] Add API success payload parsing test.
+5. [x] Add API success payload parsing test.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test asserting successful response parses into typed `{ prompts }` output.
    - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify happy-path response handling in API client.
 
-6. [ ] Add API JSON error parsing test.
+6. [x] Add API JSON error parsing test.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test asserting JSON error responses surface `error`, `code`, and `message` through `AgentApiError`.
    - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify structured error propagation.
 
-7. [ ] Add API non-JSON error fallback test.
+7. [x] Add API non-JSON error fallback test.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test asserting non-JSON responses produce stable fallback error values.
    - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify robust error behavior for malformed responses.
 
-8. [ ] Add API network rejection handling test.
+8. [x] Add API network rejection handling test.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test where fetch rejects and assert promise rejection maps to stable client error behavior.
    - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify transport-layer failure handling.
 
-9. [ ] Add API `400 invalid_request` mapping test for prompts endpoint.
+9. [x] Add API `400 invalid_request` mapping test for prompts endpoint.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test asserting missing/invalid `working_folder` server responses map to expected error code/message fields.
    - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify contract-level error mapping for required query validation.
 
-10. [ ] Add API `404 not_found` mapping test for unknown agent.
+10. [x] Add API `404 not_found` mapping test for unknown agent.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test asserting `404 { error: 'not_found' }` is propagated through `AgentApiError` as expected.
    - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify unknown-agent error mapping for prompts endpoint.
 
-11. [ ] Add API `500 agent_prompts_failed` mapping test.
+11. [x] Add API `500 agent_prompts_failed` mapping test.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test asserting `500 { error: 'agent_prompts_failed' }` is propagated through `AgentApiError` as expected.
    - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify server-failure error mapping for prompts endpoint.
 
-12. [ ] Update design documentation for client prompt-list API flow.
+12. [x] Update design documentation for client prompt-list API flow.
    - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
    - Implement exactly: add/update API-client contract notes for `listAgentPrompts(...)` and include a Mermaid sequence diagram covering client call, query encoding, and error propagation back to UI state.
 
-13. [ ] Update structure docs only if files changed.
+13. [x] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `client/src/test/agentsApi.promptsList.test.ts` when created. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-14. [ ] Add client API observability log lines for prompts-list requests.
+14. [x] Add client API observability log lines for prompts-list requests.
    - Files: [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts)
    - Implement exactly: emit browser debug logs with these exact prefixes:
      - `[agents.prompts.api.request] agentName=<agentName> workingFolder=<working_folder>` before `fetch`.
@@ -840,24 +840,44 @@ Add the frontend API function that consumes the new server prompt-discovery cont
      - `[agents.prompts.api.error] agentName=<agentName> status=<status|none> code=<code|none>` on rejected responses/errors.
    - Purpose: allow Manual Playwright-MCP checks to confirm request/response/error events fire in the expected sequence.
 
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+15. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests without using the wrapper commands listed below.
 
-1. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, commit `working_folder`, and verify browser debug console shows `[agents.prompts.api.request]` followed by `[agents.prompts.api.success]` for success; force one failure path and verify `[agents.prompts.api.error]` includes status/code fields. Capture screenshots `0000039-task3-prompts-api-success.png` and `0000039-task3-prompts-api-error.png`, store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped within `docker-compose.local.yml`), and review them with the agent to confirm the GUI success/error states match this task’s expectations. Expected outcome: each request emits exactly one request log plus one success/error log, screenshots confirm expected UI states, and no unrelated console errors.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, commit `working_folder`, and verify browser debug console shows `[agents.prompts.api.request]` followed by `[agents.prompts.api.success]` for success; force one failure path and verify `[agents.prompts.api.error]` includes status/code fields. Capture screenshots `0000039-task3-prompts-api-success.png` and `0000039-task3-prompts-api-error.png`, store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped within `docker-compose.local.yml`), and review them with the agent to confirm the GUI success/error states match this task’s expectations. Expected outcome: each request emits exactly one request log plus one success/error log, screenshots confirm expected UI states, and no unrelated console errors.
+6. [x] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Added `listAgentPrompts({ agentName, working_folder })` in `client/src/api/agents.ts` targeting `GET /agents/:agentName/prompts?working_folder=...` and returning `{ prompts }`.
+- Subtask 2: Reused the existing `throwAgentApiError(...)` flow so status/code/message handling stays consistent with other agent API calls.
+- Subtask 3: Added URL-path assertion coverage in `client/src/test/agentsApi.promptsList.test.ts` for `GET /agents/:agentName/prompts`.
+- Subtask 4: Added query-encoding coverage proving `working_folder` round-trips via `URLSearchParams`.
+- Subtask 5: Added success payload parsing coverage for typed prompt entries `{ relativePath, fullPath }`.
+- Subtask 6: Added JSON error parsing coverage validating structured `code` + `message` propagation through `AgentApiError`.
+- Subtask 7: Added non-JSON error fallback coverage validating stable text-appended error messaging.
+- Subtask 8: Added network rejection coverage validating fetch transport errors are surfaced to callers.
+- Subtask 9: Added `400 invalid_request`/`WORKING_FOLDER_INVALID` mapping coverage for prompts endpoint validation failures.
+- Subtask 10: Added `404 not_found` mapping coverage for unknown agents.
+- Subtask 11: Added `500 agent_prompts_failed` mapping coverage for server discovery failures.
+- Subtask 12: Updated `design.md` with Task 3 client API contract notes and a Mermaid sequence diagram for request encoding, success parse, and error propagation.
+- Subtask 13: Updated `projectStructure.md` with a Task 3 structural change ledger including `client/src/test/agentsApi.promptsList.test.ts` and modified files.
+- Subtask 14: Added required client observability logs `[agents.prompts.api.request]`, `[agents.prompts.api.success]`, and `[agents.prompts.api.error]` around prompts-list fetch lifecycle.
+- Subtask 15: Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; lint returned pre-existing server import-order warnings only, and all format checks passed.
+- Testing step 1: `npm run build:summary:client` passed; reviewed `logs/test-summaries/build-client-latest.log` for non-zero warning count (`warnings: 1`) and confirmed it is a Vite chunk-size advisory only (no build failure).
+- Testing step 2: `npm run test:summary:client` passed with `tests run: 413`, `passed: 413`, `failed: 0` (`test-results/client-tests-2026-03-03T07-52-54-386Z.log`).
+- Testing step 3: `npm run compose:build:summary` passed with `items passed: 2` and `items failed: 0` (`logs/test-summaries/compose-build-latest.log`).
+- Testing step 4: `npm run compose:up` succeeded and brought up all required containers, including healthy `codeinfo2-server-1` and started `codeinfo2-client-1`.
+- Testing step 5: Manual Playwright-MCP check on `http://host.docker.internal:5001/agents` validated browser console prefixes for success and failure (`[agents.prompts.api.request]`, `[agents.prompts.api.success]`, `[agents.prompts.api.error] status=400 code=WORKING_FOLDER_INVALID`) by triggering prompts requests from the browser context against `http://host.docker.internal:5010`; screenshots were captured to `playwright-output-local/0000039-task3-prompts-api-success.png` and `playwright-output-local/0000039-task3-prompts-api-error.png`.
+- Testing step 6: `npm run compose:down` succeeded and removed all Task 3 test stack containers/networks.
 
 ---
 

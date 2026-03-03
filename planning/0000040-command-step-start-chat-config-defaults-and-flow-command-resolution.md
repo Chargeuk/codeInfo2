@@ -525,11 +525,12 @@ Add the run-request message contract for optional `startStep` with strict input 
    - optional `startStep` accepted,
    - invalid type rejected,
    - `INVALID_START_STEP` mapping shape.
-6. [ ] Update run contract in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and add/update OpenAPI tests in [server/src/test/unit/openapi.agents-commands.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.agents-commands.test.ts).
-7. [ ] Update documentation files changed by this task:
+6. [ ] Add/extend MCP Agents `run_command` regression tests in [server/src/test/unit/mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts) to prove this story does not change MCP input contract shape (no required `startStep`, no MCP payload drift).
+7. [ ] Update run contract in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and add/update OpenAPI tests in [server/src/test/unit/openapi.agents-commands.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.agents-commands.test.ts).
+8. [ ] Update documentation files changed by this task:
    - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -538,8 +539,9 @@ Add the run-request message contract for optional `startStep` with strict input 
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agents-commands-router-run.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.agents-commands.test.ts`
-7. [ ] `npm run compose:down`
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-agents-commands-run.test.ts`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.agents-commands.test.ts`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -661,14 +663,15 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - options `Step 1..Step N`,
    - reset to `1` on command change,
    - disabled when `N = 1`.
-3. [ ] Wire execute action payload in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) to pass `startStep` in `POST /agents/:agentName/commands/run`.
-4. [ ] Add/extend UI tests in [client/src/test/AgentsPage.commandStartStep.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/AgentsPage.commandStartStep.test.tsx) to verify visibility, enable/disable behavior, reset behavior, and outbound payload.
-5. [ ] Ensure row-level inline error handling for backend `INVALID_START_STEP` responses in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) with deterministic range message display.
-6. [ ] Update documentation files changed by this task:
+3. [ ] Add command-option step-count preview text in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) (for example `N steps`) using backend-provided `stepCount` so users can pick the correct command before choosing `Start step`.
+4. [ ] Wire execute action payload in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) to pass `startStep` in `POST /agents/:agentName/commands/run`.
+5. [ ] Add/extend UI tests in [client/src/test/AgentsPage.commandStartStep.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/AgentsPage.commandStartStep.test.tsx) to verify visibility, enable/disable behavior, reset behavior, command-option step-count preview text, and outbound payload.
+6. [ ] Ensure row-level inline error handling for backend `INVALID_START_STEP` responses in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) with deterministic range message display.
+7. [ ] Update documentation files changed by this task:
    - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
    - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -712,6 +715,7 @@ Implement shared default-source behavior for covered Codex fields so REST chat a
    - [server/src/test/unit/chat-defaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chat-defaults.test.ts)
    - [server/src/test/unit/chat-validators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chat-validators.test.ts)
    - [server/src/test/unit/mcp-codebase-question.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-codebase-question.test.ts).
+   - Include explicit cases for invalid TOML or invalid field values in `codex/chat/config.toml` to verify deterministic warnings and fallback-chain behavior without overwriting user config files.
 7. [ ] Update documentation files changed by this task:
    - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
    - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
@@ -931,11 +935,12 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
 
 1. [ ] Validate every acceptance criterion in this plan and record pass/fail notes in this task's Implementation notes.
 2. [ ] Run full regression wrappers (server unit/cucumber, client tests, e2e) and log any remediation required.
-3. [ ] Use Playwright MCP manual checks for AGENTS start-step, chat defaults initialization/warnings, and flow resolution failure/success behavior.
-4. [ ] Save screenshots to `test-results/screenshots/` using naming format `0000040-11-<short-name>.png`.
-5. [ ] Produce pull-request summary text covering all implemented tasks, tests, contract changes, and risks.
-6. [ ] Confirm `README.md`, `design.md`, and `projectStructure.md` are fully current.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+3. [ ] Run explicit non-regression checks that MCP Agents `run_command` contract remains unchanged for this story scope (no new `startStep` input requirement and no payload shape drift).
+4. [ ] Use Playwright MCP manual checks for AGENTS start-step, chat defaults initialization/warnings, and flow resolution failure/success behavior.
+5. [ ] Save screenshots to `test-results/screenshots/` using naming format `0000040-11-<short-name>.png`.
+6. [ ] Produce pull-request summary text covering all implemented tasks, tests, contract changes, and risks.
+7. [ ] Confirm `README.md`, `design.md`, and `projectStructure.md` are fully current.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 

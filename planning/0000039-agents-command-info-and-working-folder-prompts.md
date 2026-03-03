@@ -1,6 +1,6 @@
 # Story 0000039 – Agents Command Info Popover and Working-Folder Prompts
 
-## Implementation Plan
+## Implementation Plan Instructions
 
 This is a list of steps that must be followed whilst working on a story. The first step of any plan is to copy this file to a new markdown document that starts with an index padded with zeroes starting at 1 and the title of the story. eg: ./planning/0000001-initial-skeleton-setup.md
 Create (or reuse if it already exists) the feature branch for this phase using the established naming convention (for example `feature/<number>-<Title>`).
@@ -307,3 +307,380 @@ Use a single end-to-end approach that reuses existing Agents route/service patte
 - `npm run build:summary:client`
 - `npm run build:summary:server`
 - Update documentation files already called out in scope (`README.md`, `design.md`, `projectStructure.md`) with final route and UX behavior once implementation details are finalized.
+
+# Implementation Plan
+
+## Instructions
+
+1. Read all sections above before implementation, especially Acceptance Criteria, Message Contracts and Storage Shapes, and Edge Cases and Failure Modes.
+2. Complete tasks in the exact order listed below.
+3. Keep each task focused to one testable implementation concern.
+4. Complete server contract/message tasks before frontend tasks that consume those contracts.
+5. Add or update deterministic tests in the same task that introduces behavior/contract changes.
+6. Use wrapper-first build/test commands from `AGENTS.md`.
+7. Update task status, subtasks, tests, implementation notes, and commit hashes as each task progresses.
+
+## Tasks
+
+### 1. Server Message Contract: add `GET /agents/:agentName/prompts` route contract and error mapping
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Define the new REST message contract at the router boundary before any frontend work depends on it. This task only introduces request validation, response envelope shape, and error mapping for prompt discovery, with service logic mocked/stubbed through existing dependency injection.
+
+#### Documentation Locations (External References Only)
+
+- Express routing and request/response basics: https://expressjs.com/en/guide/routing.html
+- HTTP status semantics (`400`, `404`, `500`): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+- Node test runner (`node:test`) patterns used in server tests: https://nodejs.org/api/test.html
+
+#### Subtasks
+
+1. [ ] Add a new route handler in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts) for `GET /:agentName/prompts`.
+   - Validate non-empty `agentName`.
+   - Validate required `working_folder` query string.
+2. [ ] Add route-level request parsing for `working_folder` query value.
+   - Reject missing/blank values with `400 { error: 'invalid_request', message: 'working_folder is required' }`.
+3. [ ] Add dependency wiring in `createAgentsCommandsRouter(...)` for a new service method (for example `listAgentPrompts`) without implementing discovery logic yet.
+4. [ ] Implement route response envelope for success: `200 { prompts: Array<{ relativePath, fullPath }> }`.
+5. [ ] Implement route error mapping:
+   - `AGENT_NOT_FOUND` -> `404 { error: 'not_found' }`
+   - `WORKING_FOLDER_INVALID` / `WORKING_FOLDER_NOT_FOUND` -> `400 { error: 'invalid_request', code, message }`
+   - fallback -> `500 { error: 'agent_prompts_failed' }`
+6. [ ] Add unit tests in [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts) or a dedicated new router test file for:
+   - success payload shape,
+   - missing/blank `working_folder`,
+   - `AGENT_NOT_FOUND` mapping,
+   - `WORKING_FOLDER_*` mappings,
+   - generic `500` mapping.
+7. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
+8. [ ] Run workspace lint/format checks as final subtask for this task:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agents-commands-router-list.test.ts`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 2. Server: implement prompt discovery service (case-insensitive `.github/prompts`, recursive markdown scan, deterministic ordering)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Implement the actual prompt discovery behavior in the server service layer with filesystem safety and deterministic ordering guarantees. This task is backend-only and test-focused, and it is independent of frontend rendering.
+
+#### Documentation Locations (External References Only)
+
+- Node `fs` API (`readdir`, `Dirent`, `lstat`/`stat`): https://nodejs.org/api/fs.html
+- Node `path` API (`resolve`, `relative`, separators): https://nodejs.org/api/path.html
+- Node test runner (`node:test`) patterns: https://nodejs.org/api/test.html
+
+#### Subtasks
+
+1. [ ] Add service-level contract in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) (for example `listAgentPrompts({ agentName, working_folder })`).
+2. [ ] Reuse `resolveWorkingFolderWorkingDirectory(...)` to resolve/validate `working_folder` before traversal.
+3. [ ] Implement case-insensitive segment matching for `.github/prompts` under resolved working folder.
+4. [ ] Implement recursive traversal under prompts root:
+   - include markdown files only (`.md`, case-insensitive),
+   - ignore symlink entries,
+   - skip non-markdown files.
+5. [ ] Return `{ prompts: Array<{ relativePath, fullPath }> }` with:
+   - `relativePath` normalized to `/`,
+   - deterministic ascending sort by normalized `relativePath`.
+6. [ ] Add service unit tests in [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts) or a dedicated `agent-prompts-list.test.ts` for:
+   - case-insensitive folder resolution,
+   - recursive markdown discovery,
+   - symlink ignore behavior,
+   - deterministic ordering,
+   - zero-results behavior.
+7. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
+8. [ ] Run workspace lint/format checks as final subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agent-prompts-list.test.ts`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 3. Client Message Contract: add `listAgentPrompts` API client and contract tests
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Add the frontend API function that consumes the new server prompt-discovery contract, with strict response typing and existing error parsing behavior. This task is isolated to the API layer and its tests.
+
+#### Documentation Locations (External References Only)
+
+- Fetch API basics: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- URL query parameter handling: https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
+- Jest assertions for request/response shape tests: https://jestjs.io/docs/expect
+
+#### Subtasks
+
+1. [ ] Add `listAgentPrompts(...)` in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts).
+   - Endpoint: `GET /agents/:agentName/prompts?working_folder=...`
+   - Return type: `{ prompts: Array<{ relativePath: string; fullPath: string }> }`.
+2. [ ] Reuse existing `AgentApiError` parsing flow for non-2xx responses.
+3. [ ] Add API unit tests in a new file (for example `client/src/test/agentsApi.promptsList.test.ts`) for:
+   - correct URL/query construction,
+   - success payload parsing,
+   - non-JSON/JSON error parsing behavior.
+4. [ ] Add API unit test coverage for `400 invalid_request` with missing/invalid working folder messages/codes.
+5. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
+6. [ ] Run workspace lint/format checks as final subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:client`
+2. [ ] `npm run test:summary:client -- --file client/src/test/agentsApi.promptsList.test.ts`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 4. Frontend: move command description to command-info popover and remove inline command description area
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Implement only the command-info UX change: remove always-visible inline command description and add a command-info popover interaction that mirrors the existing agent-info pattern.
+
+#### Documentation Locations (External References Only)
+
+- MUI Popover component docs (v6.4.12): https://llms.mui.com/material-ui/6.4.12/components/popover.md
+- MUI IconButton API docs (v6.4.12): https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
+- React Testing Library interaction patterns: https://testing-library.com/docs/react-testing-library/intro
+
+#### Subtasks
+
+1. [ ] Update [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) to remove inline command description rendering.
+2. [ ] Add command-info icon button in command row.
+   - Disabled when no command selected.
+3. [ ] Add command-info popover state and rendering for selected-command description.
+4. [ ] Ensure no-command state remains understandable and non-crashing.
+5. [ ] Update [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx) for removal of inline text expectations.
+6. [ ] Extend [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx) pattern for command-info popover behavior.
+7. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
+8. [ ] Run workspace lint/format checks as final subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:client`
+2. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.commandsList.test.tsx`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 5. Frontend: implement prompt discovery UI state model (commit events, latest-response-wins, error vs zero-result behavior)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Implement prompt discovery and selection UI behavior only, including commit-triggered discovery and stale-response protection. This task does not execute prompts yet.
+
+#### Documentation Locations (External References Only)
+
+- React state and effects guidance: https://react.dev/learn/synchronizing-with-effects
+- React controlled inputs: https://react.dev/reference/react-dom/components/input
+- MUI Select and TextField docs (v6.4.12): https://llms.mui.com/material-ui/6.4.12/components/selects.md
+- React Testing Library async/state tests: https://testing-library.com/docs/dom-testing-library/api-async
+
+#### Subtasks
+
+1. [ ] Add prompts discovery state in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx):
+   - prompt list,
+   - selected prompt,
+   - prompts loading,
+   - prompts error,
+   - committed working folder token.
+2. [ ] Trigger discovery only on committed events:
+   - `working_folder` blur,
+   - Enter in `working_folder`,
+   - directory picker selection.
+3. [ ] Prevent Enter in `working_folder` from submitting the instruction form.
+4. [ ] Implement stale-response handling so only latest committed-folder response updates prompt state.
+5. [ ] Implement prompts-area visibility rules:
+   - show on successful non-empty prompts,
+   - show inline error on failure for committed non-empty folder,
+   - hide when committed folder empty or successful zero results.
+6. [ ] Implement immediate prompt selection reset on committed `working_folder` change.
+7. [ ] Add/update page tests (new file recommended, e.g., `client/src/test/agentsPage.promptsDiscovery.test.tsx`) for:
+   - trigger timing,
+   - stale-response handling,
+   - visibility/error/zero-result split,
+   - reset on folder change.
+8. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
+9. [ ] Run workspace lint/format checks as final subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:client`
+2. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.promptsDiscovery.test.tsx`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 6. Frontend: implement Execute Prompt instruction composition and existing-run-path execution behavior
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Implement prompt execution by composing the canonical instruction string and sending it through the existing `runAgentInstruction` API path. This task must preserve run behavior and surface existing conflict/error outcomes cleanly.
+
+#### Documentation Locations (External References Only)
+
+- React event handling: https://react.dev/learn/responding-to-events
+- Existing API error handling patterns in client tests (Jest): https://jestjs.io/docs/expect
+- MUI Button interaction states: https://llms.mui.com/material-ui/6.4.12/api/button.md
+
+#### Subtasks
+
+1. [ ] Add Execute Prompt handler in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
+2. [ ] Compose outbound instruction exactly from canonical preamble, replacing `<full path of markdown file>` with selected prompt `fullPath`.
+3. [ ] Execute via existing `runAgentInstruction(...)` only.
+4. [ ] Keep Execute Prompt disabled unless selected prompt is valid and page run constraints permit.
+5. [ ] Preserve existing conflict and error UX handling (`RUN_IN_PROGRESS`, generic errors) without adding bespoke protocol branches.
+6. [ ] Add/update tests (new file recommended, e.g., `client/src/test/agentsPage.executePrompt.test.tsx`) for:
+   - exact instruction payload composition,
+   - execute-button enable/disable behavior,
+   - conflict/error behavior,
+   - deleted/moved prompt at execution-time resulting in non-crash error flow.
+7. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
+8. [ ] Run workspace lint/format checks as final subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:client`
+2. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.executePrompt.test.tsx`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 7. Documentation: update story-facing product and architecture docs for final 0000039 behavior
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Capture final behavior in repository docs once implementation is complete, including API contract updates, UX behavior, and file map changes.
+
+#### Documentation Locations (External References Only)
+
+- Markdown guide for consistent formatting: https://www.markdownguide.org/basic-syntax/
+- Mermaid syntax (if diagrams updated): https://mermaid.js.org/syntax/sequenceDiagram.html
+
+#### Subtasks
+
+1. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) with user-facing behavior updates for command info and prompt execution flow.
+2. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) with API contract and interaction flow updates (including prompt discovery + execute flow).
+3. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for all files added/removed across this story.
+4. [ ] Run workspace lint/format checks as final subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 8. Final verification: full acceptance and regression gate for story 0000039
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Run full validation for the complete story, verify acceptance criteria end-to-end, and prepare final implementation summary evidence.
+
+#### Documentation Locations (External References Only)
+
+- Docker/Compose basics: https://docs.docker.com/compose/
+- Playwright docs: https://playwright.dev/docs/intro
+- Jest docs: https://jestjs.io/docs/getting-started
+- Cucumber guides: https://cucumber.io/docs/guides/
+
+#### Subtasks
+
+1. [ ] Build the server (`npm run build:summary:server`).
+2. [ ] Build the client (`npm run build:summary:client`).
+3. [ ] Perform a clean docker build (`npm run compose:build:clean`).
+4. [ ] Ensure [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) is fully updated for final behavior.
+5. [ ] Ensure [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) is fully updated (including any relevant diagrams).
+6. [ ] Ensure [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) reflects all file additions/removals.
+7. [ ] Create a full story implementation summary suitable for pull request description/comment.
+
+#### Testing
+
+1. [ ] `npm run test:summary:client`
+2. [ ] `npm run test:summary:server:unit`
+3. [ ] `npm run test:summary:server:cucumber`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:e2e`
+6. [ ] Use Playwright MCP/manual browser check for key acceptance criteria and save screenshots under `test-results/screenshots/` with names prefixed `0000039-<task-number>-<description>.png`.
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.

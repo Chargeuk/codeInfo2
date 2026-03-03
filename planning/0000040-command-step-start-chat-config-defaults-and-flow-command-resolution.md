@@ -65,7 +65,9 @@ Expected end-user outcome:
 
 ### Questions
 
-None.
+1. For default chat model sourcing, should `codex/chat/config.toml` top-level `model` become the default for Codex chat model selection (replacing `CHAT_DEFAULT_MODEL`) while provider default selection logic remains unchanged?
+2. If `codex/chat/config.toml` omits one or more Codex default fields (`sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `web_search`, network access), should missing values fall back to Codex SDK/native defaults rather than environment-variable defaults?
+3. For flow command fallback resolution, should fallback to codeInfo2/other repositories occur only when command is **not found**, and not when a same-source match exists but fails schema validation (which should fail fast)?
 
 ### Research Findings (2026-03-03)
 

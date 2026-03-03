@@ -91,6 +91,56 @@ Expected end-user outcome:
 26. Flow command resolution fix is covered by automated tests for: same-source success, same-source missing command with codeInfo2 fallback, deterministic "other repository" fallback ordering, and same-source schema-invalid fail-fast without fallback.
 27. Deterministic repository ordering comparison for fallback is case-insensitive ASCII on `sourceLabel`, then case-insensitive ASCII on full source path.
 
+### Message Contracts and Storage Shapes
+
+This section defines contract and persistence impacts up front so implementation does not duplicate or accidentally drift existing shapes.
+
+1. REST contract changes required by this story
+
+- `GET /agents/:agentName/commands`
+  - Existing response item shape:
+    - `{ name, description, disabled, sourceId?, sourceLabel? }`
+  - Updated response item shape for this story:
+    - `{ name, description, disabled, stepCount, sourceId?, sourceLabel? }`
+  - `stepCount` is required and must be an integer `>= 1`.
+
+- `POST /agents/:agentName/commands/run`
+  - Existing request body shape:
+    - `{ commandName, sourceId?, conversationId?, working_folder? }`
+  - Updated request body shape for this story:
+    - `{ commandName, startStep?, sourceId?, conversationId?, working_folder? }`
+  - `startStep` is optional for backward compatibility; when omitted, server executes from step `1`.
+  - `startStep` must be integer within `[1, stepCount]`.
+  - Invalid `startStep` contract:
+    - `400 { error: 'invalid_request', code: 'INVALID_START_STEP', message: 'startStep must be between 1 and N' }`
+
+- `POST /agents/:agentName/commands/run` success response remains unchanged:
+  - `202 { status: 'started', agentName, commandName, conversationId, modelId }`
+
+2. REST/MCP/WebSocket contracts that remain unchanged
+
+- `POST /chat` request/response shape remains unchanged; only default-value sourcing changes behind existing fields.
+- `GET /chat/models` and `GET /chat/providers` payload shape remains unchanged; only `codexDefaults`/`codexWarnings` value origin changes.
+- MCP `codebase_question` request/response shape remains unchanged.
+- MCP Agents `run_command` tool contract remains unchanged for this story scope (`AGENTS` page start-step only).
+- WebSocket event schemas remain unchanged (`WsInflightSnapshotEvent`, `WsTurnFinalEvent`, and existing `command` metadata shape).
+
+3. Flow-run contract behavior in scope
+
+- `POST /flows/:flowName/run` request/response/error envelope remains unchanged.
+- Flow command-resolution fix is an internal lookup/order behavior change.
+- For same-source schema-invalid commands, failure remains surfaced through existing failed-turn/final-status channels, not a new transport contract.
+
+4. Storage and persistence impact
+
+- No Mongo schema changes required:
+  - Conversation document shape remains unchanged.
+  - Turn document shape remains unchanged (existing `command: { name, stepIndex, totalSteps }` is sufficient).
+- No in-memory runtime shape changes required:
+  - Inflight registry shape remains unchanged.
+  - Memory conversation/turn shapes remain unchanged.
+- No migration/backfill required for this story.
+
 ### Out Of Scope
 
 - Redesigning full command authoring format beyond start-step execution support.
@@ -270,6 +320,7 @@ None.
   - AGENTS command-list payload currently does not provide `stepCount`.
   - Flow command loading currently reads only `<agentHome>/commands/<name>.json` and does not use flow source repository fallback order.
   - REST chat and MCP codebase-question still source Codex defaults from env-backed paths in key locations.
+  - Existing Mongo/in-memory shapes already support this story without schema changes (`Turn.command` already stores `{ name, stepIndex, totalSteps }`).
 - `deepwiki` tool check failed because repository `Chargeuk/codeInfo2` is not indexed in this environment at research time.
 - `context7` tool check failed because no valid Context7 API key is configured in this environment at research time.
 - npm registry live checks (2026-03-03) confirm:

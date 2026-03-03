@@ -391,6 +391,7 @@ Define the new REST message contract at the router boundary before any frontend 
      - success payload shape,
      - invalid/malformed `agentName` -> `400 { error: 'invalid_request' }`,
      - missing/blank/non-string `working_folder` -> `400 invalid_request`,
+     - array/object query forms for `working_folder` are rejected with `400 invalid_request`,
      - `AGENT_NOT_FOUND` -> `404 not_found`,
      - `WORKING_FOLDER_INVALID` and `WORKING_FOLDER_NOT_FOUND` -> `400 invalid_request` with code,
      - unknown error -> `500 agent_prompts_failed`.
@@ -489,11 +490,14 @@ Implement the actual prompt discovery behavior in the server service layer with 
    - Files: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Read first: https://nodejs.org/api/test.html and https://nodejs.org/api/fs.html
    - Implement exactly these test cases:
+     - `AGENT_NOT_FOUND` when unknown `agentName` is requested,
+     - `WORKING_FOLDER_INVALID` and `WORKING_FOLDER_NOT_FOUND` pass-through behavior from working-folder resolution,
      - case-insensitive `.github/prompts` matching,
      - recursive discovery,
      - extension coverage (`.md`, `.MD`, `*.prompt.md`) and non-markdown exclusion,
      - symlink ignore behavior,
      - deterministic sorted output,
+     - output shape safety (`fullPath` absolute runtime path and `relativePath` never absolute / never starts with `..`),
      - zero results when prompts directory missing,
      - zero results when prompts directory exists but has no markdown files.
 
@@ -565,6 +569,7 @@ Add the frontend API function that consumes the new server prompt-discovery cont
    - Implement exactly these assertions:
      - JSON error body parsing (`error`, `code`, `message`),
      - non-JSON error fallback handling,
+     - fetch/network rejection handling (request promise rejects with stable error contract),
      - `400 invalid_request` scenarios for missing/invalid `working_folder`.
 
 5. [ ] Update structure docs only if files changed.
@@ -631,6 +636,7 @@ Introduce the command-info icon and popover interaction only. This task does not
      - button present in command row,
      - button disabled with no selected command,
      - popover opens and shows selected command description,
+     - popover remains closed when no command is selected,
      - closing popover works.
 
 5. [ ] Update structure docs only if files changed.
@@ -782,6 +788,8 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
    - Implement exactly these assertions:
      - latest committed-folder response wins,
      - stale response is ignored,
+     - stale error from older request does not overwrite latest success state,
+     - stale success from older request does not overwrite latest error state,
      - Enter in `working_folder` does not submit main instruction.
 
 8. [ ] Update structure docs only if files changed.
@@ -865,7 +873,9 @@ Implement prompts selector rendering rules and selection/reset behavior once req
    - Implement exactly these assertions:
      - visibility split (has prompts vs error vs zero results),
      - relative-path-only labels and empty option behavior,
+     - rendered option labels never expose absolute `fullPath` values,
      - prompt selection reset on folder change,
+     - clearing committed folder hides prompts row and clears prior prompts error state,
      - execute enable/disable behavior.
 
 7. [ ] Update structure docs only if files changed.
@@ -950,6 +960,7 @@ Implement prompt execution by composing the canonical instruction string and dis
      - `fullPath` used (not `relativePath`),
      - committed `working_folder` forwarded,
      - execute button enable/disable behavior,
+     - `409 RUN_IN_PROGRESS` from execute prompt path uses existing conflict UX and does not crash,
      - deleted/moved prompt error surfaces without crash.
 
 8. [ ] Add regression assertions for unchanged non-prompt execution paths.

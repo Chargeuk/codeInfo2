@@ -347,6 +347,7 @@ Define the new REST message contract at the router boundary before any frontend 
 - HTTP status semantics (`400`, `404`, `500`): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status (used to keep error mapping precise and consistent with REST contract expectations)
 - Node test runner (`node:test`) patterns: https://nodejs.org/api/test.html (used for writing deterministic unit tests and subtests in server router test files)
 - OpenAPI 3.1 specification: https://swagger.io/specification/ (used to update `GET /agents/{agentName}/prompts` schema, params, and error response contracts correctly)
+- Context7 Mermaid docs: `/mermaid-js/mermaid` (used to keep `design.md` Mermaid route-flow diagrams valid while documenting this task)
 
 #### Subtasks
 
@@ -455,12 +456,17 @@ Define the new REST message contract at the router boundary before any frontend 
    - Read first: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - Implement exactly: add `GET /agents/{agentName}/prompts` with required `working_folder` query, `200` schema `{ prompts: [{ relativePath, fullPath }] }`, and `400`/`404`/`500` error schema mapping.
 
-17. [ ] Update structure docs only if files changed.
+17. [ ] Update design documentation for router contract and error flow.
+   - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
+   - Implement exactly: add/update `GET /agents/{agentName}/prompts` router validation/error-mapping notes and include a Mermaid sequence diagram showing request validation, service call, and status-code outcomes.
+
+18. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-18. [ ] Run lint and formatting as the final subtask for this task.
+19. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
    - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
    - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
@@ -495,6 +501,7 @@ Implement the actual prompt discovery behavior in the server service layer with 
 - Node `fs` API (`readdir`, `Dirent`, symlink handling via `lstat`): https://nodejs.org/api/fs.html (used to implement recursive prompt discovery, markdown filtering, and symlink ignore behavior)
 - Node `path` API (`resolve`, `relative`, separator normalization): https://nodejs.org/api/path.html (used to guarantee safe relative paths and deterministic slash-normalized output)
 - Node test runner (`node:test`) patterns: https://nodejs.org/api/test.html (used for filesystem-fixture unit tests and deterministic assertion structure)
+- Context7 Mermaid docs: `/mermaid-js/mermaid` (used to keep `design.md` Mermaid discovery-flow diagrams valid while documenting this task)
 
 #### Subtasks
 
@@ -600,12 +607,17 @@ Implement the actual prompt discovery behavior in the server service layer with 
    - Description: assert service returns `{ prompts: [] }` when prompts directory exists but contains no markdown files.
    - Purpose: verify non-error empty-state behavior for non-markdown-only trees.
 
-17. [ ] Update structure docs only if files changed.
+17. [ ] Update design documentation for prompt-discovery service flow.
+   - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - Read first: https://mermaid.js.org/syntax/flowchart.html and Context7 Mermaid docs `/mermaid-js/mermaid`
+   - Implement exactly: add/update service-layer discovery notes for case-insensitive `.github/prompts` lookup, recursive markdown filtering, symlink-ignore behavior, and include a Mermaid flowchart/sequence diagram for traversal and result shaping.
+
+18. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-18. [ ] Run lint and formatting as the final subtask for this task.
+19. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
    - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
    - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
@@ -639,6 +651,7 @@ Add the frontend API function that consumes the new server prompt-discovery cont
 - URL query parameter handling (`URLSearchParams`): https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams (used for correct `working_folder` encoding and stable query construction)
 - Jest `expect` assertions: https://jestjs.io/docs/expect (used to assert URL composition, payload parsing, and error-shape behavior in client API tests)
 - Context7 Jest docs: `/jestjs/jest` (used as MCP source for matcher, mocking, and async Jest patterns used in this task's tests)
+- Context7 Mermaid docs: `/mermaid-js/mermaid` (used to keep `design.md` Mermaid API-call diagrams valid while documenting this task)
 
 #### Subtasks
 
@@ -697,12 +710,17 @@ Add the frontend API function that consumes the new server prompt-discovery cont
    - Description: add a test asserting missing/invalid `working_folder` server responses map to expected error code/message fields.
    - Purpose: verify contract-level error mapping for required query validation.
 
-10. [ ] Update structure docs only if files changed.
+10. [ ] Update design documentation for client prompt-list API flow.
+   - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
+   - Implement exactly: add/update API-client contract notes for `listAgentPrompts(...)` and include a Mermaid sequence diagram covering client call, query encoding, and error propagation back to UI state.
+
+11. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-11. [ ] Run lint and formatting as the final subtask for this task.
+12. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
    - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
    - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
@@ -737,6 +755,7 @@ Introduce the command-info icon and popover interaction only. This task does not
 - MUI v6 migration notes: https://mui.com/material-ui/migration/upgrade-to-v6/ (used to confirm compatibility assumptions while using v6-era APIs)
 - React Testing Library intro: https://testing-library.com/docs/react-testing-library/intro (used for interaction-level component tests around popover open/close and disabled controls)
 - Context7 Jest docs: `/jestjs/jest` (used as MCP source for component-test assertions and mock behavior in this task)
+- Context7 Mermaid docs: `/mermaid-js/mermaid` (used to keep `design.md` Mermaid UI-interaction diagrams valid while documenting this task)
 
 #### Subtasks
 
@@ -785,12 +804,17 @@ Introduce the command-info icon and popover interaction only. This task does not
    - Description: add a test that closes the popover and asserts it is no longer visible.
    - Purpose: verify close lifecycle behavior and user-dismiss flow.
 
-9. [ ] Update structure docs only if files changed.
+9. [ ] Update design documentation for command-info popover flow.
+   - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
+   - Implement exactly: add/update command-info interaction notes and include a Mermaid sequence diagram showing command selection, info-button enablement, popover open, and close flow.
+
+10. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-10. [ ] Run lint and formatting as the final subtask for this task.
+11. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
    - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
    - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
@@ -824,6 +848,7 @@ Remove the old always-visible inline command description behavior now that comma
 - DOM Testing Library query priority guide: https://testing-library.com/docs/queries/about (used to keep assertions user-facing and resilient when checking removed text/UI)
 - Jest `expect` assertions: https://jestjs.io/docs/expect (used for negative assertions like “text not present” and control-state regression checks)
 - Context7 Jest docs: `/jestjs/jest` (used as MCP source for Jest assertion and regression-test structure in this task)
+- Context7 Mermaid docs: `/mermaid-js/mermaid` (used to keep `design.md` Mermaid UI-flow diagrams valid while documenting this task)
 
 #### Subtasks
 
@@ -861,12 +886,17 @@ Remove the old always-visible inline command description behavior now that comma
    - Description: add/keep a test asserting execute-command button enable/disable behavior remains unchanged.
    - Purpose: verify run-control behavior did not regress.
 
-7. [ ] Update structure docs only if files changed.
+7. [ ] Update design documentation for command-description flow removal.
+   - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
+   - Implement exactly: update architecture notes to remove legacy inline-description flow and include a Mermaid sequence diagram that reflects info-popover-only command-description access.
+
+8. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-8. [ ] Run lint and formatting as the final subtask for this task.
+9. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
    - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
    - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
@@ -901,6 +931,7 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
 - React event handling: https://react.dev/learn/responding-to-events (used to prevent unintended form submission from `working_folder` Enter key)
 - DOM Testing Library async APIs: https://testing-library.com/docs/dom-testing-library/api-async (used for timing-sensitive lifecycle tests and async state assertions)
 - Context7 Jest docs: `/jestjs/jest` (used as MCP source for async Jest test patterns and mock timing control in race-condition tests)
+- Context7 Mermaid docs: `/mermaid-js/mermaid` (used to keep `design.md` Mermaid request-lifecycle diagrams valid while documenting this task)
 
 #### Subtasks
 
@@ -993,12 +1024,17 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
    - Description: add a test asserting Enter in working-folder commits discovery without triggering instruction send.
    - Purpose: verify Enter key behavior is scoped correctly.
 
-16. [ ] Update structure docs only if files changed.
+16. [ ] Update design documentation for prompt-discovery request lifecycle.
+   - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
+   - Implement exactly: add/update lifecycle notes for commit-only discovery triggers, Enter-key behavior, and stale-response guard; include a Mermaid sequence diagram that shows latest-response-wins behavior.
+
+17. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-17. [ ] Run lint and formatting as the final subtask for this task.
+18. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
    - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
    - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
@@ -1035,6 +1071,7 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 - React conditional rendering: https://react.dev/learn/conditional-rendering (used for prompts-row show/hide behavior across success/error/empty states)
 - DOM Testing Library async APIs: https://testing-library.com/docs/dom-testing-library/api-async (used for UI transition assertions after async discovery responses)
 - Context7 Jest docs: `/jestjs/jest` (used as MCP source for component-state assertion and mock setup patterns in prompts UI tests)
+- Context7 Mermaid docs: `/mermaid-js/mermaid` (used to keep `design.md` Mermaid UI-state diagrams valid while documenting this task)
 
 #### Subtasks
 
@@ -1105,12 +1142,17 @@ Implement prompts selector rendering rules and selection/reset behavior once req
    - Description: add a test asserting Execute Prompt stays disabled without valid selection and enables with valid selection.
    - Purpose: verify action gating behavior.
 
-12. [ ] Update structure docs only if files changed.
+12. [ ] Update design documentation for prompts-row state transitions.
+   - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
+   - Implement exactly: add/update prompts visibility and selection-reset rules and include a Mermaid diagram that captures show/hide/error/empty and selection-reset transitions.
+
+13. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-13. [ ] Run lint and formatting as the final subtask for this task.
+14. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
    - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
    - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
@@ -1147,6 +1189,7 @@ Implement prompt execution by composing the canonical instruction string and dis
 - Jest `expect` assertions: https://jestjs.io/docs/expect (used for exact payload/composition assertions and conflict behavior checks)
 - DOM Testing Library async APIs: https://testing-library.com/docs/dom-testing-library/api-async (used for run-start/run-error async UI assertions)
 - Context7 Jest docs: `/jestjs/jest` (used as MCP source for payload assertion and conflict-regression Jest patterns in this task)
+- Context7 Mermaid docs: `/mermaid-js/mermaid` (used to keep `design.md` Mermaid execution-flow diagrams valid while documenting this task)
 
 #### Subtasks
 
@@ -1235,12 +1278,17 @@ Implement prompt execution by composing the canonical instruction string and dis
    - Description: add explicit assertion that Execute Command action still calls command-run endpoint.
    - Purpose: verify non-prompt command path remains unchanged.
 
-16. [ ] Update structure docs only if files changed.
+16. [ ] Update design documentation for Execute Prompt run flow.
+   - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
+   - Implement exactly: add/update Execute Prompt orchestration notes and include a Mermaid sequence diagram covering payload composition, call to `POST /agents/{agentName}/run`, and conflict/error handling.
+
+17. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-17. [ ] Run lint and formatting as the final subtask for this task.
+18. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
    - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
    - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
@@ -1274,6 +1322,7 @@ Capture final behavior in repository docs once implementation is complete, inclu
 
 - Markdown syntax guide: https://www.markdownguide.org/basic-syntax/ (used for consistent project-doc text updates)
 - Mermaid sequence diagram syntax: https://mermaid.js.org/syntax/sequenceDiagram.html (used when documenting final API/UI flow diagrams)
+- Context7 Mermaid docs: `/mermaid-js/mermaid` (used to verify Mermaid syntax and diagram features while updating `design.md`)
 - OpenAPI 3.1 specification: https://swagger.io/specification/ (used to verify that final route schema and error mapping documentation match contract format)
 
 #### Subtasks
@@ -1285,8 +1334,8 @@ Capture final behavior in repository docs once implementation is complete, inclu
 
 2. [ ] Update architecture/design notes.
    - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-   - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html
-   - Implement exactly: document new `GET /agents/{agentName}/prompts` contract and prompt execution interaction with existing `POST /agents/{agentName}/run`.
+   - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
+   - Implement exactly: document new `GET /agents/{agentName}/prompts` contract and prompt execution interaction with existing `POST /agents/{agentName}/run`, and include/update Mermaid diagrams for both discovery and execution flows.
 
 3. [ ] Update project structure file map.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
@@ -1335,6 +1384,7 @@ Run full validation for the complete story, verify acceptance criteria end-to-en
 - Cucumber guide (10-minute tutorial subpath): https://cucumber.io/docs/guides/10-minute-tutorial/ (used as canonical Cucumber guide reference for server BDD test expectations)
 - Markdown syntax guide: https://www.markdownguide.org/basic-syntax/ (used for final PR summary and documentation consistency)
 - Mermaid sequence diagram syntax: https://mermaid.js.org/syntax/sequenceDiagram.html (used when validating diagram updates in final verification)
+- Context7 Mermaid docs: `/mermaid-js/mermaid` (used to validate final Mermaid diagram syntax in `design.md` during verification)
 
 #### Subtasks
 
@@ -1355,7 +1405,7 @@ Run full validation for the complete story, verify acceptance criteria end-to-en
 
 4. [ ] Re-validate final README and design docs against implemented behavior.
    - Files: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-   - Read first: https://www.markdownguide.org/basic-syntax/ and https://mermaid.js.org/syntax/sequenceDiagram.html
+   - Read first: https://www.markdownguide.org/basic-syntax/, https://mermaid.js.org/syntax/sequenceDiagram.html, and Context7 Mermaid docs `/mermaid-js/mermaid`
    - Implement exactly: ensure docs fully reflect prompts API, UI behavior, and execution flow.
 
 5. [ ] Re-validate final file map.

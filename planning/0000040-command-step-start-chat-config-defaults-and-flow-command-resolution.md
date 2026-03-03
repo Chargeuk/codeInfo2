@@ -2145,7 +2145,8 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
 ### 10. Server: upgrade and pin `@openai/codex-sdk` to `0.107.0` with guard alignment
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits:
+  - `098436a3` — DEV-0000040 - implement Task 10 codex sdk 0.107.0 pin and guard alignment
 
 #### Overview
 

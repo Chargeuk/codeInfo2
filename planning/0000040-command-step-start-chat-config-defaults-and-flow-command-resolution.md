@@ -725,6 +725,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
 - HTTP status reference (MDN): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status (Used to keep `INVALID_START_STEP` error semantics consistent.)
 - Node.js test runner API: https://nodejs.org/api/test.html (Used for runner unit/integration assertions.)
 - Cucumber guides (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (Used as the Cucumber reference for this task's cucumber-suite verification step.)
+- Mermaid docs via Context7: `/mermaid-js/mermaid` (Use Mermaid syntax guidance when updating `design.md` execution-flow diagrams for this task.)
 - npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for wrapper command execution.)
 - Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
 
@@ -806,11 +807,11 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 24.
    - Done when: test fails if omission path diverges from step-1 default.
-12. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for execution-path changes and new test coverage.
-   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+12. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for execution-path changes and new test coverage, including a Mermaid sequence diagram for `startStep` execution flow and invalid-range failure path.
+   - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
-   - Done when: docs mention runtime start-step conversion and backward compatibility.
+   - Done when: docs mention runtime start-step conversion/backward compatibility and include valid Mermaid diagram syntax.
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 6, AC 7, AC 24, AC 25.
@@ -1089,6 +1090,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
 - OpenAI Codex config reference: https://developers.openai.com/codex/config-reference (Authoritative source for `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search` keys.)
 - OpenAI Codex config docs (repository docs mirror): https://raw.githubusercontent.com/openai/codex/main/docs/config.md (Used to cross-check canonical vs legacy config key behavior.)
 - Node.js test runner API: https://nodejs.org/api/test.html (Used for resolver fallback and warning-branch tests.)
+- Mermaid docs via Context7: `/mermaid-js/mermaid` (Use Mermaid syntax guidance when documenting resolver precedence and warning flows in `design.md`.)
 - npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
 - Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
 
@@ -1178,11 +1180,11 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
    - Acceptance criteria coverage: AC 16.
    - Done when: test fails if alias `false` maps to any value other than `disabled`.
-13. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for shared resolver behavior and touched test files.
-   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+13. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for shared resolver behavior and touched test files, including a Mermaid flow diagram for fallback precedence (`override > config > env > hardcoded`) and warning emission points.
+   - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
-   - Done when: docs describe precedence chain and file changes.
+   - Done when: docs describe precedence chain/file changes and include valid Mermaid diagram syntax.
 14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
@@ -1217,6 +1219,7 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
 - OpenAI Codex config reference: https://developers.openai.com/codex/config-reference (Source of truth for Codex default fields consumed by REST metadata and chat routes.)
 - Express routing guide: https://expressjs.com/en/guide/routing.html (Used for route integration in `chatModels.ts`, `chatProviders.ts`, and `chat.ts`.)
 - Node.js test runner API: https://nodejs.org/api/test.html (Used for route default/warning regression tests.)
+- Mermaid docs via Context7: `/mermaid-js/mermaid` (Use Mermaid syntax guidance when documenting REST defaults and warning propagation flows in `design.md`.)
 - npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
 - Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
 
@@ -1282,11 +1285,11 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
    - Done when: test fails if validator parity drifts.
-10. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for REST/default-source behavior.
-   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+10. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for REST/default-source behavior, including a Mermaid sequence diagram for resolver data flow through `chatModels`, `chatProviders`, and chat validation paths.
+   - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
-   - Done when: docs explain REST defaults are config-backed with warning behavior.
+   - Done when: docs explain REST defaults/warnings and include valid Mermaid diagram syntax.
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
@@ -1323,6 +1326,7 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
 - OpenAI Codex config reference: https://developers.openai.com/codex/config-reference (Source of truth for Codex thread-option defaults consumed by MCP `codebase_question`.)
 - DeepWiki OpenAI Codex documentation: https://deepwiki.com/openai/codex (Used for MCP/Codex integration behavior cross-reference when validating tool-alignment assumptions.)
 - Node.js test runner API: https://nodejs.org/api/test.html (Used for MCP tool happy/validation/unavailable test patterns.)
+- Mermaid docs via Context7: `/mermaid-js/mermaid` (Use Mermaid syntax guidance when documenting MCP and REST shared-default parity flow in `design.md`.)
 - npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
 - Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
 
@@ -1372,11 +1376,11 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
    - Done when: test fails if MCP and REST diverge.
-7. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for MCP default-source alignment.
-   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+7. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for MCP default-source alignment, including a Mermaid sequence diagram showing MCP `codebase_question` default resolution and parity with REST behavior.
+   - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
-   - Done when: docs explicitly call out MCP + REST parity for defaults.
+   - Done when: docs explicitly call out MCP + REST parity and include valid Mermaid diagram syntax.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
@@ -1413,6 +1417,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
 - Node.js `fs` API: https://nodejs.org/api/fs.html (Used for copy/write/read behavior and deterministic bootstrap IO handling.)
 - Node.js `path` API: https://nodejs.org/api/path.html (Used for deterministic config path construction and portability rules.)
 - Node.js test runner API: https://nodejs.org/api/test.html (Used for bootstrap branch coverage tests.)
+- Mermaid docs via Context7: `/mermaid-js/mermaid` (Use Mermaid syntax guidance when documenting bootstrap decision flow and warning branches in `design.md`.)
 - npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
 - Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
 
@@ -1482,11 +1487,11 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Docs to read first: https://nodejs.org/api/fs.html, https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 15.
    - Done when: test fails if partial file artifacts remain after failure.
-10. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for bootstrap behavior and touched tests.
-   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+10. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for bootstrap behavior and touched tests, including a Mermaid flow diagram for copy/template/non-overwrite branches and IO warning outcomes.
+   - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 15.
-   - Done when: docs state bootstrap order and non-overwrite rule.
+   - Done when: docs state bootstrap order/non-overwrite rule and include valid Mermaid diagram syntax.
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 15.
@@ -1616,6 +1621,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 - Node.js `path` API: https://nodejs.org/api/path.html (Used for normalized label/path ordering rules and deterministic comparator implementation.)
 - Node.js test runner API: https://nodejs.org/api/test.html (Used for red-green integration tests for resolver behavior.)
 - Cucumber guides (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (Cucumber reference for this task's cucumber-suite verification step.)
+- Mermaid docs via Context7: `/mermaid-js/mermaid` (Use Mermaid syntax guidance when documenting flow command-resolution ordering and fail-fast behavior in `design.md`.)
 - npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
 - Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
 
@@ -1701,11 +1707,11 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Docs to read first: https://nodejs.org/api/test.html, https://nodejs.org/api/path.html.
    - Acceptance criteria coverage: AC 19, AC 28.
    - Done when: test fails if equal-label ordering is non-deterministic.
-13. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for flow resolver ordering rules and added tests.
-   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+13. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for flow resolver ordering rules and added tests, including Mermaid flow/sequence diagrams that show same-source success, codeInfo2 fallback, and same-source schema-invalid fail-fast.
+   - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
-   - Done when: docs include exact resolver order and fail-fast behavior.
+   - Done when: docs include exact resolver order/fail-fast behavior and valid Mermaid diagram syntax.
 14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 18-21 and AC 27-28.
@@ -1739,7 +1745,7 @@ Perform documentation-only updates so product behavior, architecture notes, and 
 #### Documentation Locations (External References Only)
 
 - Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Used for README/design/projectStructure update formatting.)
-- Mermaid sequence diagram syntax: https://mermaid.js.org/syntax/sequenceDiagram.html (Used when documenting flow and route behavior diagrams.)
+- Mermaid docs via Context7: `/mermaid-js/mermaid` (Primary syntax reference for architecture and flow diagrams added to `design.md`.)
 - OpenAPI 3.1 specification: https://swagger.io/specification/ (Used to keep documentation and `openapi.json` contract text aligned.)
 - Node.js test runner API: https://nodejs.org/api/test.html (Used for interpreting openapi contract test evidence.)
 - npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
@@ -1750,10 +1756,10 @@ Perform documentation-only updates so product behavior, architecture notes, and 
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 1-8 and AC 10-16.
    - Done when: README reflects final behavior exactly as implemented.
-2. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) with architecture/flow details for start-step contracts and flow command resolver ordering/fail-fast behavior.
-   - Docs to read first: https://mermaid.js.org/syntax/sequenceDiagram.html, https://www.markdownguide.org/basic-syntax/.
+2. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) with architecture/flow details for start-step contracts and flow command resolver ordering/fail-fast behavior, including Mermaid diagrams for each changed flow.
+   - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
-   - Done when: design doc includes deterministic ordering and failure rules.
+   - Done when: design doc includes deterministic ordering/failure rules and valid Mermaid diagram syntax.
 3. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for all file additions/removals from tasks 1-11.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals from tasks 1-11 are finished.
@@ -1801,6 +1807,7 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
 - Cucumber 10-minute tutorial: https://cucumber.io/docs/guides/10-minute-tutorial/ (Primary Cucumber guides subpath used for BDD suite execution expectations.)
 - Cucumber parallel execution guide: https://cucumber.io/docs/guides/parallel-execution/ (Used for understanding multi-scenario execution behavior in wrapper runs.)
 - DeepWiki OpenAI Codex documentation: https://deepwiki.com/openai/codex (Used for MCP contract non-regression cross-check context.)
+- Mermaid docs via Context7: `/mermaid-js/mermaid` (Reference for validating all Mermaid diagrams added to `design.md` before story closure.)
 - Node.js test runner API: https://nodejs.org/api/test.html (Used for acceptance-evidence mapping to targeted server tests.)
 - npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for all wrapper commands executed in final verification.)
 - Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Used for final PR summary and implementation-note formatting.)
@@ -1894,11 +1901,11 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Files to read/edit: [0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md), [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Acceptance criteria coverage: release readiness communication for AC 1-28.
    - Done when: summary includes what changed, why, and proof points.
-12. [ ] Confirm [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) are fully current after all code/test changes.
-   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+12. [ ] Confirm [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) are fully current after all code/test changes, and verify all newly added Mermaid diagrams render and match implemented architecture/flow behavior.
+   - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Ordering requirement: complete this subtask after all file additions/removals in this task (including screenshot files) are finished.
    - Acceptance criteria coverage: final documentation readiness for AC 1-28.
-   - Done when: docs align with final code and tests with no known drift.
+   - Done when: docs align with final code/tests, with no known drift, and all Mermaid diagrams are syntax-valid.
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: this task's implementation notes section for recording final lint/format results.

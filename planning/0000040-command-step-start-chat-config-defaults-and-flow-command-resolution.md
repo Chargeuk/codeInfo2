@@ -510,7 +510,7 @@ Add the backend response contract for command list items so the frontend can ren
    - Acceptance criteria coverage: documentation support for AC 22, AC 23.
    - Done when: docs explicitly mention `stepCount` contract and touched file map changes.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 22, AC 23 implementation.
    - Done when: both commands pass with no remaining lint/format errors.
 
@@ -581,7 +581,7 @@ Add the run-request message contract for optional `startStep` with strict input 
    - Acceptance criteria coverage: documentation support for AC 24, AC 25.
    - Done when: docs list optional `startStep` and unchanged MCP scope.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 6, AC 7, AC 24, AC 25.
    - Done when: both commands pass.
 
@@ -643,7 +643,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
    - Done when: docs mention runtime start-step conversion and backward compatibility.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 6, AC 7, AC 24, AC 25.
    - Done when: both commands pass.
 
@@ -698,7 +698,7 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Acceptance criteria coverage: documentation support for AC 6, AC 22, AC 24.
    - Done when: docs show new client API payload/response shapes.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 6, AC 22, AC 24.
    - Done when: both commands pass.
 
@@ -761,7 +761,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Acceptance criteria coverage: documentation support for AC 1-8.
    - Done when: docs describe new control behavior and where implemented/tests live.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 1-8.
    - Done when: both commands pass.
 
@@ -820,7 +820,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: docs describe precedence chain and file changes.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
    - Done when: both commands pass.
 
@@ -876,7 +876,7 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: docs explain REST defaults are config-backed with warning behavior.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
    - Done when: both commands pass.
 
@@ -926,7 +926,7 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: docs explicitly call out MCP + REST parity for defaults.
 4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
    - Done when: both commands pass.
 
@@ -981,7 +981,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Acceptance criteria coverage: documentation support for AC 15.
    - Done when: docs state bootstrap order and non-overwrite rule.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 15.
    - Done when: both commands pass.
 
@@ -1042,7 +1042,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Acceptance criteria coverage: documentation support for AC 17, AC 26.
    - Done when: docs state pin version and guard coupling.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 17, AC 26.
    - Done when: both commands pass.
 
@@ -1107,7 +1107,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
    - Done when: docs include exact resolver order and fail-fast behavior.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 18-21 and AC 27-28.
    - Done when: both commands pass.
 
@@ -1160,7 +1160,7 @@ Perform documentation-only updates so product behavior, architecture notes, and 
    - Acceptance criteria coverage: AC 22, AC 23, AC 24, AC 25.
    - Done when: OpenAPI schema matches live request/response behavior.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: documentation quality gate.
    - Done when: both commands pass.
 
@@ -1198,27 +1198,33 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
 #### Subtasks
 
 1. [ ] Validate every acceptance criterion and record explicit pass/fail evidence with file/test references in this task’s implementation notes.
-   - Docs to read first: acceptance criteria list in this story, https://nodejs.org/api/test.html.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Files to read/edit: [0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md) (acceptance criteria + this task's implementation notes section).
    - Acceptance criteria coverage: AC 1-28.
    - Done when: every AC has a concrete evidence note (test name, endpoint check, or manual check).
 2. [ ] Run full regression wrappers (`server unit`, `server cucumber`, `client`, `e2e`) and record remediation notes for any failures.
-   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md), https://cucumber.io/docs/guides/, https://jestjs.io/docs/getting-started.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/, https://jestjs.io/docs/getting-started.
+   - Files to read/edit: `test-results/`, `logs/test-summaries/`, and this task's implementation notes section for recording outcomes.
    - Acceptance criteria coverage: regression validation for AC 1-28.
    - Done when: all required wrappers pass or remediation is fully completed and rerun.
 3. [ ] Run explicit MCP non-regression checks proving `run_command` contract did not gain required `startStep` input and payload shape did not drift.
-   - Docs to read first: [server/src/mcpAgents/tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts), https://nodejs.org/api/test.html.
+   - Docs to read first: https://deepwiki.com/openai/codex, https://nodejs.org/api/test.html.
+   - Files to read/edit: [server/src/mcpAgents/tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts), [server/src/test/unit/mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts).
    - Acceptance criteria coverage: AC 8, AC 24.
    - Done when: targeted MCP tests/assertions confirm unchanged contract.
 4. [ ] Execute Playwright MCP manual checks for AGENTS start-step behavior, chat default initialization/warnings, and flow resolver success/failure paths.
    - Docs to read first: `/microsoft/playwright`, `/docker/docs`.
+   - Files to read/edit: `test-results/screenshots/` (evidence output) and this task's implementation notes section.
    - Acceptance criteria coverage: AC 1-8, AC 10-16, AC 18-21.
    - Done when: manual checks match expected behavior and are documented.
 5. [ ] Save screenshots to `test-results/screenshots/` with naming format `0000040-13-<short-name>.png`.
    - Docs to read first: `/microsoft/playwright`.
+   - Files to read/edit: `test-results/screenshots/`.
    - Acceptance criteria coverage: final verification evidence for manual checks.
    - Done when: screenshots exist with correct naming convention and map to manual checks.
 6. [ ] Produce pull-request summary text covering all completed tasks, contract changes, tests run, and remaining risks.
-   - Docs to read first: this story tasks list and implementation notes.
+   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Files to read/edit: [0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md), [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Acceptance criteria coverage: release readiness communication for AC 1-28.
    - Done when: summary includes what changed, why, and proof points.
 7. [ ] Confirm [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) are fully current after all code/test changes.
@@ -1226,7 +1232,8 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Acceptance criteria coverage: final documentation readiness for AC 1-28.
    - Done when: docs align with final code and tests with no known drift.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
+   - Files to read/edit: this task's implementation notes section for recording final lint/format results.
    - Acceptance criteria coverage: final quality gate for story completion.
    - Done when: both commands pass at end of final verification.
 

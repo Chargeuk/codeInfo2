@@ -243,6 +243,7 @@ Use a single end-to-end approach that reuses existing Agents route/service patte
 1. Server routing and API surface
 - Extend [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts) with `GET /:agentName/prompts`.
 - Keep endpoint under the existing commands router namespace (mounted at `/agents`) to match current read-only list route patterns.
+- Reuse the existing `isAgentCommandsError` style and existing run/list route error mapping structure in this router; do not create a separate prompts router.
 - Accept `working_folder` as a query parameter and validate it as required, non-empty, and absolute via existing working-folder validation behavior.
 - Return `200 { prompts: [...] }` on success and map typed service errors to existing route conventions (`invalid_request`, `not_found`, `500 { error: 'agent_prompts_failed' }`).
 - Return `400 invalid_request` when `working_folder` query is missing/blank so endpoint behavior is explicit and testable.
@@ -250,6 +251,7 @@ Use a single end-to-end approach that reuses existing Agents route/service patte
 2. Server service implementation
 - Add a new service function in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts), for example `listAgentPrompts({ agentName, working_folder })`.
 - Reuse `resolveWorkingFolderWorkingDirectory(...)` for runtime/container path resolution, so the client never performs host/container mapping logic.
+- Reuse the local+ingested source fan-out approach already used in `listAgentCommands(...)` and `listIngestedRepositories(...)` so prompt discovery behaves consistently across local and ingested sources.
 - Verify agent existence using existing discovery path (`discoverAgents`) before scanning for prompts.
 - Implement case-insensitive folder resolution for `.github/prompts` by matching each path segment against on-disk directory entries at each level.
 - Walk the resolved prompts directory recursively, include only markdown files (`.md`, case-insensitive), ignore symlink entries, and skip non-markdown files.
@@ -349,9 +351,11 @@ Define the new REST message contract at the router boundary before any frontend 
    - Validate required `working_folder` query string.
 2. [ ] Add route-level request parsing for `working_folder` query value.
    - Reject missing/blank values with `400 { error: 'invalid_request', message: 'working_folder is required' }`.
+   - Follow existing route validator style used in `agentsRun.ts` and `agentsCommands.ts` (typed parse helper + deterministic `invalid_request` messages), rather than ad-hoc inline checks in multiple places.
 3. [ ] Add dependency wiring in `createAgentsCommandsRouter(...)` for new service method `listAgentPrompts`.
    - Update `Deps` type to include `listAgentPrompts`.
    - Add default dependency mapping from `server/src/agents/service.ts` without changing existing keys (`listAgentCommands`, `startAgentCommand`).
+   - Keep route mounted in the existing `createAgentsCommandsRouter` path; do not create a new router module.
 4. [ ] Implement route response envelope for success: `200 { prompts: Array<{ relativePath, fullPath }> }`.
 5. [ ] Implement route error mapping:
    - `AGENT_NOT_FOUND` -> `404 { error: 'not_found' }`
@@ -413,7 +417,9 @@ Implement the actual prompt discovery behavior in the server service layer with 
 #### Subtasks
 
 1. [ ] Add service-level contract in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts): `listAgentPrompts({ agentName, working_folder })`.
+   - Implement alongside `listAgentCommands(...)` and reuse existing service-level source fan-out/dependency patterns.
 2. [ ] Reuse `resolveWorkingFolderWorkingDirectory(...)` to resolve/validate `working_folder` before traversal.
+   - Reuse existing `discoverAgents()` agent lookup pattern used by `listAgentCommands(...)`.
 3. [ ] Implement case-insensitive segment matching for `.github/prompts` under resolved working folder.
 4. [ ] Implement recursive traversal under prompts root:
    - include markdown files only (`.md`, case-insensitive),
@@ -467,7 +473,9 @@ Add the frontend API function that consumes the new server prompt-discovery cont
 1. [ ] Add `listAgentPrompts(...)` in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts).
    - Endpoint: `GET /agents/:agentName/prompts?working_folder=...`
    - Return type: `{ prompts: Array<{ relativePath: string; fullPath: string }> }`.
-2. [ ] Reuse existing `AgentApiError` parsing flow for non-2xx responses.
+2. [ ] Reuse existing API helpers in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts) for non-2xx and URL handling.
+   - Use `throwAgentApiError(...)` so `AgentApiError` status/code/message behavior stays consistent.
+   - Use the same `new URL(..., serverBase)` + `encodeURIComponent(agentName)` construction style as existing agent APIs.
 3. [ ] Add API unit tests in [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts) for:
    - correct URL/query construction,
    - success payload parsing,
@@ -515,6 +523,7 @@ Implement only the command-info UX change: remove always-visible inline command 
 3. [ ] Add command-info popover state and rendering for selected-command description.
    - Remove `agent-command-description` inline block completely.
    - Ensure `Select a command to see its description.` is not rendered anywhere.
+   - Reuse the existing agent-info popover pattern in this file (`anchorEl`, `open`, `id`, open/close handlers, `Popover` wiring) rather than introducing a different popup pattern.
 4. [ ] Ensure no-command state remains understandable and non-crashing.
 5. [ ] Update [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx) for removal of inline text expectations.
 6. [ ] Extend [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx) pattern for command-info popover behavior.
@@ -566,6 +575,7 @@ Implement prompt discovery and selection UI behavior only, including commit-trig
    - Do not request discovery if the newly committed value equals the last committed value.
 3. [ ] Prevent Enter in `working_folder` from submitting the instruction form.
 4. [ ] Implement stale-response handling so only latest committed-folder response updates prompt state.
+   - Reuse the existing cancellation/guard pattern already used by page async effects (`let cancelled = false`) and explicit request-token comparison.
 5. [ ] Implement prompts-area visibility rules:
    - show on successful non-empty prompts (render prompts selector + Execute Prompt button in the same row),
    - show inline error on failure for committed non-empty folder,
@@ -574,17 +584,18 @@ Implement prompt discovery and selection UI behavior only, including commit-trig
    - render prompt option labels from `relativePath` only (never `fullPath`),
    - include an explicit empty option labeled `No prompt selected` so users can clear a prior prompt selection.
 7. [ ] Implement immediate prompt selection reset on committed `working_folder` change.
-8. [ ] Add/update page tests in [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx) for:
-   - trigger timing,
+8. [ ] Extend [client/src/test/agentsPage.workingFolderPicker.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.workingFolderPicker.test.tsx) for:
+   - commit trigger timing (`blur`/`Enter`/picker),
    - no discovery on `working_folder` keystroke-only edits before commit,
    - Enter in `working_folder` commits discovery and does not submit the main instruction form,
-   - stale-response handling,
+   - no duplicate discovery request when committed `working_folder` has not changed.
+9. [ ] Add focused prompt discovery state tests in [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx) for:
+   - stale-response handling (latest committed folder wins),
    - visibility/error/zero-result split,
    - relative-path label rendering + explicit empty option behavior,
    - reset on folder change.
-   - no duplicate discovery request when the committed `working_folder` value has not changed.
-9. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
-10. [ ] Run workspace lint/format checks as final subtask for this task.
+10. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
+11. [ ] Run workspace lint/format checks as final subtask for this task.
 
 #### Testing
 
@@ -618,6 +629,7 @@ Implement prompt execution by composing the canonical instruction string and sen
 #### Subtasks
 
 1. [ ] Add Execute Prompt handler in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
+   - Reuse the same run orchestration sequence used by existing `handleSubmit` and `handleExecuteCommand` flows (prechecks, stop, pending flag, conversation selection, subscribe, API call, refresh, error/finally handling).
 2. [ ] Compose outbound instruction exactly from canonical preamble, replacing `<full path of markdown file>` with selected prompt `fullPath`.
 3. [ ] Execute via existing `runAgentInstruction(...)` only.
    - Pass `working_folder` from the last committed folder value used for prompt discovery, so prompt execution context matches the selected prompt source.
@@ -625,18 +637,23 @@ Implement prompt execution by composing the canonical instruction string and sen
 5. [ ] Preserve existing conflict and error UX handling (`RUN_IN_PROGRESS`, generic errors) without adding bespoke protocol branches.
 6. [ ] Keep existing Send instruction and Execute command behaviors unchanged while adding Execute Prompt path.
    - Reuse existing conversation/bootstrap/run-lock error handling pattern already used by instruction run flow.
-7. [ ] Add/update tests in [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx) for:
+   - Reuse existing `RUN_IN_PROGRESS` UI handling (`AgentApiError` branch + error bubble/runError) instead of creating prompt-specific conflict messaging.
+7. [ ] Extend existing run/conflict tests in:
+   - [client/src/test/agentsPage.run.instructionError.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.instructionError.test.tsx),
+   - [client/src/test/agentsPage.commandsRun.conflict.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.conflict.test.tsx),
+   so conflict/error UX remains unchanged after adding Execute Prompt.
+8. [ ] Add/update prompt execution-specific tests in [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx) for:
    - exact instruction payload composition,
    - payload path replacement uses selected prompt `fullPath` (not `relativePath` label text),
    - execution request includes committed `working_folder` value that produced the selected prompt,
    - execute-button enable/disable behavior,
    - conflict/error behavior,
    - deleted/moved prompt at execution-time resulting in non-crash error flow.
-8. [ ] Add/update regression assertions in existing agents page tests to confirm:
+9. [ ] Add/update regression assertions in existing agents page tests to confirm:
    - Send button still triggers standard instruction path,
    - Execute command still uses command-run path.
-9. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
-10. [ ] Run workspace lint/format checks as final subtask for this task.
+10. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
+11. [ ] Run workspace lint/format checks as final subtask for this task.
 
 #### Testing
 

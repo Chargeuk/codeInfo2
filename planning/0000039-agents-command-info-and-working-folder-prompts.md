@@ -482,7 +482,7 @@ Define the new REST message contract at the router boundary before any frontend 
 21. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
+   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `server/src/test/unit/openapi.prompts-route.test.ts` when created. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
 22. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
@@ -641,7 +641,7 @@ Implement the actual prompt discovery behavior in the server service layer with 
 19. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
+   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `server/src/test/unit/agent-prompts-list.test.ts` and any new prompt-discovery fixtures created for these tests. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
 20. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
@@ -756,7 +756,7 @@ Add the frontend API function that consumes the new server prompt-discovery cont
 13. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
+   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `client/src/test/agentsApi.promptsList.test.ts` when created. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
 14. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
@@ -1076,7 +1076,7 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
 18. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
+   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `client/src/test/agentsPage.promptsDiscovery.test.tsx` when created. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
 19. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
@@ -1200,7 +1200,7 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 14. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
+   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `client/src/test/agentsPage.promptsDiscovery.test.tsx` when this task creates it. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
 15. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
@@ -1360,7 +1360,7 @@ Implement prompt execution by composing the canonical instruction string and dis
 21. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
+   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `client/src/test/agentsPage.executePrompt.test.tsx` when created. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
 22. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
@@ -1416,7 +1416,7 @@ Capture final behavior in repository docs once implementation is complete, inclu
 3. [ ] Update project structure file map.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: include all files added/removed during tasks 1-8 and complete this subtask only after all file add/remove subtasks are finished.
+   - Implement exactly: include all files added/removed during tasks 1-8, including `server/src/test/unit/openapi.prompts-route.test.ts`, `server/src/test/unit/agent-prompts-list.test.ts`, `client/src/test/agentsApi.promptsList.test.ts`, `client/src/test/agentsPage.promptsDiscovery.test.tsx`, `client/src/test/agentsPage.executePrompt.test.tsx`, plus any prompt-discovery fixtures created by Task 2; complete this subtask only after all file add/remove subtasks are finished.
 
 4. [ ] Verify OpenAPI is still aligned with implemented code.
    - Files: [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json)

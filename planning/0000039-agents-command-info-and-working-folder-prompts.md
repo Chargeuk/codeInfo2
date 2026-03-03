@@ -1403,17 +1403,26 @@ Run full validation for the complete story, verify acceptance criteria end-to-en
    - Read first: https://docs.docker.com/compose/
    - Run exactly: `npm run compose:build:clean`.
 
-4. [ ] Re-validate final README and design docs against implemented behavior.
-   - Files: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-   - Read first: https://www.markdownguide.org/basic-syntax/, https://mermaid.js.org/syntax/sequenceDiagram.html, and Context7 Mermaid docs `/mermaid-js/mermaid`
-   - Implement exactly: ensure docs fully reflect prompts API, UI behavior, and execution flow.
+4. [ ] Re-validate final `README.md` against implemented behavior.
+   - Document name: `README.md`
+   - Location: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
+   - Description: verify user-facing behavior notes match implementation, including command-info popover behavior, prompt discovery conditions, and Execute Prompt usage flow.
+   - Purpose: ensure end-user documentation is accurate and complete for the delivered feature.
+   - Read first: https://www.markdownguide.org/basic-syntax/
 
-5. [ ] Re-validate final file map.
+5. [ ] Re-validate final `design.md` architecture and Mermaid diagrams against implemented behavior.
+   - Document name: `design.md`
+   - Location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - Description: verify architecture notes and Mermaid diagrams match the implemented prompts discovery and execution flow, including route contracts and error handling paths.
+   - Purpose: ensure technical design documentation remains a reliable source for implementation and maintenance decisions.
+   - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
+
+6. [ ] Re-validate final file map.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: ensure every changed file in this story is represented correctly.
 
-6. [ ] Write final implementation summary for PR use.
+7. [ ] Write final implementation summary for PR use.
    - Files: story notes and commit history
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: summarize server contract changes, client behavior changes, test coverage, and regression outcomes.

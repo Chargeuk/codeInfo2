@@ -335,7 +335,7 @@ Use a single end-to-end approach that reuses existing Agents route/service patte
 ### 1. Server Message Contract: add `GET /agents/:agentName/prompts` route contract and error mapping
 
 - Task Status: **__completed__**
-- Git Commits: `d54cac36`
+- Git Commits: `d54cac36`, `346ce8e2`
 
 #### Overview
 

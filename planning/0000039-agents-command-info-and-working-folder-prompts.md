@@ -458,7 +458,7 @@ Define the new REST message contract at the router boundary before any frontend 
 17. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: add/remove file entries touched by this task.
+   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
 18. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
@@ -603,7 +603,7 @@ Implement the actual prompt discovery behavior in the server service layer with 
 17. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: add/remove entries touched by this task.
+   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
 18. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
@@ -700,7 +700,7 @@ Add the frontend API function that consumes the new server prompt-discovery cont
 10. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: add/remove entries touched by this task.
+   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
 11. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
@@ -788,7 +788,7 @@ Introduce the command-info icon and popover interaction only. This task does not
 9. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: add/remove entries touched by this task.
+   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
 10. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
@@ -864,7 +864,7 @@ Remove the old always-visible inline command description behavior now that comma
 7. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: add/remove entries touched by this task.
+   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
 8. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
@@ -996,7 +996,7 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
 16. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: add/remove entries touched by this task.
+   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
 17. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
@@ -1108,7 +1108,7 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 12. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: add/remove entries touched by this task.
+   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
 13. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
@@ -1238,7 +1238,7 @@ Implement prompt execution by composing the canonical instruction string and dis
 16. [ ] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: add/remove entries touched by this task.
+   - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
 17. [ ] Run lint and formatting as the final subtask for this task.
    - Files: repo root commands
@@ -1291,7 +1291,7 @@ Capture final behavior in repository docs once implementation is complete, inclu
 3. [ ] Update project structure file map.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
-   - Implement exactly: include all files added/removed during tasks 1-8.
+   - Implement exactly: include all files added/removed during tasks 1-8 and complete this subtask only after all file add/remove subtasks are finished.
 
 4. [ ] Verify OpenAPI is still aligned with implemented code.
    - Files: [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json)

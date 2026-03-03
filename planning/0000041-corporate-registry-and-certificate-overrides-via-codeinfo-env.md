@@ -392,25 +392,14 @@ Add compose-level build/runtime mappings for the canonical `CODEINFO_*` variable
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up` then `npm run compose:down`
-5. [ ] `docker compose -f docker-compose.yml config`
-6. [ ] `docker compose -f docker-compose.local.yml config`
-7. [ ] `docker compose -f docker-compose.e2e.yml config`
-8. [ ] With `CODEINFO_CORP_CERTS_DIR` unset in the process environment (`env -u CODEINFO_CORP_CERTS_DIR`), run all three `docker compose ... config` commands above and verify fallback path `./certs/empty-corp-ca` is rendered.
-9. [ ] With `CODEINFO_CORP_CERTS_DIR` set (for example `/tmp/codeinfo-corp-certs`), run `docker compose -f docker-compose.yml config`, `docker compose -f docker-compose.local.yml config`, and `docker compose -f docker-compose.e2e.yml config` and verify rendered mount source uses the provided path.
-10. [ ] With `CODEINFO_CORP_CERTS_DIR=` (explicit empty value), run all three `docker compose ... config` commands above and verify fallback path `./certs/empty-corp-ca` is rendered.
-11. [ ] With `CODEINFO_CORP_CERTS_DIR=./certs/empty-corp-ca`, run all three `docker compose ... config` commands and verify deterministic relative-path rendering.
-12. [ ] With `CODEINFO_CORP_CERTS_DIR` set to an absolute path with spaces (for example `/tmp/codeinfo corp certs`), run all three `docker compose ... config` commands and record whether rendering remains valid and deterministic.
-13. [ ] Type: Compose config rendering integration check. Location: repo root command output for `docker compose -f docker-compose.yml config`, `docker compose -f docker-compose.local.yml config`, and `docker compose -f docker-compose.e2e.yml config`. Description: capture baseline rendered config evidence after compose edits. Purpose: prove all three compose variants render valid config with required `CODEINFO_*` mappings.
-14. [ ] Type: Compose override-path corner-case check (variable explicitly unset). Location: repo root config output for all three compose files with `CODEINFO_CORP_CERTS_DIR` removed from process env (for example `env -u CODEINFO_CORP_CERTS_DIR docker compose ... config`). Description: run unset-variable scenario and record rendered mount source. Purpose: prove true-unset values also resolve to fallback `./certs/empty-corp-ca`.
-15. [ ] Type: Compose override-path integration check (set value). Location: repo root config output for all three compose files with `CODEINFO_CORP_CERTS_DIR` set. Description: run the set-value scenario and record rendered mount source. Purpose: verify explicit cert-dir override path is used when provided.
-16. [ ] Type: Compose override-path integration check (empty value). Location: repo root config output for all three compose files with `CODEINFO_CORP_CERTS_DIR=`. Description: run the empty-value scenario and record rendered mount source. Purpose: verify empty value falls back to `./certs/empty-corp-ca`.
-17. [ ] Type: Compose path-shape corner-case check (relative path). Location: repo root config output for all three compose files with `CODEINFO_CORP_CERTS_DIR=./certs/empty-corp-ca`. Description: run relative-path scenario and record rendered mount source. Purpose: verify deterministic rendering for relative host paths.
-18. [ ] Type: Compose path-shape corner-case check (absolute path with spaces). Location: repo root config output for all three compose files with a path such as `/tmp/codeinfo corp certs`. Description: run absolute-with-spaces scenario and record rendered result/failure details. Purpose: verify path parsing remains deterministic and diagnosable.
-19. [ ] Run root validation commands from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/AGENTS.md): `npm run lint --workspaces` and `npm run format:check --workspaces`. Done when both commands exit 0 and their success is recorded in this task’s `Implementation notes`.
+Wrapper-only policy: do not attempt to run builds/tests without using the wrapper commands listed below.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
 
 #### Implementation notes
 
@@ -447,26 +436,14 @@ Validate and document env-file source behavior for compose/local/e2e workflows, 
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up` then `npm run compose:down`
-5. [ ] Local precondition for positive compose/local checks: ensure untracked `server/.env.local` exists (copy from `server/.env` if needed) and do not commit it.
-6. [ ] `npm run compose:build` and capture summary/log evidence that docker compose interpolation (via wrapper) still works for `server/.env` + `server/.env.local`.
-7. [ ] `npm run compose:local:build` and capture summary/log evidence that docker compose interpolation (via wrapper) still works for `server/.env` + `server/.env.local` on the local compose file path.
-8. [ ] `npm run compose:e2e:build` and capture summary/log evidence that docker compose interpolation (via wrapper) uses `.env.e2e`.
-9. [ ] Non-destructive negative-path check: run `bash ./scripts/docker-compose-with-env.sh --env-file server/.env --env-file /tmp/nonexistent-codeinfo-local.env -f docker-compose.yml config` and confirm non-zero exit plus a missing-env-file indicator from `docker compose`.
-10. [ ] Non-destructive negative-path check: run `bash ./scripts/docker-compose-with-env.sh --env-file /tmp/nonexistent-codeinfo-e2e.env -f docker-compose.e2e.yml config` and confirm non-zero exit plus a missing-env-file indicator from `docker compose`.
-11. [ ] Non-destructive malformed-env check: create a temporary malformed env file (for example a line without `=`), run `bash ./scripts/docker-compose-with-env.sh --env-file <malformed-file> -f docker-compose.e2e.yml config`, and confirm non-zero exit with parse failure evidence from `docker compose`.
-12. [ ] Env precedence check: run wrapper/config with two env files defining the same `CODEINFO_*` key differently and confirm later file value wins in rendered config.
-13. [ ] Type: Wrapper positive-path integration check (`compose`). Location: repo root wrapper logs from `npm run compose:build`. Description: record docker compose interpolation behavior (invoked through wrapper) using `server/.env` + `server/.env.local`. Purpose: verify compose/local source order remains correct.
-14. [ ] Type: Wrapper positive-path integration check (`compose:local`). Location: repo root wrapper logs from `npm run compose:local:build`. Description: record docker compose interpolation behavior (invoked through wrapper) using `server/.env` + `server/.env.local` with `docker-compose.local.yml`. Purpose: verify local-compose workflow uses the same interpolation source and remains healthy.
-15. [ ] Type: Wrapper positive-path integration check (`compose:e2e`). Location: repo root wrapper logs from `npm run compose:e2e:build`. Description: record docker compose interpolation behavior (invoked through wrapper) using `.env.e2e`. Purpose: verify e2e interpolation source remains correct.
-16. [ ] Type: Wrapper negative-path error check (missing local env file). Location: repo root output from `bash ./scripts/docker-compose-with-env.sh --env-file server/.env --env-file /tmp/nonexistent-codeinfo-local.env -f docker-compose.yml config`. Description: capture non-zero exit and missing-file signal emitted by `docker compose`. Purpose: ensure missing env inputs fail clearly.
-17. [ ] Type: Wrapper negative-path error check (missing e2e env file). Location: repo root output from `bash ./scripts/docker-compose-with-env.sh --env-file /tmp/nonexistent-codeinfo-e2e.env -f docker-compose.e2e.yml config`. Description: capture non-zero exit and missing-file signal emitted by `docker compose`. Purpose: ensure e2e missing env inputs fail clearly.
-18. [ ] Type: Wrapper negative-path parse check (malformed env file). Location: repo root output from malformed env run against `docker-compose.e2e.yml`. Description: capture parse failure and non-zero exit emitted by `docker compose`. Purpose: ensure malformed env input failures are diagnosable.
-19. [ ] Type: Wrapper corner-case precedence check (duplicate key across env files). Location: repo root rendered config output for two env files defining same `CODEINFO_*` key. Description: capture effective value resolution from docker compose interpolation. Purpose: verify later env file wins as expected.
-20. [ ] Run root validation commands from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/AGENTS.md): `npm run lint --workspaces` and `npm run format:check --workspaces`. Done when both commands exit 0 and their results are captured in this task’s `Implementation notes`.
+Wrapper-only policy: do not attempt to run builds/tests without using the wrapper commands listed below.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
 
 #### Implementation notes
 
@@ -506,22 +483,12 @@ Implement server image build-time handling for npm and pip corporate registry/in
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up` then `npm run compose:down`
-5. [ ] `npm run compose:build` with registry/index vars unset and confirm success.
-6. [ ] `npm run compose:build` with registry/index vars set to test values and confirm command-path usage from logs.
-7. [ ] `npm run compose:local:build` and `npm run compose:e2e:build` with registry/index vars unset to confirm server Dockerfile changes do not break other workflows.
-8. [ ] Run one build with intentionally invalid registry/index values and confirm non-zero failure plus clear evidence that override values were applied.
-9. [ ] Run `npm run compose:build` with `CODEINFO_NPM_REGISTRY=`, `CODEINFO_PIP_INDEX_URL=`, and `CODEINFO_PIP_TRUSTED_HOST=` and confirm behavior is equivalent to unset values.
-10. [ ] Run `npm run compose:build` with only one pip override set at a time (`CODEINFO_PIP_INDEX_URL` only, then `CODEINFO_PIP_TRUSTED_HOST` only) and verify no malformed pip argument combinations are emitted.
-11. [ ] Type: Build integration happy-path check (all overrides unset). Location: repo root wrapper output from `npm run compose:build`. Description: capture successful build and install command path with default behavior. Purpose: prove unset corporate vars preserve baseline build behavior.
-12. [ ] Type: Build integration happy-path check (valid overrides set). Location: repo root wrapper output from `npm run compose:build` with registry/pip overrides set. Description: capture command path showing override usage. Purpose: prove override variables are applied when provided.
-13. [ ] Type: Build integration error-path check (invalid override values). Location: repo root wrapper output from `npm run compose:build` with intentionally unreachable registry/index values. Description: capture non-zero exit and failing override evidence. Purpose: prove failure mode is clear and attributable to override config.
-14. [ ] Type: Build integration corner-case check (explicit empty-string overrides). Location: repo root wrapper output from `npm run compose:build` with `CODEINFO_NPM_REGISTRY=`, `CODEINFO_PIP_INDEX_URL=`, and `CODEINFO_PIP_TRUSTED_HOST=`. Description: compare effective command path to unset case. Purpose: prove empty-string handling matches unset behavior.
-15. [ ] Type: Build integration corner-case check (partial pip overrides). Location: repo root wrapper output from two runs (`CODEINFO_PIP_INDEX_URL` only, then `CODEINFO_PIP_TRUSTED_HOST` only). Description: capture resulting pip command arguments. Purpose: ensure partial override inputs do not produce malformed pip flags.
-16. [ ] Run root validation commands from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/AGENTS.md): `npm run lint --workspaces` and `npm run format:check --workspaces`. Done when both exit 0 and results are captured in this task’s `Implementation notes`.
+Wrapper-only policy: do not attempt to run builds/tests without using the wrapper commands listed below.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+4. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
 
 #### Implementation notes
 
@@ -556,19 +523,11 @@ Implement client build-stage registry override support via `CODEINFO_NPM_REGISTR
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up` then `npm run compose:down`
-5. [ ] `npm run compose:build` with `CODEINFO_NPM_REGISTRY` unset and verify client image build.
-6. [ ] `npm run compose:build` with `CODEINFO_NPM_REGISTRY` set and verify client image build.
-7. [ ] `npm run compose:build` with `CODEINFO_NPM_REGISTRY=` and verify client build behavior matches unset path.
-8. [ ] `npm run compose:build` with intentionally unreachable `CODEINFO_NPM_REGISTRY` and verify failure logs clearly show override path was used.
-9. [ ] Type: Build integration happy-path check (registry unset). Location: repo root wrapper output from `npm run compose:build` with `CODEINFO_NPM_REGISTRY` unset. Description: capture successful client install path. Purpose: prove default behavior remains unchanged.
-10. [ ] Type: Build integration happy-path check (registry set). Location: repo root wrapper output from `npm run compose:build` with registry override. Description: capture command path showing override usage. Purpose: prove override is applied when set.
-11. [ ] Type: Build integration corner-case check (registry empty string). Location: repo root wrapper output from `npm run compose:build` with `CODEINFO_NPM_REGISTRY=`. Description: compare effective command path to unset behavior. Purpose: verify empty-string handling matches unset behavior.
-12. [ ] Type: Build integration error-path check (invalid registry host). Location: repo root wrapper output from `npm run compose:build` with intentionally unreachable `CODEINFO_NPM_REGISTRY`. Description: capture non-zero exit and override-related failure logs. Purpose: ensure error diagnostics clearly attribute failure to override.
-13. [ ] Run root validation commands from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/AGENTS.md): `npm run lint --workspaces` and `npm run format:check --workspaces`. Done when both commands exit 0 and results are captured in this task’s `Implementation notes`.
+Wrapper-only policy: do not attempt to run builds/tests without using the wrapper commands listed below.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+1. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
 
 #### Implementation notes
 
@@ -606,22 +565,12 @@ Implement deterministic runtime env parsing and default CA export behavior in `s
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up` then `npm run compose:down`
-5. [ ] Runtime test: refresh disabled path -> startup succeeds without refresh.
-6. [ ] Runtime test: case-insensitive and whitespace-padded enablement gate (`CODEINFO_REFRESH_CA_CERTS_ON_START=TrUe` and `CODEINFO_REFRESH_CA_CERTS_ON_START=\"  true  \"`) is parsed consistently.
-7. [ ] Runtime smoke check after startup: verify server health endpoint responds.
-8. [ ] Runtime gate test: set `CODEINFO_REFRESH_CA_CERTS_ON_START` to non-true values (`false`, `1`, `yes`, unset, empty) and verify each remains refresh-disabled.
-9. [ ] Runtime env test: with `CODEINFO_NODE_EXTRA_CA_CERTS` unset, verify default `/etc/ssl/certs/ca-certificates.crt` is exported before Node starts.
-10. [ ] Runtime env test: with `CODEINFO_NODE_EXTRA_CA_CERTS` set to custom value, verify that exact value is exported before Node starts.
-11. [ ] Type: Runtime integration happy-path check (refresh disabled). Location: server container startup logs and health check output. Description: run disabled-refresh scenario and capture startup success without `update-ca-certificates`. Purpose: prove default path remains stable.
-12. [ ] Type: Runtime integration happy-path check (case-insensitive and whitespace-padded enable token). Location: server container startup logs with `CODEINFO_REFRESH_CA_CERTS_ON_START=TrUe` and `CODEINFO_REFRESH_CA_CERTS_ON_START=\"  true  \"`. Description: capture parsed enablement behavior for both values. Purpose: prove mixed-case and trimmed `true` are treated as enabled.
-13. [ ] Type: Runtime integration corner-case check (non-true tokens). Location: server container startup logs for values `false`, `1`, `yes`, empty, and unset. Description: capture parsed disabled behavior for each value. Purpose: prove only `true` enables refresh.
-14. [ ] Type: Runtime environment export check (default CA path). Location: server container environment/startup logs with `CODEINFO_NODE_EXTRA_CA_CERTS` unset. Description: capture exported `NODE_EXTRA_CA_CERTS` value before Node launch. Purpose: verify default export path correctness.
-15. [ ] Type: Runtime environment export check (custom CA path). Location: server container environment/startup logs with custom `CODEINFO_NODE_EXTRA_CA_CERTS`. Description: capture exported override value before Node launch. Purpose: verify explicit override propagation.
-16. [ ] Run root validation commands from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/AGENTS.md): `npm run lint --workspaces` and `npm run format:check --workspaces`. Done when both commands exit 0 and results are captured in this task’s `Implementation notes`.
+Wrapper-only policy: do not attempt to run builds/tests without using the wrapper commands listed below.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+4. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
 
 #### Implementation notes
 
@@ -657,24 +606,12 @@ Implement and verify the refresh-enabled certificate execution path and fail-fas
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up` then `npm run compose:down`
-5. [ ] Runtime test: `CODEINFO_REFRESH_CA_CERTS_ON_START=true` with valid cert input -> startup succeeds.
-6. [ ] Runtime test: `CODEINFO_REFRESH_CA_CERTS_ON_START=true` with missing cert directory -> startup fails with non-zero exit and clear message.
-7. [ ] Runtime edge test: refresh enabled with cert directory present but no `*.crt` files (for example only `.pem` files) -> fail fast with non-zero exit.
-8. [ ] Runtime edge test: refresh enabled with unreadable cert file permissions -> fail fast with clear permission-related message and non-zero exit.
-9. [ ] Runtime error test: refresh enabled with simulated `update-ca-certificates` command failure (temporary PATH shim) -> fail fast with non-zero exit and tool-failure message.
-10. [ ] Runtime smoke check after successful startup: verify `GET /version` still responds with expected version payload.
-11. [ ] Protocol regression guard after runtime changes: run `npm run test:summary:server:unit -- --file src/test/unit/ws-server.test.ts`.
-12. [ ] Type: Runtime integration happy-path check (refresh enabled with valid certs). Location: server container startup logs and `GET /version` response evidence. Description: execute valid-cert refresh scenario and capture successful startup. Purpose: prove refresh-enabled success path works.
-13. [ ] Type: Runtime integration error-path check (missing cert directory). Location: server container startup logs for refresh-enabled run where `/usr/local/share/ca-certificates/codeinfo-corp` is absent/unmounted. Description: execute missing-directory scenario and capture non-zero exit with clear message. Purpose: prove fail-fast behavior for missing certificate directory input.
-14. [ ] Type: Runtime integration corner-case check (no `*.crt` files present). Location: server container logs when mounted cert directory has non-CRT files only. Description: execute `.pem`-only scenario and capture fail-fast output. Purpose: prove usable-CRT validation guard works.
-15. [ ] Type: Runtime integration corner-case check (unreadable cert permissions). Location: server container logs for refresh-enabled run with unreadable cert file. Description: capture permission-related non-zero failure path. Purpose: prove permission failures surface clearly.
-16. [ ] Type: Runtime integration error-path check (`update-ca-certificates` command failure). Location: server container logs for refresh-enabled run with a temporary PATH shim that forces `update-ca-certificates` to exit non-zero. Description: simulate refresh-tool failure and capture non-zero fail-fast output. Purpose: prove command execution failures are surfaced clearly and block startup.
-17. [ ] Type: Protocol regression check (unit). Location: [server/src/test/unit/ws-server.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/test/unit/ws-server.test.ts) via `npm run test:summary:server:unit -- --file src/test/unit/ws-server.test.ts`. Description: run targeted WS server unit test after entrypoint changes. Purpose: ensure runtime script updates do not regress websocket behavior.
-18. [ ] Run root validation commands from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/AGENTS.md): `npm run lint --workspaces` and `npm run format:check --workspaces`. Done when both commands exit 0 and are logged in this task’s `Implementation notes`.
+Wrapper-only policy: do not attempt to run builds/tests without using the wrapper commands listed below.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+4. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
 
 #### Implementation notes
 
@@ -711,21 +648,11 @@ Update host helper install behavior so restricted-network users can install `git
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up` then `npm run compose:down`
-5. [ ] Run `start-gcf-server.sh` with `CODEINFO_NPM_REGISTRY` unset using a temporary mock `npm`/`gcf-server` PATH harness and verify command behavior without host global install side effects.
-6. [ ] Run `start-gcf-server.sh` with `CODEINFO_NPM_REGISTRY=` (explicit empty string) using the same temporary mock harness and verify behavior matches unset path.
-7. [ ] Run `start-gcf-server.sh` with `CODEINFO_NPM_REGISTRY` set using the same temporary mock harness and verify registry override command path.
-8. [ ] Run `start-gcf-server.sh` with temporary mock `cygpath`/`git` tools and verify exported `GIT_CREDENTIAL_FORWARDER_GIT_PATH` still follows existing conversion behavior.
-9. [ ] Run `start-gcf-server.sh` with intentionally invalid `CODEINFO_NPM_REGISTRY` using a mock `npm` that fails on invalid override and verify failure mode is clear and attributable to the override.
-10. [ ] Type: Script integration happy-path check (registry unset). Location: harness output from running [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) with `CODEINFO_NPM_REGISTRY` unset and temporary mock `npm`/`gcf-server` binaries. Description: capture install command behavior and exit status without real global install side effects. Purpose: prove default install behavior remains unchanged.
-11. [ ] Type: Script integration corner-case check (registry empty string). Location: harness output from running [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) with `CODEINFO_NPM_REGISTRY=` and temporary mock `npm`/`gcf-server` binaries. Description: capture install command behavior and compare it to unset case. Purpose: prove empty-string behavior matches unset behavior.
-12. [ ] Type: Script integration happy-path check (registry set). Location: harness output from running [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) with `CODEINFO_NPM_REGISTRY` set and temporary mock `npm`/`gcf-server` binaries. Description: capture override install command behavior and exit status without real global install side effects. Purpose: prove registry override is applied when set.
-13. [ ] Type: Script integration corner-case check (`cygpath` conversion branch). Location: harness output from running [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) with temporary mock `cygpath`, `git`, `npm`, and `gcf-server` binaries. Description: force `cygpath` availability and capture exported `GIT_CREDENTIAL_FORWARDER_GIT_PATH`. Purpose: prove existing path-conversion behavior remains unchanged while registry override logic is added.
-14. [ ] Type: Script integration error-path check (invalid registry). Location: harness output from running [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) with intentionally invalid `CODEINFO_NPM_REGISTRY` and a mock `npm` that exits non-zero when override is passed. Description: capture non-zero exit and failure logs. Purpose: ensure failure mode is explicit and attributable to override.
-15. [ ] Run root validation commands from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/AGENTS.md): `npm run lint --workspaces` and `npm run format:check --workspaces`. Done when both commands exit 0 and are recorded in this task’s `Implementation notes`.
+Wrapper-only policy: do not attempt to run builds/tests without using the wrapper commands listed below.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -766,16 +693,10 @@ Document corporate setup clearly and precisely so users can configure each workf
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up` then `npm run compose:down`
-5. [ ] Manual doc validation: verify README section title, placement, and all required content items are present.
-6. [ ] Manual doc negative-scope validation: verify README explicitly states v1 exclusions (no scoped npm registry mapping, no npm auth support, no proxy support) so error-path expectations are documented.
-7. [ ] Type: Mermaid diagram syntax validation. Location: Mermaid code blocks in [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/design.md). Description: review each added diagram for valid Mermaid syntax constructs and consistent node/edge labels with implemented logic. Purpose: ensure diagrams are spec-compliant and unambiguous for junior developers.
-8. [ ] Type: Documentation content validation (happy path). Location: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/README.md) corporate section text. Description: verify required title, placement, variable/default table, workflow split, and cert examples are present. Purpose: prove docs fully describe the supported setup path.
-9. [ ] Type: Documentation scope validation (error/guard path). Location: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/README.md) and [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/design.md). Description: verify docs explicitly state v1 exclusions (no scoped npm registry, no npm auth, no proxy support). Purpose: prevent unsupported assumptions and reduce implementation risk.
-10. [ ] Run root validation commands from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/AGENTS.md): `npm run lint --workspaces` and `npm run format:check --workspaces`. Done when both commands exit 0 and results are recorded in this task’s `Implementation notes`.
+Wrapper-only policy: do not attempt to run builds/tests without using the wrapper commands listed below.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
 
 #### Implementation notes
 
@@ -809,17 +730,14 @@ Run contract and immutability guard checks so this infra-only story cannot chang
 
 #### Testing
 
-1. [ ] `npm run test:summary:server:unit -- --file src/test/unit/openapi.contract.test.ts`
-2. [ ] `npm run test:summary:server:unit -- --file src/test/unit/openapi.prompts-route.test.ts`
-3. [ ] `npm run test:summary:server:unit -- --file src/test/unit/ws-server.test.ts`
-4. [ ] Dependency immutability guard: `git diff --name-only -- package.json package-lock.json client/package.json server/package.json common/package.json` returns no changes.
-5. [ ] Scope guard diff check: `git diff --name-only -- client/src server/src` shows no unintended feature/API logic edits outside planned infra-runtime script/config touchpoints.
-6. [ ] Type: Contract unit test (OpenAPI baseline). Location: [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/test/unit/openapi.contract.test.ts) via `npm run test:summary:server:unit -- --file src/test/unit/openapi.contract.test.ts`. Description: run targeted openapi contract test and capture result logs. Purpose: verify API contract file did not drift.
-7. [ ] Type: Contract unit test (prompts route contract). Location: [server/src/test/unit/openapi.prompts-route.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/test/unit/openapi.prompts-route.test.ts) via `npm run test:summary:server:unit -- --file src/test/unit/openapi.prompts-route.test.ts`. Description: run targeted prompts-route contract test and capture result logs. Purpose: verify route contract invariants remain unchanged.
-8. [ ] Type: Contract unit test (websocket payloads). Location: [server/src/test/unit/ws-server.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/test/unit/ws-server.test.ts) via `npm run test:summary:server:unit -- --file src/test/unit/ws-server.test.ts`. Description: run targeted websocket unit test and capture result logs. Purpose: verify WS message shapes and behavior are unchanged.
-9. [ ] Type: Diff-based immutability check (dependencies). Location: git diff output for `package.json`, `package-lock.json`, `client/package.json`, `server/package.json`, and `common/package.json`. Description: run dependency diff command and capture empty result. Purpose: prove manifests/lockfiles were not modified.
-10. [ ] Type: Diff-based scope guard check (source code). Location: git diff output for `client/src` and `server/src`. Description: run scope diff command and capture allowed/no-change results. Purpose: prove infra-only scope with no unintended feature logic changes.
-11. [ ] Run root validation commands from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/AGENTS.md): `npm run lint --workspaces` and `npm run format:check --workspaces`. Done when both commands exit 0 and are recorded in this task’s `Implementation notes`.
+Wrapper-only policy: do not attempt to run builds/tests without using the wrapper commands listed below.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
 
 #### Implementation notes
 
@@ -864,26 +782,18 @@ Perform full end-to-end validation against acceptance criteria, confirm document
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up` then `npm run compose:down`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:local:build`
-7. [ ] `npm run compose:e2e:build`
-8. [ ] `npm run test:summary:server:unit`
-9. [ ] `npm run test:summary:server:cucumber`
-10. [ ] `npm run test:summary:client`
-11. [ ] `npm run test:summary:e2e`
-12. [ ] Final refresh-gate matrix check: execute runtime checks for `CODEINFO_REFRESH_CA_CERTS_ON_START` values (`true`, `TrUe`, `false`, `1`, empty/unset) and confirm only true variants trigger refresh path.
-13. [ ] Final mount-shape matrix check: execute `docker compose ... config` checks for `CODEINFO_CORP_CERTS_DIR` unset, empty, relative, absolute, and space-containing values and capture rendered mount evidence for each.
-14. [ ] Run root validation commands from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/AGENTS.md): `npm run lint --workspaces` and `npm run format:check --workspaces`. Done when both commands exit 0 and are recorded in this task’s `Implementation notes`.
-15. [ ] Type: Coverage-matrix meta validation. Location: this task’s `Implementation notes` table mapping to Tasks 1-9 testing evidence. Description: build final matrix with `Behavior`, `Path Type`, `Task.Test Step`, `Evidence Link`, `Status` columns. Purpose: prove all happy/error/corner cases have executed evidence coverage.
-16. [ ] Type: Final wrapper build validation (server/client/compose). Location: wrapper log files under `logs/test-summaries/` for `build:summary:server`, `build:summary:client`, and `compose:build:summary`. Description: run each wrapper and record success with log paths. Purpose: prove build health after all story changes.
-17. [ ] Type: Final compose workflow validation. Location: wrapper log files for `compose:build`, `compose:local:build`, `compose:e2e:build`, plus `compose:up/down` output. Description: run each workflow and record completion evidence. Purpose: prove all supported workflows remain operational.
-18. [ ] Type: Final automated test-suite validation (server unit/cucumber/client/e2e). Location: test summary outputs in `test-results/` and `logs/test-summaries/`. Description: run all four summary wrappers and record pass/fail evidence paths. Purpose: prove no regressions across server, client, and end-to-end suites.
-19. [ ] Type: Final runtime gate matrix validation. Location: runtime logs for `CODEINFO_REFRESH_CA_CERTS_ON_START` values (`true`, `TrUe`, `false`, `1`, empty/unset). Description: execute matrix runs and capture which values trigger refresh. Purpose: prove enablement semantics are correct and deterministic.
-20. [ ] Type: Final mount-shape matrix validation. Location: `docker compose ... config` output across unset/empty/relative/absolute/space-containing `CODEINFO_CORP_CERTS_DIR` values. Description: execute matrix checks and capture rendered mount source. Purpose: prove deterministic cert mount behavior for all supported path shapes.
+Wrapper-only policy: do not attempt to run builds/tests without using the wrapper commands listed below.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP check to manually confirm items within the story and general regressions checks that should be detailed based on the task being tested. This should include a check to ensure that there are no logged errors withing the debug console. The front end is accessible at http://host.docker.internal:5001 via the playwright MCP tools
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 

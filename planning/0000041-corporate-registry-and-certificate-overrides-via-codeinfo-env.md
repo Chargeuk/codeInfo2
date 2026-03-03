@@ -106,32 +106,86 @@ Expected user outcome:
 
 ## Implementation Ideas
 
-- Planned file touchpoints:
-  - `docker-compose.yml`
-  - `docker-compose.local.yml`
-  - `docker-compose.e2e.yml`
-  - `.env.e2e`
-  - `server/Dockerfile`
-  - `client/Dockerfile`
-  - `server/entrypoint.sh`
-  - `start-gcf-server.sh`
-  - `README.md`
-- Compose changes:
-  - map `CODEINFO_*` values into server/client `build.args` and runtime `environment`,
-  - add server cert mount from `CODEINFO_CORP_CERTS_DIR` to `/usr/local/share/ca-certificates/codeinfo-corp:ro` with deterministic handling when unset,
-  - keep interpolation based on `server/.env.local` for compose/local and `.env.e2e` for e2e.
-- Dockerfile changes:
-  - declare required `ARG`/`ENV` values in relevant build stages,
-  - ensure npm/pip install commands consume provided registry/certificate values,
-  - preserve default behavior when variables are unset.
-- Entrypoint changes:
-  - conditionally run `update-ca-certificates` when `CODEINFO_REFRESH_CA_CERTS_ON_START=true`,
-  - fail fast with clear error when refresh is enabled but cert inputs are unusable,
-  - log whether CA refresh ran or was skipped for easier troubleshooting.
-- Host helper changes:
-  - update `start-gcf-server.sh` so `npm install -g git-credential-forwarder` uses `CODEINFO_NPM_REGISTRY` when set.
-- README changes:
-  - insert section `### Corporate Registry and Certificate Overrides (Restricted Networks)` immediately after `### Mac & WSL That have followed the WSL setup above`,
-  - include tested concrete example for `CODEINFO_CORP_CERTS_DIR` and expected `.crt` contents,
-  - document `CODEINFO_REFRESH_CA_CERTS_ON_START=false` default and when to enable it,
-  - provide step-by-step restricted-network setup using only `server/.env.local`.
+1. Implementation surface and sequencing
+   - Work in this order to minimize breakage and make verification simpler:
+     - Compose/env wiring first.
+     - Dockerfile build-time registry behavior second.
+     - Runtime certificate refresh behavior third.
+     - Host helper (`start-gcf-server.sh`) fourth.
+     - README/documentation last.
+   - Planned file touchpoints:
+     - `docker-compose.yml`
+     - `docker-compose.local.yml`
+     - `docker-compose.e2e.yml`
+     - `.env.e2e`
+     - `server/Dockerfile`
+     - `client/Dockerfile`
+     - `server/entrypoint.sh`
+     - `start-gcf-server.sh`
+     - `README.md`
+
+2. Compose and env propagation
+   - Add canonical `CODEINFO_*` values to server and client `build.args` where needed and server/client runtime `environment` where needed.
+   - Keep workflow env sources aligned to existing wrappers:
+     - `compose` and `compose:local`: `server/.env` + `server/.env.local`
+     - `compose:e2e:*`: `.env.e2e`
+   - Ensure e2e has corresponding optional `CODEINFO_*` keys available via `.env.e2e`.
+   - Implement deterministic cert mount behavior in compose when cert dir is unset:
+     - introduce a repo-owned empty fallback directory (for example `./certs/empty-corp-ca/.gitkeep`),
+     - mount `${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}` to `/usr/local/share/ca-certificates/codeinfo-corp:ro` so config parsing never fails.
+
+3. Server Dockerfile build-time behavior
+   - Add `ARG` values for:
+     - `CODEINFO_NPM_REGISTRY`
+     - `CODEINFO_PIP_INDEX_URL`
+     - `CODEINFO_PIP_TRUSTED_HOST`
+     - `CODEINFO_NODE_EXTRA_CA_CERTS`
+   - Apply them in each server stage that installs dependencies:
+     - workspace `npm ci`,
+     - global `npm install -g`,
+     - `pip install`.
+   - Use conditional shell logic so unset values do not change current behavior.
+   - Do not introduce `.npmrc` mutation in image build for v1.
+
+4. Client Dockerfile build-time behavior
+   - Add `ARG CODEINFO_NPM_REGISTRY` in build stage.
+   - Ensure `npm ci` uses the override only when set and otherwise stays default.
+
+5. Runtime cert-refresh and Node trust behavior
+   - Update `server/entrypoint.sh` to:
+     - parse `CODEINFO_REFRESH_CA_CERTS_ON_START` (`true` case-insensitive enables; everything else disabled),
+     - run `update-ca-certificates` before launching `node` when enabled,
+     - fail fast with clear error + non-zero exit if refresh is enabled but no usable `.crt` files exist under `/usr/local/share/ca-certificates/codeinfo-corp`,
+     - set/default `NODE_EXTRA_CA_CERTS` from `CODEINFO_NODE_EXTRA_CA_CERTS` (default `/etc/ssl/certs/ca-certificates.crt`) before starting Node.
+
+6. Host helper alignment
+   - Update `start-gcf-server.sh` so `npm install -g git-credential-forwarder` honors `CODEINFO_NPM_REGISTRY` when set.
+   - Preserve existing behavior when variable is unset.
+
+7. README implementation output
+   - Insert immediately after `### Mac & WSL That have followed the WSL setup above`:
+     - `### Corporate Registry and Certificate Overrides (Restricted Networks)`
+   - Include:
+     - tested concrete `CODEINFO_CORP_CERTS_DIR` example path,
+     - expected certificate format (`.crt` files),
+     - explicit default `CODEINFO_REFRESH_CA_CERTS_ON_START=false`,
+     - setup steps for:
+       - `compose` / `compose:local` using `server/.env.local`,
+       - e2e using `.env.e2e` and/or exported shell env.
+
+8. Verification evidence to capture
+   - Compose parsing checks:
+     - `docker compose -f docker-compose.yml config`
+     - `docker compose -f docker-compose.local.yml config`
+     - `docker compose -f docker-compose.e2e.yml config`
+     - run each with cert-dir unset and set.
+   - Required wrapper builds:
+     - `npm run compose:build`
+     - `npm run compose:local:build`
+     - `npm run compose:e2e:build`
+   - Runtime behavior checks:
+     - refresh disabled path starts normally,
+     - refresh enabled + valid certs starts normally,
+     - refresh enabled + missing/invalid certs exits non-zero with clear log.
+   - Host helper check:
+     - run `start-gcf-server.sh` with and without `CODEINFO_NPM_REGISTRY` and confirm install path behavior.

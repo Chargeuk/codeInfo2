@@ -60,7 +60,10 @@ Expected user outcome:
 - Committing corporate secrets or internal hostnames as hardcoded defaults in tracked env files.
 
 ### Questions
-- None.
+
+1. Question: Should docs include a concrete default example value for `CODEINFO_CORP_CERTS_DIR`, or keep it generic as "set this to your local corporate cert folder path"?
+
+2. Question: Should `CODEINFO_REFRESH_CA_CERTS_ON_START` be explicitly documented as defaulting to `false` unless corporate cert mount is configured?
 
 ## Implementation Ideas
 

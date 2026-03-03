@@ -13,12 +13,12 @@ Today, the project works in standard Mac and WSL setups, but some corporate Wind
 
 At the moment, users must manually edit multiple files (`.npmrc`, `server/Dockerfile`, `client/Dockerfile`, and container startup behavior) to inject registry and certificate settings. This is fragile, hard to document, and difficult for new contributors.
 
-This story introduces a generic configuration approach based on `CODEINFO_*` environment variables so users can place corporate overrides in one local env file (for example `server/.env.local`) instead of modifying source-controlled files. The default open-source behavior must remain unchanged when overrides are not set.
+This story introduces a generic configuration approach based on `CODEINFO_*` environment variables so users can place corporate overrides in workflow env files (`server/.env.local` for `compose`/`compose:local`, `.env.e2e` for e2e) instead of modifying source-controlled Docker and npm config files. The default open-source behavior must remain unchanged when overrides are not set.
 For v1, this story is intentionally narrow: single default npm registry only (no scoped npm registry rules), no npm auth mechanism, and no proxy support.
 For certificate trust, v1 standardizes on mounting only corporate `.crt` files from a dedicated host directory into `/usr/local/share/ca-certificates/codeinfo-corp:ro` (not mounting host `/etc/ssl/certs`), then conditionally refreshing the runtime CA store.
 Documentation for this story must add a new README subsection immediately after `### Mac & WSL That have followed the WSL setup above` with a clear corporate-restricted-network title and setup steps.
 The expected implementation output for this story is limited to Docker/Compose/shell/docs updates (no TypeScript or React feature work).
-Because current wrappers use different env files per workflow, this story treats `compose` and `compose:local` as `server/.env.local` driven, while e2e corporate overrides are driven by `.env.e2e` (with optional explicit shell exports as overrides).
+Because current wrappers use different env files per workflow, this story treats `compose` and `compose:local` as `server/.env.local` driven, while e2e corporate overrides are driven by `.env.e2e`.
 
 Expected user outcome:
 - Standard users keep current behavior with no extra setup.
@@ -32,11 +32,14 @@ Expected user outcome:
 - Updated server startup script (`server/entrypoint.sh`) for deterministic CA refresh behavior with clear fail-fast logging.
 - Updated host helper (`start-gcf-server.sh`) so global npm install honors corporate npm registry env when set.
 - Updated docs (`README.md`) with the required new corporate setup section and concrete examples.
-- Optional env-file updates required for workflow parity (for example adding commented `CODEINFO_*` placeholders to `.env.e2e`).
+- Required env-file updates for workflow parity (including adding `CODEINFO_*` placeholders/defaults to `.env.e2e`).
 
 ### Acceptance Criteria
 
-1. A developer can configure corporate behavior for `compose` and `compose:local` by editing only `server/.env.local` (no edits required to `.npmrc`, Dockerfiles, or compose YAML files in their local clone).
+1. A developer can configure corporate behavior by editing workflow env files only:
+   - `server/.env.local` for `compose` and `compose:local`,
+   - `.env.e2e` for e2e workflows,
+   - with no edits required to `.npmrc`, Dockerfiles, or compose YAML files in their local clone.
 2. Canonical v1 environment variables are exactly:
    - `CODEINFO_NPM_REGISTRY`
    - `CODEINFO_PIP_INDEX_URL`
@@ -65,7 +68,7 @@ Expected user outcome:
    - a tested concrete example path for `CODEINFO_CORP_CERTS_DIR`,
    - expected cert file format/location (for example `.crt` files in that directory),
    - explicit default statement that `CODEINFO_REFRESH_CA_CERTS_ON_START=false` unless certificate-mount setup is intentionally enabled,
-   - step-by-step setup for restricted corporate WSL environments.
+   - step-by-step setup for restricted corporate WSL environments across `compose`/`compose:local` (`server/.env.local`) and e2e (`.env.e2e`).
 18. Compose handling for missing cert-dir variables is deterministic and documented:
    - default path/logic must not break compose parsing when `CODEINFO_CORP_CERTS_DIR` is unset,
    - compose uses a repo-owned fallback mount source path for unset cert-dir values (for example `./certs/empty-corp-ca`),
@@ -165,7 +168,7 @@ Expected user outcome:
    - Keep workflow env sources aligned to existing wrappers:
      - `compose` and `compose:local`: `server/.env` + `server/.env.local`
      - `compose:e2e:*`: `.env.e2e`
-   - Ensure e2e has corresponding optional `CODEINFO_*` keys available via `.env.e2e`.
+   - Ensure e2e has corresponding `CODEINFO_*` keys in `.env.e2e` (with safe defaults/comments for local corporate overrides).
    - Implement deterministic cert mount behavior in compose when cert dir is unset:
      - introduce a repo-owned empty fallback directory (for example `./certs/empty-corp-ca/.gitkeep`),
      - mount `${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}` to `/usr/local/share/ca-certificates/codeinfo-corp:ro` so config parsing never fails.
@@ -207,7 +210,7 @@ Expected user outcome:
      - explicit default `CODEINFO_REFRESH_CA_CERTS_ON_START=false`,
      - setup steps for:
        - `compose` / `compose:local` using `server/.env.local`,
-       - e2e using `.env.e2e` and/or exported shell env.
+       - e2e using `.env.e2e`.
 
 8. Verification evidence to capture
    - Compose parsing checks:

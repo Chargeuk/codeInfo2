@@ -23,6 +23,7 @@ Working definitions used in this story (to remove ambiguity):
 - `Start step` means the first step index the server should execute for a command run. It is 1-based (`1..N`), not 0-based.
 - `Same source repository` means the repository source that provided the flow file currently being executed.
 - `codeInfo2 repository` means the repository that contains this application codebase.
+- `Normalized source label` means `sourceLabel.trim()` when present and non-empty; otherwise basename of the repository source full path.
 - `Legacy env defaults` means existing environment-driven defaults currently used when config values are missing (for example `CHAT_DEFAULT_MODEL`, Codex-related env defaults).
 - `Hardcoded safe fallback` means final constant values in server code used only when both request override, config value, and legacy env value are unavailable.
 
@@ -40,18 +41,23 @@ Decisions confirmed for this story:
 - Dependency analysis between command steps is out of scope for this story; users can pick any valid step.
 - Chat defaults use precedence `request override > codex/chat/config.toml`, replacing env-default sourcing for these fields.
 - Codex default model source is `codex/chat/config.toml` (`model`), replacing `CHAT_DEFAULT_MODEL` for Codex default model selection, while users can still override model in the GUI per request.
+- Codex reasoning key is `model_reasoning_effort` (not `reasoning_effort`) in runtime config.
 - For missing Codex default fields, fallback precedence is `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback`, and server warnings are emitted whenever legacy env fallback is used.
 - Missing `codex/chat/config.toml` bootstraps by copying `codex/config.toml` first, then generating standard template if base config is missing.
-- Deprecated web search alias handling is normalized to canonical `web_search` with default `"live"` parity.
+- Deprecated web-search aliases are normalized deterministically:
+  - `true` aliases -> canonical `web_search = "live"`
+  - `false` aliases -> canonical `web_search = "disabled"`
+  - canonical `web_search` always wins when both canonical and alias are present.
 - `@openai/codex-sdk` is pinned to `0.107.0`.
 - Flow command lookup for repository-sourced flows resolves in this order: same source repository first, then the codeInfo2 repository, then other repositories by first match where "first" means source label alphabetical ascending, tie-broken by full source path alphabetical ascending.
 - Flow command fallback to codeInfo2/other repositories occurs only for command-not-found cases; if same-source command exists but is schema-invalid, resolution fails fast without fallback.
 - Investigation output must include an automated failing repro test and a fix.
 - `GET /agents/:agentName/commands` must include `stepCount` so AGENTS UI can render deterministic `Start step` options.
+- Disabled command entries still include `stepCount` as sentinel `1` when command file cannot be parsed; execution remains blocked by `disabled=true`/server validation.
 - `POST /agents/:agentName/commands/run` accepts optional `startStep`; omitted means server default `1` for backward compatibility.
 - Invalid start-step uses deterministic validation contract with code `INVALID_START_STEP`.
 - SDK upgrade is complete only when dependency version and the runtime guard (`DEV_0000037_T01_REQUIRED_VERSION`) are both updated to `0.107.0`.
-- Upstream Codex docs currently describe top-level `web_search` default behavior as `cached`; this story intentionally keeps app compatibility behavior for legacy bool parity by mapping legacy `true -> live`, `false -> disabled`, and using explicit app fallback rather than relying on implicit upstream default.
+- Upstream Codex docs currently describe top-level `web_search` default behavior as `cached`; this story keeps existing app compatibility by using explicit mapping for legacy bool aliases (`true -> live`, `false -> disabled`) and explicit app fallback behavior instead of relying on implicit upstream defaults.
 - Research confirms current flow command lookup is local-agent-home only; source-aware fallback behavior in this story is net-new and not already implemented.
 
 Expected end-user outcome:
@@ -73,23 +79,24 @@ Expected end-user outcome:
 8. Start-step behavior is added only for `AGENTS` command execution and does not introduce start-step controls to Flows page or other execution surfaces.
 9. No command-step dependency inference is added; server executes from selected valid step without auto-adjusting based on previous step dependencies.
 10. Chat defaults for Codex options are sourced from `codex/chat/config.toml` for both REST chat and MCP chat responses/execution paths.
-11. Covered Codex default fields are explicitly: `sandbox_mode`, `approval_policy`, `reasoning_effort`, `model`, and `web_search`.
+11. Covered Codex default fields are explicitly: `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
 12. Default resolution precedence for each covered field is `request override > codex/chat/config.toml`.
 13. When a covered field is missing in `codex/chat/config.toml`, fallback precedence is `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback`.
-14. Server emits a warning whenever a covered field uses `legacy env defaults` so operators can see migration gaps.
+14. Server emits a warning whenever a covered field uses `legacy env defaults`, and warning text names the specific field that fell back.
 15. `codex/chat/config.toml` bootstrap behavior is deterministic: if chat config is missing, copy `codex/config.toml`; if base config is also missing, generate standard template; if chat config already exists, do not overwrite it.
-16. Deprecated `web_search_request` config input is normalized to canonical `web_search`; canonical runtime default remains `"live"` when no explicit value is provided.
+16. Deprecated `web_search_request`/legacy boolean web-search inputs are normalized to canonical `web_search` (`true -> "live"`, `false -> "disabled"`), and canonical `web_search` wins if both are present.
 17. `@openai/codex-sdk` is upgraded and pinned to `0.107.0` in dependency manifests, and regression checks confirm existing chat/agent/flow flows still execute.
 18. Flow command lookup order for repository-scoped flows is: same source repository first, then codeInfo2 repository, then other repositories.
 19. For "other repositories", candidate sources are sorted deterministically by source label ascending, then full source path ascending, and first match is used.
 20. Cross-repository fallback is used only for command-not-found; if same-source command exists but is schema-invalid, execution fails immediately and does not fallback.
 21. Investigation and fix follow red-green evidence: add an automated failing repro test first, implement fix, then verify passing result on the same test.
 22. `GET /agents/:agentName/commands` response includes `stepCount` per command (`integer >= 1`) so client can render `Step 1..Step N` without reading command files in browser.
-23. `POST /agents/:agentName/commands/run` remains backward compatible: when `startStep` is omitted by older clients, server executes from step `1`.
-24. Invalid `startStep` responses use `400` with deterministic error payload including `code: "INVALID_START_STEP"` and message format `startStep must be between 1 and N`.
-25. `@openai/codex-sdk` upgrade includes updating server dependency version to `0.107.0`, updating the version guard constant in `server/src/config/codexSdkUpgrade.ts`, and keeping pre-release versions (`-alpha`, `-beta`, `-rc`) out of production manifests.
-26. Flow command resolution fix is covered by automated tests for: same-source success, same-source missing command with codeInfo2 fallback, deterministic "other repository" fallback ordering, and same-source schema-invalid fail-fast without fallback.
-27. Deterministic repository ordering comparison for fallback is case-insensitive ASCII on `sourceLabel`, then case-insensitive ASCII on full source path.
+23. For disabled commands with unreadable/invalid command files, response still includes `stepCount: 1` as sentinel plus `disabled: true`; client keeps execution disabled.
+24. `POST /agents/:agentName/commands/run` remains backward compatible: when `startStep` is omitted by older clients, server executes from step `1`.
+25. Invalid `startStep` responses use `400` with deterministic error payload including `code: "INVALID_START_STEP"` and message format `startStep must be between 1 and N`.
+26. `@openai/codex-sdk` upgrade includes updating server dependency version to `0.107.0`, updating the version guard constant in `server/src/config/codexSdkUpgrade.ts`, and keeping pre-release versions (`-alpha`, `-beta`, `-rc`) out of production manifests.
+27. Flow command resolution fix is covered by automated tests for: same-source success, same-source missing command with codeInfo2 fallback, deterministic "other repository" fallback ordering, and same-source schema-invalid fail-fast without fallback.
+28. Deterministic repository ordering comparison for fallback is case-insensitive ASCII on normalized source label, then case-insensitive ASCII on full source path.
 
 ### Message Contracts and Storage Shapes
 
@@ -103,6 +110,9 @@ This section defines contract and persistence impacts up front so implementation
   - Updated response item shape for this story:
     - `{ name, description, disabled, stepCount, sourceId?, sourceLabel? }`
   - `stepCount` is required and must be an integer `>= 1`.
+  - `stepCount` generation rule:
+    - valid command file: `command.items.length`
+    - disabled/invalid command file: sentinel `1` with `disabled: true`.
 
 - `POST /agents/:agentName/commands/run`
   - Existing request body shape:
@@ -111,6 +121,7 @@ This section defines contract and persistence impacts up front so implementation
     - `{ commandName, startStep?, sourceId?, conversationId?, working_folder? }`
   - `startStep` is optional for backward compatibility; when omitted, server executes from step `1`.
   - `startStep` must be integer within `[1, stepCount]`.
+  - Server validates range against the command file loaded at execution time (server is source of truth; client value is advisory).
   - Invalid `startStep` contract:
     - `400 { error: 'invalid_request', code: 'INVALID_START_STEP', message: 'startStep must be between 1 and N' }`
 

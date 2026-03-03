@@ -504,14 +504,14 @@ Add the frontend API function that consumes the new server prompt-discovery cont
 
 ---
 
-### 4. Frontend: move command description to command-info popover and remove inline command description area
+### 4. Frontend: add command-info popover interaction
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Implement only the command-info UX change: remove always-visible inline command description and add a command-info popover interaction that mirrors the existing agent-info pattern.
+Introduce the command-info icon and popover interaction only. This task does not remove legacy inline description text yet.
 
 #### Documentation Locations (External References Only)
 
@@ -522,18 +522,51 @@ Implement only the command-info UX change: remove always-visible inline command 
 
 #### Subtasks
 
-1. [ ] Update [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) to remove inline command description rendering.
-2. [ ] Add command-info icon button in command row.
-   - Disabled when no command selected.
-3. [ ] Add command-info popover state and rendering for selected-command description.
-   - Remove `agent-command-description` inline block completely.
-   - Ensure `Select a command to see its description.` is not rendered anywhere.
-   - Reuse the existing agent-info popover pattern in this file (`anchorEl`, `open`, `id`, open/close handlers, `Popover` wiring) rather than introducing a different popup pattern.
-4. [ ] Ensure no-command state remains understandable and non-crashing.
-5. [ ] Update [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx) for removal of inline text expectations.
-6. [ ] Extend [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx) pattern for command-info popover behavior.
-7. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
-8. [ ] Run workspace lint/format checks as final subtask for this task.
+1. [ ] Add command-info icon button in the command row in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
+   - Disabled when no command is selected.
+2. [ ] Add command-info popover state and rendering for selected-command description.
+   - Reuse the existing agent-info popover pattern (`anchorEl`, `open`, `id`, open/close handlers, `Popover` wiring).
+3. [ ] Ensure no-command state remains understandable and non-crashing when command-info is opened.
+4. [ ] Extend [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx) pattern for command-info popover behavior.
+5. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
+6. [ ] Run workspace lint/format checks as final subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:client`
+2. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.descriptionPopover.test.tsx`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 5. Frontend: remove inline command description area
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Remove the old always-visible inline command description behavior now that command-info popover interaction exists.
+
+#### Documentation Locations (External References Only)
+
+- React Testing Library interaction patterns: https://testing-library.com/docs/react-testing-library/intro
+- Existing command list UI tests in [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
+
+#### Subtasks
+
+1. [ ] Remove inline command description rendering in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
+2. [ ] Ensure `Select a command to see its description.` is not rendered anywhere.
+3. [ ] Update [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx) for inline description removal expectations.
+4. [ ] Add/update regression assertions to confirm command execute button enable/disable behavior is unchanged.
+5. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
+6. [ ] Run workspace lint/format checks as final subtask for this task.
 
 #### Testing
 
@@ -549,60 +582,95 @@ Implement only the command-info UX change: remove always-visible inline command 
 
 ---
 
-### 5. Frontend: implement prompt discovery UI state model (commit events, latest-response-wins, error vs zero-result behavior)
+### 6. Frontend: prompt discovery request lifecycle (commit triggers and stale-response guard)
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Implement prompt discovery and selection UI behavior only, including commit-triggered discovery and stale-response protection. This task does not execute prompts yet.
+Implement prompt discovery request timing and request lifecycle safety only. This task does not implement final prompts row rendering rules.
 
 #### Documentation Locations (External References Only)
 
 - React state and effects guidance: https://react.dev/learn/synchronizing-with-effects
 - React controlled inputs: https://react.dev/reference/react-dom/components/input
+- React Testing Library async/state tests: https://testing-library.com/docs/dom-testing-library/api-async
+
+#### Subtasks
+
+1. [ ] Add prompt discovery request state in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx):
+   - prompts loading,
+   - prompts error,
+   - committed working folder token,
+   - request token/version for latest-response-wins behavior.
+2. [ ] Trigger discovery only on committed events:
+   - `working_folder` blur,
+   - Enter in `working_folder`,
+   - directory picker selection.
+3. [ ] Prevent Enter in `working_folder` from submitting the instruction form.
+   - Scope this handling to the `working_folder` field only so multiline `Instruction` keeps normal Enter/newline behavior.
+4. [ ] Do not request discovery if committed `working_folder` is unchanged from the last committed value.
+5. [ ] Implement stale-response handling so only latest committed-folder response updates state.
+   - Reuse existing cancellation/guard pattern already used by page async effects (`let cancelled = false`) and explicit request-token comparison.
+6. [ ] Extend [client/src/test/agentsPage.workingFolderPicker.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.workingFolderPicker.test.tsx) for:
+   - commit trigger timing (`blur`/`Enter`/picker),
+   - no keystroke-only discovery before commit,
+   - no duplicate discovery requests on unchanged committed folder.
+7. [ ] Add/update lifecycle tests in [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx) for:
+   - stale-response handling (latest committed folder wins),
+   - Enter does not submit main instruction form.
+8. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
+9. [ ] Run workspace lint/format checks as final subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:client`
+2. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.workingFolderPicker.test.tsx`
+3. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.promptsDiscovery.test.tsx`
+4. [ ] `npm run compose:build:summary`
+5. [ ] `npm run compose:up`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 7. Frontend: prompt selector UI state transitions and visibility rules
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Implement prompts selector rendering rules and selection/reset behavior once request lifecycle is in place.
+
+#### Documentation Locations (External References Only)
+
 - MUI Select and TextField docs (v6.4.12): https://llms.mui.com/material-ui/6.4.12/components/selects.md
 - Installed dependency note: repo resolves `@mui/material` to `6.5.0`; use v6.4.12 MCP docs as the closest available v6 reference and verify against existing in-repo component usage.
 - React Testing Library async/state tests: https://testing-library.com/docs/dom-testing-library/api-async
 
 #### Subtasks
 
-1. [ ] Add prompts discovery state in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx):
-   - prompt list,
-   - selected prompt,
-   - prompts loading,
-   - prompts error,
-   - committed working folder token.
-2. [ ] Trigger discovery only on committed events:
-   - `working_folder` blur,
-   - Enter in `working_folder`,
-   - directory picker selection.
-   - Do not request discovery if the newly committed value equals the last committed value.
-3. [ ] Prevent Enter in `working_folder` from submitting the instruction form.
-   - Scope this handling to the `working_folder` field only so the multiline `Instruction` textarea retains normal Enter/newline behavior.
-4. [ ] Implement stale-response handling so only latest committed-folder response updates prompt state.
-   - Reuse the existing cancellation/guard pattern already used by page async effects (`let cancelled = false`) and explicit request-token comparison.
-5. [ ] Implement prompts-area visibility rules:
-   - show on successful non-empty prompts (render prompts selector + Execute Prompt button in the same row),
-   - show inline error on failure for committed non-empty folder,
-   - hide when committed folder empty or successful zero results.
-6. [ ] Implement prompts dropdown shape and selection behavior:
-   - render prompt option labels from `relativePath` only (never `fullPath`),
-   - include an explicit empty option labeled `No prompt selected` so users can clear a prior prompt selection.
-7. [ ] Implement immediate prompt selection reset on committed `working_folder` change.
-8. [ ] Extend [client/src/test/agentsPage.workingFolderPicker.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.workingFolderPicker.test.tsx) for:
-   - commit trigger timing (`blur`/`Enter`/picker),
-   - no discovery on `working_folder` keystroke-only edits before commit,
-   - Enter in `working_folder` commits discovery and does not submit the main instruction form,
-   - no duplicate discovery request when committed `working_folder` has not changed.
-9. [ ] Add focused prompt discovery state tests in [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx) for:
-   - stale-response handling (latest committed folder wins),
+1. [ ] Add prompts list and selected prompt state in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
+2. [ ] Implement prompts-area visibility rules:
+   - show selector + Execute Prompt button when prompts exist,
+   - show inline error when discovery fails for committed non-empty folder,
+   - hide when committed folder is empty or discovery succeeds with zero prompts.
+3. [ ] Implement prompts dropdown option behavior:
+   - labels from `relativePath` only (never `fullPath`),
+   - explicit empty option labeled `No prompt selected`.
+4. [ ] Implement immediate selected prompt reset on committed `working_folder` change.
+5. [ ] Keep Execute Prompt disabled unless selected prompt is valid.
+6. [ ] Extend [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx) for:
    - visibility/error/zero-result split,
    - relative-path label rendering + explicit empty option behavior,
-   - reset on folder change.
-10. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
-11. [ ] Run workspace lint/format checks as final subtask for this task.
+   - selection reset behavior.
+7. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
+8. [ ] Run workspace lint/format checks as final subtask for this task.
 
 #### Testing
 
@@ -618,14 +686,14 @@ Implement prompt discovery and selection UI behavior only, including commit-trig
 
 ---
 
-### 6. Frontend: implement Execute Prompt instruction composition and existing-run-path execution behavior
+### 8. Frontend: execute prompt through instruction run path
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Implement prompt execution by composing the canonical instruction string and sending it through the existing `runAgentInstruction` API path. This task must preserve run behavior and surface existing conflict/error outcomes cleanly.
+Implement prompt execution by composing the canonical instruction string and dispatching it through the existing instruction run flow.
 
 #### Documentation Locations (External References Only)
 
@@ -637,39 +705,37 @@ Implement prompt execution by composing the canonical instruction string and sen
 #### Subtasks
 
 1. [ ] Add Execute Prompt handler in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
-   - Reuse the same run orchestration sequence used by existing `handleSubmit` and `handleExecuteCommand` flows (prechecks, stop, pending flag, conversation selection, subscribe, API call, refresh, error/finally handling).
-2. [ ] Compose outbound instruction exactly from canonical preamble, replacing `<full path of markdown file>` with selected prompt `fullPath`.
+   - Reuse the same run orchestration sequence used by existing `handleSubmit` and `handleExecuteCommand`.
+2. [ ] Compose outbound instruction exactly from canonical preamble by replacing `<full path of markdown file>` with selected prompt `fullPath`.
 3. [ ] Execute via existing `runAgentInstruction(...)` only.
-   - Pass `working_folder` from the last committed folder value used for prompt discovery, so prompt execution context matches the selected prompt source.
-4. [ ] Keep Execute Prompt disabled unless selected prompt is valid and page run constraints permit.
-5. [ ] Preserve existing conflict and error UX handling (`RUN_IN_PROGRESS`, generic errors) without adding bespoke protocol branches.
-6. [ ] Keep existing Send instruction and Execute command behaviors unchanged while adding Execute Prompt path.
-   - Reuse existing conversation/bootstrap/run-lock error handling pattern already used by instruction run flow.
-   - Reuse existing `RUN_IN_PROGRESS` UI handling (`AgentApiError` branch + error bubble/runError) instead of creating prompt-specific conflict messaging.
-7. [ ] Extend existing run/conflict tests in:
+   - Pass committed `working_folder` value used for prompt discovery.
+4. [ ] Preserve existing conflict and error UX handling (`RUN_IN_PROGRESS`, generic errors) without prompt-specific protocol branches.
+5. [ ] Keep existing Send instruction and Execute command behavior unchanged.
+6. [ ] Extend existing conflict tests in:
    - [client/src/test/agentsPage.run.instructionError.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.instructionError.test.tsx),
    - [client/src/test/agentsPage.commandsRun.conflict.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.conflict.test.tsx),
-   so conflict/error UX remains unchanged after adding Execute Prompt.
-8. [ ] Add/update prompt execution-specific tests in [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx) for:
+   to assert unchanged conflict UX.
+7. [ ] Add/update prompt execution-specific tests in [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx) for:
    - exact instruction payload composition,
-   - payload path replacement uses selected prompt `fullPath` (not `relativePath` label text),
-   - execution request includes committed `working_folder` value that produced the selected prompt,
+   - `fullPath` replacement (not `relativePath`),
+   - committed `working_folder` forwarding,
    - execute-button enable/disable behavior,
-   - conflict/error behavior,
-   - deleted/moved prompt at execution-time resulting in non-crash error flow.
-9. [ ] Add/update regression assertions in existing agents page tests to confirm:
+   - deleted/moved prompt error flow without crash.
+8. [ ] Add/update regression assertions in existing agents page tests to confirm:
    - Send button still triggers standard instruction path,
    - Execute command still uses command-run path.
-10. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
-11. [ ] Run workspace lint/format checks as final subtask for this task.
+9. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
+10. [ ] Run workspace lint/format checks as final subtask for this task.
 
 #### Testing
 
 1. [ ] `npm run build:summary:client`
 2. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.executePrompt.test.tsx`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
+3. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.run.instructionError.test.tsx`
+4. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.commandsRun.conflict.test.tsx`
+5. [ ] `npm run compose:build:summary`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -677,7 +743,7 @@ Implement prompt execution by composing the canonical instruction string and sen
 
 ---
 
-### 7. Documentation: update story-facing product and architecture docs for final 0000039 behavior
+### 9. Documentation: update story-facing product and architecture docs for final 0000039 behavior
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -713,7 +779,7 @@ Capture final behavior in repository docs once implementation is complete, inclu
 
 ---
 
-### 8. Final verification: full acceptance and regression gate for story 0000039
+### 10. Final verification: full acceptance and regression gate for story 0000039
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**

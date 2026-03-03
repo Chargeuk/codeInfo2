@@ -1953,3 +1953,125 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Testing step 8: `npm run compose:up` succeeded and started the full stack, including healthy `codeinfo2-server-1` and started `codeinfo2-client-1`.
 - Testing step 9: Manual Playwright-MCP validation on `http://host.docker.internal:5001/agents` completed happy + failure coverage for command-info, prompt discovery (success/zero/error), selector transitions, and Execute Prompt (started/conflict). Captured required screenshots as `0000039-final-command-info-disabled.png`, `0000039-final-command-info-open.png`, `0000039-final-no-inline-description.png`, `0000039-final-prompts-visible.png`, `0000039-final-prompts-zero-results-hidden-or-empty-state.png`, `0000039-final-prompts-error-state.png`, `0000039-final-execute-prompt-enabled.png`, `0000039-final-execute-prompt-running-or-success.png`, and `0000039-final-execute-prompt-conflict-or-error.png` in Playwright output storage (`/tmp/playwright-output/playwright-output-local`). Client-console evidence captured required `[agents.prompts.api.*]`, `[agents.commandInfo.*]`, `[agents.prompts.selector.*]`, `[agents.prompts.selection.changed]`, and `[agents.prompts.execute.*]` prefixes; server-route/service evidence captured `[agents.prompts.route.*]` and `[agents.prompts.discovery.*]` prefixes in `logs/server.1.log` for Task 10 flows (notably around lines `211013-211016`, `211198-211201`, `211203-211204`, and `211206-211209`). Expected network-failure console lines (`400/404/409`) appeared only during deliberate failure-path checks.
 - Testing step 10: `npm run compose:down` succeeded and removed all compose services plus network `codeinfo2_internal`.
+
+---
+
+### 11. Post-review remediation: invalidate stale prompt-discovery responses on prompt-state reset paths
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Address a branch review finding where stale `listAgentPrompts(...)` responses can repopulate prompt UI state after prompt-state reset paths (for example, clearing `working_folder` or switching agent context). The fix must guarantee that prompt rows/selectors never reappear from stale responses once prompt state has been reset and that Execute Prompt cannot run with stale prompt context.
+
+#### Documentation Locations (External References Only)
+
+- React effects and state synchronization: https://react.dev/learn/synchronizing-with-effects
+- React state update patterns: https://react.dev/learn/updating-objects-in-state
+- Jest getting started: https://jestjs.io/docs/getting-started
+- Testing Library intro: https://testing-library.com/docs/react-testing-library/intro
+- Context7 Jest docs: `/jestjs/jest`
+
+#### Subtasks
+
+1. [ ] Add explicit prompt-discovery invalidation helper(s) in `AgentsPage`.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Implement exactly: create a small helper that clears prompt UI state (`promptEntries`, `promptsError`, `selectedPromptFullPath`) and invalidates any in-flight discovery request identity so stale responses can no longer commit results.
+   - Purpose: enforce latest-intent-wins behavior across all reset paths, not only folder-to-folder commit races.
+
+2. [ ] Apply prompt-discovery invalidation on all prompt-state reset paths.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Implement exactly: ensure the invalidation helper is invoked when:
+     - committed folder becomes empty,
+     - selected agent context is reset or changed,
+     - prompt state is intentionally reset by UX flows that should clear prompt context.
+   - Purpose: prevent stale result commits after context resets.
+
+3. [ ] Ensure discovery response commit guards validate current context before applying state.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Implement exactly: tighten `.then/.catch/.finally` guards so responses only apply when request identity and active committed context still match the latest current state.
+   - Purpose: guarantee prompt UI cannot resurface from outdated responses.
+
+4. [ ] Add regression test: stale in-flight response is ignored after clearing committed `working_folder`.
+   - Files: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
+   - Implement exactly: create a deferred prompts request, clear committed folder before it resolves, resolve stale request, and assert prompts row/select/error remain hidden/cleared.
+   - Purpose: lock in acceptance behavior for reset + stale-response edge case.
+
+5. [ ] Add regression test: changing agent context clears prompt selection/context and blocks stale execute state.
+   - Files: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx), [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
+   - Implement exactly: cover multi-agent scenario where prompt was previously selected, then agent changes; assert selection clears, Execute Prompt is disabled, and prompt row does not show stale results until next valid commit flow.
+   - Purpose: prevent stale prompt execution context across agent switches.
+
+6. [ ] Update design notes for the post-review stale-response guard behavior.
+   - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - Implement exactly: add a short note in the prompts discovery lifecycle section documenting reset-path invalidation and why it exists.
+
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Do not attempt to run builds or tests without using the wrapper commands listed below.
+
+1. [ ] `npm run build:summary:client` - mandatory because this task changes client behavior.
+2. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.promptsDiscovery.test.tsx --file client/src/test/agentsPage.executePrompt.test.tsx` - targeted regression validation for this remediation.
+3. [ ] `npm run test:summary:client` - full client suite pass after targeted fixes.
+4. [ ] `npm run compose:build:summary`
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP check: validate that clearing `working_folder` during an in-flight discovery request does not repopulate prompts UI after stale response returns; then switch agents after selecting a prompt and confirm Execute Prompt is disabled until a new prompt is selected for the current agent/folder context. Capture screenshots `0000039-task11-stale-response-after-clear-ignored.png` and `0000039-task11-agent-switch-clears-prompt-context.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 12. Final verification (re-run): full acceptance and regression gate after Task 11 remediation
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Re-run full-story acceptance and regression verification after Task 11 remediation so final sign-off covers both the original scope and the post-review fix.
+
+#### Documentation Locations (External References Only)
+
+- Docker Compose docs: https://docs.docker.com/compose/
+- Playwright introduction: https://playwright.dev/docs/intro
+- Jest getting started: https://jestjs.io/docs/getting-started
+- Cucumber guides index: https://cucumber.io/docs/guides/
+- Cucumber guide (10-minute tutorial subpath): https://cucumber.io/docs/guides/10-minute-tutorial/
+- Markdown syntax guide: https://www.markdownguide.org/basic-syntax/
+- Mermaid sequence diagram syntax: https://mermaid.js.org/syntax/sequenceDiagram.html
+- Context7 Mermaid docs: `/mermaid-js/mermaid`
+- Context7 Jest docs: `/jestjs/jest`
+
+#### Subtasks
+
+1. [ ] Re-validate final `README.md` against implemented behavior.
+2. [ ] Re-validate final `design.md` architecture and Mermaid diagrams against implemented behavior, including Task 11 reset-path stale-response invalidation notes.
+3. [ ] Re-validate final file map in `projectStructure.md`.
+4. [ ] Update final implementation summary for PR use with Task 11 remediation details.
+5. [ ] Add final regression evidence checklist update confirming Task 11 stale-response/agent-switch edge cases were validated.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Do not attempt to run builds or tests without using the wrapper commands listed below.
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run test:summary:server:unit`
+4. [ ] `npm run test:summary:server:cucumber`
+5. [ ] `npm run test:summary:client`
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+7. [ ] `npm run compose:build:summary`
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP check: re-run full 0000039 acceptance (command-info behavior, prompt discovery success/zero/error, selector transitions, execute prompt success/conflict/error) plus Task 11 edge-case checks for stale responses after prompt-state reset and agent switch. Capture screenshots `0000039-task12-final-command-info-disabled.png`, `0000039-task12-final-command-info-open.png`, `0000039-task12-final-prompts-visible.png`, `0000039-task12-final-prompts-zero-results.png`, `0000039-task12-final-prompts-error.png`, `0000039-task12-final-execute-success.png`, `0000039-task12-final-execute-conflict.png`, `0000039-task12-final-stale-after-clear-ignored.png`, and `0000039-task12-final-agent-switch-clears-prompt-context.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.

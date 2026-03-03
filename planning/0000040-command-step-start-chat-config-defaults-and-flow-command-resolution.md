@@ -242,6 +242,45 @@ Regression checks to prioritize while implementing:
 - SDK upgrade guard matches dependency pin (`0.107.0`) and still rejects unsupported versions.
 - Flow command resolution follows exact precedence and deterministic tie-break ordering.
 
+### Tasking Readiness
+
+This story is ready to be broken into tasks when the task author preserves the boundaries below.
+
+Required implementation outputs (must all be represented by downstream tasks):
+
+- AGENTS start-step support is fully wired end-to-end:
+  - command list returns `stepCount`
+  - command run accepts optional `startStep`
+  - server validates `startStep` with deterministic `INVALID_START_STEP` errors
+  - UI sends and enforces valid `startStep` range.
+- Chat default-source migration is complete for both REST and MCP codebase-question paths using the same precedence and warning behavior.
+- Runtime bootstrap behavior for missing `codex/chat/config.toml` is deterministic and non-destructive.
+- SDK upgrade is complete and aligned:
+  - dependency pinned to `0.107.0`
+  - runtime guard constant updated to `0.107.0`
+  - no pre-release SDK version accepted for this story.
+- Flow command resolution bug is fixed with deterministic source ordering and no fallback on same-source schema-invalid command files.
+
+Required validation evidence (must be produced by downstream tasks):
+
+- Updated/added automated tests for all changed contracts and behaviors listed in Acceptance Criteria and Message Contracts sections.
+- Passing wrapper-based validation for the affected workspaces:
+  - `npm run build:summary:server`
+  - `npm run build:summary:client`
+  - targeted wrappers during diagnosis, then full relevant wrappers for final validation.
+- Contract coverage evidence:
+  - REST route tests for `/agents/:agentName/commands` and `/agents/:agentName/commands/run`
+  - flow command resolution tests covering same-source success, same-source invalid fail-fast, and deterministic cross-repo fallback.
+- Migration/compatibility evidence:
+  - tests or assertions proving older clients (no `startStep`) still run from step 1
+  - tests/assertions proving unchanged MCP `run_command` contract behavior for this story scope.
+
+Tasking guardrails (must not be violated by downstream tasks):
+
+- No new persistence schema fields unless a new planning update explicitly adds them.
+- No new WebSocket message types unless a new planning update explicitly adds them.
+- No broad refactor outside the four scoped surfaces in this story.
+
 ### Interface Draft (Web GUI)
 
 This section defines concrete UI behavior for the unresolved interface requirements in this story.

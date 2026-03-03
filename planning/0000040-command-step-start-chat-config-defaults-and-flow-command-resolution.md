@@ -750,6 +750,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
 - TypeScript functions handbook: https://www.typescriptlang.org/docs/handbook/2/functions.html (Used for `startStep` typing, runtime boundary conversion, and narrowing.)
 - HTTP status reference (MDN): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status (Used to keep `INVALID_START_STEP` error semantics consistent.)
 - Node.js test runner API: https://nodejs.org/api/test.html (Used for runner unit/integration assertions.)
+- Cucumber guides index: https://cucumber.io/docs/guides/ (Primary Cucumber documentation root for this task's cucumber-suite verification references.)
 - Cucumber guides (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (Used as the Cucumber reference for this task's cucumber-suite verification step.)
 - Mermaid docs via Context7: `/mermaid-js/mermaid` (Use Mermaid syntax guidance when updating `design.md` execution-flow diagrams for this task.)
 - npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for wrapper command execution.)
@@ -1825,6 +1826,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 
 - Node.js `path` API: https://nodejs.org/api/path.html (Used for normalized label/path ordering rules and deterministic comparator implementation.)
 - Node.js test runner API: https://nodejs.org/api/test.html (Used for red-green integration tests for resolver behavior.)
+- Cucumber guides index: https://cucumber.io/docs/guides/ (Primary Cucumber documentation root for this task's cucumber-suite verification references.)
 - Cucumber guides (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (Cucumber reference for this task's cucumber-suite verification step.)
 - Mermaid docs via Context7: `/mermaid-js/mermaid` (Use Mermaid syntax guidance when documenting flow command-resolution ordering and fail-fast behavior in `design.md`.)
 - npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
@@ -2049,6 +2051,7 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
 - Playwright docs: https://playwright.dev/docs/intro (Used for final manual verification flow and screenshot evidence guidance.)
 - Jest docs via Context7: `/jestjs/jest` (Context7 source for interpreting Jest output and expectations during final regression checks.)
 - Jest getting started: https://jestjs.io/docs/getting-started (Used for interpreting client/server test run output in final verification.)
+- Cucumber guides index: https://cucumber.io/docs/guides/ (Primary Cucumber documentation root for this task's server cucumber verification references.)
 - Cucumber 10-minute tutorial: https://cucumber.io/docs/guides/10-minute-tutorial/ (Primary Cucumber guides subpath used for BDD suite execution expectations.)
 - Cucumber parallel execution guide: https://cucumber.io/docs/guides/parallel-execution/ (Used for understanding multi-scenario execution behavior in wrapper runs.)
 - DeepWiki OpenAI Codex documentation: https://deepwiki.com/openai/codex (Used for MCP contract non-regression cross-check context.)

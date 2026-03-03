@@ -323,3 +323,307 @@ The following behavior is mandatory and is the single source of truth for taskin
      - refresh enabled + missing/invalid certs exits non-zero with clear log.
    - Host helper check:
      - run `start-gcf-server.sh` with and without `CODEINFO_NPM_REGISTRY` and confirm install path behavior.
+
+## Task Execution Instructions
+
+1. Read this full story before implementation, including Acceptance Criteria, Configuration Semantics, Message Contracts and Storage Shapes, Edge Cases and Failure Modes, and Implementation Ideas.
+2. Work tasks strictly in numeric order. Do not start a later task until the current task is fully complete and documented.
+3. Each task is intentionally scoped to one testable implementation concern. Keep scope confined to that concern.
+4. For each task, set Task Status to `__in_progress__` before touching code, and set to `__done__` only after subtasks, testing, docs updates, and implementation notes are complete.
+5. Complete every subtask in order and tick its checkbox immediately after completion.
+6. Complete testing steps in order and tick each checkbox immediately after completion.
+7. Use wrapper-first commands from `AGENTS.md` for build/test/compose checks.
+8. After each task, update Implementation notes with decisions, issues, and outcomes, then record commit hashes in Git Commits.
+9. Keep API/WS/storage contracts unchanged in this story; if contract/schema changes are discovered, stop and update the story scope first.
+
+## Tasks
+
+### 1. Compose and Env Scaffolding: wire `CODEINFO_*` values and deterministic cert fallback
+
+- Task Status: **__to_do__**
+- Git Commits: `none yet`
+
+#### Overview
+
+Add compose-level plumbing so all workflows receive the expected `CODEINFO_*` values from the correct env files, and ensure cert volume interpolation remains valid when `CODEINFO_CORP_CERTS_DIR` is unset.
+
+#### Documentation Locations
+
+- [docker-compose.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.yml)
+- [docker-compose.local.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.local.yml)
+- [docker-compose.e2e.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.e2e.yml)
+- [.env.e2e](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/.env.e2e)
+- Docker Compose interpolation docs: https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/
+
+#### Subtasks
+
+1. [ ] Create fallback cert directory for unset cert mounts at `certs/empty-corp-ca/.gitkeep`.
+2. [ ] Update [docker-compose.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.yml) server build args to include `CODEINFO_NPM_REGISTRY`, `CODEINFO_PIP_INDEX_URL`, `CODEINFO_PIP_TRUSTED_HOST`, and `CODEINFO_NODE_EXTRA_CA_CERTS`.
+3. [ ] Update [docker-compose.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.yml) client build args to include `CODEINFO_NPM_REGISTRY`.
+4. [ ] Update [docker-compose.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.yml) server runtime env to include `CODEINFO_NODE_EXTRA_CA_CERTS` and `CODEINFO_REFRESH_CA_CERTS_ON_START`, and add cert mount `${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro`.
+5. [ ] Apply the same mapping/mount pattern to [docker-compose.local.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.local.yml).
+6. [ ] Apply the same mapping/mount pattern to [docker-compose.e2e.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.e2e.yml).
+7. [ ] Add commented/default `CODEINFO_*` placeholders to [.env.e2e](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/.env.e2e) for workflow parity.
+8. [ ] Add/update test coverage artifact for this task: record compose-config rendering checks (all three compose files, with cert var unset and set) in Implementation notes.
+9. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md) for any new files/folders introduced in this task.
+10. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up` then `npm run compose:down`
+5. [ ] `docker compose -f docker-compose.yml config`
+6. [ ] `docker compose -f docker-compose.local.yml config`
+7. [ ] `docker compose -f docker-compose.e2e.yml config`
+
+#### Implementation notes
+
+- Capture exact compose mappings added and fallback directory path.
+- Record any interpolation pitfalls resolved (unset vs empty variables).
+
+---
+
+### 2. Server Dockerfile Build Wiring: apply npm/pip registry variables across all install stages
+
+- Task Status: **__to_do__**
+- Git Commits: `none yet`
+
+#### Overview
+
+Implement server image build-time handling for npm and pip corporate registry/index variables without changing default behavior when values are unset.
+
+#### Documentation Locations
+
+- [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/Dockerfile)
+- npm config docs: https://docs.npmjs.com/cli/v10/using-npm/config/
+- pip configuration docs: https://pip.pypa.io/en/stable/topics/configuration/
+
+#### Subtasks
+
+1. [ ] Add `ARG` declarations in [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/Dockerfile) for `CODEINFO_NPM_REGISTRY`, `CODEINFO_PIP_INDEX_URL`, `CODEINFO_PIP_TRUSTED_HOST`, and `CODEINFO_NODE_EXTRA_CA_CERTS`.
+2. [ ] Update the workspace `npm ci` build steps in [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/Dockerfile) to conditionally honor `CODEINFO_NPM_REGISTRY` when non-empty.
+3. [ ] Update global npm install step (`npm install -g`) in [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/Dockerfile) to conditionally honor `CODEINFO_NPM_REGISTRY`.
+4. [ ] Update pip install step in [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/Dockerfile) to conditionally apply `CODEINFO_PIP_INDEX_URL` and `CODEINFO_PIP_TRUSTED_HOST`.
+5. [ ] Ensure unset/empty values preserve existing default behavior and do not pass malformed flags.
+6. [ ] Add/update test coverage artifact for this task: record build log evidence for unset vs set behavior in Implementation notes.
+7. [ ] If file/folder structure changed, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md).
+8. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up` then `npm run compose:down`
+5. [ ] `npm run compose:build` with registry/index vars unset and confirm success.
+6. [ ] `npm run compose:build` with registry/index vars set to test values and confirm command-path usage from logs.
+
+#### Implementation notes
+
+- Record which Dockerfile stages were changed and why.
+- Record how empty-string env handling was implemented.
+
+---
+
+### 3. Client Dockerfile Build Wiring: apply npm registry variable in client build stage
+
+- Task Status: **__to_do__**
+- Git Commits: `none yet`
+
+#### Overview
+
+Implement client build-stage registry override support via `CODEINFO_NPM_REGISTRY` while preserving default npm behavior when unset.
+
+#### Documentation Locations
+
+- [client/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/client/Dockerfile)
+- npm config docs: https://docs.npmjs.com/cli/v10/using-npm/config/
+
+#### Subtasks
+
+1. [ ] Add `ARG CODEINFO_NPM_REGISTRY` in [client/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/client/Dockerfile) build stage.
+2. [ ] Update client `npm ci` step to use `CODEINFO_NPM_REGISTRY` only when non-empty.
+3. [ ] Confirm unset value path remains behaviorally identical to current default install path.
+4. [ ] Add/update test coverage artifact for this task: capture build evidence for unset vs set registry behavior.
+5. [ ] If structure changed, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md).
+6. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up` then `npm run compose:down`
+5. [ ] `npm run compose:build` with `CODEINFO_NPM_REGISTRY` unset and verify client image build.
+6. [ ] `npm run compose:build` with `CODEINFO_NPM_REGISTRY` set and verify client image build.
+
+#### Implementation notes
+
+- Record exact Dockerfile changes and any cache-related observations.
+
+---
+
+### 4. Server Entrypoint Runtime CA Logic: refresh gate, fail-fast behavior, and `NODE_EXTRA_CA_CERTS` export
+
+- Task Status: **__to_do__**
+- Git Commits: `none yet`
+
+#### Overview
+
+Add deterministic runtime cert-refresh behavior in server startup: strict boolean parsing, fail-fast errors for bad cert input, and correct `NODE_EXTRA_CA_CERTS` export before Node starts.
+
+#### Documentation Locations
+
+- [server/entrypoint.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/entrypoint.sh)
+- Node CLI `NODE_EXTRA_CA_CERTS`: https://nodejs.org/docs/latest-v22.x/api/cli.html#node_extra_ca_certsfile
+- Debian `update-ca-certificates`: https://manpages.debian.org/testing/ca-certificates/update-ca-certificates.8.en.html
+
+#### Subtasks
+
+1. [ ] Update [server/entrypoint.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/entrypoint.sh) to parse `CODEINFO_REFRESH_CA_CERTS_ON_START` so only case-insensitive `true` enables refresh.
+2. [ ] Export `NODE_EXTRA_CA_CERTS` from `CODEINFO_NODE_EXTRA_CA_CERTS`, defaulting to `/etc/ssl/certs/ca-certificates.crt` when unset/empty.
+3. [ ] Implement refresh-enabled path: verify usable `.crt` files exist in `/usr/local/share/ca-certificates/codeinfo-corp`, run `update-ca-certificates`, then continue.
+4. [ ] Implement fail-fast path: when refresh is enabled and no usable certs exist (or refresh fails), print clear error and exit non-zero before launching Node.
+5. [ ] Keep refresh-disabled path unchanged except for deterministic logging.
+6. [ ] Add/update test coverage artifact for this task: capture logs for both positive and negative runtime paths in Implementation notes.
+7. [ ] If structure changed, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md).
+8. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up` then `npm run compose:down`
+5. [ ] Runtime test: `CODEINFO_REFRESH_CA_CERTS_ON_START=true` with valid cert input -> startup succeeds.
+6. [ ] Runtime test: `CODEINFO_REFRESH_CA_CERTS_ON_START=true` with missing/invalid cert input -> startup fails with non-zero exit and clear message.
+7. [ ] Runtime test: refresh disabled path -> startup succeeds without refresh.
+
+#### Implementation notes
+
+- Record exact parsing rules implemented.
+- Record both success and fail-fast evidence with command/log references.
+
+---
+
+### 5. Host Helper Script: honor npm registry override in `start-gcf-server.sh`
+
+- Task Status: **__to_do__**
+- Git Commits: `none yet`
+
+#### Overview
+
+Update host helper install behavior so restricted-network users can install `git-credential-forwarder` via corporate npm registry when configured.
+
+#### Documentation Locations
+
+- [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh)
+- npm config docs: https://docs.npmjs.com/cli/v10/using-npm/config/
+
+#### Subtasks
+
+1. [ ] Update [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) so global npm install uses `CODEINFO_NPM_REGISTRY` when non-empty.
+2. [ ] Preserve existing behavior when `CODEINFO_NPM_REGISTRY` is unset.
+3. [ ] Confirm existing git path resolution logic (`cygpath` handling and exports) remains unchanged.
+4. [ ] Add/update test coverage artifact for this task: record script run evidence for unset and set registry values.
+5. [ ] If structure changed, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md).
+6. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up` then `npm run compose:down`
+5. [ ] Run `start-gcf-server.sh` with `CODEINFO_NPM_REGISTRY` unset and verify behavior.
+6. [ ] Run `start-gcf-server.sh` with `CODEINFO_NPM_REGISTRY` set and verify registry override path.
+
+#### Implementation notes
+
+- Record exact script command change and confirm no behavior drift in git path setup.
+
+---
+
+### 6. Documentation Task: README corporate section and workflow-specific setup guidance
+
+- Task Status: **__to_do__**
+- Git Commits: `none yet`
+
+#### Overview
+
+Document corporate setup clearly and precisely so users can configure each workflow without source edits, using the exact section title and placement defined in acceptance criteria.
+
+#### Documentation Locations
+
+- [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/README.md)
+- [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/design.md)
+- [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md)
+
+#### Subtasks
+
+1. [ ] Add README section `### Corporate Registry and Certificate Overrides (Restricted Networks)` immediately after `### Mac & WSL That have followed the WSL setup above`.
+2. [ ] Document canonical `CODEINFO_*` variables and their defaults using the Configuration Semantics section as source of truth.
+3. [ ] Add tested concrete `CODEINFO_CORP_CERTS_DIR` example path and expected cert file format (`.crt`).
+4. [ ] Document `CODEINFO_REFRESH_CA_CERTS_ON_START=false` default and the fail-fast behavior when enabled without usable certs.
+5. [ ] Document workflow split explicitly:
+   - `compose`/`compose:local` use `server/.env.local`,
+   - e2e uses `.env.e2e`.
+6. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/design.md) with any runtime-flow details added by this story.
+7. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md) to reflect new files/folders or changed purpose notes.
+8. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up` then `npm run compose:down`
+5. [ ] Manual doc validation: verify README section title, placement, and all required content items are present.
+
+#### Implementation notes
+
+- Record exact README insertion point and a brief summary of documented setup steps.
+
+---
+
+### 7. Final Validation and Story Closeout
+
+- Task Status: **__to_do__**
+- Git Commits: `none yet`
+
+#### Overview
+
+Perform end-to-end story validation against acceptance criteria, run full required wrappers, ensure docs are fully aligned, and prepare PR-ready summary material.
+
+#### Documentation Locations
+
+- [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/README.md)
+- [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/design.md)
+- [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md)
+- Docker docs: https://docs.docker.com/
+
+#### Subtasks
+
+1. [ ] Re-check every Acceptance Criteria item and record pass evidence in Implementation notes.
+2. [ ] Ensure `README.md` fully reflects the final behavior and commands for this story.
+3. [ ] Ensure `design.md` reflects the final runtime behavior and decision points added in this story.
+4. [ ] Ensure `projectStructure.md` reflects all file/folder additions and purpose changes.
+5. [ ] Create a concise pull request summary comment covering all tasks, key decisions, and testing evidence.
+6. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up` then `npm run compose:down`
+5. [ ] `npm run test:summary:server:unit`
+6. [ ] `npm run test:summary:server:cucumber`
+7. [ ] `npm run test:summary:client`
+8. [ ] `npm run test:summary:e2e`
+
+#### Implementation notes
+
+- Record final acceptance checklist outcomes and links/paths to key logs.

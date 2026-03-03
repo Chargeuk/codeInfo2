@@ -843,6 +843,7 @@ Update the frontend API layer contracts to match backend message changes. This t
 
 - Fetch API reference (MDN): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API (Used for request serialization and payload-shape handling in `client/src/api/agents.ts`.)
 - TypeScript type compatibility: https://www.typescriptlang.org/docs/handbook/type-compatibility.html (Used for API contract type changes around required `stepCount` and optional `startStep`.)
+- Jest docs via Context7: `/jestjs/jest` (Primary Jest MCP reference for writing/updating client unit tests in this task.)
 - Jest getting started: https://jestjs.io/docs/getting-started (Used for API-layer test structure and assertions.)
 - npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
 - Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
@@ -955,6 +956,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 - React state management: https://react.dev/learn/managing-state (Used for deterministic `Start step` state/reset rules.)
 - Fetch API reference (MDN): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API (Used for execute-request payload behavior expectations.)
 - Testing Library jest-dom: https://testing-library.com/docs/ecosystem-jest-dom/ (Used for UI state/visibility/error assertions.)
+- Jest docs via Context7: `/jestjs/jest` (Primary Jest MCP reference for component/UI test authoring in this task.)
 - Jest getting started: https://jestjs.io/docs/getting-started (Used for frontend test file patterns.)
 - npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
 - Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
@@ -1782,6 +1784,7 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
 
 - Docker Compose docs: https://docs.docker.com/compose/ (Used for wrapper-backed compose lifecycle verification and diagnostics.)
 - Playwright docs: https://playwright.dev/docs/intro (Used for final manual verification flow and screenshot evidence guidance.)
+- Jest docs via Context7: `/jestjs/jest` (Context7 source for interpreting Jest output and expectations during final regression checks.)
 - Jest getting started: https://jestjs.io/docs/getting-started (Used for interpreting client/server test run output in final verification.)
 - Cucumber 10-minute tutorial: https://cucumber.io/docs/guides/10-minute-tutorial/ (Primary Cucumber guides subpath used for BDD suite execution expectations.)
 - Cucumber parallel execution guide: https://cucumber.io/docs/guides/parallel-execution/ (Used for understanding multi-scenario execution behavior in wrapper runs.)

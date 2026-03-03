@@ -1543,7 +1543,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 8. Frontend: execute prompt through instruction run path
 
 - Task Status: **__completed__**
-- Git Commits: ****to_do****
+- Git Commits: `49443ed7`
 
 #### Overview
 
@@ -1761,6 +1761,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Testing step 5: `npm run compose:up` succeeded and started the full stack, including healthy `codeinfo2-server-1` and started `codeinfo2-client-1`.
 - Testing step 6: Manual Playwright-MCP validation on `http://host.docker.internal:5001/agents` confirmed Execute Prompt success and conflict/error paths with required logs (`[agents.prompts.execute.clicked]`, `[agents.prompts.execute.payload_built] instructionHasFullPath=true`, `[agents.prompts.execute.result] status=started|error code=none|RUN_IN_PROGRESS`), and required screenshots were captured as `0000039-task8-execute-enabled.png`, `0000039-task8-execute-running-or-success.png`, and `0000039-task8-execute-conflict-or-error.png` in Playwright MCP output storage (`/tmp/playwright-output/playwright-output-local`).
 - Testing step 7: `npm run compose:down` succeeded and removed all Task 8 compose services plus network `codeinfo2_internal`.
+- Git Commits: Recorded Task 8 implementation commit `49443ed7` in this task header before creating the git-commit marker commit.
 
 ---
 

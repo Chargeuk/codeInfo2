@@ -485,17 +485,34 @@ Add the backend response contract for command list items so the frontend can ren
 
 #### Subtasks
 
-1. [ ] Update command summary shape to include `stepCount` in [server/src/agents/commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts).
-2. [ ] Ensure `stepCount` generation rule is implemented in [server/src/agents/commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts):
-   - valid command file -> `command.items.length`
-   - invalid/disabled command file -> sentinel `1`.
-3. [ ] Ensure list service returns `stepCount` in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) and route payload includes it in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts).
-4. [ ] Add/extend server unit tests for command-list contract in [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts) and [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts).
-5. [ ] Update `openapi.json` list contract schema for `stepCount` in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and add/update OpenAPI contract tests in [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts).
-6. [ ] Update documentation files changed by this task:
-   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+1. [ ] Add `stepCount: number` to the command summary type and returned summary object in [server/src/agents/commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts).
+   - Docs to read first: https://expressjs.com/en/guide/routing.html, https://swagger.io/specification/, https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 22.
+   - Done when: loader-level summary objects always include `stepCount`.
+2. [ ] Implement the `stepCount` generation rules in [server/src/agents/commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts): valid command file -> `command.items.length`; invalid/disabled command file -> sentinel `1`.
+   - Docs to read first: https://swagger.io/specification/, https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 22, AC 23.
+   - Done when: invalid/disabled summaries return `disabled: true` with `stepCount: 1` and valid summaries return actual step counts.
+3. [ ] Propagate `stepCount` through service and route response wiring in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) and [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts).
+   - Docs to read first: https://expressjs.com/en/guide/routing.html, https://swagger.io/specification/.
+   - Acceptance criteria coverage: AC 22, AC 23.
+   - Done when: `GET /agents/:agentName/commands` JSON includes `stepCount` for every command item.
+4. [ ] Add/extend tests in [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts) and [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts) for both valid and disabled-command cases.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 22, AC 23.
+   - Done when: tests assert exact `stepCount` values and fail if field is absent.
+5. [ ] Update API documentation and contract tests in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts) for required `stepCount` (`integer >= 1`).
+   - Docs to read first: https://swagger.io/specification/, https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 22, AC 23.
+   - Done when: OpenAPI schema and contract tests both enforce required `stepCount`.
+6. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for this task’s new/changed message contract and test files.
+   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Acceptance criteria coverage: documentation support for AC 22, AC 23.
+   - Done when: docs explicitly mention `stepCount` contract and touched file map changes.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Acceptance criteria coverage: quality gate for AC 22, AC 23 implementation.
+   - Done when: both commands pass with no remaining lint/format errors.
 
 #### Testing
 
@@ -531,24 +548,42 @@ Add the run-request message contract for optional `startStep` with strict input 
 
 #### Subtasks
 
-1. [ ] Extend request parsing for command-run in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts) to accept optional `startStep`.
-2. [ ] Add validation rules for `startStep` shape in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts):
-   - omitted allowed
-   - integer only when present
-   - reject non-integer inputs as `400 invalid_request`.
-3. [ ] Add deterministic error mapping in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts) for `INVALID_START_STEP` to:
-   - `400 { error: 'invalid_request', code: 'INVALID_START_STEP', message: 'startStep must be between 1 and N' }`.
-4. [ ] Extend command-run service input contract in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) to include optional `startStep` without changing runner logic in this task.
-5. [ ] Add/extend router unit tests in [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts) for:
-   - optional `startStep` accepted,
-   - invalid type rejected,
-   - `INVALID_START_STEP` mapping shape.
-6. [ ] Add/extend MCP Agents `run_command` regression tests in [server/src/test/unit/mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts) and confirm [server/src/mcpAgents/tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts) input schema remains unchanged for this story scope (no `startStep` input field).
-7. [ ] Update run contract in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and add/update OpenAPI tests in [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts).
-8. [ ] Update documentation files changed by this task:
-   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+1. [ ] Extend run-route request parsing in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts) so `startStep` is optional in `POST /agents/:agentName/commands/run`.
+   - Docs to read first: https://expressjs.com/en/guide/routing.html, https://developer.mozilla.org/en-US/docs/Web/HTTP/Status.
+   - Acceptance criteria coverage: AC 6, AC 24.
+   - Done when: route accepts payloads both with and without `startStep`.
+2. [ ] Implement route-level `startStep` shape checks in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts): omitted allowed; when present must be integer.
+   - Docs to read first: https://expressjs.com/en/guide/routing.html, https://developer.mozilla.org/en-US/docs/Web/HTTP/Status.
+   - Acceptance criteria coverage: AC 7, AC 24, AC 25.
+   - Done when: non-integer `startStep` requests return `400 invalid_request`.
+3. [ ] Add deterministic `INVALID_START_STEP` error mapping in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts) with exact payload `400 { error: 'invalid_request', code: 'INVALID_START_STEP', message: 'startStep must be between 1 and N' }`.
+   - Docs to read first: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status.
+   - Acceptance criteria coverage: AC 7, AC 25.
+   - Done when: route always returns the required code/message shape for this error type.
+4. [ ] Extend run-service input types in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) to include optional `startStep` without changing runner execution logic in this task.
+   - Docs to read first: https://www.typescriptlang.org/docs/handbook/2/functions.html.
+   - Acceptance criteria coverage: AC 24.
+   - Done when: service compiles with optional `startStep` in route-to-service contracts.
+5. [ ] Add/extend route tests in [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts) for accepted omitted value, rejected bad types, and deterministic `INVALID_START_STEP` error payload.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 7, AC 24, AC 25.
+   - Done when: tests assert full error body shape and backward-compatible omission behavior.
+6. [ ] Add/extend MCP regression checks in [server/src/test/unit/mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts) and verify [server/src/mcpAgents/tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts) schema has no `startStep`.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 8, AC 24.
+   - Done when: MCP contract tests prove no schema drift for `run_command`.
+7. [ ] Update [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts) for optional `startStep` and `INVALID_START_STEP` error shape.
+   - Docs to read first: https://swagger.io/specification/, https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 24, AC 25.
+   - Done when: OpenAPI and contract tests match runtime route behavior.
+8. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for run-request contract updates.
+   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Acceptance criteria coverage: documentation support for AC 24, AC 25.
+   - Done when: docs list optional `startStep` and unchanged MCP scope.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Acceptance criteria coverage: quality gate for AC 6, AC 7, AC 24, AC 25.
+   - Done when: both commands pass.
 
 #### Testing
 
@@ -583,21 +618,34 @@ Implement runtime start-step behavior in the command runner. This task covers st
 
 #### Subtasks
 
-1. [ ] Add `startStep` handling in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) for both `startAgentCommand` (background run path) and `runAgentCommand` (synchronous path) so omitted values default to `1`.
-2. [ ] Update execution entrypoint in [server/src/agents/commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) to:
-   - validate `startStep` against runtime `totalSteps`,
-   - convert `1..N` to runner index at execution boundary,
-   - execute from selected step through final step.
-3. [ ] Ensure runtime range failures throw typed `INVALID_START_STEP` errors in [server/src/agents/commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts).
-4. [ ] Add/extend runner tests in [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for:
-   - omitted `startStep` runs from step 1,
-   - valid non-1 step executes from offset,
-   - out-of-range values fail deterministically.
-5. [ ] Add/extend service integration tests in [server/src/test/integration/agents-run-client-conversation-id.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-client-conversation-id.test.ts) to prove backward compatibility with older clients (omitted `startStep` still executes from step 1) for both command run entry paths.
-6. [ ] Update documentation files changed by this task:
-   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+1. [ ] Add optional `startStep` handling in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) for both `startAgentCommand` and `runAgentCommand`, defaulting omitted values to `1`.
+   - Docs to read first: https://www.typescriptlang.org/docs/handbook/2/functions.html, https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 6, AC 24.
+   - Done when: both service entry paths pass `startStep=1` when caller omits it.
+2. [ ] Update runner execution entrypoint in [server/src/agents/commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) to validate `startStep` against runtime total steps, convert `1..N` to zero-based index at boundary, and execute from selected step.
+   - Docs to read first: https://www.typescriptlang.org/docs/handbook/2/functions.html.
+   - Acceptance criteria coverage: AC 6, AC 9, AC 24.
+   - Done when: runner starts at selected step and still emits normal step metadata for remaining steps.
+3. [ ] Throw typed `INVALID_START_STEP` runtime errors in [server/src/agents/commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) for out-of-range values.
+   - Docs to read first: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status.
+   - Acceptance criteria coverage: AC 7, AC 25.
+   - Done when: out-of-range values fail deterministically with route-mapped code/message.
+4. [ ] Add/extend unit tests in [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for omitted default, non-1 offsets, and deterministic out-of-range failures.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 6, AC 7, AC 24, AC 25.
+   - Done when: tests prove both valid offset execution and deterministic rejection behavior.
+5. [ ] Add/extend integration tests in [server/src/test/integration/agents-run-client-conversation-id.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-client-conversation-id.test.ts) for backward compatibility (older clients omitting `startStep` still run from step 1 on both entry paths).
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 24.
+   - Done when: both command-run entry paths prove omission behavior in integration tests.
+6. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for execution-path changes and new test coverage.
+   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
+   - Done when: docs mention runtime start-step conversion and backward compatibility.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Acceptance criteria coverage: quality gate for AC 6, AC 7, AC 24, AC 25.
+   - Done when: both commands pass.
 
 #### Testing
 
@@ -633,13 +681,26 @@ Update the frontend API layer contracts to match backend message changes. This t
 
 #### Subtasks
 
-1. [ ] Add `stepCount` to command list response typing in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts).
-2. [ ] Add optional `startStep` to command run request typing and request body serialization in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts).
-3. [ ] Add/extend API tests in [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts) and [client/src/test/agentsApi.commandsRun.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsRun.test.ts).
-4. [ ] Update documentation files changed by this task:
-   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+1. [ ] Add `stepCount` to command-list response types in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts) and ensure parser logic treats it as required.
+   - Docs to read first: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, https://www.typescriptlang.org/docs/handbook/type-compatibility.html.
+   - Acceptance criteria coverage: AC 22, AC 23.
+   - Done when: client API types compile only when `stepCount` is present.
+2. [ ] Add optional `startStep` to run-request types and serialization in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts), ensuring omitted field remains possible for backward compatibility.
+   - Docs to read first: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, https://www.typescriptlang.org/docs/handbook/type-compatibility.html.
+   - Acceptance criteria coverage: AC 6, AC 24.
+   - Done when: API wrapper sends `startStep` only when provided by caller.
+3. [ ] Add/extend tests in [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts) and [client/src/test/agentsApi.commandsRun.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsRun.test.ts) for `stepCount` parsing and optional `startStep` payload behavior.
+   - Docs to read first: https://jestjs.io/docs/getting-started.
+   - Acceptance criteria coverage: AC 6, AC 22, AC 23, AC 24.
+   - Done when: tests fail if `stepCount` missing or if wrapper always/never sends `startStep`.
+4. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for client API contract updates.
+   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Acceptance criteria coverage: documentation support for AC 6, AC 22, AC 24.
+   - Done when: docs show new client API payload/response shapes.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Acceptance criteria coverage: quality gate for AC 6, AC 22, AC 24.
+   - Done when: both commands pass.
 
 #### Testing
 
@@ -675,24 +736,34 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 
 #### Subtasks
 
-1. [ ] Add `Start step` UI control to [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) immediately after command selection control.
-2. [ ] Implement state behavior in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx):
-   - disabled before valid command metadata,
-   - options `Step 1..Step N`,
-   - reset to `1` on command change,
-   - disabled when `N = 1`.
-3. [ ] Wire execute action payload in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) to pass `startStep` in `POST /agents/:agentName/commands/run`.
-4. [ ] Add/extend UI tests in existing command-row suites (do not create a parallel page-test scaffold):
-   - [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
-   - [client/src/test/agentsPage.run.commandError.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.commandError.test.tsx)
-   - [client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx)
-   to verify visibility, enable/disable behavior, reset behavior, outbound payload, and `INVALID_START_STEP` command-error feedback.
-5. [ ] Ensure backend `INVALID_START_STEP` responses are shown using the existing command error surface in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) with deterministic range message display.
-6. [ ] Update documentation files changed by this task:
-   - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
-   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+1. [ ] Add a labeled `Start step` `FormControl + Select` immediately after command select in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx), using MUI label/id pairing.
+   - Docs to read first: https://mui.com/material-ui/react-select/, https://mui.com/material-ui/api/form-control/, https://react.dev/learn/managing-state.
+   - Acceptance criteria coverage: AC 1, AC 5.
+   - Done when: control is visible in row order and properly labeled for keyboard/a11y.
+2. [ ] Implement `Start step` state rules in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx): disabled before command metadata, options `Step 1..Step N`, reset to `1` on command change, disabled when `N=1`.
+   - Docs to read first: https://react.dev/learn/managing-state, https://mui.com/material-ui/react-select/.
+   - Acceptance criteria coverage: AC 2, AC 3, AC 4, AC 5.
+   - Done when: state transitions match these four rules in UI interactions.
+3. [ ] Wire execute action payload in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) so REST run calls include selected `startStep` integer.
+   - Docs to read first: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API.
+   - Acceptance criteria coverage: AC 6.
+   - Done when: outbound run request body contains correct `startStep` value.
+4. [ ] Add/extend UI tests in [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx), [client/src/test/agentsPage.run.commandError.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.commandError.test.tsx), and [client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx) for visibility, disable rules, reset rules, payload wiring, and `INVALID_START_STEP` error display.
+   - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/, https://jestjs.io/docs/getting-started.
+   - Acceptance criteria coverage: AC 1, AC 2, AC 3, AC 4, AC 5, AC 6, AC 8.
+   - Done when: tests fail if any state rule or payload behavior drifts.
+5. [ ] Show backend `INVALID_START_STEP` responses using existing command error area in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx), preserving deterministic range text from server.
+   - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/.
+   - Acceptance criteria coverage: AC 7, AC 25.
+   - Done when: UI displays server message text for this error without introducing a new error surface.
+6. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for AGENTS start-step UX and changed test files.
+   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Acceptance criteria coverage: documentation support for AC 1-8.
+   - Done when: docs describe new control behavior and where implemented/tests live.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Acceptance criteria coverage: quality gate for AC 1-8.
+   - Done when: both commands pass.
 
 #### Testing
 
@@ -728,14 +799,30 @@ Implement the shared Codex default-resolution behavior in one place so all consu
 
 #### Subtasks
 
-1. [ ] Extend shared default resolution in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) by reusing runtime-config parsing/normalization from [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) to read `codex/chat/config.toml` values for `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
-2. [ ] Implement precedence `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback` in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), with warning messages that include exact field names whenever legacy env fallback is used.
-3. [ ] Keep canonical `web_search` precedence and deterministic alias normalization in the shared defaults path by reusing existing runtime-config normalization behavior so canonical `web_search` wins over deprecated aliases and bool aliases map to `live|disabled`.
-4. [ ] Add/extend tests in [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts), including invalid TOML/invalid field-value fallback behavior and deterministic warnings without overwriting user config files.
-5. [ ] Update documentation files changed by this task:
-   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+1. [ ] Implement config-backed default reading in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) using [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) for `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
+   - Docs to read first: https://developers.openai.com/codex/config-reference, https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12.
+   - Done when: resolver can load all five fields from `codex/chat/config.toml`.
+2. [ ] Implement fallback precedence in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts): `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback`, and emit field-specific warnings for legacy env fallback.
+   - Docs to read first: https://developers.openai.com/codex/config-reference.
+   - Acceptance criteria coverage: AC 13, AC 14.
+   - Done when: fallback source selection is deterministic and warning text includes field names.
+3. [ ] Keep canonical `web_search` precedence and alias normalization in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts): canonical wins; bool aliases map to `live|disabled`.
+   - Docs to read first: https://developers.openai.com/codex/config-reference.
+   - Acceptance criteria coverage: AC 16.
+   - Done when: resolver output is stable for canonical+alias mixed inputs.
+4. [ ] Add/extend resolver tests in [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts), including invalid TOML/invalid field values and deterministic fallback warnings.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
+   - Done when: test cases cover success, invalid config, and fallback warning branches.
+5. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for shared resolver behavior and touched test files.
+   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Acceptance criteria coverage: documentation support for AC 10-16.
+   - Done when: docs describe precedence chain and file changes.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Acceptance criteria coverage: quality gate for AC 10-16.
+   - Done when: both commands pass.
 
 #### Testing
 
@@ -768,18 +855,30 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
 
 #### Subtasks
 
-1. [ ] Update [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts) to source Codex defaults from the shared config-backed resolver instead of env-only defaults, preserving existing model capability shape.
-2. [ ] Update [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts) to return `codexDefaults` and warning semantics from the shared config-backed resolver path (not env-first behavior).
-3. [ ] Update [server/src/routes/chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [server/src/routes/chat.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chat.ts), and [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts) to use the shared resolver for Codex defaults and deterministic warning output.
-4. [ ] Add/extend tests:
-   - [server/src/test/unit/chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts)
-   - [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts)
-   - [server/src/test/unit/chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts).
-5. [ ] Update documentation files changed by this task:
-   - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
-   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+1. [ ] Update [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts) to consume shared defaults resolver output, preserving current model capability response shape.
+   - Docs to read first: https://developers.openai.com/codex/config-reference.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12.
+   - Done when: capability resolver no longer reads Codex defaults directly from env-only logic.
+2. [ ] Update [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts) to return `codexDefaults` and warnings from shared resolver path.
+   - Docs to read first: https://developers.openai.com/codex/config-reference, https://expressjs.com/en/guide/routing.html.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14.
+   - Done when: `/chat/models` defaults/warnings match shared resolver output.
+3. [ ] Update [server/src/routes/chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [server/src/routes/chat.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chat.ts), and [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts) to use shared resolver defaults and warning semantics.
+   - Docs to read first: https://expressjs.com/en/guide/routing.html, https://developers.openai.com/codex/config-reference.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
+   - Done when: REST chat request validation and metadata endpoints all derive Codex defaults from same resolver path.
+4. [ ] Add/extend tests in [server/src/test/unit/chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts), [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts), and [server/src/test/unit/chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts).
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 10-16.
+   - Done when: tests fail on any env-first regression in these endpoints.
+5. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for REST/default-source behavior.
+   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Acceptance criteria coverage: documentation support for AC 10-16.
+   - Done when: docs explain REST defaults are config-backed with warning behavior.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Acceptance criteria coverage: quality gate for AC 10-16.
+   - Done when: both commands pass.
 
 #### Testing
 
@@ -814,15 +913,22 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
 
 #### Subtasks
 
-1. [ ] Update [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts) to source Codex thread defaults from the shared config-backed resolver instead of direct env-default sourcing.
-2. [ ] Add/extend tests:
-   - [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts)
-   - [server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts)
-   - [server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts).
-3. [ ] Update documentation files changed by this task:
-   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+1. [ ] Update [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts) to use shared resolver defaults/warnings for Codex thread options instead of direct env-default sourcing.
+   - Docs to read first: https://developers.openai.com/codex/config-reference, https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
+   - Done when: MCP tool defaulting path matches REST behavior for covered fields.
+2. [ ] Add/extend MCP tool tests in [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts), [server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts), and [server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts).
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 10-16.
+   - Done when: tests prove MCP defaults and warnings stay aligned with shared resolver.
+3. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for MCP default-source alignment.
+   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Acceptance criteria coverage: documentation support for AC 10-16.
+   - Done when: docs explicitly call out MCP + REST parity for defaults.
 4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Acceptance criteria coverage: quality gate for AC 10-16.
+   - Done when: both commands pass.
 
 #### Testing
 
@@ -858,21 +964,26 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
 
 #### Subtasks
 
-1. [ ] Update bootstrap logic in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) to:
-   - copy `codex/config.toml` to `codex/chat/config.toml` when chat config is missing,
-   - generate standard template when both files are missing,
-   - keep existing chat config untouched when present.
-2. [ ] Ensure permission/read-write failures are logged as deterministic warnings in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) without silent fallback behavior.
-3. [ ] Add/extend bootstrap tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) for:
-   - copy path,
-   - template generation path,
-   - non-destructive existing-file path,
-   - failure warning path.
-4. [ ] Update documentation files changed by this task:
-   - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
-   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+1. [ ] Implement deterministic bootstrap in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts): copy `codex/config.toml` to `codex/chat/config.toml` when chat config is missing; generate template when both are missing; do not overwrite existing chat config.
+   - Docs to read first: https://nodejs.org/api/fs.html, https://nodejs.org/api/path.html.
+   - Acceptance criteria coverage: AC 15.
+   - Done when: all three bootstrap branches execute deterministically.
+2. [ ] Ensure file permission/read-write failures emit deterministic warnings in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) with no silent fallback behavior.
+   - Docs to read first: https://nodejs.org/api/fs.html.
+   - Acceptance criteria coverage: AC 15.
+   - Done when: warning output is predictable for IO failure paths.
+3. [ ] Add/extend tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) for copy path, template path, non-destructive existing-file path, and failure warning path.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 15.
+   - Done when: tests explicitly assert all four branches.
+4. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for bootstrap behavior and touched tests.
+   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Acceptance criteria coverage: documentation support for AC 15.
+   - Done when: docs state bootstrap order and non-overwrite rule.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Acceptance criteria coverage: quality gate for AC 15.
+   - Done when: both commands pass.
 
 #### Testing
 
@@ -906,16 +1017,34 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 
 #### Subtasks
 
-1. [ ] Verify latest stable `@openai/codex-sdk` and baseline/target in implementation notes using `npm view @openai/codex-sdk version versions --json` (baseline `0.106.0`, target stable `0.107.0` as of 2026-03-03).
-2. [ ] Update `@openai/codex-sdk` version pin to `0.107.0` in [server/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/package.json).
-3. [ ] Update runtime guard constant in [server/src/config/codexSdkUpgrade.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexSdkUpgrade.ts) to `0.107.0`.
-4. [ ] Verify startup guard usage path remains aligned in [server/src/index.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/index.ts).
-5. [ ] Add/extend tests in [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts) to ensure expected version and pre-release rejection behavior.
-6. [ ] Update documentation files changed by this task:
-   - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
-   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+1. [ ] Verify latest stable/baseline in implementation notes with `npm view @openai/codex-sdk version versions --json` (baseline `0.106.0`, target stable `0.107.0` as of 2026-03-03).
+   - Docs to read first: https://www.npmjs.com/package/@openai/codex-sdk, https://docs.npmjs.com/about-semantic-versioning.
+   - Acceptance criteria coverage: AC 17, AC 26.
+   - Done when: notes capture stable and pre-release values used for decision.
+2. [ ] Update package pin to `0.107.0` in [server/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/package.json).
+   - Docs to read first: https://docs.npmjs.com/about-semantic-versioning.
+   - Acceptance criteria coverage: AC 17, AC 26.
+   - Done when: manifest pin matches target stable version.
+3. [ ] Update runtime guard constant to `0.107.0` in [server/src/config/codexSdkUpgrade.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexSdkUpgrade.ts).
+   - Docs to read first: https://docs.npmjs.com/about-semantic-versioning.
+   - Acceptance criteria coverage: AC 26.
+   - Done when: guard version equals package pin.
+4. [ ] Verify startup guard integration path in [server/src/index.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/index.ts) remains aligned with updated constant.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 17, AC 26.
+   - Done when: startup still runs guard check with updated target version.
+5. [ ] Add/extend tests in [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts) for expected target version and pre-release rejection behavior.
+   - Docs to read first: https://nodejs.org/api/test.html, https://docs.npmjs.com/about-semantic-versioning.
+   - Acceptance criteria coverage: AC 17, AC 26.
+   - Done when: tests fail if prerelease versions are accepted or versions drift.
+6. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for SDK pin + guard alignment.
+   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Acceptance criteria coverage: documentation support for AC 17, AC 26.
+   - Done when: docs state pin version and guard coupling.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Acceptance criteria coverage: quality gate for AC 17, AC 26.
+   - Done when: both commands pass.
 
 #### Testing
 
@@ -949,23 +1078,38 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 
 #### Subtasks
 
-1. [ ] Add a failing repro test first in [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) that demonstrates current incorrect same-source/fallback behavior.
-2. [ ] Extend existing source-context plumbing in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so existing `startFlowRun` `sourceId` + `listIngestedRepositories` context is passed into command-step resolution used by `validateCommandSteps` and runtime command execution.
-3. [ ] Extend existing [loadCommandForAgent](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) resolution behavior with deterministic candidate ordering (do not add a second command parsing/loading path):
-   - same-source repository first,
-   - codeInfo2 repository second,
-   - other repositories sorted by case-insensitive ASCII normalized source label, then case-insensitive ASCII full source path.
-4. [ ] Implement same-source schema-invalid/read-failure fail-fast behavior in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) with no downstream fallback.
-5. [ ] Ensure both pre-run command validation and runtime command execution use the same shared resolver path in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so behavior does not diverge between validation and execution phases.
-6. [ ] Extend integration tests in [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for:
-   - same-source success,
-   - same-source missing with codeInfo2 fallback,
-   - deterministic other-repo fallback ordering,
-   - same-source schema-invalid fail-fast.
-7. [ ] Update documentation files changed by this task:
-   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+1. [ ] Add a failing repro test first in [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) demonstrating current incorrect same-source/fallback behavior (red step before implementation).
+   - Docs to read first: https://nodejs.org/api/test.html, https://nodejs.org/api/path.html.
+   - Acceptance criteria coverage: AC 21, AC 27.
+   - Done when: new test fails on current behavior before service changes.
+2. [ ] Extend source-context plumbing in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so `startFlowRun` `sourceId` and `listIngestedRepositories` context are available to both command validation and runtime execution.
+   - Docs to read first: https://nodejs.org/api/path.html.
+   - Acceptance criteria coverage: AC 18, AC 27.
+   - Done when: both validation and execution code paths can resolve repository candidates from same context.
+3. [ ] Implement deterministic candidate ordering in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts): same-source first, codeInfo2 second, then other repos sorted by case-insensitive ASCII normalized label then full path (no parallel loader implementation).
+   - Docs to read first: https://nodejs.org/api/path.html.
+   - Acceptance criteria coverage: AC 18, AC 19, AC 28.
+   - Done when: ordering is deterministic and independent of filesystem iteration order.
+4. [ ] Implement fail-fast behavior in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts): if same-source command exists but is schema-invalid/read-failed, stop and do not fallback.
+   - Docs to read first: https://nodejs.org/api/path.html.
+   - Acceptance criteria coverage: AC 20, AC 27.
+   - Done when: same-source invalid path returns failure immediately.
+5. [ ] Ensure both pre-run command validation and runtime command execution use the same shared resolver path in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) to avoid behavior drift.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 18, AC 20, AC 27.
+   - Done when: one resolver function/path is reused by both phases.
+6. [ ] Extend integration tests in [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for same-source success, same-source missing with codeInfo2 fallback, deterministic other-repo fallback, and same-source invalid fail-fast.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 18, AC 19, AC 20, AC 21, AC 27, AC 28.
+   - Done when: green tests cover all four required flow resolution cases.
+7. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for flow resolver ordering rules and added tests.
+   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
+   - Done when: docs include exact resolver order and fail-fast behavior.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Acceptance criteria coverage: quality gate for AC 18-21 and AC 27-28.
+   - Done when: both commands pass.
 
 #### Testing
 
@@ -999,11 +1143,26 @@ Perform documentation-only updates so product behavior, architecture notes, and 
 
 #### Subtasks
 
-1. [ ] Update user-facing behavior notes in [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) for AGENTS start-step behavior and chat-default sourcing.
-2. [ ] Update architecture/flow details in [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), including flow command-resolution ordering and start-step contract references.
-3. [ ] Update file/module map in [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for any added/removed test or source files from tasks 1-11.
-4. [ ] Ensure `openapi.json` documentation reflects final contract shapes from tasks 1-2 and aligns with route behavior.
+1. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) with final user-facing behavior for AGENTS start-step and config-backed chat defaults.
+   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Acceptance criteria coverage: documentation support for AC 1-8 and AC 10-16.
+   - Done when: README reflects final behavior exactly as implemented.
+2. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) with architecture/flow details for start-step contracts and flow command resolver ordering/fail-fast behavior.
+   - Docs to read first: https://mermaid.js.org/syntax/sequenceDiagram.html, https://www.markdownguide.org/basic-syntax/.
+   - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
+   - Done when: design doc includes deterministic ordering and failure rules.
+3. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for all file additions/removals from tasks 1-11.
+   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Acceptance criteria coverage: documentation support across whole story implementation.
+   - Done when: file/module map matches repository state after implementation.
+4. [ ] Ensure [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) reflects final route contract shapes from tasks 1-2 and stays aligned with route runtime behavior.
+   - Docs to read first: https://swagger.io/specification/.
+   - Acceptance criteria coverage: AC 22, AC 23, AC 24, AC 25.
+   - Done when: OpenAPI schema matches live request/response behavior.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Acceptance criteria coverage: documentation quality gate.
+   - Done when: both commands pass.
 
 #### Testing
 
@@ -1038,14 +1197,38 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
 
 #### Subtasks
 
-1. [ ] Validate every acceptance criterion in this plan and record pass/fail notes in this task's Implementation notes.
-2. [ ] Run full regression wrappers (server unit/cucumber, client tests, e2e) and log any remediation required.
-3. [ ] Run explicit non-regression checks that MCP Agents `run_command` contract remains unchanged for this story scope (no new `startStep` input requirement and no payload shape drift).
-4. [ ] Use Playwright MCP manual checks for AGENTS start-step, chat defaults initialization/warnings, and flow resolution failure/success behavior.
-5. [ ] Save screenshots to `test-results/screenshots/` using naming format `0000040-13-<short-name>.png`.
-6. [ ] Produce pull-request summary text covering all implemented tasks, tests, contract changes, and risks.
-7. [ ] Confirm `README.md`, `design.md`, and `projectStructure.md` are fully current.
+1. [ ] Validate every acceptance criterion and record explicit pass/fail evidence with file/test references in this task’s implementation notes.
+   - Docs to read first: acceptance criteria list in this story, https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 1-28.
+   - Done when: every AC has a concrete evidence note (test name, endpoint check, or manual check).
+2. [ ] Run full regression wrappers (`server unit`, `server cucumber`, `client`, `e2e`) and record remediation notes for any failures.
+   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md), https://cucumber.io/docs/guides/, https://jestjs.io/docs/getting-started.
+   - Acceptance criteria coverage: regression validation for AC 1-28.
+   - Done when: all required wrappers pass or remediation is fully completed and rerun.
+3. [ ] Run explicit MCP non-regression checks proving `run_command` contract did not gain required `startStep` input and payload shape did not drift.
+   - Docs to read first: [server/src/mcpAgents/tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts), https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 8, AC 24.
+   - Done when: targeted MCP tests/assertions confirm unchanged contract.
+4. [ ] Execute Playwright MCP manual checks for AGENTS start-step behavior, chat default initialization/warnings, and flow resolver success/failure paths.
+   - Docs to read first: `/microsoft/playwright`, `/docker/docs`.
+   - Acceptance criteria coverage: AC 1-8, AC 10-16, AC 18-21.
+   - Done when: manual checks match expected behavior and are documented.
+5. [ ] Save screenshots to `test-results/screenshots/` with naming format `0000040-13-<short-name>.png`.
+   - Docs to read first: `/microsoft/playwright`.
+   - Acceptance criteria coverage: final verification evidence for manual checks.
+   - Done when: screenshots exist with correct naming convention and map to manual checks.
+6. [ ] Produce pull-request summary text covering all completed tasks, contract changes, tests run, and remaining risks.
+   - Docs to read first: this story tasks list and implementation notes.
+   - Acceptance criteria coverage: release readiness communication for AC 1-28.
+   - Done when: summary includes what changed, why, and proof points.
+7. [ ] Confirm [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) are fully current after all code/test changes.
+   - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Acceptance criteria coverage: final documentation readiness for AC 1-28.
+   - Done when: docs align with final code and tests with no known drift.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+   - Docs to read first: [Agents.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/Agents.md).
+   - Acceptance criteria coverage: final quality gate for story completion.
+   - Done when: both commands pass at end of final verification.
 
 #### Testing
 

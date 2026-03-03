@@ -18,12 +18,21 @@ For v1, this story is intentionally narrow: single default npm registry only (no
 For certificate trust, v1 standardizes on mounting only corporate `.crt` files from a dedicated host directory into `/usr/local/share/ca-certificates/codeinfo-corp:ro` (not mounting host `/etc/ssl/certs`), then conditionally refreshing the runtime CA store.
 Documentation for this story must add a new README subsection immediately after `### Mac & WSL That have followed the WSL setup above` with a clear corporate-restricted-network title and setup steps.
 The expected implementation output for this story is limited to Docker/Compose/shell/docs updates (no TypeScript or React feature work).
-Because current wrappers use different env files per workflow, this story treats `compose` and `compose:local` as `server/.env.local` driven, while e2e corporate overrides are driven by `.env.e2e` and/or explicitly exported shell environment variables.
+Because current wrappers use different env files per workflow, this story treats `compose` and `compose:local` as `server/.env.local` driven, while e2e corporate overrides are driven by `.env.e2e` (with optional explicit shell exports as overrides).
 
 Expected user outcome:
 - Standard users keep current behavior with no extra setup.
 - Corporate users can configure npm/pip registry and certificate behavior through environment values only.
 - Manual source edits to Dockerfiles and `.npmrc` are no longer required for normal corporate onboarding.
+
+### Deliverables
+
+- Updated compose files (`docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`) with explicit `CODEINFO_*` build/runtime wiring and deterministic cert-mount behavior.
+- Updated Dockerfiles (`server/Dockerfile`, `client/Dockerfile`) so dependency install commands honor configured corporate registry/index values.
+- Updated server startup script (`server/entrypoint.sh`) for deterministic CA refresh behavior with clear fail-fast logging.
+- Updated host helper (`start-gcf-server.sh`) so global npm install honors corporate npm registry env when set.
+- Updated docs (`README.md`) with the required new corporate setup section and concrete examples.
+- Optional env-file updates required for workflow parity (for example adding commented `CODEINFO_*` placeholders to `.env.e2e`).
 
 ### Acceptance Criteria
 
@@ -39,14 +48,14 @@ Expected user outcome:
    - `compose` and `compose:local` flows use `server/.env` + `server/.env.local`,
    - e2e flow uses `.env.e2e`,
    - no separate client env interpolation is introduced for this story.
-4. `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` each pass relevant `CODEINFO_*` values to both server and client build/runtime paths where applicable for their workflow env sources.
+4. `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` each pass `CODEINFO_NPM_REGISTRY` to both server and client build paths, and pass the remaining `CODEINFO_*` values to the server build/runtime paths.
 5. `server/Dockerfile` accepts and applies registry/certificate-related build arguments in every stage that executes `npm ci`, global `npm install -g`, or `pip install`.
 6. `client/Dockerfile` accepts and applies registry-related build arguments in the stage that executes `npm ci`.
 7. When `CODEINFO_NPM_REGISTRY` is set, npm install steps use that registry through environment/config wiring; when it is unset, existing default npm behavior is preserved.
 8. When `CODEINFO_PIP_INDEX_URL` and `CODEINFO_PIP_TRUSTED_HOST` are set, server pip install steps use them; when unset, existing pip defaults are preserved.
 9. Server runtime supports certificate refresh by running `update-ca-certificates` during startup only when `CODEINFO_REFRESH_CA_CERTS_ON_START=true`.
 10. Corporate certificate mount uses `CODEINFO_CORP_CERTS_DIR` mapped to `/usr/local/share/ca-certificates/codeinfo-corp:ro`; mounting host `/etc/ssl/certs` is not used.
-11. Node runtime/npm trust chain supports `CODEINFO_NODE_EXTRA_CA_CERTS` and documents the default corporate value `/etc/ssl/certs/ca-certificates.crt`.
+11. Server runtime exports `NODE_EXTRA_CA_CERTS` from `CODEINFO_NODE_EXTRA_CA_CERTS` and uses `/etc/ssl/certs/ca-certificates.crt` as the documented default when unset.
 12. Root `.npmrc` remains unchanged for v1 (no mandatory manual edits for single-registry corporate setup).
 13. v1 supports one default npm registry URL only and does not implement scoped registry mapping (`@scope:registry`).
 14. v1 does not implement npm authentication handling (token/basic/client certificate).
@@ -59,6 +68,7 @@ Expected user outcome:
    - step-by-step setup for restricted corporate WSL environments.
 18. Compose handling for missing cert-dir variables is deterministic and documented:
    - default path/logic must not break compose parsing when `CODEINFO_CORP_CERTS_DIR` is unset,
+   - compose uses a repo-owned fallback mount source path for unset cert-dir values (for example `./certs/empty-corp-ca`),
    - if `CODEINFO_REFRESH_CA_CERTS_ON_START=true` and no usable `.crt` files are available, server startup fails with a clear error message and non-zero exit code.
 19. `CODEINFO_REFRESH_CA_CERTS_ON_START` parsing is explicitly defined for junior implementers: only case-insensitive `true` enables refresh; all other values (including empty/unset) mean disabled.
 20. Host helper `start-gcf-server.sh` supports restricted networks by honoring `CODEINFO_NPM_REGISTRY` (mapped to npm registry env/config) for its `npm install -g git-credential-forwarder` step, with defaults unchanged when unset.
@@ -66,6 +76,7 @@ Expected user outcome:
    - `npm run compose:build`
    - `npm run compose:local:build`
    - `npm run compose:e2e:build`
+   - and include command output/log references proving each command completed successfully.
 
 ### Message Contracts and Storage Shapes
 
@@ -139,6 +150,7 @@ Expected user outcome:
      - `docker-compose.local.yml`
      - `docker-compose.e2e.yml`
      - `.env.e2e`
+     - `certs/empty-corp-ca/.gitkeep`
      - `server/Dockerfile`
      - `client/Dockerfile`
      - `server/entrypoint.sh`
@@ -146,7 +158,10 @@ Expected user outcome:
      - `README.md`
 
 2. Compose and env propagation
-   - Add canonical `CODEINFO_*` values to server and client `build.args` where needed and server/client runtime `environment` where needed.
+   - Add canonical `CODEINFO_*` values with explicit mapping:
+     - server build args: all registry/cert-related `CODEINFO_*` values needed at build time,
+     - client build args: `CODEINFO_NPM_REGISTRY`,
+     - server runtime env: cert-refresh and node extra cert values.
    - Keep workflow env sources aligned to existing wrappers:
      - `compose` and `compose:local`: `server/.env` + `server/.env.local`
      - `compose:e2e:*`: `.env.e2e`

@@ -67,6 +67,27 @@ Expected user outcome:
    - `npm run compose:local:build`
    - `npm run compose:e2e:build`
 
+### Message Contracts and Storage Shapes
+
+1. New REST API contracts
+   - None required for this story.
+   - No new endpoints are introduced.
+
+2. Existing REST API contracts
+   - No request/response shape changes are required.
+   - `openapi.json` does not require contract additions for this infrastructure-only story.
+
+3. WebSocket contracts
+   - No new WebSocket message types are required.
+   - No changes are required to existing client/server WS payload shapes.
+
+4. Storage and persistence shapes
+   - No Mongo collection/schema changes are required.
+   - Conversation/turn/repo document shapes remain unchanged.
+
+5. Scope guard
+   - If implementation proposes any new API route, WS event, or persisted field, that change is out of scope for this story and must be raised as a separate story update before coding it.
+
 ### Out Of Scope
 
 - Replacing enterprise credential-management systems (vault/secret stores/SSO tooling).

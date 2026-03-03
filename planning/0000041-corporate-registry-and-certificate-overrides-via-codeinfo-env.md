@@ -361,16 +361,17 @@ Add compose-level plumbing so all workflows receive the expected `CODEINFO_*` va
 
 1. [ ] Create fallback cert directory for unset cert mounts at `certs/empty-corp-ca/.gitkeep`.
 2. [ ] Create a short source-of-truth matrix in Implementation notes before edits: compose/local interpolation from `server/.env` + `server/.env.local`, e2e interpolation from `.env.e2e`, and service runtime `env_file` usage from compose YAML.
-3. [ ] Update [docker-compose.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.yml) server build args to include `CODEINFO_NPM_REGISTRY`, `CODEINFO_PIP_INDEX_URL`, `CODEINFO_PIP_TRUSTED_HOST`, and `CODEINFO_NODE_EXTRA_CA_CERTS`.
-4. [ ] Update [docker-compose.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.yml) client build args to include `CODEINFO_NPM_REGISTRY`.
-5. [ ] Update [docker-compose.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.yml) server runtime env to include `CODEINFO_NODE_EXTRA_CA_CERTS` and `CODEINFO_REFRESH_CA_CERTS_ON_START`, and add quoted cert mount `"${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro"`.
-6. [ ] Apply the same mapping/mount pattern (including quoted cert mount) to [docker-compose.local.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.local.yml).
-7. [ ] Apply the same mapping/mount pattern (including quoted cert mount) to [docker-compose.e2e.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.e2e.yml), and ensure server runtime values are explicitly mapped through compose `environment` entries rather than relying on `server/.env.e2e`.
-8. [ ] Add commented/default `CODEINFO_*` placeholders to [.env.e2e](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/.env.e2e) for workflow interpolation parity, and do not duplicate these placeholders into `server/.env.e2e` or `client/.env.e2e`.
-9. [ ] Verify wrapper env-file sourcing remains unchanged by checking [scripts/docker-compose-with-env.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/scripts/docker-compose-with-env.sh) and [package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/package.json): `compose`/`compose:local` must continue using `server/.env` + `server/.env.local`, and e2e must continue using `.env.e2e`.
-10. [ ] Add/update test coverage artifact for this task: record compose-config rendering checks (all three compose files, with cert var unset and set) and wrapper env-file source verification evidence in Implementation notes.
-11. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md) for any new files/folders introduced in this task.
-12. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+3. [ ] Reuse existing compose interpolation style already present in compose files (for example `${VAR:-default}` patterns used for `CODEINFO_DOCKER_UID/GID` and host paths) when adding all new `CODEINFO_*` mappings.
+4. [ ] Update [docker-compose.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.yml) server build args to include `CODEINFO_NPM_REGISTRY`, `CODEINFO_PIP_INDEX_URL`, `CODEINFO_PIP_TRUSTED_HOST`, and `CODEINFO_NODE_EXTRA_CA_CERTS`.
+5. [ ] Update [docker-compose.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.yml) client build args to include `CODEINFO_NPM_REGISTRY`.
+6. [ ] Update [docker-compose.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.yml) server runtime env to include `CODEINFO_NODE_EXTRA_CA_CERTS` and `CODEINFO_REFRESH_CA_CERTS_ON_START`, and add quoted cert mount `"${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro"`.
+7. [ ] Apply the same mapping/mount pattern (including quoted cert mount) to [docker-compose.local.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.local.yml).
+8. [ ] Apply the same mapping/mount pattern (including quoted cert mount) to [docker-compose.e2e.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.e2e.yml), and ensure server runtime values are explicitly mapped through compose `environment` entries rather than relying on `server/.env.e2e`.
+9. [ ] Add commented/default `CODEINFO_*` placeholders to [.env.e2e](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/.env.e2e) for workflow interpolation parity, and do not duplicate these placeholders into `server/.env.e2e` or `client/.env.e2e`.
+10. [ ] Verify wrapper env-file sourcing remains unchanged by checking [scripts/docker-compose-with-env.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/scripts/docker-compose-with-env.sh) and [package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/package.json): `compose`/`compose:local` must continue using `server/.env` + `server/.env.local`, and e2e must continue using `.env.e2e`.
+11. [ ] Add/update test coverage artifact for this task: record compose-config rendering checks (all three compose files, with cert var unset and set) and wrapper env-file source verification evidence in Implementation notes.
+12. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md) for any new files/folders introduced in this task.
+13. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -406,20 +407,22 @@ Implement server image build-time handling for npm and pip corporate registry/in
 #### Documentation Locations
 
 - [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/Dockerfile)
+- [server/npm-global.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/npm-global.txt)
 - npm config docs: https://docs.npmjs.com/cli/v10/using-npm/config/
 - pip configuration docs: https://pip.pypa.io/en/stable/topics/configuration/
 
 #### Subtasks
 
 1. [ ] Add `ARG` declarations in [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/Dockerfile) for `CODEINFO_NPM_REGISTRY`, `CODEINFO_PIP_INDEX_URL`, `CODEINFO_PIP_TRUSTED_HOST`, and `CODEINFO_NODE_EXTRA_CA_CERTS` in each stage that needs them.
-2. [ ] Update the `deps` stage `npm ci` command in [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/Dockerfile) to conditionally honor `CODEINFO_NPM_REGISTRY` only when non-empty.
-3. [ ] Update runtime global npm install step (`npm install -g`) in [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/Dockerfile) to conditionally honor `CODEINFO_NPM_REGISTRY` only when non-empty.
-4. [ ] Update runtime pip install step in [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/Dockerfile) to conditionally apply `CODEINFO_PIP_INDEX_URL` and `CODEINFO_PIP_TRUSTED_HOST` only when non-empty.
-5. [ ] Implement conditional command logic using POSIX-compatible `/bin/sh` patterns (no Bash-only syntax) so Docker build commands remain portable.
-6. [ ] Ensure unset/empty values preserve existing default behavior and do not pass malformed/empty flags.
-7. [ ] Add/update test coverage artifact for this task: record build log evidence for unset vs set behavior and for an intentionally invalid registry/index failure path in Implementation notes.
-8. [ ] If file/folder structure changed, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md).
-9. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+2. [ ] Reuse the existing install command anchors without replacing them (`npm ci --workspaces...`, `python3 -m pip install ...`, and `xargs -r npm install -g --force < /tmp/npm-global.txt`); wrap only the registry/index behavior conditionally around those anchors.
+3. [ ] Update the `deps` stage `npm ci` command in [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/Dockerfile) to conditionally honor `CODEINFO_NPM_REGISTRY` only when non-empty.
+4. [ ] Update runtime global npm install step (`npm install -g`) in [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/Dockerfile) to conditionally honor `CODEINFO_NPM_REGISTRY` only when non-empty.
+5. [ ] Update runtime pip install step in [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/Dockerfile) to conditionally apply `CODEINFO_PIP_INDEX_URL` and `CODEINFO_PIP_TRUSTED_HOST` only when non-empty.
+6. [ ] Implement conditional command logic using POSIX-compatible `/bin/sh` patterns (no Bash-only syntax) so Docker build commands remain portable.
+7. [ ] Ensure unset/empty values preserve existing default behavior and do not pass malformed/empty flags.
+8. [ ] Add/update test coverage artifact for this task: record build log evidence for unset vs set behavior and for an intentionally invalid registry/index failure path in Implementation notes.
+9. [ ] If file/folder structure changed, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md).
+10. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -456,11 +459,12 @@ Implement client build-stage registry override support via `CODEINFO_NPM_REGISTR
 #### Subtasks
 
 1. [ ] Add `ARG CODEINFO_NPM_REGISTRY` in [client/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/client/Dockerfile) build stage.
-2. [ ] Update client `npm ci` step to use `CODEINFO_NPM_REGISTRY` only when non-empty.
-3. [ ] Confirm unset value path remains behaviorally identical to current default install path.
-4. [ ] Add/update test coverage artifact for this task: capture build evidence for unset vs set registry behavior.
-5. [ ] If structure changed, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md).
-6. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+2. [ ] Reuse the existing client install command anchor (`npm ci --workspaces --include-workspace-root --ignore-scripts --no-audit --no-fund`) and add registry override conditionally around it instead of replacing the command.
+3. [ ] Update client `npm ci` step to use `CODEINFO_NPM_REGISTRY` only when non-empty.
+4. [ ] Confirm unset value path remains behaviorally identical to current default install path.
+5. [ ] Add/update test coverage artifact for this task: capture build evidence for unset vs set registry behavior.
+6. [ ] If structure changed, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md).
+7. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -489,12 +493,14 @@ Add deterministic runtime cert-refresh behavior in server startup: strict boolea
 #### Documentation Locations
 
 - [server/entrypoint.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/entrypoint.sh)
+- [server/src/config/codexEnvDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/config/codexEnvDefaults.ts)
+- [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/config/runtimeConfig.ts)
 - Node CLI `NODE_EXTRA_CA_CERTS`: https://nodejs.org/docs/latest-v22.x/api/cli.html#node_extra_ca_certsfile
 - Debian `update-ca-certificates`: https://manpages.debian.org/testing/ca-certificates/update-ca-certificates.8.en.html
 
 #### Subtasks
 
-1. [ ] Update [server/entrypoint.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/entrypoint.sh) to parse `CODEINFO_REFRESH_CA_CERTS_ON_START` using POSIX `sh`-compatible logic so only case-insensitive `true` enables refresh.
+1. [ ] Update [server/entrypoint.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/entrypoint.sh) to parse `CODEINFO_REFRESH_CA_CERTS_ON_START` using POSIX `sh`-compatible logic, mirroring existing strict normalization semantics from `parseBooleanEnv`/`toBoolean` (`trim` + case-insensitive `true` gate).
 2. [ ] Export `NODE_EXTRA_CA_CERTS` from `CODEINFO_NODE_EXTRA_CA_CERTS`, defaulting to `/etc/ssl/certs/ca-certificates.crt` when unset/empty, before launching Node.
 3. [ ] Reorder startup flow so cert validation/refresh logic completes before spawning optional background Chrome process.
 4. [ ] Implement refresh-enabled path: verify usable `.crt` files exist in `/usr/local/share/ca-certificates/codeinfo-corp`, run `update-ca-certificates`, then continue.
@@ -540,11 +546,12 @@ Update host helper install behavior so restricted-network users can install `git
 #### Subtasks
 
 1. [ ] Update [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) so global npm install uses `CODEINFO_NPM_REGISTRY` when non-empty.
-2. [ ] Preserve existing behavior when `CODEINFO_NPM_REGISTRY` is unset.
-3. [ ] Confirm existing git path resolution logic (`cygpath` handling and exports) remains unchanged.
-4. [ ] Add/update test coverage artifact for this task: record script run evidence for unset and set registry values.
-5. [ ] If structure changed, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md).
-6. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+2. [ ] Reuse the existing `npm install -g git-credential-forwarder` command anchor and current script structure (`set -euo pipefail`, env exports, `cygpath` conversion), adding only minimal conditional registry wiring around that install step.
+3. [ ] Preserve existing behavior when `CODEINFO_NPM_REGISTRY` is unset.
+4. [ ] Confirm existing git path resolution logic (`cygpath` handling and exports) remains unchanged.
+5. [ ] Add/update test coverage artifact for this task: record script run evidence for unset and set registry values.
+6. [ ] If structure changed, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md).
+7. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -619,6 +626,10 @@ Perform end-to-end story validation against acceptance criteria, run full requir
 - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/design.md)
 - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md)
 - [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/openapi.json)
+- [scripts/test-summary-server-unit.mjs](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/scripts/test-summary-server-unit.mjs)
+- [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/test/unit/openapi.contract.test.ts)
+- [server/src/test/unit/openapi.prompts-route.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/test/unit/openapi.prompts-route.test.ts)
+- [server/src/test/unit/ws-server.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/test/unit/ws-server.test.ts)
 - Docker docs: https://docs.docker.com/
 
 #### Subtasks
@@ -629,9 +640,10 @@ Perform end-to-end story validation against acceptance criteria, run full requir
 4. [ ] Ensure `projectStructure.md` reflects all file/folder additions and purpose changes.
 5. [ ] Verify root `.npmrc` remained unchanged for this story and explicitly record evidence that scoped npm registry mapping, npm auth handling, and proxy variables were not added.
 6. [ ] Verify API/WS/storage contract files remain unchanged for this story (`openapi.json`, REST route payload contracts, websocket payload contracts, and Mongo storage shapes), and record evidence.
-7. [ ] Verify final file-change scope remains infrastructure-only (`docker-compose*`, Dockerfiles, shell scripts, env/docs) with no `client/src` or `server/src` feature changes.
-8. [ ] Create a concise pull request summary comment covering all tasks, key decisions, and testing evidence.
-9. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [ ] Reuse existing summary-wrapper targeting (`test:summary:server:unit -- --file ...`) and existing contract tests listed in Documentation Locations; do not add new contract-check scripts for this story.
+8. [ ] Verify final file-change scope remains infrastructure-only (`docker-compose*`, Dockerfiles, shell scripts, env/docs) with no `client/src` or `server/src` feature changes.
+9. [ ] Create a concise pull request summary comment covering all tasks, key decisions, and testing evidence.
+10. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 

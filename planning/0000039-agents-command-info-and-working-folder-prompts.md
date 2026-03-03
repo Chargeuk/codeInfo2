@@ -349,44 +349,71 @@ Define the new REST message contract at the router boundary before any frontend 
 
 #### Subtasks
 
-1. [ ] Add a new route handler in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts) for `GET /:agentName/prompts`.
-   - Validate non-empty `agentName`.
-   - Validate required `working_folder` query string.
-2. [ ] Add route-level request parsing for `working_folder` query value.
-   - Reject missing/blank values with `400 { error: 'invalid_request', message: 'working_folder is required' }`.
-   - Follow existing route validator style used in `agentsRun.ts` and `agentsCommands.ts` (typed parse helper + deterministic `invalid_request` messages), rather than ad-hoc inline checks in multiple places.
-   - Treat `working_folder` as a plain string query parameter (Express 5 default simple query parser): reject array/object forms with `400 invalid_request`.
-3. [ ] Add dependency wiring in `createAgentsCommandsRouter(...)` for new service method `listAgentPrompts`.
-   - Update `Deps` type to include `listAgentPrompts`.
-   - Add default dependency mapping from `server/src/agents/service.ts` without changing existing keys (`listAgentCommands`, `startAgentCommand`).
-   - Keep route mounted in the existing `createAgentsCommandsRouter` path; do not create a new router module.
-4. [ ] Implement route response envelope for success: `200 { prompts: Array<{ relativePath, fullPath }> }`.
-5. [ ] Implement route error mapping:
-   - `AGENT_NOT_FOUND` -> `404 { error: 'not_found' }`
-   - `WORKING_FOLDER_INVALID` / `WORKING_FOLDER_NOT_FOUND` -> `400 { error: 'invalid_request', code, message }`
-   - fallback -> `500 { error: 'agent_prompts_failed' }`
-6. [ ] Update [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts) to:
-   - align helper dependency naming with router DI (`startAgentCommand`, not `runAgentCommand`),
-   - keep existing command-list tests passing while adding prompts-route tests.
-7. [ ] Add router unit tests in [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts) for:
-   - success payload shape,
-   - invalid/malformed `agentName` -> `400 { error: 'invalid_request' }`,
-   - missing/blank `working_folder`,
-   - `AGENT_NOT_FOUND` mapping,
-   - `WORKING_FOLDER_*` mappings,
-   - generic `500` mapping.
-8. [ ] Add/extend regression tests so existing command/run route contracts remain unchanged:
-   - [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts),
-   - [server/src/test/unit/agents-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-router-run.test.ts).
-   - Keep these tests green as the primary regression guard; only add new assertions if route behavior changes unexpectedly.
-9. [ ] Update [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) with `GET /agents/{agentName}/prompts`:
-   - required query param `working_folder`,
-   - `200` response schema `{ prompts: [{ relativePath, fullPath }] }`,
-   - `400`/`404`/`500` error schema mapping (`invalid_request`, `not_found`, `agent_prompts_failed`).
-10. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
-11. [ ] Run workspace lint/format checks as final subtask for this task:
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
+1. [ ] Add a dedicated query parser helper for this route in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts).
+   - Files: [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts)
+   - Read first: https://expressjs.com/en/guide/routing.html and https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+   - Implement exactly: create a function like `validatePromptsQuery(query)` that accepts `req.query` and returns `{ working_folder: string }`.
+   - Enforce behavior in this helper: reject missing/blank `working_folder`, reject non-string/object/array query values, and return deterministic `invalid_request` messages.
+   - Use this shape in helper output:
+     ```ts
+     type PromptsQuery = { working_folder: string };
+     ```
+
+2. [ ] Extend router dependencies to include the new service entrypoint.
+   - Files: [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts), [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
+   - Read first: https://expressjs.com/en/guide/routing.html
+   - Implement exactly: update `Deps` type with `listAgentPrompts`, and set the default dependency object to wire `listAgentPrompts` from `service.ts`.
+   - Keep existing dependency keys unchanged (`listAgentCommands`, `startAgentCommand`) and do not create a new router module.
+
+3. [ ] Add `GET /:agentName/prompts` route handler to [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts).
+   - Files: [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts)
+   - Read first: https://expressjs.com/en/guide/routing.html and https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+   - Implement exactly: validate `agentName` (trimmed non-empty), parse query via helper from subtask 1, call `deps.listAgentPrompts({ agentName, working_folder })`, and return `200` with `{ prompts: [...] }`.
+   - Use this response shape exactly:
+     ```json
+     { "prompts": [{ "relativePath": "...", "fullPath": "..." }] }
+     ```
+
+4. [ ] Implement route-level error mapping for the new prompts route.
+   - Files: [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts)
+   - Read first: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+   - Implement exactly:
+     - `AGENT_NOT_FOUND` -> `404 { error: 'not_found' }`
+     - `WORKING_FOLDER_INVALID` or `WORKING_FOLDER_NOT_FOUND` -> `400 { error: 'invalid_request', code, message }`
+     - unexpected error -> `500 { error: 'agent_prompts_failed' }`
+   - Reuse `isAgentCommandsError(...)` style already present in the file.
+
+5. [ ] Add and update router unit tests for the new prompts route in [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts).
+   - Files: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
+   - Read first: https://nodejs.org/api/test.html
+   - Implement exactly these test cases with explicit assertions:
+     - success payload shape,
+     - invalid/malformed `agentName` -> `400 { error: 'invalid_request' }`,
+     - missing/blank/non-string `working_folder` -> `400 invalid_request`,
+     - `AGENT_NOT_FOUND` -> `404 not_found`,
+     - `WORKING_FOLDER_INVALID` and `WORKING_FOLDER_NOT_FOUND` -> `400 invalid_request` with code,
+     - unknown error -> `500 agent_prompts_failed`.
+   - Keep existing commands list tests passing in the same file.
+
+6. [ ] Confirm run-route regressions remain unchanged.
+   - Files: [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts), [server/src/test/unit/agents-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-router-run.test.ts)
+   - Read first: https://nodejs.org/api/test.html
+   - Implement exactly: keep tests green as the regression gate; only add new assertions if changes in this task require them.
+
+7. [ ] Update OpenAPI contract for prompts discovery.
+   - Files: [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json)
+   - Read first: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+   - Implement exactly: add `GET /agents/{agentName}/prompts` with required `working_folder` query, `200` schema `{ prompts: [{ relativePath, fullPath }] }`, and `400`/`404`/`500` error schema mapping.
+
+8. [ ] Update structure docs only if files changed.
+   - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
+   - Read first: https://www.markdownguide.org/basic-syntax/
+   - Implement exactly: add/remove file entries touched by this task.
+
+9. [ ] Run lint and formatting as the final subtask for this task.
+   - Files: repo root commands
+   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
+   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -421,29 +448,63 @@ Implement the actual prompt discovery behavior in the server service layer with 
 
 #### Subtasks
 
-1. [ ] Add service-level contract in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts): `listAgentPrompts({ agentName, working_folder })`.
-   - Implement alongside `listAgentCommands(...)` and reuse existing service error/helper patterns without introducing new source fan-out dependencies.
-2. [ ] Reuse `resolveWorkingFolderWorkingDirectory(...)` to resolve/validate `working_folder` before traversal.
-   - Reuse existing `discoverAgents()` agent lookup pattern used by `listAgentCommands(...)`.
-3. [ ] Implement case-insensitive segment matching for `.github/prompts` under resolved working folder.
-4. [ ] Implement recursive traversal under prompts root:
-   - include markdown files only (`.md`, case-insensitive),
-   - ignore symlink entries,
-   - skip non-markdown files,
-   - use explicit recursive walk context (`currentDir` stack/queue) rather than depending on `Dirent.parentPath`.
-5. [ ] Return `{ prompts: Array<{ relativePath, fullPath }> }` with:
-   - `relativePath` normalized to `/`,
-   - `relativePath` guaranteed relative to `.github/prompts/` root (never absolute),
-   - deterministic ascending sort by normalized `relativePath`.
-6. [ ] Add service unit tests in [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts) for:
-   - case-insensitive folder resolution,
-   - recursive markdown discovery,
-   - markdown extension coverage (`.md`, `.MD`, `*.prompt.md`) and exclusion of non-markdown files,
-   - symlink ignore behavior,
-   - deterministic ordering,
-   - zero-results behavior when `.github/prompts` is missing and when it exists with no markdown files.
-7. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
-8. [ ] Run workspace lint/format checks as final subtask for this task.
+1. [ ] Add the service contract in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts).
+   - Files: [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
+   - Read first: https://nodejs.org/api/fs.html and https://nodejs.org/api/path.html
+   - Implement exactly: `listAgentPrompts({ agentName, working_folder })` returning `{ prompts: Array<{ relativePath: string; fullPath: string }> }`.
+   - Place this near `listAgentCommands(...)` to reuse existing service patterns.
+
+2. [ ] Reuse existing validation/discovery helpers before any filesystem walk.
+   - Files: [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
+   - Read first: https://nodejs.org/api/path.html
+   - Implement exactly: call `discoverAgents()` to confirm `agentName` exists and call `resolveWorkingFolderWorkingDirectory(...)` to validate/resolve runtime path.
+   - Do not add source fan-out across ingest roots for this endpoint.
+
+3. [ ] Add case-insensitive directory resolution for `.github/prompts`.
+   - Files: [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
+   - Read first: https://nodejs.org/api/fs.html
+   - Implement exactly: resolve each path segment by reading actual dir entries and matching lower-cased names (`.github`, then `prompts`).
+   - If not found, return `prompts: []` (not an error).
+
+4. [ ] Add recursive markdown discovery walker.
+   - Files: [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
+   - Read first: https://nodejs.org/api/fs.html and https://nodejs.org/api/path.html
+   - Implement exactly:
+     - include only files ending in `.md` (case-insensitive),
+     - ignore symlink files/directories,
+     - skip non-markdown files,
+     - use explicit traversal state (`stack`/`queue` with current directory path), not `Dirent.parentPath`.
+   - Suggested shape:
+     ```ts
+     type PromptItem = { relativePath: string; fullPath: string };
+     ```
+
+5. [ ] Normalize and sort response output deterministically.
+   - Files: [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
+   - Read first: https://nodejs.org/api/path.html
+   - Implement exactly: compute `relativePath` from prompts root, normalize separators to `/`, verify path is inside prompts root, then sort ascending by normalized `relativePath`.
+
+6. [ ] Add service unit tests in [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts).
+   - Files: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
+   - Read first: https://nodejs.org/api/test.html and https://nodejs.org/api/fs.html
+   - Implement exactly these test cases:
+     - case-insensitive `.github/prompts` matching,
+     - recursive discovery,
+     - extension coverage (`.md`, `.MD`, `*.prompt.md`) and non-markdown exclusion,
+     - symlink ignore behavior,
+     - deterministic sorted output,
+     - zero results when prompts directory missing,
+     - zero results when prompts directory exists but has no markdown files.
+
+7. [ ] Update structure docs only if files changed.
+   - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
+   - Read first: https://www.markdownguide.org/basic-syntax/
+   - Implement exactly: add/remove entries touched by this task.
+
+8. [ ] Run lint and formatting as the final subtask for this task.
+   - Files: repo root commands
+   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
+   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -476,21 +537,44 @@ Add the frontend API function that consumes the new server prompt-discovery cont
 
 #### Subtasks
 
-1. [ ] Add `listAgentPrompts(...)` in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts).
-   - Endpoint: `GET /agents/:agentName/prompts?working_folder=...`
-   - Return type: `{ prompts: Array<{ relativePath: string; fullPath: string }> }`.
-2. [ ] Reuse existing API helpers in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts) for non-2xx and URL handling.
-   - Use `throwAgentApiError(...)` so `AgentApiError` status/code/message behavior stays consistent.
-   - Use the same `new URL(..., serverBase)` + `encodeURIComponent(agentName)` construction style as existing agent APIs.
-3. [ ] Add API unit tests in [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts) for:
-   - correct URL/query construction,
-   - success payload parsing,
-   - non-JSON/JSON error parsing behavior.
-4. [ ] Add API unit test coverage for:
-   - `400 invalid_request` with missing/invalid working folder messages/codes,
-   - URL encoding of `working_folder` query values containing spaces and platform separators.
-5. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
-6. [ ] Run workspace lint/format checks as final subtask for this task.
+1. [ ] Add `listAgentPrompts(...)` API method.
+   - Files: [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts)
+   - Read first: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API and https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
+   - Implement exactly:
+     - endpoint `GET /agents/:agentName/prompts?working_folder=...`,
+     - return type `{ prompts: Array<{ relativePath: string; fullPath: string }> }`.
+   - Reuse existing URL base and `encodeURIComponent(agentName)` style in the same file.
+
+2. [ ] Reuse existing API error parsing behavior.
+   - Files: [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts)
+   - Read first: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+   - Implement exactly: call existing non-2xx parser and `throwAgentApiError(...)` so status/code/message handling remains consistent with other agents APIs.
+
+3. [ ] Add prompts API tests for request and success parsing.
+   - Files: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
+   - Read first: https://jestjs.io/docs/expect
+   - Implement exactly these assertions:
+     - generated URL path and query are correct,
+     - `working_folder` query is encoded,
+     - success payload returns typed `prompts` array.
+
+4. [ ] Add prompts API tests for error parsing.
+   - Files: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
+   - Read first: https://jestjs.io/docs/expect
+   - Implement exactly these assertions:
+     - JSON error body parsing (`error`, `code`, `message`),
+     - non-JSON error fallback handling,
+     - `400 invalid_request` scenarios for missing/invalid `working_folder`.
+
+5. [ ] Update structure docs only if files changed.
+   - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
+   - Read first: https://www.markdownguide.org/basic-syntax/
+   - Implement exactly: add/remove entries touched by this task.
+
+6. [ ] Run lint and formatting as the final subtask for this task.
+   - Files: repo root commands
+   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
+   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -524,15 +608,39 @@ Introduce the command-info icon and popover interaction only. This task does not
 
 #### Subtasks
 
-1. [ ] Add command-info icon button in the command row in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
-   - Disabled when no command is selected.
-2. [ ] Add command-info popover state and rendering for selected-command description.
-   - Reuse the existing agent-info popover pattern (`anchorEl`, `open`, `id`, open/close handlers, `Popover` wiring).
-3. [ ] Ensure disabled command-info behavior is safe and predictable when no command is selected.
-   - Clicking the disabled button should not open the popover or throw runtime errors.
-4. [ ] Extend [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx) pattern for command-info popover behavior.
-5. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
-6. [ ] Run workspace lint/format checks as final subtask for this task.
+1. [ ] Add command-info button UI in command row.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://llms.mui.com/material-ui/6.4.12/api/icon-button.md and https://testing-library.com/docs/react-testing-library/intro
+   - Implement exactly: add an `IconButton` in the command controls row, disabled when no command is selected.
+
+2. [ ] Add command-info popover state and rendering.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://llms.mui.com/material-ui/6.4.12/components/popover.md
+   - Implement exactly: reuse the existing agent-info popover state pattern (`anchorEl`, `open`, `onClose`) and display selected command description in the popover body.
+
+3. [ ] Add explicit no-selection safety behavior.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
+   - Implement exactly: disabled button must not open popover and must not throw runtime errors when clicked by tests.
+
+4. [ ] Add UI tests for command-info popover.
+   - Files: [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx)
+   - Read first: https://testing-library.com/docs/react-testing-library/intro
+   - Implement exactly these assertions:
+     - button present in command row,
+     - button disabled with no selected command,
+     - popover opens and shows selected command description,
+     - closing popover works.
+
+5. [ ] Update structure docs only if files changed.
+   - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
+   - Read first: https://www.markdownguide.org/basic-syntax/
+   - Implement exactly: add/remove entries touched by this task.
+
+6. [ ] Run lint and formatting as the final subtask for this task.
+   - Files: repo root commands
+   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
+   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -564,12 +672,38 @@ Remove the old always-visible inline command description behavior now that comma
 
 #### Subtasks
 
-1. [ ] Remove inline command description rendering in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
-2. [ ] Ensure `Select a command to see its description.` is not rendered anywhere.
-3. [ ] Update [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx) for inline description removal expectations.
-4. [ ] Add/update regression assertions to confirm command execute button enable/disable behavior is unchanged.
-5. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
-6. [ ] Run workspace lint/format checks as final subtask for this task.
+1. [ ] Remove inline command description rendering.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://testing-library.com/docs/react-testing-library/intro
+   - Implement exactly: remove the always-visible description block and default placeholder text rendering path.
+
+2. [ ] Ensure removal of legacy placeholder copy.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://testing-library.com/docs/react-testing-library/intro
+   - Implement exactly: string `Select a command to see its description.` must not exist anywhere on Agents page.
+
+3. [ ] Update command list UI tests for removed inline description.
+   - Files: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
+   - Read first: https://testing-library.com/docs/react-testing-library/intro
+   - Implement exactly these assertions:
+     - inline description area absent,
+     - legacy placeholder text absent,
+     - command list behavior still works.
+
+4. [ ] Add regression assertions for unchanged command execution controls.
+   - Files: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
+   - Read first: https://testing-library.com/docs/react-testing-library/intro
+   - Implement exactly: ensure execute-command enable/disable behavior remains unchanged from pre-story behavior.
+
+5. [ ] Update structure docs only if files changed.
+   - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
+   - Read first: https://www.markdownguide.org/basic-syntax/
+   - Implement exactly: add/remove entries touched by this task.
+
+6. [ ] Run lint and formatting as the final subtask for this task.
+   - Files: repo root commands
+   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
+   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -602,29 +736,60 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
 
 #### Subtasks
 
-1. [ ] Add prompt discovery request state in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx):
-   - prompts loading,
-   - prompts error,
-   - committed working folder value,
-   - request sequence id for latest-response-wins behavior.
-2. [ ] Trigger discovery only on committed events:
-   - `working_folder` blur,
-   - Enter in `working_folder`,
-   - directory picker selection.
-3. [ ] Prevent Enter in `working_folder` from submitting the instruction form.
-   - Scope this handling to the `working_folder` field only so multiline `Instruction` keeps normal Enter/newline behavior.
-4. [ ] Do not request discovery if committed `working_folder` is unchanged from the last committed value.
-5. [ ] Implement stale-response handling so only latest committed-folder response updates state.
-   - Use one deterministic guard pattern (monotonic request sequence/ref check) instead of combining multiple cancellation strategies.
-6. [ ] Extend [client/src/test/agentsPage.workingFolderPicker.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.workingFolderPicker.test.tsx) for:
-   - commit trigger timing (`blur`/`Enter`/picker),
-   - no keystroke-only discovery before commit,
-   - no duplicate discovery requests on unchanged committed folder.
-7. [ ] Add/update lifecycle tests in [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx) for:
-   - stale-response handling (latest committed folder wins),
-   - Enter does not submit main instruction form.
-8. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
-9. [ ] Run workspace lint/format checks as final subtask for this task.
+1. [ ] Add prompt discovery lifecycle state.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://react.dev/learn/synchronizing-with-effects and https://react.dev/reference/react-dom/components/input
+   - Implement exactly these state values:
+     - prompts loading,
+     - prompts error,
+     - committed `working_folder` value,
+     - request sequence id/ref for stale-response protection.
+
+2. [ ] Trigger discovery only on commit events.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://react.dev/reference/react-dom/components/input
+   - Implement exactly: run discovery only on working-folder `blur`, Enter on `working_folder`, and directory picker `onPick`; never on plain keystroke change.
+
+3. [ ] Prevent Enter in `working_folder` from submitting main instruction form.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://react.dev/learn/responding-to-events
+   - Implement exactly: scope this key handling to `working_folder` control only; do not break Enter/newline behavior inside main instruction textarea.
+
+4. [ ] Skip duplicate discovery requests for unchanged committed folder.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://react.dev/learn/synchronizing-with-effects
+   - Implement exactly: if committed folder equals last committed value, do not call API again.
+
+5. [ ] Implement deterministic stale-response guard.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://react.dev/learn/synchronizing-with-effects
+   - Implement exactly: use one monotonic request sequence/ref comparison; only latest request may commit results/error to state.
+
+6. [ ] Extend working-folder picker tests for trigger timing.
+   - Files: [client/src/test/agentsPage.workingFolderPicker.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.workingFolderPicker.test.tsx)
+   - Read first: https://testing-library.com/docs/dom-testing-library/api-async
+   - Implement exactly these assertions:
+     - blur/Enter/picker trigger discovery,
+     - typing-only change does not trigger discovery,
+     - unchanged committed folder does not trigger duplicate calls.
+
+7. [ ] Add lifecycle tests for stale response and Enter behavior.
+   - Files: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
+   - Read first: https://testing-library.com/docs/dom-testing-library/api-async
+   - Implement exactly these assertions:
+     - latest committed-folder response wins,
+     - stale response is ignored,
+     - Enter in `working_folder` does not submit main instruction.
+
+8. [ ] Update structure docs only if files changed.
+   - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
+   - Read first: https://www.markdownguide.org/basic-syntax/
+   - Implement exactly: add/remove entries touched by this task.
+
+9. [ ] Run lint and formatting as the final subtask for this task.
+   - Files: repo root commands
+   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
+   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -658,22 +823,55 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 
 #### Subtasks
 
-1. [ ] Add prompts list and selected prompt state in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
-2. [ ] Implement prompts-area visibility rules:
-   - show selector + Execute Prompt button when prompts exist,
-   - show inline error when discovery fails for committed non-empty folder,
-   - hide when committed folder is empty or discovery succeeds with zero prompts.
-3. [ ] Implement prompts dropdown option behavior:
-   - labels from `relativePath` only (never `fullPath`),
-   - explicit empty option labeled `No prompt selected`.
-4. [ ] Implement immediate selected prompt reset on committed `working_folder` change.
-5. [ ] Keep Execute Prompt disabled unless selected prompt is valid.
-6. [ ] Extend [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx) for:
-   - visibility/error/zero-result split,
-   - relative-path label rendering + explicit empty option behavior,
-   - selection reset behavior.
-7. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
-8. [ ] Run workspace lint/format checks as final subtask for this task.
+1. [ ] Add prompts list and selected-prompt state.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://llms.mui.com/material-ui/6.4.12/components/selects.md and https://react.dev/reference/react-dom/components/input
+   - Implement exactly: track discovered `prompts` and selected prompt key by `fullPath`.
+
+2. [ ] Implement prompts row visibility rules exactly.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://react.dev/learn/conditional-rendering
+   - Implement exactly:
+     - show selector + Execute Prompt when prompts exist,
+     - show inline error when discovery fails for committed non-empty folder,
+     - hide row when committed folder empty or success returns zero prompts.
+
+3. [ ] Implement dropdown option and label behavior.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://llms.mui.com/material-ui/6.4.12/components/selects.md
+   - Implement exactly:
+     - render labels from `relativePath` only,
+     - never render absolute `fullPath` in labels,
+     - include explicit empty option `No prompt selected`.
+
+4. [ ] Reset selected prompt on committed folder change.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://react.dev/learn/synchronizing-with-effects
+   - Implement exactly: clear selected prompt immediately when committed folder changes; Execute Prompt stays disabled until new selection.
+
+5. [ ] Enforce Execute Prompt enable/disable rules.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://llms.mui.com/material-ui/6.4.12/api/button.md
+   - Implement exactly: Execute Prompt enabled only when a valid prompt option is currently selected.
+
+6. [ ] Add prompts discovery UI behavior tests.
+   - Files: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
+   - Read first: https://testing-library.com/docs/dom-testing-library/api-async
+   - Implement exactly these assertions:
+     - visibility split (has prompts vs error vs zero results),
+     - relative-path-only labels and empty option behavior,
+     - prompt selection reset on folder change,
+     - execute enable/disable behavior.
+
+7. [ ] Update structure docs only if files changed.
+   - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
+   - Read first: https://www.markdownguide.org/basic-syntax/
+   - Implement exactly: add/remove entries touched by this task.
+
+8. [ ] Run lint and formatting as the final subtask for this task.
+   - Files: repo root commands
+   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
+   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -707,28 +905,60 @@ Implement prompt execution by composing the canonical instruction string and dis
 
 #### Subtasks
 
-1. [ ] Add Execute Prompt handler in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
-   - Reuse the same run orchestration sequence used by existing `handleSubmit` and `handleExecuteCommand`.
-2. [ ] Compose outbound instruction exactly from canonical preamble by replacing `<full path of markdown file>` with selected prompt `fullPath`.
-3. [ ] Execute via existing `runAgentInstruction(...)` only.
-   - Pass committed `working_folder` value used for prompt discovery.
-4. [ ] Preserve existing conflict and error UX handling (`RUN_IN_PROGRESS`, generic errors) without prompt-specific protocol branches.
-5. [ ] Keep existing Send instruction and Execute command behavior unchanged.
-6. [ ] Extend existing conflict tests in:
-   - [client/src/test/agentsPage.run.instructionError.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.instructionError.test.tsx),
-   - [client/src/test/agentsPage.commandsRun.conflict.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.conflict.test.tsx),
-   to assert unchanged conflict UX.
-7. [ ] Add/update prompt execution-specific tests in [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx) for:
-   - exact instruction payload composition,
-   - `fullPath` replacement (not `relativePath`),
-   - committed `working_folder` forwarding,
-   - execute-button enable/disable behavior,
-   - deleted/moved prompt error flow without crash.
-8. [ ] Add/update regression assertions in existing agents page tests to confirm:
-   - Send button still triggers standard instruction path,
-   - Execute command still uses command-run path.
-9. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
-10. [ ] Run workspace lint/format checks as final subtask for this task.
+1. [ ] Add Execute Prompt click handler that reuses instruction run orchestration.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://react.dev/learn/responding-to-events
+   - Implement exactly: mirror the same run-start sequence used by existing `handleSubmit`/`handleExecuteCommand` (loading, error reset, run start, response handling).
+
+2. [ ] Compose the instruction payload from canonical preamble text.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://jestjs.io/docs/expect
+   - Implement exactly: replace `<full path of markdown file>` with selected prompt `fullPath`; do not alter any other preamble text.
+
+3. [ ] Execute through existing instruction API only.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx), [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts)
+   - Read first: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+   - Implement exactly: call `runAgentInstruction(...)` and pass the committed `working_folder`; do not call command-run endpoint.
+
+4. [ ] Preserve conflict and generic error UX behavior.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://react.dev/learn/responding-to-events
+   - Implement exactly: keep existing `RUN_IN_PROGRESS` handling and generic error messaging behavior unchanged.
+
+5. [ ] Keep Send instruction and Execute command flows unchanged.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Read first: https://react.dev/learn/responding-to-events
+   - Implement exactly: no behavior changes outside new Execute Prompt path.
+
+6. [ ] Update conflict-regression tests.
+   - Files: [client/src/test/agentsPage.run.instructionError.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.instructionError.test.tsx), [client/src/test/agentsPage.commandsRun.conflict.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.conflict.test.tsx)
+   - Read first: https://jestjs.io/docs/expect
+   - Implement exactly: assert conflict UX is unchanged for existing instruction and command paths.
+
+7. [ ] Add prompt execution tests.
+   - Files: [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
+   - Read first: https://jestjs.io/docs/expect and https://testing-library.com/docs/dom-testing-library/api-async
+   - Implement exactly these assertions:
+     - exact preamble payload,
+     - `fullPath` used (not `relativePath`),
+     - committed `working_folder` forwarded,
+     - execute button enable/disable behavior,
+     - deleted/moved prompt error surfaces without crash.
+
+8. [ ] Add regression assertions for unchanged non-prompt execution paths.
+   - Files: existing agents page tests that cover instruction send and command run
+   - Read first: https://testing-library.com/docs/react-testing-library/intro
+   - Implement exactly: explicit assertions that Send still uses instruction endpoint and Execute Command still uses command-run endpoint.
+
+9. [ ] Update structure docs only if files changed.
+   - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
+   - Read first: https://www.markdownguide.org/basic-syntax/
+   - Implement exactly: add/remove entries touched by this task.
+
+10. [ ] Run lint and formatting as the final subtask for this task.
+   - Files: repo root commands
+   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
+   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -762,11 +992,30 @@ Capture final behavior in repository docs once implementation is complete, inclu
 
 #### Subtasks
 
-1. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) with user-facing behavior updates for command info and prompt execution flow.
-2. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) with API contract and interaction flow updates (including prompt discovery + execute flow).
-3. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for all files added/removed across this story.
-4. [ ] Verify [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) from Task 1 still matches final implementation and update only if implementation drift is discovered.
-5. [ ] Run workspace lint/format checks as final subtask for this task.
+1. [ ] Update user-facing README behavior notes.
+   - Files: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
+   - Read first: https://www.markdownguide.org/basic-syntax/
+   - Implement exactly: document command-info popover behavior, prompt discovery preconditions, and Execute Prompt flow.
+
+2. [ ] Update architecture/design notes.
+   - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html
+   - Implement exactly: document new `GET /agents/{agentName}/prompts` contract and prompt execution interaction with existing `POST /agents/{agentName}/run`.
+
+3. [ ] Update project structure file map.
+   - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
+   - Read first: https://www.markdownguide.org/basic-syntax/
+   - Implement exactly: include all files added/removed during tasks 1-8.
+
+4. [ ] Verify OpenAPI is still aligned with implemented code.
+   - Files: [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json)
+   - Read first: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+   - Implement exactly: compare final route behavior and schemas to OpenAPI; update only if drift is detected.
+
+5. [ ] Run lint and formatting as the final subtask for this task.
+   - Files: repo root commands
+   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
+   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -800,13 +1049,35 @@ Run full validation for the complete story, verify acceptance criteria end-to-en
 
 #### Subtasks
 
-1. [ ] Build the server (`npm run build:summary:server`).
-2. [ ] Build the client (`npm run build:summary:client`).
-3. [ ] Perform a clean docker build (`npm run compose:build:clean`).
-4. [ ] Ensure [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) is fully updated for final behavior.
-5. [ ] Ensure [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) is fully updated (including any relevant diagrams).
-6. [ ] Ensure [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) reflects all file additions/removals.
-7. [ ] Create a full story implementation summary suitable for pull request description/comment.
+1. [ ] Build the server and verify no compile errors.
+   - Files: repo root command run
+   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
+   - Run exactly: `npm run build:summary:server`.
+
+2. [ ] Build the client and verify no compile errors.
+   - Files: repo root command run
+   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
+   - Run exactly: `npm run build:summary:client`.
+
+3. [ ] Perform clean docker build and confirm image success.
+   - Files: repo root command run
+   - Read first: https://docs.docker.com/compose/
+   - Run exactly: `npm run compose:build:clean`.
+
+4. [ ] Re-validate final README and design docs against implemented behavior.
+   - Files: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - Read first: https://www.markdownguide.org/basic-syntax/ and https://mermaid.js.org/syntax/sequenceDiagram.html
+   - Implement exactly: ensure docs fully reflect prompts API, UI behavior, and execution flow.
+
+5. [ ] Re-validate final file map.
+   - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
+   - Read first: https://www.markdownguide.org/basic-syntax/
+   - Implement exactly: ensure every changed file in this story is represented correctly.
+
+6. [ ] Write final implementation summary for PR use.
+   - Files: story notes and commit history
+   - Read first: https://www.markdownguide.org/basic-syntax/
+   - Implement exactly: summarize server contract changes, client behavior changes, test coverage, and regression outcomes.
 
 #### Testing
 

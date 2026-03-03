@@ -1478,7 +1478,8 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 ### 6. Server: shared chat defaults resolver from `codex/chat/config.toml`
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits:
+  - `bc12bfe0` — DEV-0000040 - implement shared codex chat defaults resolver and complete Task 6 checks
 
 #### Overview
 

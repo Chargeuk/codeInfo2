@@ -2144,7 +2144,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
 
 ### 10. Server: upgrade and pin `@openai/codex-sdk` to `0.107.0` with guard alignment
 
-- Task Status: **to_do**
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview
@@ -2163,27 +2163,27 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 
 #### Subtasks
 
-1. [ ] Verify latest stable/baseline in implementation notes with `npm view @openai/codex-sdk version versions --json` (baseline `0.106.0`, target stable `0.107.0` as of 2026-03-03).
+1. [x] Verify latest stable/baseline in implementation notes with `npm view @openai/codex-sdk version versions --json` (baseline `0.106.0`, target stable `0.107.0` as of 2026-03-03).
    - Docs to read first: https://www.npmjs.com/package/@openai/codex-sdk, https://docs.npmjs.com/about-semantic-versioning.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: AC 17, AC 26.
    - Done when: notes capture stable and pre-release values used for decision.
-2. [ ] Update package pin to `0.107.0` in [server/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/package.json).
+2. [x] Update package pin to `0.107.0` in [server/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/package.json).
    - Docs to read first: https://docs.npmjs.com/about-semantic-versioning.
    - Files to read/edit: [package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/package.json).
    - Acceptance criteria coverage: AC 17, AC 26.
    - Done when: manifest pin matches target stable version.
-3. [ ] Update runtime guard constant to `0.107.0` in [server/src/config/codexSdkUpgrade.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexSdkUpgrade.ts).
+3. [x] Update runtime guard constant to `0.107.0` in [server/src/config/codexSdkUpgrade.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexSdkUpgrade.ts).
    - Docs to read first: https://docs.npmjs.com/about-semantic-versioning.
    - Files to read/edit: [codexSdkUpgrade.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexSdkUpgrade.ts).
    - Acceptance criteria coverage: AC 26.
    - Done when: guard version equals package pin.
-4. [ ] Verify startup guard integration path in [server/src/index.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/index.ts) remains aligned with updated constant.
+4. [x] Verify startup guard integration path in [server/src/index.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/index.ts) remains aligned with updated constant.
    - Docs to read first: https://nodejs.org/api/test.html.
    - Files to read/edit: [index.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/index.ts).
    - Acceptance criteria coverage: AC 17, AC 26.
    - Done when: startup still runs guard check with updated target version.
-5. [ ] Add a guard unit test that exact pinned version `0.107.0` is accepted.
+5. [x] Add a guard unit test that exact pinned version `0.107.0` is accepted.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts).
    - Description: Set installed version to `0.107.0` and assert startup guard passes.
@@ -2192,7 +2192,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Files to read/edit: [codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts).
    - Acceptance criteria coverage: AC 17, AC 26.
    - Done when: test fails if exact pinned version is rejected.
-6. [ ] Add a guard unit test rejecting pre-release versions (for example `0.107.0-alpha.1`).
+6. [x] Add a guard unit test rejecting pre-release versions (for example `0.107.0-alpha.1`).
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts).
    - Description: Set installed pre-release version and assert guard fails deterministically.
@@ -2201,7 +2201,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Files to read/edit: [codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts).
    - Acceptance criteria coverage: AC 26.
    - Done when: test fails if pre-release versions are accepted.
-7. [ ] Add a guard unit test rejecting higher stable versions than `0.107.0`.
+7. [x] Add a guard unit test rejecting higher stable versions than `0.107.0`.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts).
    - Description: Set installed version to higher stable (for example `0.108.0`) and assert guard fails.
@@ -2210,7 +2210,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Files to read/edit: [codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts).
    - Acceptance criteria coverage: AC 17, AC 26.
    - Done when: test fails if higher stable versions are accepted.
-8. [ ] Add a guard unit test rejecting lower versions than `0.107.0`.
+8. [x] Add a guard unit test rejecting lower versions than `0.107.0`.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts).
    - Description: Set installed version below target (for example `0.106.0`) and assert guard fails.
@@ -2219,13 +2219,13 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Files to read/edit: [codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts).
    - Acceptance criteria coverage: AC 17, AC 26.
    - Done when: test fails if lower versions are accepted.
-9. [ ] Update lockfile resolution for the new pin and verify only one effective `@openai/codex-sdk` version is resolved for server runtime.
+9. [x] Update lockfile resolution for the new pin and verify only one effective `@openai/codex-sdk` version is resolved for server runtime.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-view, https://docs.npmjs.com/about-semantic-versioning.
    - Files to read/edit: [package-lock.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/package-lock.json).
    - Required verification commands: `npm ls @openai/codex-sdk --workspace server` and `npm view @openai/codex-sdk version versions --json`.
    - Acceptance criteria coverage: AC 17, AC 26.
    - Done when: lockfile contains the pinned server dependency, and verification output confirms no mixed-version ambiguity for server runtime resolution.
-10. [ ] Add targeted SDK-upgrade regression smoke tests for chat, agents command-run, and flow-run paths to prove existing core paths still execute after pin update.
+10. [x] Add targeted SDK-upgrade regression smoke tests for chat, agents command-run, and flow-run paths to prove existing core paths still execute after pin update.
 
 - Test type: `Integration` (targeted smoke).
 - Test locations:
@@ -2239,7 +2239,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 - Acceptance criteria coverage: AC 17.
 - Done when: targeted tests fail on regression and pass on the upgraded pin.
 
-11. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) for SDK pin expectations and guard coupling requirements.
+11. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) for SDK pin expectations and guard coupling requirements.
 
 - Document name: `README.md`.
 - Document location: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md).
@@ -2250,7 +2250,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 - Acceptance criteria coverage: documentation support for AC 17, AC 26.
 - Done when: `README.md` states exact version pin and mismatch behavior.
 
-12. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for SDK version guard architecture and exact-version enforcement behavior.
+12. [x] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for SDK version guard architecture and exact-version enforcement behavior.
 
 - Document name: `design.md`.
 - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
@@ -2261,7 +2261,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 - Acceptance criteria coverage: documentation support for AC 17, AC 26.
 - Done when: `design.md` documents pin/guard coupling and rejection rules.
 
-13. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-10 dependency/guard/test files added, removed, or modified.
+13. [x] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-10 dependency/guard/test files added, removed, or modified.
 
 - Document name: `projectStructure.md`.
 - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
@@ -2273,7 +2273,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 - Acceptance criteria coverage: documentation support for AC 17, AC 26.
 - Done when: `projectStructure.md` lists all task-10 file changes accurately, including all added and removed files.
 
-14. [ ] Add deterministic diagnostic log marker [DEV_0000040_T10_CODEX_SDK_GUARD] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+14. [x] Add deterministic diagnostic log marker [DEV_0000040_T10_CODEX_SDK_GUARD] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
 
 - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
 - Files to read/edit: [codexSdkUpgrade.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexSdkUpgrade.ts), [index.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/index.ts).
@@ -2281,7 +2281,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 - Manual Playwright-MCP expected outcome: on app startup marker appears once in debug-console-forwarded logs with installed and required SDK versions and guard decision `accepted`.
 - Done when: [DEV_0000040_T10_CODEX_SDK_GUARD] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
 
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+15. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
 - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
@@ -2293,24 +2293,37 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 - Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
 - Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server`
+1. [x] `npm run build:summary:server`
    - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run build:summary:client`
+2. [x] `npm run build:summary:client`
    - Use when client/common code may be affected by shared dependency updates. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log`.
-3. [ ] `npm run compose:build:summary`
+3. [x] `npm run compose:build:summary`
    - Use to validate clean docker dependency resolution after lockfile/package changes. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
-4. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts`
+4. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts`
    - Targeted regression proof for chat path on upgraded SDK pin.
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-ws-stream.test.ts`
+5. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-ws-stream.test.ts`
    - Targeted regression proof for agents command-run path on upgraded SDK pin.
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts`
+6. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts`
    - Targeted regression proof for flow-run path on upgraded SDK pin.
-7. [ ] `npm run test:summary:server:unit`
+7. [x] `npm run test:summary:server:unit`
    - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Ran `npm view @openai/codex-sdk version versions --json`; registry reported latest stable `0.107.0` with pre-release series present for `0.107.0-alpha.*` and `0.108.0-alpha.*`, matching Task 10 target assumptions.
+- Subtasks 2-4 and 14: Updated `server/package.json` pin and `server/src/config/codexSdkUpgrade.ts` required version to `0.107.0`, added deterministic marker `DEV_0000040_T10_CODEX_SDK_GUARD`, and kept startup integration in `server/src/index.ts` with structured guard decision logging.
+- Subtasks 5-8: Expanded `server/src/test/unit/codexSdkUpgrade.test.ts` to cover exact-version acceptance (`0.107.0`), prerelease rejection, higher-version rejection, and lower-version rejection.
+- Subtask 9: Updated lock/runtime resolution to `0.107.0` in `package-lock.json` and validated with `npm ls @openai/codex-sdk --workspace server` (single effective `0.107.0`).
+- Subtask 10: Extended targeted integration smoke surfaces (`chat-codex.test.ts`, `agents-run-ws-stream.test.ts`, `flows.run.basic.test.ts`) with pinned-version assertions so the required runtime pin is verified while executing each core path.
+- Subtasks 11-13: Updated `README.md`, `design.md`, and `projectStructure.md` for Task 10 pin/guard coupling behavior, marker semantics, and modified-file traceability.
+- Subtask 15: Ran `npm run lint --workspaces` (pass with pre-existing import-order warnings only; no errors) and `npm run format:check --workspaces` (pass across client/server/common).
+- Testing 1: `npm run build:summary:server` passed (`status: passed`, `warnings: 0`) with log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run build:summary:client` passed (`status: passed`) with one existing client bundle-size warning and log `logs/test-summaries/build-client-latest.log`.
+- Testing 3: `npm run compose:build:summary` passed (`items passed: 2`, `items failed: 0`) with log `logs/test-summaries/compose-build-latest.log`.
+- Testing 4: `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts` passed (`tests run: 17`, `failed: 0`) with log `test-results/server-unit-tests-2026-03-03T22-47-41-699Z.log`.
+- Testing 5: `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-ws-stream.test.ts` passed (`tests run: 3`, `failed: 0`) with log `test-results/server-unit-tests-2026-03-03T22-47-55-595Z.log`.
+- Testing 6: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` passed (`tests run: 7`, `failed: 0`) with log `test-results/server-unit-tests-2026-03-03T22-48-11-173Z.log`.
+- Testing 7: `npm run test:summary:server:unit` passed (`tests run: 967`, `failed: 0`) with log `test-results/server-unit-tests-2026-03-03T22-48-37-587Z.log`.
 
 ---
 

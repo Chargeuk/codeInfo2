@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import express from 'express';
+import pkg from '../../../package.json' with { type: 'json' };
 
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import { resetStore } from '../../logStore.js';
@@ -14,6 +15,7 @@ import {
   runAgentCommand,
   runAgentInstructionUnlocked,
 } from '../../agents/service.js';
+import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
 import { attachWs } from '../../ws/server.js';
 import {
   closeWs,
@@ -55,6 +57,10 @@ class StreamingChat extends ChatInterface {
 }
 
 test('Agents runs publish WS transcript events while the run is in progress', async () => {
+  assert.equal(
+    pkg.dependencies?.['@openai/codex-sdk'],
+    DEV_0000037_T01_REQUIRED_VERSION,
+  );
   resetStore();
 
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;

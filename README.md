@@ -103,6 +103,10 @@ To keep Windows and WSL in sync, use these settings.
 - Codex home: `CODEINFO_CODEX_HOME=./codex` (mounted to `/app/codex` in Docker); seeded from `config.toml.example` on first start—edit `./codex/config.toml` after seeding to add MCP servers or overrides.
 - Behaviour when missing: if the CLI, `auth.json`, or `config.toml` are absent (and no host auth is available to copy), Codex stays disabled; startup logs explain which prerequisite is missing and the chat UI shows a disabled-state banner.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
+- Server SDK pin and runtime guard are coupled:
+  - `@openai/codex-sdk` is pinned at `0.107.0` in `server/package.json`.
+  - startup guard requires exact `0.107.0`; pre-release, lower, and higher versions are rejected.
+  - if installed and required versions diverge, startup emits deterministic guard-rejection logs and the mismatch must be corrected before release.
 
 ## REST Codex defaults behavior
 

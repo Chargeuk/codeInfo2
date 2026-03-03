@@ -390,6 +390,33 @@ flowchart TD
   L --> M
 ```
 
+## Codex SDK pin and startup guard alignment (Story 0000040 Task 10)
+
+- `server/package.json` pins `@openai/codex-sdk` to `0.107.0`.
+- `server/src/config/codexSdkUpgrade.ts` enforces exact stable-version matching:
+  - accepted only when installed version is stable semver and exactly `0.107.0`.
+  - rejected for missing version, pre-release versions, lower versions, and higher versions.
+- Deterministic Task 10 marker:
+  - `DEV_0000040_T10_CODEX_SDK_GUARD`
+  - payload/log context includes installed version, required version, decision (`accepted`/`rejected`), and reason when rejected.
+- `server/src/index.ts` still executes the guard during startup and emits a structured startup log event with the same marker for operational visibility.
+
+```mermaid
+flowchart TD
+  A[Server startup] --> B[Read installed @openai/codex-sdk version from server package]
+  B --> C{stable semver?}
+  C -- no --> D[decision=rejected reason=non_stable_version]
+  C -- yes --> E{exactly 0.107.0?}
+  E -- yes --> F[decision=accepted]
+  E -- no --> G[decision=rejected reason=version_mismatch]
+  B --> H{missing version?}
+  H -- yes --> I[decision=rejected reason=missing_version]
+  D --> J[emit DEV_0000040_T10_CODEX_SDK_GUARD]
+  F --> J
+  G --> J
+  I --> J
+```
+
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
 - Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
 - Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.

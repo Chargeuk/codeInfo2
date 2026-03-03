@@ -198,6 +198,34 @@ Modified files (implementation traceability):
 - `server/src/config/runtimeConfig.ts`
 - `server/src/test/unit/runtimeConfig.test.ts`
 
+## Story 0000040 Task 10 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `package-lock.json`
+- `projectStructure.md`
+- `server/package.json`
+- `server/src/config/codexSdkUpgrade.ts`
+- `server/src/index.ts`
+- `server/src/test/integration/agents-run-ws-stream.test.ts`
+- `server/src/test/integration/chat-codex.test.ts`
+- `server/src/test/integration/flows.run.basic.test.ts`
+- `server/src/test/unit/codexSdkUpgrade.test.ts`
+
 ## Story 0000038 Tasks 1-7 structural change ledger
 
 Added files:

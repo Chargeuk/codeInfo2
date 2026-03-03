@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import express from 'express';
 import supertest from 'supertest';
+import pkg from '../../../package.json' with { type: 'json' };
 
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
@@ -17,6 +18,7 @@ import {
 } from '../../chat/memoryPersistence.js';
 import { startFlowRun } from '../../flows/service.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
+import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
 import { attachWs } from '../../ws/server.js';
 import {
   closeWs,
@@ -100,6 +102,10 @@ class InstantChat extends ChatInterface {
 }
 
 test('POST /flows/:flowName/run starts a flow run and streams events', async () => {
+  assert.equal(
+    pkg.dependencies?.['@openai/codex-sdk'],
+    DEV_0000037_T01_REQUIRED_VERSION,
+  );
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const repoRoot = path.resolve(

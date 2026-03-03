@@ -789,9 +789,11 @@ Perform full end-to-end validation against acceptance criteria, confirm document
 - Docker docs (build + compose): https://docs.docker.com/ (reference for final verification commands that build and compose environments).
 - npm scripts and run lifecycle docs: https://docs.npmjs.com/cli/v10/using-npm/scripts (reference for wrapper script execution semantics in final validation).
 - Git docs index: https://git-scm.com/docs (reference for release-note evidence commands such as `git log`/`git show`).
+- Cucumber Guides root: https://cucumber.io/docs/guides/ (required baseline reference for cucumber test concepts and execution flow).
 - Cucumber Guides overview: https://cucumber.io/docs/guides/overview/ (required because final validation includes cucumber wrapper execution).
 - Cucumber 10-minute tutorial: https://cucumber.io/docs/guides/10-minute-tutorial/ (practical reference for interpreting feature/scenario-level failures).
 - DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for CLI and filtering behavior during wrapper triage).
+- Context7: `/jestjs/jest` (authoritative Jest framework reference for client test execution, configuration, and troubleshooting).
 - Jest getting started: https://jestjs.io/docs/getting-started (required because final validation includes client Jest summary wrapper).
 - DeepWiki repo reference: `jestjs/jest` (use sections `4 Configuration` and `5 Testing APIs` when diagnosing wrapper failures).
 - Playwright intro docs: https://playwright.dev/docs/intro (required because final validation includes e2e wrapper execution).

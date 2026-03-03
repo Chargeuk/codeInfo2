@@ -383,6 +383,9 @@ Add compose-level build/runtime mappings for the canonical `CODEINFO_*` variable
 6. [ ] `docker compose -f docker-compose.local.yml config`
 7. [ ] `docker compose -f docker-compose.e2e.yml config`
 8. [ ] With `CODEINFO_CORP_CERTS_DIR` set (for example `/tmp/codeinfo-corp-certs`), run `docker compose -f docker-compose.yml config`, `docker compose -f docker-compose.local.yml config`, and `docker compose -f docker-compose.e2e.yml config` and verify rendered mount source uses the provided path.
+9. [ ] With `CODEINFO_CORP_CERTS_DIR=` (explicit empty value), run all three `docker compose ... config` commands above and verify fallback path `./certs/empty-corp-ca` is rendered.
+10. [ ] With `CODEINFO_CORP_CERTS_DIR=./certs/empty-corp-ca`, run all three `docker compose ... config` commands and verify deterministic relative-path rendering.
+11. [ ] With `CODEINFO_CORP_CERTS_DIR` set to an absolute path with spaces (for example `/tmp/codeinfo corp certs`), run all three `docker compose ... config` commands and record whether rendering remains valid and deterministic.
 
 #### Implementation notes
 
@@ -424,6 +427,8 @@ Validate and document env-file source behavior for compose/local/e2e workflows, 
 6. [ ] `npm run compose:e2e:build` and capture summary/log evidence that wrapper env-file interpolation uses `.env.e2e`.
 7. [ ] Non-destructive negative-path check: run `bash ./scripts/docker-compose-with-env.sh --env-file server/.env --env-file /tmp/nonexistent-codeinfo-local.env -f docker-compose.yml config` and confirm non-zero exit plus a missing-env-file indicator in output.
 8. [ ] Non-destructive negative-path check: run `bash ./scripts/docker-compose-with-env.sh --env-file /tmp/nonexistent-codeinfo-e2e.env -f docker-compose.e2e.yml config` and confirm non-zero exit plus a missing-env-file indicator in output.
+9. [ ] Non-destructive malformed-env check: create a temporary malformed env file (for example a line without `=`), run `bash ./scripts/docker-compose-with-env.sh --env-file <malformed-file> -f docker-compose.e2e.yml config`, and confirm non-zero exit with parse failure evidence.
+10. [ ] Env precedence check: run wrapper/config with two env files defining the same `CODEINFO_*` key differently and confirm later file value wins in rendered config.
 
 #### Implementation notes
 
@@ -472,6 +477,8 @@ Implement server image build-time handling for npm and pip corporate registry/in
 6. [ ] `npm run compose:build` with registry/index vars set to test values and confirm command-path usage from logs.
 7. [ ] `npm run compose:local:build` and `npm run compose:e2e:build` with registry/index vars unset to confirm server Dockerfile changes do not break other workflows.
 8. [ ] Run one build with intentionally invalid registry/index values and confirm non-zero failure plus clear evidence that override values were applied.
+9. [ ] Run `npm run compose:build` with `CODEINFO_NPM_REGISTRY=`, `CODEINFO_PIP_INDEX_URL=`, and `CODEINFO_PIP_TRUSTED_HOST=` and confirm behavior is equivalent to unset values.
+10. [ ] Run `npm run compose:build` with only one pip override set at a time (`CODEINFO_PIP_INDEX_URL` only, then `CODEINFO_PIP_TRUSTED_HOST` only) and verify no malformed pip argument combinations are emitted.
 
 #### Implementation notes
 
@@ -513,6 +520,8 @@ Implement client build-stage registry override support via `CODEINFO_NPM_REGISTR
 4. [ ] `npm run compose:up` then `npm run compose:down`
 5. [ ] `npm run compose:build` with `CODEINFO_NPM_REGISTRY` unset and verify client image build.
 6. [ ] `npm run compose:build` with `CODEINFO_NPM_REGISTRY` set and verify client image build.
+7. [ ] `npm run compose:build` with `CODEINFO_NPM_REGISTRY=` and verify client build behavior matches unset path.
+8. [ ] `npm run compose:build` with intentionally unreachable `CODEINFO_NPM_REGISTRY` and verify failure logs clearly show override path was used.
 
 #### Implementation notes
 
@@ -555,6 +564,9 @@ Implement deterministic runtime env parsing and default CA export behavior in `s
 5. [ ] Runtime test: refresh disabled path -> startup succeeds without refresh.
 6. [ ] Runtime test: case-insensitive enablement gate (`CODEINFO_REFRESH_CA_CERTS_ON_START=TrUe`) is parsed consistently.
 7. [ ] Runtime smoke check after startup: verify server health endpoint responds.
+8. [ ] Runtime gate test: set `CODEINFO_REFRESH_CA_CERTS_ON_START` to non-true values (`false`, `1`, `yes`, unset, empty) and verify each remains refresh-disabled.
+9. [ ] Runtime env test: with `CODEINFO_NODE_EXTRA_CA_CERTS` unset, verify default `/etc/ssl/certs/ca-certificates.crt` is exported before Node starts.
+10. [ ] Runtime env test: with `CODEINFO_NODE_EXTRA_CA_CERTS` set to custom value, verify that exact value is exported before Node starts.
 
 #### Implementation notes
 
@@ -596,6 +608,8 @@ Implement and verify the refresh-enabled certificate execution path and fail-fas
 6. [ ] Runtime test: `CODEINFO_REFRESH_CA_CERTS_ON_START=true` with missing/invalid cert input -> startup fails with non-zero exit and clear message.
 7. [ ] Runtime smoke check after successful startup: verify `GET /version` still responds with expected version payload.
 8. [ ] Protocol regression guard after runtime changes: run `npm run test:summary:server:unit -- --file src/test/unit/ws-server.test.ts`.
+9. [ ] Runtime edge test: refresh enabled with cert directory present but no `*.crt` files (for example only `.pem` files) -> fail fast with non-zero exit.
+10. [ ] Runtime edge test: refresh enabled with unreadable cert file permissions -> fail fast with clear permission-related message and non-zero exit.
 
 #### Implementation notes
 
@@ -636,6 +650,7 @@ Update host helper install behavior so restricted-network users can install `git
 4. [ ] `npm run compose:up` then `npm run compose:down`
 5. [ ] Run `start-gcf-server.sh` with `CODEINFO_NPM_REGISTRY` unset and verify behavior.
 6. [ ] Run `start-gcf-server.sh` with `CODEINFO_NPM_REGISTRY` set and verify registry override path.
+7. [ ] Run `start-gcf-server.sh` with intentionally invalid `CODEINFO_NPM_REGISTRY` and verify failure mode is clear and attributable to the override.
 
 #### Implementation notes
 
@@ -679,6 +694,7 @@ Document corporate setup clearly and precisely so users can configure each workf
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up` then `npm run compose:down`
 5. [ ] Manual doc validation: verify README section title, placement, and all required content items are present.
+6. [ ] Manual doc negative-scope validation: verify README explicitly states v1 exclusions (no scoped npm registry mapping, no npm auth support, no proxy support) so error-path expectations are documented.
 
 #### Implementation notes
 
@@ -718,6 +734,7 @@ Run contract and immutability guard checks so this infra-only story cannot chang
 2. [ ] `npm run test:summary:server:unit -- --file src/test/unit/openapi.prompts-route.test.ts`
 3. [ ] `npm run test:summary:server:unit -- --file src/test/unit/ws-server.test.ts`
 4. [ ] Dependency immutability guard: `git diff --name-only -- package.json package-lock.json client/package.json server/package.json common/package.json` returns no changes.
+5. [ ] Scope guard diff check: `git diff --name-only -- client/src server/src` shows no unintended feature/API logic edits outside planned infra-runtime script/config touchpoints.
 
 #### Implementation notes
 
@@ -757,6 +774,7 @@ Perform full end-to-end validation against acceptance criteria, confirm document
 4. [ ] Re-verify [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md) includes all files/folders changed in this story with updated purpose text. Done when every touched file from `git diff --name-only` has a matching structure entry.
 5. [ ] Create a final PR summary comment in this task’s `Implementation notes` containing five sections: changed files, configuration semantics implemented, cert-refresh behavior (success + fail-fast), env-source behavior by workflow, and complete testing evidence list with log paths. Done when all five sections are present.
 6. [ ] Run root validation commands from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/AGENTS.md): `npm run lint --workspaces` and `npm run format:check --workspaces`. Done when both commands exit 0 and are recorded in this task’s `Implementation notes`.
+7. [ ] Add a final test-coverage matrix in `Implementation notes` with columns `Behavior`, `Path Type (Happy/Error/Corner)`, `Task.Test Step`, `Evidence Link`, and `Status`, ensuring every Edge Case and Failure Mode item (1-8) maps to at least one executed test.
 
 #### Testing
 
@@ -771,6 +789,8 @@ Perform full end-to-end validation against acceptance criteria, confirm document
 9. [ ] `npm run test:summary:server:cucumber`
 10. [ ] `npm run test:summary:client`
 11. [ ] `npm run test:summary:e2e`
+12. [ ] Final refresh-gate matrix check: execute runtime checks for `CODEINFO_REFRESH_CA_CERTS_ON_START` values (`true`, `TrUe`, `false`, `1`, empty/unset) and confirm only true variants trigger refresh path.
+13. [ ] Final mount-shape matrix check: execute `docker compose ... config` checks for `CODEINFO_CORP_CERTS_DIR` unset, empty, relative, absolute, and space-containing values and capture rendered mount evidence for each.
 
 #### Implementation notes
 

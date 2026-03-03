@@ -353,6 +353,8 @@ Add compose-level plumbing so all workflows receive the expected `CODEINFO_*` va
 - [docker-compose.local.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.local.yml)
 - [docker-compose.e2e.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.e2e.yml)
 - [.env.e2e](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/.env.e2e)
+- [scripts/docker-compose-with-env.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/scripts/docker-compose-with-env.sh)
+- [package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/package.json)
 - Docker Compose interpolation docs: https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/
 
 #### Subtasks
@@ -364,9 +366,10 @@ Add compose-level plumbing so all workflows receive the expected `CODEINFO_*` va
 5. [ ] Apply the same mapping/mount pattern to [docker-compose.local.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.local.yml).
 6. [ ] Apply the same mapping/mount pattern to [docker-compose.e2e.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.e2e.yml).
 7. [ ] Add commented/default `CODEINFO_*` placeholders to [.env.e2e](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/.env.e2e) for workflow parity.
-8. [ ] Add/update test coverage artifact for this task: record compose-config rendering checks (all three compose files, with cert var unset and set) in Implementation notes.
-9. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md) for any new files/folders introduced in this task.
-10. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+8. [ ] Verify wrapper env-file sourcing remains unchanged by checking [scripts/docker-compose-with-env.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/scripts/docker-compose-with-env.sh) and [package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/package.json): `compose`/`compose:local` must continue using `server/.env` + `server/.env.local`, and e2e must continue using `.env.e2e`.
+9. [ ] Add/update test coverage artifact for this task: record compose-config rendering checks (all three compose files, with cert var unset and set) and wrapper env-file source verification evidence in Implementation notes.
+10. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md) for any new files/folders introduced in this task.
+11. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -377,6 +380,10 @@ Add compose-level plumbing so all workflows receive the expected `CODEINFO_*` va
 5. [ ] `docker compose -f docker-compose.yml config`
 6. [ ] `docker compose -f docker-compose.local.yml config`
 7. [ ] `docker compose -f docker-compose.e2e.yml config`
+8. [ ] `npm run compose:build` and capture summary/log evidence that wrapper env-file interpolation still works for `server/.env` + `server/.env.local`.
+9. [ ] `npm run compose:e2e:build` and capture summary/log evidence that wrapper env-file interpolation uses `.env.e2e`.
+10. [ ] Negative-path check: temporarily make `server/.env.local` unavailable, run `npm run compose:build`, confirm clear failure message, then restore `server/.env.local`.
+11. [ ] Negative-path check: temporarily make `.env.e2e` unavailable, run `npm run compose:e2e:build`, confirm clear failure message, then restore `.env.e2e`.
 
 #### Implementation notes
 
@@ -610,8 +617,10 @@ Perform end-to-end story validation against acceptance criteria, run full requir
 2. [ ] Ensure `README.md` fully reflects the final behavior and commands for this story.
 3. [ ] Ensure `design.md` reflects the final runtime behavior and decision points added in this story.
 4. [ ] Ensure `projectStructure.md` reflects all file/folder additions and purpose changes.
-5. [ ] Create a concise pull request summary comment covering all tasks, key decisions, and testing evidence.
-6. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+5. [ ] Verify root `.npmrc` remained unchanged for this story and explicitly record evidence that scoped npm registry mapping, npm auth handling, and proxy variables were not added.
+6. [ ] Verify final file-change scope remains infrastructure-only (`docker-compose*`, Dockerfiles, shell scripts, env/docs) with no `client/src` or `server/src` feature changes.
+7. [ ] Create a concise pull request summary comment covering all tasks, key decisions, and testing evidence.
+8. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -619,11 +628,16 @@ Perform end-to-end story validation against acceptance criteria, run full requir
 2. [ ] `npm run build:summary:client`
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up` then `npm run compose:down`
-5. [ ] `npm run test:summary:server:unit`
-6. [ ] `npm run test:summary:server:cucumber`
-7. [ ] `npm run test:summary:client`
-8. [ ] `npm run test:summary:e2e`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:local:build`
+7. [ ] `npm run compose:e2e:build`
+8. [ ] `npm run test:summary:server:unit`
+9. [ ] `npm run test:summary:server:cucumber`
+10. [ ] `npm run test:summary:client`
+11. [ ] `npm run test:summary:e2e`
 
 #### Implementation notes
 
 - Record final acceptance checklist outcomes and links/paths to key logs.
+- Include explicit command output/log references for `compose:build`, `compose:local:build`, and `compose:e2e:build`.
+- Record proof that `.npmrc` is unchanged and that scoped npm/auth/proxy support was intentionally not introduced.

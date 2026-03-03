@@ -1849,7 +1849,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 10. Final verification: full acceptance and regression gate for story 0000039
 
-- Task Status: ****to_do****
+- Task Status: **__completed__**
 - Git Commits: ****to_do****
 
 #### Overview
@@ -1870,54 +1870,86 @@ Run full validation for the complete story, verify acceptance criteria end-to-en
 
 #### Subtasks
 
-1. [ ] Re-validate final `README.md` against implemented behavior.
+1. [x] Re-validate final `README.md` against implemented behavior.
    - Document name: `README.md`
    - Location: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
    - Description: verify user-facing behavior notes match implementation, including command-info popover behavior, prompt discovery conditions, and Execute Prompt usage flow.
    - Purpose: ensure end-user documentation is accurate and complete for the delivered feature.
    - Read first: https://www.markdownguide.org/basic-syntax/
 
-2. [ ] Re-validate final `design.md` architecture and Mermaid diagrams against implemented behavior.
+2. [x] Re-validate final `design.md` architecture and Mermaid diagrams against implemented behavior.
    - Document name: `design.md`
    - Location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - Description: verify architecture notes and Mermaid diagrams match the implemented prompts discovery and execution flow, including route contracts and error handling paths.
    - Purpose: ensure technical design documentation remains a reliable source for implementation and maintenance decisions.
    - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
 
-3. [ ] Re-validate final file map.
+3. [x] Re-validate final file map.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: ensure every changed file in this story is represented correctly.
 
-4. [ ] Write final implementation summary for PR use.
+4. [x] Write final implementation summary for PR use.
    - Files: story notes and commit history
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: summarize server contract changes, client behavior changes, test coverage, and regression outcomes.
 
-5. [ ] Add final regression evidence checklist for required story log lines.
+5. [x] Add final regression evidence checklist for required story log lines.
    - Files: [planning/0000039-agents-command-info-and-working-folder-prompts.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000039-agents-command-info-and-working-folder-prompts.md)
    - Implement exactly: in Task 10 implementation notes, add a checklist entry confirming manual verification captured expected outcomes for these exact prefixes: `[agents.prompts.route.request]`, `[agents.prompts.route.success]`, `[agents.prompts.route.error]`, `[agents.prompts.discovery.start]`, `[agents.prompts.discovery.complete]`, `[agents.prompts.discovery.empty]`, `[agents.prompts.api.request]`, `[agents.prompts.api.success]`, `[agents.prompts.api.error]`, `[agents.commandInfo.open]`, `[agents.commandInfo.blocked]`, `[agents.prompts.selector.visible]`, `[agents.prompts.selector.hidden]`, `[agents.prompts.selection.changed]`, `[agents.prompts.execute.clicked]`, `[agents.prompts.execute.payload_built]`, and `[agents.prompts.execute.result]`.
    - Purpose: ensure final regression sign-off explicitly includes runtime event-log validation evidence.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests without using the wrapper commands listed below.
 
-1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-3. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
-5. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
-6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
-7. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001` and execute end-to-end happy path plus representative failures. Verify all required story log prefixes appear (`[agents.prompts.route.*]`, `[agents.prompts.discovery.*]`, `[agents.prompts.api.*]`, `[agents.commandInfo.*]`, `[agents.prompts.selector.*]`, `[agents.prompts.execute.*]`) with outcomes matching acceptance criteria. Capture and store screenshots in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped within `docker-compose.local.yml`) for every GUI-verifiable acceptance item, at minimum: `0000039-final-command-info-disabled.png`, `0000039-final-command-info-open.png`, `0000039-final-no-inline-description.png`, `0000039-final-prompts-visible.png`, `0000039-final-prompts-zero-results-hidden-or-empty-state.png`, `0000039-final-prompts-error-state.png`, `0000039-final-execute-prompt-enabled.png`, `0000039-final-execute-prompt-running-or-success.png`, and `0000039-final-execute-prompt-conflict-or-error.png`. Review each screenshot with the agent and cross-check against acceptance criteria before sign-off. Expected outcome: complete log evidence captured, screenshots confirm all GUI acceptance criteria that can be visually validated, and no browser debug-console errors.
-10. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [x] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [x] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [x] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [x] `npm run compose:up`
+9. [x] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001` and execute end-to-end happy path plus representative failures. Verify all required story log prefixes appear (`[agents.prompts.route.*]`, `[agents.prompts.discovery.*]`, `[agents.prompts.api.*]`, `[agents.commandInfo.*]`, `[agents.prompts.selector.*]`, `[agents.prompts.execute.*]`) with outcomes matching acceptance criteria. Capture and store screenshots in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped within `docker-compose.local.yml`) for every GUI-verifiable acceptance item, at minimum: `0000039-final-command-info-disabled.png`, `0000039-final-command-info-open.png`, `0000039-final-no-inline-description.png`, `0000039-final-prompts-visible.png`, `0000039-final-prompts-zero-results-hidden-or-empty-state.png`, `0000039-final-prompts-error-state.png`, `0000039-final-execute-prompt-enabled.png`, `0000039-final-execute-prompt-running-or-success.png`, and `0000039-final-execute-prompt-conflict-or-error.png`. Review each screenshot with the agent and cross-check against acceptance criteria before sign-off. Expected outcome: complete log evidence captured, screenshots confirm all GUI acceptance criteria that can be visually validated, and no browser debug-console errors.
+10. [x] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Re-validated `README.md` against implemented behavior; command-info popover rules, prompt discovery commit-only preconditions, Execute Prompt instruction-run flow, and manual log matrix entries are aligned with Tasks 1-9 implementation.
+- Subtask 2: Re-validated `design.md` route-contract notes and Mermaid diagrams; discovery (`GET /agents/{agentName}/prompts`) and execution (`POST /agents/{agentName}/run`) flows, plus zero-result/error branches, match implemented behavior and Task 1-9 outcomes.
+- Subtask 3: Re-validated `projectStructure.md` cumulative Tasks 1-8 map and task-ledger sections; required added test files and core touched implementation files are represented without missing entries.
+- Subtask 4: Prepared final PR summary for story notes: server added prompts-route contract + discovery service/error mapping/symlink-safe deterministic recursion; client added prompts API contract, command-info popover, inline-description removal, commit-driven prompt discovery lifecycle, selector visibility/reset/error split, and Execute Prompt instruction-run orchestration with canonical preamble replacement; coverage spans server unit + cucumber, client unit, and e2e wrappers with prior task logs/artifacts recorded for regression traceability.
+- Subtask 5: Added final regression evidence checklist for required story log prefixes (checked during Testing step 9):
+  - [x] `[agents.prompts.route.request]`
+  - [x] `[agents.prompts.route.success]`
+  - [x] `[agents.prompts.route.error]`
+  - [x] `[agents.prompts.discovery.start]`
+  - [x] `[agents.prompts.discovery.complete]`
+  - [x] `[agents.prompts.discovery.empty]`
+  - [x] `[agents.prompts.api.request]`
+  - [x] `[agents.prompts.api.success]`
+  - [x] `[agents.prompts.api.error]`
+  - [x] `[agents.commandInfo.open]`
+  - [x] `[agents.commandInfo.blocked]`
+  - [x] `[agents.prompts.selector.visible]`
+  - [x] `[agents.prompts.selector.hidden]`
+  - [x] `[agents.prompts.selection.changed]`
+  - [x] `[agents.prompts.execute.clicked]`
+  - [x] `[agents.prompts.execute.payload_built]`
+  - [x] `[agents.prompts.execute.result]`
+- Subtask 6: Ran `npm run lint --workspaces` (pass with unchanged repository-wide import-order warnings baseline in server) and `npm run format:check --workspaces` (pass; no formatting changes required).
+- Testing step 1: `npm run build:summary:server` passed with `warnings: 0` and log `logs/test-summaries/build-server-latest.log`.
+- Testing step 2: `npm run build:summary:client` passed with `warnings: 1` (existing Vite chunk-size advisory baseline) and log `logs/test-summaries/build-client-latest.log`.
+- Testing step 3: `npm run test:summary:server:unit` passed with `tests run: 916`, `passed: 916`, `failed: 0` (`test-results/server-unit-tests-2026-03-03T09-56-21-359Z.log`).
+- Testing step 4: `npm run test:summary:server:cucumber` passed with `tests run: 68`, `passed: 68`, `failed: 0` (`test-results/server-cucumber-tests-2026-03-03T10-06-04-826Z.log`).
+- Testing step 5: `npm run test:summary:client` passed with `tests run: 450`, `passed: 450`, `failed: 0` (`test-results/client-tests-2026-03-03T10-07-38-895Z.log`).
+- Testing step 6: `npm run test:summary:e2e` passed with `tests run: 42`, `passed: 42`, `failed: 0` (`logs/test-summaries/e2e-tests-latest.log`).
+- Testing step 7: `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0` (`logs/test-summaries/compose-build-latest.log`).
+- Testing step 8: `npm run compose:up` succeeded and started the full stack, including healthy `codeinfo2-server-1` and started `codeinfo2-client-1`.
+- Testing step 9: Manual Playwright-MCP validation on `http://host.docker.internal:5001/agents` completed happy + failure coverage for command-info, prompt discovery (success/zero/error), selector transitions, and Execute Prompt (started/conflict). Captured required screenshots as `0000039-final-command-info-disabled.png`, `0000039-final-command-info-open.png`, `0000039-final-no-inline-description.png`, `0000039-final-prompts-visible.png`, `0000039-final-prompts-zero-results-hidden-or-empty-state.png`, `0000039-final-prompts-error-state.png`, `0000039-final-execute-prompt-enabled.png`, `0000039-final-execute-prompt-running-or-success.png`, and `0000039-final-execute-prompt-conflict-or-error.png` in Playwright output storage (`/tmp/playwright-output/playwright-output-local`). Client-console evidence captured required `[agents.prompts.api.*]`, `[agents.commandInfo.*]`, `[agents.prompts.selector.*]`, `[agents.prompts.selection.changed]`, and `[agents.prompts.execute.*]` prefixes; server-route/service evidence captured `[agents.prompts.route.*]` and `[agents.prompts.discovery.*]` prefixes in `logs/server.1.log` for Task 10 flows (notably around lines `211013-211016`, `211198-211201`, `211203-211204`, and `211206-211209`). Expected network-failure console lines (`400/404/409`) appeared only during deliberate failure-path checks.
+- Testing step 10: `npm run compose:down` succeeded and removed all compose services plus network `codeinfo2_internal`.

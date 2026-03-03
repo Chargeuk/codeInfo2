@@ -226,6 +226,27 @@ Modified files (implementation traceability):
 - `server/src/test/integration/flows.run.basic.test.ts`
 - `server/src/test/unit/codexSdkUpgrade.test.ts`
 
+## Story 0000040 Task 11 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `projectStructure.md`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+
 ## Story 0000038 Tasks 1-7 structural change ledger
 
 Added files:

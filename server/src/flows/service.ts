@@ -87,6 +87,8 @@ const T07_SUCCESS_LOG =
   '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=success';
 const T07_ERROR_LOG =
   '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=error';
+const DEV_0000040_T11_FLOW_RESOLUTION_ORDER =
+  'DEV_0000040_T11_FLOW_RESOLUTION_ORDER';
 const agentConversationState = new Map<string, FlowAgentState>();
 
 const toFlowRunError = (code: FlowRunErrorCode, reason?: string) =>
@@ -1377,10 +1379,11 @@ const hasUnsupportedStep = (steps: FlowStep[]): boolean => {
 const validateCommandSteps = async (
   steps: FlowStep[],
   agentByName: Map<string, { home: string }>,
+  repositoryContext: FlowCommandRepositoryContext,
 ): Promise<void> => {
   for (const step of steps) {
     if (step.type === 'startLoop') {
-      await validateCommandSteps(step.steps, agentByName);
+      await validateCommandSteps(step.steps, agentByName, repositoryContext);
       continue;
     }
     if (step.type === 'command') {
@@ -1391,9 +1394,10 @@ const validateCommandSteps = async (
           `Agent ${step.agentType} not found`,
         );
       }
-      const commandLoad = await loadCommandForAgent({
-        agentHome: agent.home,
-        commandName: step.commandName,
+      const commandLoad = await resolveFlowCommandForAgent({
+        step,
+        context: repositoryContext,
+        phase: 'validation',
       });
       if (!commandLoad.ok) {
         throw toFlowRunError('COMMAND_INVALID', commandLoad.message);
@@ -1452,8 +1456,125 @@ type LoadCommandResult =
       ok: true;
       commandName: string;
       command: { items: Array<{ content: string[] }> };
+      sourceId: string;
+      sourceLabel: string;
+      sourceRank: 'same_source' | 'codeinfo2' | 'other';
     }
-  | { ok: false; message: string };
+  | {
+      ok: false;
+      message: string;
+      reason: 'NOT_FOUND' | 'INVALID' | 'READ_FAILED' | 'INVALID_NAME';
+    };
+
+type FlowCommandRepositoryContext = {
+  flowName: string;
+  flowSourceId?: string;
+  flowSourceLabel?: string;
+  codeInfo2Root: string;
+  repos: Array<{ sourceId: string; sourceLabel: string }>;
+};
+
+type FlowCommandCandidate = {
+  sourceId: string;
+  sourceLabel: string;
+  rank: 'same_source' | 'codeinfo2' | 'other';
+  agentHome: string;
+};
+
+const normalizeAsciiLower = (value: string) => value.toLowerCase();
+
+const normalizeSourceLabel = (params: {
+  sourceId: string;
+  sourceLabel?: string;
+}) => {
+  const trimmed = params.sourceLabel?.trim();
+  if (trimmed) return trimmed;
+  return path.posix.basename(params.sourceId.replace(/\\/g, '/'));
+};
+
+const compareSourceCandidates = (
+  left: { sourceId: string; sourceLabel: string },
+  right: { sourceId: string; sourceLabel: string },
+) => {
+  const leftLabel = normalizeAsciiLower(left.sourceLabel);
+  const rightLabel = normalizeAsciiLower(right.sourceLabel);
+  if (leftLabel < rightLabel) return -1;
+  if (leftLabel > rightLabel) return 1;
+  const leftPath = normalizeAsciiLower(left.sourceId);
+  const rightPath = normalizeAsciiLower(right.sourceId);
+  if (leftPath < rightPath) return -1;
+  if (leftPath > rightPath) return 1;
+  return 0;
+};
+
+const buildFlowCommandCandidates = (params: {
+  context: FlowCommandRepositoryContext;
+  agentType: string;
+}): FlowCommandCandidate[] => {
+  const candidates: FlowCommandCandidate[] = [];
+  const seen = new Set<string>();
+  const addCandidate = (
+    sourceId: string,
+    sourceLabel: string,
+    rank: FlowCommandCandidate['rank'],
+  ) => {
+    const resolvedSourceId = path.resolve(sourceId);
+    const key = normalizeAsciiLower(resolvedSourceId);
+    if (seen.has(key)) return;
+    seen.add(key);
+    candidates.push({
+      sourceId: resolvedSourceId,
+      sourceLabel: normalizeSourceLabel({
+        sourceId: resolvedSourceId,
+        sourceLabel,
+      }),
+      rank,
+      agentHome: path.join(resolvedSourceId, 'codex_agents', params.agentType),
+    });
+  };
+
+  const sameSourceId = params.context.flowSourceId
+    ? path.resolve(params.context.flowSourceId)
+    : path.resolve(params.context.codeInfo2Root);
+  addCandidate(
+    sameSourceId,
+    normalizeSourceLabel({
+      sourceId: sameSourceId,
+      sourceLabel: params.context.flowSourceLabel,
+    }),
+    'same_source',
+  );
+
+  addCandidate(
+    params.context.codeInfo2Root,
+    normalizeSourceLabel({ sourceId: params.context.codeInfo2Root }),
+    'codeinfo2',
+  );
+
+  const sortedOthers = params.context.repos
+    .map((repo) => ({
+      sourceId: path.resolve(repo.sourceId),
+      sourceLabel: normalizeSourceLabel({
+        sourceId: repo.sourceId,
+        sourceLabel: repo.sourceLabel,
+      }),
+    }))
+    .filter((repo) => {
+      const repoId = normalizeAsciiLower(path.resolve(repo.sourceId));
+      return (
+        repoId !== normalizeAsciiLower(sameSourceId) &&
+        repoId !==
+          normalizeAsciiLower(path.resolve(params.context.codeInfo2Root))
+      );
+    })
+    .sort(compareSourceCandidates);
+
+  for (const repo of sortedOthers) {
+    addCandidate(repo.sourceId, repo.sourceLabel, 'other');
+  }
+
+  return candidates;
+};
 
 const loadCommandForAgent = async (params: {
   agentHome: string;
@@ -1461,7 +1582,11 @@ const loadCommandForAgent = async (params: {
 }): Promise<LoadCommandResult> => {
   const rawName = params.commandName;
   if (!isSafeCommandName(rawName)) {
-    return { ok: false, message: 'commandName must be a valid file name' };
+    return {
+      ok: false,
+      reason: 'INVALID_NAME',
+      message: 'commandName must be a valid file name',
+    };
   }
 
   const commandName = rawName.trim();
@@ -1469,29 +1594,154 @@ const loadCommandForAgent = async (params: {
   const filePath = path.join(commandsDir, `${commandName}.json`);
   const commandStat = await fs.stat(filePath).catch((error) => {
     if ((error as { code?: string }).code === 'ENOENT') return null;
-    throw error;
+    return error;
   });
+  if (commandStat instanceof Error) {
+    return {
+      ok: false,
+      reason: 'READ_FAILED',
+      message: `Command ${commandName} read failed`,
+    };
+  }
   if (!commandStat?.isFile()) {
     return {
       ok: false,
+      reason: 'NOT_FOUND',
       message: `Command ${commandName} not found for agent`,
     };
   }
 
-  const parsed = await loadAgentCommandFile({ filePath });
+  const parsed = await loadAgentCommandFile({ filePath }).catch(() => null);
+  if (!parsed) {
+    return {
+      ok: false,
+      reason: 'READ_FAILED',
+      message: `Command ${commandName} read failed`,
+    };
+  }
   if (!parsed.ok) {
     return {
       ok: false,
+      reason: 'INVALID',
       message: `Command ${commandName} failed schema validation`,
     };
   }
 
-  return { ok: true, commandName, command: parsed.command };
+  return {
+    ok: true,
+    commandName,
+    command: parsed.command,
+    sourceId: params.agentHome,
+    sourceLabel: path.posix.basename(params.agentHome.replace(/\\/g, '/')),
+    sourceRank: 'other',
+  };
+};
+
+const resolveFlowCommandForAgent = async (params: {
+  step: FlowCommandStep;
+  context: FlowCommandRepositoryContext;
+  phase: 'validation' | 'execution';
+}): Promise<LoadCommandResult> => {
+  const candidates = buildFlowCommandCandidates({
+    context: params.context,
+    agentType: params.step.agentType,
+  });
+
+  for (const candidate of candidates) {
+    const loaded = await loadCommandForAgent({
+      agentHome: candidate.agentHome,
+      commandName: params.step.commandName,
+    });
+    if (loaded.ok) {
+      append({
+        level: 'info',
+        message: DEV_0000040_T11_FLOW_RESOLUTION_ORDER,
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          phase: params.phase,
+          flowName: params.context.flowName,
+          commandName: params.step.commandName,
+          agentType: params.step.agentType,
+          flowSourceId: params.context.flowSourceId ?? null,
+          decision: 'selected',
+          selectedSourceId: candidate.sourceId,
+          selectedSourceLabel: candidate.sourceLabel,
+          selectedSourceRank: candidate.rank,
+          candidates: candidates.map((item) => ({
+            sourceId: item.sourceId,
+            sourceLabel: item.sourceLabel,
+            rank: item.rank,
+          })),
+        },
+      });
+      return {
+        ...loaded,
+        sourceId: candidate.sourceId,
+        sourceLabel: candidate.sourceLabel,
+        sourceRank: candidate.rank,
+      };
+    }
+    if (loaded.reason !== 'NOT_FOUND') {
+      append({
+        level: 'warn',
+        message: DEV_0000040_T11_FLOW_RESOLUTION_ORDER,
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          phase: params.phase,
+          flowName: params.context.flowName,
+          commandName: params.step.commandName,
+          agentType: params.step.agentType,
+          flowSourceId: params.context.flowSourceId ?? null,
+          decision: 'fail_fast',
+          selectedSourceId: candidate.sourceId,
+          selectedSourceLabel: candidate.sourceLabel,
+          selectedSourceRank: candidate.rank,
+          failureReason: loaded.reason,
+          failureMessage: loaded.message,
+          candidates: candidates.map((item) => ({
+            sourceId: item.sourceId,
+            sourceLabel: item.sourceLabel,
+            rank: item.rank,
+          })),
+        },
+      });
+      return loaded;
+    }
+  }
+
+  append({
+    level: 'warn',
+    message: DEV_0000040_T11_FLOW_RESOLUTION_ORDER,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      phase: params.phase,
+      flowName: params.context.flowName,
+      commandName: params.step.commandName,
+      agentType: params.step.agentType,
+      flowSourceId: params.context.flowSourceId ?? null,
+      decision: 'not_found',
+      candidates: candidates.map((item) => ({
+        sourceId: item.sourceId,
+        sourceLabel: item.sourceLabel,
+        rank: item.rank,
+      })),
+    },
+  });
+
+  return {
+    ok: false,
+    reason: 'NOT_FOUND',
+    message: `Command ${params.step.commandName.trim()} not found for agent`,
+  };
 };
 
 async function runFlowUnlocked(params: {
   flowName: string;
   flow: FlowFile;
+  repositoryContext: FlowCommandRepositoryContext;
   conversationId: string;
   inflightId: string;
   workingDirectoryOverride?: string;
@@ -1839,9 +2089,10 @@ async function runFlowUnlocked(params: {
     });
 
     for (let attempt = 1; attempt <= maxStepAttempts; attempt += 1) {
-      const commandLoad = await loadCommandForAgent({
-        agentHome: agent.home,
-        commandName: step.commandName,
+      const commandLoad = await resolveFlowCommandForAgent({
+        step,
+        context: params.repositoryContext,
+        phase: 'execution',
       });
       if (!commandLoad.ok) {
         if (attempt < maxStepAttempts) {
@@ -2137,18 +2388,25 @@ export async function startFlowRun(
   let flow: FlowFile;
   let modelId = FALLBACK_MODEL_ID;
   let resumeState: FlowResumeState | null = null;
+  let repositoryContext: FlowCommandRepositoryContext | null = null;
 
   try {
     let flowsRoot = flowsDirForRun();
+    const listRepos =
+      params.listIngestedRepositories ?? listIngestedRepositories;
+    const listedRepos = await listRepos()
+      .then((result) => result.repos)
+      .catch(() => []);
+    const sourceRepo = sourceId
+      ? listedRepos.find(
+          (item) => path.resolve(item.containerPath) === path.resolve(sourceId),
+        )
+      : undefined;
     if (sourceId) {
-      const listRepos =
-        params.listIngestedRepositories ?? listIngestedRepositories;
-      const { repos } = await listRepos();
-      const repo = repos.find((item) => item.containerPath === sourceId);
-      if (!repo) {
+      if (!sourceRepo) {
         throw toFlowRunError('FLOW_NOT_FOUND');
       }
-      const resolved = resolveRepoEmbeddingIdentity(repo);
+      const resolved = resolveRepoEmbeddingIdentity(sourceRepo);
       append({
         level: 'info',
         message: 'DEV-0000036:T11:transitive_consumer_contract_read',
@@ -2174,7 +2432,7 @@ export async function startFlowRun(
           aliasFallbackUsed: resolved.aliasFallbackUsed,
         },
       });
-      flowsRoot = path.resolve(repo.containerPath, 'flows');
+      flowsRoot = path.resolve(sourceRepo.containerPath, 'flows');
     }
     flow = await loadFlowFile({ flowName, flowsRoot, sourceId });
     if (!flow.steps.length) {
@@ -2236,7 +2494,33 @@ export async function startFlowRun(
 
     modelId = await getAgentModelId(agent.configPath);
 
-    await validateCommandSteps(flow.steps, agentByName);
+    const codeInfo2Root = path.resolve(agent.home, '..', '..');
+    repositoryContext = {
+      flowName,
+      flowSourceId: sourceRepo?.containerPath
+        ? path.resolve(sourceRepo.containerPath)
+        : sourceId
+          ? path.resolve(sourceId)
+          : undefined,
+      flowSourceLabel: sourceRepo
+        ? normalizeSourceLabel({
+            sourceId: sourceRepo.containerPath,
+            sourceLabel: sourceRepo.id,
+          })
+        : sourceId
+          ? normalizeSourceLabel({ sourceId })
+          : undefined,
+      codeInfo2Root,
+      repos: listedRepos.map((repo) => ({
+        sourceId: path.resolve(repo.containerPath),
+        sourceLabel: normalizeSourceLabel({
+          sourceId: repo.containerPath,
+          sourceLabel: repo.id,
+        }),
+      })),
+    };
+
+    await validateCommandSteps(flow.steps, agentByName, repositoryContext);
 
     await ensureFlowConversation({
       conversationId,
@@ -2264,11 +2548,18 @@ export async function startFlowRun(
 
   void (async () => {
     try {
+      if (!repositoryContext) {
+        throw toFlowRunError(
+          'COMMAND_INVALID',
+          'Flow command repository context unavailable',
+        );
+      }
       const workingDirectoryOverride =
         await resolveWorkingFolderWorkingDirectory(params.working_folder);
       await runFlowUnlocked({
         flowName,
         flow,
+        repositoryContext,
         conversationId,
         inflightId,
         workingDirectoryOverride,

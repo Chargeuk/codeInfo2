@@ -417,6 +417,61 @@ flowchart TD
   I --> J
 ```
 
+## Flow command resolution ordering and fail-fast behavior (Story 0000040 Task 11)
+
+- `server/src/flows/service.ts` now resolves flow `command` steps through one shared resolver path used by both:
+  - pre-run flow validation (`validateCommandSteps`),
+  - runtime command-step execution (`runCommandStep`).
+- Candidate source order is deterministic:
+  - same-source repository first (flow `sourceId`, or codeInfo2 root for local flows),
+  - codeInfo2 repository second,
+  - remaining repositories sorted by case-insensitive ASCII on normalized source label, then case-insensitive ASCII full source path.
+- Normalized label rules:
+  - `sourceLabel.trim()` when non-empty,
+  - otherwise `basename(sourceId)` fallback.
+- Fallback boundary:
+  - continue to next candidate only for command-not-found,
+  - stop immediately (no fallback) on same-source schema/read/parse failures and any other non-not-found command-load failure.
+- Deterministic marker:
+  - `DEV_0000040_T11_FLOW_RESOLUTION_ORDER` logs candidate order and outcome (`selected`, `fail_fast`, `not_found`) with selected source metadata or fail-fast reason.
+
+```mermaid
+flowchart TD
+  A[Flow command step] --> B[Build ordered candidates]
+  B --> C[same-source]
+  C --> D[codeInfo2]
+  D --> E[sorted other repositories]
+  E --> F[Try load command by candidate]
+  F --> G{load result}
+  G -- ok --> H[selected source, execute/validate command]
+  G -- not_found --> I[next candidate]
+  I --> F
+  G -- invalid/read_failed --> J[fail_fast no further fallback]
+```
+
+```mermaid
+sequenceDiagram
+  participant Flow as Flow Run
+  participant Resolver as Shared Command Resolver
+  participant Same as Same-source Repo
+  participant Code as codeInfo2 Repo
+
+  Flow->>Resolver: resolve(commandName, agentType)
+  Resolver->>Same: load command
+  alt same-source command exists and valid
+    Same-->>Resolver: ok
+    Resolver-->>Flow: selected same-source
+  else same-source command missing
+    Same-->>Resolver: not_found
+    Resolver->>Code: load command
+    Code-->>Resolver: ok
+    Resolver-->>Flow: selected codeInfo2 fallback
+  else same-source schema/read/parse invalid
+    Same-->>Resolver: invalid/read_failed
+    Resolver-->>Flow: fail_fast (COMMAND_INVALID)
+  end
+```
+
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
 - Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
 - Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.

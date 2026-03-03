@@ -2330,7 +2330,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 
 ### 11. Server: flow command resolution deterministic source ordering and same-source fail-fast
 
-- Task Status: **to_do**
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview
@@ -2349,7 +2349,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 
 #### Subtasks
 
-1. [ ] Add a failing repro integration test first demonstrating current incorrect same-source/fallback behavior (red step before implementation).
+1. [x] Add a failing repro integration test first demonstrating current incorrect same-source/fallback behavior (red step before implementation).
    - Test type: `Integration` (red-first repro).
    - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
    - Description: Build a fixture where expected same-source/ordered fallback behavior is violated by current code, and assert current run fails this new expectation.
@@ -2358,27 +2358,27 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Files to read/edit: [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
    - Acceptance criteria coverage: AC 21, AC 27.
    - Done when: new test fails on current behavior before service changes.
-2. [ ] Extend source-context plumbing in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so `startFlowRun` `sourceId` and `listIngestedRepositories` context are available to both command validation and runtime execution.
+2. [x] Extend source-context plumbing in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so `startFlowRun` `sourceId` and `listIngestedRepositories` context are available to both command validation and runtime execution.
    - Docs to read first: https://nodejs.org/api/path.html.
    - Files to read/edit: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts).
    - Acceptance criteria coverage: AC 18, AC 27.
    - Done when: both validation and execution code paths can resolve repository candidates from same context.
-3. [ ] Implement deterministic candidate ordering in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts): same-source first, codeInfo2 second, then other repos sorted by case-insensitive ASCII normalized label then full path (no parallel loader implementation).
+3. [x] Implement deterministic candidate ordering in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts): same-source first, codeInfo2 second, then other repos sorted by case-insensitive ASCII normalized label then full path (no parallel loader implementation).
    - Docs to read first: https://nodejs.org/api/path.html.
    - Files to read/edit: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts).
    - Acceptance criteria coverage: AC 18, AC 19, AC 28.
    - Done when: ordering is deterministic and independent of filesystem iteration order.
-4. [ ] Implement fail-fast behavior in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts): if same-source command exists but is schema-invalid/read-failed, stop and do not fallback.
+4. [x] Implement fail-fast behavior in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts): if same-source command exists but is schema-invalid/read-failed, stop and do not fallback.
    - Docs to read first: https://nodejs.org/api/path.html.
    - Files to read/edit: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts).
    - Acceptance criteria coverage: AC 20, AC 27.
    - Done when: same-source invalid path returns failure immediately.
-5. [ ] Ensure both pre-run command validation and runtime command execution use the same shared resolver path in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) to avoid behavior drift.
+5. [x] Ensure both pre-run command validation and runtime command execution use the same shared resolver path in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) to avoid behavior drift.
    - Docs to read first: https://nodejs.org/api/test.html.
    - Files to read/edit: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts).
    - Acceptance criteria coverage: AC 18, AC 20, AC 27.
    - Done when: one resolver function/path is reused by both phases.
-6. [ ] Add an integration test for same-source command success path.
+6. [x] Add an integration test for same-source command success path.
    - Test type: `Integration`.
    - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
    - Description: Flow with repository source resolves command from same source and executes successfully.
@@ -2387,7 +2387,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Files to read/edit: [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
    - Acceptance criteria coverage: AC 18, AC 27.
    - Done when: test fails if same-source command resolution is bypassed.
-7. [ ] Add an integration test for same-source missing command with fallback to codeInfo2 repository.
+7. [x] Add an integration test for same-source missing command with fallback to codeInfo2 repository.
    - Test type: `Integration`.
    - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
    - Description: Same-source lacks command, resolver selects codeInfo2 repository as next candidate.
@@ -2396,7 +2396,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Files to read/edit: [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
    - Acceptance criteria coverage: AC 18, AC 27.
    - Done when: test fails if fallback order skips codeInfo2.
-8. [ ] Add an integration test for deterministic fallback among other repositories.
+8. [x] Add an integration test for deterministic fallback among other repositories.
    - Test type: `Integration`.
    - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
    - Description: With multiple non-priority repos containing command, assert first match by defined comparator is selected.
@@ -2405,7 +2405,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Files to read/edit: [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
    - Acceptance criteria coverage: AC 19, AC 28.
    - Done when: test fails if selection depends on filesystem iteration order.
-9. [ ] Add an integration test for same-source schema-invalid command fail-fast behavior.
+9. [x] Add an integration test for same-source schema-invalid command fail-fast behavior.
    - Test type: `Integration`.
    - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
    - Description: Same-source command exists but is invalid; assert run fails without trying fallback repositories.
@@ -2414,7 +2414,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Files to read/edit: [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
    - Acceptance criteria coverage: AC 20, AC 27.
    - Done when: test fails if resolver continues fallback after same-source schema failure.
-10. [ ] Add an integration test for same-source command read/parse failure fail-fast behavior.
+10. [x] Add an integration test for same-source command read/parse failure fail-fast behavior.
 
 - Test type: `Integration`.
 - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
@@ -2425,7 +2425,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 - Acceptance criteria coverage: AC 20, AC 27.
 - Done when: test fails if resolver falls back after same-source read/parse failure.
 
-11. [ ] Add an integration test for command-not-found across all candidate repositories preserving existing not-found failure path.
+11. [x] Add an integration test for command-not-found across all candidate repositories preserving existing not-found failure path.
 
 - Test type: `Integration`.
 - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
@@ -2436,7 +2436,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 - Acceptance criteria coverage: AC 18, AC 19, AC 27, AC 28.
 - Done when: test fails if missing command across all candidates produces inconsistent/non-standard failure behavior.
 
-12. [ ] Add an integration test for normalized-label comparison with trimmed `sourceLabel`.
+12. [x] Add an integration test for normalized-label comparison with trimmed `sourceLabel`.
 
 - Test type: `Integration`.
 - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
@@ -2447,7 +2447,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 - Acceptance criteria coverage: AC 19, AC 28.
 - Done when: test fails if whitespace affects ordering.
 
-13. [ ] Add an integration test for empty/absent `sourceLabel` basename fallback ordering.
+13. [x] Add an integration test for empty/absent `sourceLabel` basename fallback ordering.
 
 - Test type: `Integration`.
 - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
@@ -2458,7 +2458,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 - Acceptance criteria coverage: AC 19, AC 28.
 - Done when: test fails if empty labels are not normalized correctly.
 
-14. [ ] Add an integration test for path tie-break when normalized labels compare equal case-insensitively.
+14. [x] Add an integration test for path tie-break when normalized labels compare equal case-insensitively.
 
 - Test type: `Integration`.
 - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
@@ -2469,7 +2469,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 - Acceptance criteria coverage: AC 19, AC 28.
 - Done when: test fails if equal-label ordering is non-deterministic.
 
-15. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for flow resolver ordering and fail-fast behavior, including Mermaid flow/sequence diagrams for same-source success, codeInfo2 fallback, and same-source schema-invalid stop conditions.
+15. [x] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for flow resolver ordering and fail-fast behavior, including Mermaid flow/sequence diagrams for same-source success, codeInfo2 fallback, and same-source schema-invalid stop conditions.
 
 - Document name: `design.md`.
 - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
@@ -2480,7 +2480,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
 - Done when: `design.md` includes exact rules and valid Mermaid syntax for all required flow scenarios.
 
-16. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-11 flow service/integration-test files added, removed, or modified.
+16. [x] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-11 flow service/integration-test files added, removed, or modified.
 
 - Document name: `projectStructure.md`.
 - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
@@ -2492,7 +2492,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
 - Done when: `projectStructure.md` reflects all task-11 file changes with no omissions, including all added and removed files.
 
-17. [ ] Add deterministic diagnostic log marker [DEV_0000040_T11_FLOW_RESOLUTION_ORDER] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+17. [x] Add deterministic diagnostic log marker [DEV_0000040_T11_FLOW_RESOLUTION_ORDER] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
 
 - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
 - Files to read/edit: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts).
@@ -2500,7 +2500,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 - Manual Playwright-MCP expected outcome: running flow commands logs marker with ordered candidate list and selected source, or fail-fast reason for same-source invalid/read-fail cases.
 - Done when: [DEV_0000040_T11_FLOW_RESOLUTION_ORDER] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
 
-18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+18. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
 - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
@@ -2512,16 +2512,24 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 - Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
 - Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server`
+1. [x] `npm run build:summary:server`
    - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit`
+2. [x] `npm run test:summary:server:unit`
    - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber`
+3. [x] `npm run test:summary:server:cucumber`
    - Use for server Cucumber feature/step coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands (`--tags` / `--feature` / `--scenario`), then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Added red-first repro test `RED: repository flow should resolve same-source command before fallback ordering` in `server/src/test/integration/flows.run.command.test.ts`; targeted run failed as expected (`tests run: 1`, `failed: 1`) with log `test-results/server-unit-tests-2026-03-03T23-04-04-553Z.log`.
+- Subtasks 2-5 and 17: Added shared flow-command repository resolver plumbing in `server/src/flows/service.ts` so both validation and execution use the same candidate ordering/path (`same-source -> codeInfo2 -> sorted others`) with fail-fast on non-not-found errors and deterministic marker `DEV_0000040_T11_FLOW_RESOLUTION_ORDER`.
+- Subtasks 6-14: Expanded `server/src/test/integration/flows.run.command.test.ts` with same-source success, codeInfo2 fallback, deterministic other-repo ordering, same-source schema/parse fail-fast, all-candidates-not-found behavior, trimmed-label ordering, basename fallback ordering, and equal-label path tie-break coverage; targeted file run now passes (`tests run: 13`, `failed: 0`) with log `test-results/server-unit-tests-2026-03-03T23-08-58-512Z.log`.
+- Subtask 15: Updated `design.md` with Task 11 resolver architecture, deterministic ordering/fail-fast rules, and Mermaid flow/sequence diagrams for same-source success, codeInfo2 fallback, and same-source invalid stop conditions.
+- Subtask 16: Updated `projectStructure.md` with a Task 11 structural change ledger covering `service.ts`, integration tests, and documentation updates.
+- Subtask 18: Ran `npm run lint --workspaces` (pass with known pre-existing import-order warnings), then `npm run format:check --workspaces` (initial fail on Task 11 files), ran `npm run format --workspaces`, and re-ran `npm run format:check --workspaces` to full pass.
+- Testing 1: `npm run build:summary:server` passed (`status: passed`, `warnings: 0`) with log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run test:summary:server:unit` passed (`tests run: 976`, `failed: 0`) with log `test-results/server-unit-tests-2026-03-03T23-10-59-602Z.log`.
+- Testing 3: `npm run test:summary:server:cucumber` passed (`tests run: 68`, `failed: 0`) with log `test-results/server-cucumber-tests-2026-03-03T23-20-22-333Z.log`.
 
 ---
 

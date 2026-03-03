@@ -2331,7 +2331,8 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 ### 11. Server: flow command resolution deterministic source ordering and same-source fail-fast
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits:
+  - `6fba48cd` — DEV-0000040 - implement Task 11 deterministic flow command resolution
 
 #### Overview
 

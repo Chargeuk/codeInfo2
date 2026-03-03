@@ -665,7 +665,11 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - disabled when `N = 1`.
 3. [ ] Add command-option step-count preview text in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) (for example `N steps`) using backend-provided `stepCount` so users can pick the correct command before choosing `Start step`.
 4. [ ] Wire execute action payload in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) to pass `startStep` in `POST /agents/:agentName/commands/run`.
-5. [ ] Add/extend UI tests in [client/src/test/agentsPage.commandStartStep.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandStartStep.test.tsx) to verify visibility, enable/disable behavior, reset behavior, command-option step-count preview text, and outbound payload.
+5. [ ] Add/extend UI tests in existing command-row suites (do not create a parallel page-test scaffold):
+   - [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
+   - [client/src/test/agentsPage.run.commandError.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.commandError.test.tsx)
+   - [client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx)
+   to verify visibility, enable/disable behavior, reset behavior, command-option step-count preview text, outbound payload, and `INVALID_START_STEP` inline feedback.
 6. [ ] Ensure row-level inline error handling for backend `INVALID_START_STEP` responses in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) with deterministic range message display.
 7. [ ] Update documentation files changed by this task:
    - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
@@ -679,9 +683,11 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 2. [ ] `npm run build:summary:client`
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.commandStartStep.test.tsx`
-6. [ ] `npm run test:summary:client`
-7. [ ] `npm run compose:down`
+5. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.commandsList.test.tsx`
+6. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.run.commandError.test.tsx`
+7. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx`
+8. [ ] `npm run test:summary:client`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -705,9 +711,9 @@ Implement shared default-source behavior for covered Codex fields so REST chat a
 
 #### Subtasks
 
-1. [ ] Update shared default resolution in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) to read `codex/chat/config.toml` values for `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`, and return deterministic per-field source metadata.
-2. [ ] Implement precedence `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback` in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) and emit warning messages that include the exact field name whenever legacy env fallback is used.
-3. [ ] Keep canonical `web_search` precedence and deterministic alias normalization in the shared defaults path so `web_search` wins over deprecated aliases and bool aliases map to `live|disabled`.
+1. [ ] Extend shared default resolution in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) by reusing existing runtime-config parsing/normalization from [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) to read `codex/chat/config.toml` values for `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
+2. [ ] Implement precedence `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback` in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) and emit warning messages that include the exact field name whenever legacy env fallback is used, without introducing a second default-resolution pipeline.
+3. [ ] Keep canonical `web_search` precedence and deterministic alias normalization in the shared defaults path by reusing existing runtime-config normalization behavior so `web_search` wins over deprecated aliases and bool aliases map to `live|disabled`.
 4. [ ] Update [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts) to source Codex defaults from the shared config-backed resolver instead of env-only defaults, while preserving existing model capability shape.
 5. [ ] Update [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts) to return `codexDefaults` and warning semantics from the shared config-backed resolver path (not env-first behavior).
 6. [ ] Update [server/src/routes/chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts) and [server/src/routes/chat.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chat.ts) to use the same config-backed default selection and source metadata, removing env-first assumptions in default-source logging.
@@ -857,8 +863,8 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 #### Subtasks
 
 1. [ ] Add a failing repro test first in [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) that demonstrates current incorrect same-source/fallback behavior.
-2. [ ] Add explicit source-context plumbing in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so `startFlowRun` passes flow source identity and repository list context into command-step resolution used by `validateCommandSteps` and runtime command execution.
-3. [ ] Implement a shared command candidate resolver in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) with deterministic ordering:
+2. [ ] Extend existing source-context plumbing in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so existing `startFlowRun` `sourceId` + `listIngestedRepositories` context is passed into command-step resolution used by `validateCommandSteps` and runtime command execution.
+3. [ ] Extend existing [loadCommandForAgent](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) resolution behavior with deterministic candidate ordering (do not add a second command parsing/loading path):
    - same-source repository first,
    - codeInfo2 repository second,
    - other repositories sorted by case-insensitive ASCII normalized source label, then case-insensitive ASCII full source path.

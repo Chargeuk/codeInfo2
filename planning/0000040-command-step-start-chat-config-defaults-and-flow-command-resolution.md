@@ -1676,7 +1676,8 @@ Implement the shared Codex default-resolution behavior in one place so all consu
 ### 7. Server: REST chat and capability surfaces consume shared defaults
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits:
+  - `468a98d6` — DEV-0000040 - wire Task 7 REST/capability defaults to shared resolver
 
 #### Overview
 

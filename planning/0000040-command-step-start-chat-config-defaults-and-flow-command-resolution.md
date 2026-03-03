@@ -115,6 +115,70 @@ Remaining risk to monitor (already scoped in criteria):
 
 - Cross-surface change coupling (AGENTS + chat defaults + flows + SDK) increases regression chance if merged without surface-focused verification.
 
+## Implementation Ideas
+
+This section is intentionally a rough implementation guide, not a task list.
+
+Implementation shape:
+
+- Implement through one end-to-end integration thread: API contract -> service/runner behavior -> UI consumption -> regression tests.
+- Keep changes localized to existing modules for each surface rather than introducing new abstraction layers in this story.
+- Preserve backward compatibility where callers already exist (especially command-run payloads that do not yet send `startStep`).
+
+Likely code surfaces to change:
+
+1. AGENTS command start-step support:
+   - Route/body validation and error mapping:
+     - `server/src/routes/agentsCommands.ts`
+   - Command-run service and runner plumbing:
+     - `server/src/agents/service.ts`
+     - `server/src/agents/commandsRunner.ts`
+   - Command-list metadata for UI step options:
+     - `server/src/agents/commandsLoader.ts`
+     - `server/src/agents/service.ts`
+   - Client API + AGENTS page start-step controls:
+     - `client/src/api/agents.ts`
+     - `client/src/pages/AgentsPage.tsx`
+
+2. Chat defaults from `codex/chat/config.toml`:
+   - Default-source precedence and fallback warnings:
+     - `server/src/config/chatDefaults.ts`
+     - `server/src/routes/chatValidators.ts`
+   - Runtime config bootstrap/read path parity:
+     - `server/src/config/runtimeConfig.ts`
+   - Ensure MCP codebase-question path uses same default policy as REST chat:
+     - `server/src/mcp2/tools/codebaseQuestion.ts`
+
+3. SDK upgrade alignment (`0.107.0`):
+   - Dependency pin + startup guard alignment:
+     - `server/package.json`
+     - `server/src/config/codexSdkUpgrade.ts`
+   - Validate startup/version logging still reflects the upgraded minimum:
+     - `server/src/index.ts`
+
+4. Flow command resolution order/fallback:
+   - Source-aware command lookup strategy for flow command steps:
+     - `server/src/flows/service.ts`
+   - Reuse existing repository listing metadata, but enforce deterministic fallback ordering in flow lookup logic itself:
+     - same-source repository -> codeInfo2 repository -> sorted other repositories.
+
+Integration notes to keep implementation simple:
+
+- Convert `startStep` to zero-based only at execution boundary inside runner loop; keep API/UI semantics 1-based.
+- Keep existing default run behavior for older clients by treating missing `startStep` as `1`.
+- Add `stepCount` to command-list response so UI never has to inspect command files directly.
+- Keep error contracts stable and explicit (`INVALID_START_STEP` for range/type errors).
+- Limit flow fallback to command-not-found; if same-source command file exists but is schema-invalid, fail immediately.
+
+Regression checks to prioritize while implementing:
+
+- Existing command-run callers without `startStep` continue to execute from step 1.
+- Invalid `startStep` values return deterministic `400` payload with range message.
+- AGENTS UI renders `Step 1..Step N` from `stepCount` and clamps outbound values to valid range.
+- REST chat and MCP codebase-question resolve Codex defaults using the same precedence chain.
+- SDK upgrade guard matches dependency pin (`0.107.0`) and still rejects unsupported versions.
+- Flow command resolution follows exact precedence and deterministic tie-break ordering.
+
 ### Interface Draft (Web GUI)
 
 This section defines concrete UI behavior for the unresolved interface requirements in this story.

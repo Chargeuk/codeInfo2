@@ -479,9 +479,11 @@ Add the backend response contract for command list items so the frontend can ren
 
 #### Documentation Locations (External References Only)
 
-- Express routing basics: https://expressjs.com/en/guide/routing.html
-- OpenAPI 3.1: https://swagger.io/specification/
-- Node test runner: https://nodejs.org/api/test.html
+- Express routing guide: https://expressjs.com/en/guide/routing.html (Used for route handler structure and request/response wiring in `agentsCommands.ts`.)
+- OpenAPI 3.1 specification: https://swagger.io/specification/ (Defines how `stepCount` must be represented as a required integer field in the API contract.)
+- Node.js test runner API: https://nodejs.org/api/test.html (Source for test patterns used by unit/contract tests in this task.)
+- npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for task-required lint/format/build wrapper execution.)
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates in `design.md` and `projectStructure.md`.)
 
 #### Subtasks
 
@@ -542,9 +544,13 @@ Add the run-request message contract for optional `startStep` with strict input 
 
 #### Documentation Locations (External References Only)
 
-- Express routing and request validation patterns: https://expressjs.com/en/guide/routing.html
-- HTTP status semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
-- Node test runner: https://nodejs.org/api/test.html
+- Express routing guide: https://expressjs.com/en/guide/routing.html (Used for route parsing/validation behavior in `POST /agents/:agentName/commands/run`.)
+- HTTP status reference (MDN): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status (Defines correct `400` semantics for deterministic validation failures.)
+- TypeScript functions handbook: https://www.typescriptlang.org/docs/handbook/2/functions.html (Used for optional `startStep` type signatures and route/service contract typing.)
+- OpenAPI 3.1 specification: https://swagger.io/specification/ (Used to document optional `startStep` and `INVALID_START_STEP` error payload schema.)
+- Node.js test runner API: https://nodejs.org/api/test.html (Source for route and MCP non-regression test assertions.)
+- npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates in `design.md` and `projectStructure.md`.)
 
 #### Subtasks
 
@@ -613,8 +619,12 @@ Implement runtime start-step behavior in the command runner. This task covers st
 
 #### Documentation Locations (External References Only)
 
-- Node test runner: https://nodejs.org/api/test.html
-- TypeScript handbook (function types and narrowing): https://www.typescriptlang.org/docs/handbook/2/functions.html
+- TypeScript functions handbook: https://www.typescriptlang.org/docs/handbook/2/functions.html (Used for `startStep` typing, runtime boundary conversion, and narrowing.)
+- HTTP status reference (MDN): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status (Used to keep `INVALID_START_STEP` error semantics consistent.)
+- Node.js test runner API: https://nodejs.org/api/test.html (Used for runner unit/integration assertions.)
+- Cucumber guides (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (Used as the Cucumber reference for this task's cucumber-suite verification step.)
+- npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for wrapper command execution.)
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
 
 #### Subtasks
 
@@ -675,9 +685,11 @@ Update the frontend API layer contracts to match backend message changes. This t
 
 #### Documentation Locations (External References Only)
 
-- Fetch API patterns (MDN): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
-- TypeScript type compatibility: https://www.typescriptlang.org/docs/handbook/type-compatibility.html
-- Jest docs: https://jestjs.io/docs/getting-started
+- Fetch API reference (MDN): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API (Used for request serialization and payload-shape handling in `client/src/api/agents.ts`.)
+- TypeScript type compatibility: https://www.typescriptlang.org/docs/handbook/type-compatibility.html (Used for API contract type changes around required `stepCount` and optional `startStep`.)
+- Jest getting started: https://jestjs.io/docs/getting-started (Used for API-layer test structure and assertions.)
+- npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
 
 #### Subtasks
 
@@ -729,10 +741,15 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 
 #### Documentation Locations (External References Only)
 
-- MUI Select component docs: https://mui.com/material-ui/react-select/
-- MUI FormControl API docs: https://mui.com/material-ui/api/form-control/
-- React state patterns: https://react.dev/learn/managing-state
-- Jest DOM matchers: https://testing-library.com/docs/ecosystem-jest-dom/
+- MUI MCP index (`@mui/material` 6.4.12): https://llms.mui.com/material-ui/6.4.12/llms.txt (Primary MCP source for component/API pages aligned with the repository's MUI 6.x line.)
+- MUI Select component docs: https://mui.com/material-ui/react-select/ (Used for `Select` option rendering and accessibility behavior.)
+- MUI FormControl API docs: https://mui.com/material-ui/api/form-control/ (Used for `FormControl` disabled/error/label wiring on the AGENTS page.)
+- React state management: https://react.dev/learn/managing-state (Used for deterministic `Start step` state/reset rules.)
+- Fetch API reference (MDN): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API (Used for execute-request payload behavior expectations.)
+- Testing Library jest-dom: https://testing-library.com/docs/ecosystem-jest-dom/ (Used for UI state/visibility/error assertions.)
+- Jest getting started: https://jestjs.io/docs/getting-started (Used for frontend test file patterns.)
+- npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
 
 #### Subtasks
 
@@ -794,8 +811,11 @@ Implement the shared Codex default-resolution behavior in one place so all consu
 
 #### Documentation Locations (External References Only)
 
-- OpenAI Codex config reference: https://developers.openai.com/codex/config-reference
-- Node test runner: https://nodejs.org/api/test.html
+- OpenAI Codex config reference: https://developers.openai.com/codex/config-reference (Authoritative source for `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search` keys.)
+- OpenAI Codex config docs (repository docs mirror): https://raw.githubusercontent.com/openai/codex/main/docs/config.md (Used to cross-check canonical vs legacy config key behavior.)
+- Node.js test runner API: https://nodejs.org/api/test.html (Used for resolver fallback and warning-branch tests.)
+- npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
 
 #### Subtasks
 
@@ -850,8 +870,11 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
 
 #### Documentation Locations (External References Only)
 
-- OpenAI Codex config reference: https://developers.openai.com/codex/config-reference
-- Node test runner: https://nodejs.org/api/test.html
+- OpenAI Codex config reference: https://developers.openai.com/codex/config-reference (Source of truth for Codex default fields consumed by REST metadata and chat routes.)
+- Express routing guide: https://expressjs.com/en/guide/routing.html (Used for route integration in `chatModels.ts`, `chatProviders.ts`, and `chat.ts`.)
+- Node.js test runner API: https://nodejs.org/api/test.html (Used for route default/warning regression tests.)
+- npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
 
 #### Subtasks
 
@@ -908,8 +931,11 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
 
 #### Documentation Locations (External References Only)
 
-- OpenAI Codex config reference: https://developers.openai.com/codex/config-reference
-- Node test runner: https://nodejs.org/api/test.html
+- OpenAI Codex config reference: https://developers.openai.com/codex/config-reference (Source of truth for Codex thread-option defaults consumed by MCP `codebase_question`.)
+- DeepWiki OpenAI Codex documentation: https://deepwiki.com/openai/codex (Used for MCP/Codex integration behavior cross-reference when validating tool-alignment assumptions.)
+- Node.js test runner API: https://nodejs.org/api/test.html (Used for MCP tool happy/validation/unavailable test patterns.)
+- npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
 
 #### Subtasks
 
@@ -958,9 +984,11 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
 
 #### Documentation Locations (External References Only)
 
-- Node fs API: https://nodejs.org/api/fs.html
-- Node path API: https://nodejs.org/api/path.html
-- Node test runner: https://nodejs.org/api/test.html
+- Node.js `fs` API: https://nodejs.org/api/fs.html (Used for copy/write/read behavior and deterministic bootstrap IO handling.)
+- Node.js `path` API: https://nodejs.org/api/path.html (Used for deterministic config path construction and portability rules.)
+- Node.js test runner API: https://nodejs.org/api/test.html (Used for bootstrap branch coverage tests.)
+- npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
 
 #### Subtasks
 
@@ -1011,9 +1039,13 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 
 #### Documentation Locations (External References Only)
 
-- npm package info for `@openai/codex-sdk`: https://www.npmjs.com/package/@openai/codex-sdk
-- npm semver docs: https://docs.npmjs.com/about-semantic-versioning
-- Node test runner: https://nodejs.org/api/test.html
+- npm registry metadata for `@openai/codex-sdk`: https://registry.npmjs.org/@openai/codex-sdk (Machine-readable source used to verify stable vs pre-release versions.)
+- npm package page for `@openai/codex-sdk`: https://www.npmjs.com/package/@openai/codex-sdk (Human-readable package release notes/metadata reference.)
+- npm semantic versioning guide: https://docs.npmjs.com/about-semantic-versioning (Used for pin strategy and pre-release exclusion behavior.)
+- npm `view` command docs: https://docs.npmjs.com/cli/v10/commands/npm-view (Used for required `npm view @openai/codex-sdk ...` verification command.)
+- Node.js test runner API: https://nodejs.org/api/test.html (Used for guard-version and pre-release rejection tests.)
+- npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
 
 #### Subtasks
 
@@ -1073,8 +1105,11 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 
 #### Documentation Locations (External References Only)
 
-- Node path API: https://nodejs.org/api/path.html
-- Node test runner: https://nodejs.org/api/test.html
+- Node.js `path` API: https://nodejs.org/api/path.html (Used for normalized label/path ordering rules and deterministic comparator implementation.)
+- Node.js test runner API: https://nodejs.org/api/test.html (Used for red-green integration tests for resolver behavior.)
+- Cucumber guides (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (Cucumber reference for this task's cucumber-suite verification step.)
+- npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Reference for required documentation updates.)
 
 #### Subtasks
 
@@ -1138,8 +1173,11 @@ Perform documentation-only updates so product behavior, architecture notes, and 
 
 #### Documentation Locations (External References Only)
 
-- Markdown guide: https://www.markdownguide.org/basic-syntax/
-- Mermaid syntax guide: https://mermaid.js.org/syntax/sequenceDiagram.html
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Used for README/design/projectStructure update formatting.)
+- Mermaid sequence diagram syntax: https://mermaid.js.org/syntax/sequenceDiagram.html (Used when documenting flow and route behavior diagrams.)
+- OpenAPI 3.1 specification: https://swagger.io/specification/ (Used to keep documentation and `openapi.json` contract text aligned.)
+- Node.js test runner API: https://nodejs.org/api/test.html (Used for interpreting openapi contract test evidence.)
+- npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for lint/format/build wrapper execution.)
 
 #### Subtasks
 
@@ -1190,10 +1228,15 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
 
 #### Documentation Locations (External References Only)
 
-- Docker docs via Context7: `/docker/docs`
-- Playwright docs via Context7: `/microsoft/playwright`
-- Jest docs: https://jestjs.io/docs/getting-started
-- Cucumber guides: https://cucumber.io/docs/guides/
+- Docker Compose docs: https://docs.docker.com/compose/ (Used for wrapper-backed compose lifecycle verification and diagnostics.)
+- Playwright docs: https://playwright.dev/docs/intro (Used for final manual verification flow and screenshot evidence guidance.)
+- Jest getting started: https://jestjs.io/docs/getting-started (Used for interpreting client/server test run output in final verification.)
+- Cucumber 10-minute tutorial: https://cucumber.io/docs/guides/10-minute-tutorial/ (Primary Cucumber guides subpath used for BDD suite execution expectations.)
+- Cucumber parallel execution guide: https://cucumber.io/docs/guides/parallel-execution/ (Used for understanding multi-scenario execution behavior in wrapper runs.)
+- DeepWiki OpenAI Codex documentation: https://deepwiki.com/openai/codex (Used for MCP contract non-regression cross-check context.)
+- Node.js test runner API: https://nodejs.org/api/test.html (Used for acceptance-evidence mapping to targeted server tests.)
+- npm run-script CLI docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reference for all wrapper commands executed in final verification.)
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/ (Used for final PR summary and implementation-note formatting.)
 
 #### Subtasks
 
@@ -1203,7 +1246,7 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Acceptance criteria coverage: AC 1-28.
    - Done when: every AC has a concrete evidence note (test name, endpoint check, or manual check).
 2. [ ] Run full regression wrappers (`server unit`, `server cucumber`, `client`, `e2e`) and record remediation notes for any failures.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/, https://jestjs.io/docs/getting-started.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/10-minute-tutorial/, https://jestjs.io/docs/getting-started.
    - Files to read/edit: `test-results/`, `logs/test-summaries/`, and this task's implementation notes section for recording outcomes.
    - Acceptance criteria coverage: regression validation for AC 1-28.
    - Done when: all required wrappers pass or remediation is fully completed and rerun.
@@ -1213,12 +1256,12 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Acceptance criteria coverage: AC 8, AC 24.
    - Done when: targeted MCP tests/assertions confirm unchanged contract.
 4. [ ] Execute Playwright MCP manual checks for AGENTS start-step behavior, chat default initialization/warnings, and flow resolver success/failure paths.
-   - Docs to read first: `/microsoft/playwright`, `/docker/docs`.
+   - Docs to read first: https://playwright.dev/docs/intro, https://docs.docker.com/compose/.
    - Files to read/edit: `test-results/screenshots/` (evidence output) and this task's implementation notes section.
    - Acceptance criteria coverage: AC 1-8, AC 10-16, AC 18-21.
    - Done when: manual checks match expected behavior and are documented.
 5. [ ] Save screenshots to `test-results/screenshots/` with naming format `0000040-13-<short-name>.png`.
-   - Docs to read first: `/microsoft/playwright`.
+   - Docs to read first: https://playwright.dev/docs/screenshots.
    - Files to read/edit: `test-results/screenshots/`.
    - Acceptance criteria coverage: final verification evidence for manual checks.
    - Done when: screenshots exist with correct naming convention and map to manual checks.

@@ -15,6 +15,7 @@ At the moment, users must manually edit multiple files (`.npmrc`, `server/Docker
 
 This story introduces a generic configuration approach based on `CODEINFO_*` environment variables so users can place corporate overrides in one local env file (for example `server/.env.local`) instead of modifying source-controlled files. The default open-source behavior must remain unchanged when overrides are not set.
 For v1, this story is intentionally narrow: single default npm registry only (no scoped npm registry rules), no npm auth mechanism, and no proxy support.
+For certificate trust, v1 standardizes on mounting only corporate `.crt` files from a dedicated host directory into `/usr/local/share/ca-certificates/codeinfo-corp:ro` (not mounting host `/etc/ssl/certs`), then conditionally refreshing the runtime CA store.
 
 Expected user outcome:
 - Standard users keep current behavior with no extra setup.
@@ -38,6 +39,7 @@ Expected user outcome:
 - Client build steps (`npm`) respect configured registry values when provided.
 - Server runtime can refresh container CA trust on startup when corporate certs are mounted and CA refresh is enabled.
 - Corporate certificate settings support `NODE_EXTRA_CA_CERTS` behavior for Node tooling.
+- Corporate cert mounts use a dedicated host cert directory mapped to `/usr/local/share/ca-certificates/codeinfo-corp:ro`; full host `/etc/ssl/certs` mounts are not part of this story design.
 - Default behavior remains unchanged when no `CODEINFO_*` overrides are set.
 - The solution avoids forcing users to manually edit root `.npmrc` for the v1 single-registry corporate case.
 - v1 supports only a single default npm registry URL and explicitly does not include scoped npm registry mapping.
@@ -52,15 +54,13 @@ Expected user outcome:
 - Supporting scoped npm registry rules (`@scope:registry`) in v1.
 - Implementing npm authentication mechanisms (token/basic/client certificate) in v1.
 - Proxy support (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`) for this story.
+- Mounting the full host `/etc/ssl/certs` tree into containers.
 - Supporting native Windows (non-WSL) runtime behavior beyond existing project support.
 - Changing unrelated networking requirements (for example LM Studio, Mongo, Chroma host routing).
 - Committing corporate secrets or internal hostnames as hardcoded defaults in tracked env files.
 
 ### Questions
-
-1. Question: What is the expected mounted certificate path convention in developer machines, and do we need a default mount + toggle to run `update-ca-certificates`?
-Recommended answer: Use a documented default host cert directory mount to `/usr/local/share/ca-certificates/codeinfo-corp`, with a toggle (`CODEINFO_REFRESH_CA_CERTS_ON_START=true`) to run `update-ca-certificates` on startup.
-Why this is best: A standard mount target reduces setup variance and troubleshooting time. The toggle preserves current behavior for non-corporate users and avoids unnecessary startup work.
+- None.
 
 ## Implementation Ideas
 
@@ -74,7 +74,8 @@ Why this is best: A standard mount target reduces setup variance and troubleshoo
 - Keep v1 npm behavior to a single default registry and avoid scoped registry mapping/auth handling.
 - Update compose files to map `CODEINFO_*` values into `build.args` and runtime `environment` for both server and client services.
 - Ensure this mapping is applied for main, local, and e2e compose files.
+- Add/standardize a server compose mount for `CODEINFO_CORP_CERTS_DIR` to `/usr/local/share/ca-certificates/codeinfo-corp:ro` when set.
 - Update server/client Dockerfiles to accept and apply registry/certificate args in every build stage that performs package installs.
-- Update server entrypoint to conditionally refresh CA trust at startup for mounted corporate certs.
+- Update server entrypoint to conditionally run `update-ca-certificates` at startup for mounted corporate certs.
 - Keep repo defaults safe by leaving `CODEINFO_*` unset in committed env files and documenting local-only overrides.
 - Explicitly document that v1 does not include proxy support or npm auth/scoped registry support.

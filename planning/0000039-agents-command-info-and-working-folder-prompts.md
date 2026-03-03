@@ -2044,7 +2044,7 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 ### 12. Final verification (re-run): full acceptance and regression gate after Task 11 remediation
 
 - Task Status: **__completed__**
-- Git Commits: **__to_do__**
+- Git Commits: `4617493d`
 
 #### Overview
 
@@ -2106,3 +2106,4 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 - Testing step 8: `npm run compose:up` succeeded and started all compose services, including healthy `mongo_db_CodeInfo` and `codeinfo2-server-1`, with `codeinfo2-client-1` running.
 - Testing step 9: Manual browser acceptance run at `http://host.docker.internal:5001/agents` covered command-info disabled/open behavior, prompts discovery success/zero/error states, execute success/conflict, stale-after-clear suppression, and agent-switch prompt-context reset; captured all required screenshots: `0000039-task12-final-command-info-disabled.png`, `0000039-task12-final-command-info-open.png`, `0000039-task12-final-prompts-visible.png`, `0000039-task12-final-prompts-zero-results.png`, `0000039-task12-final-prompts-error.png`, `0000039-task12-final-execute-success.png`, `0000039-task12-final-execute-conflict.png`, `0000039-task12-final-stale-after-clear-ignored.png`, and `0000039-task12-final-agent-switch-clears-prompt-context.png`. Client-console checks observed required `[agents.commandInfo.open]`, `[agents.prompts.discovery.*]`, `[agents.prompts.selector.*]`, and `[agents.prompts.execute.*]` prefixes; server log `logs/server.1.log` confirmed `[agents.prompts.route.request]`, `[agents.prompts.route.success]`, `[agents.prompts.route.error]`, `[agents.prompts.discovery.start]`, `[agents.prompts.discovery.complete]`, and `[agents.prompts.discovery.empty]` entries for this run.
 - Testing step 10: `npm run compose:down` succeeded and removed all compose services plus network `codeinfo2_internal`.
+- Git commit tracking: Recorded Task 12 implementation commit `4617493d` in this task header before creating the required git-commit marker commit.

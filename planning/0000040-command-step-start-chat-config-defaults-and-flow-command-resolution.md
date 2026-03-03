@@ -1077,7 +1077,8 @@ Implement runtime start-step behavior in the command runner. This task covers st
 ### 4. Client Message Contract: consume `stepCount` and send `startStep` in agents API layer
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits:
+  - `1106970d` — DEV-[0000040] - Implement Task 4 client command API stepCount/startStep contract
 
 #### Overview
 

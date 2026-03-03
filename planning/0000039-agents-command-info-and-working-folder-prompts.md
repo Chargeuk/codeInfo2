@@ -638,6 +638,7 @@ Add the frontend API function that consumes the new server prompt-discovery cont
 - Fetch API basics: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API (used to implement `GET /agents/:agentName/prompts` call and non-2xx handling in API client)
 - URL query parameter handling (`URLSearchParams`): https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams (used for correct `working_folder` encoding and stable query construction)
 - Jest `expect` assertions: https://jestjs.io/docs/expect (used to assert URL composition, payload parsing, and error-shape behavior in client API tests)
+- Context7 Jest docs: `/jestjs/jest` (used as MCP source for matcher, mocking, and async Jest patterns used in this task's tests)
 
 #### Subtasks
 
@@ -735,6 +736,7 @@ Introduce the command-info icon and popover interaction only. This task does not
 - MUI IconButton API docs (MUI MCP mirror v6.4.12): https://llms.mui.com/material-ui/6.4.12/api/icon-button.md (used for disabled-state behavior and button semantics in command row)
 - MUI v6 migration notes: https://mui.com/material-ui/migration/upgrade-to-v6/ (used to confirm compatibility assumptions while using v6-era APIs)
 - React Testing Library intro: https://testing-library.com/docs/react-testing-library/intro (used for interaction-level component tests around popover open/close and disabled controls)
+- Context7 Jest docs: `/jestjs/jest` (used as MCP source for component-test assertions and mock behavior in this task)
 
 #### Subtasks
 
@@ -821,6 +823,7 @@ Remove the old always-visible inline command description behavior now that comma
 - React Testing Library intro: https://testing-library.com/docs/react-testing-library/intro (used for rendering and user interaction tests after inline description removal)
 - DOM Testing Library query priority guide: https://testing-library.com/docs/queries/about (used to keep assertions user-facing and resilient when checking removed text/UI)
 - Jest `expect` assertions: https://jestjs.io/docs/expect (used for negative assertions like “text not present” and control-state regression checks)
+- Context7 Jest docs: `/jestjs/jest` (used as MCP source for Jest assertion and regression-test structure in this task)
 
 #### Subtasks
 
@@ -897,6 +900,7 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
 - React controlled input reference: https://react.dev/reference/react-dom/components/input (used for `working_folder` commit behavior and Enter/blur handling)
 - React event handling: https://react.dev/learn/responding-to-events (used to prevent unintended form submission from `working_folder` Enter key)
 - DOM Testing Library async APIs: https://testing-library.com/docs/dom-testing-library/api-async (used for timing-sensitive lifecycle tests and async state assertions)
+- Context7 Jest docs: `/jestjs/jest` (used as MCP source for async Jest test patterns and mock timing control in race-condition tests)
 
 #### Subtasks
 
@@ -1030,6 +1034,7 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 - MUI v6 migration notes: https://mui.com/material-ui/migration/upgrade-to-v6/ (used to confirm supported API usage in current major version)
 - React conditional rendering: https://react.dev/learn/conditional-rendering (used for prompts-row show/hide behavior across success/error/empty states)
 - DOM Testing Library async APIs: https://testing-library.com/docs/dom-testing-library/api-async (used for UI transition assertions after async discovery responses)
+- Context7 Jest docs: `/jestjs/jest` (used as MCP source for component-state assertion and mock setup patterns in prompts UI tests)
 
 #### Subtasks
 
@@ -1141,6 +1146,7 @@ Implement prompt execution by composing the canonical instruction string and dis
 - MUI v6 migration notes: https://mui.com/material-ui/migration/upgrade-to-v6/ (used to validate v6 compatibility assumptions)
 - Jest `expect` assertions: https://jestjs.io/docs/expect (used for exact payload/composition assertions and conflict behavior checks)
 - DOM Testing Library async APIs: https://testing-library.com/docs/dom-testing-library/api-async (used for run-start/run-error async UI assertions)
+- Context7 Jest docs: `/jestjs/jest` (used as MCP source for payload assertion and conflict-regression Jest patterns in this task)
 
 #### Subtasks
 
@@ -1325,6 +1331,7 @@ Run full validation for the complete story, verify acceptance criteria end-to-en
 - Docker Compose docs: https://docs.docker.com/compose/ (used for build/up/down validation steps and troubleshooting flow)
 - Playwright introduction: https://playwright.dev/docs/intro (used for manual/automated acceptance checks and screenshot evidence guidance)
 - Jest getting started: https://jestjs.io/docs/getting-started (used for interpreting client test wrapper outcomes and failure triage)
+- Cucumber guides index: https://cucumber.io/docs/guides/ (used as canonical guide index for selecting the correct BDD execution/documentation guidance)
 - Cucumber guide (10-minute tutorial subpath): https://cucumber.io/docs/guides/10-minute-tutorial/ (used as canonical Cucumber guide reference for server BDD test expectations)
 - Markdown syntax guide: https://www.markdownguide.org/basic-syntax/ (used for final PR summary and documentation consistency)
 - Mermaid sequence diagram syntax: https://mermaid.js.org/syntax/sequenceDiagram.html (used when validating diagram updates in final verification)

@@ -962,3 +962,11 @@ web_search = "live"
   - `codex_agents/tasking_agent/commands/kadshow_task_up.json`
 - Task 23 verification target:
   - `git diff --name-status main...HEAD -- codex_agents` must contain no `D`/`R` entries after the parity-fix commit.
+
+## Story 0000039 Task 5 structural change ledger
+
+- Modified files:
+  - `client/src/pages/AgentsPage.tsx`
+  - `client/src/test/agentsPage.commandsList.test.tsx`
+  - `design.md`
+  - `planning/0000039-agents-command-info-and-working-folder-prompts.md`

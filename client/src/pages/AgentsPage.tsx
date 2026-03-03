@@ -539,16 +539,24 @@ export default function AgentsPage() {
   );
 
   const selectedCommandDescription = useMemo(() => {
-    if (!selectedCommandKey || !selectedCommand) {
-      return 'Select a command to see its description.';
+    if (!selectedCommand) {
+      return '';
     }
     if (selectedCommand.disabled) return 'Invalid command file.';
     const description = selectedCommand.description.trim();
     return description || 'No description provided.';
-  }, [selectedCommand, selectedCommandKey]);
+  }, [selectedCommand]);
   const commandInfoOpen = Boolean(commandInfoAnchorEl);
   const commandInfoId = commandInfoOpen ? 'command-info-popover' : undefined;
   const commandInfoDisabled = !selectedCommand;
+  useEffect(() => {
+    console.info('[agents.commandDescription.inlineRemoved] rendered=false');
+  }, []);
+  useEffect(() => {
+    console.info(
+      `[agents.commandDescription.source] mode=popover commandName=${selectedCommand?.name ?? 'none'}`,
+    );
+  }, [selectedCommand?.name]);
   useEffect(() => {
     if (!selectedCommand) {
       setCommandInfoAnchorEl(null);
@@ -2046,14 +2054,6 @@ export default function AgentsPage() {
                       </IconButton>
                     </Box>
                   </Stack>
-
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    data-testid="agent-command-description"
-                  >
-                    {selectedCommandDescription}
-                  </Typography>
 
                   {persistenceUnavailable ? (
                     <Typography

@@ -154,16 +154,10 @@ describe('Agents page - commands list', () => {
     );
     expect(disabledOption).toHaveAttribute('aria-disabled', 'true');
 
-    const description = screen.getByTestId('agent-command-description');
-    expect(description).toHaveTextContent(
-      'Select a command to see its description.',
-    );
-
-    await waitFor(() =>
-      expect(description).toHaveTextContent(
-        'Select a command to see its description.',
-      ),
-    );
+    expect(screen.queryByTestId('agent-command-description')).toBeNull();
+    expect(
+      screen.queryByText('Select a command to see its description.'),
+    ).toBeNull();
     expect(screen.getByTestId('agent-command-execute')).toBeDisabled();
   });
 
@@ -286,7 +280,85 @@ describe('Agents page - commands list', () => {
     ]);
   });
 
-  it('shows the selected command Description and never renders raw JSON', async () => {
+  it('does not render the legacy inline command description area', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/agents') && !target.includes('/commands')) {
+        return mockJsonResponse({ agents: [{ name: 'a1' }] });
+      }
+
+      if (target.includes('/agents/a1/commands')) {
+        return mockJsonResponse({
+          commands: [
+            {
+              name: 'improve_plan',
+              description: 'Improves a plan step-by-step.',
+              disabled: false,
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByRole('combobox', { name: /command/i });
+    expect(screen.queryByTestId('agent-command-description')).toBeNull();
+  });
+
+  it('does not render legacy placeholder copy for command descriptions', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/agents') && !target.includes('/commands')) {
+        return mockJsonResponse({ agents: [{ name: 'a1' }] });
+      }
+
+      if (target.includes('/agents/a1/commands')) {
+        return mockJsonResponse({
+          commands: [
+            {
+              name: 'improve_plan',
+              description: 'Improves a plan step-by-step.',
+              disabled: false,
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByRole('combobox', { name: /command/i });
+    expect(
+      screen.queryByText('Select a command to see its description.'),
+    ).toBeNull();
+  });
+
+  it('keeps command listing and selection functional after inline removal', async () => {
     const user = userEvent.setup();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
@@ -330,12 +402,61 @@ describe('Agents page - commands list', () => {
       'agent-command-option-improve_plan::local',
     );
     await user.click(option);
-
     await waitFor(() =>
-      expect(screen.getByTestId('agent-command-description')).toHaveTextContent(
-        'Improves a plan step-by-step.',
-      ),
+      expect(commandSelect).toHaveTextContent('improve plan'),
     );
-    expect(screen.queryByText(/\{"Description":/)).toBeNull();
+    expect(screen.getByTestId('agent-command-info')).toBeEnabled();
+    expect(screen.queryByTestId('agent-command-description')).toBeNull();
+  });
+
+  it('keeps execute-command enable-disable behavior unchanged', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/agents') && !target.includes('/commands')) {
+        return mockJsonResponse({ agents: [{ name: 'a1' }] });
+      }
+
+      if (target.includes('/agents/a1/commands')) {
+        return mockJsonResponse({
+          commands: [
+            {
+              name: 'improve_plan',
+              description: 'Improves a plan step-by-step.',
+              disabled: false,
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const executeButton = await screen.findByTestId('agent-command-execute');
+    expect(executeButton).toBeDisabled();
+
+    const commandSelect = await screen.findByRole('combobox', {
+      name: /command/i,
+    });
+    await waitFor(() => expect(commandSelect).toBeEnabled());
+    await user.click(commandSelect);
+    const option = await screen.findByTestId(
+      'agent-command-option-improve_plan::local',
+    );
+    await user.click(option);
+
+    await waitFor(() => expect(executeButton).toBeEnabled());
   });
 });

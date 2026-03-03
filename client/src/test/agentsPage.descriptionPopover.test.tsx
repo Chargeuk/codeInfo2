@@ -233,7 +233,6 @@ describe('Agents page - command info popover', () => {
       agents: [{ name: 'coding_agent' }],
       commands: [{ name: 'smoke', description: 'Smoke test command' }],
     });
-    const user = userEvent.setup();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);

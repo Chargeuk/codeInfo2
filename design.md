@@ -4015,3 +4015,24 @@ sequenceDiagram
     Guard-->>Op: completed
   end
 ```
+
+## Story 0000039 Task 5: command description inline removal
+
+- Command descriptions are now popover-only on the Agents page.
+- The legacy inline description block (and the unselected placeholder copy) is intentionally removed from the command form flow.
+- Command selection and execute enable/disable behavior remain unchanged; only description presentation moved behind the command-info popover.
+
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant UI as Agents Page
+  participant Cmd as Command Select
+  participant Info as Command Info Popover
+
+  User->>Cmd: Open command dropdown + select command
+  Cmd-->>UI: selectedCommand updated
+  UI->>UI: log [agents.commandDescription.source] mode=popover commandName=<name>
+  User->>UI: Click command-info icon
+  UI->>Info: Open popover with selected description
+  Note over UI: No inline description block is rendered
+```

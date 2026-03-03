@@ -1008,7 +1008,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 5. Frontend: remove inline command description area
 
-- Task Status: **__to_do__**
+- Task Status: **__completed__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -1025,79 +1025,94 @@ Remove the old always-visible inline command description behavior now that comma
 
 #### Subtasks
 
-1. [ ] Remove inline command description rendering.
+1. [x] Remove inline command description rendering.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Read first: https://testing-library.com/docs/react-testing-library/intro
    - Implement exactly: remove the always-visible description block and default placeholder text rendering path.
 
-2. [ ] Ensure removal of legacy placeholder copy.
+2. [x] Ensure removal of legacy placeholder copy.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Read first: https://testing-library.com/docs/react-testing-library/intro
    - Implement exactly: string `Select a command to see its description.` must not exist anywhere on Agents page.
 
-3. [ ] Add inline-description-removed test.
+3. [x] Add inline-description-removed test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
    - Description: add a test asserting the old inline command description area is not rendered.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify UI decluttering requirement is enforced.
 
-4. [ ] Add legacy-placeholder-text-removed test.
+4. [x] Add legacy-placeholder-text-removed test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
    - Description: add a test asserting `Select a command to see its description.` is absent.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify explicit acceptance criterion for removed copy.
 
-5. [ ] Add command-list-functional-regression test.
+5. [x] Add command-list-functional-regression test.
    - Test type: Client component unit regression test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
    - Description: add/keep a test asserting command listing and selection still behave normally after description removal.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify removal did not break core command-list interactions.
 
-6. [ ] Add execute-command-enable-disable regression test.
+6. [x] Add execute-command-enable-disable regression test.
    - Test type: Client component unit regression test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
    - Description: add/keep a test asserting execute-command button enable/disable behavior remains unchanged.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify run-control behavior did not regress.
 
-7. [ ] Update design documentation for command-description flow removal.
+7. [x] Update design documentation for command-description flow removal.
    - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
    - Implement exactly: update architecture notes to remove legacy inline-description flow and include a Mermaid sequence diagram that reflects info-popover-only command-description access.
 
-8. [ ] Update structure docs only if files changed.
+8. [x] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-9. [ ] Add command-description presentation mode log lines.
+9. [x] Add command-description presentation mode log lines.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Implement exactly: emit browser debug logs with these exact prefixes:
      - `[agents.commandDescription.inlineRemoved] rendered=false` on page render to confirm inline block is removed.
      - `[agents.commandDescription.source] mode=popover commandName=<selectedCommandName|none>` when description source state changes.
    - Purpose: provide observable evidence that description rendering moved entirely to popover mode.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests without using the wrapper commands listed below.
 
-1. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, select and change commands, and verify browser debug console includes `[agents.commandDescription.inlineRemoved] rendered=false` and `[agents.commandDescription.source] mode=popover ...`. Capture screenshots `0000039-task5-no-inline-description.png` and `0000039-task5-popover-description-only.png`, store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped within `docker-compose.local.yml`), and review them with the agent to confirm the inline block/default text is absent and popover is the only description UI. Expected outcome: inline description/default text never appears in UI, popover is the only description surface, screenshots confirm expected states, and no browser debug-console errors.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, select and change commands, and verify browser debug console includes `[agents.commandDescription.inlineRemoved] rendered=false` and `[agents.commandDescription.source] mode=popover ...`. Capture screenshots `0000039-task5-no-inline-description.png` and `0000039-task5-popover-description-only.png`, store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped within `docker-compose.local.yml`), and review them with the agent to confirm the inline block/default text is absent and popover is the only description UI. Expected outcome: inline description/default text never appears in UI, popover is the only description surface, screenshots confirm expected states, and no browser debug-console errors.
+6. [x] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Removed the inline command description render block from `AgentsPage` so command descriptions are no longer always visible in the main form flow.
+- Subtask 2: Removed legacy placeholder rendering path in `AgentsPage`; the string `Select a command to see its description.` is no longer part of the Agents page runtime UI code.
+- Subtask 3: Added coverage in `agentsPage.commandsList.test.tsx` asserting the old inline command-description element is not rendered.
+- Subtask 4: Added coverage in `agentsPage.commandsList.test.tsx` asserting legacy placeholder copy is absent from the Agents UI.
+- Subtask 5: Added command-list regression coverage asserting command options remain selectable and command-info state still reflects selection after inline removal.
+- Subtask 6: Added execute-button regression coverage asserting `agent-command-execute` stays disabled before selection and enables after selecting a valid command.
+- Subtask 7: Updated `design.md` to document popover-only command description behavior and added a Mermaid sequence diagram showing selection and popover access with inline removal.
+- Subtask 8: Updated `projectStructure.md` with a Task 5 structural change ledger for modified UI/test/design/plan files.
+- Subtask 9: Added required presentation-mode logs in `AgentsPage`: `[agents.commandDescription.inlineRemoved] rendered=false` (render-time) and `[agents.commandDescription.source] mode=popover commandName=<selectedCommandName|none>` on description-source changes.
+- Subtask 10: Ran lint/format checks; lint initially failed on an existing unused test variable and passed after removing it, while repository-wide pre-existing server import-order warnings remained unchanged and all `format:check` runs passed.
+- Testing step 1: `npm run build:summary:client` passed; reviewed `logs/test-summaries/build-client-latest.log` and confirmed the single warning is the existing Vite chunk-size advisory only.
+- Testing step 2: `npm run test:summary:client` passed with `tests run: 421`, `passed: 421`, `failed: 0` (`test-results/client-tests-2026-03-03T08-20-49-549Z.log`).
+- Testing step 3: `npm run compose:build:summary` passed with `items passed: 2` and `items failed: 0` (`logs/test-summaries/compose-build-latest.log`).
+- Testing step 4: `npm run compose:up` succeeded and started the full stack, including healthy `codeinfo2-server-1` and started `codeinfo2-client-1`.
+- Testing step 5: Manual Playwright-MCP validation on `http://host.docker.internal:5001/agents` confirmed `[agents.commandDescription.inlineRemoved] rendered=false` on page load and `[agents.commandDescription.source] mode=popover commandName=none|improve_plan|task_up` while changing agent/command selections; no browser-console errors were emitted, and screenshots were saved to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000039-task5-no-inline-description.png` and `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000039-task5-popover-description-only.png`.
+- Testing step 6: `npm run compose:down` succeeded and removed all compose services plus network `codeinfo2_internal`.
 
 ---
 

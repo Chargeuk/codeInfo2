@@ -582,6 +582,11 @@ Add the backend response contract for command list items so the frontend can ren
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 22, AC 23.
    - Done when: `projectStructure.md` matches the post-task repository state and explicitly includes all added and removed files.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
+   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
+   - Acceptance criteria coverage: quality gate for this task's implementation outputs.
+   - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -738,6 +743,11 @@ Add the run-request message contract for optional `startStep` with strict input 
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 24, AC 25.
    - Done when: `projectStructure.md` contains accurate entries for all added and removed files (and any modified files) in this task.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
+   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
+   - Acceptance criteria coverage: quality gate for this task's implementation outputs.
+   - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -912,6 +922,11 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
    - Done when: `projectStructure.md` accurately reflects task-3 file layout and explicitly lists all added and removed files.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
+   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
+   - Acceptance criteria coverage: quality gate for this task's implementation outputs.
+   - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1045,6 +1060,11 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 6, AC 22, AC 24.
    - Done when: `projectStructure.md` entries match task-4 file changes and include all added and removed files.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
+   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
+   - Acceptance criteria coverage: quality gate for this task's implementation outputs.
+   - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1216,6 +1236,11 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 1-8.
    - Done when: `projectStructure.md` mirrors actual task-5 file changes and explicitly includes all added and removed files.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
+   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
+   - Acceptance criteria coverage: quality gate for this task's implementation outputs.
+   - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1380,6 +1405,11 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `projectStructure.md` accurately reflects task-6 file changes and includes all added and removed files.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
+   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
+   - Acceptance criteria coverage: quality gate for this task's implementation outputs.
+   - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1514,6 +1544,11 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `projectStructure.md` reflects all task-7 file changes and explicitly includes all added and removed files.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
+   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
+   - Acceptance criteria coverage: quality gate for this task's implementation outputs.
+   - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1631,6 +1666,11 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `projectStructure.md` accurately lists task-8 file changes and includes all added and removed files.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
+   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
+   - Acceptance criteria coverage: quality gate for this task's implementation outputs.
+   - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1772,6 +1812,11 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 15.
    - Done when: `projectStructure.md` accurately mirrors task-9 repository changes and includes all added and removed files.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
+   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
+   - Acceptance criteria coverage: quality gate for this task's implementation outputs.
+   - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1894,6 +1939,11 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 17, AC 26.
    - Done when: `projectStructure.md` lists all task-10 file changes accurately, including all added and removed files.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
+   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
+   - Acceptance criteria coverage: quality gate for this task's implementation outputs.
+   - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -2062,6 +2112,11 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
    - Done when: `projectStructure.md` reflects all task-11 file changes with no omissions, including all added and removed files.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
+   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
+   - Acceptance criteria coverage: quality gate for this task's implementation outputs.
+   - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -2132,6 +2187,11 @@ Perform documentation-only updates so product behavior, architecture notes, and 
    - Files to read/edit: [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json).
    - Acceptance criteria coverage: AC 22, AC 23, AC 24, AC 25.
    - Done when: OpenAPI schema matches live request/response behavior.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
+   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
+   - Acceptance criteria coverage: quality gate for this task's implementation outputs.
+   - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -2220,6 +2280,11 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Ordering requirement: complete this subtask after all file additions/removals in this task (including screenshot files) are finished.
    - Acceptance criteria coverage: final documentation readiness for AC 1-28.
    - Done when: `projectStructure.md` matches final repository state with no missing entries and explicitly includes all added and removed files from this task.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
+   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
+   - Acceptance criteria coverage: quality gate for this task's implementation outputs.
+   - Done when: lint/format checks pass, or remaining issues are manually resolved and documented in implementation notes.
 #### Testing
 
 1. [ ] `npm run build:summary:server`

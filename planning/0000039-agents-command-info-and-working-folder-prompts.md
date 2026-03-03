@@ -1959,7 +1959,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 11. Post-review remediation: invalidate stale prompt-discovery responses on prompt-state reset paths
 
 - Task Status: **__completed__**
-- Git Commits: **__to_do__**
+- Git Commits: `186c5200`
 
 #### Overview
 
@@ -2037,6 +2037,7 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 - Testing step 5: `npm run compose:up` succeeded; compose services started with healthy `mongo_db_CodeInfo` and `codeinfo2-server-1`, and `codeinfo2-client-1` started.
 - Testing step 6: Manual browser validation run against `http://host.docker.internal:5001/agents` covered (a) clear-folder stale-response suppression and (b) agent-switch prompt-context reset/Execute Prompt disable; captured `0000039-task11-stale-response-after-clear-ignored.png` and `0000039-task11-agent-switch-clears-prompt-context.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` with observed `staleIgnoredLogSeen: true`.
 - Testing step 7: `npm run compose:down` succeeded and removed compose services plus network `codeinfo2_internal`.
+- Git commit tracking: Recorded Task 11 implementation commit `186c5200` in this task header before creating the required git-commit marker commit.
 
 ---
 

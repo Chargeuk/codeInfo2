@@ -490,7 +490,7 @@ Edge-case mapping confirmation:
 
 ### 1. Server Message Contract: add `stepCount` to `GET /agents/:agentName/commands`
 
-- Task Status: __completed__
+- Task Status: __done__
 - Git Commits:
   - `f421a8b9` — DEV-[0000040] - Add stepCount contract for agent command listings
 

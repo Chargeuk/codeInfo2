@@ -389,78 +389,91 @@ Define the new REST message contract at the router boundary before any frontend 
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: add a test that calls `GET /agents/:agentName/prompts` with valid input and asserts `200` plus `{ prompts: [{ relativePath, fullPath }] }` response shape.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify happy-path contract payload shape before frontend integration.
 
 6. [ ] Add router invalid `agentName` test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: add a test for missing/blank path param `agentName` returning `400 { error: 'invalid_request' }`.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify route parameter guard behavior.
 
 7. [ ] Add router missing/blank/non-string `working_folder` test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: add a test that covers missing, blank, and non-string query values returning `400 invalid_request`.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify request-shape validation for required query input.
 
 8. [ ] Add router `working_folder` array/object query-shape test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: add a test where `working_folder` is provided as array/object query forms and assert `400 invalid_request`.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify query parser hardening against ambiguous query shapes.
 
 9. [ ] Add router `AGENT_NOT_FOUND` mapping test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: mock service throw `{ code: 'AGENT_NOT_FOUND' }` and assert `404 { error: 'not_found' }`.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify not-found mapping contract.
 
 10. [ ] Add router `WORKING_FOLDER_INVALID` mapping test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: mock service throw `WORKING_FOLDER_INVALID` and assert `400 invalid_request` with code/message.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify invalid-folder error mapping contract.
 
 11. [ ] Add router `WORKING_FOLDER_NOT_FOUND` mapping test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: mock service throw `WORKING_FOLDER_NOT_FOUND` and assert `400 invalid_request` with code/message.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify missing-folder error mapping contract.
 
 12. [ ] Add router unknown-error fallback test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: mock service throw generic error and assert `500 { error: 'agent_prompts_failed' }`.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify defensive fallback behavior.
 
 13. [ ] Keep existing command-list tests passing in router list test file.
    - Test type: Server unit regression test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: ensure pre-existing `GET /agents/:agentName/commands` tests still pass without behavior drift.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify prompts-route additions do not regress command-list functionality.
 
 14. [ ] Keep command-run route regression tests unchanged/passing.
    - Test type: Server unit regression test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts)
    - Description: run the full existing command-run route suite and keep all current assertions passing exactly as-is; do not weaken/remove/replace assertions and do not add new assertions in this subtask.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify no command-run contract regression.
 
 15. [ ] Keep instruction-run route regression tests unchanged/passing.
    - Test type: Server unit regression test (`node:test`).
    - Location: [server/src/test/unit/agents-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-router-run.test.ts)
    - Description: run the full existing instruction-run route suite and keep all current assertions passing exactly as-is; do not weaken/remove/replace assertions and do not add new assertions in this subtask.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify no instruction-run contract regression.
 
 16. [ ] Add router missing/blank `working_folder` required-message test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: add a test asserting missing and blank `working_folder` return `400 { error: 'invalid_request', message: 'working_folder is required' }`.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify exact required-input error message contract.
 
 17. [ ] Add router empty-prompts success-envelope test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: add a test asserting successful `200` response with `prompts: []` when service returns no prompts.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify success-shape corner case for empty discovery results.
 
 18. [ ] Update OpenAPI contract for prompts discovery.
@@ -472,6 +485,7 @@ Define the new REST message contract at the router boundary before any frontend 
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/openapi.prompts-route.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.prompts-route.test.ts)
    - Description: create `server/src/test/unit/openapi.prompts-route.test.ts` if it does not already exist, then assert `openapi.json` contains `GET /agents/{agentName}/prompts` with required `working_folder` query parameter and `200`/`400`/`404`/`500` responses.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify OpenAPI contract coverage for the prompts endpoint and prevent documentation drift.
 
 20. [ ] Update design documentation for router contract and error flow.
@@ -565,72 +579,84 @@ Implement the actual prompt discovery behavior in the server service layer with 
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: create `server/src/test/unit/agent-prompts-list.test.ts` if it does not already exist, then add a test where unknown `agentName` is passed and assert `AGENT_NOT_FOUND`.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify agent existence guard behavior.
 
 7. [ ] Add service `WORKING_FOLDER_INVALID` mapping test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: mock/trigger invalid working folder and assert service throws `WORKING_FOLDER_INVALID`.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify invalid-path validation behavior.
 
 8. [ ] Add service `WORKING_FOLDER_NOT_FOUND` mapping test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: mock/trigger missing working folder and assert service throws `WORKING_FOLDER_NOT_FOUND`.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify missing-path validation behavior.
 
 9. [ ] Add case-insensitive `.github/prompts` detection test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: add fixture with mixed-case folder segments and assert prompt discovery still succeeds.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify required case-insensitive folder matching.
 
 10. [ ] Add recursive prompt discovery test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: add nested prompt files and assert all nested markdown files are returned.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify recursive traversal behavior.
 
 11. [ ] Add markdown-extension inclusion/exclusion test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: assert `.md`, `.MD`, and `*.prompt.md` are included while non-markdown files are excluded.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify extension filtering rules.
 
 12. [ ] Add symlink-ignore test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: include symlink entries in fixture and assert they are ignored.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify traversal safety and loop prevention.
 
 13. [ ] Add deterministic sort-order test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: provide unsorted fixture names and assert ascending normalized `relativePath` order in output.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify stable deterministic API output ordering.
 
 14. [ ] Add forward-slash `relativePath` normalization test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: add a test asserting every returned `relativePath` uses forward slashes (`/`) and never backslashes.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify API contract requirement for normalized `relativePath` separators.
 
 15. [ ] Add output-shape safety test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: assert each prompt has absolute `fullPath` and `relativePath` is never absolute and never starts with `..`.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify path safety and contract correctness.
 
 16. [ ] Add zero-results-when-prompts-dir-missing test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: assert service returns `{ prompts: [] }` when `.github/prompts` is absent.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify non-error empty-state behavior for missing prompts root.
 
 17. [ ] Add zero-results-when-prompts-dir-has-no-markdown test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: assert service returns `{ prompts: [] }` when prompts directory exists but contains no markdown files.
+   - Read first: https://nodejs.org/api/test.html
    - Purpose: verify non-error empty-state behavior for non-markdown-only trees.
 
 18. [ ] Update design documentation for prompt-discovery service flow.
@@ -698,54 +724,63 @@ Add the frontend API function that consumes the new server prompt-discovery cont
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: create `client/src/test/agentsApi.promptsList.test.ts` if it does not already exist, then add a test asserting the request uses `GET /agents/:agentName/prompts` with the correct path structure.
+   - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify endpoint routing correctness in client API layer.
 
 4. [ ] Add API `working_folder` query-encoding test.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test asserting `working_folder` is URL encoded correctly for spaces/slashes/backslashes.
+   - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify query encoding safety and cross-platform path support.
 
 5. [ ] Add API success payload parsing test.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test asserting successful response parses into typed `{ prompts }` output.
+   - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify happy-path response handling in API client.
 
 6. [ ] Add API JSON error parsing test.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test asserting JSON error responses surface `error`, `code`, and `message` through `AgentApiError`.
+   - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify structured error propagation.
 
 7. [ ] Add API non-JSON error fallback test.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test asserting non-JSON responses produce stable fallback error values.
+   - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify robust error behavior for malformed responses.
 
 8. [ ] Add API network rejection handling test.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test where fetch rejects and assert promise rejection maps to stable client error behavior.
+   - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify transport-layer failure handling.
 
 9. [ ] Add API `400 invalid_request` mapping test for prompts endpoint.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test asserting missing/invalid `working_folder` server responses map to expected error code/message fields.
+   - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify contract-level error mapping for required query validation.
 
 10. [ ] Add API `404 not_found` mapping test for unknown agent.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test asserting `404 { error: 'not_found' }` is propagated through `AgentApiError` as expected.
+   - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify unknown-agent error mapping for prompts endpoint.
 
 11. [ ] Add API `500 agent_prompts_failed` mapping test.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
    - Description: add a test asserting `500 { error: 'agent_prompts_failed' }` is propagated through `AgentApiError` as expected.
+   - Read first: https://jestjs.io/docs/expect and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify server-failure error mapping for prompts endpoint.
 
 12. [ ] Update design documentation for client prompt-list API flow.
@@ -816,30 +851,35 @@ Introduce the command-info icon and popover interaction only. This task does not
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx)
    - Description: add a test asserting command-info control renders in the command row.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify command-info entrypoint is visible in the intended UI location.
 
 5. [ ] Add command-info disabled-without-selection test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx)
    - Description: add a test asserting command-info button is disabled when no command is selected.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify guard behavior for unselected state.
 
 6. [ ] Add command-info popover open-and-content test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx)
    - Description: add a test selecting a command, clicking info button, and asserting description text appears in popover.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify happy-path popover behavior and payload rendering.
 
 7. [ ] Add command-info popover-closed-when-no-selection test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx)
    - Description: add a test asserting popover does not open when command remains unselected.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify no-selection safety behavior.
 
 8. [ ] Add command-info popover close interaction test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx)
    - Description: add a test that closes the popover and asserts it is no longer visible.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify close lifecycle behavior and user-dismiss flow.
 
 9. [ ] Update design documentation for command-info popover flow.
@@ -904,24 +944,28 @@ Remove the old always-visible inline command description behavior now that comma
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
    - Description: add a test asserting the old inline command description area is not rendered.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify UI decluttering requirement is enforced.
 
 4. [ ] Add legacy-placeholder-text-removed test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
    - Description: add a test asserting `Select a command to see its description.` is absent.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify explicit acceptance criterion for removed copy.
 
 5. [ ] Add command-list-functional-regression test.
    - Test type: Client component unit regression test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
    - Description: add/keep a test asserting command listing and selection still behave normally after description removal.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify removal did not break core command-list interactions.
 
 6. [ ] Add execute-command-enable-disable regression test.
    - Test type: Client component unit regression test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
    - Description: add/keep a test asserting execute-command button enable/disable behavior remains unchanged.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify run-control behavior did not regress.
 
 7. [ ] Update design documentation for command-description flow removal.
@@ -1006,66 +1050,77 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.workingFolderPicker.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.workingFolderPicker.test.tsx)
    - Description: add a test asserting discovery starts when working-folder input blurs after a value change.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify commit-event trigger behavior for blur.
 
 7. [ ] Add working-folder Enter-key trigger test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.workingFolderPicker.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.workingFolderPicker.test.tsx)
    - Description: add a test asserting discovery starts when Enter is pressed in working-folder input.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify commit-event trigger behavior for Enter.
 
 8. [ ] Add directory-picker selection trigger test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.workingFolderPicker.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.workingFolderPicker.test.tsx)
    - Description: add a test asserting discovery starts after directory picker selects a folder.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify picker-based commit trigger behavior.
 
 9. [ ] Add typing-only does-not-trigger test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.workingFolderPicker.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.workingFolderPicker.test.tsx)
    - Description: add a test asserting keystrokes without commit do not call prompts discovery API.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify no per-keystroke network traffic.
 
 10. [ ] Add unchanged-committed-folder no-duplicate-request test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.workingFolderPicker.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.workingFolderPicker.test.tsx)
    - Description: add a test asserting committing the same folder value does not issue duplicate discovery request.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify request deduplication behavior.
 
 11. [ ] Add empty-committed-folder no-request test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.workingFolderPicker.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.workingFolderPicker.test.tsx)
    - Description: add a test asserting committing an empty `working_folder` does not call the prompts discovery API.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify non-empty commit precondition for discovery requests.
 
 12. [ ] Add latest-response-wins test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: create `client/src/test/agentsPage.promptsDiscovery.test.tsx` if it does not already exist, then add a race-condition test where two commits occur and only latest response applies.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify stale-response protection core behavior.
 
 13. [ ] Add stale-success-ignored test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: add a test where old success resolves late and is ignored after newer commit.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify out-of-order success responses do not overwrite current state.
 
 14. [ ] Add stale-error-does-not-overwrite-latest-success test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: add a test where old error resolves after latest success and ensure success state is retained.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify stale error isolation.
 
 15. [ ] Add stale-success-does-not-overwrite-latest-error test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: add a test where old success resolves after latest error and ensure error state is retained.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify stale success isolation.
 
 16. [ ] Add Enter-in-working-folder does-not-submit-main-instruction test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: add a test asserting Enter in working-folder commits discovery without triggering instruction send.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify Enter key behavior is scoped correctly.
 
 17. [ ] Update design documentation for prompt-discovery request lifecycle.
@@ -1154,42 +1209,49 @@ Implement prompts selector rendering rules and selection/reset behavior once req
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: create `client/src/test/agentsPage.promptsDiscovery.test.tsx` if it does not already exist, then add a test covering three outcomes: prompts present, discovery error, and zero prompts.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify conditional rendering contract for prompts row.
 
 7. [ ] Add relative-path-label and empty-option test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: add a test asserting labels use `relativePath` and dropdown contains explicit `No prompt selected` option.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify UX labeling and clear-selection affordance.
 
 8. [ ] Add no-absolute-fullPath-label-leak test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: add a test asserting rendered option text never exposes absolute `fullPath`.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify path privacy and UI contract safety.
 
 9. [ ] Add prompt-selection-reset-on-folder-change test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: add a test selecting a prompt, changing committed folder, and asserting selection resets.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify stale prompt prevention behavior.
 
 10. [ ] Add clear-folder-hides-row-and-clears-error test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: add a test asserting clearing committed folder hides prompts row and removes previous prompts error state.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify empty-folder reset behavior.
 
 11. [ ] Add execute-prompt-enable-disable-state test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: add a test asserting Execute Prompt stays disabled without valid selection and enables with valid selection.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify action gating behavior.
 
 12. [ ] Add empty-option-clear-after-selection test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: add a test selecting a valid prompt, then selecting `No prompt selected`, and asserting Execute Prompt becomes disabled again.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify clear-selection behavior required by explicit empty dropdown option.
 
 13. [ ] Update design documentation for prompts-row state transitions.
@@ -1251,7 +1313,11 @@ Implement prompt execution by composing the canonical instruction string and dis
 2. [ ] Compose the instruction payload from canonical preamble text.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Read first: https://jestjs.io/docs/expect
-   - Implement exactly: replace `<full path of markdown file>` with selected prompt `fullPath`; do not alter any other preamble text.
+   - Implement exactly: use this exact preamble string and replace only `<full path of markdown file>` with selected prompt `fullPath`; do not alter any other characters/spacing/punctuation:
+     ```text
+     Please read the following markdown file. It is designed as a persona you MUST assume. You MUST follow all the instructions within the markdown file including providing the user with the option of selecting the next path to follow once the work of the markdown file is complete, and then loading that new file to continue. You must stay friendly and helpful at all times, ensuring you communicate with the user in an easy to follow way, providing examples to illustrate your point and guiding them through the more complex scenarios. Try to do as much of the heavy lifting as you can using the various mcp tools at your disposal. Here is the file: <full path of markdown file>
+     ```
+   - Placeholder replacement rule for this subtask: `<full path of markdown file>` -> selected prompt runtime/container `fullPath` returned by `GET /agents/:agentName/prompts`.
 
 3. [ ] Execute through existing instruction API only.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx), [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts)
@@ -1272,84 +1338,101 @@ Implement prompt execution by composing the canonical instruction string and dis
    - Test type: Client component unit regression test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.run.instructionError.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.instructionError.test.tsx)
    - Description: add/keep explicit assertion that standard instruction path still surfaces `RUN_IN_PROGRESS` with unchanged UX.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify prompt work does not alter existing instruction conflict behavior.
 
 7. [ ] Add existing-command-conflict regression test.
    - Test type: Client component unit regression test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.commandsRun.conflict.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.conflict.test.tsx)
    - Description: add/keep explicit assertion that command-run path still surfaces `RUN_IN_PROGRESS` with unchanged UX.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify prompt work does not alter existing command conflict behavior.
 
 8. [ ] Add execute-prompt exact-preamble-payload test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
-   - Description: create `client/src/test/agentsPage.executePrompt.test.tsx` if it does not already exist, then add a test asserting outbound `instruction` exactly matches canonical preamble text with single placeholder replacement.
+   - Description: create `client/src/test/agentsPage.executePrompt.test.tsx` if it does not already exist, then add a test asserting outbound `instruction` exactly equals the following text with only `<full path of markdown file>` replaced by selected runtime/container `fullPath`:
+     ```text
+     Please read the following markdown file. It is designed as a persona you MUST assume. You MUST follow all the instructions within the markdown file including providing the user with the option of selecting the next path to follow once the work of the markdown file is complete, and then loading that new file to continue. You must stay friendly and helpful at all times, ensuring you communicate with the user in an easy to follow way, providing examples to illustrate your point and guiding them through the more complex scenarios. Try to do as much of the heavy lifting as you can using the various mcp tools at your disposal. Here is the file: <full path of markdown file>
+     ```
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify strict payload contract compliance.
 
 9. [ ] Add execute-prompt `fullPath`-not-`relativePath` replacement test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
    - Description: add a test asserting selected prompt runtime `fullPath` is injected into instruction text, never `relativePath`.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify runtime path correctness.
 
 10. [ ] Add execute-prompt committed-working-folder-forwarding test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
    - Description: add a test asserting execute prompt forwards committed `working_folder` in run request payload.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify run context propagation.
 
 11. [ ] Add execute-prompt button-state test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
    - Description: add a test asserting Execute Prompt stays disabled without valid prompt selection and enables only when valid.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify prompt-run action gating.
 
 12. [ ] Add execute-prompt `409 RUN_IN_PROGRESS` conflict test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
    - Description: add a test asserting prompt execution conflict surfaces existing conflict UX and does not crash.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify conflict-path parity for execute-prompt flow.
 
 13. [ ] Add execute-prompt deleted/moved-file error-flow test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
    - Description: add a test simulating run failure after prompt selection (file moved/deleted) and assert error appears without crash.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify resilience to post-discovery file churn.
 
 14. [ ] Add Send-button-still-uses-instruction-endpoint regression test.
    - Test type: Client component unit regression test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.run.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.test.tsx)
    - Description: add explicit assertion that Send action still calls standard instruction-run endpoint.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify non-prompt instruction path remains unchanged.
 
 15. [ ] Add Execute-command-still-uses-command-endpoint regression test.
    - Test type: Client component unit regression test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
    - Description: add explicit assertion that Execute Command action still calls command-run endpoint.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify non-prompt command path remains unchanged.
 
 16. [ ] Add existing-run conversation-reuse/new-conversation regression test.
    - Test type: Client component unit regression test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.run.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.test.tsx)
    - Description: add/keep explicit assertions that standard instruction run still reuses active conversation when present and still creates a new conversation when no active conversation exists.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify unchanged conversation lifecycle behavior after Execute Prompt additions.
 
 17. [ ] Add existing-run state-transition regression test.
    - Test type: Client component unit regression test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.run.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.test.tsx)
    - Description: add/keep explicit assertions that standard run transitions still progress through loading/start/success-or-error states exactly as before.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify unchanged run state machine behavior after Execute Prompt additions.
 
 18. [ ] Add existing transcript-streaming regression test.
    - Test type: Client component unit regression test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.streaming.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.streaming.test.tsx)
    - Description: add/keep explicit assertions that websocket transcript streaming updates still render correctly for non-prompt runs.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify unchanged transcript streaming behavior after Execute Prompt additions.
 
 19. [ ] Add existing-instruction generic-error regression test.
    - Test type: Client component unit regression test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.run.instructionError.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.instructionError.test.tsx)
    - Description: add/keep explicit assertions that non-conflict instruction-run failures still surface the existing generic error UX and recovery behavior.
+   - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify unchanged instruction error handling behavior after Execute Prompt additions.
 
 20. [ ] Update design documentation for Execute Prompt run flow.

@@ -442,13 +442,13 @@ Define the new REST message contract at the router boundary before any frontend 
 14. [ ] Keep command-run route regression tests unchanged/passing.
    - Test type: Server unit regression test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts)
-   - Description: run and keep existing command-run route assertions green; only add assertions if required by touched code.
+   - Description: run the full existing command-run route suite and keep all current assertions passing exactly as-is; do not weaken/remove/replace assertions and do not add new assertions in this subtask.
    - Purpose: verify no command-run contract regression.
 
 15. [ ] Keep instruction-run route regression tests unchanged/passing.
    - Test type: Server unit regression test (`node:test`).
    - Location: [server/src/test/unit/agents-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-router-run.test.ts)
-   - Description: run and keep existing instruction-run route assertions green; only add assertions if required by touched code.
+   - Description: run the full existing instruction-run route suite and keep all current assertions passing exactly as-is; do not weaken/remove/replace assertions and do not add new assertions in this subtask.
    - Purpose: verify no instruction-run contract regression.
 
 16. [ ] Update OpenAPI contract for prompts discovery.
@@ -527,6 +527,7 @@ Implement the actual prompt discovery behavior in the server service layer with 
    - Files: [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
    - Read first: https://nodejs.org/api/fs.html and https://nodejs.org/api/path.html
    - Implement exactly:
+     - reuse the existing recursive traversal pattern already used in [server/src/ingest/discovery.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/discovery.ts) (`walkDir`) as the baseline structure, then adapt it for prompt-specific filtering/safety rules,
      - include only files ending in `.md` (case-insensitive),
      - ignore symlink files/directories,
      - skip non-markdown files,
@@ -539,12 +540,12 @@ Implement the actual prompt discovery behavior in the server service layer with 
 5. [ ] Normalize and sort response output deterministically.
    - Files: [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
    - Read first: https://nodejs.org/api/path.html
-   - Implement exactly: compute `relativePath` from prompts root, normalize separators to `/`, verify path is inside prompts root, then sort ascending by normalized `relativePath`.
+   - Implement exactly: compute `relativePath` from prompts root, normalize separators to `/`, verify path is inside prompts root, then sort ascending by normalized `relativePath` using the same `localeCompare` comparator style already used in [server/src/ingest/deltaPlan.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/deltaPlan.ts) and [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts).
 
 6. [ ] Add service `AGENT_NOT_FOUND` test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
-   - Description: add a test where unknown `agentName` is passed and assert `AGENT_NOT_FOUND`.
+   - Description: create `server/src/test/unit/agent-prompts-list.test.ts` if it does not already exist, then add a test where unknown `agentName` is passed and assert `AGENT_NOT_FOUND`.
    - Purpose: verify agent existence guard behavior.
 
 7. [ ] Add service `WORKING_FOLDER_INVALID` mapping test.
@@ -661,7 +662,7 @@ Add the frontend API function that consumes the new server prompt-discovery cont
    - Implement exactly:
      - endpoint `GET /agents/:agentName/prompts?working_folder=...`,
      - return type `{ prompts: Array<{ relativePath: string; fullPath: string }> }`.
-   - Reuse existing URL base and `encodeURIComponent(agentName)` style in the same file.
+   - Reuse existing URL base and `encodeURIComponent(agentName)` style in the same file, and reuse the query-string construction pattern already used in [client/src/components/ingest/ingestDirsApi.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/components/ingest/ingestDirsApi.ts) (`URLSearchParams`) to avoid bespoke encoding logic.
 
 2. [ ] Reuse existing API error parsing behavior.
    - Files: [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts)
@@ -671,7 +672,7 @@ Add the frontend API function that consumes the new server prompt-discovery cont
 3. [ ] Add API URL-path construction test for prompts endpoint.
    - Test type: Client unit test (Jest).
    - Location: [client/src/test/agentsApi.promptsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.promptsList.test.ts)
-   - Description: add a test asserting the request uses `GET /agents/:agentName/prompts` with the correct path structure.
+   - Description: create `client/src/test/agentsApi.promptsList.test.ts` if it does not already exist, then add a test asserting the request uses `GET /agents/:agentName/prompts` with the correct path structure.
    - Purpose: verify endpoint routing correctness in client API layer.
 
 4. [ ] Add API `working_folder` query-encoding test.
@@ -997,7 +998,7 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
 11. [ ] Add latest-response-wins test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
-   - Description: add a race-condition test where two commits occur and only latest response applies.
+   - Description: create `client/src/test/agentsPage.promptsDiscovery.test.tsx` if it does not already exist, then add a race-condition test where two commits occur and only latest response applies.
    - Purpose: verify stale-response protection core behavior.
 
 12. [ ] Add stale-success-ignored test.
@@ -1109,7 +1110,7 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 6. [ ] Add prompts-row visibility-split test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
-   - Description: add a test covering three outcomes: prompts present, discovery error, and zero prompts.
+   - Description: create `client/src/test/agentsPage.promptsDiscovery.test.tsx` if it does not already exist, then add a test covering three outcomes: prompts present, discovery error, and zero prompts.
    - Purpose: verify conditional rendering contract for prompts row.
 
 7. [ ] Add relative-path-label and empty-option test.
@@ -1233,7 +1234,7 @@ Implement prompt execution by composing the canonical instruction string and dis
 8. [ ] Add execute-prompt exact-preamble-payload test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
-   - Description: add a test asserting outbound `instruction` exactly matches canonical preamble text with single placeholder replacement.
+   - Description: create `client/src/test/agentsPage.executePrompt.test.tsx` if it does not already exist, then add a test asserting outbound `instruction` exactly matches canonical preamble text with single placeholder replacement.
    - Purpose: verify strict payload contract compliance.
 
 9. [ ] Add execute-prompt `fullPath`-not-`relativePath` replacement test.

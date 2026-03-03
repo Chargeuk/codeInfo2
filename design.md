@@ -268,6 +268,32 @@ sequenceDiagram
   end
 ```
 
+## Shared Codex chat defaults resolver (Story 0000040 Task 6)
+
+- `server/src/config/chatDefaults.ts` now exposes `resolveCodexChatDefaults(...)` so REST and MCP surfaces can consume one deterministic Codex-default pipeline.
+- Covered fields: `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
+- Precedence for each field is deterministic:
+  - request override -> `codex/chat/config.toml` -> legacy env default -> hardcoded safe fallback.
+- Legacy env usage emits field-specific warnings naming both field and env source.
+- Canonical `web_search` always wins over alias keys; alias bool values normalize to canonical modes (`true -> live`, `false -> disabled`).
+- Resolver emits `DEV_0000040_T06_CHAT_DEFAULT_RESOLVER` with per-field source/value and warning count.
+
+```mermaid
+flowchart TD
+  A[resolveCodexChatDefaults field] --> B{Request override present?}
+  B -- yes --> O[Use override source=override]
+  B -- no --> C{Valid config value in codex/chat/config.toml?}
+  C -- yes --> G[Use config source=config]
+  C -- no --> D{Valid legacy env value?}
+  D -- yes --> E[Use env source=env]
+  E --> W[Append field-specific legacy env warning]
+  D -- no --> F[Use hardcoded safe fallback source=hardcoded]
+  O --> Z[Emit DEV_0000040_T06_CHAT_DEFAULT_RESOLVER]
+  G --> Z
+  W --> Z
+  F --> Z
+```
+
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
 - Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
 - Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.

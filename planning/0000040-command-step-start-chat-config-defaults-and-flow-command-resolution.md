@@ -1477,7 +1477,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 
 ### 6. Server: shared chat defaults resolver from `codex/chat/config.toml`
 
-- Task Status: **to_do**
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1495,22 +1495,22 @@ Implement the shared Codex default-resolution behavior in one place so all consu
 
 #### Subtasks
 
-1. [ ] Implement config-backed default reading in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) using [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) for `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
+1. [x] Implement config-backed default reading in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) using [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) for `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
    - Docs to read first: https://developers.openai.com/codex/config-reference, https://nodejs.org/api/test.html.
    - Files to read/edit: [chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts).
    - Acceptance criteria coverage: AC 10, AC 11, AC 12.
    - Done when: resolver can load all five fields from `codex/chat/config.toml`.
-2. [ ] Implement fallback precedence in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts): `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback`, and emit field-specific warnings for legacy env fallback.
+2. [x] Implement fallback precedence in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts): `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback`, and emit field-specific warnings for legacy env fallback.
    - Docs to read first: https://developers.openai.com/codex/config-reference.
    - Files to read/edit: [chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts).
    - Acceptance criteria coverage: AC 13, AC 14.
    - Done when: fallback source selection is deterministic and warning text includes field names.
-3. [ ] Keep canonical `web_search` precedence and alias normalization in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts): canonical wins; bool aliases map to `live|disabled`.
+3. [x] Keep canonical `web_search` precedence and alias normalization in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts): canonical wins; bool aliases map to `live|disabled`.
    - Docs to read first: https://developers.openai.com/codex/config-reference.
    - Files to read/edit: [chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts).
    - Acceptance criteria coverage: AC 16.
    - Done when: resolver output is stable for canonical+alias mixed inputs.
-4. [ ] Add a resolver unit test for invalid TOML in `codex/chat/config.toml`.
+4. [x] Add a resolver unit test for invalid TOML in `codex/chat/config.toml`.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
    - Description: Supply malformed TOML and assert deterministic fallback behavior and warnings.
@@ -1519,7 +1519,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Files to read/edit: [config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
    - Acceptance criteria coverage: AC 13, AC 14.
    - Done when: test fails if parser failure silently skips warnings or returns unstable defaults.
-5. [ ] Add a resolver unit test for invalid field values in parsed config.
+5. [x] Add a resolver unit test for invalid field values in parsed config.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
    - Description: Provide invalid enum/string values for covered keys and assert fallback chain selection.
@@ -1528,7 +1528,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Files to read/edit: [config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
    - Acceptance criteria coverage: AC 11, AC 13, AC 14.
    - Done when: test fails if invalid values are accepted as defaults.
-6. [ ] Add a resolver precedence unit test for `sandbox_mode` (`override > config > env > hardcoded`).
+6. [x] Add a resolver precedence unit test for `sandbox_mode` (`override > config > env > hardcoded`).
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
    - Description: Assert source precedence ordering and fallback warning behavior for `sandbox_mode`.
@@ -1537,7 +1537,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Files to read/edit: [config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
    - Acceptance criteria coverage: AC 10, AC 12, AC 13, AC 14.
    - Done when: test fails if precedence or warning source is incorrect.
-7. [ ] Add a resolver precedence unit test for `approval_policy` (`override > config > env > hardcoded`).
+7. [x] Add a resolver precedence unit test for `approval_policy` (`override > config > env > hardcoded`).
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
    - Description: Assert source precedence ordering and fallback warning behavior for `approval_policy`.
@@ -1546,7 +1546,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Files to read/edit: [config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
    - Acceptance criteria coverage: AC 10, AC 12, AC 13, AC 14.
    - Done when: test fails if precedence or warning source is incorrect.
-8. [ ] Add a resolver precedence unit test for `model_reasoning_effort` (`override > config > env > hardcoded`).
+8. [x] Add a resolver precedence unit test for `model_reasoning_effort` (`override > config > env > hardcoded`).
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
    - Description: Assert source precedence ordering and fallback warning behavior for `model_reasoning_effort`.
@@ -1555,7 +1555,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Files to read/edit: [config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
    - Acceptance criteria coverage: AC 10, AC 12, AC 13, AC 14.
    - Done when: test fails if precedence or warning source is incorrect.
-9. [ ] Add a resolver precedence unit test for `model` (`override > config > env > hardcoded`).
+9. [x] Add a resolver precedence unit test for `model` (`override > config > env > hardcoded`).
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
    - Description: Assert source precedence ordering and fallback warning behavior for `model`.
@@ -1564,7 +1564,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Files to read/edit: [config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
    - Acceptance criteria coverage: AC 10, AC 12, AC 13, AC 14.
    - Done when: test fails if precedence or warning source is incorrect.
-10. [ ] Add a resolver unit test that canonical `web_search` wins when both canonical and alias keys are present.
+10. [x] Add a resolver unit test that canonical `web_search` wins when both canonical and alias keys are present.
 
 - Test type: `Unit`.
 - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
@@ -1575,7 +1575,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
 - Acceptance criteria coverage: AC 16.
 - Done when: test fails if alias keys override canonical `web_search`.
 
-11. [ ] Add a resolver unit test that alias `web_search=true` maps to canonical `live`.
+11. [x] Add a resolver unit test that alias `web_search=true` maps to canonical `live`.
 
 - Test type: `Unit`.
 - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
@@ -1586,7 +1586,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
 - Acceptance criteria coverage: AC 16.
 - Done when: test fails if alias `true` maps to any value other than `live`.
 
-12. [ ] Add a resolver unit test that alias `web_search=false` maps to canonical `disabled`.
+12. [x] Add a resolver unit test that alias `web_search=false` maps to canonical `disabled`.
 
 - Test type: `Unit`.
 - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
@@ -1597,7 +1597,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
 - Acceptance criteria coverage: AC 16.
 - Done when: test fails if alias `false` maps to any value other than `disabled`.
 
-13. [ ] Add a resolver precedence unit test for canonical `web_search` value with full source chain (`override > config > env > hardcoded`) and field-specific warning emission on env fallback.
+13. [x] Add a resolver precedence unit test for canonical `web_search` value with full source chain (`override > config > env > hardcoded`) and field-specific warning emission on env fallback.
 
 - Test type: `Unit`.
 - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
@@ -1608,7 +1608,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
 - Acceptance criteria coverage: AC 11, AC 13, AC 14, AC 16.
 - Done when: test fails if `web_search` precedence diverges from resolver contract.
 
-14. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for shared resolver behavior, including a Mermaid flow diagram for precedence (`override > config > env > hardcoded`) and warning emission points.
+14. [x] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for shared resolver behavior, including a Mermaid flow diagram for precedence (`override > config > env > hardcoded`) and warning emission points.
 
 - Document name: `design.md`.
 - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
@@ -1619,7 +1619,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
 - Acceptance criteria coverage: documentation support for AC 10-16.
 - Done when: `design.md` includes precedence/warning behavior and valid Mermaid syntax.
 
-15. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-6 resolver/test files added, removed, or modified.
+15. [x] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-6 resolver/test files added, removed, or modified.
 
 - Document name: `projectStructure.md`.
 - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
@@ -1631,7 +1631,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
 - Acceptance criteria coverage: documentation support for AC 10-16.
 - Done when: `projectStructure.md` accurately reflects task-6 file changes and includes all added and removed files.
 
-16. [ ] Add deterministic diagnostic log marker [DEV_0000040_T06_CHAT_DEFAULT_RESOLVER] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+16. [x] Add deterministic diagnostic log marker [DEV_0000040_T06_CHAT_DEFAULT_RESOLVER] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
 
 - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
 - Files to read/edit: [chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts).
@@ -1639,7 +1639,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
 - Manual Playwright-MCP expected outcome: opening chat/capability surfaces logs marker for each resolved Codex default field with explicit source (`override|config|env|hardcoded`).
 - Done when: [DEV_0000040_T06_CHAT_DEFAULT_RESOLVER] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
 
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
 - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
@@ -1651,16 +1651,24 @@ Implement the shared Codex default-resolution behavior in one place so all consu
 - Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
 - Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server`
+1. [x] `npm run build:summary:server`
    - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit`
+2. [x] `npm run test:summary:server:unit`
    - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber`
+3. [x] `npm run test:summary:server:cucumber`
    - Use for server Cucumber feature/step coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands (`--tags` / `--feature` / `--scenario`), then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtasks 1-3: Added async `resolveCodexChatDefaults` in `chatDefaults.ts` that reads `codex/chat/config.toml` via `loadRuntimeConfigSnapshot`, applies per-field precedence (`override > config > env > hardcoded`), emits field-specific legacy-env warnings, and keeps canonical `web_search` precedence over alias booleans.
+- Subtasks 4-13: Replaced/expanded `config.chatDefaults.test.ts` with resolver coverage for invalid TOML fallback warnings, invalid config field handling, field-by-field precedence tests (`sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, `web_search`), and alias/canonical web-search normalization behavior.
+- Subtask 16: Added deterministic marker `DEV_0000040_T06_CHAT_DEFAULT_RESOLVER` with per-field source/value and warning count context in resolver execution path.
+- Subtask 14: Updated `design.md` with a dedicated Task 6 resolver section that documents covered fields, precedence chain, env-warning behavior, canonical `web_search` handling, and a Mermaid flow for source selection/warning emission.
+- Subtask 15: Updated `projectStructure.md` with a Story 0000040 Task 6 structural ledger and refreshed `chatDefaults.ts` tree/summary text to reflect config-backed precedence and field-specific warning behavior.
+- Subtask 17: Ran `npm run lint --workspaces` (pass with known pre-existing import-order warnings only), then ran `npm run format --workspaces` and a clean `npm run format:check --workspaces` rerun after formatting to confirm all workspaces pass.
+- Testing 1: `npm run build:summary:server` passed (`status: passed`, `warnings: 0`) with log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run test:summary:server:unit` passed (`tests run: 951`, `failed: 0`) with log `test-results/server-unit-tests-2026-03-03T21-10-33-305Z.log`.
+- Testing 3: `npm run test:summary:server:cucumber` passed (`tests run: 68`, `failed: 0`) with log `test-results/server-cucumber-tests-2026-03-03T21-19-42-461Z.log`.
 
 ---
 

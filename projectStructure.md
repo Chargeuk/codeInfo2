@@ -101,6 +101,26 @@ Modified files (implementation traceability):
 - `client/src/test/agentsApi.commandsRun.test.ts`
 - `design.md`
 
+## Story 0000040 Task 6 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `server/src/config/chatDefaults.ts`
+- `server/src/test/unit/config.chatDefaults.test.ts`
+
 ## Story 0000038 Tasks 1-7 structural change ledger
 
 Added files:
@@ -773,7 +793,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/chatModels.codex.test.ts — unit coverage for `/chat/models` Codex defaults, warnings, and env model lists
 - server/src/test/unit/chatProviders.test.ts — unit coverage for `/chat/providers` runtime availability ordering and fallback-ready provider selection
 - server/src/test/integration/openai-retry-env-override.test.ts — integration coverage for OpenAI retryable-failure attempt counts honoring `OPENAI_INGEST_MAX_RETRIES`
-- server/src/config/chatDefaults.ts — shared resolver for chat provider/model defaults (`request -> env -> fallback`)
+- server/src/config/chatDefaults.ts — shared Codex chat-default resolver for `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search` with precedence (`override -> config -> env -> hardcoded`) plus field-specific env fallback warnings
 - server/src/test/unit/config.chatDefaults.test.ts — unit coverage for shared chat default resolution precedence
 - server/src/test/unit/chatValidators.test.ts — unit coverage for Codex env defaults + warnings in chat validation
 - server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts — ensures ChatInterfaceCodex honors per-call workingDirectory overrides

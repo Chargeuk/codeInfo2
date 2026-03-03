@@ -17,6 +17,7 @@ This story introduces a generic configuration approach based on `CODEINFO_*` env
 For v1, this story is intentionally narrow: single default npm registry only (no scoped npm registry rules), no npm auth mechanism, and no proxy support.
 For certificate trust, v1 standardizes on mounting only corporate `.crt` files from a dedicated host directory into `/usr/local/share/ca-certificates/codeinfo-corp:ro` (not mounting host `/etc/ssl/certs`), then conditionally refreshing the runtime CA store.
 Documentation for this story must add a new README subsection immediately after `### Mac & WSL That have followed the WSL setup above` with a clear corporate-restricted-network title and setup steps.
+The expected implementation output for this story is limited to Docker/Compose/shell/docs updates (no TypeScript or React feature work).
 
 Expected user outcome:
 - Standard users keep current behavior with no extra setup.
@@ -25,31 +26,34 @@ Expected user outcome:
 
 ### Acceptance Criteria
 
-- Corporate package access can be configured through `CODEINFO_*` environment variables without requiring source edits.
-- A documented set of `CODEINFO_*` variables exists for npm registry, pip index/trusted host, and Node CA certificate handling.
-- Canonical v1 variables are:
-  - `CODEINFO_NPM_REGISTRY`
-  - `CODEINFO_PIP_INDEX_URL`
-  - `CODEINFO_PIP_TRUSTED_HOST`
-  - `CODEINFO_NODE_EXTRA_CA_CERTS`
-  - `CODEINFO_CORP_CERTS_DIR`
-  - `CODEINFO_REFRESH_CA_CERTS_ON_START`
-- Compose interpolation for this story continues to use `server/.env.local` as the single source for local corporate overrides.
-- Compose build paths pass relevant `CODEINFO_*` values into both server and client Docker builds.
-- Server build steps (`npm`, `pip`) respect configured registry/index/trusted-host values when provided.
-- Client build steps (`npm`) respect configured registry values when provided.
-- Server runtime can refresh container CA trust on startup when corporate certs are mounted and CA refresh is enabled.
-- Corporate certificate settings support `NODE_EXTRA_CA_CERTS` behavior for Node tooling.
-- Corporate cert mounts use a dedicated host cert directory mapped to `/usr/local/share/ca-certificates/codeinfo-corp:ro`; full host `/etc/ssl/certs` mounts are not part of this story design.
-- README includes a tested concrete example value for `CODEINFO_CORP_CERTS_DIR` (example path + expected cert file shape) so users can follow a known-good setup quickly.
-- README explicitly documents `CODEINFO_REFRESH_CA_CERTS_ON_START` default behavior as `false` unless corporate cert mount usage is enabled.
-- Default behavior remains unchanged when no `CODEINFO_*` overrides are set.
-- The solution avoids forcing users to manually edit root `.npmrc` for the v1 single-registry corporate case.
-- v1 supports only a single default npm registry URL and explicitly does not include scoped npm registry mapping.
-- Corporate registry/certificate overrides apply consistently to main, local, and e2e compose workflows.
-- v1 does not require or implement npm authentication handling.
-- README and env documentation clearly explain how to configure Mac/WSL corporate environments using local env files only.
-- README contains a new dedicated section immediately after `### Mac & WSL That have followed the WSL setup above`, titled `### Corporate Registry and Certificate Overrides (Restricted Networks)`.
+1. A developer can configure corporate behavior by editing only `server/.env.local` (no edits required to `.npmrc`, Dockerfiles, or compose YAML files in their local clone).
+2. Canonical v1 environment variables are exactly:
+   - `CODEINFO_NPM_REGISTRY`
+   - `CODEINFO_PIP_INDEX_URL`
+   - `CODEINFO_PIP_TRUSTED_HOST`
+   - `CODEINFO_NODE_EXTRA_CA_CERTS`
+   - `CODEINFO_CORP_CERTS_DIR`
+   - `CODEINFO_REFRESH_CA_CERTS_ON_START`
+3. Compose interpolation remains sourced from `server/.env.local` via existing wrapper usage; no separate client env interpolation is introduced for this story.
+4. `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` each pass relevant `CODEINFO_*` values to both server and client build/runtime paths where applicable.
+5. `server/Dockerfile` accepts and applies registry/certificate-related build arguments in every stage that executes `npm ci`, global `npm install -g`, or `pip install`.
+6. `client/Dockerfile` accepts and applies registry-related build arguments in the stage that executes `npm ci`.
+7. When `CODEINFO_NPM_REGISTRY` is set, npm install steps use that registry through environment/config wiring; when it is unset, existing default npm behavior is preserved.
+8. When `CODEINFO_PIP_INDEX_URL` and `CODEINFO_PIP_TRUSTED_HOST` are set, server pip install steps use them; when unset, existing pip defaults are preserved.
+9. Server runtime supports certificate refresh by running `update-ca-certificates` during startup only when `CODEINFO_REFRESH_CA_CERTS_ON_START=true`.
+10. Corporate certificate mount uses `CODEINFO_CORP_CERTS_DIR` mapped to `/usr/local/share/ca-certificates/codeinfo-corp:ro`; mounting host `/etc/ssl/certs` is not used.
+11. Node runtime/npm trust chain supports `CODEINFO_NODE_EXTRA_CA_CERTS` and documents the default corporate value `/etc/ssl/certs/ca-certificates.crt`.
+12. Root `.npmrc` remains unchanged for v1 (no mandatory manual edits for single-registry corporate setup).
+13. v1 supports one default npm registry URL only and does not implement scoped registry mapping (`@scope:registry`).
+14. v1 does not implement npm authentication handling (token/basic/client certificate).
+15. v1 does not implement proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`).
+16. README contains a new section immediately after `### Mac & WSL That have followed the WSL setup above` with exact title `### Corporate Registry and Certificate Overrides (Restricted Networks)`.
+17. That README section includes:
+   - a tested concrete example path for `CODEINFO_CORP_CERTS_DIR`,
+   - expected cert file format/location (for example `.crt` files in that directory),
+   - explicit default statement that `CODEINFO_REFRESH_CA_CERTS_ON_START=false` unless certificate-mount setup is intentionally enabled,
+   - step-by-step setup for restricted corporate WSL environments.
+18. Final verification notes in the story must show wrapper build commands complete successfully for affected workflows after configuration changes.
 
 ### Out Of Scope
 
@@ -59,6 +63,7 @@ Expected user outcome:
 - Implementing npm authentication mechanisms (token/basic/client certificate) in v1.
 - Proxy support (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`) for this story.
 - Mounting the full host `/etc/ssl/certs` tree into containers.
+- TypeScript/React feature changes in `client/src` or server business logic changes in `server/src` unrelated to build/runtime configuration.
 - Supporting native Windows (non-WSL) runtime behavior beyond existing project support.
 - Changing unrelated networking requirements (for example LM Studio, Mongo, Chroma host routing).
 - Committing corporate secrets or internal hostnames as hardcoded defaults in tracked env files.
@@ -68,22 +73,27 @@ Expected user outcome:
 
 ## Implementation Ideas
 
-- Introduce a small, documented `CODEINFO_*` env surface, for example:
-  - `CODEINFO_NPM_REGISTRY`
-  - `CODEINFO_PIP_INDEX_URL`
-  - `CODEINFO_PIP_TRUSTED_HOST`
-  - `CODEINFO_NODE_EXTRA_CA_CERTS`
-  - `CODEINFO_CORP_CERTS_DIR`
-  - `CODEINFO_REFRESH_CA_CERTS_ON_START`
-- Keep v1 npm behavior to a single default registry and avoid scoped registry mapping/auth handling.
-- Update compose files to map `CODEINFO_*` values into `build.args` and runtime `environment` for both server and client services.
-- Ensure this mapping is applied for main, local, and e2e compose files.
-- Add/standardize a server compose mount for `CODEINFO_CORP_CERTS_DIR` to `/usr/local/share/ca-certificates/codeinfo-corp:ro` when set.
-- Update server/client Dockerfiles to accept and apply registry/certificate args in every build stage that performs package installs.
-- Update server entrypoint to conditionally run `update-ca-certificates` at startup for mounted corporate certs.
-- Keep repo defaults safe by leaving `CODEINFO_*` unset in committed env files and documenting local-only overrides.
-- Explicitly document that v1 does not include proxy support or npm auth/scoped registry support.
-- Add a README section directly after `### Mac & WSL That have followed the WSL setup above` titled `### Corporate Registry and Certificate Overrides (Restricted Networks)` with:
-  - a tested concrete example for `CODEINFO_CORP_CERTS_DIR`,
-  - explicit default semantics for `CODEINFO_REFRESH_CA_CERTS_ON_START=false`,
-  - step-by-step setup instructions for corporate WSL users.
+- Planned file touchpoints:
+  - `docker-compose.yml`
+  - `docker-compose.local.yml`
+  - `docker-compose.e2e.yml`
+  - `server/Dockerfile`
+  - `client/Dockerfile`
+  - `server/entrypoint.sh`
+  - `README.md`
+- Compose changes:
+  - map `CODEINFO_*` values into server/client `build.args` and runtime `environment`,
+  - add optional server cert mount from `${CODEINFO_CORP_CERTS_DIR}` to `/usr/local/share/ca-certificates/codeinfo-corp:ro`,
+  - keep interpolation based on `server/.env.local`.
+- Dockerfile changes:
+  - declare required `ARG`/`ENV` values in relevant build stages,
+  - ensure npm/pip install commands consume provided registry/certificate values,
+  - preserve default behavior when variables are unset.
+- Entrypoint changes:
+  - conditionally run `update-ca-certificates` when `CODEINFO_REFRESH_CA_CERTS_ON_START=true`,
+  - log whether CA refresh ran or was skipped for easier troubleshooting.
+- README changes:
+  - insert section `### Corporate Registry and Certificate Overrides (Restricted Networks)` immediately after `### Mac & WSL That have followed the WSL setup above`,
+  - include tested concrete example for `CODEINFO_CORP_CERTS_DIR` and expected `.crt` contents,
+  - document `CODEINFO_REFRESH_CA_CERTS_ON_START=false` default and when to enable it,
+  - provide step-by-step restricted-network setup using only `server/.env.local`.

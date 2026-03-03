@@ -50,6 +50,8 @@ Decisions confirmed for this story:
   - `false` aliases -> canonical `web_search = "disabled"`
   - canonical `web_search` always wins when both canonical and alias are present.
 - `@openai/codex-sdk` is pinned to `0.107.0`.
+- Repository baseline before this story is `@openai/codex-sdk` `0.106.0`; this story upgrades/pins to `0.107.0`.
+- Server workspace TypeScript is currently `^5.6.3` (root/client are `5.9.3`), so server-task implementations must remain TypeScript 5.6-compatible unless a separate TypeScript-upgrade story is approved.
 - Flow command lookup for repository-sourced flows resolves in this order: same source repository first, then the codeInfo2 repository, then other repositories by first match where "first" means case-insensitive ASCII ascending on normalized source label, tie-broken by case-insensitive ASCII ascending on full source path.
 - Flow command fallback to codeInfo2/other repositories occurs only for command-not-found cases; if same-source command exists but is schema-invalid, resolution fails fast without fallback.
 - Investigation output must include an automated failing repro test and a fix.
@@ -77,7 +79,7 @@ Expected end-user outcome:
 4. Changing command selection resets `Start step` back to `1` every time.
 5. If `N = 1`, `Start step` remains visible, preselected to `Step 1`, and disabled.
 6. Clicking `Execute command` sends `startStep` as an integer in `POST /agents/:agentName/commands/run` payload, and value must be within `[1, N]`.
-7. Server rejects invalid `startStep` values (missing when required, non-integer, `< 1`, `> N`) with `400` request-validation error and a message that includes the accepted range.
+7. Server rejects invalid provided `startStep` values (non-integer, `< 1`, `> N`) with `400` request-validation error and a message that includes the accepted range.
 8. Start-step behavior is added only for REST `AGENTS` command execution and does not introduce start-step controls or start-step input fields for Flows page, chat surfaces, or MCP Agents `run_command`.
 9. No command-step dependency inference is added; server executes from selected valid step without auto-adjusting based on previous step dependencies.
 10. Chat defaults for Codex options are sourced from `codex/chat/config.toml` for both REST chat and MCP chat responses/execution paths.
@@ -414,11 +416,19 @@ None.
   - Flow command loading currently reads only `<agentHome>/commands/<name>.json` and does not use flow source repository fallback order.
   - REST chat and MCP codebase-question still source Codex defaults from env-backed paths in key locations.
   - Existing Mongo/in-memory shapes already support this story without schema changes (`Turn.command` already stores `{ name, stepIndex, totalSteps }`).
+- `code_info` + manifest cross-check confirms current version baseline is:
+  - server `@openai/codex-sdk`: `0.106.0` (target in this story: `0.107.0`)
+  - client `@mui/material`: `^6.4.1`
+  - client React: `^19.2.0`
+  - TypeScript: root `5.9.3`, client `~5.9.3`, server `^5.6.3`.
 - `deepwiki` tool check failed because repository `Chargeuk/codeInfo2` is not indexed in this environment at research time.
 - `deepwiki` upstream cross-reference against `openai/codex` confirms config-layer failure modes relevant to this story:
   - malformed TOML/schema-invalid values should fail deterministically with actionable error context
   - config precedence/override behavior must be explicit to avoid silent default drift
   - config write/read flows can surface version/conflict conditions that should never be silently swallowed.
+- `deepwiki` upstream cross-reference against `expressjs/express` confirms Express 5 assumptions used by this plan:
+  - async handler rejections are forwarded to error middleware automatically
+  - body-parser/request parsing failures are expected to flow through deterministic error middleware shaping for stable `400` payloads.
 - `context7` tool check failed because no valid Context7 API key is configured in this environment at research time.
 - npm registry live checks (2026-03-03) confirm:
   - latest stable `@openai/codex-sdk` is `0.107.0`
@@ -428,6 +438,10 @@ None.
   - `features.web_search_request` is a deprecated legacy toggle mapping to top-level `web_search` when canonical key is unset.
   - `web_search` canonical modes are `disabled | cached | live`.
   - `approval_policy`, `sandbox_mode`, and `model_reasoning_effort` remain canonical config keys.
+- MUI docs MCP (Material UI `6.4.12`, closest to installed `6.4.1`) confirms:
+  - `Select` + `FormControl` + `InputLabel` pattern remains canonical for labeled dropdowns
+  - `Select` accessibility labeling should use matching `InputLabel` id and `Select` `labelId`
+  - FormControl API/props used in this story (`disabled`, `error`, `size`, `variant`) are valid for the installed major/minor line.
 
 Source references used in this research pass:
 
@@ -435,6 +449,11 @@ Source references used in this research pass:
 - npm registry diff evidence: `npm diff --diff @openai/codex-sdk@0.106.0 --diff @openai/codex-sdk@0.107.0`
 - OpenAI Codex config reference: https://developers.openai.com/codex/config-reference
 - OpenAI Codex docs entrypoint: https://raw.githubusercontent.com/openai/codex/main/docs/config.md
+- React release blog (React 19): https://react.dev/blog/2024/12/05/react-19
+- Express 5 migration guide: https://expressjs.com/en/guide/migrating-5.html
+- Mongoose 9 migration guide: https://mongoosejs.com/docs/migrating_to_9.html
+- MUI Select docs (v6 line via MCP + public docs): https://mui.com/material-ui/react-select/
+- MUI FormControl API (v6 line via MCP + public docs): https://mui.com/material-ui/api/form-control/
 
 # Implementation Plan
 
@@ -447,6 +466,7 @@ Source references used in this research pass:
 5. Add or update deterministic tests inside the same task that introduces behavior.
 6. Use wrapper-first build/test commands from `AGENTS.md`.
 7. Keep task status, subtask checkboxes, testing checkboxes, implementation notes, and git commit hashes updated continuously while implementing.
+8. Keep server TypeScript changes compatible with server workspace `typescript@^5.6.3`; do not assume TypeScript 5.9-only syntax/features in server tasks.
 
 ## Tasks
 
@@ -651,7 +671,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 #### Documentation Locations (External References Only)
 
 - MUI Select component docs: https://mui.com/material-ui/react-select/
-- MUI FormControl docs: https://mui.com/material-ui/react-text-field/
+- MUI FormControl API docs: https://mui.com/material-ui/api/form-control/
 - React state patterns: https://react.dev/learn/managing-state
 - Jest DOM matchers: https://testing-library.com/docs/ecosystem-jest-dom/
 
@@ -820,15 +840,16 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 
 #### Subtasks
 
-1. [ ] Update `@openai/codex-sdk` version pin to `0.107.0` in [server/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/package.json).
-2. [ ] Update runtime guard constant in [server/src/config/codexSdkUpgrade.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexSdkUpgrade.ts) to `0.107.0`.
-3. [ ] Verify startup guard usage path remains aligned in [server/src/index.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/index.ts).
-4. [ ] Add/extend tests in [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts) to ensure expected version and pre-release rejection behavior.
-5. [ ] Update documentation files changed by this task:
+1. [ ] Verify latest stable `@openai/codex-sdk` and baseline/target in implementation notes using `npm view @openai/codex-sdk version versions --json` (baseline `0.106.0`, target stable `0.107.0` as of 2026-03-03).
+2. [ ] Update `@openai/codex-sdk` version pin to `0.107.0` in [server/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/package.json).
+3. [ ] Update runtime guard constant in [server/src/config/codexSdkUpgrade.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexSdkUpgrade.ts) to `0.107.0`.
+4. [ ] Verify startup guard usage path remains aligned in [server/src/index.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/index.ts).
+5. [ ] Add/extend tests in [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts) to ensure expected version and pre-release rejection behavior.
+6. [ ] Update documentation files changed by this task:
    - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
    - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 

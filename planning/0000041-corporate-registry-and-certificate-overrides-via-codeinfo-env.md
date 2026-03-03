@@ -18,6 +18,7 @@ For v1, this story is intentionally narrow: single default npm registry only (no
 For certificate trust, v1 standardizes on mounting only corporate `.crt` files from a dedicated host directory into `/usr/local/share/ca-certificates/codeinfo-corp:ro` (not mounting host `/etc/ssl/certs`), then conditionally refreshing the runtime CA store.
 Documentation for this story must add a new README subsection immediately after `### Mac & WSL That have followed the WSL setup above` with a clear corporate-restricted-network title and setup steps.
 The expected implementation output for this story is limited to Docker/Compose/shell/docs updates (no TypeScript or React feature work).
+Because current wrappers use different env files per workflow, this story treats `compose` and `compose:local` as `server/.env.local` driven, while e2e corporate overrides are driven by `.env.e2e` and/or explicitly exported shell environment variables.
 
 Expected user outcome:
 - Standard users keep current behavior with no extra setup.
@@ -26,7 +27,7 @@ Expected user outcome:
 
 ### Acceptance Criteria
 
-1. A developer can configure corporate behavior by editing only `server/.env.local` (no edits required to `.npmrc`, Dockerfiles, or compose YAML files in their local clone).
+1. A developer can configure corporate behavior for `compose` and `compose:local` by editing only `server/.env.local` (no edits required to `.npmrc`, Dockerfiles, or compose YAML files in their local clone).
 2. Canonical v1 environment variables are exactly:
    - `CODEINFO_NPM_REGISTRY`
    - `CODEINFO_PIP_INDEX_URL`
@@ -34,8 +35,11 @@ Expected user outcome:
    - `CODEINFO_NODE_EXTRA_CA_CERTS`
    - `CODEINFO_CORP_CERTS_DIR`
    - `CODEINFO_REFRESH_CA_CERTS_ON_START`
-3. Compose interpolation remains sourced from `server/.env.local` via existing wrapper usage; no separate client env interpolation is introduced for this story.
-4. `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` each pass relevant `CODEINFO_*` values to both server and client build/runtime paths where applicable.
+3. Compose interpolation remains sourced from existing wrapper behavior:
+   - `compose` and `compose:local` flows use `server/.env` + `server/.env.local`,
+   - e2e flow uses `.env.e2e`,
+   - no separate client env interpolation is introduced for this story.
+4. `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` each pass relevant `CODEINFO_*` values to both server and client build/runtime paths where applicable for their workflow env sources.
 5. `server/Dockerfile` accepts and applies registry/certificate-related build arguments in every stage that executes `npm ci`, global `npm install -g`, or `pip install`.
 6. `client/Dockerfile` accepts and applies registry-related build arguments in the stage that executes `npm ci`.
 7. When `CODEINFO_NPM_REGISTRY` is set, npm install steps use that registry through environment/config wiring; when it is unset, existing default npm behavior is preserved.
@@ -53,7 +57,15 @@ Expected user outcome:
    - expected cert file format/location (for example `.crt` files in that directory),
    - explicit default statement that `CODEINFO_REFRESH_CA_CERTS_ON_START=false` unless certificate-mount setup is intentionally enabled,
    - step-by-step setup for restricted corporate WSL environments.
-18. Final verification notes in the story must show wrapper build commands complete successfully for affected workflows after configuration changes.
+18. Compose handling for missing cert-dir variables is deterministic and documented:
+   - default path/logic must not break compose parsing when `CODEINFO_CORP_CERTS_DIR` is unset,
+   - if `CODEINFO_REFRESH_CA_CERTS_ON_START=true` and no usable `.crt` files are available, server startup fails with a clear error message and non-zero exit code.
+19. `CODEINFO_REFRESH_CA_CERTS_ON_START` parsing is explicitly defined for junior implementers: only case-insensitive `true` enables refresh; all other values (including empty/unset) mean disabled.
+20. Host helper `start-gcf-server.sh` supports restricted networks by honoring `CODEINFO_NPM_REGISTRY` (mapped to npm registry env/config) for its `npm install -g git-credential-forwarder` step, with defaults unchanged when unset.
+21. Final verification notes in the story must show wrapper build commands complete successfully for affected workflows after configuration changes, including:
+   - `npm run compose:build`
+   - `npm run compose:local:build`
+   - `npm run compose:e2e:build`
 
 ### Out Of Scope
 
@@ -71,27 +83,53 @@ Expected user outcome:
 ### Questions
 - None.
 
+### Research Findings (2026-03-03)
+
+- Docker Compose interpolation substitutes unresolved variables with empty strings, which can break value shapes like volume specs if not handled deliberately. Source: Docker docs, variable interpolation (`${VAR:-default}`, `${VAR:?error}` and unresolved-variable behavior).
+  - https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/
+- Docker Compose supports multiple `--env-file` inputs and later files override earlier files. Source: Docker docs.
+  - https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/
+- npm config precedence is command line, then environment variables, then `npmrc` files; therefore env-based registry wiring is sufficient for the single-registry v1 scope. Source: npm CLI config docs.
+  - https://docs.npmjs.com/cli/v10/using-npm/config/
+- npm auth-related settings are expected to be scoped to a registry path in `.npmrc`, which supports the v1 decision to keep auth out of scope. Source: `.npmrc` docs.
+  - https://docs.npmjs.com/cli/v10/configuring-npm/npmrc/
+- pip supports configuration via environment variables (`PIP_<OPTION>`), including `PIP_INDEX_URL` and `PIP_TRUSTED_HOST`; empty environment variables are not treated as false and must be handled explicitly. Sources: pip configuration and pip install docs.
+  - https://pip.pypa.io/en/stable/topics/configuration/
+  - https://pip.pypa.io/en/stable/cli/pip_install/
+- Node.js reads `NODE_EXTRA_CA_CERTS` only when the process starts, so certificate refresh must happen before launching `node` in entrypoint flow. Source: Node CLI docs.
+  - https://nodejs.org/docs/latest-v22.x/api/cli.html#node_extra_ca_certsfile
+- Debian `update-ca-certificates` reads trusted certs from `/usr/local/share/ca-certificates` and processes `.crt` files, which validates the dedicated corporate cert mount approach. Source: Debian man page.
+  - https://manpages.debian.org/testing/ca-certificates/update-ca-certificates.8.en.html
+- Tooling availability caveat from this research session:
+  - `deepwiki` could not be used for this repository because it is not indexed there.
+  - `context7` could not be used due API key failure in this environment.
+
 ## Implementation Ideas
 
 - Planned file touchpoints:
   - `docker-compose.yml`
   - `docker-compose.local.yml`
   - `docker-compose.e2e.yml`
+  - `.env.e2e`
   - `server/Dockerfile`
   - `client/Dockerfile`
   - `server/entrypoint.sh`
+  - `start-gcf-server.sh`
   - `README.md`
 - Compose changes:
   - map `CODEINFO_*` values into server/client `build.args` and runtime `environment`,
-  - add optional server cert mount from `${CODEINFO_CORP_CERTS_DIR}` to `/usr/local/share/ca-certificates/codeinfo-corp:ro`,
-  - keep interpolation based on `server/.env.local`.
+  - add server cert mount from `CODEINFO_CORP_CERTS_DIR` to `/usr/local/share/ca-certificates/codeinfo-corp:ro` with deterministic handling when unset,
+  - keep interpolation based on `server/.env.local` for compose/local and `.env.e2e` for e2e.
 - Dockerfile changes:
   - declare required `ARG`/`ENV` values in relevant build stages,
   - ensure npm/pip install commands consume provided registry/certificate values,
   - preserve default behavior when variables are unset.
 - Entrypoint changes:
   - conditionally run `update-ca-certificates` when `CODEINFO_REFRESH_CA_CERTS_ON_START=true`,
+  - fail fast with clear error when refresh is enabled but cert inputs are unusable,
   - log whether CA refresh ran or was skipped for easier troubleshooting.
+- Host helper changes:
+  - update `start-gcf-server.sh` so `npm install -g git-credential-forwarder` uses `CODEINFO_NPM_REGISTRY` when set.
 - README changes:
   - insert section `### Corporate Registry and Certificate Overrides (Restricted Networks)` immediately after `### Mac & WSL That have followed the WSL setup above`,
   - include tested concrete example for `CODEINFO_CORP_CERTS_DIR` and expected `.crt` contents,

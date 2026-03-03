@@ -352,6 +352,7 @@ Define the new REST message contract at the router boundary before any frontend 
    - fallback -> `500 { error: 'agent_prompts_failed' }`
 6. [ ] Add unit tests in [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts) or a dedicated new router test file for:
    - success payload shape,
+   - invalid/malformed `agentName` -> `400 { error: 'invalid_request' }`,
    - missing/blank `working_folder`,
    - `AGENT_NOT_FOUND` mapping,
    - `WORKING_FOLDER_*` mappings,
@@ -401,13 +402,15 @@ Implement the actual prompt discovery behavior in the server service layer with 
    - skip non-markdown files.
 5. [ ] Return `{ prompts: Array<{ relativePath, fullPath }> }` with:
    - `relativePath` normalized to `/`,
+   - `relativePath` guaranteed relative to `.github/prompts/` root (never absolute),
    - deterministic ascending sort by normalized `relativePath`.
 6. [ ] Add service unit tests in [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts) or a dedicated `agent-prompts-list.test.ts` for:
    - case-insensitive folder resolution,
    - recursive markdown discovery,
+   - markdown extension coverage (`.md`, `.MD`, `*.prompt.md`) and exclusion of non-markdown files,
    - symlink ignore behavior,
    - deterministic ordering,
-   - zero-results behavior.
+   - zero-results behavior when `.github/prompts` is missing and when it exists with no markdown files.
 7. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
 8. [ ] Run workspace lint/format checks as final subtask for this task.
 
@@ -540,17 +543,23 @@ Implement prompt discovery and selection UI behavior only, including commit-trig
 3. [ ] Prevent Enter in `working_folder` from submitting the instruction form.
 4. [ ] Implement stale-response handling so only latest committed-folder response updates prompt state.
 5. [ ] Implement prompts-area visibility rules:
-   - show on successful non-empty prompts,
+   - show on successful non-empty prompts (render prompts selector + Execute Prompt button in the same row),
    - show inline error on failure for committed non-empty folder,
    - hide when committed folder empty or successful zero results.
-6. [ ] Implement immediate prompt selection reset on committed `working_folder` change.
-7. [ ] Add/update page tests (new file recommended, e.g., `client/src/test/agentsPage.promptsDiscovery.test.tsx`) for:
+6. [ ] Implement prompts dropdown shape and selection behavior:
+   - render prompt option labels from `relativePath` only (never `fullPath`),
+   - include an explicit empty option so users can clear a prior prompt selection.
+7. [ ] Implement immediate prompt selection reset on committed `working_folder` change.
+8. [ ] Add/update page tests (new file recommended, e.g., `client/src/test/agentsPage.promptsDiscovery.test.tsx`) for:
    - trigger timing,
+   - no discovery on `working_folder` keystroke-only edits before commit,
+   - Enter in `working_folder` commits discovery and does not submit the main instruction form,
    - stale-response handling,
    - visibility/error/zero-result split,
+   - relative-path label rendering + explicit empty option behavior,
    - reset on folder change.
-8. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
-9. [ ] Run workspace lint/format checks as final subtask for this task.
+9. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
+10. [ ] Run workspace lint/format checks as final subtask for this task.
 
 #### Testing
 
@@ -590,6 +599,7 @@ Implement prompt execution by composing the canonical instruction string and sen
 5. [ ] Preserve existing conflict and error UX handling (`RUN_IN_PROGRESS`, generic errors) without adding bespoke protocol branches.
 6. [ ] Add/update tests (new file recommended, e.g., `client/src/test/agentsPage.executePrompt.test.tsx`) for:
    - exact instruction payload composition,
+   - payload path replacement uses selected prompt `fullPath` (not `relativePath` label text),
    - execute-button enable/disable behavior,
    - conflict/error behavior,
    - deleted/moved prompt at execution-time resulting in non-crash error flow.

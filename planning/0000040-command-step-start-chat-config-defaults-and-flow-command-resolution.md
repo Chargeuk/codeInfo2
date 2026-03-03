@@ -553,6 +553,7 @@ Add the backend response contract for command list items so the frontend can ren
    - Done when: test fails if OpenAPI schema allows missing or invalid `stepCount`.
 11. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for this task’s new/changed message contract and test files.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 22, AC 23.
    - Done when: docs explicitly mention `stepCount` contract and touched file map changes.
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
@@ -684,6 +685,7 @@ Add the run-request message contract for optional `startStep` with strict input 
    - Done when: test fails if contract allows required `startStep` or omits error fields.
 14. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for run-request contract updates.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 24, AC 25.
    - Done when: docs list optional `startStep` and unchanged MCP scope.
 15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
@@ -806,6 +808,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Done when: test fails if omission path diverges from step-1 default.
 12. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for execution-path changes and new test coverage.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
    - Done when: docs mention runtime start-step conversion and backward compatibility.
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
@@ -916,6 +919,7 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Done when: test fails if non-numeric step counts are accepted.
 10. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for client API contract updates.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 6, AC 22, AC 24.
    - Done when: docs show new client API payload/response shapes.
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
@@ -1045,6 +1049,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Done when: test fails if UI rewrites or drops server message text.
 13. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for AGENTS start-step UX and changed test files.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 1-8.
    - Done when: docs describe new control behavior and where implemented/tests live.
 14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
@@ -1175,6 +1180,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Done when: test fails if alias `false` maps to any value other than `disabled`.
 13. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for shared resolver behavior and touched test files.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: docs describe precedence chain and file changes.
 14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
@@ -1278,6 +1284,7 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Done when: test fails if validator parity drifts.
 10. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for REST/default-source behavior.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: docs explain REST defaults are config-backed with warning behavior.
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
@@ -1367,6 +1374,7 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Done when: test fails if MCP and REST diverge.
 7. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for MCP default-source alignment.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: docs explicitly call out MCP + REST parity for defaults.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
@@ -1476,6 +1484,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Done when: test fails if partial file artifacts remain after failure.
 10. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for bootstrap behavior and touched tests.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 15.
    - Done when: docs state bootstrap order and non-overwrite rule.
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
@@ -1569,6 +1578,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Done when: test fails if lower versions are accepted.
 9. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for SDK pin + guard alignment.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 17, AC 26.
    - Done when: docs state pin version and guard coupling.
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
@@ -1693,6 +1703,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Done when: test fails if equal-label ordering is non-deterministic.
 13. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for flow resolver ordering rules and added tests.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
    - Done when: docs include exact resolver order and fail-fast behavior.
 14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
@@ -1745,6 +1756,7 @@ Perform documentation-only updates so product behavior, architecture notes, and 
    - Done when: design doc includes deterministic ordering and failure rules.
 3. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for all file additions/removals from tasks 1-11.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Ordering requirement: complete this subtask after all file additions/removals from tasks 1-11 are finished.
    - Acceptance criteria coverage: documentation support across whole story implementation.
    - Done when: file/module map matches repository state after implementation.
 4. [ ] Ensure [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) reflects final route contract shapes from tasks 1-2 and stays aligned with route runtime behavior.
@@ -1884,6 +1896,7 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Done when: summary includes what changed, why, and proof points.
 12. [ ] Confirm [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) are fully current after all code/test changes.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
+   - Ordering requirement: complete this subtask after all file additions/removals in this task (including screenshot files) are finished.
    - Acceptance criteria coverage: final documentation readiness for AC 1-28.
    - Done when: docs align with final code and tests with no known drift.
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.

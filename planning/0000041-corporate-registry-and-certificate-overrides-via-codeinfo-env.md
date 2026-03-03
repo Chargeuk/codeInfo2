@@ -34,6 +34,54 @@ Expected user outcome:
 - Updated docs (`README.md`) with the required new corporate setup section and concrete examples.
 - Required env-file updates for workflow parity (including adding `CODEINFO_*` placeholders/defaults to `.env.e2e`).
 
+### Configuration Semantics (Authoritative)
+
+The following behavior is mandatory and is the single source of truth for tasking.
+
+1. `CODEINFO_NPM_REGISTRY`
+   - Default: unset.
+   - Used by: server Docker build (`npm ci`, `npm install -g`), client Docker build (`npm ci`), host helper (`start-gcf-server.sh` global npm install).
+   - Behavior:
+     - unset/empty => current npm default behavior,
+     - non-empty => npm commands use this registry.
+
+2. `CODEINFO_PIP_INDEX_URL`
+   - Default: unset.
+   - Used by: server Docker build `pip install` steps.
+   - Behavior:
+     - unset/empty => current pip default behavior,
+     - non-empty => pip uses this index URL.
+
+3. `CODEINFO_PIP_TRUSTED_HOST`
+   - Default: unset.
+   - Used by: server Docker build `pip install` steps.
+   - Behavior:
+     - unset/empty => current pip default behavior,
+     - non-empty => pip uses this trusted host.
+
+4. `CODEINFO_NODE_EXTRA_CA_CERTS`
+   - Default: `/etc/ssl/certs/ca-certificates.crt` at server runtime.
+   - Used by: server runtime before launching Node.
+   - Behavior:
+     - unset/empty => runtime exports default path above,
+     - non-empty => runtime exports provided path.
+
+5. `CODEINFO_CORP_CERTS_DIR`
+   - Default: compose fallback path `./certs/empty-corp-ca`.
+   - Used by: compose server volume mount source.
+   - Behavior:
+     - unset/empty => compose mounts fallback path,
+     - non-empty => compose mounts configured host cert directory.
+
+6. `CODEINFO_REFRESH_CA_CERTS_ON_START`
+   - Default: disabled.
+   - Used by: server entrypoint before `node dist/index.js`.
+   - Behavior:
+     - only case-insensitive `true` enables refresh,
+     - any other value (including unset/empty) means disabled,
+     - enabled + no usable `.crt` files => fail fast with clear error and non-zero exit,
+     - enabled + usable `.crt` files => run `update-ca-certificates`, then continue startup.
+
 ### Acceptance Criteria
 
 1. A developer can configure corporate behavior by editing workflow env files only:
@@ -80,6 +128,10 @@ Expected user outcome:
    - `npm run compose:local:build`
    - `npm run compose:e2e:build`
    - and include command output/log references proving each command completed successfully.
+22. Story implementation notes must include evidence for both positive and negative runtime cert paths:
+   - refresh enabled + valid cert input (successful startup),
+   - refresh enabled + missing/invalid cert input (expected fail-fast).
+23. Story implementation notes must record the exact fallback cert directory path added to the repo and where it is referenced in compose files.
 
 ### Message Contracts and Storage Shapes
 

@@ -1249,7 +1249,8 @@ Update the frontend API layer contracts to match backend message changes. This t
 ### 5. Frontend: AGENTS `Start step` control behavior and execution wiring
 
 - Task Status: **completed**
-- Git Commits: **to_do**
+- Git Commits:
+  - `a4408187` — DEV-[0000040] - Implement Task 5 AGENTS start-step UI and execution wiring
 
 #### Overview
 
@@ -1470,6 +1471,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 - Testing 5: `npm run compose:up` succeeded; compose services started healthy (client/server/mongo/chroma/playwright-mcp/otel/zipkin).
 - Testing 6: Manual Playwright check against `http://host.docker.internal:5001/agents` verified start-step disabled and enabled states, payload markers (`DEV_0000040_T04_CLIENT_AGENTS_API`, `DEV_0000040_T05_AGENTS_UI_EXECUTE`), and unchanged backend range text rendering; screenshots saved to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/playwright-output-local/task5-start-step-disabled.png`, `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/playwright-output-local/task5-start-step-enabled.png`, and `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/playwright-output-local/task5-start-step-error.png`.
 - Testing 7: `npm run compose:down` completed successfully and removed the full compose stack.
+- Git Commits: Recorded Task 5 implementation commit `a4408187` in this task header before creating the git-commit marker commit.
 
 ---
 

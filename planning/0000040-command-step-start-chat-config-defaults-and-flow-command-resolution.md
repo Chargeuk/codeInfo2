@@ -1840,7 +1840,8 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
 ### 8. Server: MCP `codebase_question` uses shared chat defaults
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits:
+  - `269a7a5c` — DEV-0000040 - align Task 8 MCP defaults with shared resolver parity
 
 #### Overview
 

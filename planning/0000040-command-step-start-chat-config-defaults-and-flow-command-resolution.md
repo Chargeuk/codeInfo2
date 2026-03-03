@@ -1981,7 +1981,8 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
 ### 9. Server: deterministic bootstrap for missing `codex/chat/config.toml`
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits:
+  - `2dde3aef` — DEV-0000040 - implement Task 9 deterministic chat bootstrap
 
 #### Overview
 

@@ -1958,7 +1958,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 11. Post-review remediation: invalidate stale prompt-discovery responses on prompt-state reset paths
 
-- Task Status: **__to_do__**
+- Task Status: **__completed__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -1975,12 +1975,12 @@ Address a branch review finding where stale `listAgentPrompts(...)` responses ca
 
 #### Subtasks
 
-1. [ ] Add explicit prompt-discovery invalidation helper(s) in `AgentsPage`.
+1. [x] Add explicit prompt-discovery invalidation helper(s) in `AgentsPage`.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Implement exactly: create a small helper that clears prompt UI state (`promptEntries`, `promptsError`, `selectedPromptFullPath`) and invalidates any in-flight discovery request identity so stale responses can no longer commit results.
    - Purpose: enforce latest-intent-wins behavior across all reset paths, not only folder-to-folder commit races.
 
-2. [ ] Apply prompt-discovery invalidation on all prompt-state reset paths.
+2. [x] Apply prompt-discovery invalidation on all prompt-state reset paths.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Implement exactly: ensure the invalidation helper is invoked when:
      - committed folder becomes empty,
@@ -1988,42 +1988,55 @@ Address a branch review finding where stale `listAgentPrompts(...)` responses ca
      - prompt state is intentionally reset by UX flows that should clear prompt context.
    - Purpose: prevent stale result commits after context resets.
 
-3. [ ] Ensure discovery response commit guards validate current context before applying state.
+3. [x] Ensure discovery response commit guards validate current context before applying state.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Implement exactly: tighten `.then/.catch/.finally` guards so responses only apply when request identity and active committed context still match the latest current state.
    - Purpose: guarantee prompt UI cannot resurface from outdated responses.
 
-4. [ ] Add regression test: stale in-flight response is ignored after clearing committed `working_folder`.
+4. [x] Add regression test: stale in-flight response is ignored after clearing committed `working_folder`.
    - Files: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Implement exactly: create a deferred prompts request, clear committed folder before it resolves, resolve stale request, and assert prompts row/select/error remain hidden/cleared.
    - Purpose: lock in acceptance behavior for reset + stale-response edge case.
 
-5. [ ] Add regression test: changing agent context clears prompt selection/context and blocks stale execute state.
+5. [x] Add regression test: changing agent context clears prompt selection/context and blocks stale execute state.
    - Files: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx), [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
    - Implement exactly: cover multi-agent scenario where prompt was previously selected, then agent changes; assert selection clears, Execute Prompt is disabled, and prompt row does not show stale results until next valid commit flow.
    - Purpose: prevent stale prompt execution context across agent switches.
 
-6. [ ] Update design notes for the post-review stale-response guard behavior.
+6. [x] Update design notes for the post-review stale-response guard behavior.
    - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - Implement exactly: add a short note in the prompts discovery lifecycle section documenting reset-path invalidation and why it exists.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests without using the wrapper commands listed below.
 
-1. [ ] `npm run build:summary:client` - mandatory because this task changes client behavior.
-2. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.promptsDiscovery.test.tsx --file client/src/test/agentsPage.executePrompt.test.tsx` - targeted regression validation for this remediation.
-3. [ ] `npm run test:summary:client` - full client suite pass after targeted fixes.
-4. [ ] `npm run compose:build:summary`
-5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP check: validate that clearing `working_folder` during an in-flight discovery request does not repopulate prompts UI after stale response returns; then switch agents after selecting a prompt and confirm Execute Prompt is disabled until a new prompt is selected for the current agent/folder context. Capture screenshots `0000039-task11-stale-response-after-clear-ignored.png` and `0000039-task11-agent-switch-clears-prompt-context.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
-7. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - mandatory because this task changes client behavior.
+2. [x] `npm run test:summary:client -- --file client/src/test/agentsPage.promptsDiscovery.test.tsx --file client/src/test/agentsPage.executePrompt.test.tsx` - targeted regression validation for this remediation.
+3. [x] `npm run test:summary:client` - full client suite pass after targeted fixes.
+4. [x] `npm run compose:build:summary`
+5. [x] `npm run compose:up`
+6. [x] Manual Playwright-MCP check: validate that clearing `working_folder` during an in-flight discovery request does not repopulate prompts UI after stale response returns; then switch agents after selecting a prompt and confirm Execute Prompt is disabled until a new prompt is selected for the current agent/folder context. Capture screenshots `0000039-task11-stale-response-after-clear-ignored.png` and `0000039-task11-agent-switch-clears-prompt-context.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
+7. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Added `invalidatePromptDiscoveryState(...)` in `AgentsPage` to centralize prompt UI reset (`promptEntries`, `promptsError`, `selectedPromptFullPath`, `promptsLoading`) and invalidate in-flight discovery identity by incrementing `promptsRequestSeqRef` and clearing per-request context.
+- Subtask 2: Applied prompt-discovery invalidation on reset paths: committed-folder changes/clear via `commitWorkingFolder(...)`, empty committed-folder branch, selected-agent-empty branch, and `resetConversation()` (covers agent switch + New conversation reset flow) with committed-folder ref reset where required.
+- Subtask 3: Tightened prompt discovery commit guards in `.then/.catch/.finally` to require both latest request id and current active context match (`selectedAgentNameRef`, `committedWorkingFolderRef`, and stored request context) before mutating prompt state.
+- Subtask 4: Added `agentsPage.promptsDiscovery.test.tsx` regression `ignores stale in-flight prompt response after committed working folder is cleared`, using deferred response control to prove stale post-clear results remain ignored and prompt UI stays hidden.
+- Subtask 5: Added multi-agent regression coverage across `agentsPage.promptsDiscovery.test.tsx` and `agentsPage.executePrompt.test.tsx` validating agent-switch resets clear prompt selection/context and keep Execute Prompt blocked until a valid prompt is re-selected for the new agent/folder context.
+- Subtask 6: Updated `design.md` prompt-discovery lifecycle notes to document explicit reset-path invalidation (clear folder/agent change/conversation reset) and the rationale for preventing stale delayed response repopulation.
+- Subtask 7: Ran `npm run lint --workspaces` (pass with unchanged repository baseline warnings in server import-order rules), then `npm run format:check --workspaces` (initially failed for edited client files), ran `npm run format --workspaces`, and re-ran `npm run format:check --workspaces` (pass).
+- Testing step 1: `npm run build:summary:client` passed with `warnings: 1` (existing Vite chunk-size advisory baseline) and log `logs/test-summaries/build-client-latest.log`.
+- Testing step 2: Targeted regression wrapper `npm run test:summary:client -- --file client/src/test/agentsPage.promptsDiscovery.test.tsx --file client/src/test/agentsPage.executePrompt.test.tsx` passed (`tests run: 22`, `passed: 22`, `failed: 0`) with log `test-results/client-tests-2026-03-03T10-32-26-831Z.log`.
+- Testing step 3: Full client wrapper `npm run test:summary:client` passed (`tests run: 453`, `passed: 453`, `failed: 0`) with log `test-results/client-tests-2026-03-03T10-32-48-086Z.log`.
+- Testing step 4: `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0` and log `logs/test-summaries/compose-build-latest.log`.
+- Testing step 5: `npm run compose:up` succeeded; compose services started with healthy `mongo_db_CodeInfo` and `codeinfo2-server-1`, and `codeinfo2-client-1` started.
+- Testing step 6: Manual browser validation run against `http://host.docker.internal:5001/agents` covered (a) clear-folder stale-response suppression and (b) agent-switch prompt-context reset/Execute Prompt disable; captured `0000039-task11-stale-response-after-clear-ignored.png` and `0000039-task11-agent-switch-clears-prompt-context.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` with observed `staleIgnoredLogSeen: true`.
+- Testing step 7: `npm run compose:down` succeeded and removed compose services plus network `codeinfo2_internal`.
 
 ---
 

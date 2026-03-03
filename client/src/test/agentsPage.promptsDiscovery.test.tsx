@@ -117,7 +117,16 @@ async function commitWorkingFolderByBlur(value: string) {
 }
 
 function setupPromptUiFetch(params: {
+  agents?: Array<{ name: string }>;
   promptsByFolder: Record<
+    string,
+    | {
+        status: 'success';
+        prompts: Array<{ relativePath: string; fullPath: string }>;
+      }
+    | { status: 'error'; httpStatus?: number; payload: Record<string, unknown> }
+  >;
+  promptsByAgentAndFolder?: Record<
     string,
     | {
         status: 'success';
@@ -135,9 +144,9 @@ function setupPromptUiFetch(params: {
       !target.includes('/run') &&
       !target.includes('/prompts')
     ) {
-      return okJson({ agents: [{ name: 'coding_agent' }] });
+      return okJson({ agents: params.agents ?? [{ name: 'coding_agent' }] });
     }
-    if (target.includes('/agents/coding_agent/commands')) {
+    if (/\/agents\/[^/]+\/commands(?:\?|$)/.test(target)) {
       return okJson({ commands: [] });
     }
     if (target.includes('/conversations')) return okJson({ items: [] });
@@ -150,9 +159,13 @@ function setupPromptUiFetch(params: {
         dirs: ['picker-folder'],
       });
     }
-    if (target.includes('/agents/coding_agent/prompts')) {
+    const promptsMatch = target.match(/\/agents\/([^/]+)\/prompts(?:\?|$)/);
+    if (promptsMatch) {
+      const agentName = promptsMatch[1];
       const folder = new URL(target).searchParams.get('working_folder') ?? '';
-      const response = params.promptsByFolder[folder];
+      const response =
+        params.promptsByAgentAndFolder?.[`${agentName}::${folder}`] ??
+        params.promptsByFolder[folder];
       if (!response) return okJson({ prompts: [] });
       if (response.status === 'error') {
         return Promise.resolve({
@@ -655,6 +668,97 @@ describe('Agents page - prompts selector state transitions', () => {
       expect(screen.queryByTestId('agent-prompts-row')).not.toBeInTheDocument(),
     );
     expect(screen.queryByTestId('agent-prompts-error')).not.toBeInTheDocument();
+  });
+
+  it('ignores stale in-flight prompt response after committed working folder is cleared', async () => {
+    const stale = deferredResponse();
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+    setupPromptRaceFetch({
+      promptsHandlers: {
+        '/folder-clear': { promise: stale.promise, calls: 0 },
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByRole('combobox', { name: /agent/i });
+    await commitWorkingFolderByBlur('/folder-clear');
+
+    const input = await screen.findByTestId('agent-working-folder');
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('agent-prompts-row')).not.toBeInTheDocument(),
+    );
+
+    await act(async () => {
+      stale.resolve(
+        (await okJson({
+          prompts: [{ relativePath: 'stale.md', fullPath: '/stale.md' }],
+        })) as Response,
+      );
+    });
+
+    await waitFor(() =>
+      expect(
+        infoSpy.mock.calls.some((call) =>
+          String(call[0]).includes(
+            '[agents.prompts.discovery.request.stale_ignored]',
+          ),
+        ),
+      ).toBe(true),
+    );
+    expect(screen.queryByTestId('agent-prompts-row')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('agent-prompts-select'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('agent-prompts-error')).not.toBeInTheDocument();
+    infoSpy.mockRestore();
+  });
+
+  it('switching agent clears stale prompt selection/context until next valid commit', async () => {
+    const user = userEvent.setup();
+    setupPromptUiFetch({
+      agents: [{ name: 'coding_agent' }, { name: 'review_agent' }],
+      promptsByFolder: {},
+      promptsByAgentAndFolder: {
+        'coding_agent::/agent-a': {
+          status: 'success',
+          prompts: [{ relativePath: 'agent-a.md', fullPath: '/agent-a.md' }],
+        },
+        'review_agent::/agent-b': {
+          status: 'success',
+          prompts: [{ relativePath: 'agent-b.md', fullPath: '/agent-b.md' }],
+        },
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByRole('combobox', { name: /agent/i });
+    await commitWorkingFolderByBlur('/agent-a');
+    await selectPromptOption(user, 'agent-a.md');
+    expect(await screen.findByTestId('agent-prompt-execute')).toBeEnabled();
+
+    const agentSelect = await screen.findByRole('combobox', { name: /agent/i });
+    await user.click(agentSelect);
+    await user.click(
+      await screen.findByRole('option', { name: 'review_agent' }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('agent-prompts-row')).not.toBeInTheDocument(),
+    );
+
+    await commitWorkingFolderByBlur('/agent-b');
+    const executeButton = await screen.findByTestId('agent-prompt-execute');
+    expect(
+      await screen.findByRole('combobox', { name: /prompts/i }),
+    ).toHaveTextContent('No prompt selected');
+    expect(executeButton).toBeDisabled();
   });
 
   it('enables Execute Prompt only when a valid prompt option is selected', async () => {

@@ -48,10 +48,15 @@ function okJson(payload: unknown, init?: { status?: number }) {
 }
 
 function setupExecutePromptFetch(params?: {
+  agents?: Array<{ name: string }>;
   runResponse?:
     | { status: 202; payload?: Record<string, unknown> }
     | { status: number; payload: Record<string, unknown> };
   prompt?: { relativePath: string; fullPath: string };
+  promptsByAgent?: Record<
+    string,
+    Array<{ relativePath: string; fullPath: string }>
+  >;
 }) {
   const runBodies: Record<string, unknown>[] = [];
   const runUrls: string[] = [];
@@ -66,6 +71,11 @@ function setupExecutePromptFetch(params?: {
 
   mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
     const target = typeof url === 'string' ? url : url.toString();
+    const promptsMatch = target.match(/\/agents\/([^/]+)\/prompts(?:\?|$)/);
+    const commandRunMatch = target.match(
+      /\/agents\/([^/]+)\/commands\/run(?:\?|$)/,
+    );
+    const runMatch = target.match(/\/agents\/([^/]+)\/run(?:\?|$)/);
 
     if (target.includes('/health')) return okJson({ mongoConnected: true });
     if (
@@ -74,20 +84,22 @@ function setupExecutePromptFetch(params?: {
       !target.includes('/run') &&
       !target.includes('/prompts')
     ) {
-      return okJson({ agents: [{ name: 'coding_agent' }] });
+      return okJson({ agents: params?.agents ?? [{ name: 'coding_agent' }] });
     }
-    if (target.includes('/agents/coding_agent/commands')) {
+    if (/\/agents\/[^/]+\/commands(?:\?|$)/.test(target)) {
       return okJson({ commands: [] });
     }
     if (target.includes('/conversations')) return okJson({ items: [] });
-    if (target.includes('/agents/coding_agent/prompts')) {
-      return okJson({ prompts: [prompt] });
+    if (promptsMatch) {
+      const agentName = promptsMatch[1];
+      const prompts = params?.promptsByAgent?.[agentName] ?? [prompt];
+      return okJson({ prompts });
     }
-    if (target.includes('/agents/coding_agent/commands/run')) {
+    if (commandRunMatch) {
       commandRunUrls.push(target);
       return okJson({ status: 'started' });
     }
-    if (target.includes('/agents/coding_agent/run')) {
+    if (runMatch) {
       runUrls.push(target);
       if (init?.body) {
         runBodies.push(JSON.parse(init.body.toString()));
@@ -282,5 +294,48 @@ describe('Agents page - execute prompt', () => {
 
     await waitFor(() => expect(runUrls.length).toBe(1));
     expect(commandRunUrls).toHaveLength(0);
+  });
+
+  it('clears execute-prompt context when agent changes and requires re-selection', async () => {
+    const user = userEvent.setup();
+    setupExecutePromptFetch({
+      agents: [{ name: 'coding_agent' }, { name: 'review_agent' }],
+      promptsByAgent: {
+        coding_agent: [
+          {
+            relativePath: 'coding/start.md',
+            fullPath: '/workspace/coding/start.md',
+          },
+        ],
+        review_agent: [
+          {
+            relativePath: 'review/start.md',
+            fullPath: '/workspace/review/start.md',
+          },
+        ],
+      },
+    });
+    await mountAgentsPage();
+
+    await commitWorkingFolderByBlur('/workspace/coding');
+    await selectPrompt(user, 'coding/start.md');
+    expect(await screen.findByTestId('agent-prompt-execute')).toBeEnabled();
+
+    const agentSelect = await screen.findByRole('combobox', { name: /agent/i });
+    await user.click(agentSelect);
+    await user.click(
+      await screen.findByRole('option', { name: 'review_agent' }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('agent-prompts-row')).not.toBeInTheDocument(),
+    );
+
+    await commitWorkingFolderByBlur('/workspace/review');
+    const executeButton = await screen.findByTestId('agent-prompt-execute');
+    expect(
+      await screen.findByRole('combobox', { name: /prompts/i }),
+    ).toHaveTextContent('No prompt selected');
+    expect(executeButton).toBeDisabled();
   });
 });

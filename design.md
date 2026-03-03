@@ -4046,6 +4046,7 @@ sequenceDiagram
 - Keystroke-only edits do not trigger discovery API calls.
 - Enter handling is scoped to `working_folder` and blocks main instruction form submission.
 - Latest-response-wins is enforced with a monotonic request id; stale responses are ignored and cannot overwrite newer state.
+- Prompt reset paths (for example: clearing committed `working_folder`, changing agent, or conversation reset flows) explicitly invalidate in-flight discovery identity before clearing prompt UI state so delayed responses cannot repopulate stale selector/error/selection context.
 
 ```mermaid
 sequenceDiagram

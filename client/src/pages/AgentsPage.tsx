@@ -243,8 +243,8 @@ export default function AgentsPage() {
   const [committedWorkingFolder, setCommittedWorkingFolder] = useState('');
   const lastCommittedWorkingFolderRef = useRef('');
   const promptsRequestSeqRef = useRef(0);
-  const promptsCommittedFolderByRequestIdRef = useRef(
-    new Map<number, string>(),
+  const promptsRequestContextByIdRef = useRef(
+    new Map<number, { agentName: string; committedWorkingFolder: string }>(),
   );
   const promptSelectorVisibilityLogRef = useRef('');
   const promptSelectionLogRef = useRef('');
@@ -335,6 +335,32 @@ export default function AgentsPage() {
     setDirPickerOpen(true);
   };
 
+  const invalidatePromptDiscoveryState = useCallback(
+    (params: {
+      reason:
+        | 'committed_working_folder_changed'
+        | 'committed_working_folder_cleared'
+        | 'selected_agent_reset'
+        | 'selected_agent_empty';
+      clearCommittedWorkingFolder?: boolean;
+    }) => {
+      promptsRequestSeqRef.current += 1;
+      promptsRequestContextByIdRef.current.clear();
+      setPromptsLoading(false);
+      setPromptsError(null);
+      setPromptEntries([]);
+      setSelectedPromptFullPath('');
+      if (params.clearCommittedWorkingFolder) {
+        setCommittedWorkingFolder('');
+        lastCommittedWorkingFolderRef.current = '';
+      }
+      console.info(
+        `[agents.prompts.discovery.invalidate] reason=${params.reason} clearCommittedWorkingFolder=${params.clearCommittedWorkingFolder === true}`,
+      );
+    },
+    [],
+  );
+
   const commitWorkingFolder = useCallback(
     (source: 'blur' | 'enter' | 'picker', nextValue?: string) => {
       const committed = (nextValue ?? workingFolder).trim();
@@ -344,13 +370,15 @@ export default function AgentsPage() {
       if (committed === lastCommittedWorkingFolderRef.current) {
         return;
       }
+      invalidatePromptDiscoveryState({
+        reason: committed
+          ? 'committed_working_folder_changed'
+          : 'committed_working_folder_cleared',
+      });
       lastCommittedWorkingFolderRef.current = committed;
       setCommittedWorkingFolder(committed);
-      setPromptsError(null);
-      setPromptEntries([]);
-      setSelectedPromptFullPath('');
     },
-    [workingFolder],
+    [invalidatePromptDiscoveryState, workingFolder],
   );
 
   const handlePickDir = (path: string) => {
@@ -513,10 +541,15 @@ export default function AgentsPage() {
 
   const effectiveAgentName = selectedAgentName || '__none__';
   const selectedAgentNameRef = useRef<string>(selectedAgentName);
+  const committedWorkingFolderRef = useRef<string>(committedWorkingFolder);
 
   useEffect(() => {
     selectedAgentNameRef.current = selectedAgentName;
   }, [selectedAgentName]);
+
+  useEffect(() => {
+    committedWorkingFolderRef.current = committedWorkingFolder;
+  }, [committedWorkingFolder]);
 
   useEffect(() => {
     let cancelled = false;
@@ -561,27 +594,26 @@ export default function AgentsPage() {
 
   useEffect(() => {
     if (!selectedAgentName) {
-      setPromptsLoading(false);
-      setPromptsError(null);
-      setPromptEntries([]);
-      setSelectedPromptFullPath('');
-      setCommittedWorkingFolder('');
-      lastCommittedWorkingFolderRef.current = '';
+      invalidatePromptDiscoveryState({
+        reason: 'selected_agent_empty',
+        clearCommittedWorkingFolder: true,
+      });
       return;
     }
     if (!committedWorkingFolder) {
-      setPromptsLoading(false);
-      setPromptsError(null);
-      setPromptEntries([]);
+      invalidatePromptDiscoveryState({
+        reason: 'committed_working_folder_cleared',
+      });
       return;
     }
 
     const requestId = promptsRequestSeqRef.current + 1;
     promptsRequestSeqRef.current = requestId;
-    promptsCommittedFolderByRequestIdRef.current.set(
-      requestId,
+    const requestContext = {
+      agentName: selectedAgentName,
       committedWorkingFolder,
-    );
+    };
+    promptsRequestContextByIdRef.current.set(requestId, requestContext);
     setPromptsLoading(true);
     setPromptsError(null);
     console.info(
@@ -593,7 +625,12 @@ export default function AgentsPage() {
       working_folder: committedWorkingFolder,
     })
       .then((result) => {
-        if (requestId !== promptsRequestSeqRef.current) {
+        const stillActive =
+          requestId === promptsRequestSeqRef.current &&
+          selectedAgentNameRef.current === requestContext.agentName &&
+          committedWorkingFolderRef.current ===
+            requestContext.committedWorkingFolder;
+        if (!stillActive) {
           console.info(
             `[agents.prompts.discovery.request.stale_ignored] requestId=${requestId} workingFolder=${committedWorkingFolder}`,
           );
@@ -603,7 +640,12 @@ export default function AgentsPage() {
         setPromptsError(null);
       })
       .catch((err) => {
-        if (requestId !== promptsRequestSeqRef.current) {
+        const stillActive =
+          requestId === promptsRequestSeqRef.current &&
+          selectedAgentNameRef.current === requestContext.agentName &&
+          committedWorkingFolderRef.current ===
+            requestContext.committedWorkingFolder;
+        if (!stillActive) {
           console.info(
             `[agents.prompts.discovery.request.stale_ignored] requestId=${requestId} workingFolder=${committedWorkingFolder}`,
           );
@@ -613,13 +655,22 @@ export default function AgentsPage() {
         setPromptsError((err as Error).message);
       })
       .finally(() => {
-        promptsCommittedFolderByRequestIdRef.current.delete(requestId);
-        if (requestId !== promptsRequestSeqRef.current) {
+        promptsRequestContextByIdRef.current.delete(requestId);
+        const stillActive =
+          requestId === promptsRequestSeqRef.current &&
+          selectedAgentNameRef.current === requestContext.agentName &&
+          committedWorkingFolderRef.current ===
+            requestContext.committedWorkingFolder;
+        if (!stillActive) {
           return;
         }
         setPromptsLoading(false);
       });
-  }, [committedWorkingFolder, selectedAgentName]);
+  }, [
+    committedWorkingFolder,
+    invalidatePromptDiscoveryState,
+    selectedAgentName,
+  ]);
 
   const commandOptions = useMemo(() => {
     const options = commands.map((cmd) => ({
@@ -1072,6 +1123,10 @@ export default function AgentsPage() {
     stop();
     setStartPending(false);
     setRunError(null);
+    invalidatePromptDiscoveryState({
+      reason: 'selected_agent_reset',
+      clearCommittedWorkingFolder: true,
+    });
     resetTurns();
     setActiveConversationId(undefined);
     setConversation(makeClientConversationId(), { clearMessages: true });
@@ -1083,7 +1138,13 @@ export default function AgentsPage() {
     setToolOpen({});
     setToolErrorOpen({});
     void refreshConversations();
-  }, [refreshConversations, resetTurns, setConversation, stop]);
+  }, [
+    invalidatePromptDiscoveryState,
+    refreshConversations,
+    resetTurns,
+    setConversation,
+    stop,
+  ]);
 
   const handleAgentChange = useCallback(
     (event: SelectChangeEvent<string>) => {

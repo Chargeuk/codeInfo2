@@ -110,6 +110,42 @@ sequenceDiagram
   end
 ```
 
+## Agents prompts discovery service (Story 0000039 Task 2)
+
+- `listAgentPrompts({ agentName, working_folder })` now performs service-side prompt discovery under the resolved runtime/container working folder.
+- Discovery flow:
+  - validate agent existence via `discoverAgents()`,
+  - resolve/validate `working_folder` via `resolveWorkingFolderWorkingDirectory(...)`,
+  - resolve `.github/prompts` with case-insensitive segment matching,
+  - recursively walk prompt tree with explicit stack traversal,
+  - ignore symlink files/directories, include markdown files only (`.md`, case-insensitive),
+  - shape output as `{ relativePath, fullPath }` with `/`-normalized `relativePath` and deterministic sorted order.
+- Empty results remain a non-error outcome when prompts directory is missing or contains no markdown files.
+- Required discovery observability prefixes are emitted:
+  - `[agents.prompts.discovery.start]`
+  - `[agents.prompts.discovery.complete]`
+  - `[agents.prompts.discovery.empty]`
+
+```mermaid
+flowchart TD
+  A[listAgentPrompts request] --> B[discoverAgents + resolve agent]
+  B --> C[resolveWorkingFolderWorkingDirectory]
+  C --> D{resolve .github/prompts<br/>case-insensitive}
+  D -- not found --> E[return prompts: [] + discovery.empty]
+  D -- found --> F[walk prompts tree recursively]
+  F --> G{entry type}
+  G -- symlink --> H[ignore]
+  G -- directory --> I[push to stack]
+  G -- file .md --> J[compute safe relativePath + fullPath]
+  G -- other --> K[ignore]
+  I --> F
+  J --> F
+  F --> L{any markdown prompts?}
+  L -- no --> E
+  L -- yes --> M[sort by relativePath]
+  M --> N[return prompts + discovery.complete]
+```
+
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
 - Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
 - Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.

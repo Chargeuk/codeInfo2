@@ -22,6 +22,25 @@ Modified files (implementation traceability):
 - `server/src/routes/agentsCommands.ts`
 - `server/src/test/unit/agents-commands-router-list.test.ts`
 
+## Story 0000039 Task 2 structural change ledger
+
+Added files:
+
+- `server/src/test/unit/agent-prompts-list.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `server/src/agents/service.ts`
+
 ## Story 0000038 Tasks 1-7 structural change ledger
 
 Added files:

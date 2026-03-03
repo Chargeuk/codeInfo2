@@ -538,7 +538,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 2. Server: implement prompt discovery service (case-insensitive `.github/prompts`, recursive markdown scan, deterministic ordering)
 
-- Task Status: **__in_progress__**
+- Task Status: **__completed__**
 - Git Commits: `d54cac36`
 
 #### Overview
@@ -566,13 +566,13 @@ Implement the actual prompt discovery behavior in the server service layer with 
    - Implement exactly: call `discoverAgents()` to confirm `agentName` exists and call `resolveWorkingFolderWorkingDirectory(...)` to validate/resolve runtime path.
    - Do not add source fan-out across ingest roots for this endpoint.
 
-3. [ ] Add case-insensitive directory resolution for `.github/prompts`.
+3. [x] Add case-insensitive directory resolution for `.github/prompts`.
    - Files: [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
    - Read first: https://nodejs.org/api/fs.html
    - Implement exactly: resolve each path segment by reading actual dir entries and matching lower-cased names (`.github`, then `prompts`).
    - If not found, return `prompts: []` (not an error).
 
-4. [ ] Add recursive markdown discovery walker.
+4. [x] Add recursive markdown discovery walker.
    - Files: [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
    - Read first: https://nodejs.org/api/fs.html and https://nodejs.org/api/path.html
    - Implement exactly:
@@ -586,106 +586,106 @@ Implement the actual prompt discovery behavior in the server service layer with 
      type PromptItem = { relativePath: string; fullPath: string };
      ```
 
-5. [ ] Normalize and sort response output deterministically.
+5. [x] Normalize and sort response output deterministically.
    - Files: [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
    - Read first: https://nodejs.org/api/path.html
    - Implement exactly: compute `relativePath` from prompts root, normalize separators to `/`, verify path is inside prompts root, then sort ascending by normalized `relativePath` using the same `localeCompare` comparator style already used in [server/src/ingest/deltaPlan.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/deltaPlan.ts) and [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts).
 
-6. [ ] Add service `AGENT_NOT_FOUND` test.
+6. [x] Add service `AGENT_NOT_FOUND` test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: create `server/src/test/unit/agent-prompts-list.test.ts` if it does not already exist, then add a test where unknown `agentName` is passed and assert `AGENT_NOT_FOUND`.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify agent existence guard behavior.
 
-7. [ ] Add service `WORKING_FOLDER_INVALID` mapping test.
+7. [x] Add service `WORKING_FOLDER_INVALID` mapping test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: mock/trigger invalid working folder and assert service throws `WORKING_FOLDER_INVALID`.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify invalid-path validation behavior.
 
-8. [ ] Add service `WORKING_FOLDER_NOT_FOUND` mapping test.
+8. [x] Add service `WORKING_FOLDER_NOT_FOUND` mapping test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: mock/trigger missing working folder and assert service throws `WORKING_FOLDER_NOT_FOUND`.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify missing-path validation behavior.
 
-9. [ ] Add case-insensitive `.github/prompts` detection test.
+9. [x] Add case-insensitive `.github/prompts` detection test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: add fixture with mixed-case folder segments and assert prompt discovery still succeeds.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify required case-insensitive folder matching.
 
-10. [ ] Add recursive prompt discovery test.
+10. [x] Add recursive prompt discovery test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: add nested prompt files and assert all nested markdown files are returned.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify recursive traversal behavior.
 
-11. [ ] Add markdown-extension inclusion/exclusion test.
+11. [x] Add markdown-extension inclusion/exclusion test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: assert `.md`, `.MD`, and `*.prompt.md` are included while non-markdown files are excluded.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify extension filtering rules.
 
-12. [ ] Add symlink-ignore test.
+12. [x] Add symlink-ignore test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: include symlink entries in fixture and assert they are ignored.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify traversal safety and loop prevention.
 
-13. [ ] Add deterministic sort-order test.
+13. [x] Add deterministic sort-order test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: provide unsorted fixture names and assert ascending normalized `relativePath` order in output.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify stable deterministic API output ordering.
 
-14. [ ] Add forward-slash `relativePath` normalization test.
+14. [x] Add forward-slash `relativePath` normalization test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: add a test asserting every returned `relativePath` uses forward slashes (`/`) and never backslashes.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify API contract requirement for normalized `relativePath` separators.
 
-15. [ ] Add output-shape safety test.
+15. [x] Add output-shape safety test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: assert each prompt has absolute `fullPath` and `relativePath` is never absolute and never starts with `..`.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify path safety and contract correctness.
 
-16. [ ] Add zero-results-when-prompts-dir-missing test.
+16. [x] Add zero-results-when-prompts-dir-missing test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: assert service returns `{ prompts: [] }` when `.github/prompts` is absent.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify non-error empty-state behavior for missing prompts root.
 
-17. [ ] Add zero-results-when-prompts-dir-has-no-markdown test.
+17. [x] Add zero-results-when-prompts-dir-has-no-markdown test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agent-prompts-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-prompts-list.test.ts)
    - Description: assert service returns `{ prompts: [] }` when prompts directory exists but contains no markdown files.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify non-error empty-state behavior for non-markdown-only trees.
 
-18. [ ] Update design documentation for prompt-discovery service flow.
+18. [x] Update design documentation for prompt-discovery service flow.
    - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - Read first: https://mermaid.js.org/syntax/flowchart.html and Context7 Mermaid docs `/mermaid-js/mermaid`
    - Implement exactly: add/update service-layer discovery notes for case-insensitive `.github/prompts` lookup, recursive markdown filtering, symlink-ignore behavior, and include a Mermaid flowchart/sequence diagram for traversal and result shaping.
 
-19. [ ] Update structure docs only if files changed.
+19. [x] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `server/src/test/unit/agent-prompts-list.test.ts` and any new prompt-discovery fixtures created for these tests. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-20. [ ] Add prompt-discovery service observability log lines for manual verification.
+20. [x] Add prompt-discovery service observability log lines for manual verification.
    - Files: [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
    - Implement exactly: emit structured logs with these exact prefixes:
      - `[agents.prompts.discovery.start] agentName=<agentName> workingFolder=<resolvedWorkingFolder>` at discovery start.
@@ -693,19 +693,19 @@ Implement the actual prompt discovery behavior in the server service layer with 
      - `[agents.prompts.discovery.empty] reason=<prompts_dir_missing_or_no_markdown>` when returning zero results for missing/no-markdown trees.
    - Purpose: provide deterministic discovery lifecycle traces for manual Playwright-MCP validation.
 
-21. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+21. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests without using the wrapper commands listed below.
 
-1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
-4. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, trigger prompt discovery for a folder with prompts and a folder without prompts, then run `npm run compose:logs` and confirm `[agents.prompts.discovery.start]` then `[agents.prompts.discovery.complete]` for populated folders and `[agents.prompts.discovery.empty] reason=prompts_dir_missing_or_no_markdown` for empty/missing trees. Expected outcome: logged prompt counts match UI-visible results and no browser debug-console errors.
-7. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+4. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [x] `npm run compose:up`
+6. [x] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, trigger prompt discovery for a folder with prompts and a folder without prompts, then run `npm run compose:logs` and confirm `[agents.prompts.discovery.start]` then `[agents.prompts.discovery.complete]` for populated folders and `[agents.prompts.discovery.empty] reason=prompts_dir_missing_or_no_markdown` for empty/missing trees. Expected outcome: logged prompt counts match UI-visible results and no browser debug-console errors.
+7. [x] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
@@ -713,7 +713,17 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 - Subtasks 1-2: `listAgentPrompts({ agentName, working_folder })` has been added in `server/src/agents/service.ts` and currently validates agent existence via `discoverAgents()` plus working-folder resolution via `resolveWorkingFolderWorkingDirectory(...)` before returning a temporary empty result.
 - Commit evidence: implemented in `d54cac36` while landing Task 1 route contract wiring; this is valid shared progress because Task 1 required the service dependency to exist.
-- Remaining subtasks in this task are still pending (case-insensitive `.github/prompts` resolution, recursive markdown discovery, deterministic sorting, service-specific tests, observability logs, and this task's full wrapper/manual verification).
+- Subtasks 3-5: Implemented case-insensitive `.github/prompts` segment resolution, recursive markdown-only traversal with symlink ignore, and deterministic `relativePath`/`fullPath` shaping with sorted output.
+- Subtask 20: Added discovery lifecycle logs for start/complete/empty states using required `[agents.prompts.discovery.*]` prefixes.
+- Subtasks 6-17: Added `server/src/test/unit/agent-prompts-list.test.ts` with coverage for agent/folder error mapping, case-insensitive prompts detection, recursion, markdown filtering, symlink ignore, deterministic ordering, path normalization/safety, and zero-result cases.
+- Subtasks 18-19: Updated `design.md` with service discovery flow documentation/diagram and updated `projectStructure.md` to track Task 2 file additions/modifications.
+- Subtask 21: Ran lint and format checks; `format:check` initially failed for the new prompt-list test file and was resolved by running `npm run format --workspaces` before re-checking.
+- Testing step 2: `npm run test:summary:server:unit` passed with `tests run: 916`, `passed: 916`, `failed: 0` (`test-results/server-unit-tests-2026-03-03T07-33-26-607Z.log`).
+- Testing step 3: `npm run test:summary:server:cucumber` passed with `tests run: 68`, `passed: 68`, `failed: 0` (`test-results/server-cucumber-tests-2026-03-03T07-42-03-031Z.log`).
+- Testing step 4: `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0` (`logs/test-summaries/compose-build-latest.log`).
+- Testing step 5: `npm run compose:up` succeeded; `codeinfo2-server-1` and `codeinfo2-client-1` reported started/healthy in compose output.
+- Testing step 6: Playwright-MCP manual check used `http://host.docker.internal:5001/agents` plus browser-console `fetch` calls to `http://host.docker.internal:5010/agents/coding_agent/prompts` for a populated folder (`.../tmp-manual-prompts`) and an empty folder (`.../codeInfo2`); responses were `200` with `promptsCount=1` and `prompts=[]` respectively, no browser console errors were emitted, and server logs (`logs/server.1.log`) showed required `[agents.prompts.discovery.start]`, `[agents.prompts.discovery.complete]`, and `[agents.prompts.discovery.empty] reason=prompts_dir_missing_or_no_markdown` entries.
+- Testing step 7: `npm run compose:down` passed and removed all compose services plus network `codeinfo2_internal`.
 
 ---
 

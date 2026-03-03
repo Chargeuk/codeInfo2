@@ -498,7 +498,15 @@ Define the new REST message contract at the router boundary before any frontend 
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `server/src/test/unit/openapi.prompts-route.test.ts` when created. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-22. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+22. [ ] Add prompts-route observability log lines for manual verification.
+   - Files: [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts)
+   - Implement exactly: emit structured logs with these exact prefixes:
+     - `[agents.prompts.route.request] agentName=<agentName> workingFolder=<working_folder>` before calling `listAgentPrompts(...)`.
+     - `[agents.prompts.route.success] agentName=<agentName> promptsCount=<count>` on `200` responses.
+     - `[agents.prompts.route.error] agentName=<agentName> status=<status> code=<code|none>` on mapped `4xx/5xx` responses.
+   - Purpose: provide deterministic route-level traces that can be asserted during manual Playwright-MCP checks.
+
+23. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -507,6 +515,10 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
 2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
 3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+4. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, trigger one prompts discovery request (via UI if available, otherwise run browser-console `fetch` against `/agents/<agentName>/prompts?working_folder=<path>`), then run `npm run compose:logs` and confirm logs contain `[agents.prompts.route.request]` followed by either `[agents.prompts.route.success]` (success with prompts count) or `[agents.prompts.route.error]` (mapped failure status/code). Expected outcome: one terminal route result log per request and no browser debug-console errors.
+7. [ ] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
@@ -665,7 +677,15 @@ Implement the actual prompt discovery behavior in the server service layer with 
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `server/src/test/unit/agent-prompts-list.test.ts` and any new prompt-discovery fixtures created for these tests. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-20. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+20. [ ] Add prompt-discovery service observability log lines for manual verification.
+   - Files: [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
+   - Implement exactly: emit structured logs with these exact prefixes:
+     - `[agents.prompts.discovery.start] agentName=<agentName> workingFolder=<resolvedWorkingFolder>` at discovery start.
+     - `[agents.prompts.discovery.complete] promptsRoot=<resolvedPromptsRoot> promptsCount=<count>` when discovery succeeds.
+     - `[agents.prompts.discovery.empty] reason=<prompts_dir_missing_or_no_markdown>` when returning zero results for missing/no-markdown trees.
+   - Purpose: provide deterministic discovery lifecycle traces for manual Playwright-MCP validation.
+
+21. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -674,6 +694,10 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
 2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
 3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+4. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, trigger prompt discovery for a folder with prompts and a folder without prompts, then run `npm run compose:logs` and confirm `[agents.prompts.discovery.start]` then `[agents.prompts.discovery.complete]` for populated folders and `[agents.prompts.discovery.empty] reason=prompts_dir_missing_or_no_markdown` for empty/missing trees. Expected outcome: logged prompt counts match UI-visible results and no browser debug-console errors.
+7. [ ] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
@@ -788,7 +812,15 @@ Add the frontend API function that consumes the new server prompt-discovery cont
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `client/src/test/agentsApi.promptsList.test.ts` when created. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+14. [ ] Add client API observability log lines for prompts-list requests.
+   - Files: [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts)
+   - Implement exactly: emit browser debug logs with these exact prefixes:
+     - `[agents.prompts.api.request] agentName=<agentName> workingFolder=<working_folder>` before `fetch`.
+     - `[agents.prompts.api.success] agentName=<agentName> promptsCount=<count>` on successful parse.
+     - `[agents.prompts.api.error] agentName=<agentName> status=<status|none> code=<code|none>` on rejected responses/errors.
+   - Purpose: allow Manual Playwright-MCP checks to confirm request/response/error events fire in the expected sequence.
+
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -796,6 +828,10 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 
 1. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
 2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, commit `working_folder`, and verify browser debug console shows `[agents.prompts.api.request]` followed by `[agents.prompts.api.success]` for success; force one failure path and verify `[agents.prompts.api.error]` includes status/code fields. Expected outcome: each request emits exactly one request log plus one success/error log and no unrelated console errors.
+6. [ ] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
@@ -885,7 +921,14 @@ Introduce the command-info icon and popover interaction only. This task does not
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Add command-info popover interaction log lines.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Implement exactly: emit browser debug logs with these exact prefixes:
+     - `[agents.commandInfo.blocked] reason=no_command_selected` when info button is triggered while disabled/no selection.
+     - `[agents.commandInfo.open] commandName=<selectedCommandName>` when popover opens.
+   - Purpose: verify command-info guard and open behavior in Manual Playwright-MCP checks.
+
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -895,7 +938,7 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check to confirm task-specific story behavior and general regressions, including a check that there are no logged errors in the debug console. The front end is accessible at `http://host.docker.internal:5001` via the Playwright MCP tools.
+5. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, click command-info with no command selected and verify `[agents.commandInfo.blocked] reason=no_command_selected`; then select a command and click command-info to verify `[agents.commandInfo.open] commandName=<selectedCommandName>`. Expected outcome: blocked case does not open popover, selected-command case opens popover with matching description, and no browser debug-console errors.
 6. [ ] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
@@ -973,7 +1016,14 @@ Remove the old always-visible inline command description behavior now that comma
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Add command-description presentation mode log lines.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Implement exactly: emit browser debug logs with these exact prefixes:
+     - `[agents.commandDescription.inlineRemoved] rendered=false` on page render to confirm inline block is removed.
+     - `[agents.commandDescription.source] mode=popover commandName=<selectedCommandName|none>` when description source state changes.
+   - Purpose: provide observable evidence that description rendering moved entirely to popover mode.
+
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -983,7 +1033,7 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check to confirm task-specific story behavior and general regressions, including a check that there are no logged errors in the debug console. The front end is accessible at `http://host.docker.internal:5001` via the Playwright MCP tools.
+5. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, select and change commands, and verify browser debug console includes `[agents.commandDescription.inlineRemoved] rendered=false` and `[agents.commandDescription.source] mode=popover ...`. Expected outcome: inline description/default text never appears in UI, popover is the only description surface, and no browser debug-console errors.
 6. [ ] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
@@ -1130,7 +1180,15 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `client/src/test/agentsPage.promptsDiscovery.test.tsx` when created. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-19. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+19. [ ] Add prompt-discovery request lifecycle log lines.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Implement exactly: emit browser debug logs with these exact prefixes:
+     - `[agents.prompts.discovery.commit] source=<blur|enter|picker> workingFolder=<committedWorkingFolder>` on commit events.
+     - `[agents.prompts.discovery.request.start] requestId=<requestId> workingFolder=<committedWorkingFolder>` when request begins.
+     - `[agents.prompts.discovery.request.stale_ignored] requestId=<requestId> workingFolder=<staleWorkingFolder>` when older responses are ignored.
+   - Purpose: verify commit-only triggering and stale-response guard behavior during Manual Playwright-MCP checks.
+
+20. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1140,7 +1198,7 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check to confirm task-specific story behavior and general regressions, including a check that there are no logged errors in the debug console. The front end is accessible at `http://host.docker.internal:5001` via the Playwright MCP tools.
+5. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, trigger `working_folder` commits via blur, Enter, and picker, then quickly switch folders to force stale responses. Verify `[agents.prompts.discovery.commit]`, `[agents.prompts.discovery.request.start]`, and `[agents.prompts.discovery.request.stale_ignored]` appear with matching sources/request ids. Expected outcome: only latest committed folder drives UI state and no browser debug-console errors.
 6. [ ] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
@@ -1262,7 +1320,15 @@ Implement prompts selector rendering rules and selection/reset behavior once req
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `client/src/test/agentsPage.promptsDiscovery.test.tsx` when this task creates it. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+15. [ ] Add prompts-selector state-transition log lines.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Implement exactly: emit browser debug logs with these exact prefixes:
+     - `[agents.prompts.selector.visible] promptCount=<count> workingFolder=<committedWorkingFolder>` when selector row is shown.
+     - `[agents.prompts.selector.hidden] reason=<empty_working_folder|discovery_zero_results|discovery_error>` when selector row is hidden.
+     - `[agents.prompts.selection.changed] relativePath=<relativePath|none>` when user selects or clears a prompt.
+   - Purpose: provide explicit observable state transitions for prompt selector visibility and selection changes.
+
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1272,7 +1338,7 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check to confirm task-specific story behavior and general regressions, including a check that there are no logged errors in the debug console. The front end is accessible at `http://host.docker.internal:5001` via the Playwright MCP tools.
+5. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, exercise prompt discovery success/zero-result/error states and prompt selection/clear actions. Verify `[agents.prompts.selector.visible]`, `[agents.prompts.selector.hidden]`, and `[agents.prompts.selection.changed]` logs match the rendered UI state. Expected outcome: visibility/selection logs map 1:1 to UI transitions and no browser debug-console errors.
 6. [ ] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
@@ -1445,7 +1511,15 @@ Implement prompt execution by composing the canonical instruction string and dis
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `client/src/test/agentsPage.executePrompt.test.tsx` when created. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-22. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+22. [ ] Add execute-prompt orchestration log lines.
+   - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
+   - Implement exactly: emit browser debug logs with these exact prefixes:
+     - `[agents.prompts.execute.clicked] relativePath=<relativePath> fullPath=<fullPath>` when Execute Prompt is clicked.
+     - `[agents.prompts.execute.payload_built] instructionHasFullPath=<true|false>` after composing the canonical preamble.
+     - `[agents.prompts.execute.result] status=<started|error> code=<code|none>` after run request result is known.
+   - Purpose: verify Execute Prompt payload composition and run-result handling via Manual Playwright-MCP checks.
+
+23. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1456,7 +1530,7 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 3. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
 4. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP check to confirm task-specific story behavior and general regressions, including a check that there are no logged errors in the debug console. The front end is accessible at `http://host.docker.internal:5001` via the Playwright MCP tools.
+6. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, select a prompt, click Execute Prompt, and cover both success and error/conflict paths. Verify `[agents.prompts.execute.clicked]`, `[agents.prompts.execute.payload_built] instructionHasFullPath=true`, and `[agents.prompts.execute.result] status=<started|error> code=<...>`. Expected outcome: execution uses full path in payload, instruction endpoint is used, and no browser debug-console errors.
 7. [ ] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
@@ -1505,7 +1579,19 @@ Capture final behavior in repository docs once implementation is complete, inclu
    - Read first: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - Implement exactly: compare final route behavior and schemas to OpenAPI; update only if drift is detected.
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [ ] Add a manual-log verification matrix to story-facing docs.
+   - Files: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - Implement exactly: add a section listing these exact log prefixes and their expected outcomes:
+     - `[agents.prompts.route.request]`, `[agents.prompts.route.success]`, `[agents.prompts.route.error]`
+     - `[agents.prompts.discovery.start]`, `[agents.prompts.discovery.complete]`, `[agents.prompts.discovery.empty]`
+     - `[agents.prompts.api.request]`, `[agents.prompts.api.success]`, `[agents.prompts.api.error]`
+     - `[agents.commandInfo.open]`, `[agents.commandInfo.blocked]`
+     - `[agents.prompts.discovery.commit]`, `[agents.prompts.discovery.request.start]`, `[agents.prompts.discovery.request.stale_ignored]`
+     - `[agents.prompts.selector.visible]`, `[agents.prompts.selector.hidden]`, `[agents.prompts.selection.changed]`
+     - `[agents.prompts.execute.clicked]`, `[agents.prompts.execute.payload_built]`, `[agents.prompts.execute.result]`
+   - Purpose: make manual Playwright-MCP verification criteria explicit and reusable for junior developers.
+
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1513,6 +1599,10 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 
 1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
 2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, run one complete discovery-and-execute flow, and verify runtime logs match the documentation matrix exactly for route/discovery/api/commandInfo/selector/execute prefixes. Expected outcome: documented log catalog and runtime logs are aligned with no browser debug-console errors.
+6. [ ] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
@@ -1569,7 +1659,12 @@ Run full validation for the complete story, verify acceptance criteria end-to-en
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: summarize server contract changes, client behavior changes, test coverage, and regression outcomes.
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [ ] Add final regression evidence checklist for required story log lines.
+   - Files: [planning/0000039-agents-command-info-and-working-folder-prompts.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000039-agents-command-info-and-working-folder-prompts.md)
+   - Implement exactly: in Task 10 implementation notes, add a checklist entry confirming manual verification captured expected outcomes for these exact prefixes: `[agents.prompts.route.request]`, `[agents.prompts.route.success]`, `[agents.prompts.route.error]`, `[agents.prompts.discovery.start]`, `[agents.prompts.discovery.complete]`, `[agents.prompts.discovery.empty]`, `[agents.prompts.api.request]`, `[agents.prompts.api.success]`, `[agents.prompts.api.error]`, `[agents.commandInfo.open]`, `[agents.commandInfo.blocked]`, `[agents.prompts.selector.visible]`, `[agents.prompts.selector.hidden]`, `[agents.prompts.selection.changed]`, `[agents.prompts.execute.clicked]`, `[agents.prompts.execute.payload_built]`, and `[agents.prompts.execute.result]`.
+   - Purpose: ensure final regression sign-off explicitly includes runtime event-log validation evidence.
+
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1583,7 +1678,7 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
 7. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP check to confirm task-specific story behavior and general regressions, including a check that there are no logged errors in the debug console. The front end is accessible at `http://host.docker.internal:5001` via the Playwright MCP tools.
+9. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001` and execute end-to-end happy path plus representative failures. Verify all required story log prefixes appear (`[agents.prompts.route.*]`, `[agents.prompts.discovery.*]`, `[agents.prompts.api.*]`, `[agents.commandInfo.*]`, `[agents.prompts.selector.*]`, `[agents.prompts.execute.*]`) with outcomes matching acceptance criteria. Expected outcome: complete log evidence captured and no browser debug-console errors.
 10. [ ] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.

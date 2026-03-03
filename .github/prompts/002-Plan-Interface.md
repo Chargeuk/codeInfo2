@@ -40,4 +40,4 @@ To achieve this, you must follow these steps with the user:
    - validation behavior and inline messaging
    - keyboard navigation and accessibility
    - responsive behavior (desktop + mobile)
-6. Do not say the UI plan is complete until there are no remaining high-impact questions.
+6. Do not say the UI plan is complete until there are no remaining questions.

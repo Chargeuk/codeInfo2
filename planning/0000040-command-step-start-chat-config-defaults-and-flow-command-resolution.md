@@ -24,10 +24,12 @@ Decisions confirmed for this story:
 - Default start step is always step `1` when a command is selected.
 - Dependency analysis between command steps is out of scope for this story; users can pick any valid step.
 - Chat defaults use precedence `request override > codex/chat/config.toml`, replacing env-default sourcing for these fields.
+- Codex default model source is `codex/chat/config.toml` (`model`), replacing `CHAT_DEFAULT_MODEL` for Codex default model selection, while users can still override model in the GUI per request.
 - Missing `codex/chat/config.toml` bootstraps by copying `codex/config.toml` first, then generating standard template if base config is missing.
 - Deprecated web search alias handling is normalized to canonical `web_search` with default `"live"` parity.
 - `@openai/codex-sdk` is pinned to `0.107.0`.
 - Flow command lookup for repository-sourced flows resolves in this order: same source repository first, then the codeInfo2 repository, then other repositories by first match where "first" means source label alphabetical ascending, tie-broken by full source path alphabetical ascending.
+- Flow command fallback to codeInfo2/other repositories occurs only for command-not-found cases; if same-source command exists but is schema-invalid, resolution fails fast without fallback.
 - Investigation output must include an automated failing repro test and a fix.
 
 Expected end-user outcome:
@@ -47,13 +49,15 @@ Expected end-user outcome:
 6. Command-step dependency inference/enforcement is not introduced in this story; users may execute from any valid selected step.
 7. Chat default values used by server responses and chat execution are sourced from `codex/chat/config.toml` defaults rather than env-default resolution for these fields.
 8. Chat default precedence is `request override > codex/chat/config.toml`.
-9. MCP chat interface uses the same default source policy and precedence as REST chat for Codex options.
-10. If `codex/chat/config.toml` is missing, bootstrap copies `codex/config.toml`; if base config is missing, a standard template is generated; existing chat config is never overwritten.
-11. Deprecated `web_search_request` usage is replaced by canonical `web_search`, with default behavior aligned to `"live"` parity and regression-tested.
-12. `@openai/codex-sdk` is upgraded and pinned to `0.107.0`, with compatibility/regression checks completed.
-13. Flow command lookup for repository-scoped flows resolves commands in this order: same source repository, then codeInfo2 repository, then first matching command in other repositories.
-14. Deterministic fallback ordering for "other repositories" is source label alphabetical ascending, with tie-break by full source path alphabetical ascending.
-15. Investigation and fix follow red-green: automated failing repro test first, then fix, then passing verification.
+9. Codex default model selection uses `codex/chat/config.toml` `model` value instead of `CHAT_DEFAULT_MODEL`, while GUI/request-level model override behavior remains unchanged.
+10. MCP chat interface uses the same default source policy and precedence as REST chat for Codex options.
+11. If `codex/chat/config.toml` is missing, bootstrap copies `codex/config.toml`; if base config is missing, a standard template is generated; existing chat config is never overwritten.
+12. Deprecated `web_search_request` usage is replaced by canonical `web_search`, with default behavior aligned to `"live"` parity and regression-tested.
+13. `@openai/codex-sdk` is upgraded and pinned to `0.107.0`, with compatibility/regression checks completed.
+14. Flow command lookup for repository-scoped flows resolves commands in this order: same source repository, then codeInfo2 repository, then first matching command in other repositories.
+15. Deterministic fallback ordering for "other repositories" is source label alphabetical ascending, with tie-break by full source path alphabetical ascending.
+16. Cross-repository fallback is applied only when command is not found; same-source schema-invalid command files fail fast and do not trigger fallback resolution.
+17. Investigation and fix follow red-green: automated failing repro test first, then fix, then passing verification.
 
 ### Out Of Scope
 
@@ -65,9 +69,8 @@ Expected end-user outcome:
 
 ### Questions
 
-1. For default chat model sourcing, should `codex/chat/config.toml` top-level `model` become the default for Codex chat model selection (replacing `CHAT_DEFAULT_MODEL`) while provider default selection logic remains unchanged?
-2. If `codex/chat/config.toml` omits one or more Codex default fields (`sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `web_search`, network access), should missing values fall back to Codex SDK/native defaults rather than environment-variable defaults?
-3. For flow command fallback resolution, should fallback to codeInfo2/other repositories occur only when command is **not found**, and not when a same-source match exists but fails schema validation (which should fail fast)?
+1. For missing Codex defaults in `codex/chat/config.toml` (`sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `web_search`, network access), which fallback policy should be used?
+Recommended option: use explicit precedence `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback`, emit warnings when env fallback is used so migration can be completed later.
 
 ### Research Findings (2026-03-03)
 

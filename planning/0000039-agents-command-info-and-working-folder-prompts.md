@@ -603,7 +603,7 @@ Introduce the command-info icon and popover interaction only. This task does not
 
 - MUI Popover component docs (v6.4.12): https://llms.mui.com/material-ui/6.4.12/components/popover.md
 - MUI IconButton API docs (v6.4.12): https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
-- Installed dependency note: repo resolves `@mui/material` to `6.5.0`; use v6.4.12 MCP docs as the closest available v6 reference and verify against existing in-repo component usage.
+- MUI v6 upgrade guidance: https://mui.com/material-ui/migration/upgrade-to-v6/
 - React Testing Library interaction patterns: https://testing-library.com/docs/react-testing-library/intro
 
 #### Subtasks
@@ -668,7 +668,7 @@ Remove the old always-visible inline command description behavior now that comma
 #### Documentation Locations (External References Only)
 
 - React Testing Library interaction patterns: https://testing-library.com/docs/react-testing-library/intro
-- Existing command list UI tests in [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
+- DOM Testing Library queries guide: https://testing-library.com/docs/queries/about
 
 #### Subtasks
 
@@ -818,7 +818,7 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 #### Documentation Locations (External References Only)
 
 - MUI Select and TextField docs (v6.4.12): https://llms.mui.com/material-ui/6.4.12/components/selects.md
-- Installed dependency note: repo resolves `@mui/material` to `6.5.0`; use v6.4.12 MCP docs as the closest available v6 reference and verify against existing in-repo component usage.
+- MUI v6 upgrade guidance: https://mui.com/material-ui/migration/upgrade-to-v6/
 - React Testing Library async/state tests: https://testing-library.com/docs/dom-testing-library/api-async
 
 #### Subtasks
@@ -901,7 +901,7 @@ Implement prompt execution by composing the canonical instruction string and dis
 - React event handling: https://react.dev/learn/responding-to-events
 - Existing API error handling patterns in client tests (Jest): https://jestjs.io/docs/expect
 - MUI Button interaction states: https://llms.mui.com/material-ui/6.4.12/api/button.md
-- Installed dependency note: repo resolves `@mui/material` to `6.5.0`; use v6.4.12 MCP docs as the closest available v6 reference and verify against existing in-repo component usage.
+- MUI v6 upgrade guidance: https://mui.com/material-ui/migration/upgrade-to-v6/
 
 #### Subtasks
 

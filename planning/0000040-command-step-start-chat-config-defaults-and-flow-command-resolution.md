@@ -499,23 +499,63 @@ Add the backend response contract for command list items so the frontend can ren
    - Docs to read first: https://expressjs.com/en/guide/routing.html, https://swagger.io/specification/.
    - Acceptance criteria coverage: AC 22, AC 23.
    - Done when: `GET /agents/:agentName/commands` JSON includes `stepCount` for every command item.
-4. [ ] Add/extend tests in [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts) and [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts) for both valid and disabled-command cases.
+4. [ ] Add a unit test for valid multi-step command summaries returning exact `stepCount = command.items.length`.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts).
+   - Description: Build a command fixture with `N > 1` steps and assert returned summary includes `stepCount = N`.
+   - Purpose: Happy-path contract coverage for AC 22.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 22.
+   - Done when: test fails if valid command summary omits `stepCount` or reports incorrect value.
+5. [ ] Add a unit test for single-step command summaries returning `stepCount = 1`.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts).
+   - Description: Build a single-step command fixture and assert summary preserves `stepCount = 1` (not sentinel-disabled behavior).
+   - Purpose: Corner-case coverage for minimum valid step count in AC 22.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 22.
+   - Done when: test fails if valid single-step command is misclassified or step count drifts.
+6. [ ] Add a unit test for disabled/unreadable command files returning sentinel `stepCount: 1` with `disabled: true`.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts).
+   - Description: Simulate read/parse failure and assert summary is disabled with sentinel step count.
+   - Purpose: Error-path coverage for AC 23.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 23.
+   - Done when: test fails if disabled summary omits sentinel step count.
+7. [ ] Add a unit test for empty-item parse outcomes returning sentinel `stepCount: 1` with `disabled: true`.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts).
+   - Description: Simulate parse output that yields no executable items and assert disabled sentinel behavior.
+   - Purpose: Corner-case hardening for AC 23.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 23.
+   - Done when: test proves empty/invalid parse outcomes never produce `stepCount < 1`.
+8. [ ] Add a router unit test ensuring `GET /agents/:agentName/commands` includes `stepCount` in every command item.
+   - Test type: `Unit` (route-level).
+   - Test location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts).
+   - Description: Assert route JSON for both valid and disabled command fixtures always contains `stepCount`.
+   - Purpose: Route message-contract coverage for AC 22 and AC 23.
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 22, AC 23.
-   - Done when: tests assert exact `stepCount` values and fail if field is absent.
-5. [ ] Add edge-case tests in [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts) for malformed/unreadable command files and empty-item parse outcomes, asserting sentinel `stepCount: 1` and `disabled: true`.
-   - Docs to read first: https://nodejs.org/api/test.html.
-   - Acceptance criteria coverage: AC 22, AC 23.
-   - Done when: tests cover happy path (multi-step), single-step command, and malformed/empty-path corner cases.
-6. [ ] Update API documentation and contract tests in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts) for required `stepCount` (`integer >= 1`).
+   - Done when: test fails if any returned item omits `stepCount`.
+9. [ ] Update API documentation in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) for required `stepCount` (`integer >= 1`).
    - Docs to read first: https://swagger.io/specification/, https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 22, AC 23.
-   - Done when: OpenAPI schema and contract tests both enforce required `stepCount`.
-7. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for this task’s new/changed message contract and test files.
+   - Done when: OpenAPI schema requires `stepCount` on command list items.
+10. [ ] Add a contract test asserting OpenAPI requires `stepCount` with minimum `1`.
+   - Test type: `Contract`.
+   - Test location: [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts).
+   - Description: Assert command list response schema marks `stepCount` as required integer with min constraint.
+   - Purpose: Prevent contract drift between implementation and OpenAPI docs (AC 22, AC 23).
+   - Docs to read first: https://nodejs.org/api/test.html, https://swagger.io/specification/.
+   - Acceptance criteria coverage: AC 22, AC 23.
+   - Done when: test fails if OpenAPI schema allows missing or invalid `stepCount`.
+11. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for this task’s new/changed message contract and test files.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 22, AC 23.
    - Done when: docs explicitly mention `stepCount` contract and touched file map changes.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 22, AC 23 implementation.
    - Done when: both commands pass with no remaining lint/format errors.
@@ -574,27 +614,79 @@ Add the run-request message contract for optional `startStep` with strict input 
    - Docs to read first: https://www.typescriptlang.org/docs/handbook/2/functions.html.
    - Acceptance criteria coverage: AC 24.
    - Done when: service compiles with optional `startStep` in route-to-service contracts.
-5. [ ] Add/extend route tests in [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts) for accepted omitted value, rejected bad types, and deterministic `INVALID_START_STEP` error payload.
+5. [ ] Add a route unit test for backward compatibility where request omits `startStep` and is accepted.
+   - Test type: `Unit` (route-level).
+   - Test location: [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts).
+   - Description: Send `POST /agents/:agentName/commands/run` without `startStep` and assert request is accepted.
+   - Purpose: Happy-path backward compatibility coverage for AC 24.
    - Docs to read first: https://nodejs.org/api/test.html.
-   - Acceptance criteria coverage: AC 7, AC 24, AC 25.
-   - Done when: tests assert full error body shape and backward-compatible omission behavior.
-6. [ ] Add explicit invalid-type route tests in [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts) for `startStep` values `\"2\"`, `2.5`, `true`, and `null`, all returning `400 invalid_request`.
+   - Acceptance criteria coverage: AC 24.
+   - Done when: test fails if omitted `startStep` is rejected.
+6. [ ] Add a route unit test for string `startStep` values returning `400 invalid_request`.
+   - Test type: `Unit` (route-level).
+   - Test location: [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts).
+   - Description: Use `startStep: "2"` and assert deterministic rejection.
+   - Purpose: Error-path type validation coverage for AC 7 and AC 25.
    - Docs to read first: https://nodejs.org/api/test.html, https://developer.mozilla.org/en-US/docs/Web/HTTP/Status.
    - Acceptance criteria coverage: AC 7, AC 25.
-   - Done when: each invalid type is covered by a deterministic assertion.
-7. [ ] Add/extend MCP regression checks in [server/src/test/unit/mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts) and verify [server/src/mcpAgents/tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts) schema has no `startStep`.
+   - Done when: test fails if string values are accepted.
+7. [ ] Add a route unit test for fractional `startStep` values returning `400 invalid_request`.
+   - Test type: `Unit` (route-level).
+   - Test location: [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts).
+   - Description: Use `startStep: 2.5` and assert deterministic rejection.
+   - Purpose: Error-path integer-only contract coverage for AC 7 and AC 25.
+   - Docs to read first: https://nodejs.org/api/test.html, https://developer.mozilla.org/en-US/docs/Web/HTTP/Status.
+   - Acceptance criteria coverage: AC 7, AC 25.
+   - Done when: test fails if fractional values are accepted.
+8. [ ] Add a route unit test for boolean `startStep` values returning `400 invalid_request`.
+   - Test type: `Unit` (route-level).
+   - Test location: [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts).
+   - Description: Use `startStep: true` and assert deterministic rejection.
+   - Purpose: Error-path contract coverage for AC 7 and AC 25.
+   - Docs to read first: https://nodejs.org/api/test.html, https://developer.mozilla.org/en-US/docs/Web/HTTP/Status.
+   - Acceptance criteria coverage: AC 7, AC 25.
+   - Done when: test fails if boolean values are accepted.
+9. [ ] Add a route unit test for `null` `startStep` values returning `400 invalid_request`.
+   - Test type: `Unit` (route-level).
+   - Test location: [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts).
+   - Description: Use `startStep: null` and assert deterministic rejection.
+   - Purpose: Error-path null-handling coverage for AC 7 and AC 25.
+   - Docs to read first: https://nodejs.org/api/test.html, https://developer.mozilla.org/en-US/docs/Web/HTTP/Status.
+   - Acceptance criteria coverage: AC 7, AC 25.
+   - Done when: test fails if null values are accepted.
+10. [ ] Add a route unit test for deterministic `INVALID_START_STEP` error payload shape.
+   - Test type: `Unit` (route-level).
+   - Test location: [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts).
+   - Description: Assert response includes `error`, `code`, and exact `message` format when start step validation fails.
+   - Purpose: Error-contract stability coverage for AC 25.
+   - Docs to read first: https://nodejs.org/api/test.html, https://developer.mozilla.org/en-US/docs/Web/HTTP/Status.
+   - Acceptance criteria coverage: AC 25.
+   - Done when: test fails if code or message format drifts.
+11. [ ] Add an MCP regression test proving `run_command` tool input schema still has no `startStep`.
+   - Test type: `Unit` (MCP contract).
+   - Test location: [server/src/test/unit/mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts).
+   - Description: Assert MCP schema in [server/src/mcpAgents/tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts) remains unchanged for `run_command`.
+   - Purpose: Non-regression coverage for AC 8 and AC 24.
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 8, AC 24.
-   - Done when: MCP contract tests prove no schema drift for `run_command`.
-8. [ ] Update [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts) for optional `startStep` and `INVALID_START_STEP` error shape.
+   - Done when: test fails if `startStep` appears in MCP tool schema.
+12. [ ] Update [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) for optional `startStep` and `INVALID_START_STEP` error shape.
    - Docs to read first: https://swagger.io/specification/, https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 24, AC 25.
-   - Done when: OpenAPI and contract tests match runtime route behavior.
-9. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for run-request contract updates.
+   - Done when: OpenAPI schema matches runtime request/response shapes.
+13. [ ] Add a contract test asserting OpenAPI `run` request marks `startStep` optional and `INVALID_START_STEP` error payload is documented.
+   - Test type: `Contract`.
+   - Test location: [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts).
+   - Description: Assert schema constraints for request body and error response fields/code/message.
+   - Purpose: Prevent OpenAPI/runtime drift for AC 24 and AC 25.
+   - Docs to read first: https://nodejs.org/api/test.html, https://swagger.io/specification/.
+   - Acceptance criteria coverage: AC 24, AC 25.
+   - Done when: test fails if contract allows required `startStep` or omits error fields.
+14. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for run-request contract updates.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 24, AC 25.
    - Done when: docs list optional `startStep` and unchanged MCP scope.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 6, AC 7, AC 24, AC 25.
    - Done when: both commands pass.
@@ -648,23 +740,75 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Docs to read first: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status.
    - Acceptance criteria coverage: AC 7, AC 25.
    - Done when: out-of-range values fail deterministically with route-mapped code/message.
-4. [ ] Add/extend unit tests in [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for omitted default, non-1 offsets, and deterministic out-of-range failures.
-   - Docs to read first: https://nodejs.org/api/test.html.
-   - Acceptance criteria coverage: AC 6, AC 7, AC 24, AC 25.
-   - Done when: tests prove both valid offset execution and deterministic rejection behavior.
-5. [ ] Add explicit boundary tests in [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for `startStep = 1`, `startStep = N`, `startStep = 0`, and `startStep = N+1`, asserting the exact message `startStep must be between 1 and N`.
-   - Docs to read first: https://nodejs.org/api/test.html.
-   - Acceptance criteria coverage: AC 6, AC 7, AC 25.
-   - Done when: tests pin both happy-path boundaries and range-error edge cases.
-6. [ ] Add/extend integration tests in [server/src/test/integration/agents-run-client-conversation-id.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-client-conversation-id.test.ts) for backward compatibility (older clients omitting `startStep` still run from step 1 on both entry paths).
+4. [ ] Add a runner unit test for omitted `startStep` defaulting to `1`.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
+   - Description: Run command without `startStep` and assert execution begins at first step.
+   - Purpose: Happy-path backward compatibility coverage for AC 24.
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 24.
-   - Done when: both command-run entry paths prove omission behavior in integration tests.
-7. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for execution-path changes and new test coverage.
+   - Done when: test fails if omitted value does not start at step 1.
+5. [ ] Add a runner unit test for valid non-default `startStep` execution offsets.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
+   - Description: Run with `startStep > 1` and assert skipped earlier steps and correct emitted metadata.
+   - Purpose: Happy-path execution-offset coverage for AC 6 and AC 9.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 6, AC 9.
+   - Done when: test fails if runner still starts at step 1.
+6. [ ] Add a runner unit test for lower-bound `startStep = 1`.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
+   - Description: Assert boundary value `1` is accepted and executes full command.
+   - Purpose: Boundary happy-path coverage for AC 6 and AC 25.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 6, AC 25.
+   - Done when: test fails if boundary lower value is rejected.
+7. [ ] Add a runner unit test for upper-bound `startStep = N`.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
+   - Description: Assert boundary value `N` executes only final step and succeeds.
+   - Purpose: Boundary happy-path coverage for AC 6 and AC 25.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 6, AC 25.
+   - Done when: test fails if upper valid boundary is rejected.
+8. [ ] Add a runner unit test for out-of-range `startStep = 0`.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
+   - Description: Assert deterministic `INVALID_START_STEP` failure with message `startStep must be between 1 and N`.
+   - Purpose: Error-path range validation coverage for AC 7 and AC 25.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 7, AC 25.
+   - Done when: test fails if lower out-of-range values are accepted or message drifts.
+9. [ ] Add a runner unit test for out-of-range `startStep = N+1`.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
+   - Description: Assert deterministic `INVALID_START_STEP` failure with message `startStep must be between 1 and N`.
+   - Purpose: Error-path range validation coverage for AC 7 and AC 25.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 7, AC 25.
+   - Done when: test fails if upper out-of-range values are accepted or message drifts.
+10. [ ] Add an integration test for omission behavior on `startAgentCommand` entry path.
+   - Test type: `Integration`.
+   - Test location: [server/src/test/integration/agents-run-client-conversation-id.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-client-conversation-id.test.ts).
+   - Description: Execute command through the `startAgentCommand` path without `startStep` and assert run begins at step 1.
+   - Purpose: Backward compatibility coverage for AC 24 across service entry points.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 24.
+   - Done when: test fails if omission path diverges from step-1 default.
+11. [ ] Add an integration test for omission behavior on `runAgentCommand` entry path.
+   - Test type: `Integration`.
+   - Test location: [server/src/test/integration/agents-run-client-conversation-id.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-client-conversation-id.test.ts).
+   - Description: Execute command through the `runAgentCommand` path without `startStep` and assert run begins at step 1.
+   - Purpose: Backward compatibility coverage for AC 24 across service entry points.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 24.
+   - Done when: test fails if omission path diverges from step-1 default.
+12. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for execution-path changes and new test coverage.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
    - Done when: docs mention runtime start-step conversion and backward compatibility.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 6, AC 7, AC 24, AC 25.
    - Done when: both commands pass.
@@ -713,19 +857,67 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Docs to read first: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, https://www.typescriptlang.org/docs/handbook/type-compatibility.html.
    - Acceptance criteria coverage: AC 6, AC 24.
    - Done when: API wrapper sends `startStep` only when provided by caller.
-3. [ ] Add/extend tests in [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts) and [client/src/test/agentsApi.commandsRun.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsRun.test.ts) for `stepCount` parsing and optional `startStep` payload behavior.
+3. [ ] Add an API unit test for valid command-list payload parsing with required `stepCount`.
+   - Test type: `Unit` (client API wrapper).
+   - Test location: [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts).
+   - Description: Mock command-list response including valid `stepCount` and assert parsed output is accepted.
+   - Purpose: Happy-path client contract coverage for AC 22.
    - Docs to read first: https://jestjs.io/docs/getting-started.
-   - Acceptance criteria coverage: AC 6, AC 22, AC 23, AC 24.
-   - Done when: tests fail if `stepCount` missing or if wrapper always/never sends `startStep`.
-4. [ ] Add response-shape edge-case tests in [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts) for invalid `stepCount` values (`0`, negative, non-number) to ensure API parsing fails fast.
+   - Acceptance criteria coverage: AC 22.
+   - Done when: test fails if valid `stepCount` payload is rejected.
+4. [ ] Add an API unit test that rejects command-list payloads missing required `stepCount`.
+   - Test type: `Unit` (client API wrapper).
+   - Test location: [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts).
+   - Description: Mock response without `stepCount` and assert parser throws/rejects.
+   - Purpose: Error-path client contract coverage for AC 23.
+   - Docs to read first: https://jestjs.io/docs/getting-started.
+   - Acceptance criteria coverage: AC 23.
+   - Done when: test fails if missing `stepCount` payload is accepted.
+5. [ ] Add an API unit test that includes `startStep` in run payload when caller provides it.
+   - Test type: `Unit` (client API wrapper).
+   - Test location: [client/src/test/agentsApi.commandsRun.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsRun.test.ts).
+   - Description: Call run API with `startStep` and assert serialized request includes integer `startStep`.
+   - Purpose: Happy-path payload coverage for AC 6.
+   - Docs to read first: https://jestjs.io/docs/getting-started.
+   - Acceptance criteria coverage: AC 6.
+   - Done when: test fails if provided `startStep` is not serialized.
+6. [ ] Add an API unit test that omits `startStep` in run payload when caller does not provide it.
+   - Test type: `Unit` (client API wrapper).
+   - Test location: [client/src/test/agentsApi.commandsRun.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsRun.test.ts).
+   - Description: Call run API without `startStep` and assert request body does not include the field.
+   - Purpose: Backward compatibility coverage for AC 24.
+   - Docs to read first: https://jestjs.io/docs/getting-started.
+   - Acceptance criteria coverage: AC 24.
+   - Done when: test fails if wrapper always sends `startStep`.
+7. [ ] Add an API unit test rejecting `stepCount = 0` payloads.
+   - Test type: `Unit` (client API wrapper).
+   - Test location: [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts).
+   - Description: Mock `stepCount: 0` and assert parser rejects invalid value.
+   - Purpose: Corner-case contract hardening for AC 22 and AC 23.
+   - Docs to read first: https://jestjs.io/docs/getting-started.
+   - Acceptance criteria coverage: AC 22, AC 23.
+   - Done when: test fails if zero step count is accepted.
+8. [ ] Add an API unit test rejecting negative `stepCount` payloads.
+   - Test type: `Unit` (client API wrapper).
+   - Test location: [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts).
+   - Description: Mock negative `stepCount` and assert parser rejects invalid value.
+   - Purpose: Corner-case contract hardening for AC 22 and AC 23.
+   - Docs to read first: https://jestjs.io/docs/getting-started.
+   - Acceptance criteria coverage: AC 22, AC 23.
+   - Done when: test fails if negative step counts are accepted.
+9. [ ] Add an API unit test rejecting non-numeric `stepCount` payloads.
+   - Test type: `Unit` (client API wrapper).
+   - Test location: [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts).
+   - Description: Mock string/object `stepCount` and assert parser rejects invalid type.
+   - Purpose: Error-path contract hardening for AC 22 and AC 23.
    - Docs to read first: https://jestjs.io/docs/getting-started, https://www.typescriptlang.org/docs/handbook/type-compatibility.html.
    - Acceptance criteria coverage: AC 22, AC 23.
-   - Done when: tests prove client rejects non-contract `stepCount` payloads.
-5. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for client API contract updates.
+   - Done when: test fails if non-numeric step counts are accepted.
+10. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for client API contract updates.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 6, AC 22, AC 24.
    - Done when: docs show new client API payload/response shapes.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 6, AC 22, AC 24.
    - Done when: both commands pass.
@@ -781,23 +973,79 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Docs to read first: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API.
    - Acceptance criteria coverage: AC 6.
    - Done when: outbound run request body contains correct `startStep` value.
-4. [ ] Add/extend UI tests in [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx), [client/src/test/agentsPage.run.commandError.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.commandError.test.tsx), and [client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx) for visibility, disable rules, reset rules, payload wiring, and `INVALID_START_STEP` error display.
+4. [ ] Add a UI test that `Start step` control is visible and positioned after command selection.
+   - Test type: `Component/UI`.
+   - Test location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
+   - Description: Render AGENTS command row and assert the labeled `Start step` control appears in expected order.
+   - Purpose: Happy-path visual/structure coverage for AC 1.
    - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/, https://jestjs.io/docs/getting-started.
-   - Acceptance criteria coverage: AC 1, AC 2, AC 3, AC 4, AC 5, AC 6, AC 8.
-   - Done when: tests fail if any state rule or payload behavior drifts.
-5. [ ] Add corner-case UI tests in [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx) for `stepCount = 1` (visible + disabled + `Step 1` selected), and command-switch reset (`Step N -> Step 1`) when user changes command.
+   - Acceptance criteria coverage: AC 1.
+   - Done when: test fails if control is missing or misplaced.
+5. [ ] Add a UI test that `Start step` is disabled before valid command metadata loads.
+   - Test type: `Component/UI`.
+   - Test location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
+   - Description: Assert disabled state before command selection/metadata readiness.
+   - Purpose: State-guard coverage for AC 2.
+   - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/.
+   - Acceptance criteria coverage: AC 2.
+   - Done when: test fails if control becomes active too early.
+6. [ ] Add a UI test for options rendering exactly `Step 1..Step N` and default selection `Step 1`.
+   - Test type: `Component/UI`.
+   - Test location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
+   - Description: Select a command with known `stepCount` and assert option labels and default selected value.
+   - Purpose: Happy-path option-generation coverage for AC 3.
+   - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/.
+   - Acceptance criteria coverage: AC 3.
+   - Done when: test fails if options or default value drift.
+7. [ ] Add a UI test for command-switch reset (`Step N -> Step 1`).
+   - Test type: `Component/UI`.
+   - Test location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
+   - Description: Change start step away from `1`, switch command, and assert selection resets to `Step 1`.
+   - Purpose: State-reset coverage for AC 4.
    - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/, https://react.dev/learn/managing-state.
-   - Acceptance criteria coverage: AC 3, AC 4, AC 5.
-   - Done when: tests pin single-step behavior and reset behavior as explicit edge cases.
-6. [ ] Show backend `INVALID_START_STEP` responses using existing command error area in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx), preserving deterministic range text from server.
+   - Acceptance criteria coverage: AC 4.
+   - Done when: test fails if selection persists across command change.
+8. [ ] Add a UI test for `stepCount = 1` behavior (visible, selected `Step 1`, and disabled).
+   - Test type: `Component/UI`.
+   - Test location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
+   - Description: Use single-step command fixture and assert locked single-step control behavior.
+   - Purpose: Corner-case coverage for AC 5.
+   - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/.
+   - Acceptance criteria coverage: AC 5.
+   - Done when: test fails if single-step control is hidden or enabled.
+9. [ ] Add a UI/API integration test that execute action sends selected `startStep` integer.
+   - Test type: `Component/UI` (request payload assertion).
+   - Test location: [client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx).
+   - Description: Select non-default step, click execute, and assert outbound request body includes correct integer `startStep`.
+   - Purpose: Payload wiring coverage for AC 6.
+   - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/.
+   - Acceptance criteria coverage: AC 6.
+   - Done when: test fails if execute payload omits or mis-types `startStep`.
+10. [ ] Add a UI test proving no `startStep` controls are introduced on non-AGENTS surfaces touched by this task.
+   - Test type: `Component/UI` non-regression.
+   - Test location: [client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx).
+   - Description: Assert current test surface only renders AGENTS control and does not require additional flow/chat controls.
+   - Purpose: Scope guard for AC 8.
+   - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/.
+   - Acceptance criteria coverage: AC 8.
+   - Done when: test fails if unexpected start-step UI appears outside AGENTS behavior under test.
+11. [ ] Show backend `INVALID_START_STEP` responses using existing command error area in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx), preserving deterministic range text from server.
    - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/.
    - Acceptance criteria coverage: AC 7, AC 25.
    - Done when: UI displays server message text for this error without introducing a new error surface.
-7. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for AGENTS start-step UX and changed test files.
+12. [ ] Add a UI test asserting backend `INVALID_START_STEP` message is rendered unchanged in command error area.
+   - Test type: `Component/UI`.
+   - Test location: [client/src/test/agentsPage.run.commandError.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.commandError.test.tsx).
+   - Description: Mock server `INVALID_START_STEP` response and assert exact range text is displayed.
+   - Purpose: Error-message contract coverage for AC 7 and AC 25.
+   - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/, https://jestjs.io/docs/getting-started.
+   - Acceptance criteria coverage: AC 7, AC 25.
+   - Done when: test fails if UI rewrites or drops server message text.
+13. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for AGENTS start-step UX and changed test files.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 1-8.
    - Done when: docs describe new control behavior and where implemented/tests live.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 1-8.
    - Done when: both commands pass.
@@ -851,19 +1099,83 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Docs to read first: https://developers.openai.com/codex/config-reference.
    - Acceptance criteria coverage: AC 16.
    - Done when: resolver output is stable for canonical+alias mixed inputs.
-4. [ ] Add/extend resolver tests in [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts), including invalid TOML/invalid field values and deterministic fallback warnings.
+4. [ ] Add a resolver unit test for invalid TOML in `codex/chat/config.toml`.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
+   - Description: Supply malformed TOML and assert deterministic fallback behavior and warnings.
+   - Purpose: Error-path robustness coverage for AC 13 and AC 14.
    - Docs to read first: https://nodejs.org/api/test.html.
-   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
-   - Done when: test cases cover success, invalid config, and fallback warning branches.
-5. [ ] Add precedence-matrix tests in [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts) for each covered field (`sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, `web_search`) across override/config/env/hardcoded fallback order, with field-name warnings only on env fallback.
+   - Acceptance criteria coverage: AC 13, AC 14.
+   - Done when: test fails if parser failure silently skips warnings or returns unstable defaults.
+5. [ ] Add a resolver unit test for invalid field values in parsed config.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
+   - Description: Provide invalid enum/string values for covered keys and assert fallback chain selection.
+   - Purpose: Error-path validation coverage for AC 11, AC 13, and AC 14.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 11, AC 13, AC 14.
+   - Done when: test fails if invalid values are accepted as defaults.
+6. [ ] Add a resolver precedence unit test for `sandbox_mode` (`override > config > env > hardcoded`).
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
+   - Description: Assert source precedence ordering and fallback warning behavior for `sandbox_mode`.
+   - Purpose: Field-specific precedence coverage for AC 10, AC 12, AC 13, AC 14.
    - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
-   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
-   - Done when: tests explicitly assert source precedence and warning text per field.
-6. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for shared resolver behavior and touched test files.
+   - Acceptance criteria coverage: AC 10, AC 12, AC 13, AC 14.
+   - Done when: test fails if precedence or warning source is incorrect.
+7. [ ] Add a resolver precedence unit test for `approval_policy` (`override > config > env > hardcoded`).
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
+   - Description: Assert source precedence ordering and fallback warning behavior for `approval_policy`.
+   - Purpose: Field-specific precedence coverage for AC 10, AC 12, AC 13, AC 14.
+   - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
+   - Acceptance criteria coverage: AC 10, AC 12, AC 13, AC 14.
+   - Done when: test fails if precedence or warning source is incorrect.
+8. [ ] Add a resolver precedence unit test for `model_reasoning_effort` (`override > config > env > hardcoded`).
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
+   - Description: Assert source precedence ordering and fallback warning behavior for `model_reasoning_effort`.
+   - Purpose: Field-specific precedence coverage for AC 10, AC 12, AC 13, AC 14.
+   - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
+   - Acceptance criteria coverage: AC 10, AC 12, AC 13, AC 14.
+   - Done when: test fails if precedence or warning source is incorrect.
+9. [ ] Add a resolver precedence unit test for `model` (`override > config > env > hardcoded`).
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
+   - Description: Assert source precedence ordering and fallback warning behavior for `model`.
+   - Purpose: Field-specific precedence coverage for AC 10, AC 12, AC 13, AC 14.
+   - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
+   - Acceptance criteria coverage: AC 10, AC 12, AC 13, AC 14.
+   - Done when: test fails if precedence or warning source is incorrect.
+10. [ ] Add a resolver unit test that canonical `web_search` wins when both canonical and alias keys are present.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
+   - Description: Provide config containing both canonical and alias inputs and assert canonical value is used.
+   - Purpose: Canonical precedence coverage for AC 16.
+   - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
+   - Acceptance criteria coverage: AC 16.
+   - Done when: test fails if alias keys override canonical `web_search`.
+11. [ ] Add a resolver unit test that alias `web_search=true` maps to canonical `live`.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
+   - Description: Provide alias boolean `true` and assert normalized output is `web_search = "live"`.
+   - Purpose: Alias normalization coverage for AC 16.
+   - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
+   - Acceptance criteria coverage: AC 16.
+   - Done when: test fails if alias `true` maps to any value other than `live`.
+12. [ ] Add a resolver unit test that alias `web_search=false` maps to canonical `disabled`.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
+   - Description: Provide alias boolean `false` and assert normalized output is `web_search = "disabled"`.
+   - Purpose: Alias normalization coverage for AC 16.
+   - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
+   - Acceptance criteria coverage: AC 16.
+   - Done when: test fails if alias `false` maps to any value other than `disabled`.
+13. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for shared resolver behavior and touched test files.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: docs describe precedence chain and file changes.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
    - Done when: both commands pass.
@@ -914,19 +1226,59 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Docs to read first: https://expressjs.com/en/guide/routing.html, https://developers.openai.com/codex/config-reference.
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
    - Done when: REST chat request validation and metadata endpoints all derive Codex defaults from same resolver path.
-4. [ ] Add/extend tests in [server/src/test/unit/chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts), [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts), and [server/src/test/unit/chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts).
+4. [ ] Add a unit test for `/chat/models` default sourcing from shared resolver.
+   - Test type: `Unit` (route-level).
+   - Test location: [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts).
+   - Description: Assert `codexDefaults` fields come from shared resolver precedence, not env-only behavior.
+   - Purpose: Happy-path default-source coverage for AC 10-13.
    - Docs to read first: https://nodejs.org/api/test.html.
-   - Acceptance criteria coverage: AC 10-16.
-   - Done when: tests fail on any env-first regression in these endpoints.
-5. [ ] Add cross-surface parity tests using a shared fixture config in [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts), [server/src/test/unit/chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts), and [server/src/test/unit/chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts) to assert identical defaults and warnings across endpoints.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13.
+   - Done when: test fails if `/chat/models` uses legacy env-first behavior.
+5. [ ] Add a unit test for `/chat/providers` default/warning behavior from shared resolver.
+   - Test type: `Unit` (route-level).
+   - Test location: [server/src/test/unit/chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts).
+   - Description: Assert provider payload exposes resolver-backed defaults and field-specific warnings.
+   - Purpose: Happy-path and warning coverage for AC 10-14.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14.
+   - Done when: test fails if warnings/defaults diverge from resolver output.
+6. [ ] Add a unit test for chat request validation using shared resolver defaults including `web_search` normalization.
+   - Test type: `Unit` (validator).
+   - Test location: [server/src/test/unit/chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts).
+   - Description: Assert validator path derives defaults via resolver and applies canonical web-search normalization semantics.
+   - Purpose: Validation-path coverage for AC 10-16.
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
-   - Done when: one fixture produces matching assertions across all REST surfaces.
-6. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for REST/default-source behavior.
+   - Done when: test fails if validation path uses stale env-only behavior.
+7. [ ] Add a parity unit test for `chatModels` against shared fixture expectations.
+   - Test type: `Unit` (parity).
+   - Test location: [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts).
+   - Description: Assert one fixture produces expected defaults/warnings identical to resolver output.
+   - Purpose: Cross-surface parity coverage for AC 10-16.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
+   - Done when: test fails if `/chat/models` parity drifts.
+8. [ ] Add a parity unit test for `chatProviders` against shared fixture expectations.
+   - Test type: `Unit` (parity).
+   - Test location: [server/src/test/unit/chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts).
+   - Description: Assert one fixture produces expected defaults/warnings identical to resolver output.
+   - Purpose: Cross-surface parity coverage for AC 10-16.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
+   - Done when: test fails if `/chat/providers` parity drifts.
+9. [ ] Add a parity unit test for `chatValidators` against shared fixture expectations.
+   - Test type: `Unit` (parity).
+   - Test location: [server/src/test/unit/chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts).
+   - Description: Assert one fixture produces expected defaults/warnings identical to resolver output.
+   - Purpose: Cross-surface parity coverage for AC 10-16.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
+   - Done when: test fails if validator parity drifts.
+10. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for REST/default-source behavior.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: docs explain REST defaults are config-backed with warning behavior.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
    - Done when: both commands pass.
@@ -971,19 +1323,51 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Docs to read first: https://developers.openai.com/codex/config-reference, https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
    - Done when: MCP tool defaulting path matches REST behavior for covered fields.
-2. [ ] Add/extend MCP tool tests in [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts), [server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts), and [server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts).
+2. [ ] Add a happy-path MCP tool unit test for resolver-backed default fields.
+   - Test type: `Unit` (MCP tool).
+   - Test location: [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts).
+   - Description: Assert MCP `codebase_question` applies shared resolver defaults for covered Codex options.
+   - Purpose: Happy-path coverage for AC 10-13.
    - Docs to read first: https://nodejs.org/api/test.html.
-   - Acceptance criteria coverage: AC 10-16.
-   - Done when: tests prove MCP defaults and warnings stay aligned with shared resolver.
-3. [ ] Add parity tests comparing MCP `codebase_question` default/warning output against REST resolver fixtures (same inputs -> same defaults/warnings) in [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts).
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13.
+   - Done when: test fails if tool falls back to env-only defaults.
+3. [ ] Add an MCP tool validation-path unit test for field-specific warning behavior on legacy-env fallback.
+   - Test type: `Unit` (MCP tool validation).
+   - Test location: [server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts).
+   - Description: Assert warning payload names each field that used legacy env fallback.
+   - Purpose: Warning-contract coverage for AC 13 and AC 14.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 13, AC 14.
+   - Done when: test fails if warning behavior drifts.
+4. [ ] Add an MCP tool validation-path unit test for invalid option handling.
+   - Test type: `Unit` (MCP tool validation).
+   - Test location: [server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts).
+   - Description: Assert invalid default option values are normalized/rejected deterministically in line with shared resolver behavior.
+   - Purpose: Error-path option-validation coverage for AC 16.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 16.
+   - Done when: test fails if invalid options pass through silently.
+5. [ ] Add an MCP tool unavailable-path unit test preserving shared default behavior.
+   - Test type: `Unit` (MCP tool unavailable branch).
+   - Test location: [server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts).
+   - Description: Assert unavailable/degraded tool path still uses deterministic shared defaulting semantics.
+   - Purpose: Corner-case resilience coverage for AC 10-16.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
+   - Done when: test fails if unavailable branch bypasses resolver behavior.
+6. [ ] Add a parity test comparing MCP `codebase_question` defaults/warnings against REST resolver fixtures.
+   - Test type: `Unit` (parity).
+   - Test location: [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts).
+   - Description: Use same fixture inputs as REST tests and assert identical default/warning outputs.
+   - Purpose: Cross-surface parity coverage for AC 10-16.
    - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
-   - Done when: tests fail if MCP and REST default/warning behavior diverge.
-4. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for MCP default-source alignment.
+   - Done when: test fails if MCP and REST diverge.
+7. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for MCP default-source alignment.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: docs explicitly call out MCP + REST parity for defaults.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
    - Done when: both commands pass.
@@ -1032,19 +1416,67 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Docs to read first: https://nodejs.org/api/fs.html.
    - Acceptance criteria coverage: AC 15.
    - Done when: warning output is predictable for IO failure paths.
-3. [ ] Add/extend tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) for copy path, template path, non-destructive existing-file path, and failure warning path.
+3. [ ] Add a runtime config unit test for copy-bootstrap path (`codex/config.toml` -> `codex/chat/config.toml`).
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
+   - Description: Simulate missing chat config with existing base config and assert copy occurs once.
+   - Purpose: Happy-path bootstrap coverage for AC 15.
+   - Docs to read first: https://nodejs.org/api/test.html, https://nodejs.org/api/fs.html.
+   - Acceptance criteria coverage: AC 15.
+   - Done when: test fails if copy branch does not create chat config.
+4. [ ] Add a runtime config unit test for template-generation path when both configs are missing.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
+   - Description: Simulate absence of both files and assert deterministic template output is generated.
+   - Purpose: Happy-path fallback coverage for AC 15.
+   - Docs to read first: https://nodejs.org/api/test.html, https://nodejs.org/api/fs.html.
+   - Acceptance criteria coverage: AC 15.
+   - Done when: test fails if template branch is skipped or non-deterministic.
+5. [ ] Add a runtime config unit test for non-destructive behavior when chat config already exists.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
+   - Description: Seed existing chat config and assert bootstrap does not overwrite it.
+   - Purpose: Safety-path coverage for AC 15.
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 15.
-   - Done when: tests explicitly assert all four branches.
-4. [ ] Add bootstrap corner-case tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) for missing `codex/chat` directory creation, read-only destination failure, and no partial-file overwrite on failed copy.
+   - Done when: test fails if existing chat config content changes.
+6. [ ] Add a runtime config unit test for IO/read-write failure warning output.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
+   - Description: Force copy/write failure and assert deterministic warning logging.
+   - Purpose: Error-path visibility coverage for AC 15.
+   - Docs to read first: https://nodejs.org/api/test.html, https://nodejs.org/api/fs.html.
+   - Acceptance criteria coverage: AC 15.
+   - Done when: test fails if failure occurs without deterministic warning.
+7. [ ] Add a runtime config unit test for missing `codex/chat` directory creation.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
+   - Description: Start with absent chat directory and assert bootstrap creates required directory tree.
+   - Purpose: Corner-case filesystem coverage for AC 15.
    - Docs to read first: https://nodejs.org/api/fs.html, https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 15.
-   - Done when: tests assert directory creation, deterministic warning output, and no corrupt partial config artifacts.
-5. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for bootstrap behavior and touched tests.
+   - Done when: test fails if directory creation is skipped.
+8. [ ] Add a runtime config unit test for read-only destination behavior.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
+   - Description: Simulate read-only target path and assert deterministic warning without silent fallback.
+   - Purpose: Error-path permissions coverage for AC 15.
+   - Docs to read first: https://nodejs.org/api/fs.html, https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 15.
+   - Done when: test fails if permissions failure does not surface warning.
+9. [ ] Add a runtime config unit test asserting no partial-file overwrite on failed copy.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
+   - Description: Force mid-copy failure and assert resulting chat config is not partially written/corrupted.
+   - Purpose: Corner-case data-safety coverage for AC 15.
+   - Docs to read first: https://nodejs.org/api/fs.html, https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 15.
+   - Done when: test fails if partial file artifacts remain after failure.
+10. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for bootstrap behavior and touched tests.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 15.
    - Done when: docs state bootstrap order and non-overwrite rule.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 15.
    - Done when: both commands pass.
@@ -1101,19 +1533,43 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 17, AC 26.
    - Done when: startup still runs guard check with updated target version.
-5. [ ] Add/extend tests in [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts) for expected target version and pre-release rejection behavior.
+5. [ ] Add a guard unit test that exact pinned version `0.107.0` is accepted.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts).
+   - Description: Set installed version to `0.107.0` and assert startup guard passes.
+   - Purpose: Happy-path version gate coverage for AC 17 and AC 26.
    - Docs to read first: https://nodejs.org/api/test.html, https://docs.npmjs.com/about-semantic-versioning.
    - Acceptance criteria coverage: AC 17, AC 26.
-   - Done when: tests fail if prerelease versions are accepted or versions drift.
-6. [ ] Add mismatch regression tests in [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts) asserting startup guard failure when installed SDK version is not exactly `0.107.0` (including higher stable and lower patch/minor versions).
+   - Done when: test fails if exact pinned version is rejected.
+6. [ ] Add a guard unit test rejecting pre-release versions (for example `0.107.0-alpha.1`).
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts).
+   - Description: Set installed pre-release version and assert guard fails deterministically.
+   - Purpose: Pre-release exclusion coverage for AC 26.
+   - Docs to read first: https://nodejs.org/api/test.html, https://docs.npmjs.com/about-semantic-versioning.
+   - Acceptance criteria coverage: AC 26.
+   - Done when: test fails if pre-release versions are accepted.
+7. [ ] Add a guard unit test rejecting higher stable versions than `0.107.0`.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts).
+   - Description: Set installed version to higher stable (for example `0.108.0`) and assert guard fails.
+   - Purpose: Exact-version enforcement coverage for AC 17 and AC 26.
    - Docs to read first: https://nodejs.org/api/test.html, https://docs.npmjs.com/about-semantic-versioning.
    - Acceptance criteria coverage: AC 17, AC 26.
-   - Done when: tests prove only exact pinned version passes runtime guard.
-7. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for SDK pin + guard alignment.
+   - Done when: test fails if higher stable versions are accepted.
+8. [ ] Add a guard unit test rejecting lower versions than `0.107.0`.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts).
+   - Description: Set installed version below target (for example `0.106.0`) and assert guard fails.
+   - Purpose: Exact-version enforcement coverage for AC 17 and AC 26.
+   - Docs to read first: https://nodejs.org/api/test.html, https://docs.npmjs.com/about-semantic-versioning.
+   - Acceptance criteria coverage: AC 17, AC 26.
+   - Done when: test fails if lower versions are accepted.
+9. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for SDK pin + guard alignment.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 17, AC 26.
    - Done when: docs state pin version and guard coupling.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 17, AC 26.
    - Done when: both commands pass.
@@ -1153,7 +1609,11 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 
 #### Subtasks
 
-1. [ ] Add a failing repro test first in [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) demonstrating current incorrect same-source/fallback behavior (red step before implementation).
+1. [ ] Add a failing repro integration test first demonstrating current incorrect same-source/fallback behavior (red step before implementation).
+   - Test type: `Integration` (red-first repro).
+   - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
+   - Description: Build a fixture where expected same-source/ordered fallback behavior is violated by current code, and assert current run fails this new expectation.
+   - Purpose: Red-green proof requirement coverage for AC 21 and AC 27 before implementing resolver changes.
    - Docs to read first: https://nodejs.org/api/test.html, https://nodejs.org/api/path.html.
    - Acceptance criteria coverage: AC 21, AC 27.
    - Done when: new test fails on current behavior before service changes.
@@ -1173,19 +1633,67 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 18, AC 20, AC 27.
    - Done when: one resolver function/path is reused by both phases.
-6. [ ] Extend integration tests in [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for same-source success, same-source missing with codeInfo2 fallback, deterministic other-repo fallback, and same-source invalid fail-fast.
+6. [ ] Add an integration test for same-source command success path.
+   - Test type: `Integration`.
+   - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
+   - Description: Flow with repository source resolves command from same source and executes successfully.
+   - Purpose: Happy-path coverage for AC 18 and AC 27.
    - Docs to read first: https://nodejs.org/api/test.html.
-   - Acceptance criteria coverage: AC 18, AC 19, AC 20, AC 21, AC 27, AC 28.
-   - Done when: green tests cover all four required flow resolution cases.
-7. [ ] Add deterministic-ordering corner tests in [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for trimmed/empty `sourceLabel`, basename fallback usage, and tie-break by full path when normalized labels compare equal case-insensitively.
+   - Acceptance criteria coverage: AC 18, AC 27.
+   - Done when: test fails if same-source command resolution is bypassed.
+7. [ ] Add an integration test for same-source missing command with fallback to codeInfo2 repository.
+   - Test type: `Integration`.
+   - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
+   - Description: Same-source lacks command, resolver selects codeInfo2 repository as next candidate.
+   - Purpose: Ordered fallback coverage for AC 18 and AC 27.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 18, AC 27.
+   - Done when: test fails if fallback order skips codeInfo2.
+8. [ ] Add an integration test for deterministic fallback among other repositories.
+   - Test type: `Integration`.
+   - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
+   - Description: With multiple non-priority repos containing command, assert first match by defined comparator is selected.
+   - Purpose: Deterministic ordering coverage for AC 19 and AC 28.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 19, AC 28.
+   - Done when: test fails if selection depends on filesystem iteration order.
+9. [ ] Add an integration test for same-source schema-invalid command fail-fast behavior.
+   - Test type: `Integration`.
+   - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
+   - Description: Same-source command exists but is invalid; assert run fails without trying fallback repositories.
+   - Purpose: Error-path fail-fast coverage for AC 20 and AC 27.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 20, AC 27.
+   - Done when: test fails if resolver continues fallback after same-source schema failure.
+10. [ ] Add an integration test for normalized-label comparison with trimmed `sourceLabel`.
+   - Test type: `Integration`.
+   - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
+   - Description: Use labels with surrounding whitespace and assert comparator uses trimmed normalized label.
+   - Purpose: Corner-case comparator coverage for AC 19 and AC 28.
    - Docs to read first: https://nodejs.org/api/test.html, https://nodejs.org/api/path.html.
    - Acceptance criteria coverage: AC 19, AC 28.
-   - Done when: comparator behavior is pinned for label normalization and path tie-break edge cases.
-8. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for flow resolver ordering rules and added tests.
+   - Done when: test fails if whitespace affects ordering.
+11. [ ] Add an integration test for empty/absent `sourceLabel` basename fallback ordering.
+   - Test type: `Integration`.
+   - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
+   - Description: Use empty labels and assert comparator falls back to repository basename before path tie-break.
+   - Purpose: Corner-case comparator coverage for AC 19 and AC 28.
+   - Docs to read first: https://nodejs.org/api/test.html, https://nodejs.org/api/path.html.
+   - Acceptance criteria coverage: AC 19, AC 28.
+   - Done when: test fails if empty labels are not normalized correctly.
+12. [ ] Add an integration test for path tie-break when normalized labels compare equal case-insensitively.
+   - Test type: `Integration`.
+   - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
+   - Description: Create same normalized labels and assert deterministic first match by case-insensitive full path ordering.
+   - Purpose: Tie-break determinism coverage for AC 19 and AC 28.
+   - Docs to read first: https://nodejs.org/api/test.html, https://nodejs.org/api/path.html.
+   - Acceptance criteria coverage: AC 19, AC 28.
+   - Done when: test fails if equal-label ordering is non-deterministic.
+13. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for flow resolver ordering rules and added tests.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
    - Done when: docs include exact resolver order and fail-fast behavior.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 18-21 and AC 27-28.
    - Done when: both commands pass.
@@ -1289,36 +1797,93 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Files to read/edit: [0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md) (acceptance criteria + this task's implementation notes section).
    - Acceptance criteria coverage: AC 1-28.
    - Done when: every AC has a concrete evidence note (test name, endpoint check, or manual check), and each evidence note is tagged as happy-path, error-path, or corner-case coverage.
-2. [ ] Run full regression wrappers (`server unit`, `server cucumber`, `client`, `e2e`) and record remediation notes for any failures.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/10-minute-tutorial/, https://jestjs.io/docs/getting-started.
-   - Files to read/edit: `test-results/`, `logs/test-summaries/`, and this task's implementation notes section for recording outcomes.
+2. [ ] Run and record results for full server unit regression wrapper.
+   - Test type: `Regression` (`server unit` wrapper).
+   - Test location: `test-results/server-unit-tests-<timestamp>.*` and `logs/test-summaries/`.
+   - Description: Execute `npm run test:summary:server:unit` and log pass/fail plus remediation steps if failures occur.
+   - Purpose: Broad backend regression coverage for AC 1-28.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://nodejs.org/api/test.html.
+   - Files to read/edit: `test-results/`, `logs/test-summaries/`, and this task's implementation notes section.
    - Acceptance criteria coverage: regression validation for AC 1-28.
-   - Done when: all required wrappers pass or remediation is fully completed and rerun.
-3. [ ] Run explicit MCP non-regression checks proving `run_command` contract did not gain required `startStep` input and payload shape did not drift.
+   - Done when: wrapper passes or all failures are remediated and rerun evidence is recorded.
+3. [ ] Run and record results for full server cucumber regression wrapper.
+   - Test type: `Regression` (`server cucumber` wrapper).
+   - Test location: `test-results/server-cucumber-tests-<timestamp>.log`.
+   - Description: Execute `npm run test:summary:server:cucumber` and record failures/remediation.
+   - Purpose: BDD behavior regression coverage for AC 1-28.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/10-minute-tutorial/.
+   - Files to read/edit: `test-results/` and this task's implementation notes section.
+   - Acceptance criteria coverage: regression validation for AC 1-28.
+   - Done when: wrapper passes or all failing scenarios are remediated and rerun evidence is recorded.
+4. [ ] Run and record results for full client regression wrapper.
+   - Test type: `Regression` (`client` wrapper).
+   - Test location: `test-results/client-tests-<timestamp>.*`.
+   - Description: Execute `npm run test:summary:client` and record pass/fail evidence with remediation notes.
+   - Purpose: Frontend regression coverage for AC 1-28.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://jestjs.io/docs/getting-started.
+   - Files to read/edit: `test-results/` and this task's implementation notes section.
+   - Acceptance criteria coverage: regression validation for AC 1-28.
+   - Done when: wrapper passes or all failures are remediated and rerun evidence is recorded.
+5. [ ] Run and record results for end-to-end regression wrapper.
+   - Test type: `Regression` (`e2e` wrapper).
+   - Test location: `logs/test-summaries/e2e-tests-latest.log`.
+   - Description: Execute `npm run test:summary:e2e` and record pass/fail evidence with remediation notes.
+   - Purpose: End-to-end behavior coverage for AC 1-28.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
+   - Files to read/edit: `logs/test-summaries/` and this task's implementation notes section.
+   - Acceptance criteria coverage: regression validation for AC 1-28.
+   - Done when: wrapper passes or all failures are remediated and rerun evidence is recorded.
+6. [ ] Run explicit MCP non-regression checks proving `run_command` contract did not gain required `startStep` input and payload shape did not drift.
+   - Test type: `Unit` (MCP contract non-regression).
+   - Test location: [server/src/test/unit/mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts) with schema source in [server/src/mcpAgents/tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts).
+   - Description: Execute targeted MCP contract assertions and confirm `run_command` input schema remains unchanged.
+   - Purpose: Protect scope boundary for AC 8 and backward compatibility for AC 24.
    - Docs to read first: https://deepwiki.com/openai/codex, https://nodejs.org/api/test.html.
    - Files to read/edit: [server/src/mcpAgents/tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts), [server/src/test/unit/mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts).
    - Acceptance criteria coverage: AC 8, AC 24.
    - Done when: targeted MCP tests/assertions confirm unchanged contract.
-4. [ ] Execute Playwright MCP manual checks for AGENTS start-step behavior, chat default initialization/warnings, and flow resolver success/failure paths.
+7. [ ] Execute Playwright manual check for AGENTS start-step behavior.
+   - Test type: `Manual UI` (Playwright-assisted).
+   - Test location: `test-results/screenshots/`.
+   - Description: Validate AGENTS `Start step` visibility, disable states, reset behavior, and request payload trigger behavior.
+   - Purpose: Manual behavior confirmation for AC 1-8.
    - Docs to read first: https://playwright.dev/docs/intro, https://docs.docker.com/compose/.
-   - Files to read/edit: `test-results/screenshots/` (evidence output) and this task's implementation notes section.
-   - Acceptance criteria coverage: AC 1-8, AC 10-16, AC 18-21.
-   - Done when: manual checks match expected behavior and are documented.
-5. [ ] Save screenshots to `test-results/screenshots/` with naming format `0000040-13-<short-name>.png`.
+   - Files to read/edit: `test-results/screenshots/` and this task's implementation notes section.
+   - Acceptance criteria coverage: AC 1-8.
+   - Done when: manual check results and screenshot evidence are recorded.
+8. [ ] Execute Playwright manual check for chat default initialization and warning behavior.
+   - Test type: `Manual UI/API` (Playwright-assisted).
+   - Test location: `test-results/screenshots/`.
+   - Description: Validate defaults/warnings align with shared config-backed resolver behavior on chat-capability surfaces.
+   - Purpose: Manual confirmation for AC 10-16.
+   - Docs to read first: https://playwright.dev/docs/intro, https://docs.docker.com/compose/.
+   - Files to read/edit: `test-results/screenshots/` and this task's implementation notes section.
+   - Acceptance criteria coverage: AC 10-16.
+   - Done when: manual check results and screenshot evidence are recorded.
+9. [ ] Execute Playwright manual check for flow resolver success/failure behavior.
+   - Test type: `Manual integration`.
+   - Test location: `test-results/screenshots/`.
+   - Description: Validate same-source success, fallback behavior, and fail-fast behavior for invalid same-source command cases.
+   - Purpose: Manual confirmation for AC 18-21.
+   - Docs to read first: https://playwright.dev/docs/intro, https://docs.docker.com/compose/.
+   - Files to read/edit: `test-results/screenshots/` and this task's implementation notes section.
+   - Acceptance criteria coverage: AC 18-21.
+   - Done when: manual check results and screenshot evidence are recorded.
+10. [ ] Save screenshots to `test-results/screenshots/` with naming format `0000040-13-<short-name>.png`.
    - Docs to read first: https://playwright.dev/docs/screenshots.
    - Files to read/edit: `test-results/screenshots/`.
    - Acceptance criteria coverage: final verification evidence for manual checks.
    - Done when: screenshots exist with correct naming convention and map to manual checks.
-6. [ ] Produce pull-request summary text covering all completed tasks, contract changes, tests run, and remaining risks.
+11. [ ] Produce pull-request summary text covering all completed tasks, contract changes, tests run, and remaining risks.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Files to read/edit: [0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md), [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Acceptance criteria coverage: release readiness communication for AC 1-28.
    - Done when: summary includes what changed, why, and proof points.
-7. [ ] Confirm [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) are fully current after all code/test changes.
+12. [ ] Confirm [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) are fully current after all code/test changes.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: final documentation readiness for AC 1-28.
    - Done when: docs align with final code and tests with no known drift.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: this task's implementation notes section for recording final lint/format results.
    - Acceptance criteria coverage: final quality gate for story completion.

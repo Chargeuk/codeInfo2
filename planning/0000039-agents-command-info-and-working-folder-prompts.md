@@ -1009,7 +1009,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 5. Frontend: remove inline command description area
 
 - Task Status: **__completed__**
-- Git Commits: **__to_do__**
+- Git Commits: `66f5405d`
 
 #### Overview
 
@@ -1113,6 +1113,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Testing step 4: `npm run compose:up` succeeded and started the full stack, including healthy `codeinfo2-server-1` and started `codeinfo2-client-1`.
 - Testing step 5: Manual Playwright-MCP validation on `http://host.docker.internal:5001/agents` confirmed `[agents.commandDescription.inlineRemoved] rendered=false` on page load and `[agents.commandDescription.source] mode=popover commandName=none|improve_plan|task_up` while changing agent/command selections; no browser-console errors were emitted, and screenshots were saved to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000039-task5-no-inline-description.png` and `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000039-task5-popover-description-only.png`.
 - Testing step 6: `npm run compose:down` succeeded and removed all compose services plus network `codeinfo2_internal`.
+- Git Commits: Recorded Task 5 implementation commit `66f5405d` in this task header before creating the git-commit marker commit.
 
 ---
 

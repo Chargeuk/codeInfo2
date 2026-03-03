@@ -422,8 +422,8 @@ Validate and document env-file source behavior for compose/local/e2e workflows, 
 4. [ ] `npm run compose:up` then `npm run compose:down`
 5. [ ] `npm run compose:build` and capture summary/log evidence that wrapper env-file interpolation still works for `server/.env` + `server/.env.local`.
 6. [ ] `npm run compose:e2e:build` and capture summary/log evidence that wrapper env-file interpolation uses `.env.e2e`.
-7. [ ] Non-destructive negative-path check: run `bash ./scripts/docker-compose-with-env.sh --env-file server/.env --env-file /tmp/nonexistent-codeinfo-local.env -f docker-compose.yml config` and confirm clear failure message with non-zero exit.
-8. [ ] Non-destructive negative-path check: run `bash ./scripts/docker-compose-with-env.sh --env-file /tmp/nonexistent-codeinfo-e2e.env -f docker-compose.e2e.yml config` and confirm clear failure message with non-zero exit.
+7. [ ] Non-destructive negative-path check: run `bash ./scripts/docker-compose-with-env.sh --env-file server/.env --env-file /tmp/nonexistent-codeinfo-local.env -f docker-compose.yml config` and confirm non-zero exit plus a missing-env-file indicator in output.
+8. [ ] Non-destructive negative-path check: run `bash ./scripts/docker-compose-with-env.sh --env-file /tmp/nonexistent-codeinfo-e2e.env -f docker-compose.e2e.yml config` and confirm non-zero exit plus a missing-env-file indicator in output.
 
 #### Implementation notes
 
@@ -456,7 +456,7 @@ Implement server image build-time handling for npm and pip corporate registry/in
 5. [ ] Update runtime pip install step in [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/Dockerfile) to conditionally apply `CODEINFO_PIP_INDEX_URL` and `CODEINFO_PIP_TRUSTED_HOST` only when non-empty.
 6. [ ] Implement conditional command logic using POSIX-compatible `/bin/sh` patterns (no Bash-only syntax) so Docker build commands remain portable.
 7. [ ] Ensure unset/empty values preserve existing default behavior and do not pass malformed/empty flags.
-8. [ ] Add/update test coverage artifact for this task: record build log evidence for unset vs set behavior and for an intentionally invalid registry/index failure path in Implementation notes.
+8. [ ] Add/update test coverage artifact for this task: record build log evidence for unset vs set behavior and for one controlled invalid override-value failure check in Implementation notes.
 9. [ ] If file/folder structure changed, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md).
 10. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
@@ -469,7 +469,7 @@ Implement server image build-time handling for npm and pip corporate registry/in
 5. [ ] `npm run compose:build` with registry/index vars unset and confirm success.
 6. [ ] `npm run compose:build` with registry/index vars set to test values and confirm command-path usage from logs.
 7. [ ] `npm run compose:local:build` and `npm run compose:e2e:build` with registry/index vars unset to confirm server Dockerfile changes do not break other workflows.
-8. [ ] Run one build with intentionally invalid registry/index values and confirm failure logs are diagnosable and clearly show the failing install command path.
+8. [ ] Run one build with intentionally invalid registry/index values and confirm non-zero failure plus clear evidence that override values were applied.
 
 #### Implementation notes
 
@@ -535,9 +535,9 @@ Implement deterministic runtime env parsing and default CA export behavior in `s
 
 #### Subtasks
 
-1. [ ] Update [server/entrypoint.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/entrypoint.sh) to parse `CODEINFO_REFRESH_CA_CERTS_ON_START` using POSIX `sh`-compatible logic, mirroring existing strict normalization semantics from `parseBooleanEnv`/`toBoolean` (`trim` + case-insensitive `true` gate).
+1. [ ] Update [server/entrypoint.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/entrypoint.sh) to parse `CODEINFO_REFRESH_CA_CERTS_ON_START` using POSIX `sh`-compatible logic with simple deterministic rules: trim value, lowercase it, and treat only `true` as enabled.
 2. [ ] Export `NODE_EXTRA_CA_CERTS` from `CODEINFO_NODE_EXTRA_CA_CERTS`, defaulting to `/etc/ssl/certs/ca-certificates.crt` when unset/empty, before launching Node.
-3. [ ] Reorder startup flow so cert-validation logic can execute before spawning optional background Chrome process.
+3. [ ] Keep startup changes minimal: preserve existing Chrome startup behavior and insert cert-related logic so it executes before `exec node dist/index.js`.
 4. [ ] Keep refresh-disabled path unchanged except for deterministic logging and default env export behavior.
 5. [ ] Add/update test coverage artifact for this task: capture logs for refresh-disabled and case-normalization paths in Implementation notes.
 6. [ ] If structure changed, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md).

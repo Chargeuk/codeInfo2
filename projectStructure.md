@@ -247,6 +247,28 @@ Modified files (implementation traceability):
 - `server/src/flows/service.ts`
 - `server/src/test/integration/flows.run.command.test.ts`
 
+## Story 0000040 Task 12 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `openapi.json`
+- `planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md`
+- `projectStructure.md`
+
 ## Story 0000038 Tasks 1-7 structural change ledger
 
 Added files:

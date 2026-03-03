@@ -321,7 +321,40 @@
         },
         "responses": {
           "202": {
-            "description": "Command run started"
+            "description": "Command run started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["started"]
+                    },
+                    "agentName": {
+                      "type": "string"
+                    },
+                    "commandName": {
+                      "type": "string"
+                    },
+                    "conversationId": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "agentName",
+                    "commandName",
+                    "conversationId",
+                    "modelId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid command run request",

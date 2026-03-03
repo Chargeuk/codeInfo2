@@ -2536,7 +2536,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 
 ### 12. Documentation synchronization for story 0000040 outputs
 
-- Task Status: **to_do**
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview
@@ -2553,7 +2553,7 @@ Perform documentation-only updates so product behavior, architecture notes, and 
 
 #### Subtasks
 
-1. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) with final user-facing behavior for AGENTS start-step and config-backed chat defaults.
+1. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) with final user-facing behavior for AGENTS start-step and config-backed chat defaults.
    - Document name: `README.md`.
    - Document location: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md).
    - Description: Capture finalized end-user behavior for AGENTS `Start step` and shared chat defaults so onboarding and operations docs match implemented behavior.
@@ -2562,7 +2562,7 @@ Perform documentation-only updates so product behavior, architecture notes, and 
    - Files to read/edit: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md).
    - Acceptance criteria coverage: documentation support for AC 1-8 and AC 10-16.
    - Done when: README reflects final behavior exactly as implemented.
-2. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) with architecture/flow details for start-step contracts and flow command resolver ordering/fail-fast behavior, including Mermaid diagrams for each changed flow.
+2. [x] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) with architecture/flow details for start-step contracts and flow command resolver ordering/fail-fast behavior, including Mermaid diagrams for each changed flow.
    - Document name: `design.md`.
    - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Description: Document finalized architecture, contract flow, and resolver behavior with Mermaid diagrams for each changed runtime flow.
@@ -2571,7 +2571,7 @@ Perform documentation-only updates so product behavior, architecture notes, and 
    - Files to read/edit: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
    - Done when: design doc includes deterministic ordering/failure rules and valid Mermaid diagram syntax.
-3. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for all file additions/removals from tasks 1-11.
+3. [x] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for all file additions/removals from tasks 1-11.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Description: Update the file/folder map to include all files added, removed, or moved during tasks 1-11.
@@ -2581,18 +2581,18 @@ Perform documentation-only updates so product behavior, architecture notes, and 
    - Ordering requirement: complete this subtask after all file additions/removals from tasks 1-11 are finished.
    - Acceptance criteria coverage: documentation support across whole story implementation.
    - Done when: file/module map matches repository state after implementation and includes every file added and removed by tasks 1-11.
-4. [ ] Ensure [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) reflects final route contract shapes from tasks 1-2 and stays aligned with route runtime behavior.
+4. [x] Ensure [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) reflects final route contract shapes from tasks 1-2 and stays aligned with route runtime behavior.
    - Docs to read first: https://swagger.io/specification/.
    - Files to read/edit: [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json).
    - Acceptance criteria coverage: AC 22, AC 23, AC 24, AC 25.
    - Done when: OpenAPI schema matches live request/response behavior.
-5. [ ] Add deterministic diagnostic log marker [DEV_0000040_T12_DOC_SYNC_COMPLETE] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+5. [x] Add deterministic diagnostic log marker [DEV_0000040_T12_DOC_SYNC_COMPLETE] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
    - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
    - Files to read/edit: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json).
    - Acceptance criteria coverage: AC 22, AC 23, AC 24, AC 25.
    - Manual Playwright-MCP expected outcome: during final manual check, emit marker once from browser console after validating docs/contract alignment, and record the marker in implementation notes as documentation-sync evidence.
    - Done when: [DEV_0000040_T12_DOC_SYNC_COMPLETE] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -2603,14 +2603,21 @@ Perform documentation-only updates so product behavior, architecture notes, and 
 - Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
 - Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server`
+1. [x] `npm run build:summary:server`
    - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit`
+2. [x] `npm run test:summary:server:unit`
    - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Updated `README.md` AGENTS behavior notes with explicit `stepCount` sentinel semantics (`>=1`, disabled fallback uses `1`) and explicit backward-compatibility note that omitted `startStep` defaults to step `1`.
+- Subtask 2: Updated `design.md` with a Task 12 synchronization checkpoint section summarizing final start-step/openapi contract alignment and Task 11 resolver ordering/fail-fast rules as implemented.
+- Subtask 3: Updated `projectStructure.md` with a Task 12 structural change ledger and reconciled the story file-map trail through Tasks 1-11 into the final documentation-sync surface.
+- Subtask 4: Updated `openapi.json` command-run route docs with explicit `202` success payload schema while preserving the deterministic `INVALID_START_STEP` `400` schema shape required by existing contract tests.
+- Subtask 5: Added Task 12 marker documentation for `DEV_0000040_T12_DOC_SYNC_COMPLETE` in `README.md` (verification matrix) and `design.md` (expected sync-context fields for `README.md`, `design.md`, `projectStructure.md`, and `openapi.json`).
+- Subtask 6: Ran `npm run lint --workspaces` (pass with known pre-existing import-order warnings) and `npm run format:check --workspaces` (full pass across client/server/common).
+- Testing 1: `npm run build:summary:server` passed (`status: passed`, `warnings: 0`) with log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: First `npm run test:summary:server:unit` run failed (`975/976`) on `openapi.contract` strict `INVALID_START_STEP` schema expectation after a temporary `400 oneOf` change; restored deterministic `400` schema shape in `openapi.json` and reran wrapper to pass (`976/976`) with log `test-results/server-unit-tests-2026-03-03T23-39-09-597Z.log`.
 
 ---
 

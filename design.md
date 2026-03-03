@@ -472,6 +472,20 @@ sequenceDiagram
   end
 ```
 
+## Story 0000040 Task 12 documentation/contract synchronization checkpoint
+
+- Task 12 is documentation/contract sync only; runtime behavior remains unchanged.
+- Final aligned command-run contract references:
+  - `GET /agents/:agentName/commands` response includes required `stepCount` (`integer >= 1`) on every item.
+  - `POST /agents/:agentName/commands/run` accepts optional `startStep`; omitted values default to step `1` during execution.
+  - invalid `startStep` remains deterministic: `400 invalid_request` with `code: INVALID_START_STEP` and range message format `startStep must be between 1 and N`.
+- Final aligned flow resolver references:
+  - candidate order is same-source -> codeInfo2 -> sorted others,
+  - sorted others uses case-insensitive ASCII normalized label then case-insensitive ASCII full path,
+  - fallback only on not-found, with fail-fast for same-source schema/read/parse failures.
+- Task 12 synchronization marker:
+  - `DEV_0000040_T12_DOC_SYNC_COMPLETE` records doc/contract parity completion and expected context includes touched docs (`README.md`, `design.md`, `projectStructure.md`, `openapi.json`) plus status fields for sync verification.
+
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
 - Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
 - Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.

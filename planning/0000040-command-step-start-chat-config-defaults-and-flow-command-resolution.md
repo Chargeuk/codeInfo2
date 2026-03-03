@@ -435,3 +435,521 @@ Source references used in this research pass:
 - npm registry diff evidence: `npm diff --diff @openai/codex-sdk@0.106.0 --diff @openai/codex-sdk@0.107.0`
 - OpenAI Codex config reference: https://developers.openai.com/codex/config-reference
 - OpenAI Codex docs entrypoint: https://raw.githubusercontent.com/openai/codex/main/docs/config.md
+
+# Implementation Plan
+
+## Instructions
+
+1. Read this full plan before implementation, especially Acceptance Criteria, Message Contracts and Storage Shapes, Edge Cases and Failure Modes, and the task order below.
+2. Execute tasks in the listed order.
+3. Keep each task focused to one testable behavior or contract.
+4. Complete server message-contract tasks before frontend tasks that depend on those contracts.
+5. Add or update deterministic tests inside the same task that introduces behavior.
+6. Use wrapper-first build/test commands from `AGENTS.md`.
+7. Keep task status, subtask checkboxes, testing checkboxes, implementation notes, and git commit hashes updated continuously while implementing.
+
+## Tasks
+
+### 1. Server Message Contract: add `stepCount` to `GET /agents/:agentName/commands`
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Add the backend response contract for command list items so the frontend can render `Start step` choices without parsing command files. This task only changes list-message shape and associated tests.
+
+#### Documentation Locations (External References Only)
+
+- Express routing basics: https://expressjs.com/en/guide/routing.html
+- OpenAPI 3.1: https://swagger.io/specification/
+- Node test runner: https://nodejs.org/api/test.html
+
+#### Subtasks
+
+1. [ ] Update command summary shape to include `stepCount` in [server/src/agents/commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts).
+2. [ ] Ensure `stepCount` generation rule is implemented in [server/src/agents/commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts):
+   - valid command file -> `command.items.length`
+   - invalid/disabled command file -> sentinel `1`.
+3. [ ] Ensure list service returns `stepCount` in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) and route payload includes it in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts).
+4. [ ] Add/extend server unit tests for command-list contract in [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts) and [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts).
+5. [ ] Update `openapi.json` list contract schema for `stepCount` in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and add/update OpenAPI contract tests in [server/src/test/unit/openapi.agents-commands.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.agents-commands.test.ts).
+6. [ ] Update documentation files changed by this task:
+   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-list.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agents-commands-router-list.test.ts`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.agents-commands.test.ts`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 2. Server Message Contract: add optional `startStep` to `POST /agents/:agentName/commands/run` and deterministic validation error mapping
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Add the run-request message contract for optional `startStep` with strict input validation and deterministic `INVALID_START_STEP` response shape. This task is route/service boundary only and does not change execution loop behavior yet.
+
+#### Documentation Locations (External References Only)
+
+- Express routing and request validation patterns: https://expressjs.com/en/guide/routing.html
+- HTTP status semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+- Node test runner: https://nodejs.org/api/test.html
+
+#### Subtasks
+
+1. [ ] Extend request parsing for command-run in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts) to accept optional `startStep`.
+2. [ ] Add validation rules for `startStep` shape in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts):
+   - omitted allowed
+   - integer only when present
+   - reject non-integer inputs as `400 invalid_request`.
+3. [ ] Add deterministic error mapping in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts) for `INVALID_START_STEP` to:
+   - `400 { error: 'invalid_request', code: 'INVALID_START_STEP', message: 'startStep must be between 1 and N' }`.
+4. [ ] Extend command-run service input contract in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) to include optional `startStep` without changing runner logic in this task.
+5. [ ] Add/extend router unit tests in [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts) for:
+   - optional `startStep` accepted,
+   - invalid type rejected,
+   - `INVALID_START_STEP` mapping shape.
+6. [ ] Update run contract in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and add/update OpenAPI tests in [server/src/test/unit/openapi.agents-commands.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.agents-commands.test.ts).
+7. [ ] Update documentation files changed by this task:
+   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agents-commands-router-run.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.agents-commands.test.ts`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 3. Server Behavior: execute command runs from `startStep` with backward compatibility
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Implement runtime start-step behavior in the command runner. This task covers start index calculation, range validation against loaded command content, and default behavior when `startStep` is omitted.
+
+#### Documentation Locations (External References Only)
+
+- Node test runner: https://nodejs.org/api/test.html
+- TypeScript handbook (function types and narrowing): https://www.typescriptlang.org/docs/handbook/2/functions.html
+
+#### Subtasks
+
+1. [ ] Add `startStep` handling in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) so omitted values default to `1`.
+2. [ ] Update execution entrypoint in [server/src/agents/commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) to:
+   - validate `startStep` against runtime `totalSteps`,
+   - convert `1..N` to runner index at execution boundary,
+   - execute from selected step through final step.
+3. [ ] Ensure runtime range failures throw typed `INVALID_START_STEP` errors in [server/src/agents/commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts).
+4. [ ] Add/extend runner tests in [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for:
+   - omitted `startStep` runs from step 1,
+   - valid non-1 step executes from offset,
+   - out-of-range values fail deterministically.
+5. [ ] Add/extend service integration tests in [server/src/test/unit/agents-service.command-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-service.command-run.test.ts) to prove backward compatibility with older clients.
+6. [ ] Update documentation files changed by this task:
+   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-runner.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agents-service.command-run.test.ts`
+7. [ ] `npm run test:summary:server:cucumber`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 4. Client Message Contract: consume `stepCount` and send `startStep` in agents API layer
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Update the frontend API layer contracts to match backend message changes. This task is limited to API types, request payloads, and API-layer tests.
+
+#### Documentation Locations (External References Only)
+
+- Fetch API patterns (MDN): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- TypeScript type compatibility: https://www.typescriptlang.org/docs/handbook/type-compatibility.html
+- Jest docs: https://jestjs.io/docs/getting-started
+
+#### Subtasks
+
+1. [ ] Add `stepCount` to command list response typing in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts).
+2. [ ] Add optional `startStep` to command run request typing and request body serialization in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts).
+3. [ ] Add/extend API tests in [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts) and [client/src/test/agentsApi.commandsRun.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsRun.test.ts).
+4. [ ] Update documentation files changed by this task:
+   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:client -- --file client/src/test/agentsApi.commandsList.test.ts`
+6. [ ] `npm run test:summary:client -- --file client/src/test/agentsApi.commandsRun.test.ts`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 5. Frontend: AGENTS `Start step` control behavior and execution wiring
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Implement AGENTS page UI behavior for selecting and validating start step using backend-provided `stepCount`. This task only covers page state, control rendering, and execute payload wiring.
+
+#### Documentation Locations (External References Only)
+
+- MUI Select component docs: https://mui.com/material-ui/react-select/
+- MUI FormControl docs: https://mui.com/material-ui/react-text-field/
+- React state patterns: https://react.dev/learn/managing-state
+- Jest DOM matchers: https://testing-library.com/docs/ecosystem-jest-dom/
+
+#### Subtasks
+
+1. [ ] Add `Start step` UI control to [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) immediately after command selection control.
+2. [ ] Implement state behavior in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx):
+   - disabled before valid command metadata,
+   - options `Step 1..Step N`,
+   - reset to `1` on command change,
+   - disabled when `N = 1`.
+3. [ ] Wire execute action payload in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) to pass `startStep` in `POST /agents/:agentName/commands/run`.
+4. [ ] Add/extend UI tests in [client/src/test/AgentsPage.commandStartStep.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/AgentsPage.commandStartStep.test.tsx) to verify visibility, enable/disable behavior, reset behavior, and outbound payload.
+5. [ ] Ensure row-level inline error handling for backend `INVALID_START_STEP` responses in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) with deterministic range message display.
+6. [ ] Update documentation files changed by this task:
+   - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
+   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:client -- --file client/src/test/AgentsPage.commandStartStep.test.tsx`
+6. [ ] `npm run test:summary:client`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 6. Server: migrate chat defaults to `codex/chat/config.toml` precedence for REST and MCP paths
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Implement shared default-source behavior for covered Codex fields so REST chat and MCP codebase-question use the same precedence and warning behavior.
+
+#### Documentation Locations (External References Only)
+
+- OpenAI Codex config reference: https://developers.openai.com/codex/config-reference
+- Node test runner: https://nodejs.org/api/test.html
+
+#### Subtasks
+
+1. [ ] Update default resolution logic in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) for fields:
+   - `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, `web_search`.
+2. [ ] Implement precedence `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback` in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts).
+3. [ ] Ensure fallback warning generation names the exact field using legacy env defaults in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) and [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts).
+4. [ ] Normalize deprecated web-search aliases to canonical `web_search` behavior in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), with canonical key precedence.
+5. [ ] Ensure MCP codebase-question path uses the same resolved defaults behavior as REST in [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts).
+6. [ ] Add/extend tests:
+   - [server/src/test/unit/chat-defaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chat-defaults.test.ts)
+   - [server/src/test/unit/chat-validators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chat-validators.test.ts)
+   - [server/src/test/unit/mcp-codebase-question.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-codebase-question.test.ts).
+7. [ ] Update documentation files changed by this task:
+   - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
+   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chat-defaults.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chat-validators.test.ts`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-codebase-question.test.ts`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 7. Server: deterministic bootstrap for missing `codex/chat/config.toml`
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Implement startup/bootstrap behavior for missing chat config with non-destructive rules. This task is restricted to runtime config bootstrap behavior and related tests.
+
+#### Documentation Locations (External References Only)
+
+- Node fs API: https://nodejs.org/api/fs.html
+- Node path API: https://nodejs.org/api/path.html
+- Node test runner: https://nodejs.org/api/test.html
+
+#### Subtasks
+
+1. [ ] Update bootstrap logic in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) to:
+   - copy `codex/config.toml` to `codex/chat/config.toml` when chat config is missing,
+   - generate standard template when both files are missing,
+   - keep existing chat config untouched when present.
+2. [ ] Ensure permission/read-write failures are logged as deterministic warnings in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) without silent fallback behavior.
+3. [ ] Add/extend bootstrap tests in [server/src/test/unit/runtime-config.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtime-config.test.ts) for:
+   - copy path,
+   - template generation path,
+   - non-destructive existing-file path,
+   - failure warning path.
+4. [ ] Update documentation files changed by this task:
+   - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
+   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/runtime-config.test.ts`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 8. Server: upgrade and pin `@openai/codex-sdk` to `0.107.0` with guard alignment
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Upgrade dependency and runtime guard together so install-time and runtime expectations match exactly. This task must not include unrelated behavior changes.
+
+#### Documentation Locations (External References Only)
+
+- npm package info for `@openai/codex-sdk`: https://www.npmjs.com/package/@openai/codex-sdk
+- npm semver docs: https://docs.npmjs.com/about-semantic-versioning
+- Node test runner: https://nodejs.org/api/test.html
+
+#### Subtasks
+
+1. [ ] Update `@openai/codex-sdk` version pin to `0.107.0` in [server/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/package.json).
+2. [ ] Update runtime guard constant in [server/src/config/codexSdkUpgrade.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexSdkUpgrade.ts) to `0.107.0`.
+3. [ ] Verify startup guard usage path remains aligned in [server/src/index.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/index.ts).
+4. [ ] Add/extend tests in [server/src/test/unit/codex-sdk-upgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codex-sdk-upgrade.test.ts) to ensure expected version and pre-release rejection behavior.
+5. [ ] Update documentation files changed by this task:
+   - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
+   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/codex-sdk-upgrade.test.ts`
+6. [ ] `npm run test:summary:server:unit`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 9. Server: flow command resolution deterministic source ordering and same-source fail-fast
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Implement and verify the flow command-resolution fix with red-green evidence, deterministic fallback ordering, and no fallback when same-source command is schema-invalid.
+
+#### Documentation Locations (External References Only)
+
+- Node path API: https://nodejs.org/api/path.html
+- Node test runner: https://nodejs.org/api/test.html
+
+#### Subtasks
+
+1. [ ] Add a failing repro test first in [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) that demonstrates current incorrect same-source/fallback behavior.
+2. [ ] Implement resolution ordering logic in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts):
+   - same-source repository first,
+   - codeInfo2 repository second,
+   - other repositories sorted by case-insensitive ASCII normalized source label, then case-insensitive ASCII full source path.
+3. [ ] Implement same-source schema-invalid fail-fast in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) with no downstream fallback.
+4. [ ] Extend integration tests in [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for:
+   - same-source success,
+   - same-source missing with codeInfo2 fallback,
+   - deterministic other-repo fallback ordering,
+   - same-source schema-invalid fail-fast.
+5. [ ] Update documentation files changed by this task:
+   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts`
+6. [ ] `npm run test:summary:server:cucumber`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 10. Documentation synchronization for story 0000040 outputs
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Perform documentation-only updates so product behavior, architecture notes, and repository structure match the final implemented behavior of this story.
+
+#### Documentation Locations (External References Only)
+
+- Markdown guide: https://www.markdownguide.org/basic-syntax/
+- Mermaid syntax guide: https://mermaid.js.org/syntax/sequenceDiagram.html
+
+#### Subtasks
+
+1. [ ] Update user-facing behavior notes in [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) for AGENTS start-step behavior and chat-default sourcing.
+2. [ ] Update architecture/flow details in [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), including flow command-resolution ordering and start-step contract references.
+3. [ ] Update file/module map in [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for any added/removed test or source files from tasks 1-9.
+4. [ ] Ensure `openapi.json` documentation reflects final contract shapes from tasks 1-2 and aligns with route behavior.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.agents-commands.test.ts`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 11. Final verification: full acceptance and regression gate for story 0000040
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Run final end-to-end verification against all acceptance criteria, full builds/tests, docker checks, and manual UI checks with screenshots. This task closes the story and prepares pull-request summary content.
+
+#### Documentation Locations (External References Only)
+
+- Docker docs via Context7: `/docker/docs`
+- Playwright docs via Context7: `/microsoft/playwright`
+- Jest docs: https://jestjs.io/docs/getting-started
+- Cucumber guides: https://cucumber.io/docs/guides/
+
+#### Subtasks
+
+1. [ ] Validate every acceptance criterion in this plan and record pass/fail notes in this task's Implementation notes.
+2. [ ] Run full regression wrappers (server unit/cucumber, client tests, e2e) and log any remediation required.
+3. [ ] Use Playwright MCP manual checks for AGENTS start-step, chat defaults initialization/warnings, and flow resolution failure/success behavior.
+4. [ ] Save screenshots to `test-results/screenshots/` using naming format `0000040-11-<short-name>.png`.
+5. [ ] Produce pull-request summary text covering all implemented tasks, tests, contract changes, and risks.
+6. [ ] Confirm `README.md`, `design.md`, and `projectStructure.md` are fully current.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit`
+6. [ ] `npm run test:summary:server:cucumber`
+7. [ ] `npm run test:summary:client`
+8. [ ] `npm run test:summary:e2e`
+9. [ ] Playwright MCP manual verification with screenshots in `test-results/screenshots/`
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.

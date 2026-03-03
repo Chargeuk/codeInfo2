@@ -1248,7 +1248,7 @@ Update the frontend API layer contracts to match backend message changes. This t
 
 ### 5. Frontend: AGENTS `Start step` control behavior and execution wiring
 
-- Task Status: **completed**
+- Task Status: **done**
 - Git Commits:
   - `a4408187` — DEV-[0000040] - Implement Task 5 AGENTS start-step UI and execution wiring
 

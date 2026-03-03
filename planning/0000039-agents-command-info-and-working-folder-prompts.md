@@ -2043,7 +2043,7 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 
 ### 12. Final verification (re-run): full acceptance and regression gate after Task 11 remediation
 
-- Task Status: **__to_do__**
+- Task Status: **__completed__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -2064,28 +2064,45 @@ Re-run full-story acceptance and regression verification after Task 11 remediati
 
 #### Subtasks
 
-1. [ ] Re-validate final `README.md` against implemented behavior.
-2. [ ] Re-validate final `design.md` architecture and Mermaid diagrams against implemented behavior, including Task 11 reset-path stale-response invalidation notes.
-3. [ ] Re-validate final file map in `projectStructure.md`.
-4. [ ] Update final implementation summary for PR use with Task 11 remediation details.
-5. [ ] Add final regression evidence checklist update confirming Task 11 stale-response/agent-switch edge cases were validated.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Re-validate final `README.md` against implemented behavior.
+2. [x] Re-validate final `design.md` architecture and Mermaid diagrams against implemented behavior, including Task 11 reset-path stale-response invalidation notes.
+3. [x] Re-validate final file map in `projectStructure.md`.
+4. [x] Update final implementation summary for PR use with Task 11 remediation details.
+5. [x] Add final regression evidence checklist update confirming Task 11 stale-response/agent-switch edge cases were validated.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests without using the wrapper commands listed below.
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run test:summary:server:unit`
-4. [ ] `npm run test:summary:server:cucumber`
-5. [ ] `npm run test:summary:client`
-6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-7. [ ] `npm run compose:build:summary`
-8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP check: re-run full 0000039 acceptance (command-info behavior, prompt discovery success/zero/error, selector transitions, execute prompt success/conflict/error) plus Task 11 edge-case checks for stale responses after prompt-state reset and agent switch. Capture screenshots `0000039-task12-final-command-info-disabled.png`, `0000039-task12-final-command-info-open.png`, `0000039-task12-final-prompts-visible.png`, `0000039-task12-final-prompts-zero-results.png`, `0000039-task12-final-prompts-error.png`, `0000039-task12-final-execute-success.png`, `0000039-task12-final-execute-conflict.png`, `0000039-task12-final-stale-after-clear-ignored.png`, and `0000039-task12-final-agent-switch-clears-prompt-context.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
-10. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server`
+2. [x] `npm run build:summary:client`
+3. [x] `npm run test:summary:server:unit`
+4. [x] `npm run test:summary:server:cucumber`
+5. [x] `npm run test:summary:client`
+6. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+7. [x] `npm run compose:build:summary`
+8. [x] `npm run compose:up`
+9. [x] Manual Playwright-MCP check: re-run full 0000039 acceptance (command-info behavior, prompt discovery success/zero/error, selector transitions, execute prompt success/conflict/error) plus Task 11 edge-case checks for stale responses after prompt-state reset and agent switch. Capture screenshots `0000039-task12-final-command-info-disabled.png`, `0000039-task12-final-command-info-open.png`, `0000039-task12-final-prompts-visible.png`, `0000039-task12-final-prompts-zero-results.png`, `0000039-task12-final-prompts-error.png`, `0000039-task12-final-execute-success.png`, `0000039-task12-final-execute-conflict.png`, `0000039-task12-final-stale-after-clear-ignored.png`, and `0000039-task12-final-agent-switch-clears-prompt-context.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
+10. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Re-validated `README.md` story 0000039 behavior notes (command-info popover, commit-driven prompt discovery, selector visibility outcomes, Execute Prompt flow, and required runtime log prefixes) against implemented Task 1-11 behavior; no documentation drift found.
+- Subtask 2: Re-validated `design.md` prompts discovery lifecycle and sequence/state diagrams, confirming Task 11 reset-path invalidation note and stale-response guard behavior are present and consistent with current `AgentsPage` implementation.
+- Subtask 3: Re-validated `projectStructure.md` story 0000039 entries; Task 11 file coverage (`AgentsPage`, prompt discovery/execute tests, `design.md`, and planning ledger updates) is represented and requires no map corrections.
+- Subtask 4: Updated final PR summary content for story 0000039 to include Task 11 remediation scope: centralized prompt-state invalidation on reset paths, context-guarded discovery commits, and regression coverage for stale-after-clear plus agent-switch execute-context reset.
+- Subtask 5: Added final regression evidence checklist update for Task 11 edge cases (to be re-confirmed during Testing step 9):
+  - [x] stale in-flight prompts response remains ignored after committed folder clear.
+  - [x] switching agents clears selected prompt context and leaves Execute Prompt disabled until re-selection.
+- Subtask 6: Ran `npm run lint --workspaces` (pass with unchanged repository baseline import-order warnings in server) and `npm run format:check --workspaces` (pass).
+- Testing step 1: `npm run build:summary:server` passed with `warnings: 0` and log `logs/test-summaries/build-server-latest.log`.
+- Testing step 2: `npm run build:summary:client` passed with `warnings: 1` (existing Vite chunk-size advisory baseline) and log `logs/test-summaries/build-client-latest.log`.
+- Testing step 3: `npm run test:summary:server:unit` passed with `tests: 916`, `pass: 916`, `fail: 0` (log `test-results/server-unit-tests-2026-03-03T10-59-11-821Z.log`).
+- Testing step 4: `npm run test:summary:server:cucumber` passed (`tests run: 68`, `passed: 68`, `failed: 0`) with log `test-results/server-cucumber-tests-2026-03-03T11-08-20-527Z.log`.
+- Testing step 5: `npm run test:summary:client` passed (`tests run: 453`, `passed: 453`, `failed: 0`) with log `test-results/client-tests-2026-03-03T11-10-10-098Z.log`.
+- Testing step 6: `npm run test:summary:e2e` passed (`tests run: 42`, `passed: 42`, `failed: 0`) with log `logs/test-summaries/e2e-tests-latest.log`.
+- Testing step 7: `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0` and log `logs/test-summaries/compose-build-latest.log`.
+- Testing step 8: `npm run compose:up` succeeded and started all compose services, including healthy `mongo_db_CodeInfo` and `codeinfo2-server-1`, with `codeinfo2-client-1` running.
+- Testing step 9: Manual browser acceptance run at `http://host.docker.internal:5001/agents` covered command-info disabled/open behavior, prompts discovery success/zero/error states, execute success/conflict, stale-after-clear suppression, and agent-switch prompt-context reset; captured all required screenshots: `0000039-task12-final-command-info-disabled.png`, `0000039-task12-final-command-info-open.png`, `0000039-task12-final-prompts-visible.png`, `0000039-task12-final-prompts-zero-results.png`, `0000039-task12-final-prompts-error.png`, `0000039-task12-final-execute-success.png`, `0000039-task12-final-execute-conflict.png`, `0000039-task12-final-stale-after-clear-ignored.png`, and `0000039-task12-final-agent-switch-clears-prompt-context.png`. Client-console checks observed required `[agents.commandInfo.open]`, `[agents.prompts.discovery.*]`, `[agents.prompts.selector.*]`, and `[agents.prompts.execute.*]` prefixes; server log `logs/server.1.log` confirmed `[agents.prompts.route.request]`, `[agents.prompts.route.success]`, `[agents.prompts.route.error]`, `[agents.prompts.discovery.start]`, `[agents.prompts.discovery.complete]`, and `[agents.prompts.discovery.empty]` entries for this run.
+- Testing step 10: `npm run compose:down` succeeded and removed all compose services plus network `codeinfo2_internal`.

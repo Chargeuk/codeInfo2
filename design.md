@@ -358,6 +358,38 @@ sequenceDiagram
   Rest-->>Tool: parity expectation for defaults/warnings
 ```
 
+## Chat runtime bootstrap for missing `codex/chat/config.toml` (Story 0000040 Task 9)
+
+- `server/src/config/runtimeConfig.ts` bootstrap now follows deterministic branch selection:
+  - `existing_noop`: chat config already exists, no overwrite.
+  - `copied`: chat config missing and base config exists, copy base once.
+  - `generated_template`: both chat and base configs missing, generate standard chat template.
+- IO/permission failures are not silent. Bootstrap emits deterministic warning markers and rethrows:
+  - `chat_stat_failed`, `base_stat_failed`, `chat_dir_create_failed`, `copy_failed`, `template_write_failed`.
+- Deterministic Task 9 marker:
+  - `DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH` with branch, paths, and warning metadata.
+- Data-safety rule: failed copy/template writes clean up partial destination artifacts so `codex/chat/config.toml` is not left corrupted.
+
+```mermaid
+flowchart TD
+  A[ensureChatRuntimeConfigBootstrapped] --> B{chat config exists?}
+  B -- yes --> C[branch existing_noop]
+  B -- no --> D{base config exists?}
+  D -- yes --> E[copy base -> chat with COPYFILE_EXCL]
+  D -- no --> F[write deterministic template]
+  E --> G{copy success?}
+  F --> H{write+rename success?}
+  G -- yes --> I[branch copied]
+  H -- yes --> J[branch generated_template]
+  G -- no --> K[branch copy_failed + warning + cleanup + throw]
+  H -- no --> L[branch template_write_failed + warning + cleanup + throw]
+  C --> M[emit DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH]
+  I --> M
+  J --> M
+  K --> M
+  L --> M
+```
+
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
 - Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
 - Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.

@@ -89,6 +89,11 @@ To keep Windows and WSL in sync, use these settings.
 
 - The repo ships `config.toml.example` at the root. On server startup, if `${CODEINFO_CODEX_HOME:-./codex}/config.toml` is missing, it is copied from the example (the `codex/` directory is git-ignored).
 - Customize `./codex/config.toml` after the first run; subsequent starts leave your edits intact.
+- Chat runtime config bootstrap (`./codex/chat/config.toml`) is deterministic and non-destructive:
+  - if chat config exists: no overwrite (`existing_noop`).
+  - if chat config is missing and base config exists: copy `./codex/config.toml` once (`copied`).
+  - if both chat and base configs are missing: generate a standard chat template (`generated_template`).
+  - IO/permission failures are surfaced with deterministic warnings and no silent fallback; failed copy/write paths clean up partial destination files.
 
 ## Codex (CLI)
 

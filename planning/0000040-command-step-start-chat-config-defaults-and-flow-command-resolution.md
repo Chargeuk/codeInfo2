@@ -1980,7 +1980,7 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
 
 ### 9. Server: deterministic bootstrap for missing `codex/chat/config.toml`
 
-- Task Status: **to_do**
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1998,17 +1998,17 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
 
 #### Subtasks
 
-1. [ ] Implement deterministic bootstrap in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts): copy `codex/config.toml` to `codex/chat/config.toml` when chat config is missing; generate template when both are missing; do not overwrite existing chat config.
+1. [x] Implement deterministic bootstrap in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts): copy `codex/config.toml` to `codex/chat/config.toml` when chat config is missing; generate template when both are missing; do not overwrite existing chat config.
    - Docs to read first: https://nodejs.org/api/fs.html, https://nodejs.org/api/path.html.
    - Files to read/edit: [runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts).
    - Acceptance criteria coverage: AC 15.
    - Done when: all three bootstrap branches execute deterministically.
-2. [ ] Ensure file permission/read-write failures emit deterministic warnings in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) with no silent fallback behavior.
+2. [x] Ensure file permission/read-write failures emit deterministic warnings in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) with no silent fallback behavior.
    - Docs to read first: https://nodejs.org/api/fs.html.
    - Files to read/edit: [runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts).
    - Acceptance criteria coverage: AC 15.
    - Done when: warning output is predictable for IO failure paths.
-3. [ ] Add a runtime config unit test for copy-bootstrap path (`codex/config.toml` -> `codex/chat/config.toml`).
+3. [x] Add a runtime config unit test for copy-bootstrap path (`codex/config.toml` -> `codex/chat/config.toml`).
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
    - Description: Simulate missing chat config with existing base config and assert copy occurs once.
@@ -2017,7 +2017,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Files to read/edit: [runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
    - Acceptance criteria coverage: AC 15.
    - Done when: test fails if copy branch does not create chat config.
-4. [ ] Add a runtime config unit test for template-generation path when both configs are missing.
+4. [x] Add a runtime config unit test for template-generation path when both configs are missing.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
    - Description: Simulate absence of both files and assert deterministic template output is generated.
@@ -2026,7 +2026,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Files to read/edit: [runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
    - Acceptance criteria coverage: AC 15.
    - Done when: test fails if template branch is skipped or non-deterministic.
-5. [ ] Add a runtime config unit test for non-destructive behavior when chat config already exists.
+5. [x] Add a runtime config unit test for non-destructive behavior when chat config already exists.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
    - Description: Seed existing chat config and assert bootstrap does not overwrite it.
@@ -2035,7 +2035,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Files to read/edit: [runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
    - Acceptance criteria coverage: AC 15.
    - Done when: test fails if existing chat config content changes.
-6. [ ] Add a runtime config unit test for IO/read-write failure warning output.
+6. [x] Add a runtime config unit test for IO/read-write failure warning output.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
    - Description: Force copy/write failure and assert deterministic warning logging.
@@ -2044,7 +2044,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Files to read/edit: [runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
    - Acceptance criteria coverage: AC 15.
    - Done when: test fails if failure occurs without deterministic warning.
-7. [ ] Add a runtime config unit test for missing `codex/chat` directory creation.
+7. [x] Add a runtime config unit test for missing `codex/chat` directory creation.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
    - Description: Start with absent chat directory and assert bootstrap creates required directory tree.
@@ -2053,7 +2053,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Files to read/edit: [runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
    - Acceptance criteria coverage: AC 15.
    - Done when: test fails if directory creation is skipped.
-8. [ ] Add a runtime config unit test for read-only destination behavior.
+8. [x] Add a runtime config unit test for read-only destination behavior.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
    - Description: Simulate read-only target path and assert deterministic warning without silent fallback.
@@ -2062,7 +2062,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Files to read/edit: [runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
    - Acceptance criteria coverage: AC 15.
    - Done when: test fails if permissions failure does not surface warning.
-9. [ ] Add a runtime config unit test asserting no partial-file overwrite on failed copy.
+9. [x] Add a runtime config unit test asserting no partial-file overwrite on failed copy.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
    - Description: Force mid-copy failure and assert resulting chat config is not partially written/corrupted.
@@ -2071,7 +2071,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Files to read/edit: [runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
    - Acceptance criteria coverage: AC 15.
    - Done when: test fails if partial file artifacts remain after failure.
-10. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) for runtime bootstrap behavior when `codex/chat/config.toml` is missing.
+10. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) for runtime bootstrap behavior when `codex/chat/config.toml` is missing.
 
 - Document name: `README.md`.
 - Document location: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md).
@@ -2082,7 +2082,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
 - Acceptance criteria coverage: documentation support for AC 15.
 - Done when: `README.md` clearly states bootstrap branch behavior and safety guarantees.
 
-11. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for bootstrap decision flow, including a Mermaid diagram for copy/template/non-overwrite branches and IO warning paths.
+11. [x] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for bootstrap decision flow, including a Mermaid diagram for copy/template/non-overwrite branches and IO warning paths.
 
 - Document name: `design.md`.
 - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
@@ -2093,7 +2093,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
 - Acceptance criteria coverage: documentation support for AC 15.
 - Done when: `design.md` includes correct bootstrap flow and valid Mermaid syntax.
 
-12. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-9 runtime config/test files added, removed, or modified.
+12. [x] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-9 runtime config/test files added, removed, or modified.
 
 - Document name: `projectStructure.md`.
 - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
@@ -2105,7 +2105,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
 - Acceptance criteria coverage: documentation support for AC 15.
 - Done when: `projectStructure.md` accurately mirrors task-9 repository changes and includes all added and removed files.
 
-13. [ ] Add deterministic diagnostic log marker [DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+13. [x] Add deterministic diagnostic log marker [DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
 
 - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
 - Files to read/edit: [runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts).
@@ -2113,7 +2113,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
 - Manual Playwright-MCP expected outcome: after server start and first chat-surface load, marker appears once indicating bootstrap branch (`copied`, `generated_template`, or `existing_noop`).
 - Done when: [DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
 
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+14. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
 - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
@@ -2125,14 +2125,19 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
 - Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
 - Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server`
+1. [x] `npm run build:summary:server`
    - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit`
+2. [x] `npm run test:summary:server:unit`
    - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtasks 1-2 and 13: Updated `ensureChatRuntimeConfigBootstrapped` in `server/src/config/runtimeConfig.ts` with deterministic branch behavior (`existing_noop`, `copied`, `generated_template`) plus deterministic failure branches and warning emission; added marker `DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH` with branch/path/warning context and removed silent fallback behavior on IO failures.
+- Subtasks 3-9: Expanded `server/src/test/unit/runtimeConfig.test.ts` bootstrap coverage for copy-once, template generation when both files are missing, no-overwrite behavior, missing chat-directory creation, warning-path assertions for permission failures, and partial-file cleanup on simulated mid-copy failure.
+- Subtasks 10-12: Updated `README.md`, `design.md` (with Task 9 Mermaid flow), and `projectStructure.md` with Task 9 bootstrap behavior, branch semantics, deterministic warning marker details, and task-level file traceability.
+- Subtask 14: Ran `npm run lint --workspaces` (pass with known pre-existing import-order warnings) and `npm run format:check --workspaces`; after initial formatting mismatch in `runtimeConfig.ts`, ran `npm run format --workspaces` and re-ran `npm run format:check --workspaces` to clean pass.
+- Testing 1: `npm run build:summary:server` passed (`status: passed`, `warnings: 0`) with log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run test:summary:server:unit` passed (`tests run: 964`, `failed: 0`) with log `test-results/server-unit-tests-2026-03-03T22-21-59-499Z.log`.
 
 ---
 

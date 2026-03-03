@@ -176,6 +176,28 @@ Modified files (implementation traceability):
 - `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
 - `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
 
+## Story 0000040 Task 9 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `projectStructure.md`
+- `server/src/config/runtimeConfig.ts`
+- `server/src/test/unit/runtimeConfig.test.ts`
+
 ## Story 0000038 Tasks 1-7 structural change ledger
 
 Added files:

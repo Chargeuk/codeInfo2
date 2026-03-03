@@ -87,6 +87,7 @@ type RunAgentErrorCode =
   | 'RUN_IN_PROGRESS'
   | 'COMMAND_NOT_FOUND'
   | 'COMMAND_INVALID'
+  | 'INVALID_START_STEP'
   | 'CODEX_UNAVAILABLE'
   | 'WORKING_FOLDER_INVALID'
   | 'WORKING_FOLDER_NOT_FOUND';
@@ -409,6 +410,7 @@ function isSafeAgentCommandName(raw: string): boolean {
 export async function startAgentCommand(params: {
   agentName: string;
   commandName: string;
+  startStep?: number;
   conversationId?: string;
   working_folder?: string;
   sourceId?: string;
@@ -433,6 +435,20 @@ export async function startAgentCommand(params: {
       ? params.sourceId.trim()
       : undefined;
   const conversationId = params.conversationId ?? crypto.randomUUID();
+
+  append({
+    level: 'info',
+    message: 'DEV_0000040_T02_START_STEP_VALIDATION',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      stage: 'service_received',
+      agentName: params.agentName,
+      commandName,
+      startStep: params.startStep ?? null,
+      source: params.source,
+    },
+  });
 
   if (!tryAcquireConversationLock(conversationId)) {
     throw toRunAgentError(
@@ -588,6 +604,7 @@ export async function startAgentCommand(params: {
 export async function runAgentCommand(params: {
   agentName: string;
   commandName: string;
+  startStep?: number;
   conversationId?: string;
   working_folder?: string;
   sourceId?: string;
@@ -609,6 +626,20 @@ export async function runAgentCommand(params: {
     typeof params.sourceId === 'string' && params.sourceId.trim().length > 0
       ? params.sourceId.trim()
       : undefined;
+
+  append({
+    level: 'info',
+    message: 'DEV_0000040_T02_START_STEP_VALIDATION',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      stage: 'service_received',
+      agentName: params.agentName,
+      commandName: params.commandName,
+      startStep: params.startStep ?? null,
+      source: params.source,
+    },
+  });
 
   let commandsRoot: string | undefined;
   let commandFilePath: string | undefined;

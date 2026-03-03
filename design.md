@@ -1714,7 +1714,10 @@ runAgentInstruction()
 - REST endpoints:
   - `GET /agents/:agentName/commands` returns `{ commands: [{ name, description, disabled, stepCount, sourceId?, sourceLabel? }] }`.
   - `stepCount` is required and must be an integer `>= 1`; valid command files use `command.items.length`, and invalid/disabled entries use sentinel `stepCount: 1` with `disabled: true`.
-  - `POST /agents/:agentName/commands/run` accepts `{ commandName, conversationId?, working_folder?, sourceId? }` and returns `{ agentName, commandName, conversationId, modelId }`.
+  - `POST /agents/:agentName/commands/run` accepts `{ commandName, startStep?, conversationId?, working_folder?, sourceId? }` and returns `{ agentName, commandName, conversationId, modelId }`.
+  - `startStep` is optional for backward compatibility in this contract step; omitted requests remain valid.
+  - Route-level start-step validation in this step enforces type-only checks: when provided, `startStep` must be an integer. Invalid values map deterministically to `400 { error: 'invalid_request', code: 'INVALID_START_STEP', message: 'startStep must be between 1 and N' }`.
+  - MCP `run_command` input remains unchanged in this step and does not accept `startStep`.
 - Command discovery includes ingested repo commands at `<ingestRoot>/codex_agents/<agentName>/commands` when the agent exists locally; ingested entries include `sourceId = RepoEntry.containerPath`, `sourceLabel = RepoEntry.id` (fallback to ingest root basename), and the list is sorted by display label `<name>` or `<name> - [sourceLabel]`.
 - Command runs accept optional `sourceId` (container path). Unknown `sourceId` values return a 404 `{ error: 'not_found' }`, and the server logs `DEV-0000034:T2:command_run_resolved` with the resolved command path.
 - REST error mapping (command run):
@@ -1735,7 +1738,7 @@ sequenceDiagram
   participant Runner as Command runner
   participant Codex as Codex
 
-  UI->>API: POST /agents/:agentName/commands/run\n{ commandName, conversationId?, working_folder? }
+  UI->>API: POST /agents/:agentName/commands/run\n{ commandName, startStep?, conversationId?, working_folder? }
   Note over API: Creates an AbortController\n(req 'aborted' / res 'close' => controller.abort())
   API->>Svc: runAgentCommand(..., signal)
   Svc->>Runner: runAgentCommandRunner(...)\n(load JSON + acquire lock)
@@ -4184,28 +4187,28 @@ sequenceDiagram
 
 ## Story 0000039 manual verification log matrix
 
-| Prefix | Expected runtime outcome |
-| --- | --- |
-| `[agents.prompts.route.request]` | Prompts route called with agent/folder context. |
-| `[agents.prompts.route.success]` | Prompts route succeeded with `promptsCount`. |
-| `[agents.prompts.route.error]` | Prompts route failed (validation/not-found/internal) with status/code context. |
-| `[agents.prompts.discovery.start]` | Discovery service started for committed `working_folder`. |
-| `[agents.prompts.discovery.complete]` | Discovery service completed with prompt entries. |
-| `[agents.prompts.discovery.empty]` | Discovery service completed with zero prompts / missing prompts dir. |
-| `[agents.prompts.api.request]` | Client prompts API request dispatched. |
-| `[agents.prompts.api.success]` | Client prompts API request succeeded. |
-| `[agents.prompts.api.error]` | Client prompts API request failed. |
-| `[agents.commandInfo.open]` | Command info popover opened for selected command. |
-| `[agents.commandInfo.blocked]` | Command info interaction blocked because no command selected. |
-| `[agents.prompts.discovery.commit]` | UI committed working folder (`blur`, `enter`, `picker`). |
-| `[agents.prompts.discovery.request.start]` | UI started a discovery request with request id. |
-| `[agents.prompts.discovery.request.stale_ignored]` | UI ignored stale discovery response. |
-| `[agents.prompts.selector.visible]` | Selector row shown with discovered prompts. |
-| `[agents.prompts.selector.hidden]` | Selector row hidden (`empty_working_folder` or `discovery_zero_results`). |
-| `[agents.prompts.selection.changed]` | Prompt selection changed (`relativePath` or `none`). |
-| `[agents.prompts.execute.clicked]` | Execute Prompt clicked with selected prompt context. |
-| `[agents.prompts.execute.payload_built]` | Canonical prompt payload constructed; `instructionHasFullPath=true` expected. |
-| `[agents.prompts.execute.result]` | Execute Prompt finished with `status=started` or `status=error` and code. |
+| Prefix                                             | Expected runtime outcome                                                       |
+| -------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `[agents.prompts.route.request]`                   | Prompts route called with agent/folder context.                                |
+| `[agents.prompts.route.success]`                   | Prompts route succeeded with `promptsCount`.                                   |
+| `[agents.prompts.route.error]`                     | Prompts route failed (validation/not-found/internal) with status/code context. |
+| `[agents.prompts.discovery.start]`                 | Discovery service started for committed `working_folder`.                      |
+| `[agents.prompts.discovery.complete]`              | Discovery service completed with prompt entries.                               |
+| `[agents.prompts.discovery.empty]`                 | Discovery service completed with zero prompts / missing prompts dir.           |
+| `[agents.prompts.api.request]`                     | Client prompts API request dispatched.                                         |
+| `[agents.prompts.api.success]`                     | Client prompts API request succeeded.                                          |
+| `[agents.prompts.api.error]`                       | Client prompts API request failed.                                             |
+| `[agents.commandInfo.open]`                        | Command info popover opened for selected command.                              |
+| `[agents.commandInfo.blocked]`                     | Command info interaction blocked because no command selected.                  |
+| `[agents.prompts.discovery.commit]`                | UI committed working folder (`blur`, `enter`, `picker`).                       |
+| `[agents.prompts.discovery.request.start]`         | UI started a discovery request with request id.                                |
+| `[agents.prompts.discovery.request.stale_ignored]` | UI ignored stale discovery response.                                           |
+| `[agents.prompts.selector.visible]`                | Selector row shown with discovered prompts.                                    |
+| `[agents.prompts.selector.hidden]`                 | Selector row hidden (`empty_working_folder` or `discovery_zero_results`).      |
+| `[agents.prompts.selection.changed]`               | Prompt selection changed (`relativePath` or `none`).                           |
+| `[agents.prompts.execute.clicked]`                 | Execute Prompt clicked with selected prompt context.                           |
+| `[agents.prompts.execute.payload_built]`           | Canonical prompt payload constructed; `instructionHasFullPath=true` expected.  |
+| `[agents.prompts.execute.result]`                  | Execute Prompt finished with `status=started` or `status=error` and code.      |
 
 ```mermaid
 sequenceDiagram

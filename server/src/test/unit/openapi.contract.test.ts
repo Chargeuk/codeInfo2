@@ -260,3 +260,69 @@ test('OpenAPI GET /agents/{agentName}/commands requires stepCount >= 1', () => {
   assert.equal(stepCountSchema.type, 'integer');
   assert.equal(stepCountSchema.minimum, 1);
 });
+
+test('OpenAPI POST /agents/{agentName}/commands/run keeps startStep optional and documents INVALID_START_STEP payload', () => {
+  const openapi = readOpenApi();
+  const pathSchema = (
+    openapi.paths as Record<string, Record<string, unknown>>
+  )?.['/agents/{agentName}/commands/run'] as
+    | Record<string, unknown>
+    | undefined;
+  assert.ok(pathSchema, 'missing /agents/{agentName}/commands/run schema');
+
+  const post = (pathSchema?.post ?? null) as Record<string, unknown> | null;
+  assert.ok(post, 'missing POST schema');
+
+  const requestSchema = (((
+    (
+      ((post?.requestBody as Record<string, unknown>)?.content ?? {}) as Record<
+        string,
+        unknown
+      >
+    )['application/json'] as Record<string, unknown>
+  )?.schema ?? null) as Record<string, unknown> | null)!;
+  assert.ok(requestSchema, 'missing request body schema');
+  const required = (requestSchema.required ?? []) as string[];
+  assert.ok(required.includes('commandName'));
+  assert.equal(required.includes('startStep'), false);
+
+  const props = (requestSchema.properties ?? {}) as Record<string, unknown>;
+  const startStepSchema = props.startStep as
+    | Record<string, unknown>
+    | undefined;
+  assert.ok(startStepSchema, 'missing startStep property');
+  assert.equal(startStepSchema.type, 'integer');
+
+  const responses = (post.responses ?? {}) as Record<string, unknown>;
+  const invalidStartStepSchema = (((
+    (
+      ((responses['400'] as Record<string, unknown>)?.content ?? {}) as Record<
+        string,
+        unknown
+      >
+    )['application/json'] as Record<string, unknown>
+  )?.schema ?? null) as Record<string, unknown> | null)!;
+  assert.ok(invalidStartStepSchema, 'missing 400 INVALID_START_STEP schema');
+  assert.deepEqual(invalidStartStepSchema.required, [
+    'error',
+    'code',
+    'message',
+  ]);
+
+  const invalidProps = (invalidStartStepSchema.properties ?? {}) as Record<
+    string,
+    unknown
+  >;
+  assert.deepEqual(invalidProps.error, {
+    type: 'string',
+    enum: ['invalid_request'],
+  });
+  assert.deepEqual(invalidProps.code, {
+    type: 'string',
+    enum: ['INVALID_START_STEP'],
+  });
+  assert.deepEqual(invalidProps.message, {
+    type: 'string',
+    enum: ['startStep must be between 1 and N'],
+  });
+});

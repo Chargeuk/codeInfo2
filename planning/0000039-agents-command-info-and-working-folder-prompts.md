@@ -1264,7 +1264,7 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 6. [ ] Add prompts-row visibility-split test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
-   - Description: create `client/src/test/agentsPage.promptsDiscovery.test.tsx` if it does not already exist, then add a test covering three outcomes: prompts present, discovery error, and zero prompts.
+   - Description: create `client/src/test/agentsPage.promptsDiscovery.test.tsx` if it does not already exist, then add a test covering three outcomes: prompts present (selector + Execute Prompt visible), discovery error (row remains visible with inline error), and zero prompts (row hidden).
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify conditional rendering contract for prompts row.
 
@@ -1285,7 +1285,7 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 9. [ ] Add prompt-selection-reset-on-folder-change test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
-   - Description: add a test selecting a prompt, changing committed folder, and asserting selection resets.
+   - Description: add a test selecting a prompt, then changing committed folder through text commit (`blur` or `Enter`) and picker selection (separate assertions), and asserting selection resets immediately in both cases.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify stale prompt prevention behavior.
 
@@ -1324,7 +1324,7 @@ Implement prompts selector rendering rules and selection/reset behavior once req
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Implement exactly: emit browser debug logs with these exact prefixes:
      - `[agents.prompts.selector.visible] promptCount=<count> workingFolder=<committedWorkingFolder>` when selector row is shown.
-     - `[agents.prompts.selector.hidden] reason=<empty_working_folder|discovery_zero_results|discovery_error>` when selector row is hidden.
+     - `[agents.prompts.selector.hidden] reason=<empty_working_folder|discovery_zero_results>` when selector row is hidden.
      - `[agents.prompts.selection.changed] relativePath=<relativePath|none>` when user selects or clears a prompt.
    - Purpose: provide explicit observable state transitions for prompt selector visibility and selection changes.
 
@@ -1338,7 +1338,7 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, exercise prompt discovery success/zero-result/error states and prompt selection/clear actions. Verify `[agents.prompts.selector.visible]`, `[agents.prompts.selector.hidden]`, and `[agents.prompts.selection.changed]` logs match the rendered UI state. Capture screenshots `0000039-task7-selector-visible.png`, `0000039-task7-selector-hidden-zero-results.png`, and `0000039-task7-selector-error-state.png`, store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped within `docker-compose.local.yml`), and review them with the agent to confirm selector visibility/error behavior matches this task’s expectations. Expected outcome: visibility/selection logs map 1:1 to UI transitions, screenshots confirm each selector state, and no browser debug-console errors.
+5. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, exercise prompt discovery success/zero-result/error states and prompt selection/clear actions. Verify `[agents.prompts.selector.visible]`, `[agents.prompts.selector.hidden]`, and `[agents.prompts.selection.changed]` logs match rendered success/zero-result/selection transitions, and verify error-state behavior from UI screenshot evidence. Capture screenshots `0000039-task7-selector-visible.png`, `0000039-task7-selector-hidden-zero-results.png`, and `0000039-task7-selector-error-state.png`, store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped within `docker-compose.local.yml`), and review them with the agent to confirm selector visibility/error behavior matches this task’s expectations. Expected outcome: visibility/selection logs map 1:1 to selector transitions, screenshots confirm success/zero-result/error states, and no browser debug-console errors.
 6. [ ] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.

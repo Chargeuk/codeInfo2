@@ -80,6 +80,11 @@ async function throwAgentApiError(
 
 const serverBase = getApiBaseUrl();
 
+export type AgentPromptEntry = {
+  relativePath: string;
+  fullPath: string;
+};
+
 export async function listAgents(): Promise<{ agents: AgentSummary[] }> {
   const res = await fetch(new URL('/agents', serverBase).toString());
   if (!res.ok) {
@@ -294,4 +299,60 @@ export async function runAgentCommand(params: {
   }
 
   return { status: 'started', agentName, commandName, conversationId, modelId };
+}
+
+export async function listAgentPrompts(params: {
+  agentName: string;
+  working_folder: string;
+}): Promise<{ prompts: AgentPromptEntry[] }> {
+  const query = new URLSearchParams();
+  query.set('working_folder', params.working_folder);
+  const route = `/agents/${encodeURIComponent(params.agentName)}/prompts`;
+  const url = new URL(`${route}?${query.toString()}`, serverBase).toString();
+
+  console.info(
+    `[agents.prompts.api.request] agentName=${params.agentName} workingFolder=${params.working_folder}`,
+  );
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      await throwAgentApiError(
+        res,
+        `Failed to list agent prompts (${res.status})`,
+      );
+    }
+
+    const data = (await res.json()) as { prompts?: unknown };
+    const promptsRaw = Array.isArray(data.prompts) ? data.prompts : [];
+    const prompts = promptsRaw
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null;
+        const record = item as Record<string, unknown>;
+        const relativePath =
+          typeof record.relativePath === 'string'
+            ? record.relativePath
+            : undefined;
+        const fullPath =
+          typeof record.fullPath === 'string' ? record.fullPath : undefined;
+        if (!relativePath || !fullPath) return null;
+        return { relativePath, fullPath } satisfies AgentPromptEntry;
+      })
+      .filter(Boolean) as AgentPromptEntry[];
+
+    console.info(
+      `[agents.prompts.api.success] agentName=${params.agentName} promptsCount=${prompts.length}`,
+    );
+
+    return { prompts };
+  } catch (error) {
+    const status =
+      error instanceof AgentApiError ? String(error.status) : 'none';
+    const code =
+      error instanceof AgentApiError && error.code ? error.code : 'none';
+    console.info(
+      `[agents.prompts.api.error] agentName=${params.agentName} status=${status} code=${code}`,
+    );
+    throw error;
+  }
 }

@@ -1,5 +1,85 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000039 Task 1 structural change ledger
+
+Added files:
+
+- `server/src/test/unit/openapi.prompts-route.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `openapi.json`
+- `server/src/agents/service.ts`
+- `server/src/routes/agentsCommands.ts`
+- `server/src/test/unit/agents-commands-router-list.test.ts`
+
+## Story 0000039 Task 2 structural change ledger
+
+Added files:
+
+- `server/src/test/unit/agent-prompts-list.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `server/src/agents/service.ts`
+
+## Story 0000039 Task 3 structural change ledger
+
+Added files:
+
+- `client/src/test/agentsApi.promptsList.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/api/agents.ts`
+- `design.md`
+
+## Story 0000039 Task 4 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/test/agentsPage.descriptionPopover.test.tsx`
+- `design.md`
+
 ## Story 0000038 Tasks 1-7 structural change ledger
 
 Added files:
@@ -882,3 +962,71 @@ web_search = "live"
   - `codex_agents/tasking_agent/commands/kadshow_task_up.json`
 - Task 23 verification target:
   - `git diff --name-status main...HEAD -- codex_agents` must contain no `D`/`R` entries after the parity-fix commit.
+
+## Story 0000039 Task 5 structural change ledger
+
+- Modified files:
+  - `client/src/pages/AgentsPage.tsx`
+  - `client/src/test/agentsPage.commandsList.test.tsx`
+  - `design.md`
+  - `planning/0000039-agents-command-info-and-working-folder-prompts.md`
+
+## Story 0000039 Task 6 structural change ledger
+
+- Added files:
+  - `client/src/test/agentsPage.promptsDiscovery.test.tsx`
+- Modified files:
+  - `client/src/pages/AgentsPage.tsx`
+  - `client/src/test/agentsPage.workingFolderPicker.test.tsx`
+  - `design.md`
+  - `planning/0000039-agents-command-info-and-working-folder-prompts.md`
+
+## Story 0000039 Task 7 structural change ledger
+
+- Added files:
+  - `None`
+- Modified files:
+  - `client/src/pages/AgentsPage.tsx`
+  - `client/src/test/agentsPage.promptsDiscovery.test.tsx`
+  - `design.md`
+  - `projectStructure.md`
+  - `planning/0000039-agents-command-info-and-working-folder-prompts.md`
+
+## Story 0000039 Task 8 structural change ledger
+
+- Added files:
+  - `client/src/test/agentsPage.executePrompt.test.tsx`
+- Modified files:
+  - `client/src/pages/AgentsPage.tsx`
+  - `client/src/test/agentsPage.commandsList.test.tsx`
+  - `client/src/test/agentsPage.run.test.tsx`
+  - `design.md`
+  - `projectStructure.md`
+  - `planning/0000039-agents-command-info-and-working-folder-prompts.md`
+
+## Story 0000039 Tasks 1-8 cumulative file map (final cross-check)
+
+- Required added files confirmed:
+  - `server/src/test/unit/openapi.prompts-route.test.ts`
+  - `server/src/test/unit/agent-prompts-list.test.ts`
+  - `client/src/test/agentsApi.promptsList.test.ts`
+  - `client/src/test/agentsPage.promptsDiscovery.test.tsx`
+  - `client/src/test/agentsPage.executePrompt.test.tsx`
+- Core implementation files touched across Tasks 1-8:
+  - `server/src/routes/agentsCommands.ts`
+  - `server/src/agents/service.ts`
+  - `client/src/api/agents.ts`
+  - `client/src/pages/AgentsPage.tsx`
+  - `client/src/test/agentsPage.workingFolderPicker.test.tsx`
+  - `client/src/test/agentsPage.descriptionPopover.test.tsx`
+  - `client/src/test/agentsPage.run.test.tsx`
+  - `client/src/test/agentsPage.commandsList.test.tsx`
+  - `client/src/test/agentsPage.run.instructionError.test.tsx`
+  - `client/src/test/agentsPage.commandsRun.conflict.test.tsx`
+  - `client/src/test/agentsPage.streaming.test.tsx`
+  - `openapi.json`
+  - `design.md`
+  - `README.md`
+  - `planning/0000039-agents-command-info-and-working-folder-prompts.md`
+- Prompt-discovery fixtures from Task 2:
+  - No new persistent fixture files were introduced by Task 2 (behavior coverage implemented via service/unit tests and runtime path handling).

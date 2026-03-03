@@ -1,10 +1,15 @@
 import { Router, json } from 'express';
 
-import { listAgentCommands, startAgentCommand } from '../agents/service.js';
+import {
+  listAgentCommands,
+  listAgentPrompts,
+  startAgentCommand,
+} from '../agents/service.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 
 type Deps = {
   listAgentCommands: typeof listAgentCommands;
+  listAgentPrompts: typeof listAgentPrompts;
   startAgentCommand: typeof startAgentCommand;
 };
 
@@ -30,6 +35,25 @@ const isAgentCommandsError = (err: unknown): err is AgentCommandsError =>
   Boolean(err) &&
   typeof err === 'object' &&
   typeof (err as { code?: unknown }).code === 'string';
+
+type PromptsQuery = { working_folder: string };
+
+const validatePromptsQuery = (query: unknown): PromptsQuery => {
+  const candidate = (query ?? {}) as { working_folder?: unknown };
+  const rawWorkingFolder = candidate.working_folder;
+
+  if (rawWorkingFolder === undefined || rawWorkingFolder === null) {
+    throw new Error('working_folder is required');
+  }
+  if (typeof rawWorkingFolder !== 'string') {
+    throw new Error('working_folder must be a string');
+  }
+  if (rawWorkingFolder.trim().length === 0) {
+    throw new Error('working_folder is required');
+  }
+
+  return { working_folder: rawWorkingFolder.trim() };
+};
 
 const validateRunBody = (
   body: unknown,
@@ -84,6 +108,7 @@ const validateRunBody = (
 export function createAgentsCommandsRouter(
   deps: Deps = {
     listAgentCommands,
+    listAgentPrompts,
     startAgentCommand,
   },
 ) {
@@ -113,6 +138,112 @@ export function createAgentsCommandsRouter(
 
       baseLogger.error({ requestId, agentName, err }, 'agent commands failed');
       return res.status(500).json({ error: 'agent_commands_failed' });
+    }
+  });
+
+  router.get('/:agentName/prompts', async (req, res) => {
+    const requestId =
+      (res.locals?.requestId as string | undefined) ?? undefined;
+    const agentName = String(req.params.agentName ?? '').trim();
+    if (!agentName) {
+      baseLogger.warn(
+        {
+          requestId,
+          status: 400,
+          code: 'none',
+        },
+        '[agents.prompts.route.error] agentName=<blank> status=400 code=none',
+      );
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    let query: PromptsQuery;
+    try {
+      query = validatePromptsQuery(req.query);
+    } catch (err) {
+      const message = (err as Error).message;
+      baseLogger.warn(
+        {
+          requestId,
+          agentName,
+          status: 400,
+          code: 'none',
+          message,
+        },
+        `[agents.prompts.route.error] agentName=${agentName} status=400 code=none`,
+      );
+      return res.status(400).json({ error: 'invalid_request', message });
+    }
+
+    baseLogger.info(
+      {
+        requestId,
+        agentName,
+        workingFolder: query.working_folder,
+      },
+      `[agents.prompts.route.request] agentName=${agentName} workingFolder=${query.working_folder}`,
+    );
+
+    try {
+      const payload = await deps.listAgentPrompts({
+        agentName,
+        working_folder: query.working_folder,
+      });
+      baseLogger.info(
+        {
+          requestId,
+          agentName,
+          promptsCount: payload.prompts.length,
+        },
+        `[agents.prompts.route.success] agentName=${agentName} promptsCount=${payload.prompts.length}`,
+      );
+      return res.status(200).json(payload);
+    } catch (err) {
+      if (isAgentCommandsError(err)) {
+        if (err.code === 'AGENT_NOT_FOUND') {
+          baseLogger.warn(
+            {
+              requestId,
+              agentName,
+              status: 404,
+              code: err.code,
+            },
+            `[agents.prompts.route.error] agentName=${agentName} status=404 code=${err.code}`,
+          );
+          return res.status(404).json({ error: 'not_found' });
+        }
+        if (
+          err.code === 'WORKING_FOLDER_INVALID' ||
+          err.code === 'WORKING_FOLDER_NOT_FOUND'
+        ) {
+          baseLogger.warn(
+            {
+              requestId,
+              agentName,
+              status: 400,
+              code: err.code,
+            },
+            `[agents.prompts.route.error] agentName=${agentName} status=400 code=${err.code}`,
+          );
+          return res.status(400).json({
+            error: 'invalid_request',
+            code: err.code,
+            message: err.reason ?? 'working_folder validation failed',
+          });
+        }
+      }
+
+      baseLogger.error(
+        {
+          requestId,
+          agentName,
+          err,
+          status: 500,
+          code: 'none',
+        },
+        `[agents.prompts.route.error] agentName=${agentName} status=500 code=none`,
+      );
+      return res.status(500).json({ error: 'agent_prompts_failed' });
     }
   });
 

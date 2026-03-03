@@ -947,6 +947,94 @@ export type AgentCommandSummary = {
   sourceLabel?: string;
 };
 
+export type AgentPromptSummary = {
+  relativePath: string;
+  fullPath: string;
+};
+
+const PROMPTS_SEGMENTS = ['.github', 'prompts'] as const;
+
+async function resolveCaseInsensitiveDirectory(params: {
+  root: string;
+  segment: string;
+}): Promise<string | null> {
+  const entries = await fs
+    .readdir(params.root, { withFileTypes: true })
+    .catch((error) => {
+      if ((error as { code?: string }).code === 'ENOENT') return null;
+      throw error;
+    });
+  if (!entries) return null;
+
+  const wanted = params.segment.toLowerCase();
+  for (const entry of entries) {
+    if (entry.name.toLowerCase() !== wanted) continue;
+    const abs = path.join(params.root, entry.name);
+    const stat = await fs.lstat(abs).catch(() => null);
+    if (!stat || !stat.isDirectory() || stat.isSymbolicLink()) continue;
+    return abs;
+  }
+  return null;
+}
+
+async function resolvePromptsRoot(
+  resolvedWorkingFolder: string,
+): Promise<string | null> {
+  let current = resolvedWorkingFolder;
+  for (const segment of PROMPTS_SEGMENTS) {
+    const next = await resolveCaseInsensitiveDirectory({
+      root: current,
+      segment,
+    });
+    if (!next) return null;
+    current = next;
+  }
+  return current;
+}
+
+async function collectPromptMarkdownFiles(params: {
+  promptsRoot: string;
+}): Promise<AgentPromptSummary[]> {
+  const prompts: AgentPromptSummary[] = [];
+  const stack: string[] = [params.promptsRoot];
+
+  while (stack.length > 0) {
+    const currentDir = stack.pop();
+    if (!currentDir) break;
+    const entries = await fs.readdir(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const abs = path.join(currentDir, entry.name);
+      const stat = await fs.lstat(abs).catch(() => null);
+      if (!stat || stat.isSymbolicLink()) continue;
+      if (stat.isDirectory()) {
+        stack.push(abs);
+        continue;
+      }
+      if (!stat.isFile()) continue;
+      if (!entry.name.toLowerCase().endsWith('.md')) continue;
+
+      const fullPath = path.resolve(abs);
+      const relFromRoot = path.relative(params.promptsRoot, fullPath);
+      if (!relFromRoot || relFromRoot === '.') continue;
+      if (path.isAbsolute(relFromRoot)) continue;
+      if (relFromRoot.split(path.sep).some((segment) => segment === '..')) {
+        continue;
+      }
+
+      const relativePath = relFromRoot.split(path.sep).join('/');
+      if (path.posix.isAbsolute(relativePath)) continue;
+
+      prompts.push({
+        relativePath,
+        fullPath,
+      });
+    }
+  }
+
+  prompts.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  return prompts;
+}
+
 export async function listAgentCommands(
   params: {
     agentName: string;
@@ -1059,4 +1147,61 @@ export async function listAgentCommands(
   });
 
   return { commands };
+}
+
+export async function listAgentPrompts(params: {
+  agentName: string;
+  working_folder: string;
+}): Promise<{ prompts: AgentPromptSummary[] }> {
+  const discovered = await discoverAgents();
+  const agent = discovered.find((item) => item.name === params.agentName);
+  if (!agent) throw toRunAgentError('AGENT_NOT_FOUND');
+
+  const resolvedWorkingFolder = await resolveWorkingFolderWorkingDirectory(
+    params.working_folder,
+  );
+  if (!resolvedWorkingFolder) {
+    return { prompts: [] };
+  }
+
+  baseLogger.info(
+    {
+      agentName: params.agentName,
+      workingFolder: resolvedWorkingFolder,
+    },
+    `[agents.prompts.discovery.start] agentName=${params.agentName} workingFolder=${resolvedWorkingFolder}`,
+  );
+
+  const promptsRoot = await resolvePromptsRoot(resolvedWorkingFolder);
+  if (!promptsRoot) {
+    baseLogger.info(
+      {
+        reason: 'prompts_dir_missing_or_no_markdown',
+        workingFolder: resolvedWorkingFolder,
+      },
+      '[agents.prompts.discovery.empty] reason=prompts_dir_missing_or_no_markdown',
+    );
+    return { prompts: [] };
+  }
+
+  const prompts = await collectPromptMarkdownFiles({ promptsRoot });
+  if (prompts.length === 0) {
+    baseLogger.info(
+      {
+        reason: 'prompts_dir_missing_or_no_markdown',
+        promptsRoot,
+      },
+      '[agents.prompts.discovery.empty] reason=prompts_dir_missing_or_no_markdown',
+    );
+    return { prompts: [] };
+  }
+
+  baseLogger.info(
+    {
+      promptsRoot,
+      promptsCount: prompts.length,
+    },
+    `[agents.prompts.discovery.complete] promptsRoot=${promptsRoot} promptsCount=${prompts.length}`,
+  );
+  return { prompts };
 }

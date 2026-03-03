@@ -73,6 +73,152 @@ flowchart TD
 
 ## Embedding flow refactor (Task 1)
 
+## Agents prompts route contract (Story 0000039 Task 1)
+
+- Added `GET /agents/{agentName}/prompts` at the agents commands router boundary.
+- Router validates `agentName` and `working_folder` query shape before calling service.
+- Error mapping is deterministic:
+  - `AGENT_NOT_FOUND` -> `404 { error: 'not_found' }`
+  - `WORKING_FOLDER_INVALID|WORKING_FOLDER_NOT_FOUND` -> `400 { error: 'invalid_request', code, message }`
+  - unexpected -> `500 { error: 'agent_prompts_failed' }`
+- Observability logs are emitted with exact prefixes for request/success/error verification:
+  - `[agents.prompts.route.request]`
+  - `[agents.prompts.route.success]`
+  - `[agents.prompts.route.error]`
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Router as agentsCommands Router
+  participant Service as agents.service.listAgentPrompts
+
+  Client->>Router: GET /agents/{agentName}/prompts?working_folder=...
+  Router->>Router: validate agentName + validatePromptsQuery
+  alt request invalid
+    Router-->>Client: 400 { error: "invalid_request", message? }
+  else request valid
+    Router->>Service: listAgentPrompts({ agentName, working_folder })
+    alt AGENT_NOT_FOUND
+      Router-->>Client: 404 { error: "not_found" }
+    else WORKING_FOLDER_INVALID/NOT_FOUND
+      Router-->>Client: 400 { error: "invalid_request", code, message }
+    else unexpected error
+      Router-->>Client: 500 { error: "agent_prompts_failed" }
+    else success
+      Router-->>Client: 200 { prompts: [{ relativePath, fullPath }] }
+    end
+  end
+```
+
+## Agents prompts discovery service (Story 0000039 Task 2)
+
+- `listAgentPrompts({ agentName, working_folder })` now performs service-side prompt discovery under the resolved runtime/container working folder.
+- Discovery flow:
+  - validate agent existence via `discoverAgents()`,
+  - resolve/validate `working_folder` via `resolveWorkingFolderWorkingDirectory(...)`,
+  - resolve `.github/prompts` with case-insensitive segment matching,
+  - recursively walk prompt tree with explicit stack traversal,
+  - ignore symlink files/directories, include markdown files only (`.md`, case-insensitive),
+  - shape output as `{ relativePath, fullPath }` with `/`-normalized `relativePath` and deterministic sorted order.
+- Empty results remain a non-error outcome when prompts directory is missing or contains no markdown files.
+- Required discovery observability prefixes are emitted:
+  - `[agents.prompts.discovery.start]`
+  - `[agents.prompts.discovery.complete]`
+  - `[agents.prompts.discovery.empty]`
+
+```mermaid
+flowchart TD
+  A[listAgentPrompts request] --> B[discoverAgents + resolve agent]
+  B --> C[resolveWorkingFolderWorkingDirectory]
+  C --> D{resolve .github/prompts<br/>case-insensitive}
+  D -- not found --> E[return prompts: [] + discovery.empty]
+  D -- found --> F[walk prompts tree recursively]
+  F --> G{entry type}
+  G -- symlink --> H[ignore]
+  G -- directory --> I[push to stack]
+  G -- file .md --> J[compute safe relativePath + fullPath]
+  G -- other --> K[ignore]
+  I --> F
+  J --> F
+  F --> L{any markdown prompts?}
+  L -- no --> E
+  L -- yes --> M[sort by relativePath]
+  M --> N[return prompts + discovery.complete]
+```
+
+## Agents prompts client API contract (Story 0000039 Task 3)
+
+- Added `listAgentPrompts({ agentName, working_folder })` in `client/src/api/agents.ts`.
+- Client request contract:
+  - `GET /agents/{agentName}/prompts?working_folder=<value>` with `working_folder` encoded via `URLSearchParams`.
+  - Uses the shared agents API error parser + `throwAgentApiError(...)` for non-2xx responses.
+- Response contract:
+  - success shape `{ prompts: Array<{ relativePath, fullPath }> }`.
+  - malformed prompt records are ignored by the parser, preserving stable typed output.
+- Required client observability prefixes:
+  - `[agents.prompts.api.request]`
+  - `[agents.prompts.api.success]`
+  - `[agents.prompts.api.error]`
+
+```mermaid
+sequenceDiagram
+  participant UI as AgentsPage
+  participant API as listAgentPrompts
+  participant REST as GET /agents/{agentName}/prompts
+
+  UI->>API: listAgentPrompts({ agentName, working_folder })
+  API->>API: encode query with URLSearchParams
+  API->>API: log [agents.prompts.api.request]
+  API->>REST: fetch /agents/{agentName}/prompts?working_folder=...
+  alt 2xx success
+    REST-->>API: { prompts: [{ relativePath, fullPath }] }
+    API->>API: parse typed prompts array
+    API->>API: log [agents.prompts.api.success]
+    API-->>UI: { prompts }
+  else non-2xx response
+    REST-->>API: structured or text error body
+    API->>API: throwAgentApiError(...)
+    API->>API: log [agents.prompts.api.error]
+    API-->>UI: throw AgentApiError
+  else network failure
+    REST-->>API: fetch rejection
+    API->>API: log [agents.prompts.api.error]
+    API-->>UI: throw network error
+  end
+```
+
+## Agents command-info popover interaction (Story 0000039 Task 4)
+
+- Added a command-info control in the command row (`AgentsPage`) separate from the existing agent-info popover.
+- Interaction model:
+  - command-info button is disabled when no command is selected,
+  - clicking with no selected command logs `[agents.commandInfo.blocked] reason=no_command_selected`,
+  - clicking with a selected command opens the popover and logs `[agents.commandInfo.open] commandName=<selectedCommandName>`.
+- Popover content is derived from selected command metadata and reuses MUI `Popover` anchor/open/close lifecycle.
+- Legacy inline command description remains in place for Task 4 and is removed later in Task 5.
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as AgentsPage command row
+  participant Popover as command-info Popover
+
+  User->>UI: open Command selector and choose command
+  UI->>UI: selectedCommand set
+  UI-->>User: command-info IconButton enabled
+  User->>UI: click command-info IconButton
+  alt no command selected
+    UI->>UI: log [agents.commandInfo.blocked] reason=no_command_selected
+    UI-->>User: popover stays closed
+  else command selected
+    UI->>UI: log [agents.commandInfo.open] commandName=<selectedCommandName>
+    UI->>Popover: open(anchorEl)
+    Popover-->>User: selected command description visible
+    User->>Popover: close action (Escape/click-away)
+    Popover-->>UI: onClose -> anchor cleared
+  end
+```
+
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
 - Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
 - Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.
@@ -3867,5 +4013,216 @@ sequenceDiagram
     Guard->>Base: read + minimize to projects-only
     Guard->>Log: T22 result=success
     Guard-->>Op: completed
+  end
+```
+
+## Story 0000039 Task 5: command description inline removal
+
+- Command descriptions are now popover-only on the Agents page.
+- The legacy inline description block (and the unselected placeholder copy) is intentionally removed from the command form flow.
+- Command selection and execute enable/disable behavior remain unchanged; only description presentation moved behind the command-info popover.
+
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant UI as Agents Page
+  participant Cmd as Command Select
+  participant Info as Command Info Popover
+
+  User->>Cmd: Open command dropdown + select command
+  Cmd-->>UI: selectedCommand updated
+  UI->>UI: log [agents.commandDescription.source] mode=popover commandName=<name>
+  User->>UI: Click command-info icon
+  UI->>Info: Open popover with selected description
+  Note over UI: No inline description block is rendered
+```
+
+## Story 0000039 Task 6: prompt discovery request lifecycle guards
+
+- Prompt discovery requests are now commit-driven from `working_folder` events only:
+  - text-input `blur`,
+  - text-input `Enter`,
+  - directory picker selection.
+- Keystroke-only edits do not trigger discovery API calls.
+- Enter handling is scoped to `working_folder` and blocks main instruction form submission.
+- Latest-response-wins is enforced with a monotonic request id; stale responses are ignored and cannot overwrite newer state.
+- Prompt reset paths (for example: clearing committed `working_folder`, changing agent, or conversation reset flows) explicitly invalidate in-flight discovery identity before clearing prompt UI state so delayed responses cannot repopulate stale selector/error/selection context.
+
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant UI as Agents Page
+  participant API as listAgentPrompts
+
+  User->>UI: Commit working_folder (blur / Enter / picker)
+  UI->>UI: increment requestId + log discovery.commit
+  UI->>API: GET prompts for committed folder (requestId=N)
+
+  User->>UI: Quickly commit new folder
+  UI->>UI: increment requestId (N+1)
+  UI->>API: GET prompts for latest folder (requestId=N+1)
+
+  API-->>UI: response for requestId=N+1
+  UI->>UI: apply result/error (latest only)
+  API-->>UI: delayed response for requestId=N
+  UI->>UI: ignore stale response + log stale_ignored
+```
+
+## Story 0000039 Task 7: prompts selector visibility and selection transitions
+
+- Prompt selector row visibility is state-driven from committed-folder discovery outcomes:
+  - selector row shows when discovered prompts are non-empty,
+  - inline error row shows when committed folder is non-empty and discovery fails,
+  - row hides when committed folder is empty or discovery succeeds with zero prompts.
+- Prompt option labels render from `relativePath` only; runtime `fullPath` values remain internal execution data and are never shown in option labels.
+- Selection resets immediately on committed folder changes (blur/Enter/picker) and `Execute Prompt` remains disabled until a new valid option is selected.
+
+```mermaid
+stateDiagram-v2
+  [*] --> HiddenEmpty
+  HiddenEmpty: committedWorkingFolder empty
+  HiddenEmpty --> Discovering: commit blur/enter/picker
+  Discovering --> SelectorVisible: prompts.length > 0
+  Discovering --> ErrorVisible: discovery failed and committed folder non-empty
+  Discovering --> HiddenZero: success with prompts.length == 0
+  HiddenZero: reason=discovery_zero_results
+  ErrorVisible --> HiddenEmpty: committed folder cleared
+  SelectorVisible --> HiddenEmpty: committed folder cleared
+  SelectorVisible --> Discovering: committed folder changed
+  ErrorVisible --> Discovering: committed folder changed
+```
+
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant UI as Agents Page
+  participant API as GET /agents/:agentName/prompts
+
+  User->>UI: Commit working folder
+  UI->>UI: Clear selected prompt immediately
+  UI->>API: Fetch prompt entries
+  alt prompts found
+    API-->>UI: prompts[{relativePath, fullPath}]
+    UI->>UI: Render selector (labels=relativePath)
+    User->>UI: Select prompt or No prompt selected
+    UI->>UI: Toggle Execute Prompt enabled/disabled
+  else discovery error
+    API-->>UI: error payload
+    UI->>UI: Render inline prompts error row
+  else zero results
+    API-->>UI: prompts:[]
+    UI->>UI: Hide prompts row (zero-results state)
+  end
+```
+
+## Story 0000039 Task 8: Execute Prompt instruction-run orchestration
+
+- Execute Prompt now composes a canonical instruction string from a fixed template and replaces only `<full path of markdown file>` with the selected prompt runtime `fullPath`.
+- Prompt execution reuses the standard instruction run path (`POST /agents/{agentName}/run`) and forwards committed `working_folder` so run context matches prompt discovery context.
+- Standard Send-instruction and Execute-command flows remain unchanged:
+  - Send continues using instruction endpoint.
+  - Execute Command continues using command-run endpoint.
+- Conflict and generic error UX parity is preserved for Execute Prompt by reusing the same instruction conflict/generic error handling behavior.
+- Execute Prompt runtime observability is exposed via:
+  - `[agents.prompts.execute.clicked]`
+  - `[agents.prompts.execute.payload_built]`
+  - `[agents.prompts.execute.result]`
+
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant UI as Agents Page
+  participant API as POST /agents/{agentName}/run
+
+  User->>UI: Select prompt + click Execute Prompt
+  UI->>UI: Log execute.clicked(relativePath, fullPath)
+  UI->>UI: Build canonical instruction payload with fullPath replacement
+  UI->>UI: Log execute.payload_built(instructionHasFullPath=true)
+  UI->>API: runAgentInstruction(instruction, committed working_folder, conversationId)
+  alt started
+    API-->>UI: status=started
+    UI->>UI: update active conversation/model + clear pending
+    UI->>UI: Log execute.result(status=started, code=none)
+  else conflict or generic error
+    API-->>UI: 409 RUN_IN_PROGRESS or other error
+    UI->>UI: preserve existing conflict/generic error UX
+    UI->>UI: Log execute.result(status=error, code=<error-code|none>)
+  end
+```
+
+## Story 0000039 final behavior sync: prompts discovery + execute interaction
+
+- Route contract remains:
+  - `GET /agents/{agentName}/prompts?working_folder=<committed-folder>`
+  - `POST /agents/{agentName}/run` for both normal Send and Execute Prompt.
+- Discovery/execution interaction:
+  - Discovery returns `{ prompts: [{ relativePath, fullPath }] }` and drives selector visibility state.
+  - Selector labels use `relativePath`; execution payload uses runtime `fullPath`.
+  - Execute Prompt forwards committed `working_folder` through the standard instruction run request.
+
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant UI as Agents Page
+  participant Prompts as GET /agents/{agentName}/prompts
+
+  User->>UI: Commit working_folder (blur/Enter/picker)
+  UI->>Prompts: GET prompts with committed working_folder
+  alt prompts found
+    Prompts-->>UI: 200 {prompts:[{relativePath,fullPath}]}
+    UI->>UI: Show selector + Execute Prompt
+  else zero results
+    Prompts-->>UI: 200 {prompts:[]}
+    UI->>UI: Hide prompts row (zero-results state)
+  else request/validation failure
+    Prompts-->>UI: 400/404/500
+    UI->>UI: Show inline prompts error (non-empty folder only)
+  end
+```
+
+## Story 0000039 manual verification log matrix
+
+| Prefix | Expected runtime outcome |
+| --- | --- |
+| `[agents.prompts.route.request]` | Prompts route called with agent/folder context. |
+| `[agents.prompts.route.success]` | Prompts route succeeded with `promptsCount`. |
+| `[agents.prompts.route.error]` | Prompts route failed (validation/not-found/internal) with status/code context. |
+| `[agents.prompts.discovery.start]` | Discovery service started for committed `working_folder`. |
+| `[agents.prompts.discovery.complete]` | Discovery service completed with prompt entries. |
+| `[agents.prompts.discovery.empty]` | Discovery service completed with zero prompts / missing prompts dir. |
+| `[agents.prompts.api.request]` | Client prompts API request dispatched. |
+| `[agents.prompts.api.success]` | Client prompts API request succeeded. |
+| `[agents.prompts.api.error]` | Client prompts API request failed. |
+| `[agents.commandInfo.open]` | Command info popover opened for selected command. |
+| `[agents.commandInfo.blocked]` | Command info interaction blocked because no command selected. |
+| `[agents.prompts.discovery.commit]` | UI committed working folder (`blur`, `enter`, `picker`). |
+| `[agents.prompts.discovery.request.start]` | UI started a discovery request with request id. |
+| `[agents.prompts.discovery.request.stale_ignored]` | UI ignored stale discovery response. |
+| `[agents.prompts.selector.visible]` | Selector row shown with discovered prompts. |
+| `[agents.prompts.selector.hidden]` | Selector row hidden (`empty_working_folder` or `discovery_zero_results`). |
+| `[agents.prompts.selection.changed]` | Prompt selection changed (`relativePath` or `none`). |
+| `[agents.prompts.execute.clicked]` | Execute Prompt clicked with selected prompt context. |
+| `[agents.prompts.execute.payload_built]` | Canonical prompt payload constructed; `instructionHasFullPath=true` expected. |
+| `[agents.prompts.execute.result]` | Execute Prompt finished with `status=started` or `status=error` and code. |
+
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant UI as Agents Page
+  participant Run as POST /agents/{agentName}/run
+
+  User->>UI: Select prompt + click Execute Prompt
+  UI->>UI: Build canonical instruction preamble
+  UI->>UI: Replace only placeholder with selected prompt fullPath
+  UI->>Run: runAgentInstruction(instruction, committed working_folder, conversationId)
+  alt started
+    Run-->>UI: 202 started
+    UI->>UI: Preserve normal run lifecycle + stream handling
+  else conflict
+    Run-->>UI: 409 RUN_IN_PROGRESS
+    UI->>UI: Reuse existing conflict UX/message path
+  else generic failure
+    Run-->>UI: 4xx/5xx
+    UI->>UI: Reuse existing generic instruction error UX
   end
 ```

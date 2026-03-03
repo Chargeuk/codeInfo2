@@ -700,4 +700,276 @@ describe('Agents page - run', () => {
     );
     expect(runBodies).toHaveLength(0);
   });
+
+  it('keeps Send mapped to instruction run endpoint (not command-run endpoint)', async () => {
+    const user = userEvent.setup();
+    const runUrls: string[] = [];
+    const commandRunUrls: string[] = [];
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          } as Response);
+        }
+
+        if (target.includes('/agents') && !target.includes('/run')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+          } as Response);
+        }
+
+        if (target.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [] }),
+          } as Response);
+        }
+
+        if (target.includes('/agents/coding_agent/commands/run')) {
+          commandRunUrls.push(target);
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({ status: 'started' }),
+          } as Response);
+        }
+
+        if (target.includes('/agents/coding_agent/run')) {
+          expect(init?.method).toBe('POST');
+          runUrls.push(target);
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({
+              status: 'started',
+              agentName: 'coding_agent',
+              conversationId: 'c1',
+              inflightId: 'i1',
+              modelId: 'gpt-5.3-codex',
+            }),
+          } as Response);
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        } as Response);
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      const registry = (
+        globalThis as unknown as {
+          __wsMock?: { last: () => { readyState: number } | null };
+        }
+      ).__wsMock;
+      expect(registry?.last()?.readyState).toBe(1);
+    });
+
+    const input = await screen.findByTestId('agent-input');
+    await user.type(input, 'Keep send behavior unchanged');
+    await user.click(screen.getByTestId('agent-send'));
+
+    await waitFor(() => expect(runUrls).toHaveLength(1));
+    expect(commandRunUrls).toHaveLength(0);
+  });
+
+  it('keeps conversation lifecycle behavior: reuse active conversation and create new when none active', async () => {
+    const user = userEvent.setup();
+    const runBodies: Record<string, unknown>[] = [];
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          } as Response);
+        }
+
+        if (target.includes('/agents') && !target.includes('/run')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+          } as Response);
+        }
+
+        if (target.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              items: [
+                {
+                  conversationId: 'c-existing',
+                  title: 'Existing conversation',
+                  provider: 'codex',
+                  model: 'gpt-5.3-codex',
+                  lastMessageAt: '2025-01-01T00:00:00.000Z',
+                  archived: false,
+                },
+              ],
+            }),
+          } as Response);
+        }
+
+        if (target.includes('/agents/coding_agent/run')) {
+          if (init?.body) {
+            runBodies.push(JSON.parse(init.body.toString()));
+          }
+          const body = runBodies.at(-1) ?? {};
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({
+              status: 'started',
+              agentName: 'coding_agent',
+              conversationId:
+                typeof body.conversationId === 'string'
+                  ? body.conversationId
+                  : 'fallback-cid',
+              inflightId: 'i1',
+              modelId: 'gpt-5.3-codex',
+            }),
+          } as Response);
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        } as Response);
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      const registry = (
+        globalThis as unknown as {
+          __wsMock?: { last: () => { readyState: number } | null };
+        }
+      ).__wsMock;
+      expect(registry?.last()?.readyState).toBe(1);
+    });
+
+    await user.click(await screen.findByText('Existing conversation'));
+    const input = await screen.findByTestId('agent-input');
+    await user.type(input, 'Reuse this conversation id');
+    await user.click(screen.getByTestId('agent-send'));
+    await waitFor(() => expect(runBodies.length).toBeGreaterThanOrEqual(1));
+    expect(runBodies[0]).toHaveProperty('conversationId', 'c-existing');
+
+    await user.click(
+      await screen.findByRole('button', { name: /new conversation/i }),
+    );
+    await user.clear(input);
+    await user.type(input, 'Create a new conversation id');
+    await user.click(screen.getByTestId('agent-send'));
+    await waitFor(() => expect(runBodies.length).toBeGreaterThanOrEqual(2));
+    expect(typeof runBodies[1].conversationId).toBe('string');
+    expect((runBodies[1].conversationId as string).length).toBeGreaterThan(0);
+    expect(runBodies[1].conversationId).not.toBe('c-existing');
+  });
+
+  it('preserves run state transitions for standard Send path', async () => {
+    const user = userEvent.setup();
+    let resolveRun: ((value: Response) => void) | null = null;
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          } as Response);
+        }
+
+        if (target.includes('/agents') && !target.includes('/run')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+          } as Response);
+        }
+
+        if (target.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [] }),
+          } as Response);
+        }
+
+        if (target.includes('/agents/coding_agent/run')) {
+          expect(init?.method).toBe('POST');
+          return new Promise<Response>((resolve) => {
+            resolveRun = resolve;
+          });
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        } as Response);
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      const registry = (
+        globalThis as unknown as {
+          __wsMock?: { last: () => { readyState: number } | null };
+        }
+      ).__wsMock;
+      expect(registry?.last()?.readyState).toBe(1);
+    });
+
+    const input = await screen.findByTestId('agent-input');
+    const sendButton = await screen.findByTestId('agent-send');
+    await user.type(input, 'State transition request');
+    expect(sendButton).toBeEnabled();
+
+    await user.click(sendButton);
+    await waitFor(() => expect(resolveRun).toEqual(expect.any(Function)));
+
+    resolveRun?.({
+      ok: true,
+      status: 202,
+      json: async () => ({
+        status: 'started',
+        agentName: 'coding_agent',
+        conversationId: 'c1',
+        inflightId: 'i1',
+        modelId: 'gpt-5.3-codex',
+      }),
+    } as Response);
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    expect(screen.queryByTestId('agents-run-error')).toBeNull();
+  });
 });

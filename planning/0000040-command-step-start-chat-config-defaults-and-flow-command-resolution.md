@@ -281,6 +281,47 @@ Tasking guardrails (must not be violated by downstream tasks):
 - No new WebSocket message types unless a new planning update explicitly adds them.
 - No broad refactor outside the four scoped surfaces in this story.
 
+### Edge Cases and Failure Modes
+
+The following cases must be handled explicitly so implementation and validation remain deterministic.
+
+1. AGENTS `startStep` contract and execution edge cases
+
+- Omitted `startStep` from older clients remains valid and must execute from step `1`.
+- `startStep` values `0`, negative integers, decimals, non-numeric strings, and values greater than current runtime step count must return `400` with `code: "INVALID_START_STEP"` and range message `startStep must be between 1 and N`.
+- If command metadata was loaded earlier but command file changes before execution (step count drift), server-side runtime validation is source of truth; request may become invalid and must fail with deterministic range error.
+- Disabled/invalid command entries expose sentinel `stepCount: 1` for UI stability, but execution must remain blocked by existing disabled-command checks.
+- `N = 1` remains a valid execution surface: UI keeps `Start step` visible and fixed to `1`; server still accepts omitted/explicit `1`.
+
+2. Flow command resolution edge cases
+
+- Same-source command exists but is schema-invalid: fail fast on same-source error and do not fallback to codeInfo2 or other repositories.
+- Same-source command exists but file read/parse fails (for example permissions/corruption): treat as same-source failure and do not fallback; surface explicit error context.
+- Same-source command missing: fallback proceeds deterministically (codeInfo2 next, then other repositories by case-insensitive ASCII normalized label, then case-insensitive ASCII full path).
+- Multiple repositories with equivalent normalized labels and mixed-case names must still resolve deterministically using the defined tie-breaker; behavior must not depend on filesystem iteration order.
+- Command missing across all candidate sources must return existing not-found failure path (no silent success from unrelated fallback behavior).
+
+3. Chat defaults and bootstrap edge cases
+
+- `codex/chat/config.toml` missing while `codex/config.toml` exists: bootstrap copy must occur once and preserve existing values.
+- Both chat config and base config missing: generate standard template deterministically.
+- Chat config already exists: bootstrap must be non-destructive (no overwrite, no reset).
+- Chat config exists but has invalid TOML or invalid field values: emit warning(s), do not overwrite user file, and apply fallback chain `request > config > legacy env > hardcoded safe fallback`.
+- Canonical `web_search` and deprecated aliases present together: canonical key wins every time.
+- Runtime cannot read or write config path (permission/path errors): startup continues with warning and deterministic fallback behavior instead of partial silent defaults.
+
+4. SDK upgrade/version guard edge cases
+
+- Dependency pin and runtime guard constant drift (one updated, one not) must fail verification; story is incomplete unless both are `0.107.0`.
+- Pre-release SDK builds (`-alpha`, `-beta`, `-rc`) must not be accepted in production manifests for this story.
+- Lockfile/manifests must resolve to the same effective SDK version used by runtime guard checks; no mixed-version ambiguity across install/runtime.
+
+5. Cross-surface compatibility failure modes
+
+- REST AGENTS start-step contract changes must not alter MCP Agents `run_command` input contract in this story.
+- Chat default-source migration must behave the same for REST chat and MCP codebase-question paths; divergence is a failure.
+- Existing websocket event schemas and conversation/turn persistence shapes must remain unchanged while implementing these behaviors.
+
 ### Interface Draft (Web GUI)
 
 This section defines concrete UI behavior for the unresolved interface requirements in this story.
@@ -374,6 +415,10 @@ None.
   - REST chat and MCP codebase-question still source Codex defaults from env-backed paths in key locations.
   - Existing Mongo/in-memory shapes already support this story without schema changes (`Turn.command` already stores `{ name, stepIndex, totalSteps }`).
 - `deepwiki` tool check failed because repository `Chargeuk/codeInfo2` is not indexed in this environment at research time.
+- `deepwiki` upstream cross-reference against `openai/codex` confirms config-layer failure modes relevant to this story:
+  - malformed TOML/schema-invalid values should fail deterministically with actionable error context
+  - config precedence/override behavior must be explicit to avoid silent default drift
+  - config write/read flows can surface version/conflict conditions that should never be silently swallowed.
 - `context7` tool check failed because no valid Context7 API key is configured in this environment at research time.
 - npm registry live checks (2026-03-03) confirm:
   - latest stable `@openai/codex-sdk` is `0.107.0`

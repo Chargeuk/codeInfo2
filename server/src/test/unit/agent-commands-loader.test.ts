@@ -38,6 +38,7 @@ describe('agent command loader (v1)', () => {
       name: 'good',
       description: 'My command',
       disabled: false,
+      stepCount: 1,
     });
   });
 
@@ -63,6 +64,7 @@ describe('agent command loader (v1)', () => {
       name: 'bad-schema',
       description: 'Invalid command file',
       disabled: true,
+      stepCount: 1,
     });
   });
 
@@ -76,6 +78,7 @@ describe('agent command loader (v1)', () => {
       name: 'missing',
       description: 'Invalid command file',
       disabled: true,
+      stepCount: 1,
     });
   });
 });

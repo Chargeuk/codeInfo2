@@ -943,6 +943,7 @@ export type AgentCommandSummary = {
   name: string;
   description: string;
   disabled: boolean;
+  stepCount: number;
   sourceId?: string;
   sourceLabel?: string;
 };
@@ -1143,6 +1144,22 @@ export async function listAgentCommands(
       localCount: localCommands.length,
       ingestedCount: ingestedCommands.length,
       totalCount: commands.length,
+    },
+  });
+
+  append({
+    level: 'info',
+    message: 'DEV_0000040_T01_STEP_COUNT_RESPONSE',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      agentName: params.agentName,
+      commandStepCounts: commands.map((command) => ({
+        name: command.name,
+        sourceLabel: command.sourceLabel ?? null,
+        disabled: command.disabled,
+        stepCount: command.stepCount,
+      })),
     },
   });
 

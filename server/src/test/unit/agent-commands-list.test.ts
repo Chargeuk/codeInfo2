@@ -21,6 +21,16 @@ const validCommand = (description: string) =>
     items: [{ type: 'message', role: 'user', content: ['x'] }],
   });
 
+const validCommandWithSteps = (description: string, steps: number) =>
+  JSON.stringify({
+    Description: description,
+    items: Array.from({ length: steps }, (_, idx) => ({
+      type: 'message',
+      role: 'user',
+      content: [`step-${idx + 1}`],
+    })),
+  });
+
 async function createAgent(params: {
   agentsHome: string;
   agentName: string;
@@ -117,6 +127,51 @@ describe('agent commands list (v1)', () => {
           name: 'improve_plan',
           description: 'Improve the plan',
           disabled: false,
+          stepCount: 1,
+        },
+      ],
+    });
+  });
+
+  test('valid multi-step command summary returns exact stepCount', async () => {
+    const agent = await createAgent({ agentsHome: tmpDir, agentName: 'a1' });
+    const commandsDir = await ensureCommandsDir(agent.home);
+    await fs.writeFile(
+      path.join(commandsDir, 'multi.json'),
+      validCommandWithSteps('Multi', 3),
+      'utf-8',
+    );
+
+    const res = await listCommands(agent.name);
+    assert.deepEqual(res, {
+      commands: [
+        {
+          name: 'multi',
+          description: 'Multi',
+          disabled: false,
+          stepCount: 3,
+        },
+      ],
+    });
+  });
+
+  test('valid single-step command summary returns stepCount = 1', async () => {
+    const agent = await createAgent({ agentsHome: tmpDir, agentName: 'a1' });
+    const commandsDir = await ensureCommandsDir(agent.home);
+    await fs.writeFile(
+      path.join(commandsDir, 'single.json'),
+      validCommandWithSteps('Single', 1),
+      'utf-8',
+    );
+
+    const res = await listCommands(agent.name);
+    assert.deepEqual(res, {
+      commands: [
+        {
+          name: 'single',
+          description: 'Single',
+          disabled: false,
+          stepCount: 1,
         },
       ],
     });
@@ -130,12 +185,17 @@ describe('agent commands list (v1)', () => {
     const res = await listCommands(agent.name);
     assert.deepEqual(res, {
       commands: [
-        { name: 'bad', description: 'Invalid command file', disabled: true },
+        {
+          name: 'bad',
+          description: 'Invalid command file',
+          disabled: true,
+          stepCount: 1,
+        },
       ],
     });
   });
 
-  test('invalid command JSON (schema) appears as disabled entry', async () => {
+  test('disabled/unreadable command files return sentinel stepCount: 1', async () => {
     const agent = await createAgent({ agentsHome: tmpDir, agentName: 'a1' });
     const commandsDir = await ensureCommandsDir(agent.home);
     await fs.writeFile(
@@ -151,6 +211,29 @@ describe('agent commands list (v1)', () => {
           name: 'bad-schema',
           description: 'Invalid command file',
           disabled: true,
+          stepCount: 1,
+        },
+      ],
+    });
+  });
+
+  test('empty-item parse outcomes return sentinel stepCount: 1 and disabled true', async () => {
+    const agent = await createAgent({ agentsHome: tmpDir, agentName: 'a1' });
+    const commandsDir = await ensureCommandsDir(agent.home);
+    await fs.writeFile(
+      path.join(commandsDir, 'empty-items.json'),
+      JSON.stringify({ Description: 'Bad', items: [] }),
+      'utf-8',
+    );
+
+    const res = await listCommands(agent.name);
+    assert.deepEqual(res, {
+      commands: [
+        {
+          name: 'empty-items',
+          description: 'Invalid command file',
+          disabled: true,
+          stepCount: 1,
         },
       ],
     });
@@ -256,9 +339,11 @@ describe('agent commands list (v1)', () => {
 
     assert.equal(res.commands.length, 2);
     assert.equal(res.commands[0].name, 'alpha');
+    assert.equal(res.commands[0].stepCount, 1);
     assert.ok(!('sourceId' in res.commands[0]));
     assert.equal(res.commands[1].sourceId, ingestedRoot);
     assert.equal(res.commands[1].sourceLabel, 'My Repo');
+    assert.equal(res.commands[1].stepCount, 1);
   });
 
   test('local commands omit source metadata', async () => {
@@ -272,6 +357,7 @@ describe('agent commands list (v1)', () => {
 
     const res = await listCommands(agent.name);
     assert.equal(res.commands.length, 1);
+    assert.equal(res.commands[0].stepCount, 1);
     assert.equal('sourceId' in res.commands[0], false);
     assert.equal('sourceLabel' in res.commands[0], false);
   });

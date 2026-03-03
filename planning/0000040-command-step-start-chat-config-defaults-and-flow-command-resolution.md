@@ -490,7 +490,7 @@ Edge-case mapping confirmation:
 
 ### 1. Server Message Contract: add `stepCount` to `GET /agents/:agentName/commands`
 
-- Task Status: __to_do__
+- Task Status: __completed__
 - Git Commits: __to_do__
 
 #### Overview
@@ -507,22 +507,22 @@ Add the backend response contract for command list items so the frontend can ren
 
 #### Subtasks
 
-1. [ ] Add `stepCount: number` to the command summary type and returned summary object in [server/src/agents/commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts).
+1. [x] Add `stepCount: number` to the command summary type and returned summary object in [server/src/agents/commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts).
    - Docs to read first: https://expressjs.com/en/guide/routing.html, https://swagger.io/specification/, https://nodejs.org/api/test.html.
    - Files to read/edit: [commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts).
    - Acceptance criteria coverage: AC 22.
    - Done when: loader-level summary objects always include `stepCount`.
-2. [ ] Implement the `stepCount` generation rules in [server/src/agents/commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts): valid command file -> `command.items.length`; invalid/disabled command file -> sentinel `1`.
+2. [x] Implement the `stepCount` generation rules in [server/src/agents/commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts): valid command file -> `command.items.length`; invalid/disabled command file -> sentinel `1`.
    - Docs to read first: https://swagger.io/specification/, https://nodejs.org/api/test.html.
    - Files to read/edit: [commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts).
    - Acceptance criteria coverage: AC 22, AC 23.
    - Done when: invalid/disabled summaries return `disabled: true` with `stepCount: 1` and valid summaries return actual step counts.
-3. [ ] Propagate `stepCount` through service and route response wiring in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) and [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts).
+3. [x] Propagate `stepCount` through service and route response wiring in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) and [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts).
    - Docs to read first: https://expressjs.com/en/guide/routing.html, https://swagger.io/specification/.
    - Files to read/edit: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts), [agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts).
    - Acceptance criteria coverage: AC 22, AC 23.
    - Done when: `GET /agents/:agentName/commands` JSON includes `stepCount` for every command item.
-4. [ ] Add a unit test for valid multi-step command summaries returning exact `stepCount = command.items.length`.
+4. [x] Add a unit test for valid multi-step command summaries returning exact `stepCount = command.items.length`.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts).
    - Description: Build a command fixture with `N > 1` steps and assert returned summary includes `stepCount = N`.
@@ -531,7 +531,7 @@ Add the backend response contract for command list items so the frontend can ren
    - Files to read/edit: [agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts).
    - Acceptance criteria coverage: AC 22.
    - Done when: test fails if valid command summary omits `stepCount` or reports incorrect value.
-5. [ ] Add a unit test for single-step command summaries returning `stepCount = 1`.
+5. [x] Add a unit test for single-step command summaries returning `stepCount = 1`.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts).
    - Description: Build a single-step command fixture and assert summary preserves `stepCount = 1` (not sentinel-disabled behavior).
@@ -540,7 +540,7 @@ Add the backend response contract for command list items so the frontend can ren
    - Files to read/edit: [agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts).
    - Acceptance criteria coverage: AC 22.
    - Done when: test fails if valid single-step command is misclassified or step count drifts.
-6. [ ] Add a unit test for disabled/unreadable command files returning sentinel `stepCount: 1` with `disabled: true`.
+6. [x] Add a unit test for disabled/unreadable command files returning sentinel `stepCount: 1` with `disabled: true`.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts).
    - Description: Simulate read/parse failure and assert summary is disabled with sentinel step count.
@@ -549,7 +549,7 @@ Add the backend response contract for command list items so the frontend can ren
    - Files to read/edit: [agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts).
    - Acceptance criteria coverage: AC 23.
    - Done when: test fails if disabled summary omits sentinel step count.
-7. [ ] Add a unit test for empty-item parse outcomes returning sentinel `stepCount: 1` with `disabled: true`.
+7. [x] Add a unit test for empty-item parse outcomes returning sentinel `stepCount: 1` with `disabled: true`.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts).
    - Description: Simulate parse output that yields no executable items and assert disabled sentinel behavior.
@@ -558,7 +558,7 @@ Add the backend response contract for command list items so the frontend can ren
    - Files to read/edit: [agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts).
    - Acceptance criteria coverage: AC 23.
    - Done when: test proves empty/invalid parse outcomes never produce `stepCount < 1`.
-8. [ ] Add a router unit test ensuring `GET /agents/:agentName/commands` includes `stepCount` in every command item.
+8. [x] Add a router unit test ensuring `GET /agents/:agentName/commands` includes `stepCount` in every command item.
    - Test type: `Unit` (route-level).
    - Test location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts).
    - Description: Assert route JSON for both valid and disabled command fixtures always contains `stepCount`.
@@ -567,12 +567,12 @@ Add the backend response contract for command list items so the frontend can ren
    - Files to read/edit: [agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts).
    - Acceptance criteria coverage: AC 22, AC 23.
    - Done when: test fails if any returned item omits `stepCount`.
-9. [ ] Update API documentation in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) for required `stepCount` (`integer >= 1`).
+9. [x] Update API documentation in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) for required `stepCount` (`integer >= 1`).
    - Docs to read first: https://swagger.io/specification/, https://nodejs.org/api/test.html.
    - Files to read/edit: [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json).
    - Acceptance criteria coverage: AC 22, AC 23.
    - Done when: OpenAPI schema requires `stepCount` on command list items.
-10. [ ] Add a contract test asserting OpenAPI requires `stepCount` with minimum `1`.
+10. [x] Add a contract test asserting OpenAPI requires `stepCount` with minimum `1`.
    - Test type: `Contract`.
    - Test location: [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts).
    - Description: Assert command list response schema marks `stepCount` as required integer with min constraint.
@@ -581,7 +581,7 @@ Add the backend response contract for command list items so the frontend can ren
    - Files to read/edit: [openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts).
    - Acceptance criteria coverage: AC 22, AC 23.
    - Done when: test fails if OpenAPI schema allows missing or invalid `stepCount`.
-11. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for this task’s new/changed `stepCount` message contract and related test coverage.
+11. [x] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for this task’s new/changed `stepCount` message contract and related test coverage.
    - Document name: `design.md`.
    - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Description: Document backend command-list contract updates for required `stepCount` semantics and disabled-command sentinel behavior.
@@ -590,7 +590,7 @@ Add the backend response contract for command list items so the frontend can ren
    - Files to read/edit: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Acceptance criteria coverage: documentation support for AC 22, AC 23.
    - Done when: `design.md` explicitly documents `stepCount` generation rules and response guarantees.
-12. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for this task’s added, removed, and modified test/contract files.
+12. [x] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for this task’s added, removed, and modified test/contract files.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Description: Add/update/remove file-map entries for every file added, removed, or modified in this task.
@@ -600,13 +600,13 @@ Add the backend response contract for command list items so the frontend can ren
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 22, AC 23.
    - Done when: `projectStructure.md` matches the post-task repository state and explicitly includes all added and removed files.
-13. [ ] Add deterministic diagnostic log marker [DEV_0000040_T01_STEP_COUNT_RESPONSE] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+13. [x] Add deterministic diagnostic log marker [DEV_0000040_T01_STEP_COUNT_RESPONSE] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
    - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
    - Files to read/edit: [commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts), [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts), [agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts).
    - Acceptance criteria coverage: AC 22, AC 23.
    - Manual Playwright-MCP expected outcome: after loading AGENTS command list, browser debug console shows the marker once per list refresh with `stepCount` values >= 1 for each item.
    - Done when: [DEV_0000040_T01_STEP_COUNT_RESPONSE] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+14. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -616,14 +616,29 @@ Add the backend response contract for command list items so the frontend can ren
 - Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
 - Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server`
+1. [x] `npm run build:summary:server`
    - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit`
+2. [x] `npm run test:summary:server:unit`
    - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Added required `stepCount: number` to `loadAgentCommandSummary` return shape and included it in both valid/invalid summary branches.
+- Subtask 2: Implemented `stepCount` generation as `command.items.length` for valid files with a defensive fallback to disabled sentinel `stepCount: 1` for invalid/empty outcomes.
+- Subtask 3: Added `stepCount` to `AgentCommandSummary` so service and route list payloads carry the required field end-to-end.
+- Subtask 4: Added loader unit coverage for valid multi-step commands asserting exact `stepCount = command.items.length`.
+- Subtask 5: Added loader unit coverage for valid single-step commands asserting `stepCount = 1` on non-disabled entries.
+- Subtask 6: Added loader unit coverage asserting invalid/unreadable command summaries return `disabled: true` with sentinel `stepCount: 1`.
+- Subtask 7: Added explicit empty-items parse-outcome unit coverage enforcing disabled sentinel `stepCount: 1`.
+- Subtask 8: Added route-level unit coverage asserting every `GET /agents/:agentName/commands` item includes numeric `stepCount >= 1`.
+- Subtask 9: Updated `openapi.json` command-list item schema to require integer `stepCount` with `minimum: 1`.
+- Subtask 10: Added OpenAPI contract test coverage that fails when `stepCount` is missing or allows values below `1`.
+- Subtask 11: Updated `design.md` to document required `stepCount` contract, sentinel behavior, and task-specific contract-test coverage.
+- Subtask 12: Updated `projectStructure.md` entries for commands loader and command-list tests to reflect `stepCount` contract behavior.
+- Subtask 13: Added deterministic server log marker `DEV_0000040_T01_STEP_COUNT_RESPONSE` in agents command-list flow with per-command `stepCount` context.
+- Subtask 14: Ran `npm run lint --workspaces` (pass, warnings only) and `npm run format:check --workspaces` (server/common pass after formatting task files; client still fails on pre-existing unrelated files `client/src/pages/AgentsPage.tsx` and `client/src/test/agentsPage.descriptionPopover.test.tsx`).
+- Testing 1: `npm run build:summary:server` passed after updating MCP command-list unit fixtures to include required `stepCount`.
+- Testing 2: `npm run test:summary:server:unit` passed (`921/921`) after updating `agent-commands-loader` assertions for the new `stepCount` field.
 
 ---
 

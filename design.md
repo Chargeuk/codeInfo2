@@ -1712,7 +1712,8 @@ runAgentInstruction()
 
 - Agent commands live in each agent home at `commands/<commandName>.json` and are loaded at execution time.
 - REST endpoints:
-  - `GET /agents/:agentName/commands` returns `{ commands: [{ name, description, disabled, sourceId?, sourceLabel? }] }`.
+  - `GET /agents/:agentName/commands` returns `{ commands: [{ name, description, disabled, stepCount, sourceId?, sourceLabel? }] }`.
+  - `stepCount` is required and must be an integer `>= 1`; valid command files use `command.items.length`, and invalid/disabled entries use sentinel `stepCount: 1` with `disabled: true`.
   - `POST /agents/:agentName/commands/run` accepts `{ commandName, conversationId?, working_folder?, sourceId? }` and returns `{ agentName, commandName, conversationId, modelId }`.
 - Command discovery includes ingested repo commands at `<ingestRoot>/codex_agents/<agentName>/commands` when the agent exists locally; ingested entries include `sourceId = RepoEntry.containerPath`, `sourceLabel = RepoEntry.id` (fallback to ingest root basename), and the list is sorted by display label `<name>` or `<name> - [sourceLabel]`.
 - Command runs accept optional `sourceId` (container path). Unknown `sourceId` values return a 404 `{ error: 'not_found' }`, and the server logs `DEV-0000034:T2:command_run_resolved` with the resolved command path.
@@ -1724,6 +1725,7 @@ runAgentInstruction()
 - Steps execute sequentially; each step runs as a normal agent instruction with `turn.command` metadata `{ name, stepIndex, totalSteps }`.
 - Cancellation is abort-based: the client aborts the in-flight HTTP request (AbortController), the server propagates that abort to the provider call via an `AbortSignal`, and the runner stops after the current step (never starts the next step once aborted).
 - If abort triggers mid-step, the chat layer persists a `Stopped` assistant turn (status `stopped`) and still tags that step with `turn.command`. The caller may not receive a normal JSON response because the request was aborted.
+- Contract-guard coverage: `server/src/test/unit/agent-commands-list.test.ts`, `server/src/test/unit/agents-commands-router-list.test.ts`, and `server/src/test/unit/openapi.contract.test.ts` assert `stepCount` presence and `minimum: 1` behavior.
 
 ```mermaid
 sequenceDiagram

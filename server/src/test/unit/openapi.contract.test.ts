@@ -223,3 +223,40 @@ test('OpenAPI /chat/models schema includes codex capability fields', () => {
     'codex model schema missing required defaultReasoningEffort',
   );
 });
+
+test('OpenAPI GET /agents/{agentName}/commands requires stepCount >= 1', () => {
+  const openapi = readOpenApi();
+  const pathSchema = (
+    openapi.paths as Record<string, Record<string, unknown>>
+  )?.['/agents/{agentName}/commands'] as Record<string, unknown> | undefined;
+  assert.ok(pathSchema, 'missing /agents/{agentName}/commands schema');
+
+  const success = (
+    ((pathSchema?.get as Record<string, unknown>)?.responses ?? {}) as Record<
+      string,
+      Record<string, unknown>
+    >
+  )['200'];
+  const bodySchema = ((
+    ((success?.content as Record<string, unknown>) ?? {})[
+      'application/json'
+    ] as Record<string, unknown>
+  )?.schema ?? null) as Record<string, unknown> | null;
+  assert.ok(bodySchema, 'missing /agents/{agentName}/commands 200 schema');
+
+  const commandItem = ((
+    ((bodySchema?.properties as Record<string, unknown>)?.commands ??
+      {}) as Record<string, unknown>
+  ).items ?? null) as Record<string, unknown> | null;
+  assert.ok(commandItem, 'missing command item schema');
+
+  const required = (commandItem?.required ?? []) as string[];
+  assert.ok(required.includes('stepCount'), 'stepCount must be required');
+
+  const stepCountSchema = (
+    (commandItem?.properties ?? {}) as Record<string, unknown>
+  ).stepCount as Record<string, unknown> | undefined;
+  assert.ok(stepCountSchema, 'missing stepCount schema');
+  assert.equal(stepCountSchema.type, 'integer');
+  assert.equal(stepCountSchema.minimum, 1);
+});

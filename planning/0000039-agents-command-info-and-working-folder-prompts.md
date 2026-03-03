@@ -228,13 +228,15 @@ None.
 ### Research Findings (2026-03-02)
 
 - Node.js `fs.readdir` supports `recursive` and `withFileTypes` in current repo runtime (`node >=22`), which keeps prompt discovery implementation simple without extra dependencies.
-- Node.js documents `fs.Dirent.parentPath` for recursive dirent traversal and deprecates `dirent.path`; implementation should use `parentPath`.
+- Node.js documents `fs.Dirent.parentPath` and deprecates `dirent.path`; because this repo guarantees `node >=22` (not a fixed 22.x minor), prompt traversal should not depend on `parentPath` and should carry directory context explicitly in walker state.
 - POSIX `readdir()` does not guarantee sorted order, so deterministic sorting must be explicit in service code before returning prompt lists.
 - Node.js `path` docs confirm POSIX vs Windows path semantics differ; prompt discovery should continue using existing server-side working-folder resolution rather than client-side path conversion.
 - MUI Popover is already used in `AgentsPage` and is built on Modal with click-away/scroll lock behavior, so reusing existing popover interaction is consistent with current UI patterns.
+- MUI MCP docs available in this environment are versioned at `6.4.12`; repository dependency resolves to `@mui/material 6.5.0` in lockfile, and APIs used by this story (`Popover`, `IconButton`, `Select`, `TextField`, `Button`) remain compatible within MUI v6.
 - GitHub documentation uses `.github/prompts` for prompt files (often `.prompt.md`), but this story intentionally supports all markdown files (`.md`, case-insensitive) under that tree for simpler, project-local behavior.
 - DeepWiki and Context7 MCP research attempts were unavailable in this environment (repository not indexed in DeepWiki; Context7 API key unavailable), so decisions were cross-checked with repo code and official Node/MUI/GitHub web documentation.
 - Contract/storage confirmation for this story: only one new REST read contract is required (`GET /agents/:agentName/prompts`), while run contracts, WS/MCP schemas, and Mongo storage shapes remain unchanged.
+- React `19.2.0` security advisory for React Server Components/React Server Functions was reviewed; this repo uses a Vite SPA client with no RSC/RSF runtime path, so advisory assumptions for server-component execution do not apply directly to this story.
 
 ## Implementation Ideas
 
@@ -352,6 +354,7 @@ Define the new REST message contract at the router boundary before any frontend 
 2. [ ] Add route-level request parsing for `working_folder` query value.
    - Reject missing/blank values with `400 { error: 'invalid_request', message: 'working_folder is required' }`.
    - Follow existing route validator style used in `agentsRun.ts` and `agentsCommands.ts` (typed parse helper + deterministic `invalid_request` messages), rather than ad-hoc inline checks in multiple places.
+   - Treat `working_folder` as a plain string query parameter (Express 5 default simple query parser): reject array/object forms with `400 invalid_request`.
 3. [ ] Add dependency wiring in `createAgentsCommandsRouter(...)` for new service method `listAgentPrompts`.
    - Update `Deps` type to include `listAgentPrompts`.
    - Add default dependency mapping from `server/src/agents/service.ts` without changing existing keys (`listAgentCommands`, `startAgentCommand`).
@@ -424,7 +427,8 @@ Implement the actual prompt discovery behavior in the server service layer with 
 4. [ ] Implement recursive traversal under prompts root:
    - include markdown files only (`.md`, case-insensitive),
    - ignore symlink entries,
-   - skip non-markdown files.
+   - skip non-markdown files,
+   - use explicit recursive walk context (`currentDir` stack/queue) rather than depending on `Dirent.parentPath`.
 5. [ ] Return `{ prompts: Array<{ relativePath, fullPath }> }` with:
    - `relativePath` normalized to `/`,
    - `relativePath` guaranteed relative to `.github/prompts/` root (never absolute),
@@ -513,6 +517,7 @@ Implement only the command-info UX change: remove always-visible inline command 
 
 - MUI Popover component docs (v6.4.12): https://llms.mui.com/material-ui/6.4.12/components/popover.md
 - MUI IconButton API docs (v6.4.12): https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
+- Installed dependency note: repo resolves `@mui/material` to `6.5.0`; use v6.4.12 MCP docs as the closest available v6 reference and verify against existing in-repo component usage.
 - React Testing Library interaction patterns: https://testing-library.com/docs/react-testing-library/intro
 
 #### Subtasks
@@ -558,6 +563,7 @@ Implement prompt discovery and selection UI behavior only, including commit-trig
 - React state and effects guidance: https://react.dev/learn/synchronizing-with-effects
 - React controlled inputs: https://react.dev/reference/react-dom/components/input
 - MUI Select and TextField docs (v6.4.12): https://llms.mui.com/material-ui/6.4.12/components/selects.md
+- Installed dependency note: repo resolves `@mui/material` to `6.5.0`; use v6.4.12 MCP docs as the closest available v6 reference and verify against existing in-repo component usage.
 - React Testing Library async/state tests: https://testing-library.com/docs/dom-testing-library/api-async
 
 #### Subtasks
@@ -574,6 +580,7 @@ Implement prompt discovery and selection UI behavior only, including commit-trig
    - directory picker selection.
    - Do not request discovery if the newly committed value equals the last committed value.
 3. [ ] Prevent Enter in `working_folder` from submitting the instruction form.
+   - Scope this handling to the `working_folder` field only so the multiline `Instruction` textarea retains normal Enter/newline behavior.
 4. [ ] Implement stale-response handling so only latest committed-folder response updates prompt state.
    - Reuse the existing cancellation/guard pattern already used by page async effects (`let cancelled = false`) and explicit request-token comparison.
 5. [ ] Implement prompts-area visibility rules:
@@ -625,6 +632,7 @@ Implement prompt execution by composing the canonical instruction string and sen
 - React event handling: https://react.dev/learn/responding-to-events
 - Existing API error handling patterns in client tests (Jest): https://jestjs.io/docs/expect
 - MUI Button interaction states: https://llms.mui.com/material-ui/6.4.12/api/button.md
+- Installed dependency note: repo resolves `@mui/material` to `6.5.0`; use v6.4.12 MCP docs as the closest available v6 reference and verify against existing in-repo component usage.
 
 #### Subtasks
 

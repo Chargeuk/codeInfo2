@@ -715,14 +715,14 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 
 ---
 
-### 6. Server: migrate chat defaults to `codex/chat/config.toml` precedence for REST and MCP paths
+### 6. Server: shared chat defaults resolver from `codex/chat/config.toml`
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Implement shared default-source behavior for covered Codex fields so REST chat and MCP codebase-question use the same precedence and warning behavior.
+Implement the shared Codex default-resolution behavior in one place so all consumers can reuse one deterministic precedence and warning pipeline.
 
 #### Documentation Locations (External References Only)
 
@@ -731,28 +731,14 @@ Implement shared default-source behavior for covered Codex fields so REST chat a
 
 #### Subtasks
 
-1. [ ] Extend shared default resolution in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) by reusing existing runtime-config parsing/normalization from [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) to read `codex/chat/config.toml` values for `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
-2. [ ] Implement precedence `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback` in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) and emit warning messages that include the exact field name whenever legacy env fallback is used, without introducing a second default-resolution pipeline.
-3. [ ] Keep canonical `web_search` precedence and deterministic alias normalization in the shared defaults path by reusing existing runtime-config normalization behavior so `web_search` wins over deprecated aliases and bool aliases map to `live|disabled`.
-4. [ ] Update [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts) to source Codex defaults from the shared config-backed resolver instead of env-only defaults, while preserving existing model capability shape.
-5. [ ] Update [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts) to return `codexDefaults` and warning semantics from the shared config-backed resolver path (not env-first behavior).
-6. [ ] Update [server/src/routes/chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts) and [server/src/routes/chat.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chat.ts) to use the same config-backed default selection and source metadata, removing env-first assumptions in default-source logging.
-7. [ ] Update [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts) to apply shared resolved defaults for Codex flags and keep deterministic warning output for env/hardcoded fallback paths.
-8. [ ] Ensure MCP codebase-question path uses the same resolved defaults behavior as REST in [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts), replacing direct env-default sourcing for Codex thread options.
-9. [ ] Add/extend tests:
-   - [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts)
-   - [server/src/test/unit/chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts)
-   - [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts)
-   - [server/src/test/unit/chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts)
-   - [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts)
-   - [server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts)
-   - [server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts)
-   - Include explicit cases for invalid TOML or invalid field values in `codex/chat/config.toml` to verify deterministic warnings and fallback-chain behavior without overwriting user config files.
-10. [ ] Update documentation files changed by this task:
-   - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
+1. [ ] Extend shared default resolution in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) by reusing runtime-config parsing/normalization from [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) to read `codex/chat/config.toml` values for `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
+2. [ ] Implement precedence `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback` in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), with warning messages that include exact field names whenever legacy env fallback is used.
+3. [ ] Keep canonical `web_search` precedence and deterministic alias normalization in the shared defaults path by reusing existing runtime-config normalization behavior so canonical `web_search` wins over deprecated aliases and bool aliases map to `live|disabled`.
+4. [ ] Add/extend tests in [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts), including invalid TOML/invalid field-value fallback behavior and deterministic warnings without overwriting user config files.
+5. [ ] Update documentation files changed by this task:
    - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -761,13 +747,7 @@ Implement shared default-source behavior for covered Codex fields so REST chat a
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/config.chatDefaults.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts`
-8. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts`
-9. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
-10. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
-11. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
-12. [ ] `npm run compose:down`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -775,7 +755,96 @@ Implement shared default-source behavior for covered Codex fields so REST chat a
 
 ---
 
-### 7. Server: deterministic bootstrap for missing `codex/chat/config.toml`
+### 7. Server: REST chat and capability surfaces consume shared defaults
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Wire REST and capability endpoints to the shared resolver so runtime defaults and warning behavior are consistent across chat routes and model metadata surfaces.
+
+#### Documentation Locations (External References Only)
+
+- OpenAI Codex config reference: https://developers.openai.com/codex/config-reference
+- Node test runner: https://nodejs.org/api/test.html
+
+#### Subtasks
+
+1. [ ] Update [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts) to source Codex defaults from the shared config-backed resolver instead of env-only defaults, preserving existing model capability shape.
+2. [ ] Update [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts) to return `codexDefaults` and warning semantics from the shared config-backed resolver path (not env-first behavior).
+3. [ ] Update [server/src/routes/chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [server/src/routes/chat.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chat.ts), and [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts) to use the shared resolver for Codex defaults and deterministic warning output.
+4. [ ] Add/extend tests:
+   - [server/src/test/unit/chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts)
+   - [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts)
+   - [server/src/test/unit/chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts).
+5. [ ] Update documentation files changed by this task:
+   - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
+   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 8. Server: MCP `codebase_question` uses shared chat defaults
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Align MCP `codebase_question` Codex default behavior with REST by reusing the same shared resolver path and warnings contract.
+
+#### Documentation Locations (External References Only)
+
+- OpenAI Codex config reference: https://developers.openai.com/codex/config-reference
+- Node test runner: https://nodejs.org/api/test.html
+
+#### Subtasks
+
+1. [ ] Update [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts) to source Codex thread defaults from the shared config-backed resolver instead of direct env-default sourcing.
+2. [ ] Add/extend tests:
+   - [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts)
+   - [server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts)
+   - [server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts).
+3. [ ] Update documentation files changed by this task:
+   - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
+   - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 9. Server: deterministic bootstrap for missing `codex/chat/config.toml`
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -823,7 +892,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
 
 ---
 
-### 8. Server: upgrade and pin `@openai/codex-sdk` to `0.107.0` with guard alignment
+### 10. Server: upgrade and pin `@openai/codex-sdk` to `0.107.0` with guard alignment
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -867,7 +936,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 
 ---
 
-### 9. Server: flow command resolution deterministic source ordering and same-source fail-fast
+### 11. Server: flow command resolution deterministic source ordering and same-source fail-fast
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -917,7 +986,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 
 ---
 
-### 10. Documentation synchronization for story 0000040 outputs
+### 12. Documentation synchronization for story 0000040 outputs
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -935,7 +1004,7 @@ Perform documentation-only updates so product behavior, architecture notes, and 
 
 1. [ ] Update user-facing behavior notes in [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) for AGENTS start-step behavior and chat-default sourcing.
 2. [ ] Update architecture/flow details in [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), including flow command-resolution ordering and start-step contract references.
-3. [ ] Update file/module map in [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for any added/removed test or source files from tasks 1-9.
+3. [ ] Update file/module map in [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for any added/removed test or source files from tasks 1-11.
 4. [ ] Ensure `openapi.json` documentation reflects final contract shapes from tasks 1-2 and aligns with route behavior.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
@@ -954,7 +1023,7 @@ Perform documentation-only updates so product behavior, architecture notes, and 
 
 ---
 
-### 11. Final verification: full acceptance and regression gate for story 0000040
+### 13. Final verification: full acceptance and regression gate for story 0000040
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -976,7 +1045,7 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
 2. [ ] Run full regression wrappers (server unit/cucumber, client tests, e2e) and log any remediation required.
 3. [ ] Run explicit non-regression checks that MCP Agents `run_command` contract remains unchanged for this story scope (no new `startStep` input requirement and no payload shape drift).
 4. [ ] Use Playwright MCP manual checks for AGENTS start-step, chat defaults initialization/warnings, and flow resolution failure/success behavior.
-5. [ ] Save screenshots to `test-results/screenshots/` using naming format `0000040-11-<short-name>.png`.
+5. [ ] Save screenshots to `test-results/screenshots/` using naming format `0000040-13-<short-name>.png`.
 6. [ ] Produce pull-request summary text covering all implemented tasks, tests, contract changes, and risks.
 7. [ ] Confirm `README.md`, `design.md`, and `projectStructure.md` are fully current.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.

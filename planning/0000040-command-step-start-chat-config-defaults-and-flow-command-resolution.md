@@ -470,6 +470,24 @@ Source references used in this research pass:
 
 ## Tasks
 
+### Coverage Check (2026-03-03)
+
+This coverage check confirms every acceptance criterion and edge-case group is assigned to concrete implementation tasks.
+
+- AC 1-9 (AGENTS start-step UX + runtime behavior): Tasks 1, 2, 3, 4, 5.
+- AC 10-16 (chat defaults + canonical web-search behavior + warnings): Tasks 6, 7, 8, 9.
+- AC 17 and AC 26 (SDK pin + runtime guard alignment): Task 10, with final regression confirmation in Task 13.
+- AC 18-21 and AC 27-28 (flow command resolution ordering/fail-fast with red-green proof): Task 11, with final regression confirmation in Task 13.
+- AC 22-25 (REST contracts for `stepCount` and `startStep`): Tasks 1, 2, 3, 4, 5.
+
+Edge-case mapping confirmation:
+
+- `startStep` omission/range/type/drift and disabled-command behavior: Tasks 1, 2, 3, 5.
+- Flow same-source invalid/read-failure fail-fast, ordered fallback, and all-sources-missing behavior: Task 11.
+- Chat bootstrap non-destructive behavior and invalid-config fallback/warnings: Tasks 6 and 9.
+- SDK drift/pre-release/version-resolution risks: Task 10.
+- Cross-surface non-regression (`MCP run_command`, websocket/persistence metadata shape): Tasks 2, 3, and 13.
+
 ### 1. Server Message Contract: add `stepCount` to `GET /agents/:agentName/commands`
 
 - Task Status: __to_do__
@@ -1970,7 +1988,25 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Files to read/edit: [codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts).
    - Acceptance criteria coverage: AC 17, AC 26.
    - Done when: test fails if lower versions are accepted.
-9. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) for SDK pin expectations and guard coupling requirements.
+9. [ ] Update lockfile resolution for the new pin and verify only one effective `@openai/codex-sdk` version is resolved for server runtime.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-view, https://docs.npmjs.com/about-semantic-versioning.
+   - Files to read/edit: [package-lock.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/package-lock.json).
+   - Required verification commands: `npm ls @openai/codex-sdk --workspace server` and `npm view @openai/codex-sdk version versions --json`.
+   - Acceptance criteria coverage: AC 17, AC 26.
+   - Done when: lockfile contains the pinned server dependency, and verification output confirms no mixed-version ambiguity for server runtime resolution.
+10. [ ] Add targeted SDK-upgrade regression smoke tests for chat, agents command-run, and flow-run paths to prove existing core paths still execute after pin update.
+   - Test type: `Integration` (targeted smoke).
+   - Test locations:
+     - [server/src/test/integration/chat-codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/chat-codex.test.ts)
+     - [server/src/test/integration/agents-run-ws-stream.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-ws-stream.test.ts)
+     - [server/src/test/integration/flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts)
+   - Description: run/extend focused assertions proving chat, agent command execution, and flow execution remain healthy on `0.107.0`.
+   - Purpose: direct regression evidence for AC 17 beyond version-only checks.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Files to read/edit: [chat-codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/chat-codex.test.ts), [agents-run-ws-stream.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-ws-stream.test.ts), [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts).
+   - Acceptance criteria coverage: AC 17.
+   - Done when: targeted tests fail on regression and pass on the upgraded pin.
+11. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) for SDK pin expectations and guard coupling requirements.
    - Document name: `README.md`.
    - Document location: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md).
    - Description: Document required pinned SDK version and operational implications of guard/version mismatch.
@@ -1979,7 +2015,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Files to read/edit: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md).
    - Acceptance criteria coverage: documentation support for AC 17, AC 26.
    - Done when: `README.md` states exact version pin and mismatch behavior.
-10. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for SDK version guard architecture and exact-version enforcement behavior.
+12. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for SDK version guard architecture and exact-version enforcement behavior.
    - Document name: `design.md`.
    - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Description: Document why dependency pin and runtime guard must remain aligned and how pre-release versions are handled.
@@ -1988,7 +2024,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Files to read/edit: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Acceptance criteria coverage: documentation support for AC 17, AC 26.
    - Done when: `design.md` documents pin/guard coupling and rejection rules.
-11. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-10 dependency/guard/test files added, removed, or modified.
+13. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-10 dependency/guard/test files added, removed, or modified.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Description: Record all files added, removed, or modified for SDK pinning, runtime guard updates, and associated tests.
@@ -1998,13 +2034,13 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 17, AC 26.
    - Done when: `projectStructure.md` lists all task-10 file changes accurately, including all added and removed files.
-12. [ ] Add deterministic diagnostic log marker [DEV_0000040_T10_CODEX_SDK_GUARD] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+14. [ ] Add deterministic diagnostic log marker [DEV_0000040_T10_CODEX_SDK_GUARD] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
    - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
    - Files to read/edit: [codexSdkUpgrade.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexSdkUpgrade.ts), [index.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/index.ts).
    - Acceptance criteria coverage: AC 17, AC 26.
    - Manual Playwright-MCP expected outcome: on app startup marker appears once in debug-console-forwarded logs with installed and required SDK versions and guard decision `accepted`.
    - Done when: [DEV_0000040_T10_CODEX_SDK_GUARD] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -2016,7 +2052,17 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 
 1. [ ] `npm run build:summary:server`
    - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit`
+2. [ ] `npm run build:summary:client`
+   - Use when client/common code may be affected by shared dependency updates. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+3. [ ] `npm run compose:build:summary`
+   - Use to validate clean docker dependency resolution after lockfile/package changes. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
+4. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts`
+   - Targeted regression proof for chat path on upgraded SDK pin.
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-ws-stream.test.ts`
+   - Targeted regression proof for agents command-run path on upgraded SDK pin.
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts`
+   - Targeted regression proof for flow-run path on upgraded SDK pin.
+7. [ ] `npm run test:summary:server:unit`
    - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
@@ -2391,7 +2437,11 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Capture screenshots for every GUI-verifiable acceptance surface (AGENTS start-step interactions, chat defaults/warnings states, and flow resolver success/failure UI outcomes) and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`).
    - Agent validation requirement: review all captured screenshots against story acceptance criteria and task expectations, and record explicit pass/fail notes for each GUI-verifiable acceptance point in implementation notes.
    - Expected outcome: each marker appears for its corresponding interaction exactly as defined in task subtasks, payload context matches expected values, and console errors remain zero for happy-path checks.
-10. [ ] `npm run compose:down`
+10. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-agents-commands-run.test.ts`
+   - Explicit unchanged-contract regression check proving MCP `run_command` schema remains unchanged by REST `startStep` work.
+11. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-ws-stream.test.ts`
+   - Explicit websocket metadata regression check proving command-step metadata shape remains stable after start-step support.
+12. [ ] `npm run compose:down`
    - Stop the dockerized app stack after manual checks complete.
 
 #### Implementation notes

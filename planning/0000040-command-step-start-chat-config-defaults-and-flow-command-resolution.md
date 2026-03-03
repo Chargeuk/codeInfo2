@@ -17,6 +17,15 @@ This story introduces five related improvements for agent workflows and chat def
 4. Upgrade `@openai/codex-sdk` to the latest stable version.
 5. Investigate and reproduce an issue where flows in a repository appear unable to resolve commands in that same repository, while direct command execution from the GUI can still work.
 
+Working definitions used in this story (to remove ambiguity):
+
+- `N` means the number of executable steps in the selected command (`N = command.steps.length`).
+- `Start step` means the first step index the server should execute for a command run. It is 1-based (`1..N`), not 0-based.
+- `Same source repository` means the repository source that provided the flow file currently being executed.
+- `codeInfo2 repository` means the repository that contains this application codebase.
+- `Legacy env defaults` means existing environment-driven defaults currently used when config values are missing (for example `CHAT_DEFAULT_MODEL`, Codex-related env defaults).
+- `Hardcoded safe fallback` means final constant values in server code used only when both request override, config value, and legacy env value are unavailable.
+
 Decisions confirmed for this story:
 
 - Start-step selection uses `1..N` in both UI and API payloads, with server-side validation.
@@ -42,25 +51,27 @@ Expected end-user outcome:
 
 ### Acceptance Criteria
 
-1. `AGENTS` command execution supports a selectable start step after command selection.
-2. Start-step selector uses `1..N` values in the UI and sends `1..N` in API payloads.
-3. Server validates start-step range and rejects invalid values with clear request validation errors.
-4. Start-step defaults to `1` whenever a command is selected.
-5. Start-step execution is in scope only for `AGENTS` page command runs.
-6. Command-step dependency inference/enforcement is not introduced in this story; users may execute from any valid selected step.
-7. Chat default values used by server responses and chat execution are sourced from `codex/chat/config.toml` defaults rather than env-default resolution for these fields.
-8. Chat default precedence is `request override > codex/chat/config.toml`.
-9. Codex default model selection uses `codex/chat/config.toml` `model` value instead of `CHAT_DEFAULT_MODEL`, while GUI/request-level model override behavior remains unchanged.
-10. When Codex default fields are missing in `codex/chat/config.toml`, fallback precedence is `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback`.
-11. Server emits warnings when legacy env fallback is used for missing chat-config defaults.
-12. MCP chat interface uses the same default source policy and precedence as REST chat for Codex options.
-13. If `codex/chat/config.toml` is missing, bootstrap copies `codex/config.toml`; if base config is missing, a standard template is generated; existing chat config is never overwritten.
-14. Deprecated `web_search_request` usage is replaced by canonical `web_search`, with default behavior aligned to `"live"` parity and regression-tested.
-15. `@openai/codex-sdk` is upgraded and pinned to `0.107.0`, with compatibility/regression checks completed.
-16. Flow command lookup for repository-scoped flows resolves commands in this order: same source repository, then codeInfo2 repository, then first matching command in other repositories.
-17. Deterministic fallback ordering for "other repositories" is source label alphabetical ascending, with tie-break by full source path alphabetical ascending.
-18. Cross-repository fallback is applied only when command is not found; same-source schema-invalid command files fail fast and do not trigger fallback resolution.
-19. Investigation and fix follow red-green: automated failing repro test first, then fix, then passing verification.
+1. On `AGENTS` page command runs, the command row includes a `Start step` dropdown immediately after command selection control.
+2. `Start step` is disabled until a valid command is selected and command metadata is loaded.
+3. After command selection, `Start step` options are exactly `Step 1` through `Step N` (`N = command.steps.length`) and selected value is `1` by default.
+4. Changing command selection resets `Start step` back to `1` every time.
+5. If `N = 1`, `Start step` remains visible, preselected to `Step 1`, and disabled.
+6. Clicking `Execute command` sends `startStep` as an integer in `POST /agents/:agentName/commands/run` payload, and value must be within `[1, N]`.
+7. Server rejects invalid `startStep` values (missing when required, non-integer, `< 1`, `> N`) with `400` request-validation error and a message that includes the accepted range.
+8. Start-step behavior is added only for `AGENTS` command execution and does not introduce start-step controls to Flows page or other execution surfaces.
+9. No command-step dependency inference is added; server executes from selected valid step without auto-adjusting based on previous step dependencies.
+10. Chat defaults for Codex options are sourced from `codex/chat/config.toml` for both REST chat and MCP chat responses/execution paths.
+11. Covered Codex default fields are explicitly: `sandbox_mode`, `approval_policy`, `reasoning_effort`, `model`, and `web_search`.
+12. Default resolution precedence for each covered field is `request override > codex/chat/config.toml`.
+13. When a covered field is missing in `codex/chat/config.toml`, fallback precedence is `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback`.
+14. Server emits a warning whenever a covered field uses `legacy env defaults` so operators can see migration gaps.
+15. `codex/chat/config.toml` bootstrap behavior is deterministic: if chat config is missing, copy `codex/config.toml`; if base config is also missing, generate standard template; if chat config already exists, do not overwrite it.
+16. Deprecated `web_search_request` config input is normalized to canonical `web_search`; canonical runtime default remains `"live"` when no explicit value is provided.
+17. `@openai/codex-sdk` is upgraded and pinned to `0.107.0` in dependency manifests, and regression checks confirm existing chat/agent/flow flows still execute.
+18. Flow command lookup order for repository-scoped flows is: same source repository first, then codeInfo2 repository, then other repositories.
+19. For "other repositories", candidate sources are sorted deterministically by source label ascending, then full source path ascending, and first match is used.
+20. Cross-repository fallback is used only for command-not-found; if same-source command exists but is schema-invalid, execution fails immediately and does not fallback.
+21. Investigation and fix follow red-green evidence: add an automated failing repro test first, implement fix, then verify passing result on the same test.
 
 ### Out Of Scope
 
@@ -101,7 +112,7 @@ Execution behavior:
 Validation and feedback:
 - Invalid step requests (out of range, malformed) surface as inline error feedback in the command area.
 - Command row should preserve existing warning notes (Mongo persistence and websocket requirement).
-- If backend rejects start-step, the user should see a specific message tied to that command run attempt.
+- If backend rejects start-step, the user should see a specific message tied to that command run attempt, including allowed range (for example: `startStep must be between 1 and 6`).
 - Start-step validation feedback uses inline row-level `Alert` (no snackbar for this path).
 
 Accessibility and keyboard behavior:
@@ -125,7 +136,7 @@ Primary user outcome:
 UI behavior:
 - Existing `CodexFlagsPanel` remains the editing surface for sandbox/approval/reasoning/network/web-search controls.
 - Existing warnings banner remains the display surface for server warnings.
-- Add/continue warning text for env fallback usage so migration status is visible without blocking user actions.
+- Add/continue warning text for env fallback usage so migration status is visible without blocking user actions; warning includes which field fell back.
 - Env-fallback warning banner is shown on every load while fallback is active.
 
 State behavior:
@@ -145,7 +156,7 @@ Primary user outcome:
 UI behavior expectation:
 - Flow run errors for schema-invalid same-source commands should be surfaced as explicit run failure messages.
 - Error text should include enough context to identify the failing command and source location label.
-- Error wording should be operator-first with optional technical suffix (for example: `Command file invalid for selected source` + `schema validation failed`).
+- Error wording should be operator-first with optional technical suffix (for example: `Command file invalid for selected source` + `schema validation failed`) and must not be replaced by fallback-success output from another repository.
 
 Viability checks:
 - Existing flow/chat transcript already renders warning/error bubbles, so this requirement can be satisfied through improved server error detail and existing UI surfaces.

@@ -331,6 +331,33 @@ sequenceDiagram
   Chat-->>Client: validation/execute response using shared defaults
 ```
 
+## MCP `codebase_question` shared defaults parity (Story 0000040 Task 8)
+
+- `server/src/mcp2/tools/codebaseQuestion.ts` now uses the same shared Codex defaults path used by REST capability/validation surfaces.
+- MCP Codex thread-option defaults for `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, and `webSearchEnabled` are derived from resolver-backed capability defaults instead of env-only parsing.
+- Deterministic Task 8 marker is emitted in MCP tool execution flow:
+  - `DEV_0000040_T08_MCP_DEFAULTS_APPLIED`.
+- Parity tests assert MCP defaults/warnings align with `/chat/models` and `/chat/providers` for identical fixture inputs (including env-fallback scenarios).
+
+```mermaid
+sequenceDiagram
+  participant Client as MCP Client
+  participant Tool as codebase_question
+  participant Caps as resolveCodexCapabilities
+  participant Defaults as resolveCodexChatDefaults
+  participant Rest as /chat/models + /chat/providers
+
+  Client->>Tool: tools/call codebase_question
+  Tool->>Caps: consumer=chat_validation
+  Caps->>Defaults: shared precedence chain
+  Defaults-->>Caps: values/sources/warnings
+  Caps-->>Tool: codex defaults + warnings
+  Tool->>Tool: apply ThreadOptions defaults
+  Tool->>Tool: log DEV_0000040_T08_MCP_DEFAULTS_APPLIED
+  Tool-->>Client: answer payload (contract unchanged)
+  Rest-->>Tool: parity expectation for defaults/warnings
+```
+
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
 - Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
 - Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.

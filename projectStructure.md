@@ -152,6 +152,30 @@ Modified files (implementation traceability):
 - `server/src/test/unit/chatProviders.test.ts`
 - `server/src/test/unit/chatValidators.test.ts`
 
+## Story 0000040 Task 8 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `projectStructure.md`
+- `server/src/mcp2/tools/codebaseQuestion.ts`
+- `server/src/test/integration/chat-codex-mcp.test.ts`
+- `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+- `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
+- `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
+
 ## Story 0000038 Tasks 1-7 structural change ledger
 
 Added files:
@@ -565,7 +589,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”‚  â”œâ”€ errors.ts — shared MCP error helpers
 â”‚     â”‚  â”œâ”€ codexAvailability.ts — detects Codex readiness for provider-aware execution fallback
 â”‚     â”‚  â”œâ”€ tools.ts — MCP tool registry wiring (`codebase_question`, `reingest_repository`)
-â”‚     â”‚  â”œâ”€ tools/codebaseQuestion.ts — `codebase_question` tool bridging chat (Codex default, LM Studio optional) + vector search
+â”‚     â”‚  â”œâ”€ tools/codebaseQuestion.ts — `codebase_question` tool bridging chat with resolver-backed Codex defaults/warnings parity plus vector-search-backed answer shaping
 â”‚     â”‚  â””â”€ tools/reingestRepository.ts — MCP v2 `reingest_repository` tool wrapper over shared reingest validation/service
 â”‚     â”œâ”€ mcpAgents/ — Agents MCP v2 server on port 5012
 â”‚     â”‚  â”œâ”€ server.ts — start/stop Agents JSON-RPC server

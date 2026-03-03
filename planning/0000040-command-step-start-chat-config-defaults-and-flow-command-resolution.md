@@ -1839,7 +1839,7 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
 
 ### 8. Server: MCP `codebase_question` uses shared chat defaults
 
-- Task Status: **to_do**
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1857,12 +1857,12 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
 
 #### Subtasks
 
-1. [ ] Update [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts) to use shared resolver defaults/warnings for Codex thread options instead of direct env-default sourcing.
+1. [x] Update [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts) to use shared resolver defaults/warnings for Codex thread options instead of direct env-default sourcing.
    - Docs to read first: https://developers.openai.com/codex/config-reference, https://nodejs.org/api/test.html.
    - Files to read/edit: [codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts).
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
    - Done when: MCP tool defaulting path matches REST behavior for covered fields.
-2. [ ] Add a happy-path MCP tool unit test for resolver-backed default fields.
+2. [x] Add a happy-path MCP tool unit test for resolver-backed default fields.
    - Test type: `Unit` (MCP tool).
    - Test location: [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts).
    - Description: Assert MCP `codebase_question` applies shared resolver defaults for covered Codex options.
@@ -1871,7 +1871,7 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Files to read/edit: [codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts).
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13.
    - Done when: test fails if tool falls back to env-only defaults.
-3. [ ] Add an MCP tool validation-path unit test for field-specific warning behavior on legacy-env fallback.
+3. [x] Add an MCP tool validation-path unit test for field-specific warning behavior on legacy-env fallback.
    - Test type: `Unit` (MCP tool validation).
    - Test location: [server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts).
    - Description: Assert warning payload names each field that used legacy env fallback.
@@ -1880,7 +1880,7 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Files to read/edit: [codebaseQuestion.validation.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts).
    - Acceptance criteria coverage: AC 13, AC 14.
    - Done when: test fails if warning behavior drifts.
-4. [ ] Add an MCP tool validation-path unit test for invalid option handling.
+4. [x] Add an MCP tool validation-path unit test for invalid option handling.
    - Test type: `Unit` (MCP tool validation).
    - Test location: [server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts).
    - Description: Assert invalid default option values are normalized/rejected deterministically in line with shared resolver behavior.
@@ -1889,7 +1889,7 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Files to read/edit: [codebaseQuestion.validation.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts).
    - Acceptance criteria coverage: AC 16.
    - Done when: test fails if invalid options pass through silently.
-5. [ ] Add an MCP tool unavailable-path unit test preserving shared default behavior.
+5. [x] Add an MCP tool unavailable-path unit test preserving shared default behavior.
    - Test type: `Unit` (MCP tool unavailable branch).
    - Test location: [server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts).
    - Description: Assert unavailable/degraded tool path still uses deterministic shared defaulting semantics.
@@ -1898,7 +1898,7 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Files to read/edit: [codebaseQuestion.unavailable.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts).
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
    - Done when: test fails if unavailable branch bypasses resolver behavior.
-6. [ ] Add a parity test comparing MCP `codebase_question` defaults/warnings against REST resolver fixtures.
+6. [x] Add a parity test comparing MCP `codebase_question` defaults/warnings against REST resolver fixtures.
    - Test type: `Unit` (parity).
    - Test location: [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts).
    - Description: Use same fixture inputs as REST tests and assert identical default/warning outputs.
@@ -1907,7 +1907,7 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Files to read/edit: [codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts).
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
    - Done when: test fails if MCP and REST diverge.
-7. [ ] Add an integration parity test asserting REST and MCP surfaces produce aligned codex defaults/warnings when config values are missing and env fallbacks are used.
+7. [x] Add an integration parity test asserting REST and MCP surfaces produce aligned codex defaults/warnings when config values are missing and env fallbacks are used.
    - Test type: `Integration` (cross-surface parity).
    - Test location: [server/src/test/integration/chat-codex-mcp.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/chat-codex-mcp.test.ts).
    - Description: Under controlled missing-config fixtures, assert `/chat/models`/`/chat/providers` outputs and MCP `codebase_question` defaults/warnings remain aligned.
@@ -1916,7 +1916,7 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Files to read/edit: [chat-codex-mcp.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/chat-codex-mcp.test.ts).
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
    - Done when: test fails if REST/MCP defaults or warning-field lists diverge for the same fixture inputs.
-8. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for MCP default-source alignment, including a Mermaid sequence diagram for `codebase_question` resolver behavior and REST parity.
+8. [x] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for MCP default-source alignment, including a Mermaid sequence diagram for `codebase_question` resolver behavior and REST parity.
    - Document name: `design.md`.
    - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Description: Document shared resolver usage in MCP path and parity expectations with REST defaults/warnings.
@@ -1925,7 +1925,7 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Files to read/edit: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `design.md` clearly documents MCP/REST parity and includes valid Mermaid syntax.
-9. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-8 MCP tool/test files added, removed, or modified.
+9. [x] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-8 MCP tool/test files added, removed, or modified.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Description: Record all MCP tool implementation/test files added, removed, or modified in this task.
@@ -1935,7 +1935,7 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `projectStructure.md` accurately lists task-8 file changes and includes all added and removed files.
-10. [ ] Add deterministic diagnostic log marker [DEV_0000040_T08_MCP_DEFAULTS_APPLIED] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+10. [x] Add deterministic diagnostic log marker [DEV_0000040_T08_MCP_DEFAULTS_APPLIED] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
 
 - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
 - Files to read/edit: [codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts).
@@ -1943,7 +1943,7 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
 - Manual Playwright-MCP expected outcome: running MCP `codebase_question` via UI/MCP surface logs marker with resolved defaults and warning fields that match REST behavior.
 - Done when: [DEV_0000040_T08_MCP_DEFAULTS_APPLIED] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
 - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
@@ -1955,16 +1955,25 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
 - Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
 - Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server`
+1. [x] `npm run build:summary:server`
    - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit`
+2. [x] `npm run test:summary:server:unit`
    - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber`
+3. [x] `npm run test:summary:server:cucumber`
    - Use for server Cucumber feature/step coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands (`--tags` / `--feature` / `--scenario`), then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtasks 1 and 10: Updated `server/src/mcp2/tools/codebaseQuestion.ts` to resolve Codex defaults through shared resolver/capability paths (`resolveCodexChatDefaults` + `resolveCodexCapabilities`), removed direct env-default sourcing for thread flags, and added deterministic marker `DEV_0000040_T08_MCP_DEFAULTS_APPLIED` with resolved defaults and warning fields in both log store and console output.
+- Subtasks 2 and 6: Expanded `codebaseQuestion.happy.test.ts` with resolver-backed default assertions (sandbox/approval/reasoning/web-search) and parity coverage verifying MCP marker/default context remains aligned with resolver-backed behavior for shared fixtures.
+- Subtasks 3 and 4: Expanded `codebaseQuestion.validation.test.ts` to assert field-specific warning names on legacy-env fallback and deterministic invalid-params rejection on invalid option input.
+- Subtask 5: Updated `codebaseQuestion.unavailable.test.ts` unavailable-branch coverage to assert marker defaults match shared `resolveCodexCapabilities` output (deterministic parity), avoiding brittle env-only assumptions when config defaults are present.
+- Subtask 7: Added cross-surface integration coverage in `chat-codex-mcp.test.ts` to assert REST `/chat/models` + `/chat/providers` and MCP `codebase_question` emit aligned defaults/warnings under missing-config/env-fallback fixtures.
+- Subtasks 8-9: Updated `design.md` with Task 8 MCP/REST parity architecture + Mermaid sequence flow and updated `projectStructure.md` with Task 8 structural change ledger entries for implementation/test files.
+- Subtask 11: Ran `npm run lint --workspaces` (pass; existing repo-wide import-order warnings only) and `npm run format:check --workspaces`; after initial server prettier mismatches in two Task 8 test files, ran `npm run format --workspaces` and re-ran `npm run format:check --workspaces` to clean pass.
+- Testing 1: `npm run build:summary:server` passed (`status: passed`, `warnings: 0`) with log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: First full `npm run test:summary:server:unit` run failed (`958/959`) on legacy assertion in `mcp-codex-wrapper.test.ts` expecting env-only defaults; updated that test to assert `resolveCodexCapabilities` shared-default parity, reran targeted file pass, then reran full wrapper to pass (`959/959`) with log `test-results/server-unit-tests-2026-03-03T22-04-01-290Z.log`.
+- Testing 3: `npm run test:summary:server:cucumber` passed (`tests run: 68`, `failed: 0`) with log `test-results/server-cucumber-tests-2026-03-03T22-13-22-851Z.log`.
 
 ---
 

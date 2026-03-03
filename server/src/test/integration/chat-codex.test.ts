@@ -402,7 +402,7 @@ test('codex chat accepts non-standard reasoning effort when provided by shared c
     createChatRouter({
       clientFactory: dummyClientFactory,
       codexFactory: () => mockCodex,
-      codexCapabilityResolver: () => fixture,
+      codexCapabilityResolver: async () => fixture,
     }),
   );
 
@@ -465,7 +465,7 @@ test('codex chat rejects reasoning effort not supported by shared capability res
     createChatRouter({
       clientFactory: dummyClientFactory,
       codexFactory: () => mockCodex,
-      codexCapabilityResolver: () => fixture,
+      codexCapabilityResolver: async () => fixture,
     }),
   );
 

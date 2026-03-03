@@ -121,6 +121,37 @@ Modified files (implementation traceability):
 - `server/src/config/chatDefaults.ts`
 - `server/src/test/unit/config.chatDefaults.test.ts`
 
+## Story 0000040 Task 7 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `projectStructure.md`
+- `server/src/codex/capabilityResolver.ts`
+- `server/src/routes/chat.ts`
+- `server/src/routes/chatModels.ts`
+- `server/src/routes/chatProviders.ts`
+- `server/src/routes/chatValidators.ts`
+- `server/src/test/integration/chat-codex.test.ts`
+- `server/src/test/unit/capabilityResolver.test.ts`
+- `server/src/test/unit/chat-codex-reasoning-delta.test.ts`
+- `server/src/test/unit/chatModels.codex.test.ts`
+- `server/src/test/unit/chatProviders.test.ts`
+- `server/src/test/unit/chatValidators.test.ts`
+
 ## Story 0000038 Tasks 1-7 structural change ledger
 
 Added files:
@@ -790,12 +821,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/flows.break-parser.test.ts — unit coverage for strict/fenced/balanced break-answer parsing order, schema gating, and terminal failure behavior
 - server/src/test/unit/mcp-responder-transient-error.test.ts — unit coverage that McpResponder ignores transient reconnect error events
 - server/src/test/unit/chat-command-metadata.test.ts — unit coverage that chat persistence attaches `command` metadata to turns created by command runs
-- server/src/test/unit/chatModels.codex.test.ts — unit coverage for `/chat/models` Codex defaults, warnings, and env model lists
-- server/src/test/unit/chatProviders.test.ts — unit coverage for `/chat/providers` runtime availability ordering and fallback-ready provider selection
+- server/src/test/unit/chatModels.codex.test.ts — unit coverage for `/chat/models` resolver-backed Codex defaults/warnings, model capability payloads, and parity fixtures
+- server/src/test/unit/chatProviders.test.ts — unit coverage for `/chat/providers` availability ordering plus resolver-backed `codexDefaults`/`codexWarnings` parity
 - server/src/test/integration/openai-retry-env-override.test.ts — integration coverage for OpenAI retryable-failure attempt counts honoring `OPENAI_INGEST_MAX_RETRIES`
 - server/src/config/chatDefaults.ts — shared Codex chat-default resolver for `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search` with precedence (`override -> config -> env -> hardcoded`) plus field-specific env fallback warnings
 - server/src/test/unit/config.chatDefaults.test.ts — unit coverage for shared chat default resolution precedence
-- server/src/test/unit/chatValidators.test.ts — unit coverage for Codex env defaults + warnings in chat validation
+- server/src/test/unit/chatValidators.test.ts — unit coverage for resolver-backed Codex validation defaults, warning semantics, and parity fixtures
 - server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts — ensures ChatInterfaceCodex honors per-call workingDirectory overrides
 - server/src/test/unit/conversations-router-agent-filter.test.ts — Supertest coverage for `/conversations?agentName=...` request forwarding
 - server/src/test/integration/conversations.bulk.test.ts — Supertest coverage for bulk conversation endpoints (archive/restore/delete + validation/conflicts)

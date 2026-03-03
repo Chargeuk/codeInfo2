@@ -1,7 +1,10 @@
 import type { LMStudioClient } from '@lmstudio/sdk';
 import type { ChatProviderInfo } from '@codeinfo2/common';
 import { Router } from 'express';
-import { getCodexModelList } from '../config/codexEnvDefaults.js';
+import {
+  resolveCodexCapabilities,
+  type CodexCapabilityResolution,
+} from '../codex/capabilityResolver.js';
 import {
   resolveChatDefaults,
   resolveRuntimeProviderSelection,
@@ -13,6 +16,7 @@ import { getMcpStatus } from '../providers/mcpStatus.js';
 import { BASE_URL_REGEX, scrubBaseUrl } from './lmstudioUrl.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
+const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
 
 const toWebSocketUrl = (value: string) => {
   if (value.startsWith('http://')) return value.replace(/^http:/i, 'ws:');
@@ -27,14 +31,21 @@ const isChatModel = (model: { type?: string; architecture?: string }) => {
 
 export function createChatProvidersRouter({
   clientFactory,
+  codexCapabilityResolver = resolveCodexCapabilities,
 }: {
   clientFactory: ClientFactory;
+  codexCapabilityResolver?: (options: {
+    consumer: 'chat_models' | 'chat_validation';
+  }) => Promise<CodexCapabilityResolution>;
 }) {
   const router = Router();
 
   router.get('/providers', async (_req, res) => {
     const codex = getCodexDetection();
     const mcp = await getMcpStatus();
+    const capabilities = await codexCapabilityResolver({
+      consumer: 'chat_models',
+    });
     const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
     const safeBase = scrubBaseUrl(baseUrl);
     let lmstudioReason: string | undefined;
@@ -63,7 +74,7 @@ export function createChatProvidersRouter({
       requestedModel: requestedDefaults.model,
       codex: {
         available: codex.available,
-        models: getCodexModelList().models,
+        models: capabilities.models.map((entry) => entry.model),
         reason: codex.reason ?? 'codex unavailable',
       },
       lmstudio: {
@@ -118,7 +129,27 @@ export function createChatProvidersRouter({
       'chat providers resolved',
     );
 
-    res.json({ providers });
+    const codexWarnings = [...capabilities.warnings];
+    if (
+      capabilities.defaults.webSearchEnabled &&
+      !(codex.available && mcp.available)
+    ) {
+      codexWarnings.push(
+        'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
+      );
+    }
+    console.info(TASK7_LOG_MARKER, {
+      surface: '/chat/providers',
+      provider: 'codex',
+      warningCount: codexWarnings.length,
+      defaults: capabilities.defaults,
+    });
+
+    res.json({
+      providers,
+      codexDefaults: capabilities.defaults,
+      codexWarnings,
+    });
   });
 
   return router;

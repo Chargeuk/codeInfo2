@@ -1675,7 +1675,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
 
 ### 7. Server: REST chat and capability surfaces consume shared defaults
 
-- Task Status: **to_do**
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1693,22 +1693,22 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
 
 #### Subtasks
 
-1. [ ] Update [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts) to consume shared defaults resolver output, preserving current model capability response shape.
+1. [x] Update [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts) to consume shared defaults resolver output, preserving current model capability response shape.
    - Docs to read first: https://developers.openai.com/codex/config-reference.
    - Files to read/edit: [capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts).
    - Acceptance criteria coverage: AC 10, AC 11, AC 12.
    - Done when: capability resolver no longer reads Codex defaults directly from env-only logic.
-2. [ ] Update [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts) to return `codexDefaults` and warnings from shared resolver path.
+2. [x] Update [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts) to return `codexDefaults` and warnings from shared resolver path.
    - Docs to read first: https://developers.openai.com/codex/config-reference, https://expressjs.com/en/guide/routing.html.
    - Files to read/edit: [chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts).
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14.
    - Done when: `/chat/models` defaults/warnings match shared resolver output.
-3. [ ] Update [server/src/routes/chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [server/src/routes/chat.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chat.ts), and [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts) to use shared resolver defaults and warning semantics.
+3. [x] Update [server/src/routes/chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [server/src/routes/chat.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chat.ts), and [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts) to use shared resolver defaults and warning semantics.
    - Docs to read first: https://expressjs.com/en/guide/routing.html, https://developers.openai.com/codex/config-reference.
    - Files to read/edit: [chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [chat.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chat.ts), [chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts).
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
    - Done when: REST chat request validation and metadata endpoints all derive Codex defaults from same resolver path.
-4. [ ] Add a unit test for `/chat/models` default sourcing from shared resolver.
+4. [x] Add a unit test for `/chat/models` default sourcing from shared resolver.
    - Test type: `Unit` (route-level).
    - Test location: [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts).
    - Description: Assert `codexDefaults` fields come from shared resolver precedence, not env-only behavior.
@@ -1717,7 +1717,7 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Files to read/edit: [chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts).
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13.
    - Done when: test fails if `/chat/models` uses legacy env-first behavior.
-5. [ ] Add a unit test for `/chat/providers` default/warning behavior from shared resolver.
+5. [x] Add a unit test for `/chat/providers` default/warning behavior from shared resolver.
    - Test type: `Unit` (route-level).
    - Test location: [server/src/test/unit/chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts).
    - Description: Assert provider payload exposes resolver-backed defaults and field-specific warnings.
@@ -1726,7 +1726,7 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Files to read/edit: [chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts).
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14.
    - Done when: test fails if warnings/defaults diverge from resolver output.
-6. [ ] Add a unit test for chat request validation using shared resolver defaults including `web_search` normalization.
+6. [x] Add a unit test for chat request validation using shared resolver defaults including `web_search` normalization.
    - Test type: `Unit` (validator).
    - Test location: [server/src/test/unit/chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts).
    - Description: Assert validator path derives defaults via resolver and applies canonical web-search normalization semantics.
@@ -1735,7 +1735,7 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Files to read/edit: [chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts).
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
    - Done when: test fails if validation path uses stale env-only behavior.
-7. [ ] Add a parity unit test for `chatModels` against shared fixture expectations.
+7. [x] Add a parity unit test for `chatModels` against shared fixture expectations.
    - Test type: `Unit` (parity).
    - Test location: [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts).
    - Description: Assert one fixture produces expected defaults/warnings identical to resolver output.
@@ -1744,7 +1744,7 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Files to read/edit: [chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts).
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
    - Done when: test fails if `/chat/models` parity drifts.
-8. [ ] Add a parity unit test for `chatProviders` against shared fixture expectations.
+8. [x] Add a parity unit test for `chatProviders` against shared fixture expectations.
    - Test type: `Unit` (parity).
    - Test location: [server/src/test/unit/chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts).
    - Description: Assert one fixture produces expected defaults/warnings identical to resolver output.
@@ -1753,7 +1753,7 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Files to read/edit: [chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts).
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
    - Done when: test fails if `/chat/providers` parity drifts.
-9. [ ] Add a parity unit test for `chatValidators` against shared fixture expectations.
+9. [x] Add a parity unit test for `chatValidators` against shared fixture expectations.
    - Test type: `Unit` (parity).
    - Test location: [server/src/test/unit/chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts).
    - Description: Assert one fixture produces expected defaults/warnings identical to resolver output.
@@ -1762,7 +1762,7 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Files to read/edit: [chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts).
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
    - Done when: test fails if validator parity drifts.
-10. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) for REST chat/capability default-source behavior and warning semantics.
+10. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) for REST chat/capability default-source behavior and warning semantics.
 
 - Document name: `README.md`.
 - Document location: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md).
@@ -1773,7 +1773,7 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
 - Acceptance criteria coverage: documentation support for AC 10-16.
 - Done when: `README.md` explains REST default/warning behavior with clear scope.
 
-11. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for REST resolver data flow, including a Mermaid sequence diagram covering `chatModels`, `chatProviders`, and chat validation paths.
+11. [x] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for REST resolver data flow, including a Mermaid sequence diagram covering `chatModels`, `chatProviders`, and chat validation paths.
 
 - Document name: `design.md`.
 - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
@@ -1784,7 +1784,7 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
 - Acceptance criteria coverage: documentation support for AC 10-16.
 - Done when: `design.md` includes accurate route flow and valid Mermaid syntax.
 
-12. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-7 route/resolver/test files added, removed, or modified.
+12. [x] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-7 route/resolver/test files added, removed, or modified.
 
 - Document name: `projectStructure.md`.
 - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
@@ -1796,7 +1796,7 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
 - Acceptance criteria coverage: documentation support for AC 10-16.
 - Done when: `projectStructure.md` reflects all task-7 file changes and explicitly includes all added and removed files.
 
-13. [ ] Add deterministic diagnostic log marker [DEV_0000040_T07_REST_DEFAULTS_APPLIED] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+13. [x] Add deterministic diagnostic log marker [DEV_0000040_T07_REST_DEFAULTS_APPLIED] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
 
 - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
 - Files to read/edit: [capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts), [chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts), [chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [chat.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chat.ts), [chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts).
@@ -1804,7 +1804,7 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
 - Manual Playwright-MCP expected outcome: loading chat models/providers and sending a chat request logs marker entries confirming shared resolver defaults and warning propagation were applied by REST routes.
 - Done when: [DEV_0000040_T07_REST_DEFAULTS_APPLIED] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
 
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+14. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
 - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
@@ -1816,16 +1816,23 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
 - Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
 - Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server`
+1. [x] `npm run build:summary:server`
    - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit`
+2. [x] `npm run test:summary:server:unit`
    - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber`
+3. [x] `npm run test:summary:server:cucumber`
    - Use for server Cucumber feature/step coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands (`--tags` / `--feature` / `--scenario`), then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtasks 1-3: Converted `resolveCodexCapabilities` to consume `resolveCodexChatDefaults` (shared config precedence), propagated async capability resolution into `chatModels`, `chatProviders`, `/chat` route, and `validateChatRequest`, and wired `/chat/providers` to return resolver-backed `codexDefaults` and `codexWarnings`.
+- Subtasks 4-9: Expanded unit coverage in `chatModels.codex.test.ts`, `chatProviders.test.ts`, and `chatValidators.test.ts` for shared-resolver default sourcing, warning propagation, and parity fixtures; updated dependent tests for async resolver/validator behavior.
+- Subtasks 10-12: Updated `README.md`, `design.md`, and `projectStructure.md` for Task 7 REST/capability resolver behavior, parity flow documentation, and file-map traceability.
+- Subtask 13: Added deterministic marker `DEV_0000040_T07_REST_DEFAULTS_APPLIED` across capability/REST validation and metadata response paths with contextual fields (`surface`, `warningCount`, and defaults/default sources).
+- Subtask 14: Ran `npm run lint --workspaces` (pass with known pre-existing import-order warnings only), then `npm run format --workspaces` followed by clean `npm run format:check --workspaces`.
+- Testing 1: `npm run build:summary:server` passed (`status: passed`, `warnings: 0`) with log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run test:summary:server:unit` passed (`tests run: 955`, `failed: 0`) with log `test-results/server-unit-tests-2026-03-03T21-32-36-400Z.log`.
+- Testing 3: `npm run test:summary:server:cucumber` passed (`tests run: 68`, `failed: 0`) with log `test-results/server-cucumber-tests-2026-03-03T21-41-55-133Z.log`.
 
 ---
 

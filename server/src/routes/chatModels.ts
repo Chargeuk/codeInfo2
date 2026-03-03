@@ -17,6 +17,7 @@ const TASK12_LOG_SUCCESS =
   '[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=success';
 const TASK12_LOG_ERROR =
   '[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=error';
+const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
 
 const scrubBaseUrl = (value: string) => {
   try {
@@ -52,7 +53,7 @@ export function createChatModelsRouter({
   clientFactory: ClientFactory;
   codexCapabilityResolver?: (options: {
     consumer: 'chat_models' | 'chat_validation';
-  }) => CodexCapabilityResolution;
+  }) => Promise<CodexCapabilityResolution>;
 }) {
   const router = Router();
   const isChatModel = (model: { type?: string; architecture?: string }) => {
@@ -67,7 +68,9 @@ export function createChatModelsRouter({
     if (provider === 'codex') {
       const detection = getCodexDetection();
       const mcp = await getMcpStatus();
-      const capabilities = codexCapabilityResolver({ consumer: 'chat_models' });
+      const capabilities = await codexCapabilityResolver({
+        consumer: 'chat_models',
+      });
       const toolsAvailable = detection.available && mcp.available;
       const runtimeWarnings: string[] = [];
 
@@ -119,6 +122,12 @@ export function createChatModelsRouter({
         codexDefaults: capabilities.defaults,
         codexWarnings,
       };
+      console.info(TASK7_LOG_MARKER, {
+        surface: '/chat/models',
+        provider: 'codex',
+        warningCount: codexWarnings.length,
+        defaults: capabilities.defaults,
+      });
 
       if (detection.available) {
         baseLogger.info(

@@ -99,6 +99,18 @@ To keep Windows and WSL in sync, use these settings.
 - Behaviour when missing: if the CLI, `auth.json`, or `config.toml` are absent (and no host auth is available to copy), Codex stays disabled; startup logs explain which prerequisite is missing and the chat UI shows a disabled-state banner.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
 
+## REST Codex defaults behavior
+
+- REST chat capability surfaces now use one shared Codex-default resolver path.
+- Covered fields are `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
+- Resolution precedence is deterministic per field:
+  - request override -> `codex/chat/config.toml` -> legacy env fallback -> hardcoded safe fallback.
+- `web_search` handling is canonical-first:
+  - canonical `web_search` wins over alias keys;
+  - alias bool values normalize to canonical modes (`true -> live`, `false -> disabled`).
+- `/chat/models?provider=codex` and `/chat/providers` return resolver-backed `codexDefaults` and `codexWarnings`.
+- `/chat` request validation applies the same resolver-backed defaults when Codex flags are omitted.
+
 ## Chrome DevTools MCP
 
 - The server container starts a **headless** Chrome instance on boot with remote debugging enabled.

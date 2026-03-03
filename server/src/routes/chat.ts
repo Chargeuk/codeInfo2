@@ -55,6 +55,7 @@ const T06_SUCCESS_LOG =
   '[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=success';
 const T06_ERROR_LOG =
   '[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=error';
+const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
 
 type LMContentItem =
   | { type: 'text'; text: string }
@@ -126,7 +127,7 @@ export function createChatRouter({
   chatFactory?: typeof getChatInterface;
   codexCapabilityResolver?: (options: {
     consumer: 'chat_models' | 'chat_validation';
-  }) => CodexCapabilityResolution;
+  }) => Promise<CodexCapabilityResolution>;
 }) {
   const router = Router();
   const { maxClientBytes } = resolveLogConfig();
@@ -146,7 +147,9 @@ export function createChatRouter({
 
     let validatedBody;
     try {
-      validatedBody = validateChatRequest(rawBody, { codexCapabilityResolver });
+      validatedBody = await validateChatRequest(rawBody, {
+        codexCapabilityResolver,
+      });
     } catch (err) {
       if (err instanceof ChatValidationError) {
         return res.status(400).json({
@@ -218,7 +221,7 @@ export function createChatRouter({
     const safeBase = scrubBaseUrl(baseUrl);
 
     const codexDetection = getCodexDetection();
-    const codexCapabilities = codexCapabilityResolver({
+    const codexCapabilities = await codexCapabilityResolver({
       consumer: 'chat_validation',
     });
     const codexState = {
@@ -263,6 +266,12 @@ export function createChatRouter({
     const executionProvider = runtimeSelection.executionProvider;
     const executionModel = runtimeSelection.executionModel;
     const effectiveCodexFlags = executionProvider === 'codex' ? codexFlags : {};
+    console.info(TASK7_LOG_MARKER, {
+      surface: '/chat',
+      provider: executionProvider,
+      warningCount: warnings.length,
+      defaultsResolution,
+    });
     let chatRuntimeConfig: CodexOptions['config'];
 
     if (executionProvider === 'codex') {

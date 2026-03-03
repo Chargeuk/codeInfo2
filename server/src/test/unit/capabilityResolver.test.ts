@@ -4,7 +4,7 @@ import test from 'node:test';
 import { baseLogger } from '../../logger.js';
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 
-test('resolveCodexCapabilities uses fallback capabilities when injected metadata resolver throws', (t) => {
+test('resolveCodexCapabilities uses fallback capabilities when injected metadata resolver throws', async (t) => {
   const errorLines: string[] = [];
   t.mock.method(baseLogger, 'error', (...args: unknown[]) => {
     const message = args.find((arg) => typeof arg === 'string');
@@ -13,7 +13,7 @@ test('resolveCodexCapabilities uses fallback capabilities when injected metadata
     }
   });
 
-  const result = resolveCodexCapabilities({
+  const result = await resolveCodexCapabilities({
     consumer: 'chat_models',
     resolveReasoningEffortsMetadata: () => {
       throw new Error('injected metadata failure');
@@ -35,8 +35,8 @@ test('resolveCodexCapabilities uses fallback capabilities when injected metadata
   );
 });
 
-test('resolveCodexCapabilities parses metadata values without env sentinels', () => {
-  const result = resolveCodexCapabilities({
+test('resolveCodexCapabilities parses metadata values without env sentinels', async () => {
+  const result = await resolveCodexCapabilities({
     consumer: 'chat_validation',
     resolveReasoningEffortsMetadata: () => ' minimal,high, minimal , turbo ',
   });

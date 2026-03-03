@@ -294,6 +294,43 @@ flowchart TD
   F --> Z
 ```
 
+## REST and capability surfaces consume shared defaults (Story 0000040 Task 7)
+
+- `server/src/codex/capabilityResolver.ts` now resolves Codex defaults via `resolveCodexChatDefaults(...)` instead of env-only parsing for the covered fields.
+- `/chat/models?provider=codex`, `/chat/providers`, and `/chat` validation all consume the same resolver-backed defaults/warnings path through `resolveCodexCapabilities(...)`.
+- `/chat/providers` now returns `codexDefaults` and `codexWarnings` alongside ordered provider metadata so REST surfaces expose one consistent default/warning contract.
+- Deterministic Task 7 marker is emitted when resolver-backed defaults are applied:
+  - `DEV_0000040_T07_REST_DEFAULTS_APPLIED`.
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Models as GET /chat/models
+  participant Providers as GET /chat/providers
+  participant Chat as POST /chat
+  participant Caps as resolveCodexCapabilities
+  participant Defaults as resolveCodexChatDefaults
+
+  Client->>Models: ?provider=codex
+  Models->>Caps: consumer=chat_models
+  Caps->>Defaults: load codex/chat/config.toml + fallback chain
+  Defaults-->>Caps: values + sources + warnings
+  Caps-->>Models: codex defaults + warnings + model capabilities
+  Models-->>Client: codexDefaults/codexWarnings
+
+  Client->>Providers: /chat/providers
+  Providers->>Caps: consumer=chat_models
+  Caps->>Defaults: shared resolver path
+  Caps-->>Providers: codex defaults + warnings + models
+  Providers-->>Client: providers + codexDefaults/codexWarnings
+
+  Client->>Chat: POST /chat (flags optional)
+  Chat->>Caps: consumer=chat_validation
+  Caps->>Defaults: shared resolver path
+  Caps-->>Chat: defaults/warnings for validation defaults
+  Chat-->>Client: validation/execute response using shared defaults
+```
+
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
 - Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
 - Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.
@@ -1441,7 +1478,7 @@ sequenceDiagram
 ### Chat page (models list)
 
 - Route `/chat` surfaces the chat shell; controls sit at the top with Provider/Model selectors implemented as MUI `TextField` with `select` enabled (avoids label clipping seen with raw `FormControl + InputLabel + Select`). The first available provider is auto-selected and the first model for that provider auto-selects when data loads; provider locks after the first message while model can still change.
-- Codex-only controls live in a collapsible (collapsed by default) **Codex flags** panel rendered under the Provider/Model row whenever `provider === 'codex'`. The panel defaults come from `Codex_*` env-driven defaults (surfaced via `/chat/models`), exposes `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, plus **Enable network access** and **Enable web search** toggles; unchanged defaults are omitted from the `/chat` payload so the server can apply env defaults, while user-changed flags are sent. The controls reset to their defaults on provider changes or when **New conversation** is clicked while preserving choices during an active Codex session. Any `codexWarnings` returned by `/chat/models?provider=codex` render a warning banner above the flags panel.
+- Codex-only controls live in a collapsible (collapsed by default) **Codex flags** panel rendered under the Provider/Model row whenever `provider === 'codex'`. The panel defaults come from the shared server-side Codex resolver (surfaced via `/chat/models` and `/chat/providers`), exposes `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, plus **Enable network access** and **Enable web search** toggles; unchanged defaults are omitted from the `/chat` payload so the server applies resolver defaults, while user-changed flags are sent. The controls reset to their defaults on provider changes or when **New conversation** is clicked while preserving choices during an active Codex session. Any `codexWarnings` returned by Codex metadata endpoints render a warning banner above the flags panel.
 - Chat/Agents controls use `size="small"` with contained primary actions, outlined secondary actions, and Stop styled as contained error.
 - LM Studio/Ingest controls use `size="small"` with contained primary actions and outlined secondary actions.
 - Agents controls group Command + Execute and Instruction + Send/Stop on shared rows, with a fixed-width Send/Stop slot to avoid layout shifts.
@@ -2795,7 +2832,7 @@ The proxy does not cache results and times out after 60s. Invalid base URLs are 
 - Success returns `200` with `[ { key, displayName, type } ]` and the chat UI defaults to the first entry when none is selected.
 - Failure or invalid/unreachable base URL returns `503 { error: "lmstudio unavailable" }`.
 - Logging: start, success, and failure entries record the sanitized base URL origin; success logs the model count for visibility.
-- `GET /chat/models?provider=codex` uses `Codex_model_list` (CSV trim + de-duplicate) with a fallback default list when the env list is empty; it returns the list only when Codex is available and always includes `codexDefaults` plus `codexWarnings` (env/default/model-list/runtime warnings). `codexDefaults` mirrors `Codex_sandbox_mode`, `Codex_approval_policy`, `Codex_reasoning_effort`, `Codex_network_access_enabled`, and `Codex_web_search_enabled` from `server/.env`. If web search is enabled while tools are unavailable, a runtime warning is appended. Logs include `[codex-model-list] using env list` with `modelCount`, `fallbackUsed`, and `warningsCount`.
+- `GET /chat/models?provider=codex` uses `Codex_model_list` (CSV trim + de-duplicate) with a fallback default list when the env list is empty; it returns the list only when Codex is available and always includes `codexDefaults` plus `codexWarnings` (shared-resolver/model-list/runtime warnings). `codexDefaults` for `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, and `webSearchEnabled` come from the shared `resolveCodexChatDefaults` precedence chain (`override -> config -> env -> hardcoded`), while `networkAccessEnabled` remains env-defaulted with deterministic fallback. If web search is enabled while tools are unavailable, a runtime warning is appended. Logs include `[codex-model-list] using env list` with `modelCount`, `fallbackUsed`, and `warningsCount`.
 
 ```mermaid
 sequenceDiagram

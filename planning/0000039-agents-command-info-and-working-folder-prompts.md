@@ -2107,3 +2107,40 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 - Testing step 9: Manual browser acceptance run at `http://host.docker.internal:5001/agents` covered command-info disabled/open behavior, prompts discovery success/zero/error states, execute success/conflict, stale-after-clear suppression, and agent-switch prompt-context reset; captured all required screenshots: `0000039-task12-final-command-info-disabled.png`, `0000039-task12-final-command-info-open.png`, `0000039-task12-final-prompts-visible.png`, `0000039-task12-final-prompts-zero-results.png`, `0000039-task12-final-prompts-error.png`, `0000039-task12-final-execute-success.png`, `0000039-task12-final-execute-conflict.png`, `0000039-task12-final-stale-after-clear-ignored.png`, and `0000039-task12-final-agent-switch-clears-prompt-context.png`. Client-console checks observed required `[agents.commandInfo.open]`, `[agents.prompts.discovery.*]`, `[agents.prompts.selector.*]`, and `[agents.prompts.execute.*]` prefixes; server log `logs/server.1.log` confirmed `[agents.prompts.route.request]`, `[agents.prompts.route.success]`, `[agents.prompts.route.error]`, `[agents.prompts.discovery.start]`, `[agents.prompts.discovery.complete]`, and `[agents.prompts.discovery.empty]` entries for this run.
 - Testing step 10: `npm run compose:down` succeeded and removed all compose services plus network `codeinfo2_internal`.
 - Git commit tracking: Recorded Task 12 implementation commit `4617493d` in this task header before creating the required git-commit marker commit.
+
+## Branch Review Summary (2026-03-03)
+
+### Review Scope
+
+- Compared `feature/0000039-agent-prompts-selector` against `main` using `git diff main...HEAD`.
+- Reviewed all story-relevant implementation areas:
+  - Server route contract and error mapping: `server/src/routes/agentsCommands.ts`
+  - Server prompt discovery service behavior: `server/src/agents/service.ts`
+  - Client API contract and error handling: `client/src/api/agents.ts`
+  - Agents page UX/state orchestration for command-info, prompts discovery, and Execute Prompt: `client/src/pages/AgentsPage.tsx`
+  - New and updated automated tests under `server/src/test/unit` and `client/src/test`
+  - OpenAPI contract changes in `openapi.json`
+  - Wrapper test script changes and script wiring in `scripts/*.mjs` and `package.json`
+  - Documentation and story traceability updates in `README.md`, `design.md`, `projectStructure.md`, and this plan file.
+
+### Checks Performed
+
+- Static review for:
+  - Code quality and maintainability (state ownership, guard logic, side-effect boundaries)
+  - Performance (prompt discovery trigger timing, stale-response suppression behavior)
+  - Security and safety (path handling, symlink avoidance, contract validation/error mapping)
+  - Best-practice alignment (typed API parsing, deterministic output, regression coverage)
+- Acceptance criteria trace:
+  - Validated each acceptance area is covered by implementation and automated tests (server route/service + client behavior tests + OpenAPI contract test).
+- Targeted automated verification rerun on current HEAD:
+  - `npm run test:summary:server:unit -- --file server/src/test/unit/agents-commands-router-list.test.ts --file server/src/test/unit/agent-prompts-list.test.ts --file server/src/test/unit/openapi.prompts-route.test.ts`
+    - Result: `tests run: 27`, `passed: 27`, `failed: 0`
+    - Log: `test-results/server-unit-tests-2026-03-03T11-23-30-065Z.log`
+  - `npm run test:summary:client -- --file client/src/test/agentsApi.promptsList.test.ts --file client/src/test/agentsPage.promptsDiscovery.test.tsx --file client/src/test/agentsPage.executePrompt.test.tsx --file client/src/test/agentsPage.descriptionPopover.test.tsx`
+    - Result: `tests run: 42`, `passed: 42`, `failed: 0`
+    - Log: `test-results/client-tests-2026-03-03T11-23-30-065Z.log`
+
+### Review Outcome
+
+- No additional defects or regressions were identified that require new follow-up tasks.
+- Acceptance criteria are fully implemented and verified by the current code and test coverage.

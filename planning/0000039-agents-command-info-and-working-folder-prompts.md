@@ -1384,7 +1384,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 7. Frontend: prompt selector UI state transitions and visibility rules
 
 - Task Status: **__completed__**
-- Git Commits: ****to_do****
+- Git Commits: `bbd1a106`
 
 #### Overview
 
@@ -1536,6 +1536,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Testing step 4: `npm run compose:up` succeeded; compose output reported healthy `codeinfo2-server-1` and started `codeinfo2-client-1`.
 - Testing step 5: Manual Playwright-MCP check on `http://host.docker.internal:5001/agents` exercised success (`tmp-task7-success`), zero-result (`tmp-task7-zero`), selection/clear transitions, and error (`/path/that/does/not/exist/task7`) states; browser logs included required selector prefixes (`[agents.prompts.selector.visible]`, `[agents.prompts.selector.hidden]`, `[agents.prompts.selection.changed]`) aligned with visible UI transitions, and screenshots were captured as `0000039-task7-selector-visible.png`, `0000039-task7-selector-hidden-zero-results.png`, and `0000039-task7-selector-error-state.png` in Playwright MCP output storage (`/tmp/playwright-output/playwright-output-local`).
 - Testing step 6: `npm run compose:down` succeeded and removed all Task 7 compose services and network `codeinfo2_internal`.
+- Git Commits: Recorded Task 7 implementation commit `bbd1a106` in this task header before creating the git-commit marker commit.
 
 ---
 

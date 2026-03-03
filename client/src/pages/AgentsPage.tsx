@@ -236,6 +236,8 @@ export default function AgentsPage() {
   const lastSentRef = useRef('');
   const [agentInfoAnchorEl, setAgentInfoAnchorEl] =
     useState<HTMLElement | null>(null);
+  const [commandInfoAnchorEl, setCommandInfoAnchorEl] =
+    useState<HTMLElement | null>(null);
   const actionSlotMinWidth = 120;
   const [deviceAuthOpen, setDeviceAuthOpen] = useState(false);
 
@@ -544,6 +546,14 @@ export default function AgentsPage() {
     const description = selectedCommand.description.trim();
     return description || 'No description provided.';
   }, [selectedCommand, selectedCommandKey]);
+  const commandInfoOpen = Boolean(commandInfoAnchorEl);
+  const commandInfoId = commandInfoOpen ? 'command-info-popover' : undefined;
+  const commandInfoDisabled = !selectedCommand;
+  useEffect(() => {
+    if (!selectedCommand) {
+      setCommandInfoAnchorEl(null);
+    }
+  }, [selectedCommand]);
 
   const {
     conversations,
@@ -1255,6 +1265,23 @@ export default function AgentsPage() {
   };
   const handleAgentInfoClose = () => {
     setAgentInfoAnchorEl(null);
+  };
+  const handleCommandInfoAttempt = () => {
+    if (!commandInfoDisabled) return;
+    console.info('[agents.commandInfo.blocked] reason=no_command_selected');
+  };
+  const handleCommandInfoOpen = (event: React.MouseEvent<HTMLElement>) => {
+    if (commandInfoDisabled || !selectedCommand) {
+      console.info('[agents.commandInfo.blocked] reason=no_command_selected');
+      return;
+    }
+    setCommandInfoAnchorEl(event.currentTarget);
+    console.info(
+      `[agents.commandInfo.open] commandName=${selectedCommand.name}`,
+    );
+  };
+  const handleCommandInfoClose = () => {
+    setCommandInfoAnchorEl(null);
   };
   const renderParamsAccordion = (params: unknown, accordionId: string) => (
     <Accordion
@@ -2006,6 +2033,18 @@ export default function AgentsPage() {
                     >
                       Execute command
                     </Button>
+                    <Box onMouseDownCapture={handleCommandInfoAttempt}>
+                      <IconButton
+                        aria-describedby={commandInfoId}
+                        aria-label="Command info"
+                        onClick={handleCommandInfoOpen}
+                        disabled={commandInfoDisabled}
+                        size="small"
+                        data-testid="agent-command-info"
+                      >
+                        <InfoOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
                   </Stack>
 
                   <Typography
@@ -2144,6 +2183,24 @@ export default function AgentsPage() {
                   />
                 </Stack>
               </Box>
+              <Popover
+                id={commandInfoId}
+                open={commandInfoOpen}
+                anchorEl={commandInfoAnchorEl}
+                onClose={handleCommandInfoClose}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                data-testid="agent-command-info-popover"
+              >
+                <Stack spacing={1} sx={{ p: 2, maxWidth: 360 }}>
+                  <Typography variant="subtitle2">
+                    {selectedCommand?.displayName ?? 'Command'}
+                  </Typography>
+                  <Typography variant="body2" data-testid="command-info-text">
+                    {selectedCommandDescription}
+                  </Typography>
+                </Stack>
+              </Popover>
               <Popover
                 id={agentInfoId}
                 open={agentInfoOpen}

@@ -60,6 +60,26 @@ Modified files (implementation traceability):
 - `client/src/api/agents.ts`
 - `design.md`
 
+## Story 0000039 Task 4 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/test/agentsPage.descriptionPopover.test.tsx`
+- `design.md`
+
 ## Story 0000038 Tasks 1-7 structural change ledger
 
 Added files:

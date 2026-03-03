@@ -187,6 +187,38 @@ sequenceDiagram
   end
 ```
 
+## Agents command-info popover interaction (Story 0000039 Task 4)
+
+- Added a command-info control in the command row (`AgentsPage`) separate from the existing agent-info popover.
+- Interaction model:
+  - command-info button is disabled when no command is selected,
+  - clicking with no selected command logs `[agents.commandInfo.blocked] reason=no_command_selected`,
+  - clicking with a selected command opens the popover and logs `[agents.commandInfo.open] commandName=<selectedCommandName>`.
+- Popover content is derived from selected command metadata and reuses MUI `Popover` anchor/open/close lifecycle.
+- Legacy inline command description remains in place for Task 4 and is removed later in Task 5.
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as AgentsPage command row
+  participant Popover as command-info Popover
+
+  User->>UI: open Command selector and choose command
+  UI->>UI: selectedCommand set
+  UI-->>User: command-info IconButton enabled
+  User->>UI: click command-info IconButton
+  alt no command selected
+    UI->>UI: log [agents.commandInfo.blocked] reason=no_command_selected
+    UI-->>User: popover stays closed
+  else command selected
+    UI->>UI: log [agents.commandInfo.open] commandName=<selectedCommandName>
+    UI->>Popover: open(anchorEl)
+    Popover-->>User: selected command description visible
+    User->>Popover: close action (Escape/click-away)
+    Popover-->>UI: onClose -> anchor cleared
+  end
+```
+
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
 - Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
 - Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.

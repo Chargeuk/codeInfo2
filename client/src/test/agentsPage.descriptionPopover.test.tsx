@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -34,9 +34,18 @@ type AgentResponse = {
   warnings?: string[];
 };
 
+type CommandResponse = {
+  name: string;
+  description?: string;
+  disabled?: boolean;
+  sourceId?: string;
+  sourceLabel?: string;
+};
+
 function mockAgentsFetch(params: {
   agents?: AgentResponse[];
   agentsStatus?: number;
+  commands?: CommandResponse[];
 }) {
   const agentsStatus = params.agentsStatus ?? 200;
   mockFetch.mockImplementation((url: RequestInfo | URL) => {
@@ -59,7 +68,7 @@ function mockAgentsFetch(params: {
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: async () => ({ commands: [] }),
+        json: async () => ({ commands: params.commands ?? [] }),
       } as Response);
     }
     if (target.includes('/conversations')) {
@@ -151,5 +160,110 @@ describe('Agents page - description', () => {
     await screen.findByTestId('agent-info');
     expect(screen.queryByTestId('agent-description')).toBeNull();
     expect(screen.queryByTestId('agent-warnings')).toBeNull();
+  });
+});
+
+describe('Agents page - command info popover', () => {
+  const selectSmokeCommand = async (
+    user: ReturnType<typeof userEvent.setup>,
+  ) => {
+    const commandSelect = await screen.findByRole('combobox', {
+      name: /command/i,
+    });
+    await waitFor(() => expect(commandSelect).toBeEnabled());
+    await user.click(commandSelect);
+    const option = await screen.findByTestId(
+      'agent-command-option-smoke::local',
+    );
+    await user.click(option);
+    await waitFor(() =>
+      expect(screen.getByTestId('agent-command-info')).toBeEnabled(),
+    );
+  };
+
+  it('renders command-info control in the command row', async () => {
+    mockAgentsFetch({ agents: [{ name: 'coding_agent' }] });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const commandRow = await screen.findByTestId('agent-command-row');
+    const commandInfoButton = await screen.findByTestId('agent-command-info');
+    expect(commandRow).toContainElement(commandInfoButton);
+  });
+
+  it('keeps command-info button disabled when no command is selected', async () => {
+    mockAgentsFetch({
+      agents: [{ name: 'coding_agent' }],
+      commands: [{ name: 'smoke', description: 'Smoke test command' }],
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const commandInfoButton = await screen.findByTestId('agent-command-info');
+    expect(commandInfoButton).toBeDisabled();
+  });
+
+  it('opens command-info popover with selected command description', async () => {
+    mockAgentsFetch({
+      agents: [{ name: 'coding_agent' }],
+      commands: [{ name: 'smoke', description: 'Smoke test command' }],
+    });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await selectSmokeCommand(user);
+
+    const commandInfoButton = await screen.findByTestId('agent-command-info');
+    await user.click(commandInfoButton);
+
+    expect(
+      await screen.findByTestId('agent-command-info-popover'),
+    ).toBeInTheDocument();
+    expect(await screen.findByTestId('command-info-text')).toHaveTextContent(
+      'Smoke test command',
+    );
+  });
+
+  it('does not open command-info popover when command remains unselected', async () => {
+    mockAgentsFetch({
+      agents: [{ name: 'coding_agent' }],
+      commands: [{ name: 'smoke', description: 'Smoke test command' }],
+    });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const commandInfoButton = await screen.findByTestId('agent-command-info');
+    fireEvent.click(commandInfoButton);
+
+    expect(screen.queryByTestId('agent-command-info-popover')).toBeNull();
+  });
+
+  it('closes command-info popover after open', async () => {
+    mockAgentsFetch({
+      agents: [{ name: 'coding_agent' }],
+      commands: [{ name: 'smoke', description: 'Smoke test command' }],
+    });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await selectSmokeCommand(user);
+
+    const commandInfoButton = await screen.findByTestId('agent-command-info');
+    await user.click(commandInfoButton);
+    await screen.findByTestId('agent-command-info-popover');
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('agent-command-info-popover')).toBeNull(),
+    );
   });
 });

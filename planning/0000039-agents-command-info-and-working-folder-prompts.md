@@ -883,7 +883,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 4. Frontend: add command-info popover interaction
 
-- Task Status: **__to_do__**
+- Task Status: **__completed__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -901,91 +901,107 @@ Introduce the command-info icon and popover interaction only. This task does not
 
 #### Subtasks
 
-1. [ ] Add command-info button UI in command row.
+1. [x] Add command-info button UI in command row.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Read first: https://llms.mui.com/material-ui/6.4.12/api/icon-button.md and https://testing-library.com/docs/react-testing-library/intro
    - Implement exactly: add an `IconButton` in the command controls row, disabled when no command is selected.
 
-2. [ ] Add command-info popover state and rendering.
+2. [x] Add command-info popover state and rendering.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Read first: https://llms.mui.com/material-ui/6.4.12/components/popover.md
    - Implement exactly: reuse the existing agent-info popover state pattern (`anchorEl`, `open`, `onClose`) and display selected command description in the popover body.
 
-3. [ ] Add explicit no-selection safety behavior.
+3. [x] Add explicit no-selection safety behavior.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Read first: https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
    - Implement exactly: disabled button must not open popover and must not throw runtime errors when clicked by tests.
 
-4. [ ] Add command-info button presence test.
+4. [x] Add command-info button presence test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx)
    - Description: add a test asserting command-info control renders in the command row.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify command-info entrypoint is visible in the intended UI location.
 
-5. [ ] Add command-info disabled-without-selection test.
+5. [x] Add command-info disabled-without-selection test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx)
    - Description: add a test asserting command-info button is disabled when no command is selected.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify guard behavior for unselected state.
 
-6. [ ] Add command-info popover open-and-content test.
+6. [x] Add command-info popover open-and-content test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx)
    - Description: add a test selecting a command, clicking info button, and asserting description text appears in popover.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify happy-path popover behavior and payload rendering.
 
-7. [ ] Add command-info popover-closed-when-no-selection test.
+7. [x] Add command-info popover-closed-when-no-selection test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx)
    - Description: add a test asserting popover does not open when command remains unselected.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify no-selection safety behavior.
 
-8. [ ] Add command-info popover close interaction test.
+8. [x] Add command-info popover close interaction test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx)
    - Description: add a test that closes the popover and asserts it is no longer visible.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify close lifecycle behavior and user-dismiss flow.
 
-9. [ ] Update design documentation for command-info popover flow.
+9. [x] Update design documentation for command-info popover flow.
    - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
    - Implement exactly: add/update command-info interaction notes and include a Mermaid sequence diagram showing command selection, info-button enablement, popover open, and close flow.
 
-10. [ ] Update structure docs only if files changed.
+10. [x] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-11. [ ] Add command-info popover interaction log lines.
+11. [x] Add command-info popover interaction log lines.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Implement exactly: emit browser debug logs with these exact prefixes:
      - `[agents.commandInfo.blocked] reason=no_command_selected` when info button is triggered while disabled/no selection.
      - `[agents.commandInfo.open] commandName=<selectedCommandName>` when popover opens.
    - Purpose: verify command-info guard and open behavior in Manual Playwright-MCP checks.
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests without using the wrapper commands listed below.
 
-1. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, click command-info with no command selected and verify `[agents.commandInfo.blocked] reason=no_command_selected`; then select a command and click command-info to verify `[agents.commandInfo.open] commandName=<selectedCommandName>`. Capture screenshots `0000039-task4-command-info-disabled.png` and `0000039-task4-command-info-popover-open.png`, store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped within `docker-compose.local.yml`), and review them with the agent to confirm disabled and open-popover GUI states match this task’s expectations. Expected outcome: blocked case does not open popover, selected-command case opens popover with matching description, screenshots confirm expected states, and no browser debug-console errors.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, click command-info with no command selected and verify `[agents.commandInfo.blocked] reason=no_command_selected`; then select a command and click command-info to verify `[agents.commandInfo.open] commandName=<selectedCommandName>`. Capture screenshots `0000039-task4-command-info-disabled.png` and `0000039-task4-command-info-popover-open.png`, store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped within `docker-compose.local.yml`), and review them with the agent to confirm disabled and open-popover GUI states match this task’s expectations. Expected outcome: blocked case does not open popover, selected-command case opens popover with matching description, screenshots confirm expected states, and no browser debug-console errors.
+6. [x] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtasks 1-2: Added a command-info `IconButton` to the command row and wired a dedicated command popover (`anchorEl/open/onClose`) that renders selected command description content.
+- Subtask 3: Added no-selection safety guards (disabled command-info button, guarded open handler, and auto-close on selection clear) so no-selection interactions cannot open the popover or throw runtime errors.
+- Subtask 4: Added component coverage asserting command-info control renders in the command row.
+- Subtask 5: Added component coverage asserting command-info remains disabled until a command is selected.
+- Subtask 6: Added component coverage asserting selecting a command and clicking info opens popover with the selected command description.
+- Subtask 7: Added component coverage asserting no-selection click attempts do not open the command-info popover.
+- Subtask 8: Added component coverage asserting command-info popover closes via user close interaction (Escape).
+- Subtask 9: Updated `design.md` with Task 4 command-info interaction notes and a Mermaid sequence diagram for enable/open/close behavior.
+- Subtask 10: Updated `projectStructure.md` with a Task 4 structural change ledger covering modified UI/test/design files.
+- Subtask 11: Added required command-info observability logs: `[agents.commandInfo.blocked] reason=no_command_selected` and `[agents.commandInfo.open] commandName=<selectedCommandName>`.
+- Subtask 12: Ran lint/format checks; lint returned the existing repository-wide server import-order warnings, and `format:check` initially failed for `agentsPage.descriptionPopover.test.tsx` but passed after `npm run format --workspaces`.
+- Testing step 1: `npm run build:summary:client` passed; reviewed `logs/test-summaries/build-client-latest.log` for non-zero warning count and confirmed only the existing Vite chunk-size advisory.
+- Testing step 2: `npm run test:summary:client` initially failed due command-select interaction timing in `agentsPage.descriptionPopover.test.tsx`; after aligning the helper to existing combobox click pattern and formatting, full client wrapper passed with `tests run: 418`, `passed: 418`, `failed: 0` (`test-results/client-tests-2026-03-03T08-08-20-141Z.log`).
+- Testing step 3: `npm run compose:build:summary` passed with `items passed: 2` and `items failed: 0` (`logs/test-summaries/compose-build-latest.log`).
+- Testing step 4: `npm run compose:up` succeeded and started the full stack, including healthy `codeinfo2-server-1` and started `codeinfo2-client-1`.
+- Testing step 5: Manual Playwright-MCP validation on `http://host.docker.internal:5001/agents` confirmed `[agents.commandInfo.blocked] reason=no_command_selected` when clicking the disabled command-info wrapper and `[agents.commandInfo.open] commandName=improve_plan` after selecting `planning_agent` -> `improve plan`; popover content matched the selected command description, no browser-console errors were emitted, and required screenshots were saved to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000039-task4-command-info-disabled.png` and `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000039-task4-command-info-popover-open.png`.
+- Testing step 6: `npm run compose:down` succeeded and removed all compose services plus network `codeinfo2_internal`.
 
 ---
 

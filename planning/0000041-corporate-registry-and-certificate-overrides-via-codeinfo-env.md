@@ -356,10 +356,10 @@ Add compose-level build/runtime mappings for the canonical `CODEINFO_*` variable
 
 #### Documentation Locations
 
-- [docker-compose.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.yml)
-- [docker-compose.local.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.local.yml)
-- [docker-compose.e2e.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.e2e.yml)
-- Docker Compose interpolation docs: https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/
+- Context7: `/docker/docs` (Compose file structure, build args, environment entries, volumes).
+- Docker Compose variable interpolation: https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/
+- Docker Compose file reference (services/build/environment/volumes): https://docs.docker.com/reference/compose-file/services/
+- Docker Compose env-file behavior: https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/
 
 #### Subtasks
 
@@ -402,9 +402,9 @@ Validate and document env-file source behavior for compose/local/e2e workflows, 
 
 #### Documentation Locations
 
-- [.env.e2e](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/.env.e2e)
-- [scripts/docker-compose-with-env.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/scripts/docker-compose-with-env.sh)
-- [package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/package.json)
+- Context7: `/docker/docs` (`docker compose --env-file`, interpolation order, and `config` rendering behavior).
+- Docker Compose variable interpolation and multiple env files: https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/
+- Docker Compose CLI `config` reference: https://docs.docker.com/reference/cli/docker/compose/config/
 
 #### Subtasks
 
@@ -442,10 +442,12 @@ Implement server image build-time handling for npm and pip corporate registry/in
 
 #### Documentation Locations
 
-- [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/Dockerfile)
-- [server/npm-global.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/npm-global.txt)
+- Context7: `/docker/docs` (Dockerfile `ARG` scope, multi-stage behavior, `RUN` patterns).
+- Docker Build variables (`ARG`, `ENV`): https://docs.docker.com/build/building/variables/
 - npm config docs: https://docs.npmjs.com/cli/v10/using-npm/config/
 - pip configuration docs: https://pip.pypa.io/en/stable/topics/configuration/
+- pip install options: https://pip.pypa.io/en/stable/cli/pip_install/
+- POSIX shell command language (`/bin/sh` compatibility): https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
 
 #### Subtasks
 
@@ -489,7 +491,8 @@ Implement client build-stage registry override support via `CODEINFO_NPM_REGISTR
 
 #### Documentation Locations
 
-- [client/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/client/Dockerfile)
+- Context7: `/docker/docs` (Dockerfile `ARG` scope and multi-stage behavior).
+- Docker Build variables (`ARG`, `ENV`): https://docs.docker.com/build/building/variables/
 - npm config docs: https://docs.npmjs.com/cli/v10/using-npm/config/
 
 #### Subtasks
@@ -528,10 +531,9 @@ Implement deterministic runtime env parsing and default CA export behavior in `s
 
 #### Documentation Locations
 
-- [server/entrypoint.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/entrypoint.sh)
-- [server/src/config/codexEnvDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/config/codexEnvDefaults.ts)
-- [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/config/runtimeConfig.ts)
+- POSIX shell command language (`/bin/sh` parsing and conditionals): https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
 - Node CLI `NODE_EXTRA_CA_CERTS`: https://nodejs.org/docs/latest-v22.x/api/cli.html#node_extra_ca_certsfile
+- Docker container environment variables guide: https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/
 
 #### Subtasks
 
@@ -570,8 +572,10 @@ Implement and verify the refresh-enabled certificate execution path and fail-fas
 
 #### Documentation Locations
 
-- [server/entrypoint.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/entrypoint.sh)
+- POSIX shell command language (`/bin/sh` parsing and conditionals): https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
 - Debian `update-ca-certificates`: https://manpages.debian.org/testing/ca-certificates/update-ca-certificates.8.en.html
+- Node CLI process-start trust-store behavior: https://nodejs.org/docs/latest-v22.x/api/cli.html#node_extra_ca_certsfile
+- Docker bind mounts and mount-source behavior: https://docs.docker.com/engine/storage/bind-mounts/
 
 #### Subtasks
 
@@ -609,8 +613,9 @@ Update host helper install behavior so restricted-network users can install `git
 
 #### Documentation Locations
 
-- [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh)
 - npm config docs: https://docs.npmjs.com/cli/v10/using-npm/config/
+- npm install command docs: https://docs.npmjs.com/cli/v10/commands/npm-install
+- POSIX shell command language (`/bin/sh` compatibility): https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
 
 #### Subtasks
 
@@ -648,9 +653,11 @@ Document corporate setup clearly and precisely so users can configure each workf
 
 #### Documentation Locations
 
-- [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/README.md)
-- [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/design.md)
-- [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md)
+- Docker Compose variable interpolation and env files: https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/
+- npm config docs (registry behavior): https://docs.npmjs.com/cli/v10/using-npm/config/
+- pip configuration docs (index/trusted host behavior): https://pip.pypa.io/en/stable/topics/configuration/
+- Node CLI `NODE_EXTRA_CA_CERTS`: https://nodejs.org/docs/latest-v22.x/api/cli.html#node_extra_ca_certsfile
+- Debian `update-ca-certificates`: https://manpages.debian.org/testing/ca-certificates/update-ca-certificates.8.en.html
 
 #### Subtasks
 
@@ -689,16 +696,10 @@ Run contract and immutability guard checks so this infra-only story cannot chang
 
 #### Documentation Locations
 
-- [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/openapi.json)
-- [package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/package.json)
-- [package-lock.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/package-lock.json)
-- [client/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/client/package.json)
-- [server/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/package.json)
-- [common/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/common/package.json)
-- [scripts/test-summary-server-unit.mjs](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/scripts/test-summary-server-unit.mjs)
-- [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/test/unit/openapi.contract.test.ts)
-- [server/src/test/unit/openapi.prompts-route.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/test/unit/openapi.prompts-route.test.ts)
-- [server/src/test/unit/ws-server.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/test/unit/ws-server.test.ts)
+- OpenAPI Specification (contract baseline): https://spec.openapis.org/oas/v3.1.0
+- npm lockfile behavior (`package-lock.json` semantics): https://docs.npmjs.com/cli/v10/configuring-npm/package-lock-json/
+- Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html
+- Git diff reference (immutability checks): https://git-scm.com/docs/git-diff
 
 #### Subtasks
 
@@ -735,10 +736,10 @@ Perform full end-to-end validation against acceptance criteria, confirm document
 
 #### Documentation Locations
 
-- [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/README.md)
-- [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/design.md)
-- [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md)
-- Docker docs: https://docs.docker.com/
+- Context7: `/docker/docs` (build/compose workflow references for final verification).
+- Docker docs (build + compose): https://docs.docker.com/
+- npm scripts and run lifecycle docs: https://docs.npmjs.com/cli/v10/using-npm/scripts
+- Git diff/log references for release notes evidence: https://git-scm.com/docs
 
 #### Subtasks
 

@@ -356,10 +356,10 @@ Add compose-level build/runtime mappings for the canonical `CODEINFO_*` variable
 
 #### Documentation Locations
 
-- Context7: `/docker/docs` (Compose file structure, build args, environment entries, volumes).
-- Docker Compose variable interpolation: https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/
-- Docker Compose file reference (services/build/environment/volumes): https://docs.docker.com/reference/compose-file/services/
-- Docker Compose env-file behavior: https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/
+- Docker Compose variable interpolation: https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/ (required for `${VAR:-default}` fallback semantics used by cert mount and build args).
+- Docker Compose services reference: https://docs.docker.com/reference/compose-file/services/ (authoritative keys and shapes for `build.args`, `environment`, and `volumes` blocks).
+- Docker Compose environment-variable usage: https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/ (clarifies how `environment` and env files are applied at runtime).
+- Docker Compose `config` command reference: https://docs.docker.com/reference/cli/docker/compose/config/ (used to validate rendered config for unset/set variable scenarios).
 
 #### Subtasks
 
@@ -402,9 +402,9 @@ Validate and document env-file source behavior for compose/local/e2e workflows, 
 
 #### Documentation Locations
 
-- Context7: `/docker/docs` (`docker compose --env-file`, interpolation order, and `config` rendering behavior).
-- Docker Compose variable interpolation and multiple env files: https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/
-- Docker Compose CLI `config` reference: https://docs.docker.com/reference/cli/docker/compose/config/
+- Docker Compose variable interpolation and multi-env-file behavior: https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/ (source of truth for interpolation precedence and default syntax).
+- Docker Compose `config` command reference: https://docs.docker.com/reference/cli/docker/compose/config/ (required to verify effective config under positive/negative env-file checks).
+- Docker Compose env-variable usage guide: https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/ (documents how env-file inputs and `environment` entries are consumed).
 
 #### Subtasks
 
@@ -442,12 +442,12 @@ Implement server image build-time handling for npm and pip corporate registry/in
 
 #### Documentation Locations
 
-- Context7: `/docker/docs` (Dockerfile `ARG` scope, multi-stage behavior, `RUN` patterns).
-- Docker Build variables (`ARG`, `ENV`): https://docs.docker.com/build/building/variables/
-- npm config docs: https://docs.npmjs.com/cli/v10/using-npm/config/
-- pip configuration docs: https://pip.pypa.io/en/stable/topics/configuration/
-- pip install options: https://pip.pypa.io/en/stable/cli/pip_install/
-- POSIX shell command language (`/bin/sh` compatibility): https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
+- Docker Build variables (`ARG`, `ENV`): https://docs.docker.com/build/building/variables/ (defines build-time variable scope across Dockerfile stages).
+- Dockerfile reference: https://docs.docker.com/reference/dockerfile/ (covers multi-stage patterns and `RUN` execution behavior used in this task).
+- npm config docs: https://docs.npmjs.com/cli/v10/using-npm/config/ (authoritative precedence for registry override behavior).
+- pip configuration docs: https://pip.pypa.io/en/stable/topics/configuration/ (defines `PIP_INDEX_URL` and `PIP_TRUSTED_HOST` behavior, including empty env handling).
+- pip install options: https://pip.pypa.io/en/stable/cli/pip_install/ (verifies valid flags and expected install-time argument forms).
+- POSIX shell command language (`/bin/sh` compatibility): https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html (required because Dockerfile `RUN` logic must remain POSIX-compliant).
 
 #### Subtasks
 
@@ -491,9 +491,9 @@ Implement client build-stage registry override support via `CODEINFO_NPM_REGISTR
 
 #### Documentation Locations
 
-- Context7: `/docker/docs` (Dockerfile `ARG` scope and multi-stage behavior).
-- Docker Build variables (`ARG`, `ENV`): https://docs.docker.com/build/building/variables/
-- npm config docs: https://docs.npmjs.com/cli/v10/using-npm/config/
+- Docker Build variables (`ARG`, `ENV`): https://docs.docker.com/build/building/variables/ (defines where `ARG CODEINFO_NPM_REGISTRY` must be declared for client build stage visibility).
+- Dockerfile reference: https://docs.docker.com/reference/dockerfile/ (documents stage boundaries and `RUN` command execution rules).
+- npm config docs: https://docs.npmjs.com/cli/v10/using-npm/config/ (source of truth for registry override semantics and defaults when unset).
 
 #### Subtasks
 
@@ -534,6 +534,7 @@ Implement deterministic runtime env parsing and default CA export behavior in `s
 - POSIX shell command language (`/bin/sh` parsing and conditionals): https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
 - Node CLI `NODE_EXTRA_CA_CERTS`: https://nodejs.org/docs/latest-v22.x/api/cli.html#node_extra_ca_certsfile
 - Docker container environment variables guide: https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/
+- Debian `update-ca-certificates`: https://manpages.debian.org/testing/ca-certificates/update-ca-certificates.8.en.html (needed for validating refresh-disabled checks that assert refresh command is not invoked).
 
 #### Subtasks
 
@@ -613,9 +614,9 @@ Update host helper install behavior so restricted-network users can install `git
 
 #### Documentation Locations
 
-- npm config docs: https://docs.npmjs.com/cli/v10/using-npm/config/
-- npm install command docs: https://docs.npmjs.com/cli/v10/commands/npm-install
-- POSIX shell command language (`/bin/sh` compatibility): https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
+- npm config docs: https://docs.npmjs.com/cli/v10/using-npm/config/ (defines registry precedence and expected behavior for env-driven override).
+- npm install command docs: https://docs.npmjs.com/cli/v10/commands/npm-install (confirms supported global-install invocation used by helper script).
+- POSIX shell command language (`/bin/sh` compatibility): https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html (ensures script conditionals remain portable and non-Bash-specific).
 
 #### Subtasks
 
@@ -653,11 +654,11 @@ Document corporate setup clearly and precisely so users can configure each workf
 
 #### Documentation Locations
 
-- Docker Compose variable interpolation and env files: https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/
-- npm config docs (registry behavior): https://docs.npmjs.com/cli/v10/using-npm/config/
-- pip configuration docs (index/trusted host behavior): https://pip.pypa.io/en/stable/topics/configuration/
-- Node CLI `NODE_EXTRA_CA_CERTS`: https://nodejs.org/docs/latest-v22.x/api/cli.html#node_extra_ca_certsfile
-- Debian `update-ca-certificates`: https://manpages.debian.org/testing/ca-certificates/update-ca-certificates.8.en.html
+- Docker Compose variable interpolation and env files: https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/ (documents defaults/fallback behavior that README must describe accurately).
+- npm config docs (registry behavior): https://docs.npmjs.com/cli/v10/using-npm/config/ (provides wording basis for npm override behavior in docs).
+- pip configuration docs (index/trusted host behavior): https://pip.pypa.io/en/stable/topics/configuration/ (provides wording basis for pip override behavior in docs).
+- Node CLI `NODE_EXTRA_CA_CERTS`: https://nodejs.org/docs/latest-v22.x/api/cli.html#node_extra_ca_certsfile (needed for documenting runtime CA-path defaults).
+- Debian `update-ca-certificates`: https://manpages.debian.org/testing/ca-certificates/update-ca-certificates.8.en.html (needed for documenting cert-refresh preconditions and failure behavior).
 
 #### Subtasks
 
@@ -696,10 +697,11 @@ Run contract and immutability guard checks so this infra-only story cannot chang
 
 #### Documentation Locations
 
-- OpenAPI Specification (contract baseline): https://spec.openapis.org/oas/v3.1.0
-- npm lockfile behavior (`package-lock.json` semantics): https://docs.npmjs.com/cli/v10/configuring-npm/package-lock-json/
-- Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html
-- Git diff reference (immutability checks): https://git-scm.com/docs/git-diff
+- OpenAPI Specification (contract baseline): https://spec.openapis.org/oas/v3.1.0 (used to confirm API contract invariants when checking `openapi.json` drift).
+- npm lockfile behavior (`package-lock.json` semantics): https://docs.npmjs.com/cli/v10/configuring-npm/package-lock-json/ (used for dependency immutability checks).
+- npm `.npmrc` documentation: https://docs.npmjs.com/cli/v10/configuring-npm/npmrc/ (used to validate no scoped registry/auth/proxy policy changes were introduced).
+- Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (applies to targeted server unit test wrapper expectations).
+- Git diff reference (immutability checks): https://git-scm.com/docs/git-diff (source of truth for exact diff commands used in validation subtasks).
 
 #### Subtasks
 
@@ -736,10 +738,16 @@ Perform full end-to-end validation against acceptance criteria, confirm document
 
 #### Documentation Locations
 
-- Context7: `/docker/docs` (build/compose workflow references for final verification).
-- Docker docs (build + compose): https://docs.docker.com/
-- npm scripts and run lifecycle docs: https://docs.npmjs.com/cli/v10/using-npm/scripts
-- Git diff/log references for release notes evidence: https://git-scm.com/docs
+- Docker docs (build + compose): https://docs.docker.com/ (reference for final verification commands that build and compose environments).
+- npm scripts and run lifecycle docs: https://docs.npmjs.com/cli/v10/using-npm/scripts (reference for wrapper script execution semantics in final validation).
+- Git docs index: https://git-scm.com/docs (reference for release-note evidence commands such as `git log`/`git show`).
+- Cucumber Guides overview: https://cucumber.io/docs/guides/overview/ (required because final validation includes cucumber wrapper execution).
+- Cucumber 10-minute tutorial: https://cucumber.io/docs/guides/10-minute-tutorial/ (practical reference for interpreting feature/scenario-level failures).
+- DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for CLI and filtering behavior during wrapper triage).
+- Jest getting started: https://jestjs.io/docs/getting-started (required because final validation includes client Jest summary wrapper).
+- DeepWiki repo reference: `jestjs/jest` (use sections `4 Configuration` and `5 Testing APIs` when diagnosing wrapper failures).
+- Playwright intro docs: https://playwright.dev/docs/intro (required because final validation includes e2e wrapper execution).
+- DeepWiki repo reference: `microsoft/playwright` (use sections `4 Test Framework` and `6 Reporting System` to interpret e2e and reporting failures).
 
 #### Subtasks
 

@@ -140,6 +140,47 @@ codex_agents/<agentName>/
 5. Use **Flows** (`/flows`) for repeatable multi-step automations.
 6. Use **Ingest** (`/ingest`) before repository-aware answers if a repo is not indexed yet.
 
+## Agents Workspace Behavior Notes
+
+- Command info popover:
+  - The **Command info** control is disabled until a command is selected.
+  - Clicking the disabled wrapper logs a blocked event (`[agents.commandInfo.blocked] reason=no_command_selected`).
+  - Selecting a command and opening the popover logs (`[agents.commandInfo.open] commandName=<name>`).
+- Prompt discovery preconditions:
+  - Prompt discovery is commit-driven from `working_folder` only (blur, Enter, or directory-picker commit).
+  - Discovery calls `GET /agents/{agentName}/prompts?working_folder=<value>`.
+  - Prompt selector visibility is state-based:
+    - visible when prompts are returned,
+    - hidden for empty working folder or zero-results success,
+    - inline error shown when discovery fails for a non-empty committed folder.
+- Execute Prompt flow:
+  - Execute Prompt is enabled only when a valid prompt is selected.
+  - Execution composes a canonical instruction preamble and replaces only the `<full path of markdown file>` placeholder with selected prompt `fullPath`.
+  - Execute Prompt uses the existing instruction run endpoint (`POST /agents/{agentName}/run`) and forwards committed `working_folder`.
+
+## Agents Manual Verification Log Matrix
+
+- `[agents.prompts.route.request]`: server received prompts-route request with agent/folder context.
+- `[agents.prompts.route.success]`: server returned prompts-route success with prompts count.
+- `[agents.prompts.route.error]`: server prompts-route request failed (validation/not-found/internal).
+- `[agents.prompts.discovery.start]`: service started discovery from committed `working_folder`.
+- `[agents.prompts.discovery.complete]`: service completed discovery and returned prompts.
+- `[agents.prompts.discovery.empty]`: service completed with zero prompts / missing prompts directory.
+- `[agents.prompts.api.request]`: client issued prompts API request.
+- `[agents.prompts.api.success]`: client received prompts API success.
+- `[agents.prompts.api.error]`: client received prompts API error.
+- `[agents.commandInfo.open]`: command info popover opened with selected command.
+- `[agents.commandInfo.blocked]`: command info was clicked with no command selected.
+- `[agents.prompts.discovery.commit]`: UI committed `working_folder` (blur/enter/picker).
+- `[agents.prompts.discovery.request.start]`: UI started a prompts discovery request id.
+- `[agents.prompts.discovery.request.stale_ignored]`: stale discovery response was ignored.
+- `[agents.prompts.selector.visible]`: prompts selector row became visible with prompt count.
+- `[agents.prompts.selector.hidden]`: prompts selector row hidden (`empty_working_folder` or `discovery_zero_results`).
+- `[agents.prompts.selection.changed]`: prompt selection changed (`relativePath` or `none`).
+- `[agents.prompts.execute.clicked]`: Execute Prompt clicked with selected relative/full path context.
+- `[agents.prompts.execute.payload_built]`: execute payload constructed; `instructionHasFullPath=true` expected.
+- `[agents.prompts.execute.result]`: execute path completed with `status=started` or `status=error` and code.
+
 ## Quick Commands
 
 - Start stack: `npm run compose:local`

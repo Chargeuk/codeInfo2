@@ -4148,3 +4148,80 @@ sequenceDiagram
     UI->>UI: Log execute.result(status=error, code=<error-code|none>)
   end
 ```
+
+## Story 0000039 final behavior sync: prompts discovery + execute interaction
+
+- Route contract remains:
+  - `GET /agents/{agentName}/prompts?working_folder=<committed-folder>`
+  - `POST /agents/{agentName}/run` for both normal Send and Execute Prompt.
+- Discovery/execution interaction:
+  - Discovery returns `{ prompts: [{ relativePath, fullPath }] }` and drives selector visibility state.
+  - Selector labels use `relativePath`; execution payload uses runtime `fullPath`.
+  - Execute Prompt forwards committed `working_folder` through the standard instruction run request.
+
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant UI as Agents Page
+  participant Prompts as GET /agents/{agentName}/prompts
+
+  User->>UI: Commit working_folder (blur/Enter/picker)
+  UI->>Prompts: GET prompts with committed working_folder
+  alt prompts found
+    Prompts-->>UI: 200 {prompts:[{relativePath,fullPath}]}
+    UI->>UI: Show selector + Execute Prompt
+  else zero results
+    Prompts-->>UI: 200 {prompts:[]}
+    UI->>UI: Hide prompts row (zero-results state)
+  else request/validation failure
+    Prompts-->>UI: 400/404/500
+    UI->>UI: Show inline prompts error (non-empty folder only)
+  end
+```
+
+## Story 0000039 manual verification log matrix
+
+| Prefix | Expected runtime outcome |
+| --- | --- |
+| `[agents.prompts.route.request]` | Prompts route called with agent/folder context. |
+| `[agents.prompts.route.success]` | Prompts route succeeded with `promptsCount`. |
+| `[agents.prompts.route.error]` | Prompts route failed (validation/not-found/internal) with status/code context. |
+| `[agents.prompts.discovery.start]` | Discovery service started for committed `working_folder`. |
+| `[agents.prompts.discovery.complete]` | Discovery service completed with prompt entries. |
+| `[agents.prompts.discovery.empty]` | Discovery service completed with zero prompts / missing prompts dir. |
+| `[agents.prompts.api.request]` | Client prompts API request dispatched. |
+| `[agents.prompts.api.success]` | Client prompts API request succeeded. |
+| `[agents.prompts.api.error]` | Client prompts API request failed. |
+| `[agents.commandInfo.open]` | Command info popover opened for selected command. |
+| `[agents.commandInfo.blocked]` | Command info interaction blocked because no command selected. |
+| `[agents.prompts.discovery.commit]` | UI committed working folder (`blur`, `enter`, `picker`). |
+| `[agents.prompts.discovery.request.start]` | UI started a discovery request with request id. |
+| `[agents.prompts.discovery.request.stale_ignored]` | UI ignored stale discovery response. |
+| `[agents.prompts.selector.visible]` | Selector row shown with discovered prompts. |
+| `[agents.prompts.selector.hidden]` | Selector row hidden (`empty_working_folder` or `discovery_zero_results`). |
+| `[agents.prompts.selection.changed]` | Prompt selection changed (`relativePath` or `none`). |
+| `[agents.prompts.execute.clicked]` | Execute Prompt clicked with selected prompt context. |
+| `[agents.prompts.execute.payload_built]` | Canonical prompt payload constructed; `instructionHasFullPath=true` expected. |
+| `[agents.prompts.execute.result]` | Execute Prompt finished with `status=started` or `status=error` and code. |
+
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant UI as Agents Page
+  participant Run as POST /agents/{agentName}/run
+
+  User->>UI: Select prompt + click Execute Prompt
+  UI->>UI: Build canonical instruction preamble
+  UI->>UI: Replace only placeholder with selected prompt fullPath
+  UI->>Run: runAgentInstruction(instruction, committed working_folder, conversationId)
+  alt started
+    Run-->>UI: 202 started
+    UI->>UI: Preserve normal run lifecycle + stream handling
+  else conflict
+    Run-->>UI: 409 RUN_IN_PROGRESS
+    UI->>UI: Reuse existing conflict UX/message path
+  else generic failure
+    Run-->>UI: 4xx/5xx
+    UI->>UI: Reuse existing generic instruction error UX
+  end
+```

@@ -1767,7 +1767,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 9. Documentation: update story-facing product and architecture docs for final 0000039 behavior
 
-- Task Status: ****to_do****
+- Task Status: **__completed__**
 - Git Commits: ****to_do****
 
 #### Overview
@@ -1783,27 +1783,27 @@ Capture final behavior in repository docs once implementation is complete, inclu
 
 #### Subtasks
 
-1. [ ] Update user-facing README behavior notes.
+1. [x] Update user-facing README behavior notes.
    - Files: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: document command-info popover behavior, prompt discovery preconditions, and Execute Prompt flow.
 
-2. [ ] Update architecture/design notes.
+2. [x] Update architecture/design notes.
    - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
    - Implement exactly: document new `GET /agents/{agentName}/prompts` contract and prompt execution interaction with existing `POST /agents/{agentName}/run`, and include/update Mermaid diagrams for both discovery and execution flows.
 
-3. [ ] Update project structure file map.
+3. [x] Update project structure file map.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include all files added/removed during tasks 1-8, including `server/src/test/unit/openapi.prompts-route.test.ts`, `server/src/test/unit/agent-prompts-list.test.ts`, `client/src/test/agentsApi.promptsList.test.ts`, `client/src/test/agentsPage.promptsDiscovery.test.tsx`, `client/src/test/agentsPage.executePrompt.test.tsx`, plus any prompt-discovery fixtures created by Task 2; complete this subtask only after all file add/remove subtasks are finished.
 
-4. [ ] Verify OpenAPI is still aligned with implemented code.
+4. [x] Verify OpenAPI is still aligned with implemented code.
    - Files: [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json)
    - Read first: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - Implement exactly: compare final route behavior and schemas to OpenAPI; update only if drift is detected.
 
-5. [ ] Add a manual-log verification matrix to story-facing docs.
+5. [x] Add a manual-log verification matrix to story-facing docs.
    - Files: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - Implement exactly: add a section listing these exact log prefixes and their expected outcomes:
      - `[agents.prompts.route.request]`, `[agents.prompts.route.success]`, `[agents.prompts.route.error]`
@@ -1815,24 +1815,35 @@ Capture final behavior in repository docs once implementation is complete, inclu
      - `[agents.prompts.execute.clicked]`, `[agents.prompts.execute.payload_built]`, `[agents.prompts.execute.result]`
    - Purpose: make manual Playwright-MCP verification criteria explicit and reusable for junior developers.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests without using the wrapper commands listed below.
 
-1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, run one complete discovery-and-execute flow, and verify runtime logs match the documentation matrix exactly for route/discovery/api/commandInfo/selector/execute prefixes. Expected outcome: documented log catalog and runtime logs are aligned with no browser debug-console errors.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, run one complete discovery-and-execute flow, and verify runtime logs match the documentation matrix exactly for route/discovery/api/commandInfo/selector/execute prefixes. Expected outcome: documented log catalog and runtime logs are aligned with no browser debug-console errors.
+6. [x] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Updated `README.md` with Agents workspace behavior notes covering command-info popover behavior, prompt discovery preconditions/state rules, and Execute Prompt endpoint/payload flow.
+- Subtask 2: Updated `design.md` with final Story 0000039 discovery/execution sync notes and Mermaid sequence diagrams for `GET /agents/{agentName}/prompts` discovery outcomes and `POST /agents/{agentName}/run` Execute Prompt interaction/error handling.
+- Subtask 3: Updated `projectStructure.md` with a cumulative Tasks 1-8 file map section explicitly including required new test files and confirming no persistent Task 2 prompt-discovery fixture files were added.
+- Subtask 4: Compared `openapi.json` prompts route contract against `server/src/routes/agentsCommands.ts` and `openapi.prompts-route` unit expectations; no schema/response drift found, so no OpenAPI edits were required.
+- Subtask 5: Added the required Story 0000039 manual log verification matrix (all exact prefixes + expected outcomes) to both `README.md` and `design.md`.
+- Subtask 6: Ran `npm run lint --workspaces` (pass with unchanged repository-wide server import-order warnings) and `npm run format:check --workspaces` (pass; no formatting changes required).
+- Testing step 1: `npm run build:summary:server` passed with `warnings: 0` and log `logs/test-summaries/build-server-latest.log`.
+- Testing step 2: `npm run build:summary:client` passed with `warnings: 1` (existing Vite chunk-size advisory) and log `logs/test-summaries/build-client-latest.log`.
+- Testing step 3: `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0` (`logs/test-summaries/compose-build-latest.log`).
+- Testing step 4: `npm run compose:up` succeeded and started the full stack, including healthy `codeinfo2-server-1` and started `codeinfo2-client-1`.
+- Testing step 5: Manual Playwright-MCP validation on `http://host.docker.internal:5001/agents` confirmed discovery-and-execute behavior plus required client log prefixes (`[agents.commandInfo.blocked]`, `[agents.commandInfo.open]`, `[agents.prompts.discovery.commit]`, `[agents.prompts.discovery.request.start]`, `[agents.prompts.api.request]`, `[agents.prompts.api.success]`, `[agents.prompts.selector.hidden]`, `[agents.prompts.selector.visible]`, `[agents.prompts.selection.changed]`, `[agents.prompts.execute.clicked]`, `[agents.prompts.execute.payload_built]`, `[agents.prompts.execute.result]`) with no browser console `error` entries on the final clean run; server route/discovery prefixes were confirmed in `logs/server.1.log` for this Task 9 flow (`[agents.prompts.route.request]`, `[agents.prompts.route.success]`, `[agents.prompts.discovery.start]`, `[agents.prompts.discovery.complete]` around lines `209092-209095`, `209233-209236`, and `209276-209279`).
+- Testing step 6: `npm run compose:down` succeeded and removed all compose services plus network `codeinfo2_internal`.
 
 ---
 

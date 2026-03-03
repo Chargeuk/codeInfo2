@@ -1003,3 +1003,30 @@ web_search = "live"
   - `design.md`
   - `projectStructure.md`
   - `planning/0000039-agents-command-info-and-working-folder-prompts.md`
+
+## Story 0000039 Tasks 1-8 cumulative file map (final cross-check)
+
+- Required added files confirmed:
+  - `server/src/test/unit/openapi.prompts-route.test.ts`
+  - `server/src/test/unit/agent-prompts-list.test.ts`
+  - `client/src/test/agentsApi.promptsList.test.ts`
+  - `client/src/test/agentsPage.promptsDiscovery.test.tsx`
+  - `client/src/test/agentsPage.executePrompt.test.tsx`
+- Core implementation files touched across Tasks 1-8:
+  - `server/src/routes/agentsCommands.ts`
+  - `server/src/agents/service.ts`
+  - `client/src/api/agents.ts`
+  - `client/src/pages/AgentsPage.tsx`
+  - `client/src/test/agentsPage.workingFolderPicker.test.tsx`
+  - `client/src/test/agentsPage.descriptionPopover.test.tsx`
+  - `client/src/test/agentsPage.run.test.tsx`
+  - `client/src/test/agentsPage.commandsList.test.tsx`
+  - `client/src/test/agentsPage.run.instructionError.test.tsx`
+  - `client/src/test/agentsPage.commandsRun.conflict.test.tsx`
+  - `client/src/test/agentsPage.streaming.test.tsx`
+  - `openapi.json`
+  - `design.md`
+  - `README.md`
+  - `planning/0000039-agents-command-info-and-working-folder-prompts.md`
+- Prompt-discovery fixtures from Task 2:
+  - No new persistent fixture files were introduced by Task 2 (behavior coverage implemented via service/unit tests and runtime path handling).

@@ -503,15 +503,19 @@ Add the backend response contract for command list items so the frontend can ren
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 22, AC 23.
    - Done when: tests assert exact `stepCount` values and fail if field is absent.
-5. [ ] Update API documentation and contract tests in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts) for required `stepCount` (`integer >= 1`).
+5. [ ] Add edge-case tests in [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts) for malformed/unreadable command files and empty-item parse outcomes, asserting sentinel `stepCount: 1` and `disabled: true`.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 22, AC 23.
+   - Done when: tests cover happy path (multi-step), single-step command, and malformed/empty-path corner cases.
+6. [ ] Update API documentation and contract tests in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts) for required `stepCount` (`integer >= 1`).
    - Docs to read first: https://swagger.io/specification/, https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 22, AC 23.
    - Done when: OpenAPI schema and contract tests both enforce required `stepCount`.
-6. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for this task’s new/changed message contract and test files.
+7. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for this task’s new/changed message contract and test files.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 22, AC 23.
    - Done when: docs explicitly mention `stepCount` contract and touched file map changes.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 22, AC 23 implementation.
    - Done when: both commands pass with no remaining lint/format errors.
@@ -574,19 +578,23 @@ Add the run-request message contract for optional `startStep` with strict input 
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 7, AC 24, AC 25.
    - Done when: tests assert full error body shape and backward-compatible omission behavior.
-6. [ ] Add/extend MCP regression checks in [server/src/test/unit/mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts) and verify [server/src/mcpAgents/tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts) schema has no `startStep`.
+6. [ ] Add explicit invalid-type route tests in [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts) for `startStep` values `\"2\"`, `2.5`, `true`, and `null`, all returning `400 invalid_request`.
+   - Docs to read first: https://nodejs.org/api/test.html, https://developer.mozilla.org/en-US/docs/Web/HTTP/Status.
+   - Acceptance criteria coverage: AC 7, AC 25.
+   - Done when: each invalid type is covered by a deterministic assertion.
+7. [ ] Add/extend MCP regression checks in [server/src/test/unit/mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts) and verify [server/src/mcpAgents/tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts) schema has no `startStep`.
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 8, AC 24.
    - Done when: MCP contract tests prove no schema drift for `run_command`.
-7. [ ] Update [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts) for optional `startStep` and `INVALID_START_STEP` error shape.
+8. [ ] Update [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts) for optional `startStep` and `INVALID_START_STEP` error shape.
    - Docs to read first: https://swagger.io/specification/, https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 24, AC 25.
    - Done when: OpenAPI and contract tests match runtime route behavior.
-8. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for run-request contract updates.
+9. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for run-request contract updates.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 24, AC 25.
    - Done when: docs list optional `startStep` and unchanged MCP scope.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 6, AC 7, AC 24, AC 25.
    - Done when: both commands pass.
@@ -644,15 +652,19 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 6, AC 7, AC 24, AC 25.
    - Done when: tests prove both valid offset execution and deterministic rejection behavior.
-5. [ ] Add/extend integration tests in [server/src/test/integration/agents-run-client-conversation-id.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-client-conversation-id.test.ts) for backward compatibility (older clients omitting `startStep` still run from step 1 on both entry paths).
+5. [ ] Add explicit boundary tests in [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for `startStep = 1`, `startStep = N`, `startStep = 0`, and `startStep = N+1`, asserting the exact message `startStep must be between 1 and N`.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 6, AC 7, AC 25.
+   - Done when: tests pin both happy-path boundaries and range-error edge cases.
+6. [ ] Add/extend integration tests in [server/src/test/integration/agents-run-client-conversation-id.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-client-conversation-id.test.ts) for backward compatibility (older clients omitting `startStep` still run from step 1 on both entry paths).
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 24.
    - Done when: both command-run entry paths prove omission behavior in integration tests.
-6. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for execution-path changes and new test coverage.
+7. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for execution-path changes and new test coverage.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
    - Done when: docs mention runtime start-step conversion and backward compatibility.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 6, AC 7, AC 24, AC 25.
    - Done when: both commands pass.
@@ -705,11 +717,15 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Docs to read first: https://jestjs.io/docs/getting-started.
    - Acceptance criteria coverage: AC 6, AC 22, AC 23, AC 24.
    - Done when: tests fail if `stepCount` missing or if wrapper always/never sends `startStep`.
-4. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for client API contract updates.
+4. [ ] Add response-shape edge-case tests in [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts) for invalid `stepCount` values (`0`, negative, non-number) to ensure API parsing fails fast.
+   - Docs to read first: https://jestjs.io/docs/getting-started, https://www.typescriptlang.org/docs/handbook/type-compatibility.html.
+   - Acceptance criteria coverage: AC 22, AC 23.
+   - Done when: tests prove client rejects non-contract `stepCount` payloads.
+5. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for client API contract updates.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 6, AC 22, AC 24.
    - Done when: docs show new client API payload/response shapes.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 6, AC 22, AC 24.
    - Done when: both commands pass.
@@ -769,15 +785,19 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/, https://jestjs.io/docs/getting-started.
    - Acceptance criteria coverage: AC 1, AC 2, AC 3, AC 4, AC 5, AC 6, AC 8.
    - Done when: tests fail if any state rule or payload behavior drifts.
-5. [ ] Show backend `INVALID_START_STEP` responses using existing command error area in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx), preserving deterministic range text from server.
+5. [ ] Add corner-case UI tests in [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx) for `stepCount = 1` (visible + disabled + `Step 1` selected), and command-switch reset (`Step N -> Step 1`) when user changes command.
+   - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/, https://react.dev/learn/managing-state.
+   - Acceptance criteria coverage: AC 3, AC 4, AC 5.
+   - Done when: tests pin single-step behavior and reset behavior as explicit edge cases.
+6. [ ] Show backend `INVALID_START_STEP` responses using existing command error area in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx), preserving deterministic range text from server.
    - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/.
    - Acceptance criteria coverage: AC 7, AC 25.
    - Done when: UI displays server message text for this error without introducing a new error surface.
-6. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for AGENTS start-step UX and changed test files.
+7. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for AGENTS start-step UX and changed test files.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 1-8.
    - Done when: docs describe new control behavior and where implemented/tests live.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 1-8.
    - Done when: both commands pass.
@@ -835,11 +855,15 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
    - Done when: test cases cover success, invalid config, and fallback warning branches.
-5. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for shared resolver behavior and touched test files.
+5. [ ] Add precedence-matrix tests in [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts) for each covered field (`sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, `web_search`) across override/config/env/hardcoded fallback order, with field-name warnings only on env fallback.
+   - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
+   - Done when: tests explicitly assert source precedence and warning text per field.
+6. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for shared resolver behavior and touched test files.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: docs describe precedence chain and file changes.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
    - Done when: both commands pass.
@@ -894,11 +918,15 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 10-16.
    - Done when: tests fail on any env-first regression in these endpoints.
-5. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for REST/default-source behavior.
+5. [ ] Add cross-surface parity tests using a shared fixture config in [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts), [server/src/test/unit/chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts), and [server/src/test/unit/chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts) to assert identical defaults and warnings across endpoints.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
+   - Done when: one fixture produces matching assertions across all REST surfaces.
+6. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for REST/default-source behavior.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: docs explain REST defaults are config-backed with warning behavior.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
    - Done when: both commands pass.
@@ -947,11 +975,15 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 10-16.
    - Done when: tests prove MCP defaults and warnings stay aligned with shared resolver.
-3. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for MCP default-source alignment.
+3. [ ] Add parity tests comparing MCP `codebase_question` default/warning output against REST resolver fixtures (same inputs -> same defaults/warnings) in [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts).
+   - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
+   - Done when: tests fail if MCP and REST default/warning behavior diverge.
+4. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for MCP default-source alignment.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: docs explicitly call out MCP + REST parity for defaults.
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
    - Done when: both commands pass.
@@ -1004,11 +1036,15 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 15.
    - Done when: tests explicitly assert all four branches.
-4. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for bootstrap behavior and touched tests.
+4. [ ] Add bootstrap corner-case tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) for missing `codex/chat` directory creation, read-only destination failure, and no partial-file overwrite on failed copy.
+   - Docs to read first: https://nodejs.org/api/fs.html, https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 15.
+   - Done when: tests assert directory creation, deterministic warning output, and no corrupt partial config artifacts.
+5. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for bootstrap behavior and touched tests.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 15.
    - Done when: docs state bootstrap order and non-overwrite rule.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 15.
    - Done when: both commands pass.
@@ -1069,11 +1105,15 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Docs to read first: https://nodejs.org/api/test.html, https://docs.npmjs.com/about-semantic-versioning.
    - Acceptance criteria coverage: AC 17, AC 26.
    - Done when: tests fail if prerelease versions are accepted or versions drift.
-6. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for SDK pin + guard alignment.
+6. [ ] Add mismatch regression tests in [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts) asserting startup guard failure when installed SDK version is not exactly `0.107.0` (including higher stable and lower patch/minor versions).
+   - Docs to read first: https://nodejs.org/api/test.html, https://docs.npmjs.com/about-semantic-versioning.
+   - Acceptance criteria coverage: AC 17, AC 26.
+   - Done when: tests prove only exact pinned version passes runtime guard.
+7. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for SDK pin + guard alignment.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 17, AC 26.
    - Done when: docs state pin version and guard coupling.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 17, AC 26.
    - Done when: both commands pass.
@@ -1137,11 +1177,15 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 18, AC 19, AC 20, AC 21, AC 27, AC 28.
    - Done when: green tests cover all four required flow resolution cases.
-7. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for flow resolver ordering rules and added tests.
+7. [ ] Add deterministic-ordering corner tests in [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for trimmed/empty `sourceLabel`, basename fallback usage, and tie-break by full path when normalized labels compare equal case-insensitively.
+   - Docs to read first: https://nodejs.org/api/test.html, https://nodejs.org/api/path.html.
+   - Acceptance criteria coverage: AC 19, AC 28.
+   - Done when: comparator behavior is pinned for label normalization and path tie-break edge cases.
+8. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for flow resolver ordering rules and added tests.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
    - Done when: docs include exact resolver order and fail-fast behavior.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 18-21 and AC 27-28.
    - Done when: both commands pass.
@@ -1244,7 +1288,7 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Docs to read first: https://nodejs.org/api/test.html.
    - Files to read/edit: [0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md) (acceptance criteria + this task's implementation notes section).
    - Acceptance criteria coverage: AC 1-28.
-   - Done when: every AC has a concrete evidence note (test name, endpoint check, or manual check).
+   - Done when: every AC has a concrete evidence note (test name, endpoint check, or manual check), and each evidence note is tagged as happy-path, error-path, or corner-case coverage.
 2. [ ] Run full regression wrappers (`server unit`, `server cucumber`, `client`, `e2e`) and record remediation notes for any failures.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/10-minute-tutorial/, https://jestjs.io/docs/getting-started.
    - Files to read/edit: `test-results/`, `logs/test-summaries/`, and this task's implementation notes section for recording outcomes.

@@ -73,6 +73,43 @@ flowchart TD
 
 ## Embedding flow refactor (Task 1)
 
+## Agents prompts route contract (Story 0000039 Task 1)
+
+- Added `GET /agents/{agentName}/prompts` at the agents commands router boundary.
+- Router validates `agentName` and `working_folder` query shape before calling service.
+- Error mapping is deterministic:
+  - `AGENT_NOT_FOUND` -> `404 { error: 'not_found' }`
+  - `WORKING_FOLDER_INVALID|WORKING_FOLDER_NOT_FOUND` -> `400 { error: 'invalid_request', code, message }`
+  - unexpected -> `500 { error: 'agent_prompts_failed' }`
+- Observability logs are emitted with exact prefixes for request/success/error verification:
+  - `[agents.prompts.route.request]`
+  - `[agents.prompts.route.success]`
+  - `[agents.prompts.route.error]`
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Router as agentsCommands Router
+  participant Service as agents.service.listAgentPrompts
+
+  Client->>Router: GET /agents/{agentName}/prompts?working_folder=...
+  Router->>Router: validate agentName + validatePromptsQuery
+  alt request invalid
+    Router-->>Client: 400 { error: "invalid_request", message? }
+  else request valid
+    Router->>Service: listAgentPrompts({ agentName, working_folder })
+    alt AGENT_NOT_FOUND
+      Router-->>Client: 404 { error: "not_found" }
+    else WORKING_FOLDER_INVALID/NOT_FOUND
+      Router-->>Client: 400 { error: "invalid_request", code, message }
+    else unexpected error
+      Router-->>Client: 500 { error: "agent_prompts_failed" }
+    else success
+      Router-->>Client: 200 { prompts: [{ relativePath, fullPath }] }
+    end
+  end
+```
+
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
 - Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
 - Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.

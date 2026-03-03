@@ -947,6 +947,11 @@ export type AgentCommandSummary = {
   sourceLabel?: string;
 };
 
+export type AgentPromptSummary = {
+  relativePath: string;
+  fullPath: string;
+};
+
 export async function listAgentCommands(
   params: {
     agentName: string;
@@ -1059,4 +1064,18 @@ export async function listAgentCommands(
   });
 
   return { commands };
+}
+
+export async function listAgentPrompts(params: {
+  agentName: string;
+  working_folder: string;
+}): Promise<{ prompts: AgentPromptSummary[] }> {
+  const discovered = await discoverAgents();
+  const agent = discovered.find((item) => item.name === params.agentName);
+  if (!agent) throw toRunAgentError('AGENT_NOT_FOUND');
+
+  await resolveWorkingFolderWorkingDirectory(params.working_folder);
+
+  // Task 1 provides the route contract only; discovery implementation follows in Task 2.
+  return { prompts: [] };
 }

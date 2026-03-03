@@ -1,5 +1,27 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000039 Task 1 structural change ledger
+
+Added files:
+
+- `server/src/test/unit/openapi.prompts-route.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `openapi.json`
+- `server/src/agents/service.ts`
+- `server/src/routes/agentsCommands.ts`
+- `server/src/test/unit/agents-commands-router-list.test.ts`
+
 ## Story 0000038 Tasks 1-7 structural change ledger
 
 Added files:

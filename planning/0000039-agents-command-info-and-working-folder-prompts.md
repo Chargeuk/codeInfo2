@@ -334,7 +334,7 @@ Use a single end-to-end approach that reuses existing Agents route/service patte
 
 ### 1. Server Message Contract: add `GET /agents/:agentName/prompts` route contract and error mapping
 
-- Task Status: **__to_do__**
+- Task Status: **__completed__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -351,7 +351,7 @@ Define the new REST message contract at the router boundary before any frontend 
 
 #### Subtasks
 
-1. [ ] Add a dedicated query parser helper for this route in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts).
+1. [x] Add a dedicated query parser helper for this route in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts).
    - Files: [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts)
    - Read first: https://expressjs.com/en/guide/routing.html and https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - Implement exactly: create a function like `validatePromptsQuery(query)` that accepts `req.query` and returns `{ working_folder: string }`.
@@ -361,13 +361,13 @@ Define the new REST message contract at the router boundary before any frontend 
      type PromptsQuery = { working_folder: string };
      ```
 
-2. [ ] Extend router dependencies to include the new service entrypoint.
+2. [x] Extend router dependencies to include the new service entrypoint.
    - Files: [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts), [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
    - Read first: https://expressjs.com/en/guide/routing.html
    - Implement exactly: update `Deps` type with `listAgentPrompts`, and set the default dependency object to wire `listAgentPrompts` from `service.ts`.
    - Keep existing dependency keys unchanged (`listAgentCommands`, `startAgentCommand`) and do not create a new router module.
 
-3. [ ] Add `GET /:agentName/prompts` route handler to [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts).
+3. [x] Add `GET /:agentName/prompts` route handler to [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts).
    - Files: [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts)
    - Read first: https://expressjs.com/en/guide/routing.html and https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - Implement exactly: validate `agentName` (trimmed non-empty), parse query via helper from subtask 1, call `deps.listAgentPrompts({ agentName, working_folder })`, and return `200` with `{ prompts: [...] }`.
@@ -376,7 +376,7 @@ Define the new REST message contract at the router boundary before any frontend 
      { "prompts": [{ "relativePath": "...", "fullPath": "..." }] }
      ```
 
-4. [ ] Implement route-level error mapping for the new prompts route.
+4. [x] Implement route-level error mapping for the new prompts route.
    - Files: [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts)
    - Read first: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - Implement exactly:
@@ -385,120 +385,120 @@ Define the new REST message contract at the router boundary before any frontend 
      - unexpected error -> `500 { error: 'agent_prompts_failed' }`
    - Reuse `isAgentCommandsError(...)` style already present in the file.
 
-5. [ ] Add router prompts success test.
+5. [x] Add router prompts success test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: add a test that calls `GET /agents/:agentName/prompts` with valid input and asserts `200` plus `{ prompts: [{ relativePath, fullPath }] }` response shape.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify happy-path contract payload shape before frontend integration.
 
-6. [ ] Add router invalid `agentName` test.
+6. [x] Add router invalid `agentName` test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: add a test for missing/blank path param `agentName` returning `400 { error: 'invalid_request' }`.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify route parameter guard behavior.
 
-7. [ ] Add router missing/blank/non-string `working_folder` test.
+7. [x] Add router missing/blank/non-string `working_folder` test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: add a test that covers missing, blank, and non-string query values returning `400 invalid_request`.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify request-shape validation for required query input.
 
-8. [ ] Add router `working_folder` array/object query-shape test.
+8. [x] Add router `working_folder` array/object query-shape test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: add a test where `working_folder` is provided as array/object query forms and assert `400 invalid_request`.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify query parser hardening against ambiguous query shapes.
 
-9. [ ] Add router `AGENT_NOT_FOUND` mapping test.
+9. [x] Add router `AGENT_NOT_FOUND` mapping test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: mock service throw `{ code: 'AGENT_NOT_FOUND' }` and assert `404 { error: 'not_found' }`.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify not-found mapping contract.
 
-10. [ ] Add router `WORKING_FOLDER_INVALID` mapping test.
+10. [x] Add router `WORKING_FOLDER_INVALID` mapping test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: mock service throw `WORKING_FOLDER_INVALID` and assert `400 invalid_request` with code/message.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify invalid-folder error mapping contract.
 
-11. [ ] Add router `WORKING_FOLDER_NOT_FOUND` mapping test.
+11. [x] Add router `WORKING_FOLDER_NOT_FOUND` mapping test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: mock service throw `WORKING_FOLDER_NOT_FOUND` and assert `400 invalid_request` with code/message.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify missing-folder error mapping contract.
 
-12. [ ] Add router unknown-error fallback test.
+12. [x] Add router unknown-error fallback test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: mock service throw generic error and assert `500 { error: 'agent_prompts_failed' }`.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify defensive fallback behavior.
 
-13. [ ] Keep existing command-list tests passing in router list test file.
+13. [x] Keep existing command-list tests passing in router list test file.
    - Test type: Server unit regression test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: ensure pre-existing `GET /agents/:agentName/commands` tests still pass without behavior drift.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify prompts-route additions do not regress command-list functionality.
 
-14. [ ] Keep command-run route regression tests unchanged/passing.
+14. [x] Keep command-run route regression tests unchanged/passing.
    - Test type: Server unit regression test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts)
    - Description: run the full existing command-run route suite and keep all current assertions passing exactly as-is; do not weaken/remove/replace assertions and do not add new assertions in this subtask.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify no command-run contract regression.
 
-15. [ ] Keep instruction-run route regression tests unchanged/passing.
+15. [x] Keep instruction-run route regression tests unchanged/passing.
    - Test type: Server unit regression test (`node:test`).
    - Location: [server/src/test/unit/agents-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-router-run.test.ts)
    - Description: run the full existing instruction-run route suite and keep all current assertions passing exactly as-is; do not weaken/remove/replace assertions and do not add new assertions in this subtask.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify no instruction-run contract regression.
 
-16. [ ] Add router missing/blank `working_folder` required-message test.
+16. [x] Add router missing/blank `working_folder` required-message test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: add a test asserting missing and blank `working_folder` return `400 { error: 'invalid_request', message: 'working_folder is required' }`.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify exact required-input error message contract.
 
-17. [ ] Add router empty-prompts success-envelope test.
+17. [x] Add router empty-prompts success-envelope test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts)
    - Description: add a test asserting successful `200` response with `prompts: []` when service returns no prompts.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify success-shape corner case for empty discovery results.
 
-18. [ ] Update OpenAPI contract for prompts discovery.
+18. [x] Update OpenAPI contract for prompts discovery.
    - Files: [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json)
    - Read first: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - Implement exactly: add `GET /agents/{agentName}/prompts` with required `working_folder` query, `200` schema `{ prompts: [{ relativePath, fullPath }] }`, and `400`/`404`/`500` error schema mapping.
 
-19. [ ] Add OpenAPI prompts-route contract verification test.
+19. [x] Add OpenAPI prompts-route contract verification test.
    - Test type: Server unit test (`node:test`).
    - Location: [server/src/test/unit/openapi.prompts-route.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.prompts-route.test.ts)
    - Description: create `server/src/test/unit/openapi.prompts-route.test.ts` if it does not already exist, then assert `openapi.json` contains `GET /agents/{agentName}/prompts` with required `working_folder` query parameter and `200`/`400`/`404`/`500` responses.
    - Read first: https://nodejs.org/api/test.html
    - Purpose: verify OpenAPI contract coverage for the prompts endpoint and prevent documentation drift.
 
-20. [ ] Update design documentation for router contract and error flow.
+20. [x] Update design documentation for router contract and error flow.
    - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
    - Implement exactly: add/update `GET /agents/{agentName}/prompts` router validation/error-mapping notes and include a Mermaid sequence diagram showing request validation, service call, and status-code outcomes.
 
-21. [ ] Update structure docs only if files changed.
+21. [x] Update structure docs only if files changed.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `server/src/test/unit/openapi.prompts-route.test.ts` when created. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-22. [ ] Add prompts-route observability log lines for manual verification.
+22. [x] Add prompts-route observability log lines for manual verification.
    - Files: [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts)
    - Implement exactly: emit structured logs with these exact prefixes:
      - `[agents.prompts.route.request] agentName=<agentName> workingFolder=<working_folder>` before calling `listAgentPrompts(...)`.
@@ -506,25 +506,33 @@ Define the new REST message contract at the router boundary before any frontend 
      - `[agents.prompts.route.error] agentName=<agentName> status=<status> code=<code|none>` on mapped `4xx/5xx` responses.
    - Purpose: provide deterministic route-level traces that can be asserted during manual Playwright-MCP checks.
 
-23. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+23. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests without using the wrapper commands listed below.
 
-1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
-4. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, trigger one prompts discovery request (via UI if available, otherwise run browser-console `fetch` against `/agents/<agentName>/prompts?working_folder=<path>`), then run `npm run compose:logs` and confirm logs contain `[agents.prompts.route.request]` followed by either `[agents.prompts.route.success]` (success with prompts count) or `[agents.prompts.route.error]` (mapped failure status/code). Expected outcome: one terminal route result log per request and no browser debug-console errors.
-7. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+4. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [x] `npm run compose:up`
+6. [x] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, trigger one prompts discovery request (via UI if available, otherwise run browser-console `fetch` against `/agents/<agentName>/prompts?working_folder=<path>`), then run `npm run compose:logs` and confirm logs contain `[agents.prompts.route.request]` followed by either `[agents.prompts.route.success]` (success with prompts count) or `[agents.prompts.route.error]` (mapped failure status/code). Expected outcome: one terminal route result log per request and no browser debug-console errors.
+7. [x] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtasks 1-4: Added `validatePromptsQuery`, wired `listAgentPrompts` dependency, implemented `GET /:agentName/prompts`, and mapped route errors to `400/404/500` contract payloads.
+- Subtasks 5-12: Reworked `agents-commands-router-list` unit tests to cover prompts success, invalid input/query-shape guards, and mapped error outcomes.
+- Subtasks 16-17: Added explicit assertions for required `working_folder` message and empty success envelope `{ prompts: [] }`.
+- Subtasks 18-19: Updated `openapi.json` with `GET /agents/{agentName}/prompts` plus `200/400/404/500` schemas and added dedicated `openapi.prompts-route.test.ts`.
+- Subtasks 20-21: Updated `design.md` and `projectStructure.md` for Task 1 route-contract changes and new test file tracking.
+- Subtask 22: Added exact route observability prefixes for request/success/error log verification.
+- Subtasks 13-15: Full server unit wrapper passed with command list + command run + instruction run regressions intact.
+- Subtask 23: Ran lint and format checks; `format:check` initially failed on two new tests and was fixed by `npm run format --workspaces` before re-checking.
+- Testing: All seven wrapper/manual steps completed; manual request verification captured request/error and request/success route logs via the server log file (`/app/logs/server.1.log`) after running `compose:logs`.
 
 ---
 

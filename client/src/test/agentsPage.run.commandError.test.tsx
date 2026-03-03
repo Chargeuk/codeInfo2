@@ -246,4 +246,120 @@ describe('Agents page - command start errors', () => {
       'Failed to run agent command (404)',
     );
   });
+
+  it('renders INVALID_START_STEP range message unchanged in the command error area', async () => {
+    const user = userEvent.setup();
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          } as Response);
+        }
+
+        if (target.endsWith('/agents')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+          } as Response);
+        }
+
+        if (
+          target.includes('/agents/coding_agent/commands') &&
+          !target.includes('/run')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              commands: [
+                {
+                  name: 'improve_plan',
+                  description: 'Improve',
+                  disabled: false,
+                  stepCount: 3,
+                },
+              ],
+            }),
+          } as Response);
+        }
+
+        if (target.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [] }),
+          } as Response);
+        }
+
+        if (target.includes('/agents/coding_agent/commands/run')) {
+          expect(init?.method).toBe('POST');
+          return Promise.resolve({
+            ok: false,
+            status: 400,
+            headers: { get: () => 'application/json' },
+            json: async () => ({
+              error: 'invalid_request',
+              code: 'INVALID_START_STEP',
+              message: 'startStep must be between 1 and 3',
+            }),
+          } as unknown as Response);
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        } as Response);
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      const registry = (
+        globalThis as unknown as {
+          __wsMock?: { last: () => { readyState: number } | null };
+        }
+      ).__wsMock;
+      expect(registry?.last()?.readyState).toBe(1);
+    });
+
+    const commandSelect = await screen.findByRole('combobox', {
+      name: /command/i,
+    });
+    await waitFor(() => expect(commandSelect).toBeEnabled());
+    await act(async () => {
+      await user.click(commandSelect);
+    });
+    await act(async () => {
+      await user.click(
+        await screen.findByTestId('agent-command-option-improve_plan::local'),
+      );
+    });
+
+    const startStepSelect = await screen.findByRole('combobox', {
+      name: /start step/i,
+    });
+    await act(async () => {
+      await user.click(startStepSelect);
+    });
+    await act(async () => {
+      await user.click(await screen.findByRole('option', { name: 'Step 3' }));
+    });
+
+    await act(async () => {
+      await user.click(screen.getByTestId('agent-command-execute'));
+    });
+
+    const errorBanner = await screen.findByTestId('agents-run-error');
+    expect(errorBanner).toHaveTextContent('startStep must be between 1 and 3');
+  });
 });

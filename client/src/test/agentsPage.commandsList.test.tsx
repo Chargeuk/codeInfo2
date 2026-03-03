@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -561,5 +561,332 @@ describe('Agents page - commands list', () => {
 
     await waitFor(() => expect(commandRunUrls).toHaveLength(1));
     expect(instructionRunUrls).toHaveLength(0);
+  });
+
+  it('renders a Start step control immediately after the command selector', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+      if (target.includes('/agents') && !target.includes('/commands')) {
+        return mockJsonResponse({ agents: [{ name: 'a1' }] });
+      }
+      if (target.includes('/agents/a1/commands')) {
+        return mockJsonResponse({
+          commands: [
+            {
+              name: 'build',
+              description: 'Build',
+              disabled: false,
+              stepCount: 3,
+            },
+          ],
+        });
+      }
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const commandRow = await screen.findByTestId('agent-command-row');
+    const commandSelect = within(commandRow).getByRole('combobox', {
+      name: /command/i,
+    });
+    const startStepSelect = within(commandRow).getByRole('combobox', {
+      name: /start step/i,
+    });
+
+    expect(commandSelect.compareDocumentPosition(startStepSelect)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it('keeps Start step disabled until a command is selected', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+      if (target.includes('/agents') && !target.includes('/commands')) {
+        return mockJsonResponse({ agents: [{ name: 'a1' }] });
+      }
+      if (target.includes('/agents/a1/commands')) {
+        return mockJsonResponse({
+          commands: [
+            {
+              name: 'build',
+              description: 'Build',
+              disabled: false,
+              stepCount: 3,
+            },
+          ],
+        });
+      }
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const startStepSelect = await screen.findByRole('combobox', {
+      name: /start step/i,
+    });
+    expect(startStepSelect).toHaveAttribute('aria-disabled', 'true');
+
+    const commandSelect = await screen.findByRole('combobox', {
+      name: /command/i,
+    });
+    await waitFor(() => expect(commandSelect).toBeEnabled());
+    await user.click(commandSelect);
+    await user.click(
+      await screen.findByTestId('agent-command-option-build::local'),
+    );
+
+    await waitFor(() =>
+      expect(startStepSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
+  });
+
+  it('renders Step 1..N options and defaults to Step 1 for selected commands', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+      if (target.includes('/agents') && !target.includes('/commands')) {
+        return mockJsonResponse({ agents: [{ name: 'a1' }] });
+      }
+      if (target.includes('/agents/a1/commands')) {
+        return mockJsonResponse({
+          commands: [
+            {
+              name: 'build',
+              description: 'Build',
+              disabled: false,
+              stepCount: 3,
+            },
+          ],
+        });
+      }
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const commandSelect = await screen.findByRole('combobox', {
+      name: /command/i,
+    });
+    const startStepSelect = await screen.findByRole('combobox', {
+      name: /start step/i,
+    });
+
+    await user.click(commandSelect);
+    await user.click(
+      await screen.findByTestId('agent-command-option-build::local'),
+    );
+    await waitFor(() => expect(startStepSelect).toHaveTextContent('Step 1'));
+
+    await user.click(startStepSelect);
+    expect(await screen.findByRole('option', { name: 'Step 1' })).toBeVisible();
+    expect(await screen.findByRole('option', { name: 'Step 2' })).toBeVisible();
+    expect(await screen.findByRole('option', { name: 'Step 3' })).toBeVisible();
+    expect(screen.queryByRole('option', { name: 'Step 4' })).toBeNull();
+  });
+
+  it('resets Start step back to Step 1 when command changes', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+      if (target.includes('/agents') && !target.includes('/commands')) {
+        return mockJsonResponse({ agents: [{ name: 'a1' }] });
+      }
+      if (target.includes('/agents/a1/commands')) {
+        return mockJsonResponse({
+          commands: [
+            {
+              name: 'build',
+              description: 'Build',
+              disabled: false,
+              stepCount: 3,
+            },
+            {
+              name: 'deploy',
+              description: 'Deploy',
+              disabled: false,
+              stepCount: 2,
+            },
+          ],
+        });
+      }
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const commandSelect = await screen.findByRole('combobox', {
+      name: /command/i,
+    });
+    const startStepSelect = await screen.findByRole('combobox', {
+      name: /start step/i,
+    });
+
+    await user.click(commandSelect);
+    await user.click(
+      await screen.findByTestId('agent-command-option-build::local'),
+    );
+    await user.click(startStepSelect);
+    await user.click(await screen.findByRole('option', { name: 'Step 3' }));
+    await waitFor(() => expect(startStepSelect).toHaveTextContent('Step 3'));
+
+    await user.click(commandSelect);
+    await user.click(
+      await screen.findByTestId('agent-command-option-deploy::local'),
+    );
+    await waitFor(() => expect(startStepSelect).toHaveTextContent('Step 1'));
+  });
+
+  it('keeps Start step visible, selected to Step 1, and disabled for single-step commands', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+      if (target.includes('/agents') && !target.includes('/commands')) {
+        return mockJsonResponse({ agents: [{ name: 'a1' }] });
+      }
+      if (target.includes('/agents/a1/commands')) {
+        return mockJsonResponse({
+          commands: [
+            {
+              name: 'single',
+              description: 'Single step',
+              disabled: false,
+              stepCount: 1,
+            },
+          ],
+        });
+      }
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const commandSelect = await screen.findByRole('combobox', {
+      name: /command/i,
+    });
+    const startStepSelect = await screen.findByRole('combobox', {
+      name: /start step/i,
+    });
+
+    await user.click(commandSelect);
+    await user.click(
+      await screen.findByTestId('agent-command-option-single::local'),
+    );
+
+    await waitFor(() => expect(startStepSelect).toHaveTextContent('Step 1'));
+    expect(startStepSelect).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('keeps disabled command entries blocked with Start step disabled and no execute request', async () => {
+    const user = userEvent.setup();
+    const runCalls: RequestInit[] = [];
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+        if (
+          target.includes('/agents') &&
+          !target.includes('/commands') &&
+          !target.includes('/run')
+        ) {
+          return mockJsonResponse({ agents: [{ name: 'a1' }] });
+        }
+        if (target.includes('/agents/a1/commands/run')) {
+          runCalls.push(init ?? {});
+          return mockJsonResponse(
+            {
+              status: 'started',
+              agentName: 'a1',
+              commandName: 'bad',
+              conversationId: 'c1',
+              modelId: 'gpt-5.3-codex',
+            },
+            { status: 202 },
+          );
+        }
+        if (target.includes('/agents/a1/commands')) {
+          return mockJsonResponse({
+            commands: [
+              {
+                name: 'bad',
+                description: 'Invalid command file',
+                disabled: true,
+                stepCount: 1,
+              },
+            ],
+          });
+        }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [] });
+        }
+        return mockJsonResponse({});
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const startStepSelect = await screen.findByRole('combobox', {
+      name: /start step/i,
+    });
+    const executeButton = await screen.findByTestId('agent-command-execute');
+
+    const commandSelect = await screen.findByRole('combobox', {
+      name: /command/i,
+    });
+    await user.click(commandSelect);
+    const disabledOption = await screen.findByTestId(
+      'agent-command-option-bad::local',
+    );
+    expect(disabledOption).toHaveAttribute('aria-disabled', 'true');
+
+    expect(startStepSelect).toHaveAttribute('aria-disabled', 'true');
+    expect(executeButton).toBeDisabled();
+    expect(runCalls).toHaveLength(0);
   });
 });

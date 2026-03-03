@@ -1248,7 +1248,7 @@ Update the frontend API layer contracts to match backend message changes. This t
 
 ### 5. Frontend: AGENTS `Start step` control behavior and execution wiring
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1270,22 +1270,22 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 
 #### Subtasks
 
-1. [ ] Add a labeled `Start step` `FormControl + Select` immediately after command select in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx), using MUI label/id pairing.
+1. [x] Add a labeled `Start step` `FormControl + Select` immediately after command select in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx), using MUI label/id pairing.
    - Docs to read first: https://mui.com/material-ui/react-select/, https://mui.com/material-ui/api/form-control/, https://react.dev/learn/managing-state.
    - Files to read/edit: [AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
    - Acceptance criteria coverage: AC 1, AC 5.
    - Done when: control is visible in row order and properly labeled for keyboard/a11y.
-2. [ ] Implement `Start step` state rules in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx): disabled before command metadata, options `Step 1..Step N`, reset to `1` on command change, disabled when `N=1`.
+2. [x] Implement `Start step` state rules in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx): disabled before command metadata, options `Step 1..Step N`, reset to `1` on command change, disabled when `N=1`.
    - Docs to read first: https://react.dev/learn/managing-state, https://mui.com/material-ui/react-select/.
    - Files to read/edit: [AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
    - Acceptance criteria coverage: AC 2, AC 3, AC 4, AC 5.
    - Done when: state transitions match these four rules in UI interactions.
-3. [ ] Wire execute action payload in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) so REST run calls include selected `startStep` integer.
+3. [x] Wire execute action payload in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) so REST run calls include selected `startStep` integer.
    - Docs to read first: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API.
    - Files to read/edit: [AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
    - Acceptance criteria coverage: AC 6.
    - Done when: outbound run request body contains correct `startStep` value.
-4. [ ] Add a UI test that `Start step` control is visible and positioned after command selection.
+4. [x] Add a UI test that `Start step` control is visible and positioned after command selection.
    - Test type: `Component/UI`.
    - Test location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
    - Description: Render AGENTS command row and assert the labeled `Start step` control appears in expected order.
@@ -1294,7 +1294,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Files to read/edit: [agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
    - Acceptance criteria coverage: AC 1.
    - Done when: test fails if control is missing or misplaced.
-5. [ ] Add a UI test that `Start step` is disabled before valid command metadata loads.
+5. [x] Add a UI test that `Start step` is disabled before valid command metadata loads.
    - Test type: `Component/UI`.
    - Test location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
    - Description: Assert disabled state before command selection/metadata readiness.
@@ -1303,7 +1303,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Files to read/edit: [agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
    - Acceptance criteria coverage: AC 2.
    - Done when: test fails if control becomes active too early.
-6. [ ] Add a UI test for options rendering exactly `Step 1..Step N` and default selection `Step 1`.
+6. [x] Add a UI test for options rendering exactly `Step 1..Step N` and default selection `Step 1`.
    - Test type: `Component/UI`.
    - Test location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
    - Description: Select a command with known `stepCount` and assert option labels and default selected value.
@@ -1312,7 +1312,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Files to read/edit: [agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
    - Acceptance criteria coverage: AC 3.
    - Done when: test fails if options or default value drift.
-7. [ ] Add a UI test for command-switch reset (`Step N -> Step 1`).
+7. [x] Add a UI test for command-switch reset (`Step N -> Step 1`).
    - Test type: `Component/UI`.
    - Test location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
    - Description: Change start step away from `1`, switch command, and assert selection resets to `Step 1`.
@@ -1321,7 +1321,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Files to read/edit: [agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
    - Acceptance criteria coverage: AC 4.
    - Done when: test fails if selection persists across command change.
-8. [ ] Add a UI test for `stepCount = 1` behavior (visible, selected `Step 1`, and disabled).
+8. [x] Add a UI test for `stepCount = 1` behavior (visible, selected `Step 1`, and disabled).
    - Test type: `Component/UI`.
    - Test location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
    - Description: Use single-step command fixture and assert locked single-step control behavior.
@@ -1330,7 +1330,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Files to read/edit: [agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
    - Acceptance criteria coverage: AC 5.
    - Done when: test fails if single-step control is hidden or enabled.
-9. [ ] Add a UI/API integration test that execute action sends selected `startStep` integer.
+9. [x] Add a UI/API integration test that execute action sends selected `startStep` integer.
    - Test type: `Component/UI` (request payload assertion).
    - Test location: [client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx).
    - Description: Select non-default step, click execute, and assert outbound request body includes correct integer `startStep`.
@@ -1339,7 +1339,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Files to read/edit: [agentsPage.commandsRun.persistenceDisabled.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx).
    - Acceptance criteria coverage: AC 6.
    - Done when: test fails if execute payload omits or mis-types `startStep`.
-10. [ ] Add a UI test proving no `startStep` controls are introduced on non-AGENTS surfaces touched by this task.
+10. [x] Add a UI test proving no `startStep` controls are introduced on non-AGENTS surfaces touched by this task.
 
 - Test type: `Component/UI` non-regression.
 - Test location: [client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx).
@@ -1350,14 +1350,14 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 - Acceptance criteria coverage: AC 8.
 - Done when: test fails if unexpected start-step UI appears outside AGENTS behavior under test.
 
-11. [ ] Show backend `INVALID_START_STEP` responses using existing command error area in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx), preserving deterministic range text from server.
+11. [x] Show backend `INVALID_START_STEP` responses using existing command error area in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx), preserving deterministic range text from server.
 
 - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/.
 - Files to read/edit: [AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
 - Acceptance criteria coverage: AC 7, AC 25.
 - Done when: UI displays server message text for this error without introducing a new error surface.
 
-12. [ ] Add a UI test asserting backend `INVALID_START_STEP` message is rendered unchanged in command error area.
+12. [x] Add a UI test asserting backend `INVALID_START_STEP` message is rendered unchanged in command error area.
 
 - Test type: `Component/UI`.
 - Test location: [client/src/test/agentsPage.run.commandError.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.commandError.test.tsx).
@@ -1368,7 +1368,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 - Acceptance criteria coverage: AC 7, AC 25.
 - Done when: test fails if UI rewrites or drops server message text.
 
-13. [ ] Add a UI test for disabled command entries (`disabled: true`, `stepCount: 1`) proving `Start step` remains disabled and execute action remains blocked.
+13. [x] Add a UI test for disabled command entries (`disabled: true`, `stepCount: 1`) proving `Start step` remains disabled and execute action remains blocked.
 
 - Test type: `Component/UI`.
 - Test location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
@@ -1379,7 +1379,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 - Acceptance criteria coverage: AC 5, AC 23, AC 24.
 - Done when: test fails if disabled command fixtures allow start-step editing or command execution.
 
-14. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) for AGENTS `Start step` user-facing behavior and usage notes.
+14. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) for AGENTS `Start step` user-facing behavior and usage notes.
 
 - Document name: `README.md`.
 - Document location: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md).
@@ -1390,7 +1390,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 - Acceptance criteria coverage: documentation support for AC 1-8.
 - Done when: `README.md` documents `Start step` behavior, defaults, and scope boundaries.
 
-15. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for AGENTS `Start step` UI flow and server error-display integration.
+15. [x] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for AGENTS `Start step` UI flow and server error-display integration.
 
 - Document name: `design.md`.
 - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
@@ -1401,7 +1401,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 - Acceptance criteria coverage: documentation support for AC 1-8, AC 25.
 - Done when: `design.md` captures UI behavior, request behavior, and error rendering contract.
 
-16. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for AGENTS page/test files added, removed, or modified in this task.
+16. [x] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for AGENTS page/test files added, removed, or modified in this task.
 
 - Document name: `projectStructure.md`.
 - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
@@ -1413,7 +1413,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 - Acceptance criteria coverage: documentation support for AC 1-8.
 - Done when: `projectStructure.md` mirrors actual task-5 file changes and explicitly includes all added and removed files.
 
-17. [ ] Add deterministic diagnostic log marker [DEV_0000040_T05_AGENTS_UI_EXECUTE] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+17. [x] Add deterministic diagnostic log marker [DEV_0000040_T05_AGENTS_UI_EXECUTE] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
 
 - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
 - Files to read/edit: [AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
@@ -1421,7 +1421,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 - Manual Playwright-MCP expected outcome: selecting and executing a command logs marker with selected command name and visible start-step value, and disabled-command attempts do not emit the execute marker.
 - Done when: [DEV_0000040_T05_AGENTS_UI_EXECUTE] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
 
-18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+18. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
 - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
@@ -1433,27 +1433,43 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 - Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
 - Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:client`
+1. [x] `npm run build:summary:client`
    - Use when client/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log`.
-2. [ ] `npm run test:summary:client`
+2. [x] `npm run test:summary:client`
    - Use when client/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/client-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--subset` / `--test-name`), then rerun full `npm run test:summary:client`.
-3. [ ] `npm run test:summary:e2e`
+3. [x] `npm run test:summary:e2e`
    - Allow up to 7 minutes (for example `timeout 7m` or harness `timeout_ms=420000`). If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands (`--file` / `--grep`), then rerun full `npm run test:summary:e2e`.
-4. [ ] `npm run compose:build:summary`
+4. [x] `npm run compose:build:summary`
    - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log`.
-5. [ ] `npm run compose:up`
+5. [x] `npm run compose:up`
    - Start the dockerized app stack before manual Playwright-MCP checks.
-6. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001)
+6. [x] Manual Playwright-MCP check (http://host.docker.internal:5001)
    - Manually confirm AGENTS `Start step` behavior and verify debug-console log markers: `[DEV_0000040_T04_CLIENT_AGENTS_API]` appears when the AGENTS API payload is sent, `[DEV_0000040_T05_AGENTS_UI_EXECUTE]` appears exactly once per successful execute click, and no new error-level console entries are present.
    - Capture screenshots for each GUI state required by this task (for example initial disabled state, enabled `Step 1..N` selector state, and error-message rendering state) and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`).
    - Agent validation requirement: review captured screenshots to confirm control order, labels, disabled/enabled transitions, and displayed validation messaging match this task’s acceptance expectations.
    - Expected outcome: marker payloads include selected command and start-step values, disabled-command attempts do not emit `[DEV_0000040_T05_AGENTS_UI_EXECUTE]`, and console error count remains unchanged.
-7. [ ] `npm run compose:down`
+7. [x] `npm run compose:down`
    - Stop the dockerized app stack after manual checks complete.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Added AGENTS-row `Start step` MUI `FormControl + Select` immediately after the command select with explicit `InputLabel`/`labelId` pairing.
+- Subtask 2: Added deterministic start-step state machine in `AgentsPage` (`disabled before command`, `Step 1..N`, reset to `1` on command change, disabled for `N=1`, and clamp to `1` when runtime list refresh makes prior value invalid).
+- Subtask 3: Wired `startStep` through command execute payloads so REST command runs send integer `startStep`.
+- Subtasks 4-8: Added `agentsPage.commandsList.test.tsx` coverage for control order, pre-selection disabled state, exact `Step 1..N` option rendering, command-switch reset, and single-step disabled behavior.
+- Subtasks 9-10: Added `agentsPage.commandsRun.persistenceDisabled.test.tsx` coverage for outbound integer `startStep` payload and AGENTS-only control scope guard (`Start step` rendered exactly once in this surface).
+- Subtasks 11-12: Kept command errors in existing `agents-run-error` area and added `agentsPage.run.commandError.test.tsx` coverage proving backend `INVALID_START_STEP` range text is rendered unchanged.
+- Subtask 13: Added disabled-command UI guard coverage ensuring sentinel `stepCount: 1` entries keep `Start step` and execute blocked.
+- Subtasks 14-16: Updated `README.md`, `design.md`, and `projectStructure.md` to document AGENTS `Start step` behavior, payload wiring, error rendering, marker usage, and task-modified file map entries.
+- Subtask 17: Added deterministic marker `DEV_0000040_T05_AGENTS_UI_EXECUTE` on successful execute clicks with `{ agentName, commandName, sourceId, startStep }` context.
+- Subtask 18: Ran `npm run lint --workspaces` (pass with pre-existing server import-order warnings) and `npm run format:check --workspaces`; formatted three changed client files and re-ran format check to pass all workspaces.
+- Testing 1: `npm run build:summary:client` passed (`status: passed`) with existing Vite bundle-size warning; log `logs/test-summaries/build-client-latest.log`.
+- Testing 2: `npm run test:summary:client` passed (`tests run: 467`, `failed: 0`); log `test-results/client-tests-2026-03-03T20-51-18-072Z.log`.
+- Testing 3: `npm run test:summary:e2e` passed (`tests run: 39`, `failed: 0`); log `logs/test-summaries/e2e-tests-latest.log`.
+- Testing 4: `npm run compose:build:summary` passed (`items passed: 2`, `items failed: 0`); log `logs/test-summaries/compose-build-latest.log`.
+- Testing 5: `npm run compose:up` succeeded; compose services started healthy (client/server/mongo/chroma/playwright-mcp/otel/zipkin).
+- Testing 6: Manual Playwright check against `http://host.docker.internal:5001/agents` verified start-step disabled and enabled states, payload markers (`DEV_0000040_T04_CLIENT_AGENTS_API`, `DEV_0000040_T05_AGENTS_UI_EXECUTE`), and unchanged backend range text rendering; screenshots saved to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/playwright-output-local/task5-start-step-disabled.png`, `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/playwright-output-local/task5-start-step-enabled.png`, and `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/playwright-output-local/task5-start-step-error.png`.
+- Testing 7: `npm run compose:down` completed successfully and removed the full compose stack.
 
 ---
 

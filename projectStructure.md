@@ -248,7 +248,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |- utils/
 |     |  - isDevEnv.ts ? shared dev/test environment detection helper
 |     |- api/
-|     |  - agents.ts ? client wrapper for GET /agents and POST /agents/:agentName/run (AbortSignal supported) with Task 11 raw-send logging tags
+|     |  - agents.ts ? client wrapper for agent discovery + command/instruction runs, including strict command `stepCount` parsing and optional `startStep` payload wiring
 |     |  - baseUrl.ts ? runtime API base resolver (config/env/location)
 |     |  - codex.ts ? client wrapper for POST /codex/device-auth with structured errors + logging
 |     |  - flows.ts ? client wrapper for GET /flows and POST /flows/:flowName/run with structured errors + logging
@@ -256,7 +256,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |- main.tsx ? app entry with RouterProvider
 |     |- pages/
 |     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, rounded 14px bubbles, tool blocks, citations accordion (closed by default), stream status/thinking UI (1s idle guard, ignores tool-only waits), and raw-input send guards/logging
-|     |  |- AgentsPage.tsx ? agents UI with selector/stop/new-conversation controls, description markdown, persisted conversation continuation, raw-instruction send guards, and shared user-markdown rendering/logging
+|     |  |- AgentsPage.tsx ? agents UI with selector/stop/new-conversation controls, command `Start step` selector (`Step 1..N`), persisted conversation continuation, raw-instruction send guards, and shared user-markdown rendering/logging
 |     |  |- FlowsPage.tsx ? flows UI with selector/run/resume/stop controls, flow-filtered sidebar, and step metadata transcript
 |     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
 |     |  |- HomePage.tsx ? version card page
@@ -303,13 +303,13 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- flowsPage.test.tsx ? Flows page renders flow list and step metadata
 |     |     |- flowsPage.run.test.tsx ? Flows page run/resume controls send expected payloads
 |     |     |- flowsPage.stop.test.tsx ? Flows page stop button sends cancel_inflight
-|     |     |- agentsPage.run.commandError.test.tsx ? Agents page shows error banner when command start fails
+|     |     |- agentsPage.run.commandError.test.tsx ? Agents page shows command start errors, including unchanged `INVALID_START_STEP` range text
 |     |     |- agentsPage.navigateAway.keepsRun.test.tsx ? navigating away does not cancel run; transcript resumes via WS
 |     |     |- agentsPage.persistenceFallbackSegments.test.tsx ? Agents page shows realtime banner + disables Send when WS is unavailable
-|     |     |- agentsPage.commandsList.test.tsx ? Agents page command dropdown refresh, disabled entries, labels, and description display
+|     |     |- agentsPage.commandsList.test.tsx ? Agents page command dropdown + `Start step` ordering/state rules, disabled entries, labels, and execute gating
 |     |     |- agentsPage.commandsRun.refreshTurns.test.tsx ? Agents page command execute triggers run, then refreshes conversations and hydrates turns
 |     |     |- agentsPage.commandsRun.conflict.test.tsx ? Agents page surfaces RUN_IN_PROGRESS conflicts for command execute and normal send
-|     |     |- agentsPage.commandsRun.persistenceDisabled.test.tsx ? Agents page disables command execute when mongoConnected is false
+|     |     |- agentsPage.commandsRun.persistenceDisabled.test.tsx ? Agents page persistence guard plus command-run payload coverage for selected `startStep`
 |     |     |- agentsPage.commandMetadataRender.test.tsx ? Agents page renders per-turn command metadata note with step progress
 |     |     |- agentsPage.commandsRun.abort.test.tsx ? Agents page Stop sends WS cancel_inflight (does not abort HTTP start)
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
@@ -821,10 +821,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - client/src/test/agentsApi.errors.test.ts — Agents API wrapper throws structured errors exposing HTTP status + server error codes (e.g., `RUN_IN_PROGRESS`)
 - client/src/test/flowsApi.test.ts — Flows API wrapper list/run request shapes, parsed responses, and structured error coverage
 - client/src/test/flowsApi.run.payload.test.ts — Flows API wrapper includes optional run payload fields (`working_folder`, `resumeStepPath`) when set
-- client/src/test/agentsPage.commandsList.test.tsx — Agents page command dropdown refresh, disabled entries, labels, and description display
+- client/src/pages/AgentsPage.tsx — Agents command row includes `Start step` (`Step 1..N`) state machine and execute marker `DEV_0000040_T05_AGENTS_UI_EXECUTE`
+- client/src/test/agentsPage.commandsList.test.tsx — Agents page command dropdown plus `Start step` ordering/state/reset/single-step/disabled-command coverage
 - client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx — Agents page command execution refreshes conversation turns for rendering
 - client/src/test/agentsPage.commandsRun.conflict.test.tsx — Agents page surfaces RUN_IN_PROGRESS conflicts for both command execute and normal send
-- client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx — Agents page disables command execution when persistence is unavailable (mongoConnected=false)
+- client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx — Agents page persistence-disable behavior and execute payload `startStep` assertions
+- client/src/test/agentsPage.run.commandError.test.tsx — Agents page command run errors include unchanged backend `INVALID_START_STEP` range messages
 - client/src/test/agentsPage.commandsRun.abort.test.tsx — Agents page Stop sends WS cancel_inflight (does not abort async start request)
 - client/src/test/agentsPage.streaming.test.tsx — Agents page renders live WS transcript updates and unsubscribes on conversation switch
 - client/src/test/agentsPage.sidebarWs.test.tsx — Agents page sidebar applies subscribe_sidebar conversation_upsert/delete with agentName filtering + ordering

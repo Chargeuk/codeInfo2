@@ -142,6 +142,14 @@ codex_agents/<agentName>/
 
 ## Agents Workspace Behavior Notes
 
+- Command start-step execution:
+  - The command row shows `Command` -> `Start step` -> `Command info` -> `Execute command`.
+  - `Start step` is always visible and uses backend `stepCount` to render `Step 1..Step N`.
+  - Before selecting a valid command, `Start step` stays disabled with `Select command first`.
+  - Changing command selection resets `Start step` back to `Step 1`.
+  - Single-step commands (`stepCount: 1`) keep `Start step` visible but disabled on `Step 1`.
+  - Execute Command sends `startStep` in `POST /agents/{agentName}/commands/run` and backend range errors (for example `startStep must be between 1 and N`) are shown in the existing run error banner.
+  - Scope boundary: start-step controls are AGENTS-page command execution only (not flows/chat/MCP).
 - Command info popover:
   - The **Command info** control is disabled until a command is selected.
   - Clicking the disabled wrapper logs a blocked event (`[agents.commandInfo.blocked] reason=no_command_selected`).
@@ -171,6 +179,8 @@ codex_agents/<agentName>/
 - `[agents.prompts.api.error]`: client received prompts API error.
 - `[agents.commandInfo.open]`: command info popover opened with selected command.
 - `[agents.commandInfo.blocked]`: command info was clicked with no command selected.
+- `DEV_0000040_T04_CLIENT_AGENTS_API`: command-run API payload marker with `includesStartStep`/`startStep`.
+- `DEV_0000040_T05_AGENTS_UI_EXECUTE`: AGENTS execute-click marker with selected command + `startStep`.
 - `[agents.prompts.discovery.commit]`: UI committed `working_folder` (blur/enter/picker).
 - `[agents.prompts.discovery.request.start]`: UI started a prompts discovery request id.
 - `[agents.prompts.discovery.request.stale_ignored]`: stale discovery response was ignored.

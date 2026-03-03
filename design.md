@@ -231,6 +231,43 @@ sequenceDiagram
 - Required client observability marker:
   - `DEV_0000040_T04_CLIENT_AGENTS_API` emitted on command-run dispatch with `includesStartStep` and selected `startStep` context.
 
+## Agents Start step UI behavior (Story 0000040 Task 5)
+
+- `client/src/pages/AgentsPage.tsx` now renders a labeled `Start step` select directly after the command select in the command row.
+- UI state rules are deterministic:
+  - before selecting a valid command, `Start step` is disabled and shows `Select command first`;
+  - once selected, options are exactly `Step 1..Step N` where `N = stepCount`;
+  - command changes reset selection to `Step 1`;
+  - when `N = 1`, the control remains visible but disabled on `Step 1`;
+  - disabled commands (`disabled: true`, sentinel `stepCount: 1`) keep `Start step` disabled and leave execute blocked.
+- Execute wiring now always sends the currently selected numeric `startStep` in `runAgentCommand(...)` payloads.
+- Backend `INVALID_START_STEP` errors surface in the existing `agents-run-error` banner without rewriting server range text.
+- Required UI observability marker:
+  - `DEV_0000040_T05_AGENTS_UI_EXECUTE` emitted once per successful execute click with selected command/source/start-step context.
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as AgentsPage
+  participant API as runAgentCommand
+  participant Route as POST /agents/:agentName/commands/run
+
+  User->>UI: Select command
+  UI->>UI: reset startStep = 1
+  UI-->>User: Start step options Step 1..N (or disabled when N=1)
+  User->>UI: Select Start step (optional change)
+  User->>UI: Click Execute command
+  UI->>UI: log DEV_0000040_T05_AGENTS_UI_EXECUTE
+  UI->>API: runAgentCommand({ commandName, startStep, sourceId?, ... })
+  API->>Route: POST payload includes integer startStep
+  alt startStep invalid at runtime
+    Route-->>UI: 400 INVALID_START_STEP + range message
+    UI-->>User: existing agents-run-error shows server message unchanged
+  else accepted
+    Route-->>UI: 202 started
+  end
+```
+
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
 - Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
 - Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.

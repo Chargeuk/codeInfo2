@@ -59,6 +59,10 @@ function mockJsonResponse(payload: unknown, init?: { status?: number }) {
 function mockAgentsFetch(options?: {
   dirs?: typeof defaultDirs | ((path: string | undefined) => unknown) | unknown;
   runResponse?: (init?: RequestInit) => Response;
+  promptsResponse?: (
+    workingFolder: string | undefined,
+    init?: RequestInit,
+  ) => Response | Promise<Response>;
 }) {
   mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
     const target = typeof url === 'string' ? url : url.toString();
@@ -104,8 +108,33 @@ function mockAgentsFetch(options?: {
       );
     }
 
+    if (target.includes('/agents/coding_agent/prompts')) {
+      const workingFolder =
+        new URL(target).searchParams.get('working_folder') ?? undefined;
+      if (options?.promptsResponse) {
+        return options.promptsResponse(workingFolder, init);
+      }
+      return mockJsonResponse({ prompts: [] });
+    }
+
     return mockJsonResponse({});
   });
+}
+
+function getPromptDiscoveryCalls() {
+  return mockFetch.mock.calls.filter(([url]) =>
+    (typeof url === 'string' ? url : url.toString()).includes(
+      '/agents/coding_agent/prompts',
+    ),
+  );
+}
+
+function getRunCalls() {
+  return mockFetch.mock.calls.filter(([url]) =>
+    (typeof url === 'string' ? url : url.toString()).includes(
+      '/agents/coding_agent/run',
+    ),
+  );
 }
 
 describe('Agents page - working folder picker', () => {
@@ -290,5 +319,123 @@ describe('Agents page - working folder picker', () => {
 
     await screen.findByTestId('agents-run-error');
     expect(screen.getByTestId('agent-working-folder')).toHaveValue('/bad/path');
+  });
+
+  it('starts prompt discovery when working-folder input blurs after change', async () => {
+    const user = userEvent.setup();
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForAgentSelection();
+    const workingFolder = await screen.findByTestId('agent-working-folder');
+    await user.type(workingFolder, '/base/repo');
+
+    await user.tab();
+
+    await waitFor(() => expect(getPromptDiscoveryCalls()).toHaveLength(1));
+    const [firstCall] = getPromptDiscoveryCalls();
+    const firstUrl =
+      typeof firstCall[0] === 'string' ? firstCall[0] : firstCall[0].toString();
+    expect(new URL(firstUrl).searchParams.get('working_folder')).toBe(
+      '/base/repo',
+    );
+  });
+
+  it('starts prompt discovery when Enter is pressed in working-folder input', async () => {
+    const user = userEvent.setup();
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForAgentSelection();
+    const workingFolder = await screen.findByTestId('agent-working-folder');
+    await user.type(workingFolder, '/base/repo');
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => expect(getPromptDiscoveryCalls()).toHaveLength(1));
+    expect(getRunCalls()).toHaveLength(0);
+  });
+
+  it('starts prompt discovery after directory picker selects a folder', async () => {
+    const user = userEvent.setup();
+    mockAgentsFetch({
+      dirs: (path) => {
+        if (path === '/base/repo') {
+          return { base: '/base', path: '/base/repo', dirs: [] };
+        }
+        return defaultDirs;
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForAgentSelection();
+    await waitForPickerEnabled();
+
+    await user.click(screen.getByTestId('agent-working-folder-picker'));
+    const childDir = await screen.findByRole('button', { name: 'repo' });
+    await user.click(childDir);
+    await user.click(screen.getByRole('button', { name: 'Use this folder' }));
+
+    await waitFor(() => expect(getPromptDiscoveryCalls()).toHaveLength(1));
+    const [firstCall] = getPromptDiscoveryCalls();
+    const firstUrl =
+      typeof firstCall[0] === 'string' ? firstCall[0] : firstCall[0].toString();
+    expect(new URL(firstUrl).searchParams.get('working_folder')).toBe(
+      '/base/repo',
+    );
+  });
+
+  it('does not trigger prompt discovery on typing without commit', async () => {
+    const user = userEvent.setup();
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForAgentSelection();
+    const workingFolder = await screen.findByTestId('agent-working-folder');
+    await user.type(workingFolder, '/typing/only');
+
+    expect(getPromptDiscoveryCalls()).toHaveLength(0);
+  });
+
+  it('does not issue duplicate prompt discovery request for unchanged committed folder', async () => {
+    const user = userEvent.setup();
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForAgentSelection();
+    const workingFolder = await screen.findByTestId('agent-working-folder');
+    await user.type(workingFolder, '/same/path');
+    await user.tab();
+
+    await waitFor(() => expect(getPromptDiscoveryCalls()).toHaveLength(1));
+
+    await user.click(workingFolder);
+    await user.tab();
+
+    await waitFor(() => expect(getPromptDiscoveryCalls()).toHaveLength(1));
+  });
+
+  it('does not call prompt discovery when an empty working-folder is committed', async () => {
+    const user = userEvent.setup();
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForAgentSelection();
+    const workingFolder = await screen.findByTestId('agent-working-folder');
+    await user.click(workingFolder);
+    await user.tab();
+
+    expect(getPromptDiscoveryCalls()).toHaveLength(0);
   });
 });

@@ -40,7 +40,9 @@ import {
   useState,
 } from 'react';
 import {
+  AgentPromptEntry,
   listAgentCommands,
+  listAgentPrompts,
   listAgents,
   runAgentCommand,
   runAgentInstruction,
@@ -231,6 +233,15 @@ export default function AgentsPage() {
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [workingFolder, setWorkingFolder] = useState('');
+  const [promptsLoading, setPromptsLoading] = useState(false);
+  const [promptsError, setPromptsError] = useState<string | null>(null);
+  const [promptEntries, setPromptEntries] = useState<AgentPromptEntry[]>([]);
+  const [committedWorkingFolder, setCommittedWorkingFolder] = useState('');
+  const lastCommittedWorkingFolderRef = useRef('');
+  const promptsRequestSeqRef = useRef(0);
+  const promptsCommittedFolderByRequestIdRef = useRef(
+    new Map<number, string>(),
+  );
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [input, setInput] = useState('');
   const lastSentRef = useRef('');
@@ -318,10 +329,28 @@ export default function AgentsPage() {
     setDirPickerOpen(true);
   };
 
+  const commitWorkingFolder = useCallback(
+    (source: 'blur' | 'enter' | 'picker', nextValue?: string) => {
+      const committed = (nextValue ?? workingFolder).trim();
+      console.info(
+        `[agents.prompts.discovery.commit] source=${source} workingFolder=${committed}`,
+      );
+      if (committed === lastCommittedWorkingFolderRef.current) {
+        return;
+      }
+      lastCommittedWorkingFolderRef.current = committed;
+      setCommittedWorkingFolder(committed);
+      setPromptsError(null);
+      setPromptEntries([]);
+    },
+    [workingFolder],
+  );
+
   const handlePickDir = (path: string) => {
     log('info', 'DEV-0000028[T5] agents folder picker picked', { path });
     setWorkingFolder(path);
     setDirPickerOpen(false);
+    commitWorkingFolder('picker', path);
   };
 
   const handleCloseDirPicker = () => {
@@ -523,6 +552,67 @@ export default function AgentsPage() {
     };
   }, [selectedAgentName]);
 
+  useEffect(() => {
+    if (!selectedAgentName) {
+      setPromptsLoading(false);
+      setPromptsError(null);
+      setPromptEntries([]);
+      setCommittedWorkingFolder('');
+      lastCommittedWorkingFolderRef.current = '';
+      return;
+    }
+    if (!committedWorkingFolder) {
+      setPromptsLoading(false);
+      setPromptsError(null);
+      setPromptEntries([]);
+      return;
+    }
+
+    const requestId = promptsRequestSeqRef.current + 1;
+    promptsRequestSeqRef.current = requestId;
+    promptsCommittedFolderByRequestIdRef.current.set(
+      requestId,
+      committedWorkingFolder,
+    );
+    setPromptsLoading(true);
+    setPromptsError(null);
+    console.info(
+      `[agents.prompts.discovery.request.start] requestId=${requestId} workingFolder=${committedWorkingFolder}`,
+    );
+
+    void listAgentPrompts({
+      agentName: selectedAgentName,
+      working_folder: committedWorkingFolder,
+    })
+      .then((result) => {
+        if (requestId !== promptsRequestSeqRef.current) {
+          console.info(
+            `[agents.prompts.discovery.request.stale_ignored] requestId=${requestId} workingFolder=${committedWorkingFolder}`,
+          );
+          return;
+        }
+        setPromptEntries(result.prompts ?? []);
+        setPromptsError(null);
+      })
+      .catch((err) => {
+        if (requestId !== promptsRequestSeqRef.current) {
+          console.info(
+            `[agents.prompts.discovery.request.stale_ignored] requestId=${requestId} workingFolder=${committedWorkingFolder}`,
+          );
+          return;
+        }
+        setPromptEntries([]);
+        setPromptsError((err as Error).message);
+      })
+      .finally(() => {
+        promptsCommittedFolderByRequestIdRef.current.delete(requestId);
+        if (requestId !== promptsRequestSeqRef.current) {
+          return;
+        }
+        setPromptsLoading(false);
+      });
+  }, [committedWorkingFolder, selectedAgentName]);
+
   const commandOptions = useMemo(() => {
     const options = commands.map((cmd) => ({
       ...cmd,
@@ -549,6 +639,9 @@ export default function AgentsPage() {
   const commandInfoOpen = Boolean(commandInfoAnchorEl);
   const commandInfoId = commandInfoOpen ? 'command-info-popover' : undefined;
   const commandInfoDisabled = !selectedCommand;
+  const isPromptsDiscoveryActive = promptsLoading && !promptsError;
+  void isPromptsDiscoveryActive;
+  void promptEntries;
   useEffect(() => {
     console.info('[agents.commandDescription.inlineRemoved] rendered=false');
   }, []);
@@ -2088,6 +2181,18 @@ export default function AgentsPage() {
                       placeholder="Absolute host path (optional)"
                       value={workingFolder}
                       onChange={(event) => setWorkingFolder(event.target.value)}
+                      onBlur={(event) =>
+                        commitWorkingFolder('blur', event.target.value)
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter') return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        commitWorkingFolder(
+                          'enter',
+                          (event.currentTarget as HTMLInputElement).value,
+                        );
+                      }}
                       disabled={isWorkingFolderDisabled}
                       inputProps={{ 'data-testid': 'agent-working-folder' }}
                     />

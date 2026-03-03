@@ -4036,3 +4036,33 @@ sequenceDiagram
   UI->>Info: Open popover with selected description
   Note over UI: No inline description block is rendered
 ```
+
+## Story 0000039 Task 6: prompt discovery request lifecycle guards
+
+- Prompt discovery requests are now commit-driven from `working_folder` events only:
+  - text-input `blur`,
+  - text-input `Enter`,
+  - directory picker selection.
+- Keystroke-only edits do not trigger discovery API calls.
+- Enter handling is scoped to `working_folder` and blocks main instruction form submission.
+- Latest-response-wins is enforced with a monotonic request id; stale responses are ignored and cannot overwrite newer state.
+
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant UI as Agents Page
+  participant API as listAgentPrompts
+
+  User->>UI: Commit working_folder (blur / Enter / picker)
+  UI->>UI: increment requestId + log discovery.commit
+  UI->>API: GET prompts for committed folder (requestId=N)
+
+  User->>UI: Quickly commit new folder
+  UI->>UI: increment requestId (N+1)
+  UI->>API: GET prompts for latest folder (requestId=N+1)
+
+  API-->>UI: response for requestId=N+1
+  UI->>UI: apply result/error (latest only)
+  API-->>UI: delayed response for requestId=N
+  UI->>UI: ignore stale response + log stale_ignored
+```

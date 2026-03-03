@@ -4066,3 +4066,50 @@ sequenceDiagram
   API-->>UI: delayed response for requestId=N
   UI->>UI: ignore stale response + log stale_ignored
 ```
+
+## Story 0000039 Task 7: prompts selector visibility and selection transitions
+
+- Prompt selector row visibility is state-driven from committed-folder discovery outcomes:
+  - selector row shows when discovered prompts are non-empty,
+  - inline error row shows when committed folder is non-empty and discovery fails,
+  - row hides when committed folder is empty or discovery succeeds with zero prompts.
+- Prompt option labels render from `relativePath` only; runtime `fullPath` values remain internal execution data and are never shown in option labels.
+- Selection resets immediately on committed folder changes (blur/Enter/picker) and `Execute Prompt` remains disabled until a new valid option is selected.
+
+```mermaid
+stateDiagram-v2
+  [*] --> HiddenEmpty
+  HiddenEmpty: committedWorkingFolder empty
+  HiddenEmpty --> Discovering: commit blur/enter/picker
+  Discovering --> SelectorVisible: prompts.length > 0
+  Discovering --> ErrorVisible: discovery failed and committed folder non-empty
+  Discovering --> HiddenZero: success with prompts.length == 0
+  HiddenZero: reason=discovery_zero_results
+  ErrorVisible --> HiddenEmpty: committed folder cleared
+  SelectorVisible --> HiddenEmpty: committed folder cleared
+  SelectorVisible --> Discovering: committed folder changed
+  ErrorVisible --> Discovering: committed folder changed
+```
+
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant UI as Agents Page
+  participant API as GET /agents/:agentName/prompts
+
+  User->>UI: Commit working folder
+  UI->>UI: Clear selected prompt immediately
+  UI->>API: Fetch prompt entries
+  alt prompts found
+    API-->>UI: prompts[{relativePath, fullPath}]
+    UI->>UI: Render selector (labels=relativePath)
+    User->>UI: Select prompt or No prompt selected
+    UI->>UI: Toggle Execute Prompt enabled/disabled
+  else discovery error
+    API-->>UI: error payload
+    UI->>UI: Render inline prompts error row
+  else zero results
+    API-->>UI: prompts:[]
+    UI->>UI: Hide prompts row (zero-results state)
+  end
+```

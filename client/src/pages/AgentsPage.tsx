@@ -236,12 +236,15 @@ export default function AgentsPage() {
   const [promptsLoading, setPromptsLoading] = useState(false);
   const [promptsError, setPromptsError] = useState<string | null>(null);
   const [promptEntries, setPromptEntries] = useState<AgentPromptEntry[]>([]);
+  const [selectedPromptFullPath, setSelectedPromptFullPath] = useState('');
   const [committedWorkingFolder, setCommittedWorkingFolder] = useState('');
   const lastCommittedWorkingFolderRef = useRef('');
   const promptsRequestSeqRef = useRef(0);
   const promptsCommittedFolderByRequestIdRef = useRef(
     new Map<number, string>(),
   );
+  const promptSelectorVisibilityLogRef = useRef('');
+  const promptSelectionLogRef = useRef('');
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [input, setInput] = useState('');
   const lastSentRef = useRef('');
@@ -342,6 +345,7 @@ export default function AgentsPage() {
       setCommittedWorkingFolder(committed);
       setPromptsError(null);
       setPromptEntries([]);
+      setSelectedPromptFullPath('');
     },
     [workingFolder],
   );
@@ -557,6 +561,7 @@ export default function AgentsPage() {
       setPromptsLoading(false);
       setPromptsError(null);
       setPromptEntries([]);
+      setSelectedPromptFullPath('');
       setCommittedWorkingFolder('');
       lastCommittedWorkingFolderRef.current = '';
       return;
@@ -639,9 +644,85 @@ export default function AgentsPage() {
   const commandInfoOpen = Boolean(commandInfoAnchorEl);
   const commandInfoId = commandInfoOpen ? 'command-info-popover' : undefined;
   const commandInfoDisabled = !selectedCommand;
-  const isPromptsDiscoveryActive = promptsLoading && !promptsError;
-  void isPromptsDiscoveryActive;
-  void promptEntries;
+  const hasPromptEntries = promptEntries.length > 0;
+  const shouldShowPromptsError = Boolean(
+    committedWorkingFolder && promptsError && !hasPromptEntries,
+  );
+  const shouldShowPromptsRow = hasPromptEntries || shouldShowPromptsError;
+  const selectedPromptEntry = useMemo(
+    () =>
+      promptEntries.find(
+        (entry) => entry.fullPath === selectedPromptFullPath,
+      ) ?? null,
+    [promptEntries, selectedPromptFullPath],
+  );
+  const executePromptEnabled = selectedPromptEntry !== null;
+
+  useEffect(() => {
+    if (!selectedPromptFullPath) return;
+    const stillValid = promptEntries.some(
+      (entry) => entry.fullPath === selectedPromptFullPath,
+    );
+    if (!stillValid) {
+      setSelectedPromptFullPath('');
+    }
+  }, [promptEntries, selectedPromptFullPath]);
+
+  useEffect(() => {
+    if (hasPromptEntries) {
+      const marker = `visible:${promptEntries.length}:${committedWorkingFolder}`;
+      if (promptSelectorVisibilityLogRef.current === marker) {
+        return;
+      }
+      promptSelectorVisibilityLogRef.current = marker;
+      console.info(
+        `[agents.prompts.selector.visible] promptCount=${promptEntries.length} workingFolder=${committedWorkingFolder}`,
+      );
+      return;
+    }
+    if (!committedWorkingFolder) {
+      const marker = 'hidden:empty_working_folder';
+      if (promptSelectorVisibilityLogRef.current === marker) {
+        return;
+      }
+      promptSelectorVisibilityLogRef.current = marker;
+      console.info(
+        '[agents.prompts.selector.hidden] reason=empty_working_folder',
+      );
+      return;
+    }
+    if (!promptsLoading && !promptsError) {
+      const marker = 'hidden:discovery_zero_results';
+      if (promptSelectorVisibilityLogRef.current === marker) {
+        return;
+      }
+      promptSelectorVisibilityLogRef.current = marker;
+      console.info(
+        '[agents.prompts.selector.hidden] reason=discovery_zero_results',
+      );
+    }
+  }, [
+    committedWorkingFolder,
+    hasPromptEntries,
+    promptEntries.length,
+    promptsError,
+    promptsLoading,
+  ]);
+
+  useEffect(() => {
+    const relativePath = selectedPromptEntry?.relativePath ?? 'none';
+    if (promptSelectionLogRef.current === relativePath) {
+      return;
+    }
+    promptSelectionLogRef.current = relativePath;
+    console.info(
+      `[agents.prompts.selection.changed] relativePath=${relativePath}`,
+    );
+  }, [selectedPromptEntry]);
+
+  const handlePromptSelectionChange = (event: SelectChangeEvent<string>) => {
+    setSelectedPromptFullPath(event.target.value);
+  };
   useEffect(() => {
     console.info('[agents.commandDescription.inlineRemoved] rendered=false');
   }, []);
@@ -2208,6 +2289,61 @@ export default function AgentsPage() {
                       Choose folder…
                     </Button>
                   </Stack>
+
+                  {shouldShowPromptsRow ? (
+                    <Stack
+                      data-testid="agent-prompts-row"
+                      direction={{ xs: 'column', sm: 'row' }}
+                      spacing={1}
+                      alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                    >
+                      {hasPromptEntries ? (
+                        <>
+                          <FormControl fullWidth size="small">
+                            <InputLabel id="agent-prompts-label">
+                              Prompts
+                            </InputLabel>
+                            <Select
+                              labelId="agent-prompts-label"
+                              label="Prompts"
+                              value={selectedPromptFullPath}
+                              onChange={handlePromptSelectionChange}
+                              displayEmpty
+                              data-testid="agent-prompts-select"
+                            >
+                              <MenuItem value="">No prompt selected</MenuItem>
+                              {promptEntries.map((entry) => (
+                                <MenuItem
+                                  key={entry.fullPath}
+                                  value={entry.fullPath}
+                                >
+                                  {entry.relativePath}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                          <Button
+                            type="button"
+                            variant="contained"
+                            size="small"
+                            disabled={!executePromptEnabled}
+                            data-testid="agent-prompt-execute"
+                            sx={{ flexShrink: 0 }}
+                          >
+                            Execute Prompt
+                          </Button>
+                        </>
+                      ) : null}
+                      {shouldShowPromptsError ? (
+                        <Alert
+                          severity="error"
+                          data-testid="agent-prompts-error"
+                        >
+                          {promptsError}
+                        </Alert>
+                      ) : null}
+                    </Stack>
+                  ) : null}
 
                   <Stack
                     data-testid="agent-instruction-row"

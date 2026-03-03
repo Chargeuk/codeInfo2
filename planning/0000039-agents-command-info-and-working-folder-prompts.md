@@ -1383,7 +1383,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 7. Frontend: prompt selector UI state transitions and visibility rules
 
-- Task Status: ****to_do****
+- Task Status: **__completed__**
 - Git Commits: ****to_do****
 
 #### Overview
@@ -1402,12 +1402,12 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 
 #### Subtasks
 
-1. [ ] Add prompts list and selected-prompt state.
+1. [x] Add prompts list and selected-prompt state.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Read first: https://llms.mui.com/material-ui/6.4.12/components/selects.md and https://react.dev/reference/react-dom/components/input
    - Implement exactly: track discovered `prompts` and selected prompt key by `fullPath`.
 
-2. [ ] Implement prompts row visibility rules exactly.
+2. [x] Implement prompts row visibility rules exactly.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Read first: https://react.dev/learn/conditional-rendering
    - Implement exactly:
@@ -1415,7 +1415,7 @@ Implement prompts selector rendering rules and selection/reset behavior once req
      - show inline error when discovery fails for committed non-empty folder,
      - hide row when committed folder empty or success returns zero prompts.
 
-3. [ ] Implement dropdown option and label behavior.
+3. [x] Implement dropdown option and label behavior.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Read first: https://llms.mui.com/material-ui/6.4.12/components/selects.md
    - Implement exactly:
@@ -1423,45 +1423,45 @@ Implement prompts selector rendering rules and selection/reset behavior once req
      - never render absolute `fullPath` in labels,
      - include explicit empty option `No prompt selected`.
 
-4. [ ] Reset selected prompt on committed folder change.
+4. [x] Reset selected prompt on committed folder change.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Read first: https://react.dev/learn/synchronizing-with-effects
    - Implement exactly: clear selected prompt immediately when committed folder changes; Execute Prompt stays disabled until new selection.
 
-5. [ ] Enforce Execute Prompt enable/disable rules.
+5. [x] Enforce Execute Prompt enable/disable rules.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Read first: https://llms.mui.com/material-ui/6.4.12/api/button.md
    - Implement exactly: Execute Prompt enabled only when a valid prompt option is currently selected.
 
-6. [ ] Add prompts-row visibility-split test.
+6. [x] Add prompts-row visibility-split test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: create `client/src/test/agentsPage.promptsDiscovery.test.tsx` if it does not already exist, then add a test covering three outcomes: prompts present (selector + Execute Prompt visible), discovery error (row remains visible with inline error), and zero prompts (row hidden).
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify conditional rendering contract for prompts row.
 
-7. [ ] Add relative-path-label and empty-option test.
+7. [x] Add relative-path-label and empty-option test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: add a test asserting labels use `relativePath` and dropdown contains explicit `No prompt selected` option.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify UX labeling and clear-selection affordance.
 
-8. [ ] Add no-absolute-fullPath-label-leak test.
+8. [x] Add no-absolute-fullPath-label-leak test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: add a test asserting rendered option text never exposes absolute `fullPath`.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify path privacy and UI contract safety.
 
-9. [ ] Add prompt-selection-reset-on-folder-change test.
+9. [x] Add prompt-selection-reset-on-folder-change test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
    - Description: add a test selecting a prompt, then changing committed folder through text commit (`blur` or `Enter`) and picker selection (separate assertions), and asserting selection resets immediately in both cases.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify stale prompt prevention behavior.
 
-10. [ ] Add clear-folder-hides-row-and-clears-error test.
+10. [x] Add clear-folder-hides-row-and-clears-error test.
 
 - Test type: Client component unit test (React Testing Library + Jest).
 - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
@@ -1469,7 +1469,7 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
 - Purpose: verify empty-folder reset behavior.
 
-11. [ ] Add execute-prompt-enable-disable-state test.
+11. [x] Add execute-prompt-enable-disable-state test.
 
 - Test type: Client component unit test (React Testing Library + Jest).
 - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
@@ -1477,7 +1477,7 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
 - Purpose: verify action gating behavior.
 
-12. [ ] Add empty-option-clear-after-selection test.
+12. [x] Add empty-option-clear-after-selection test.
 
 - Test type: Client component unit test (React Testing Library + Jest).
 - Location: [client/src/test/agentsPage.promptsDiscovery.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.promptsDiscovery.test.tsx)
@@ -1485,19 +1485,19 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
 - Purpose: verify clear-selection behavior required by explicit empty dropdown option.
 
-13. [ ] Update design documentation for prompts-row state transitions.
+13. [x] Update design documentation for prompts-row state transitions.
 
 - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
 - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
 - Implement exactly: add/update prompts visibility and selection-reset rules and include a Mermaid diagram that captures show/hide/error/empty and selection-reset transitions.
 
-14. [ ] Update structure docs only if files changed.
+14. [x] Update structure docs only if files changed.
 
 - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
 - Read first: https://www.markdownguide.org/basic-syntax/
 - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `client/src/test/agentsPage.promptsDiscovery.test.tsx` when this task creates it. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-15. [ ] Add prompts-selector state-transition log lines.
+15. [x] Add prompts-selector state-transition log lines.
 
 - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
 - Implement exactly: emit browser debug logs with these exact prefixes:
@@ -1506,24 +1506,36 @@ Implement prompts selector rendering rules and selection/reset behavior once req
   - `[agents.prompts.selection.changed] relativePath=<relativePath|none>` when user selects or clears a prompt.
 - Purpose: provide explicit observable state transitions for prompt selector visibility and selection changes.
 
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests without using the wrapper commands listed below.
 
-1. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, exercise prompt discovery success/zero-result/error states and prompt selection/clear actions. Verify `[agents.prompts.selector.visible]`, `[agents.prompts.selector.hidden]`, and `[agents.prompts.selection.changed]` logs match rendered success/zero-result/selection transitions, and verify error-state behavior from UI screenshot evidence. Capture screenshots `0000039-task7-selector-visible.png`, `0000039-task7-selector-hidden-zero-results.png`, and `0000039-task7-selector-error-state.png`, store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped within `docker-compose.local.yml`), and review them with the agent to confirm selector visibility/error behavior matches this task’s expectations. Expected outcome: visibility/selection logs map 1:1 to selector transitions, screenshots confirm success/zero-result/error states, and no browser debug-console errors.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, exercise prompt discovery success/zero-result/error states and prompt selection/clear actions. Verify `[agents.prompts.selector.visible]`, `[agents.prompts.selector.hidden]`, and `[agents.prompts.selection.changed]` logs match rendered success/zero-result/selection transitions, and verify error-state behavior from UI screenshot evidence. Capture screenshots `0000039-task7-selector-visible.png`, `0000039-task7-selector-hidden-zero-results.png`, and `0000039-task7-selector-error-state.png`, store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped within `docker-compose.local.yml`), and review them with the agent to confirm selector visibility/error behavior matches this task’s expectations. Expected outcome: visibility/selection logs map 1:1 to selector transitions, screenshots confirm success/zero-result/error states, and no browser debug-console errors.
+6. [x] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtasks 1-5: Added prompts selector client state in `AgentsPage` (`selectedPromptFullPath`, derived selected entry, row visibility/error split) and wired reset behavior on committed-folder changes plus invalid-selection invalidation.
+- Subtask 3: Implemented prompts dropdown rendering with relative-path option labels and explicit empty option text `No prompt selected`; `fullPath` remains internal only.
+- Subtasks 6-12: Expanded `agentsPage.promptsDiscovery.test.tsx` with coverage for visibility split (prompts/error/zero), relative-label + empty-option behavior, no-fullPath label leaks, selection reset on Enter/picker commits, clear-folder reset, and execute enable/disable transitions.
+- Subtask 13: Updated `design.md` with Task 7 selector visibility/error/zero-result transitions and Mermaid state/sequence diagrams for selection reset + action gating behavior.
+- Subtask 14: Updated `projectStructure.md` with a Task 7 structural ledger covering modified UI/test/docs/plan files.
+- Subtask 15: Added selector transition observability logs in `AgentsPage` for visible/hidden states and prompt selection changes using exact required prefixes and reason tokens.
+- Subtask 16: Ran `npm run lint --workspaces` (pass with unchanged repository-wide server import-order warnings) and resolved format check failures via `npm run format --workspaces && npm run format:check --workspaces`.
+- Testing step 1: `npm run build:summary:client` passed with `warnings: 1` (existing Vite chunk-size advisory) and log `logs/test-summaries/build-client-latest.log`.
+- Testing step 2: `npm run test:summary:client` initially failed in one Task 7 picker-reset assertion that assumed selector availability while dialog transition was still in progress; fixed by waiting for dialog close and asserting either disabled reset state or hidden-row state, then full wrapper passed with `tests run: 439`, `passed: 439`, `failed: 0` (`test-results/client-tests-2026-03-03T08-56-48-675Z.log`).
+- Testing step 3: `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0` (`logs/test-summaries/compose-build-latest.log`).
+- Testing step 4: `npm run compose:up` succeeded; compose output reported healthy `codeinfo2-server-1` and started `codeinfo2-client-1`.
+- Testing step 5: Manual Playwright-MCP check on `http://host.docker.internal:5001/agents` exercised success (`tmp-task7-success`), zero-result (`tmp-task7-zero`), selection/clear transitions, and error (`/path/that/does/not/exist/task7`) states; browser logs included required selector prefixes (`[agents.prompts.selector.visible]`, `[agents.prompts.selector.hidden]`, `[agents.prompts.selection.changed]`) aligned with visible UI transitions, and screenshots were captured as `0000039-task7-selector-visible.png`, `0000039-task7-selector-hidden-zero-results.png`, and `0000039-task7-selector-error-state.png` in Playwright MCP output storage (`/tmp/playwright-output/playwright-output-local`).
+- Testing step 6: `npm run compose:down` succeeded and removed all Task 7 compose services and network `codeinfo2_internal`.
 
 ---
 

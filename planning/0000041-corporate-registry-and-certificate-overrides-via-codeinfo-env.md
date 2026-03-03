@@ -170,6 +170,49 @@ The following behavior is mandatory and is the single source of truth for taskin
 ### Questions
 - None.
 
+### Edge Cases and Failure Modes
+
+1. Compose/env-file loading failures
+   - `server/.env.local` missing for `compose`/`compose:local` must fail clearly before build/run begins.
+   - `.env.e2e` missing or malformed for e2e flows must fail clearly before build/run begins.
+   - Corporate setup docs must not imply `client/.env.local` controls compose interpolation for this story.
+
+2. Compose interpolation and mount-shape failures
+   - `CODEINFO_CORP_CERTS_DIR` unset/empty must still produce a valid compose volume spec via fallback directory.
+   - `CODEINFO_CORP_CERTS_DIR` with whitespace, relative, or absolute paths must resolve to a deterministic mount shape.
+   - Compose config rendering (`docker compose ... config`) must remain valid across `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`.
+
+3. Build-arg propagation failures
+   - `CODEINFO_NPM_REGISTRY` must be available to both server and client build flows; missing mapping in any compose file is a failure.
+   - `CODEINFO_PIP_INDEX_URL`/`CODEINFO_PIP_TRUSTED_HOST` must be available to server build flows where pip runs.
+   - Empty-string values (`VAR=`) must not accidentally alter commands in ways that differ from true unset behavior.
+
+4. Registry/index behavior failures
+   - Npm behavior must remain default when `CODEINFO_NPM_REGISTRY` is unset and must switch to override when set.
+   - Pip behavior must remain default when pip vars are unset and must switch to override when set.
+   - Build logs should make it diagnosable when override registries are unreachable (network/auth/TLS failures).
+
+5. Runtime certificate refresh failures
+   - `CODEINFO_REFRESH_CA_CERTS_ON_START` parsing must only enable on case-insensitive `true`; all other values are disabled.
+   - Enabled refresh with no usable `.crt` files must fail fast with clear non-zero exit.
+   - Enabled refresh with valid cert input must complete and allow normal Node startup.
+   - `NODE_EXTRA_CA_CERTS` must be exported before Node starts; otherwise extra CA bundle is not applied.
+   - Permission problems during `update-ca-certificates` must surface clearly and fail startup when refresh is enabled.
+
+6. Host helper failures (`start-gcf-server.sh`)
+   - Global npm install must use default behavior when `CODEINFO_NPM_REGISTRY` is unset.
+   - Global npm install must use override registry when `CODEINFO_NPM_REGISTRY` is set.
+   - Existing git-path resolution behavior (including `cygpath` handling) must remain unchanged.
+
+7. Workflow parity and documentation failures
+   - README must clearly separate `compose`/`compose:local` (`server/.env.local`) from e2e (`.env.e2e`) setup.
+   - README must include required section title and placement exactly as defined in acceptance criteria.
+   - README must document fallback cert directory behavior and expected `.crt` file format.
+
+8. Regression guardrails
+   - Existing compose flows without any `CODEINFO_*` values must continue to build/start as they do today.
+   - Existing API/WS contracts and Mongo shapes must remain unchanged (infra-only story scope).
+
 ### Research Findings (2026-03-03)
 
 - Docker Compose interpolation substitutes unresolved variables with empty strings, which can break value shapes like volume specs if not handled deliberately. Source: Docker docs, variable interpolation (`${VAR:-default}`, `${VAR:?error}` and unresolved-variable behavior).

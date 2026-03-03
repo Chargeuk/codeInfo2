@@ -1768,7 +1768,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 9. Documentation: update story-facing product and architecture docs for final 0000039 behavior
 
 - Task Status: **__completed__**
-- Git Commits: ****to_do****
+- Git Commits: `33e8766e`
 
 #### Overview
 

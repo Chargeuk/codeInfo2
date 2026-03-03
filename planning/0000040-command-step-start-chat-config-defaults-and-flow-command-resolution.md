@@ -1089,6 +1089,16 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Use when client/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log`.
 2. [ ] `npm run test:summary:client`
    - Use when client/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/client-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--subset` / `--test-name`), then rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary`
+   - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log`.
+4. [ ] `npm run compose:up`
+   - Start the dockerized app stack before manual Playwright-MCP checks.
+5. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001)
+   - Validate frontend API contract integration by executing AGENTS command flows and confirming marker `[DEV_0000040_T04_CLIENT_AGENTS_API]` appears with expected payload semantics.
+   - Capture screenshots proving GUI/API integration outcomes (for example AGENTS command selection state before execute, and post-execute UI state) and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`).
+   - Expected outcome: screenshots and console/network observations confirm the UI remains stable while `startStep` payload behavior matches this task contract, and the agent reviews screenshots to verify GUI expectations are met.
+6. [ ] `npm run compose:down`
+   - Stop the dockerized app stack after manual checks complete.
 
 #### Implementation notes
 
@@ -1277,6 +1287,8 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Start the dockerized app stack before manual Playwright-MCP checks.
 6. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001)
    - Manually confirm AGENTS `Start step` behavior and verify debug-console log markers: `[DEV_0000040_T04_CLIENT_AGENTS_API]` appears when the AGENTS API payload is sent, `[DEV_0000040_T05_AGENTS_UI_EXECUTE]` appears exactly once per successful execute click, and no new error-level console entries are present.
+   - Capture screenshots for each GUI state required by this task (for example initial disabled state, enabled `Step 1..N` selector state, and error-message rendering state) and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`).
+   - Agent validation requirement: review captured screenshots to confirm control order, labels, disabled/enabled transitions, and displayed validation messaging match this task’s acceptance expectations.
    - Expected outcome: marker payloads include selected command and start-step values, disabled-command attempts do not emit `[DEV_0000040_T05_AGENTS_UI_EXECUTE]`, and console error count remains unchanged.
 7. [ ] `npm run compose:down`
    - Stop the dockerized app stack after manual checks complete.
@@ -2376,6 +2388,8 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Start the dockerized app stack before manual Playwright-MCP checks.
 9. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001)
    - Manually confirm story behavior and verify these debug-console markers appear with expected outcomes: `[DEV_0000040_T01_STEP_COUNT_RESPONSE]` (command list returns `stepCount >= 1`), `[DEV_0000040_T02_START_STEP_VALIDATION]` (valid and invalid `startStep` attempts are logged with invalid cases tagged `INVALID_START_STEP`), `[DEV_0000040_T03_RUNNER_START_STEP]` (runner logs selected `startStep` and `totalSteps`), `[DEV_0000040_T04_CLIENT_AGENTS_API]` (outbound AGENTS payload logging), `[DEV_0000040_T05_AGENTS_UI_EXECUTE]` (execute click emission only for enabled runs), `[DEV_0000040_T06_CHAT_DEFAULT_RESOLVER]` (default-source selection per field), `[DEV_0000040_T07_REST_DEFAULTS_APPLIED]` (REST chat defaults/warnings applied), `[DEV_0000040_T08_MCP_DEFAULTS_APPLIED]` (MCP defaults/warnings aligned), `[DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH]` (bootstrap branch reported once), `[DEV_0000040_T10_CODEX_SDK_GUARD]` (guard decision with installed/required versions), `[DEV_0000040_T11_FLOW_RESOLUTION_ORDER]` (flow candidate ordering and fail-fast reason), `[DEV_0000040_T12_DOC_SYNC_COMPLETE]` (documentation/contract sync verification marker), and no unexpected error-level console logs.
+   - Capture screenshots for every GUI-verifiable acceptance surface (AGENTS start-step interactions, chat defaults/warnings states, and flow resolver success/failure UI outcomes) and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`).
+   - Agent validation requirement: review all captured screenshots against story acceptance criteria and task expectations, and record explicit pass/fail notes for each GUI-verifiable acceptance point in implementation notes.
    - Expected outcome: each marker appears for its corresponding interaction exactly as defined in task subtasks, payload context matches expected values, and console errors remain zero for happy-path checks.
 10. [ ] `npm run compose:down`
    - Stop the dockerized app stack after manual checks complete.

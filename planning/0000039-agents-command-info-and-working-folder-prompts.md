@@ -502,16 +502,13 @@ Define the new REST message contract at the router boundary before any frontend 
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agents-commands-router-list.test.ts`
-3. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.prompts-route.test.ts`
-4. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agents-commands-router-run.test.ts`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agents-router-run.test.ts`
-6. [ ] `npm run compose:build:summary`
-7. [ ] `npm run compose:up`
-8. [ ] `npm run compose:down`
-9. [ ] `npm run lint --workspaces`
-10. [ ] `npm run format:check --workspaces`
+Do not attempt to run builds or tests without using the wrapper commands listed below.
+
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -672,13 +669,13 @@ Implement the actual prompt discovery behavior in the server service layer with 
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agent-prompts-list.test.ts`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
+Do not attempt to run builds or tests without using the wrapper commands listed below.
+
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -795,13 +792,12 @@ Add the frontend API function that consumes the new server prompt-discovery cont
 
 #### Testing
 
-1. [ ] `npm run build:summary:client`
-2. [ ] `npm run test:summary:client -- --file client/src/test/agentsApi.promptsList.test.ts`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
+Do not attempt to run builds or tests without using the wrapper commands listed below.
+
+1. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -893,13 +889,16 @@ Introduce the command-info icon and popover interaction only. This task does not
 
 #### Testing
 
-1. [ ] `npm run build:summary:client`
-2. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.descriptionPopover.test.tsx`
-3. [ ] `npm run compose:build:summary`
+Do not attempt to run builds or tests without using the wrapper commands listed below.
+
+1. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
+5. [ ] Manual Playwright-MCP check to confirm task-specific story behavior and general regressions, including a check that there are no logged errors in the debug console. The front end is accessible at `http://host.docker.internal:5001` via the Playwright MCP tools.
+6. [ ] `npm run compose:down`
+
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -978,13 +977,16 @@ Remove the old always-visible inline command description behavior now that comma
 
 #### Testing
 
-1. [ ] `npm run build:summary:client`
-2. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.commandsList.test.tsx`
-3. [ ] `npm run compose:build:summary`
+Do not attempt to run builds or tests without using the wrapper commands listed below.
+
+1. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
+5. [ ] Manual Playwright-MCP check to confirm task-specific story behavior and general regressions, including a check that there are no logged errors in the debug console. The front end is accessible at `http://host.docker.internal:5001` via the Playwright MCP tools.
+6. [ ] `npm run compose:down`
+
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -1132,14 +1134,16 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
 
 #### Testing
 
-1. [ ] `npm run build:summary:client`
-2. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.workingFolderPicker.test.tsx`
-3. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.promptsDiscovery.test.tsx`
-4. [ ] `npm run compose:build:summary`
-5. [ ] `npm run compose:up`
+Do not attempt to run builds or tests without using the wrapper commands listed below.
+
+1. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check to confirm task-specific story behavior and general regressions, including a check that there are no logged errors in the debug console. The front end is accessible at `http://host.docker.internal:5001` via the Playwright MCP tools.
 6. [ ] `npm run compose:down`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
+
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -1262,13 +1266,16 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 
 #### Testing
 
-1. [ ] `npm run build:summary:client`
-2. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.promptsDiscovery.test.tsx`
-3. [ ] `npm run compose:build:summary`
+Do not attempt to run builds or tests without using the wrapper commands listed below.
+
+1. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
+5. [ ] Manual Playwright-MCP check to confirm task-specific story behavior and general regressions, including a check that there are no logged errors in the debug console. The front end is accessible at `http://host.docker.internal:5001` via the Playwright MCP tools.
+6. [ ] `npm run compose:down`
+
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -1442,17 +1449,17 @@ Implement prompt execution by composing the canonical instruction string and dis
 
 #### Testing
 
-1. [ ] `npm run build:summary:client`
-2. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.executePrompt.test.tsx`
-3. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.run.instructionError.test.tsx`
-4. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.commandsRun.conflict.test.tsx`
-5. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.run.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.streaming.test.tsx`
-7. [ ] `npm run compose:build:summary`
-8. [ ] `npm run compose:up`
-9. [ ] `npm run compose:down`
-10. [ ] `npm run lint --workspaces`
-11. [ ] `npm run format:check --workspaces`
+Do not attempt to run builds or tests without using the wrapper commands listed below.
+
+1. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+4. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP check to confirm task-specific story behavior and general regressions, including a check that there are no logged errors in the debug console. The front end is accessible at `http://host.docker.internal:5001` via the Playwright MCP tools.
+7. [ ] `npm run compose:down`
+
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -1502,13 +1509,12 @@ Capture final behavior in repository docs once implementation is complete, inclu
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
+Do not attempt to run builds or tests without using the wrapper commands listed below.
+
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -1567,18 +1573,20 @@ Run full validation for the complete story, verify acceptance criteria end-to-en
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:clean`
-4. [ ] `npm run test:summary:client`
-5. [ ] `npm run test:summary:server:unit`
-6. [ ] `npm run test:summary:server:cucumber`
-7. [ ] `npm run compose:up`
-8. [ ] `npm run test:summary:e2e`
-9. [ ] Use Playwright MCP/manual browser check for key acceptance criteria and save screenshots under `test-results/screenshots/` with names prefixed `0000039-<task-number>-<description>.png`.
+Do not attempt to run builds or tests without using the wrapper commands listed below.
+
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP check to confirm task-specific story behavior and general regressions, including a check that there are no logged errors in the debug console. The front end is accessible at `http://host.docker.internal:5001` via the Playwright MCP tools.
 10. [ ] `npm run compose:down`
-11. [ ] `npm run lint --workspaces`
-12. [ ] `npm run format:check --workspaces`
+
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 

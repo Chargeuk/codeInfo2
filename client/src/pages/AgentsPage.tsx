@@ -2333,6 +2333,18 @@ export default function AgentsPage() {
                         ))}
                       </Select>
                     </FormControl>
+                    <Box onMouseDownCapture={handleCommandInfoAttempt}>
+                      <IconButton
+                        aria-describedby={commandInfoId}
+                        aria-label="Command info"
+                        onClick={handleCommandInfoOpen}
+                        disabled={commandInfoDisabled}
+                        size="small"
+                        data-testid="agent-command-info"
+                      >
+                        <InfoOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
                     <Button
                       type="button"
                       variant="contained"
@@ -2351,18 +2363,6 @@ export default function AgentsPage() {
                     >
                       Execute command
                     </Button>
-                    <Box onMouseDownCapture={handleCommandInfoAttempt}>
-                      <IconButton
-                        aria-describedby={commandInfoId}
-                        aria-label="Command info"
-                        onClick={handleCommandInfoOpen}
-                        disabled={commandInfoDisabled}
-                        size="small"
-                        data-testid="agent-command-info"
-                      >
-                        <InfoOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
                   </Stack>
 
                   {persistenceUnavailable ? (

@@ -1,5 +1,11 @@
 import { jest } from '@jest/globals';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -181,7 +187,7 @@ describe('Agents page - command info popover', () => {
     );
   };
 
-  it('renders command-info control in the command row', async () => {
+  it('renders command-info control between command select and execute button', async () => {
     mockAgentsFetch({ agents: [{ name: 'coding_agent' }] });
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
@@ -189,7 +195,19 @@ describe('Agents page - command info popover', () => {
 
     const commandRow = await screen.findByTestId('agent-command-row');
     const commandInfoButton = await screen.findByTestId('agent-command-info');
+    const commandSelect = within(commandRow).getByTestId('agent-command-select');
+    const executeButton =
+      within(commandRow).getByTestId('agent-command-execute');
+
     expect(commandRow).toContainElement(commandInfoButton);
+    expect(commandRow).toContainElement(commandSelect);
+    expect(commandRow).toContainElement(executeButton);
+    expect(commandSelect.compareDocumentPosition(commandInfoButton)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(commandInfoButton.compareDocumentPosition(executeButton)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 
   it('keeps command-info button disabled when no command is selected', async () => {

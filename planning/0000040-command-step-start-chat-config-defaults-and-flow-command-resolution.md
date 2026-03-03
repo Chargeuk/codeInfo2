@@ -27,7 +27,7 @@ Decisions confirmed for this story:
 - Missing `codex/chat/config.toml` bootstraps by copying `codex/config.toml` first, then generating standard template if base config is missing.
 - Deprecated web search alias handling is normalized to canonical `web_search` with default `"live"` parity.
 - `@openai/codex-sdk` is pinned to `0.107.0`.
-- Flow command lookup for repository-sourced flows resolves in this order: same source repository first, then the codeInfo2 repository, then other repositories by first match.
+- Flow command lookup for repository-sourced flows resolves in this order: same source repository first, then the codeInfo2 repository, then other repositories by first match where "first" means source label alphabetical ascending, tie-broken by full source path alphabetical ascending.
 - Investigation output must include an automated failing repro test and a fix.
 
 Expected end-user outcome:
@@ -52,7 +52,8 @@ Expected end-user outcome:
 11. Deprecated `web_search_request` usage is replaced by canonical `web_search`, with default behavior aligned to `"live"` parity and regression-tested.
 12. `@openai/codex-sdk` is upgraded and pinned to `0.107.0`, with compatibility/regression checks completed.
 13. Flow command lookup for repository-scoped flows resolves commands in this order: same source repository, then codeInfo2 repository, then first matching command in other repositories.
-14. Investigation and fix follow red-green: automated failing repro test first, then fix, then passing verification.
+14. Deterministic fallback ordering for "other repositories" is source label alphabetical ascending, with tie-break by full source path alphabetical ascending.
+15. Investigation and fix follow red-green: automated failing repro test first, then fix, then passing verification.
 
 ### Out Of Scope
 
@@ -64,7 +65,7 @@ Expected end-user outcome:
 
 ### Questions
 
-1. For fallback to "first matching command from other repositories", what deterministic ordering should define "first" (for example source label alphabetical, source path alphabetical, or ingestion order)?
+None.
 
 ### Research Findings (2026-03-03)
 

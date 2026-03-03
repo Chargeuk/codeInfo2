@@ -582,7 +582,13 @@ Add the backend response contract for command list items so the frontend can ren
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 22, AC 23.
    - Done when: `projectStructure.md` matches the post-task repository state and explicitly includes all added and removed files.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [ ] Add deterministic diagnostic log marker [DEV_0000040_T01_STEP_COUNT_RESPONSE] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+   - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
+   - Files to read/edit: [commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts), [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts), [agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts).
+   - Acceptance criteria coverage: AC 22, AC 23.
+   - Manual Playwright-MCP expected outcome: after loading AGENTS command list, browser debug console shows the marker once per list refresh with `stepCount` values >= 1 for each item.
+   - Done when: [DEV_0000040_T01_STEP_COUNT_RESPONSE] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -740,7 +746,13 @@ Add the run-request message contract for optional `startStep` with strict input 
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 24, AC 25.
    - Done when: `projectStructure.md` contains accurate entries for all added and removed files (and any modified files) in this task.
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [ ] Add deterministic diagnostic log marker [DEV_0000040_T02_START_STEP_VALIDATION] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+   - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
+   - Files to read/edit: [agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts), [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts).
+   - Acceptance criteria coverage: AC 7, AC 24, AC 25.
+   - Manual Playwright-MCP expected outcome: executing AGENTS command runs logs marker entries for both valid and invalid `startStep` attempts, and invalid attempts include `INVALID_START_STEP` in the marker payload.
+   - Done when: [DEV_0000040_T02_START_STEP_VALIDATION] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -916,7 +928,13 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
    - Done when: `projectStructure.md` accurately reflects task-3 file layout and explicitly lists all added and removed files.
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [ ] Add deterministic diagnostic log marker [DEV_0000040_T03_RUNNER_START_STEP] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+   - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
+   - Files to read/edit: [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts), [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts).
+   - Acceptance criteria coverage: AC 6, AC 24, AC 25.
+   - Manual Playwright-MCP expected outcome: command execution from a non-default step logs marker once at run start with selected `startStep` and runtime `totalSteps` values.
+   - Done when: [DEV_0000040_T03_RUNNER_START_STEP] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
+18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -1051,7 +1069,13 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 6, AC 22, AC 24.
    - Done when: `projectStructure.md` entries match task-4 file changes and include all added and removed files.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [ ] Add deterministic diagnostic log marker [DEV_0000040_T04_CLIENT_AGENTS_API] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+   - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
+   - Files to read/edit: [agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts).
+   - Acceptance criteria coverage: AC 6, AC 22, AC 24.
+   - Manual Playwright-MCP expected outcome: when executing from AGENTS UI, browser debug console logs marker with outbound payload shape showing `startStep` present when selected and omitted when not provided.
+   - Done when: [DEV_0000040_T04_CLIENT_AGENTS_API] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -1225,7 +1249,13 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 1-8.
    - Done when: `projectStructure.md` mirrors actual task-5 file changes and explicitly includes all added and removed files.
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [ ] Add deterministic diagnostic log marker [DEV_0000040_T05_AGENTS_UI_EXECUTE] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+   - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
+   - Files to read/edit: [AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx).
+   - Acceptance criteria coverage: AC 1-8, AC 25.
+   - Manual Playwright-MCP expected outcome: selecting and executing a command logs marker with selected command name and visible start-step value, and disabled-command attempts do not emit the execute marker.
+   - Done when: [DEV_0000040_T05_AGENTS_UI_EXECUTE] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
+18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -1246,7 +1276,8 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 5. [ ] `npm run compose:up`
    - Start the dockerized app stack before manual Playwright-MCP checks.
 6. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001)
-   - Manually confirm task-relevant story behavior and broad regressions using Playwright MCP, and verify there are no logged errors in the debug console.
+   - Manually confirm AGENTS `Start step` behavior and verify debug-console log markers: `[DEV_0000040_T04_CLIENT_AGENTS_API]` appears when the AGENTS API payload is sent, `[DEV_0000040_T05_AGENTS_UI_EXECUTE]` appears exactly once per successful execute click, and no new error-level console entries are present.
+   - Expected outcome: marker payloads include selected command and start-step values, disabled-command attempts do not emit `[DEV_0000040_T05_AGENTS_UI_EXECUTE]`, and console error count remains unchanged.
 7. [ ] `npm run compose:down`
    - Stop the dockerized app stack after manual checks complete.
 
@@ -1400,7 +1431,13 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `projectStructure.md` accurately reflects task-6 file changes and includes all added and removed files.
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [ ] Add deterministic diagnostic log marker [DEV_0000040_T06_CHAT_DEFAULT_RESOLVER] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+   - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
+   - Files to read/edit: [chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts).
+   - Acceptance criteria coverage: AC 10-16.
+   - Manual Playwright-MCP expected outcome: opening chat/capability surfaces logs marker for each resolved Codex default field with explicit source (`override|config|env|hardcoded`).
+   - Done when: [DEV_0000040_T06_CHAT_DEFAULT_RESOLVER] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -1540,7 +1577,13 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `projectStructure.md` reflects all task-7 file changes and explicitly includes all added and removed files.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [ ] Add deterministic diagnostic log marker [DEV_0000040_T07_REST_DEFAULTS_APPLIED] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+   - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
+   - Files to read/edit: [capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts), [chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts), [chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [chat.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chat.ts), [chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts).
+   - Acceptance criteria coverage: AC 10-16.
+   - Manual Playwright-MCP expected outcome: loading chat models/providers and sending a chat request logs marker entries confirming shared resolver defaults and warning propagation were applied by REST routes.
+   - Done when: [DEV_0000040_T07_REST_DEFAULTS_APPLIED] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -1661,7 +1704,13 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `projectStructure.md` accurately lists task-8 file changes and includes all added and removed files.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Add deterministic diagnostic log marker [DEV_0000040_T08_MCP_DEFAULTS_APPLIED] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+   - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
+   - Files to read/edit: [codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts).
+   - Acceptance criteria coverage: AC 10-16.
+   - Manual Playwright-MCP expected outcome: running MCP `codebase_question` via UI/MCP surface logs marker with resolved defaults and warning fields that match REST behavior.
+   - Done when: [DEV_0000040_T08_MCP_DEFAULTS_APPLIED] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -1805,7 +1854,13 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 15.
    - Done when: `projectStructure.md` accurately mirrors task-9 repository changes and includes all added and removed files.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [ ] Add deterministic diagnostic log marker [DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+   - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
+   - Files to read/edit: [runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts).
+   - Acceptance criteria coverage: AC 15.
+   - Manual Playwright-MCP expected outcome: after server start and first chat-surface load, marker appears once indicating bootstrap branch (`copied`, `generated_template`, or `existing_noop`).
+   - Done when: [DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -1931,7 +1986,13 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 17, AC 26.
    - Done when: `projectStructure.md` lists all task-10 file changes accurately, including all added and removed files.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [ ] Add deterministic diagnostic log marker [DEV_0000040_T10_CODEX_SDK_GUARD] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+   - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
+   - Files to read/edit: [codexSdkUpgrade.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexSdkUpgrade.ts), [index.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/index.ts).
+   - Acceptance criteria coverage: AC 17, AC 26.
+   - Manual Playwright-MCP expected outcome: on app startup marker appears once in debug-console-forwarded logs with installed and required SDK versions and guard decision `accepted`.
+   - Done when: [DEV_0000040_T10_CODEX_SDK_GUARD] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -2102,7 +2163,13 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
    - Done when: `projectStructure.md` reflects all task-11 file changes with no omissions, including all added and removed files.
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [ ] Add deterministic diagnostic log marker [DEV_0000040_T11_FLOW_RESOLUTION_ORDER] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+   - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
+   - Files to read/edit: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts).
+   - Acceptance criteria coverage: AC 18-21, AC 27-28.
+   - Manual Playwright-MCP expected outcome: running flow commands logs marker with ordered candidate list and selected source, or fail-fast reason for same-source invalid/read-fail cases.
+   - Done when: [DEV_0000040_T11_FLOW_RESOLUTION_ORDER] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
+18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -2177,7 +2244,13 @@ Perform documentation-only updates so product behavior, architecture notes, and 
    - Files to read/edit: [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json).
    - Acceptance criteria coverage: AC 22, AC 23, AC 24, AC 25.
    - Done when: OpenAPI schema matches live request/response behavior.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [ ] Add deterministic diagnostic log marker [DEV_0000040_T12_DOC_SYNC_COMPLETE] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+   - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
+   - Files to read/edit: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json).
+   - Acceptance criteria coverage: AC 22, AC 23, AC 24, AC 25.
+   - Manual Playwright-MCP expected outcome: during final manual check, emit marker once from browser console after validating docs/contract alignment, and record the marker in implementation notes as documentation-sync evidence.
+   - Done when: [DEV_0000040_T12_DOC_SYNC_COMPLETE] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -2269,7 +2342,13 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Ordering requirement: complete this subtask after all file additions/removals in this task (including screenshot files) are finished.
    - Acceptance criteria coverage: final documentation readiness for AC 1-28.
    - Done when: `projectStructure.md` matches final repository state with no missing entries and explicitly includes all added and removed files from this task.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add deterministic diagnostic log marker [DEV_0000040_T13_MANUAL_CHECK_COMPLETE] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+   - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
+   - Files to read/edit: [0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md).
+   - Acceptance criteria coverage: AC 1-28.
+   - Manual Playwright-MCP expected outcome: after all manual checks pass, emit marker once in browser console and capture screenshot/log evidence tied to final regression completion.
+   - Done when: [DEV_0000040_T13_MANUAL_CHECK_COMPLETE] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -2296,7 +2375,8 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
 8. [ ] `npm run compose:up`
    - Start the dockerized app stack before manual Playwright-MCP checks.
 9. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001)
-   - Manually confirm task-relevant story behavior and broad regressions using Playwright MCP, and verify there are no logged errors in the debug console.
+   - Manually confirm story behavior and verify these debug-console markers appear with expected outcomes: `[DEV_0000040_T01_STEP_COUNT_RESPONSE]` (command list returns `stepCount >= 1`), `[DEV_0000040_T02_START_STEP_VALIDATION]` (valid and invalid `startStep` attempts are logged with invalid cases tagged `INVALID_START_STEP`), `[DEV_0000040_T03_RUNNER_START_STEP]` (runner logs selected `startStep` and `totalSteps`), `[DEV_0000040_T04_CLIENT_AGENTS_API]` (outbound AGENTS payload logging), `[DEV_0000040_T05_AGENTS_UI_EXECUTE]` (execute click emission only for enabled runs), `[DEV_0000040_T06_CHAT_DEFAULT_RESOLVER]` (default-source selection per field), `[DEV_0000040_T07_REST_DEFAULTS_APPLIED]` (REST chat defaults/warnings applied), `[DEV_0000040_T08_MCP_DEFAULTS_APPLIED]` (MCP defaults/warnings aligned), `[DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH]` (bootstrap branch reported once), `[DEV_0000040_T10_CODEX_SDK_GUARD]` (guard decision with installed/required versions), `[DEV_0000040_T11_FLOW_RESOLUTION_ORDER]` (flow candidate ordering and fail-fast reason), `[DEV_0000040_T12_DOC_SYNC_COMPLETE]` (documentation/contract sync verification marker), and no unexpected error-level console logs.
+   - Expected outcome: each marker appears for its corresponding interaction exactly as defined in task subtasks, payload context matches expected values, and console errors remain zero for happy-path checks.
 10. [ ] `npm run compose:down`
    - Stop the dockerized app stack after manual checks complete.
 

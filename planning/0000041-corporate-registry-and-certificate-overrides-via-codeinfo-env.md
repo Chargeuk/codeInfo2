@@ -174,8 +174,8 @@ The following behavior is mandatory and is the single source of truth for taskin
 ### Edge Cases and Failure Modes
 
 1. Compose/env-file loading failures
-   - `server/.env.local` missing for `compose`/`compose:local` must fail clearly before build/run begins.
-   - `.env.e2e` missing or malformed for e2e flows must fail clearly before build/run begins.
+   - `server/.env.local` missing for `compose`/`compose:local` must fail clearly before build/run begins, with the error surfaced by `docker compose` env-file parsing (the wrapper is pass-through).
+   - `.env.e2e` missing or malformed for e2e flows must fail clearly before build/run begins, with the error surfaced by `docker compose` env-file parsing (the wrapper is pass-through).
    - Corporate setup docs must not imply `client/.env.local` controls compose interpolation for this story.
 
 2. Compose interpolation and mount-shape failures
@@ -270,6 +270,7 @@ The following behavior is mandatory and is the single source of truth for taskin
    - Keep workflow env sources aligned to existing wrappers:
      - `compose` and `compose:local`: `server/.env` + `server/.env.local`
      - `compose:e2e:*`: `.env.e2e`
+   - Keep `scripts/docker-compose-with-env.sh` as a pass-through wrapper; do not add custom env-file parsing/validation there for this story.
    - Ensure e2e has corresponding `CODEINFO_*` keys in `.env.e2e` (with safe defaults/comments for local corporate overrides).
    - Implement deterministic cert mount behavior in compose when cert dir is unset:
      - introduce a repo-owned empty fallback directory (for example `./certs/empty-corp-ca/.gitkeep`),
@@ -402,14 +403,14 @@ Add compose-level build/runtime mappings for the canonical `CODEINFO_*` variable
 
 ---
 
-### 2. Env Source Verification: wrapper interpolation and `.env.e2e` parity
+### 2. Env Source Verification: compose interpolation and wrapper env-file pass-through parity
 
 - Task Status: **__to_do__**
 - Git Commits: `none yet`
 
 #### Overview
 
-Validate and document env-file source behavior for compose/local/e2e workflows, then add explicit `.env.e2e` placeholders and non-destructive failure checks.
+Validate and document env-file source behavior for compose/local/e2e workflows, confirm wrapper pass-through behavior, then add explicit `.env.e2e` placeholders and non-destructive failure checks.
 
 #### Documentation Locations
 
@@ -422,16 +423,17 @@ Validate and document env-file source behavior for compose/local/e2e workflows, 
 #### Subtasks
 
 1. [ ] In this task’s `Implementation notes`, add a 3-row env-source matrix with columns `Workflow`, `Interpolation Source`, and `Runtime env_file Source`, using exact values: `compose` -> `server/.env + server/.env.local`, `compose:local` -> `server/.env + server/.env.local`, `compose:e2e:*` -> `.env.e2e`; runtime `env_file` entries in compose YAML stay unchanged. Evidence sources: [package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/package.json), [scripts/docker-compose-with-env.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/scripts/docker-compose-with-env.sh), [docker-compose.e2e.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/docker-compose.e2e.yml). Done when all three rows exist verbatim.
-2. [ ] Edit [.env.e2e](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/.env.e2e) and add placeholders for all six canonical variables exactly once each: `CODEINFO_NPM_REGISTRY`, `CODEINFO_PIP_INDEX_URL`, `CODEINFO_PIP_TRUSTED_HOST`, `CODEINFO_NODE_EXTRA_CA_CERTS`, `CODEINFO_CORP_CERTS_DIR`, `CODEINFO_REFRESH_CA_CERTS_ON_START`. Add short comments describing default behavior when unset. Docs: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/AGENTS.md). Done when `rg -n "^CODEINFO_" .env.e2e` returns six lines.
-3. [ ] Verify wrapper source order remains unchanged by inspecting [scripts/docker-compose-with-env.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/scripts/docker-compose-with-env.sh) and script entries in [package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/package.json): `compose`/`compose:local` must still pass `--env-file server/.env --env-file server/.env.local`; e2e must still pass `--env-file .env.e2e`. Done when these exact flag sequences are visible in file diffs or grep output.
-4. [ ] Architecture documentation subtask. Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/design.md) with Mermaid diagrams for env-source flow (`compose`/`compose:local` using `server/.env` + `server/.env.local`; `compose:e2e` using `.env.e2e`; runtime `env_file` separation). Use Context7 `/mermaid-js/mermaid` + Mermaid syntax reference https://mermaid.js.org/intro/syntax-reference. Done when diagram text is valid Mermaid and reflects Task 2 behavior.
-5. [ ] Test subtask. Type: Wrapper positive-path integration check (`compose`). Location: repo root wrapper logs from `npm run compose:build`. Description: record env interpolation behavior using `server/.env` + `server/.env.local`. Purpose: verify compose/local wrapper source order is still correct.
-6. [ ] Test subtask. Type: Wrapper positive-path integration check (`compose:e2e`). Location: repo root wrapper logs from `npm run compose:e2e:build`. Description: record env interpolation behavior using `.env.e2e`. Purpose: verify e2e wrapper interpolation source is correct.
-7. [ ] Test subtask. Type: Wrapper negative-path error check (missing local env file). Location: repo root output from `bash ./scripts/docker-compose-with-env.sh --env-file server/.env --env-file /tmp/nonexistent-codeinfo-local.env -f docker-compose.yml config`. Description: capture non-zero exit and missing-file signal. Purpose: ensure missing env inputs fail clearly.
-8. [ ] Test subtask. Type: Wrapper negative-path error check (missing e2e env file). Location: repo root output from `bash ./scripts/docker-compose-with-env.sh --env-file /tmp/nonexistent-codeinfo-e2e.env -f docker-compose.e2e.yml config`. Description: capture non-zero exit and missing-file signal. Purpose: ensure e2e missing env inputs fail clearly.
-9. [ ] Test subtask. Type: Wrapper negative-path parse check (malformed env file). Location: repo root output from malformed env run against `docker-compose.e2e.yml`. Description: capture parse failure and non-zero exit. Purpose: ensure malformed env input failures are diagnosable.
-10. [ ] Test subtask. Type: Wrapper corner-case precedence check (duplicate key across env files). Location: repo root rendered config output for two env files defining same `CODEINFO_*` key. Description: capture effective value resolution. Purpose: verify later env file wins as expected.
-11. [ ] Run root validation commands from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/AGENTS.md): `npm run lint --workspaces` and `npm run format:check --workspaces`. Done when both commands exit 0 and their results are captured in this task’s `Implementation notes`.
+2. [ ] Edit [.env.e2e](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/.env.e2e) and add placeholders for all six canonical variables exactly once each: `CODEINFO_NPM_REGISTRY`, `CODEINFO_PIP_INDEX_URL`, `CODEINFO_PIP_TRUSTED_HOST`, `CODEINFO_NODE_EXTRA_CA_CERTS`, `CODEINFO_CORP_CERTS_DIR`, `CODEINFO_REFRESH_CA_CERTS_ON_START`. Add short comments describing default behavior when unset. Docs: Docker Compose interpolation/env-file docs https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/. Done when `rg -n "^CODEINFO_" .env.e2e` returns six lines.
+3. [ ] Verify wrapper source order remains unchanged by inspecting [scripts/docker-compose-with-env.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/scripts/docker-compose-with-env.sh) and script entries in [package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/package.json): `compose`/`compose:local` must still pass `--env-file server/.env --env-file server/.env.local`; e2e must still pass `--env-file .env.e2e`. Document that interpolation/parse failures are emitted by `docker compose` (wrapper is pass-through). Done when these exact flag sequences and pass-through behavior are recorded in task notes.
+4. [ ] Before any positive `compose`/`compose:local` validation command in this task, ensure local untracked [server/.env.local](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/.env.local) exists. If absent, create it with `cp server/.env server/.env.local`. Do not add/commit this file. Done when positive-path checks can run and `git status --short` does not show a tracked diff for this path.
+5. [ ] Architecture documentation subtask. Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/design.md) with Mermaid diagrams for env-source flow (`compose`/`compose:local` using `server/.env` + `server/.env.local`; `compose:e2e` using `.env.e2e`; runtime `env_file` separation). Use Context7 `/mermaid-js/mermaid` + Mermaid syntax reference https://mermaid.js.org/intro/syntax-reference. Done when diagram text is valid Mermaid and reflects Task 2 behavior.
+6. [ ] Test subtask. Type: Wrapper positive-path integration check (`compose`). Location: repo root wrapper logs from `npm run compose:build`. Description: record docker compose interpolation behavior (invoked through wrapper) using `server/.env` + `server/.env.local`. Purpose: verify compose/local source order remains correct.
+7. [ ] Test subtask. Type: Wrapper positive-path integration check (`compose:e2e`). Location: repo root wrapper logs from `npm run compose:e2e:build`. Description: record docker compose interpolation behavior (invoked through wrapper) using `.env.e2e`. Purpose: verify e2e interpolation source remains correct.
+8. [ ] Test subtask. Type: Wrapper negative-path error check (missing local env file). Location: repo root output from `bash ./scripts/docker-compose-with-env.sh --env-file server/.env --env-file /tmp/nonexistent-codeinfo-local.env -f docker-compose.yml config`. Description: capture non-zero exit and missing-file signal emitted by `docker compose`. Purpose: ensure missing env inputs fail clearly.
+9. [ ] Test subtask. Type: Wrapper negative-path error check (missing e2e env file). Location: repo root output from `bash ./scripts/docker-compose-with-env.sh --env-file /tmp/nonexistent-codeinfo-e2e.env -f docker-compose.e2e.yml config`. Description: capture non-zero exit and missing-file signal emitted by `docker compose`. Purpose: ensure e2e missing env inputs fail clearly.
+10. [ ] Test subtask. Type: Wrapper negative-path parse check (malformed env file). Location: repo root output from malformed env run against `docker-compose.e2e.yml`. Description: capture parse failure and non-zero exit emitted by `docker compose`. Purpose: ensure malformed env input failures are diagnosable.
+11. [ ] Test subtask. Type: Wrapper corner-case precedence check (duplicate key across env files). Location: repo root rendered config output for two env files defining same `CODEINFO_*` key. Description: capture effective value resolution from docker compose interpolation. Purpose: verify later env file wins as expected.
+12. [ ] Run root validation commands from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/AGENTS.md): `npm run lint --workspaces` and `npm run format:check --workspaces`. Done when both commands exit 0 and their results are captured in this task’s `Implementation notes`.
 
 #### Testing
 
@@ -439,12 +441,13 @@ Validate and document env-file source behavior for compose/local/e2e workflows, 
 2. [ ] `npm run build:summary:client`
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up` then `npm run compose:down`
-5. [ ] `npm run compose:build` and capture summary/log evidence that wrapper env-file interpolation still works for `server/.env` + `server/.env.local`.
-6. [ ] `npm run compose:e2e:build` and capture summary/log evidence that wrapper env-file interpolation uses `.env.e2e`.
-7. [ ] Non-destructive negative-path check: run `bash ./scripts/docker-compose-with-env.sh --env-file server/.env --env-file /tmp/nonexistent-codeinfo-local.env -f docker-compose.yml config` and confirm non-zero exit plus a missing-env-file indicator in output.
-8. [ ] Non-destructive negative-path check: run `bash ./scripts/docker-compose-with-env.sh --env-file /tmp/nonexistent-codeinfo-e2e.env -f docker-compose.e2e.yml config` and confirm non-zero exit plus a missing-env-file indicator in output.
-9. [ ] Non-destructive malformed-env check: create a temporary malformed env file (for example a line without `=`), run `bash ./scripts/docker-compose-with-env.sh --env-file <malformed-file> -f docker-compose.e2e.yml config`, and confirm non-zero exit with parse failure evidence.
-10. [ ] Env precedence check: run wrapper/config with two env files defining the same `CODEINFO_*` key differently and confirm later file value wins in rendered config.
+5. [ ] Local precondition for positive compose/local checks: ensure untracked `server/.env.local` exists (copy from `server/.env` if needed) and do not commit it.
+6. [ ] `npm run compose:build` and capture summary/log evidence that docker compose interpolation (via wrapper) still works for `server/.env` + `server/.env.local`.
+7. [ ] `npm run compose:e2e:build` and capture summary/log evidence that docker compose interpolation (via wrapper) uses `.env.e2e`.
+8. [ ] Non-destructive negative-path check: run `bash ./scripts/docker-compose-with-env.sh --env-file server/.env --env-file /tmp/nonexistent-codeinfo-local.env -f docker-compose.yml config` and confirm non-zero exit plus a missing-env-file indicator from `docker compose`.
+9. [ ] Non-destructive negative-path check: run `bash ./scripts/docker-compose-with-env.sh --env-file /tmp/nonexistent-codeinfo-e2e.env -f docker-compose.e2e.yml config` and confirm non-zero exit plus a missing-env-file indicator from `docker compose`.
+10. [ ] Non-destructive malformed-env check: create a temporary malformed env file (for example a line without `=`), run `bash ./scripts/docker-compose-with-env.sh --env-file <malformed-file> -f docker-compose.e2e.yml config`, and confirm non-zero exit with parse failure evidence from `docker compose`.
+11. [ ] Env precedence check: run wrapper/config with two env files defining the same `CODEINFO_*` key differently and confirm later file value wins in rendered config.
 
 #### Implementation notes
 
@@ -572,13 +575,13 @@ Implement deterministic runtime env parsing and default CA export behavior in `s
 
 #### Subtasks
 
-1. [ ] Edit [server/entrypoint.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/entrypoint.sh) and implement deterministic parsing for `CODEINFO_REFRESH_CA_CERTS_ON_START`: trim whitespace, lowercase value, and treat only `true` as enabled; all other values (including empty/unset) are disabled. Reuse boolean-parsing behavior conventions from [server/src/config/codexEnvDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/config/codexEnvDefaults.ts) and [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/config/runtimeConfig.ts). Done when logs show enablement only for `true`/`TrUe`.
+1. [ ] Edit [server/entrypoint.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/entrypoint.sh) and implement deterministic parsing for `CODEINFO_REFRESH_CA_CERTS_ON_START`: trim whitespace, lowercase value, and treat only `true` as enabled; all other values (including empty/unset) are disabled. Use [server/src/config/codexEnvDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/config/codexEnvDefaults.ts) and [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/config/runtimeConfig.ts) as semantic references only; implement parsing directly in POSIX shell (no TS reuse/import). Done when logs show enablement only for `true`, `TrUe`, and whitespace-padded true values.
 2. [ ] In [server/entrypoint.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/entrypoint.sh), export `NODE_EXTRA_CA_CERTS` to `/etc/ssl/certs/ca-certificates.crt` when `CODEINFO_NODE_EXTRA_CA_CERTS` is empty/unset, otherwise export the provided path. Docs: Node CLI docs https://nodejs.org/docs/latest-v22.x/api/cli.html#node_extra_ca_certsfile. Done when runtime environment prints expected value in both default and override scenarios.
 3. [ ] Preserve existing startup structure in [server/entrypoint.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/entrypoint.sh): keep Chrome setup block unchanged and insert new cert/env logic immediately before final `exec node dist/index.js`. Done when `git diff` shows minimal movement and startup still reaches `exec node dist/index.js`.
 4. [ ] Validate disabled-refresh path (`CODEINFO_REFRESH_CA_CERTS_ON_START` unset, empty, or non-true value) starts server normally without invoking `update-ca-certificates`. Docs: Debian tool behavior https://manpages.debian.org/testing/ca-certificates/update-ca-certificates.8.en.html. Done when container starts and no refresh command appears in logs.
 5. [ ] Architecture documentation subtask. Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/design.md) with Mermaid diagrams for runtime gate flow (refresh flag parse -> NODE_EXTRA_CA_CERTS export -> optional refresh branch -> Node startup). Use Context7 `/mermaid-js/mermaid` + Mermaid syntax reference https://mermaid.js.org/intro/syntax-reference. Done when diagram text is valid Mermaid and reflects Task 5 behavior.
 6. [ ] Test subtask. Type: Runtime integration happy-path check (refresh disabled). Location: server container startup logs and health check output. Description: run disabled-refresh scenario and capture startup success without `update-ca-certificates`. Purpose: prove default path remains stable.
-7. [ ] Test subtask. Type: Runtime integration happy-path check (case-insensitive enable token). Location: server container startup logs with `CODEINFO_REFRESH_CA_CERTS_ON_START=TrUe`. Description: capture parsed enablement behavior. Purpose: prove mixed-case `true` is treated as enabled.
+7. [ ] Test subtask. Type: Runtime integration happy-path check (case-insensitive and whitespace-padded enable token). Location: server container startup logs with `CODEINFO_REFRESH_CA_CERTS_ON_START=TrUe` and `CODEINFO_REFRESH_CA_CERTS_ON_START=\"  true  \"`. Description: capture parsed enablement behavior for both values. Purpose: prove mixed-case and trimmed `true` are treated as enabled.
 8. [ ] Test subtask. Type: Runtime integration corner-case check (non-true tokens). Location: server container startup logs for values `false`, `1`, `yes`, empty, and unset. Description: capture parsed disabled behavior for each value. Purpose: prove only `true` enables refresh.
 9. [ ] Test subtask. Type: Runtime environment export check (default CA path). Location: server container environment/startup logs with `CODEINFO_NODE_EXTRA_CA_CERTS` unset. Description: capture exported `NODE_EXTRA_CA_CERTS` value before Node launch. Purpose: verify default export path correctness.
 10. [ ] Test subtask. Type: Runtime environment export check (custom CA path). Location: server container environment/startup logs with custom `CODEINFO_NODE_EXTRA_CA_CERTS`. Description: capture exported override value before Node launch. Purpose: verify explicit override propagation.
@@ -592,7 +595,7 @@ Implement deterministic runtime env parsing and default CA export behavior in `s
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up` then `npm run compose:down`
 5. [ ] Runtime test: refresh disabled path -> startup succeeds without refresh.
-6. [ ] Runtime test: case-insensitive enablement gate (`CODEINFO_REFRESH_CA_CERTS_ON_START=TrUe`) is parsed consistently.
+6. [ ] Runtime test: case-insensitive and whitespace-padded enablement gate (`CODEINFO_REFRESH_CA_CERTS_ON_START=TrUe` and `CODEINFO_REFRESH_CA_CERTS_ON_START=\"  true  \"`) is parsed consistently.
 7. [ ] Runtime smoke check after startup: verify server health endpoint responds.
 8. [ ] Runtime gate test: set `CODEINFO_REFRESH_CA_CERTS_ON_START` to non-true values (`false`, `1`, `yes`, unset, empty) and verify each remains refresh-disabled.
 9. [ ] Runtime env test: with `CODEINFO_NODE_EXTRA_CA_CERTS` unset, verify default `/etc/ssl/certs/ca-certificates.crt` is exported before Node starts.
@@ -661,7 +664,7 @@ Implement and verify the refresh-enabled certificate execution path and fail-fas
 
 #### Overview
 
-Update host helper install behavior so restricted-network users can install `git-credential-forwarder` via corporate npm registry when configured.
+Update host helper install behavior so restricted-network users can install `git-credential-forwarder` via corporate npm registry when configured, and validate command-shape logic with non-destructive script harnesses.
 
 #### Documentation Locations
 
@@ -674,13 +677,13 @@ Update host helper install behavior so restricted-network users can install `git
 #### Subtasks
 
 1. [ ] Edit [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) to conditionally apply `CODEINFO_NPM_REGISTRY` only for the `git-credential-forwarder` global install command. Keep registry wiring limited to that install step so other script behavior is unaffected. Docs: npm config precedence https://docs.npmjs.com/cli/v10/using-npm/config/. Done when set/unset runs follow different install paths as expected.
-2. [ ] Preserve the exact command anchor `npm install -g git-credential-forwarder` and existing script scaffolding (`set -euo pipefail`, environment exports, optional `cygpath` conversion). Add only minimal conditional logic around this anchor. Done when `git diff` confirms anchor command still exists verbatim.
-3. [ ] Verify default behavior in [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) with `CODEINFO_NPM_REGISTRY` unset/empty and confirm install still uses npm defaults. Docs: npm docs https://docs.npmjs.com/cli/v10/using-npm/config/. Done when unset/empty run succeeds without explicit registry override.
+2. [ ] Preserve the exact command anchor `npm install -g git-credential-forwarder` and existing script scaffolding (`set -euo pipefail`, environment exports, optional `cygpath` conversion). Add only minimal conditional logic around this anchor. For validation, do not perform uncontrolled host global installs; use disposable/mocked command harnesses. Done when `git diff` confirms anchor command still exists verbatim.
+3. [ ] Verify default behavior in [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) with `CODEINFO_NPM_REGISTRY` unset/empty using a temporary PATH shim that provides mock `npm`/`gcf-server` executables and captures arguments. Docs: npm docs https://docs.npmjs.com/cli/v10/using-npm/config/. Done when captured command output shows no registry override argument/env for unset/empty cases.
 4. [ ] Verify existing path-resolution exports are unchanged after edit: `GIT_CREDENTIAL_FORWARDER_GIT_PATH` assignment and `cygpath` branch behavior. File reference: [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh). Done when diff shows no unrelated logic changes in path handling.
 5. [ ] Architecture documentation subtask. Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/design.md) with Mermaid diagram for host-helper install flow (unset registry -> default npm path; set registry -> override path; invalid registry -> error path). Use Context7 `/mermaid-js/mermaid` + Mermaid syntax reference https://mermaid.js.org/intro/syntax-reference. Done when diagram text is valid Mermaid and reflects Task 7 behavior.
-6. [ ] Test subtask. Type: Script integration happy-path check (registry unset). Location: output from running [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) with `CODEINFO_NPM_REGISTRY` unset. Description: capture install command behavior and exit status. Purpose: prove default install behavior remains unchanged.
-7. [ ] Test subtask. Type: Script integration happy-path check (registry set). Location: output from running [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) with `CODEINFO_NPM_REGISTRY` set. Description: capture override install command behavior and exit status. Purpose: prove registry override is applied when set.
-8. [ ] Test subtask. Type: Script integration error-path check (invalid registry). Location: output from running [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) with intentionally invalid `CODEINFO_NPM_REGISTRY`. Description: capture non-zero exit and failure logs. Purpose: ensure failure mode is explicit and attributable to override.
+6. [ ] Test subtask. Type: Script integration happy-path check (registry unset). Location: harness output from running [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) with `CODEINFO_NPM_REGISTRY` unset and temporary mock `npm`/`gcf-server` binaries. Description: capture install command behavior and exit status without real global install side effects. Purpose: prove default install behavior remains unchanged.
+7. [ ] Test subtask. Type: Script integration happy-path check (registry set). Location: harness output from running [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) with `CODEINFO_NPM_REGISTRY` set and temporary mock `npm`/`gcf-server` binaries. Description: capture override install command behavior and exit status without real global install side effects. Purpose: prove registry override is applied when set.
+8. [ ] Test subtask. Type: Script integration error-path check (invalid registry). Location: harness output from running [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) with intentionally invalid `CODEINFO_NPM_REGISTRY` and a mock `npm` that exits non-zero when override is passed. Description: capture non-zero exit and failure logs. Purpose: ensure failure mode is explicit and attributable to override.
 9. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md) entry for [start-gcf-server.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/start-gcf-server.sh) to mention optional corporate registry override behavior. Done when entry reflects this change.
 10. [ ] Run root validation commands from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/AGENTS.md): `npm run lint --workspaces` and `npm run format:check --workspaces`. Done when both commands exit 0 and are recorded in this task’s `Implementation notes`.
 
@@ -690,9 +693,9 @@ Update host helper install behavior so restricted-network users can install `git
 2. [ ] `npm run build:summary:client`
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up` then `npm run compose:down`
-5. [ ] Run `start-gcf-server.sh` with `CODEINFO_NPM_REGISTRY` unset and verify behavior.
-6. [ ] Run `start-gcf-server.sh` with `CODEINFO_NPM_REGISTRY` set and verify registry override path.
-7. [ ] Run `start-gcf-server.sh` with intentionally invalid `CODEINFO_NPM_REGISTRY` and verify failure mode is clear and attributable to the override.
+5. [ ] Run `start-gcf-server.sh` with `CODEINFO_NPM_REGISTRY` unset using a temporary mock `npm`/`gcf-server` PATH harness and verify command behavior without host global install side effects.
+6. [ ] Run `start-gcf-server.sh` with `CODEINFO_NPM_REGISTRY` set using the same temporary mock harness and verify registry override command path.
+7. [ ] Run `start-gcf-server.sh` with intentionally invalid `CODEINFO_NPM_REGISTRY` using a mock `npm` that fails on invalid override and verify failure mode is clear and attributable to the override.
 
 #### Implementation notes
 

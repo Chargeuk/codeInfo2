@@ -166,6 +166,7 @@ The following behavior is mandatory and is the single source of truth for taskin
 - Supporting native Windows (non-WSL) runtime behavior beyond existing project support.
 - Changing unrelated networking requirements (for example LM Studio, Mongo, Chroma host routing).
 - Committing corporate secrets or internal hostnames as hardcoded defaults in tracked env files.
+- Updating dependency versions or lockfiles (for example React, MUI, TypeScript, Vite, Express, Mongoose, OpenAI SDK, `ws`, npm major version, or Docker base image tags).
 
 ### Questions
 - None.
@@ -230,9 +231,15 @@ The following behavior is mandatory and is the single source of truth for taskin
   - https://nodejs.org/docs/latest-v22.x/api/cli.html#node_extra_ca_certsfile
 - Debian `update-ca-certificates` reads trusted certs from `/usr/local/share/ca-certificates` and processes `.crt` files, which validates the dedicated corporate cert mount approach. Source: Debian man page.
   - https://manpages.debian.org/testing/ca-certificates/update-ca-certificates.8.en.html
+- Repository version validation from manifests/lockfile for this story scope:
+  - Node runtime/tooling baseline in repo is Node `22` (`node:22-slim` images; `engines.node >=22` in workspaces).
+  - npm in this environment is `10.9.4` and README prerequisite is npm `10+`; npm docs references in this story stay on CLI v10 URLs.
+  - Frontend dependency resolution is React `19.2.0`, MUI `6.5.0` (resolved from `^6.4.1`), TypeScript `5.9.3`, Vite `7.2.4`; this story remains infra-only and must not modify frontend dependency/interface surfaces.
+  - Server dependency resolution includes Express `5.1.0`, Mongoose `9.0.1`, OpenAI SDK `6.24.0`, and `ws` `8.18.3`; this story must not modify API/WS/storage contracts.
 - Tooling availability caveat from this research session:
   - `deepwiki` could not be used for this repository because it is not indexed there.
   - `context7` could not be used due API key failure in this environment.
+  - MUI MCP docs were available for Material UI `6.4.12`; repository lockfile currently resolves MUI to `6.5.0`, so MUI MCP references are informational only for this story because no MUI component/API work is in scope.
 
 ## Implementation Ideas
 
@@ -521,6 +528,8 @@ Add deterministic runtime cert-refresh behavior in server startup: strict boolea
 7. [ ] Runtime test: refresh disabled path -> startup succeeds without refresh.
 8. [ ] Runtime test: case-insensitive enablement (`CODEINFO_REFRESH_CA_CERTS_ON_START=TrUe`) behaves identically to `true`.
 9. [ ] Runtime smoke check after successful startup: verify server health endpoint still responds and no API startup regression was introduced by entrypoint changes.
+10. [ ] Runtime smoke check after successful startup: verify `GET /version` still responds with expected version payload.
+11. [ ] Protocol regression guard after runtime changes: run `npm run test:summary:server:unit -- --file src/test/unit/ws-server.test.ts`.
 
 #### Implementation notes
 
@@ -626,6 +635,11 @@ Perform end-to-end story validation against acceptance criteria, run full requir
 - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/design.md)
 - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/projectStructure.md)
 - [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/openapi.json)
+- [package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/package.json)
+- [package-lock.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/package-lock.json)
+- [client/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/client/package.json)
+- [server/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/package.json)
+- [common/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/common/package.json)
 - [scripts/test-summary-server-unit.mjs](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/scripts/test-summary-server-unit.mjs)
 - [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/test/unit/openapi.contract.test.ts)
 - [server/src/test/unit/openapi.prompts-route.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2Planning/server/src/test/unit/openapi.prompts-route.test.ts)
@@ -640,10 +654,11 @@ Perform end-to-end story validation against acceptance criteria, run full requir
 4. [ ] Ensure `projectStructure.md` reflects all file/folder additions and purpose changes.
 5. [ ] Verify root `.npmrc` remained unchanged for this story and explicitly record evidence that scoped npm registry mapping, npm auth handling, and proxy variables were not added.
 6. [ ] Verify API/WS/storage contract files remain unchanged for this story (`openapi.json`, REST route payload contracts, websocket payload contracts, and Mongo storage shapes), and record evidence.
-7. [ ] Reuse existing summary-wrapper targeting (`test:summary:server:unit -- --file ...`) and existing contract tests listed in Documentation Locations; do not add new contract-check scripts for this story.
-8. [ ] Verify final file-change scope remains infrastructure-only (`docker-compose*`, Dockerfiles, shell scripts, env/docs) with no `client/src` or `server/src` feature changes.
-9. [ ] Create a concise pull request summary comment covering all tasks, key decisions, and testing evidence.
-10. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [ ] Verify dependency manifests and lockfiles remain unchanged (`package.json`, `package-lock.json`, `client/package.json`, `server/package.json`, `common/package.json`) and record explicit diff evidence.
+8. [ ] Reuse existing summary-wrapper targeting (`test:summary:server:unit -- --file ...`) and existing contract tests listed in Documentation Locations; do not add new contract-check scripts for this story.
+9. [ ] Verify final file-change scope remains infrastructure-only (`docker-compose*`, Dockerfiles, shell scripts, env/docs) with no `client/src` or `server/src` feature changes.
+10. [ ] Create a concise pull request summary comment covering all tasks, key decisions, and testing evidence.
+11. [ ] Run full linting/format checks: `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -661,6 +676,7 @@ Perform end-to-end story validation against acceptance criteria, run full requir
 12. [ ] Targeted contract guards: `npm run test:summary:server:unit -- --file src/test/unit/openapi.contract.test.ts`
 13. [ ] Targeted contract guards: `npm run test:summary:server:unit -- --file src/test/unit/openapi.prompts-route.test.ts`
 14. [ ] Targeted protocol guard: `npm run test:summary:server:unit -- --file src/test/unit/ws-server.test.ts`
+15. [ ] Dependency immutability guard: `git diff --name-only -- package.json package-lock.json client/package.json server/package.json common/package.json` returns no changes.
 
 #### Implementation notes
 
@@ -668,3 +684,4 @@ Perform end-to-end story validation against acceptance criteria, run full requir
 - Include explicit command output/log references for `compose:build`, `compose:local:build`, and `compose:e2e:build`.
 - Record proof that `.npmrc` is unchanged and that scoped npm/auth/proxy support was intentionally not introduced.
 - Record proof that API/WS/storage contracts remained unchanged (including explicit `openapi.json` unchanged evidence).
+- Record proof that dependency manifests/lockfiles were unchanged for this infra-only story.

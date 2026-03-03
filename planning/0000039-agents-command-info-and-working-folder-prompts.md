@@ -884,7 +884,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 4. Frontend: add command-info popover interaction
 
 - Task Status: **__completed__**
-- Git Commits: **__to_do__**
+- Git Commits: `8fea1035`
 
 #### Overview
 
@@ -1002,6 +1002,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Testing step 4: `npm run compose:up` succeeded and started the full stack, including healthy `codeinfo2-server-1` and started `codeinfo2-client-1`.
 - Testing step 5: Manual Playwright-MCP validation on `http://host.docker.internal:5001/agents` confirmed `[agents.commandInfo.blocked] reason=no_command_selected` when clicking the disabled command-info wrapper and `[agents.commandInfo.open] commandName=improve_plan` after selecting `planning_agent` -> `improve plan`; popover content matched the selected command description, no browser-console errors were emitted, and required screenshots were saved to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000039-task4-command-info-disabled.png` and `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000039-task4-command-info-popover-open.png`.
 - Testing step 6: `npm run compose:down` succeeded and removed all compose services plus network `codeinfo2_internal`.
+- Git Commits: Recorded Task 4 implementation commit `8fea1035` in this task header before creating the git-commit marker commit.
 
 ---
 

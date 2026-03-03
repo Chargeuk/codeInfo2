@@ -538,8 +538,8 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 2. Server: implement prompt discovery service (case-insensitive `.github/prompts`, recursive markdown scan, deterministic ordering)
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__in_progress__**
+- Git Commits: `d54cac36`
 
 #### Overview
 
@@ -554,13 +554,13 @@ Implement the actual prompt discovery behavior in the server service layer with 
 
 #### Subtasks
 
-1. [ ] Add the service contract in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts).
+1. [x] Add the service contract in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts).
    - Files: [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
    - Read first: https://nodejs.org/api/fs.html and https://nodejs.org/api/path.html
    - Implement exactly: `listAgentPrompts({ agentName, working_folder })` returning `{ prompts: Array<{ relativePath: string; fullPath: string }> }`.
    - Place this near `listAgentCommands(...)` to reuse existing service patterns.
 
-2. [ ] Reuse existing validation/discovery helpers before any filesystem walk.
+2. [x] Reuse existing validation/discovery helpers before any filesystem walk.
    - Files: [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts)
    - Read first: https://nodejs.org/api/path.html
    - Implement exactly: call `discoverAgents()` to confirm `agentName` exists and call `resolveWorkingFolderWorkingDirectory(...)` to validate/resolve runtime path.
@@ -711,7 +711,9 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtasks 1-2: `listAgentPrompts({ agentName, working_folder })` has been added in `server/src/agents/service.ts` and currently validates agent existence via `discoverAgents()` plus working-folder resolution via `resolveWorkingFolderWorkingDirectory(...)` before returning a temporary empty result.
+- Commit evidence: implemented in `d54cac36` while landing Task 1 route contract wiring; this is valid shared progress because Task 1 required the service dependency to exist.
+- Remaining subtasks in this task are still pending (case-insensitive `.github/prompts` resolution, recursive markdown discovery, deterministic sorting, service-specific tests, observability logs, and this task's full wrapper/manual verification).
 
 ---
 

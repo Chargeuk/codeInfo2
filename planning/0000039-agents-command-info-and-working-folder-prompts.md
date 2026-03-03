@@ -730,7 +730,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 3. Client Message Contract: add `listAgentPrompts` API client and contract tests
 
 - Task Status: **__completed__**
-- Git Commits: **__to_do__**
+- Git Commits: `a557d85e`
 
 #### Overview
 

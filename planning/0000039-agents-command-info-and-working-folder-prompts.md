@@ -343,9 +343,10 @@ Define the new REST message contract at the router boundary before any frontend 
 
 #### Documentation Locations (External References Only)
 
-- Express routing and request/response basics: https://expressjs.com/en/guide/routing.html
-- HTTP status semantics (`400`, `404`, `500`): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
-- Node test runner (`node:test`) patterns used in server tests: https://nodejs.org/api/test.html
+- Express routing and router handler behavior: https://expressjs.com/en/guide/routing.html (used for `Router`, route registration order, params/query access, and handler response flow in `agentsCommands.ts`)
+- HTTP status semantics (`400`, `404`, `500`): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status (used to keep error mapping precise and consistent with REST contract expectations)
+- Node test runner (`node:test`) patterns: https://nodejs.org/api/test.html (used for writing deterministic unit tests and subtests in server router test files)
+- OpenAPI 3.1 specification: https://swagger.io/specification/ (used to update `GET /agents/{agentName}/prompts` schema, params, and error response contracts correctly)
 
 #### Subtasks
 
@@ -442,9 +443,9 @@ Implement the actual prompt discovery behavior in the server service layer with 
 
 #### Documentation Locations (External References Only)
 
-- Node `fs` API (`readdir`, `Dirent`, `lstat`/`stat`): https://nodejs.org/api/fs.html
-- Node `path` API (`resolve`, `relative`, separators): https://nodejs.org/api/path.html
-- Node test runner (`node:test`) patterns: https://nodejs.org/api/test.html
+- Node `fs` API (`readdir`, `Dirent`, symlink handling via `lstat`): https://nodejs.org/api/fs.html (used to implement recursive prompt discovery, markdown filtering, and symlink ignore behavior)
+- Node `path` API (`resolve`, `relative`, separator normalization): https://nodejs.org/api/path.html (used to guarantee safe relative paths and deterministic slash-normalized output)
+- Node test runner (`node:test`) patterns: https://nodejs.org/api/test.html (used for filesystem-fixture unit tests and deterministic assertion structure)
 
 #### Subtasks
 
@@ -531,9 +532,9 @@ Add the frontend API function that consumes the new server prompt-discovery cont
 
 #### Documentation Locations (External References Only)
 
-- Fetch API basics: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
-- URL query parameter handling: https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
-- Jest assertions for request/response shape tests: https://jestjs.io/docs/expect
+- Fetch API basics: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API (used to implement `GET /agents/:agentName/prompts` call and non-2xx handling in API client)
+- URL query parameter handling (`URLSearchParams`): https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams (used for correct `working_folder` encoding and stable query construction)
+- Jest `expect` assertions: https://jestjs.io/docs/expect (used to assert URL composition, payload parsing, and error-shape behavior in client API tests)
 
 #### Subtasks
 
@@ -601,10 +602,10 @@ Introduce the command-info icon and popover interaction only. This task does not
 
 #### Documentation Locations (External References Only)
 
-- MUI Popover component docs (v6.4.12): https://llms.mui.com/material-ui/6.4.12/components/popover.md
-- MUI IconButton API docs (v6.4.12): https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
-- MUI v6 upgrade guidance: https://mui.com/material-ui/migration/upgrade-to-v6/
-- React Testing Library interaction patterns: https://testing-library.com/docs/react-testing-library/intro
+- MUI Popover docs (MUI MCP mirror v6.4.12): https://llms.mui.com/material-ui/6.4.12/components/popover.md (used for anchor behavior, open/close semantics, and placement patterns)
+- MUI IconButton API docs (MUI MCP mirror v6.4.12): https://llms.mui.com/material-ui/6.4.12/api/icon-button.md (used for disabled-state behavior and button semantics in command row)
+- MUI v6 migration notes: https://mui.com/material-ui/migration/upgrade-to-v6/ (used to confirm compatibility assumptions while using v6-era APIs)
+- React Testing Library intro: https://testing-library.com/docs/react-testing-library/intro (used for interaction-level component tests around popover open/close and disabled controls)
 
 #### Subtasks
 
@@ -667,8 +668,9 @@ Remove the old always-visible inline command description behavior now that comma
 
 #### Documentation Locations (External References Only)
 
-- React Testing Library interaction patterns: https://testing-library.com/docs/react-testing-library/intro
-- DOM Testing Library queries guide: https://testing-library.com/docs/queries/about
+- React Testing Library intro: https://testing-library.com/docs/react-testing-library/intro (used for rendering and user interaction tests after inline description removal)
+- DOM Testing Library query priority guide: https://testing-library.com/docs/queries/about (used to keep assertions user-facing and resilient when checking removed text/UI)
+- Jest `expect` assertions: https://jestjs.io/docs/expect (used for negative assertions like “text not present” and control-state regression checks)
 
 #### Subtasks
 
@@ -730,9 +732,10 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
 
 #### Documentation Locations (External References Only)
 
-- React state and effects guidance: https://react.dev/learn/synchronizing-with-effects
-- React controlled inputs: https://react.dev/reference/react-dom/components/input
-- React Testing Library async/state tests: https://testing-library.com/docs/dom-testing-library/api-async
+- React effects synchronization: https://react.dev/learn/synchronizing-with-effects (used for safe discovery lifecycle updates and stale-response guards)
+- React controlled input reference: https://react.dev/reference/react-dom/components/input (used for `working_folder` commit behavior and Enter/blur handling)
+- React event handling: https://react.dev/learn/responding-to-events (used to prevent unintended form submission from `working_folder` Enter key)
+- DOM Testing Library async APIs: https://testing-library.com/docs/dom-testing-library/api-async (used for timing-sensitive lifecycle tests and async state assertions)
 
 #### Subtasks
 
@@ -817,9 +820,11 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 
 #### Documentation Locations (External References Only)
 
-- MUI Select and TextField docs (v6.4.12): https://llms.mui.com/material-ui/6.4.12/components/selects.md
-- MUI v6 upgrade guidance: https://mui.com/material-ui/migration/upgrade-to-v6/
-- React Testing Library async/state tests: https://testing-library.com/docs/dom-testing-library/api-async
+- MUI Select docs (MUI MCP mirror v6.4.12): https://llms.mui.com/material-ui/6.4.12/components/selects.md (used for dropdown structure, option rendering, and empty-option behavior)
+- MUI Button API docs (MUI MCP mirror v6.4.12): https://llms.mui.com/material-ui/6.4.12/api/button.md (used for execute-button disabled/enabled behavior)
+- MUI v6 migration notes: https://mui.com/material-ui/migration/upgrade-to-v6/ (used to confirm supported API usage in current major version)
+- React conditional rendering: https://react.dev/learn/conditional-rendering (used for prompts-row show/hide behavior across success/error/empty states)
+- DOM Testing Library async APIs: https://testing-library.com/docs/dom-testing-library/api-async (used for UI transition assertions after async discovery responses)
 
 #### Subtasks
 
@@ -898,10 +903,12 @@ Implement prompt execution by composing the canonical instruction string and dis
 
 #### Documentation Locations (External References Only)
 
-- React event handling: https://react.dev/learn/responding-to-events
-- Existing API error handling patterns in client tests (Jest): https://jestjs.io/docs/expect
-- MUI Button interaction states: https://llms.mui.com/material-ui/6.4.12/api/button.md
-- MUI v6 upgrade guidance: https://mui.com/material-ui/migration/upgrade-to-v6/
+- React event handling: https://react.dev/learn/responding-to-events (used for execute-prompt click orchestration and preserving existing UX behavior)
+- Fetch API basics: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API (used because execute prompt must reuse existing instruction run API path)
+- MUI Button API docs (MUI MCP mirror v6.4.12): https://llms.mui.com/material-ui/6.4.12/api/button.md (used for execute-button interaction and disabled rules)
+- MUI v6 migration notes: https://mui.com/material-ui/migration/upgrade-to-v6/ (used to validate v6 compatibility assumptions)
+- Jest `expect` assertions: https://jestjs.io/docs/expect (used for exact payload/composition assertions and conflict behavior checks)
+- DOM Testing Library async APIs: https://testing-library.com/docs/dom-testing-library/api-async (used for run-start/run-error async UI assertions)
 
 #### Subtasks
 
@@ -987,8 +994,9 @@ Capture final behavior in repository docs once implementation is complete, inclu
 
 #### Documentation Locations (External References Only)
 
-- Markdown guide for consistent formatting: https://www.markdownguide.org/basic-syntax/
-- Mermaid syntax (if diagrams updated): https://mermaid.js.org/syntax/sequenceDiagram.html
+- Markdown syntax guide: https://www.markdownguide.org/basic-syntax/ (used for consistent project-doc text updates)
+- Mermaid sequence diagram syntax: https://mermaid.js.org/syntax/sequenceDiagram.html (used when documenting final API/UI flow diagrams)
+- OpenAPI 3.1 specification: https://swagger.io/specification/ (used to verify that final route schema and error mapping documentation match contract format)
 
 #### Subtasks
 
@@ -1042,10 +1050,12 @@ Run full validation for the complete story, verify acceptance criteria end-to-en
 
 #### Documentation Locations (External References Only)
 
-- Docker/Compose basics: https://docs.docker.com/compose/
-- Playwright docs: https://playwright.dev/docs/intro
-- Jest docs: https://jestjs.io/docs/getting-started
-- Cucumber guides: https://cucumber.io/docs/guides/
+- Docker Compose docs: https://docs.docker.com/compose/ (used for build/up/down validation steps and troubleshooting flow)
+- Playwright introduction: https://playwright.dev/docs/intro (used for manual/automated acceptance checks and screenshot evidence guidance)
+- Jest getting started: https://jestjs.io/docs/getting-started (used for interpreting client test wrapper outcomes and failure triage)
+- Cucumber guide (10-minute tutorial subpath): https://cucumber.io/docs/guides/10-minute-tutorial/ (used as canonical Cucumber guide reference for server BDD test expectations)
+- Markdown syntax guide: https://www.markdownguide.org/basic-syntax/ (used for final PR summary and documentation consistency)
+- Mermaid sequence diagram syntax: https://mermaid.js.org/syntax/sequenceDiagram.html (used when validating diagram updates in final verification)
 
 #### Subtasks
 

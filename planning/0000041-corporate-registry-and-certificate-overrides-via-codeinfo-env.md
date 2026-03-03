@@ -16,6 +16,7 @@ At the moment, users must manually edit multiple files (`.npmrc`, `server/Docker
 This story introduces a generic configuration approach based on `CODEINFO_*` environment variables so users can place corporate overrides in one local env file (for example `server/.env.local`) instead of modifying source-controlled files. The default open-source behavior must remain unchanged when overrides are not set.
 For v1, this story is intentionally narrow: single default npm registry only (no scoped npm registry rules), no npm auth mechanism, and no proxy support.
 For certificate trust, v1 standardizes on mounting only corporate `.crt` files from a dedicated host directory into `/usr/local/share/ca-certificates/codeinfo-corp:ro` (not mounting host `/etc/ssl/certs`), then conditionally refreshing the runtime CA store.
+Documentation for this story must add a new README subsection immediately after `### Mac & WSL That have followed the WSL setup above` with a clear corporate-restricted-network title and setup steps.
 
 Expected user outcome:
 - Standard users keep current behavior with no extra setup.
@@ -40,12 +41,15 @@ Expected user outcome:
 - Server runtime can refresh container CA trust on startup when corporate certs are mounted and CA refresh is enabled.
 - Corporate certificate settings support `NODE_EXTRA_CA_CERTS` behavior for Node tooling.
 - Corporate cert mounts use a dedicated host cert directory mapped to `/usr/local/share/ca-certificates/codeinfo-corp:ro`; full host `/etc/ssl/certs` mounts are not part of this story design.
+- README includes a tested concrete example value for `CODEINFO_CORP_CERTS_DIR` (example path + expected cert file shape) so users can follow a known-good setup quickly.
+- README explicitly documents `CODEINFO_REFRESH_CA_CERTS_ON_START` default behavior as `false` unless corporate cert mount usage is enabled.
 - Default behavior remains unchanged when no `CODEINFO_*` overrides are set.
 - The solution avoids forcing users to manually edit root `.npmrc` for the v1 single-registry corporate case.
 - v1 supports only a single default npm registry URL and explicitly does not include scoped npm registry mapping.
 - Corporate registry/certificate overrides apply consistently to main, local, and e2e compose workflows.
 - v1 does not require or implement npm authentication handling.
 - README and env documentation clearly explain how to configure Mac/WSL corporate environments using local env files only.
+- README contains a new dedicated section immediately after `### Mac & WSL That have followed the WSL setup above`, titled `### Corporate Registry and Certificate Overrides (Restricted Networks)`.
 
 ### Out Of Scope
 
@@ -60,10 +64,7 @@ Expected user outcome:
 - Committing corporate secrets or internal hostnames as hardcoded defaults in tracked env files.
 
 ### Questions
-
-1. Question: Should docs include a concrete default example value for `CODEINFO_CORP_CERTS_DIR`, or keep it generic as "set this to your local corporate cert folder path"?
-
-2. Question: Should `CODEINFO_REFRESH_CA_CERTS_ON_START` be explicitly documented as defaulting to `false` unless corporate cert mount is configured?
+- None.
 
 ## Implementation Ideas
 
@@ -82,3 +83,7 @@ Expected user outcome:
 - Update server entrypoint to conditionally run `update-ca-certificates` at startup for mounted corporate certs.
 - Keep repo defaults safe by leaving `CODEINFO_*` unset in committed env files and documenting local-only overrides.
 - Explicitly document that v1 does not include proxy support or npm auth/scoped registry support.
+- Add a README section directly after `### Mac & WSL That have followed the WSL setup above` titled `### Corporate Registry and Certificate Overrides (Restricted Networks)` with:
+  - a tested concrete example for `CODEINFO_CORP_CERTS_DIR`,
+  - explicit default semantics for `CODEINFO_REFRESH_CA_CERTS_ON_START=false`,
+  - step-by-step setup instructions for corporate WSL users.

@@ -415,6 +415,7 @@ export async function startAgentCommand(params: {
   working_folder?: string;
   sourceId?: string;
   source: 'REST' | 'MCP';
+  chatFactory?: typeof getChatInterface;
 }): Promise<{
   agentName: string;
   commandName: string;
@@ -430,6 +431,7 @@ export async function startAgentCommand(params: {
   }
 
   const commandName = params.commandName.trim();
+  const startStep = params.startStep ?? 1;
   const sourceId =
     typeof params.sourceId === 'string' && params.sourceId.trim().length > 0
       ? params.sourceId.trim()
@@ -445,7 +447,21 @@ export async function startAgentCommand(params: {
       stage: 'service_received',
       agentName: params.agentName,
       commandName,
-      startStep: params.startStep ?? null,
+      startStep,
+      source: params.source,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV_0000040_T03_RUNNER_START_STEP',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      stage: 'service_defaulted',
+      path: 'startAgentCommand',
+      agentName: params.agentName,
+      commandName,
+      startStep,
       source: params.source,
     },
   });
@@ -573,11 +589,16 @@ export async function startAgentCommand(params: {
           commandsRoot: commandsDir,
           commandFilePath,
           commandName,
+          startStep,
           conversationId,
           working_folder: params.working_folder,
           signal: undefined,
           source: params.source,
-          runAgentInstructionUnlocked,
+          runAgentInstructionUnlocked: (runParams) =>
+            runAgentInstructionUnlocked({
+              ...runParams,
+              chatFactory: params.chatFactory,
+            }),
           lockAlreadyHeld: true,
         });
       } catch (err) {
@@ -626,6 +647,7 @@ export async function runAgentCommand(params: {
     typeof params.sourceId === 'string' && params.sourceId.trim().length > 0
       ? params.sourceId.trim()
       : undefined;
+  const startStep = params.startStep ?? 1;
 
   append({
     level: 'info',
@@ -636,7 +658,21 @@ export async function runAgentCommand(params: {
       stage: 'service_received',
       agentName: params.agentName,
       commandName: params.commandName,
-      startStep: params.startStep ?? null,
+      startStep,
+      source: params.source,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV_0000040_T03_RUNNER_START_STEP',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      stage: 'service_defaulted',
+      path: 'runAgentCommand',
+      agentName: params.agentName,
+      commandName: params.commandName,
+      startStep,
       source: params.source,
     },
   });
@@ -695,6 +731,7 @@ export async function runAgentCommand(params: {
     commandsRoot,
     commandFilePath,
     commandName: params.commandName,
+    startStep,
     conversationId: params.conversationId,
     working_folder: params.working_folder,
     signal: params.signal,

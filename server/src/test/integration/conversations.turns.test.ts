@@ -173,6 +173,58 @@ test('inflight snapshot returns command metadata when present', async () => {
   }
 });
 
+test('persisted turns preserve absolute command metadata for startStep-offset runs', async () => {
+  const turns: TurnSummary[] = [
+    {
+      turnId: 't-offset-assistant',
+      conversationId: 'c-offset',
+      role: 'assistant',
+      content: 'offset result',
+      model: 'gpt-5.1-codex-max',
+      provider: 'codex',
+      source: 'REST',
+      toolCalls: null,
+      command: { name: 'offset', stepIndex: 3, totalSteps: 5 },
+      status: 'ok',
+      createdAt: new Date('2025-01-06T10:00:00Z'),
+    },
+    {
+      turnId: 't-offset-user',
+      conversationId: 'c-offset',
+      role: 'user',
+      content: 'offset input',
+      model: 'gpt-5.1-codex-max',
+      provider: 'codex',
+      source: 'REST',
+      toolCalls: null,
+      command: { name: 'offset', stepIndex: 3, totalSteps: 5 },
+      status: 'ok',
+      createdAt: new Date('2025-01-06T09:59:00Z'),
+    },
+  ];
+
+  const res = await request(
+    appWith({
+      findConversationById: async () => ({ _id: 'c-offset', archivedAt: null }),
+      listAllTurns: async () => ({ items: turns }),
+    }),
+  )
+    .get('/conversations/c-offset/turns')
+    .expect(200);
+
+  assert.equal(res.body.items[0].turnId, 't-offset-assistant');
+  assert.deepEqual(res.body.items[0].command, {
+    name: 'offset',
+    stepIndex: 3,
+    totalSteps: 5,
+  });
+  assert.deepEqual(res.body.items[1].command, {
+    name: 'offset',
+    stepIndex: 3,
+    totalSteps: 5,
+  });
+});
+
 test('inflight snapshot omits command metadata when absent', async () => {
   createInflight({
     conversationId: 'c1',

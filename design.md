@@ -1715,8 +1715,9 @@ runAgentInstruction()
   - `GET /agents/:agentName/commands` returns `{ commands: [{ name, description, disabled, stepCount, sourceId?, sourceLabel? }] }`.
   - `stepCount` is required and must be an integer `>= 1`; valid command files use `command.items.length`, and invalid/disabled entries use sentinel `stepCount: 1` with `disabled: true`.
   - `POST /agents/:agentName/commands/run` accepts `{ commandName, startStep?, conversationId?, working_folder?, sourceId? }` and returns `{ agentName, commandName, conversationId, modelId }`.
-  - `startStep` is optional for backward compatibility in this contract step; omitted requests remain valid.
-  - Route-level start-step validation in this step enforces type-only checks: when provided, `startStep` must be an integer. Invalid values map deterministically to `400 { error: 'invalid_request', code: 'INVALID_START_STEP', message: 'startStep must be between 1 and N' }`.
+  - `startStep` is optional for backward compatibility; when omitted, service defaults to `1` before entering runner execution.
+  - Route-level validation enforces integer shape when `startStep` is present; runtime runner validation enforces range against loaded command file step count (`1..N`).
+  - Invalid values map deterministically to `400 { error: 'invalid_request', code: 'INVALID_START_STEP', message: 'startStep must be between 1 and N' }`, where `N` is runtime `command.items.length`.
   - MCP `run_command` input remains unchanged in this step and does not accept `startStep`.
 - Command discovery includes ingested repo commands at `<ingestRoot>/codex_agents/<agentName>/commands` when the agent exists locally; ingested entries include `sourceId = RepoEntry.containerPath`, `sourceLabel = RepoEntry.id` (fallback to ingest root basename), and the list is sorted by display label `<name>` or `<name> - [sourceLabel]`.
 - Command runs accept optional `sourceId` (container path). Unknown `sourceId` values return a 404 `{ error: 'not_found' }`, and the server logs `DEV-0000034:T2:command_run_resolved` with the resolved command path.
@@ -1740,16 +1741,22 @@ sequenceDiagram
 
   UI->>API: POST /agents/:agentName/commands/run\n{ commandName, startStep?, conversationId?, working_folder? }
   Note over API: Creates an AbortController\n(req 'aborted' / res 'close' => controller.abort())
-  API->>Svc: runAgentCommand(..., signal)
-  Svc->>Runner: runAgentCommandRunner(...)\n(load JSON + acquire lock)
+  API->>Svc: startAgentCommand(...)
+  Svc->>Svc: startStep = request.startStep ?? 1
+  Svc->>Runner: runAgentCommandRunner(..., startStep)\n(load JSON + acquire lock)
   Runner->>Runner: tryAcquireConversationLock(conversationId)
+  Runner->>Runner: validate startStep in [1..N]\nconvert startIndex = startStep - 1
 
   alt RUN_IN_PROGRESS
     Runner-->>Svc: throw RUN_IN_PROGRESS
     Svc-->>API: error
     API-->>UI: 409 conflict
+  else INVALID_START_STEP
+    Runner-->>Svc: throw INVALID_START_STEP
+    Svc-->>API: error
+    API-->>UI: 400 invalid_request\ncode=INVALID_START_STEP\nmessage=startStep must be between 1 and N
   else ok
-    loop for each step
+    loop for each step i=startIndex..N-1
       alt signal.aborted
         Runner-->>Runner: stop (do not start next step)
       else continue
@@ -1763,7 +1770,7 @@ sequenceDiagram
     Runner->>Runner: releaseConversationLock(conversationId)
     Runner-->>Svc: { agentName, commandName, conversationId, modelId }
     Svc-->>API: result
-    API-->>UI: 200 { ... }
+    API-->>UI: 202 { status: started, ... }\n(background run path)
   end
 
   opt User cancels

@@ -861,7 +861,7 @@ Add the run-request message contract for optional `startStep` with strict input 
 
 ### 3. Server Behavior: execute command runs from `startStep` with backward compatibility
 
-- Task Status: **to_do**
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview
@@ -881,22 +881,22 @@ Implement runtime start-step behavior in the command runner. This task covers st
 
 #### Subtasks
 
-1. [ ] Add optional `startStep` handling in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) for both `startAgentCommand` and `runAgentCommand`, defaulting omitted values to `1`.
+1. [x] Add optional `startStep` handling in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) for both `startAgentCommand` and `runAgentCommand`, defaulting omitted values to `1`.
    - Docs to read first: https://www.typescriptlang.org/docs/handbook/2/functions.html, https://nodejs.org/api/test.html.
    - Files to read/edit: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts).
    - Acceptance criteria coverage: AC 6, AC 24.
    - Done when: both service entry paths pass `startStep=1` when caller omits it.
-2. [ ] Update runner execution entrypoint in [server/src/agents/commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) to validate `startStep` against runtime total steps, convert `1..N` to zero-based index at boundary, and execute from selected step.
+2. [x] Update runner execution entrypoint in [server/src/agents/commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) to validate `startStep` against runtime total steps, convert `1..N` to zero-based index at boundary, and execute from selected step.
    - Docs to read first: https://www.typescriptlang.org/docs/handbook/2/functions.html.
    - Files to read/edit: [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts).
    - Acceptance criteria coverage: AC 6, AC 9, AC 24.
    - Done when: runner starts at selected step and still emits normal step metadata for remaining steps.
-3. [ ] Throw typed `INVALID_START_STEP` runtime errors in [server/src/agents/commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) for out-of-range values.
+3. [x] Throw typed `INVALID_START_STEP` runtime errors in [server/src/agents/commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) for out-of-range values.
    - Docs to read first: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status.
    - Files to read/edit: [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts).
    - Acceptance criteria coverage: AC 7, AC 25.
    - Done when: out-of-range values fail deterministically with route-mapped code/message.
-4. [ ] Add a runner unit test for omitted `startStep` defaulting to `1`.
+4. [x] Add a runner unit test for omitted `startStep` defaulting to `1`.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
    - Description: Run command without `startStep` and assert execution begins at first step.
@@ -905,7 +905,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Files to read/edit: [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
    - Acceptance criteria coverage: AC 24.
    - Done when: test fails if omitted value does not start at step 1.
-5. [ ] Add a runner unit test for valid non-default `startStep` execution offsets.
+5. [x] Add a runner unit test for valid non-default `startStep` execution offsets.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
    - Description: Run with `startStep > 1` and assert skipped earlier steps and correct emitted metadata.
@@ -914,7 +914,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Files to read/edit: [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
    - Acceptance criteria coverage: AC 6, AC 9.
    - Done when: test fails if runner still starts at step 1.
-6. [ ] Add a runner unit test for lower-bound `startStep = 1`.
+6. [x] Add a runner unit test for lower-bound `startStep = 1`.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
    - Description: Assert boundary value `1` is accepted and executes full command.
@@ -923,7 +923,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Files to read/edit: [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
    - Acceptance criteria coverage: AC 6, AC 25.
    - Done when: test fails if boundary lower value is rejected.
-7. [ ] Add a runner unit test for upper-bound `startStep = N`.
+7. [x] Add a runner unit test for upper-bound `startStep = N`.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
    - Description: Assert boundary value `N` executes only final step and succeeds.
@@ -932,7 +932,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Files to read/edit: [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
    - Acceptance criteria coverage: AC 6, AC 25.
    - Done when: test fails if upper valid boundary is rejected.
-8. [ ] Add a runner unit test for out-of-range `startStep = 0`.
+8. [x] Add a runner unit test for out-of-range `startStep = 0`.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
    - Description: Assert deterministic `INVALID_START_STEP` failure with message `startStep must be between 1 and N`.
@@ -941,7 +941,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Files to read/edit: [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
    - Acceptance criteria coverage: AC 7, AC 25.
    - Done when: test fails if lower out-of-range values are accepted or message drifts.
-9. [ ] Add a runner unit test for out-of-range `startStep = N+1`.
+9. [x] Add a runner unit test for out-of-range `startStep = N+1`.
    - Test type: `Unit`.
    - Test location: [server/src/test/unit/agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
    - Description: Assert deterministic `INVALID_START_STEP` failure with message `startStep must be between 1 and N`.
@@ -950,7 +950,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Files to read/edit: [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts).
    - Acceptance criteria coverage: AC 7, AC 25.
    - Done when: test fails if upper out-of-range values are accepted or message drifts.
-10. [ ] Add an integration test for omission behavior on `startAgentCommand` entry path.
+10. [x] Add an integration test for omission behavior on `startAgentCommand` entry path.
 
 - Test type: `Integration`.
 - Test location: [server/src/test/integration/agents-run-client-conversation-id.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-client-conversation-id.test.ts).
@@ -961,7 +961,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
 - Acceptance criteria coverage: AC 24.
 - Done when: test fails if omission path diverges from step-1 default.
 
-11. [ ] Add an integration test for omission behavior on `runAgentCommand` entry path.
+11. [x] Add an integration test for omission behavior on `runAgentCommand` entry path.
 
 - Test type: `Integration`.
 - Test location: [server/src/test/integration/agents-run-client-conversation-id.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-client-conversation-id.test.ts).
@@ -972,7 +972,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
 - Acceptance criteria coverage: AC 24.
 - Done when: test fails if omission path diverges from step-1 default.
 
-12. [ ] Add an integration websocket-stream test proving `startStep > 1` preserves absolute command metadata (`stepIndex`, `totalSteps`) in emitted conversation events.
+12. [x] Add an integration websocket-stream test proving `startStep > 1` preserves absolute command metadata (`stepIndex`, `totalSteps`) in emitted conversation events.
 
 - Test type: `Integration` (websocket).
 - Test location: [server/src/test/integration/agents-run-ws-stream.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-ws-stream.test.ts).
@@ -983,7 +983,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
 - Acceptance criteria coverage: AC 6, AC 24.
 - Done when: test fails if websocket metadata shifts to relative numbering or incorrect totals.
 
-13. [ ] Add an integration persistence test proving `startStep > 1` preserves stored turn command metadata (`stepIndex`, `totalSteps`) for conversation history.
+13. [x] Add an integration persistence test proving `startStep > 1` preserves stored turn command metadata (`stepIndex`, `totalSteps`) for conversation history.
 
 - Test type: `Integration` (persistence).
 - Test location: [server/src/test/integration/conversations.turns.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/conversations.turns.test.ts).
@@ -994,7 +994,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
 - Acceptance criteria coverage: AC 6, AC 24.
 - Done when: test fails if persisted turn metadata shape or numbering semantics drift.
 
-14. [ ] Add an integration test for step-count drift where command metadata is stale but runtime command file has fewer steps, and assert deterministic `INVALID_START_STEP` failure is returned.
+14. [x] Add an integration test for step-count drift where command metadata is stale but runtime command file has fewer steps, and assert deterministic `INVALID_START_STEP` failure is returned.
 
 - Test type: `Integration`.
 - Test location: [server/src/test/integration/agents-run-client-conversation-id.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-client-conversation-id.test.ts).
@@ -1005,7 +1005,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
 - Acceptance criteria coverage: AC 7, AC 24, AC 25.
 - Done when: test fails if stale client metadata can bypass runtime range validation.
 
-15. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for runtime `startStep` execution behavior and validation paths, including a Mermaid sequence diagram for execution flow and invalid-range failure handling.
+15. [x] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for runtime `startStep` execution behavior and validation paths, including a Mermaid sequence diagram for execution flow and invalid-range failure handling.
 
 - Document name: `design.md`.
 - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
@@ -1016,7 +1016,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
 - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
 - Done when: `design.md` includes correct runtime behavior and valid Mermaid syntax for the flow/error diagram.
 
-16. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-3 runner/service/test files added, removed, or modified.
+16. [x] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-3 runner/service/test files added, removed, or modified.
 
 - Document name: `projectStructure.md`.
 - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
@@ -1028,7 +1028,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
 - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
 - Done when: `projectStructure.md` accurately reflects task-3 file layout and explicitly lists all added and removed files.
 
-17. [ ] Add deterministic diagnostic log marker [DEV_0000040_T03_RUNNER_START_STEP] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+17. [x] Add deterministic diagnostic log marker [DEV_0000040_T03_RUNNER_START_STEP] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
 
 - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
 - Files to read/edit: [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts), [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts).
@@ -1036,7 +1036,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
 - Manual Playwright-MCP expected outcome: command execution from a non-default step logs marker once at run start with selected `startStep` and runtime `totalSteps` values.
 - Done when: [DEV_0000040_T03_RUNNER_START_STEP] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
 
-18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+18. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
 - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
@@ -1048,16 +1048,28 @@ Implement runtime start-step behavior in the command runner. This task covers st
 - Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
 - Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server`
+1. [x] `npm run build:summary:server`
    - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit`
+2. [x] `npm run test:summary:server:unit`
    - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber`
+3. [x] `npm run test:summary:server:cucumber`
    - Use for server Cucumber feature/step coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands (`--tags` / `--feature` / `--scenario`), then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtasks 1-3: Defaulted omitted `startStep` to `1` in both service entrypoints, passed `startStep` through to the runner, added runtime `1..N` validation in `runAgentCommandRunner`, and started execution from zero-based `startIndex = startStep - 1`.
+- Subtasks 4-9: Added runner unit coverage for omitted/default `startStep`, non-default offsets, both valid boundaries (`1`, `N`), and deterministic `INVALID_START_STEP` errors for `0` and `N+1`.
+- Subtasks 10-11: Added integration coverage for both service entrypoints (`startAgentCommand` and `runAgentCommand`) proving omitted `startStep` runs from step 1.
+- Subtask 12: Added websocket integration coverage proving `startStep > 1` preserves absolute command metadata (`stepIndex`, `totalSteps`) in streamed inflight snapshots.
+- Subtask 13: Added conversation-turns integration coverage proving persisted `command` metadata keeps absolute step numbering for start-step offset histories.
+- Subtask 14: Added integration coverage for runtime step-count drift rejection with deterministic `INVALID_START_STEP` reason text from runtime command file step count.
+- Subtask 15: Updated command-run design docs to describe service defaulting, runner boundary conversion, runtime range validation, and `INVALID_START_STEP` failure propagation with an updated Mermaid sequence.
+- Subtask 16: Updated `projectStructure.md` entries for Task 3-modified runner/service/test files and expanded test coverage descriptions.
+- Subtask 17: Added deterministic `DEV_0000040_T03_RUNNER_START_STEP` marker emissions at service defaulting and runner start stages with selected `startStep` and runtime `totalSteps` context.
+- Subtask 18: Ran `npm run lint --workspaces` (pass with existing repo-wide import-order warnings) and `npm run format:check --workspaces`; formatted new server integration tests, then re-ran format checks (server/common pass; client still fails on pre-existing files `client/src/pages/AgentsPage.tsx` and `client/src/test/agentsPage.descriptionPopover.test.tsx`).
+- Testing 1: `npm run build:summary:server` passed (`status: passed`, `warnings: 0`) with log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run test:summary:server:unit` passed (`tests run: 941`, `failed: 0`) with log `test-results/server-unit-tests-2026-03-03T20-12-33-615Z.log`.
+- Testing 3: `npm run test:summary:server:cucumber` passed (`tests run: 68`, `failed: 0`) with log `test-results/server-cucumber-tests-2026-03-03T20-21-20-484Z.log`.
 
 ---
 

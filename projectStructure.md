@@ -709,7 +709,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/agents/authSeed.ts — best-effort copy of primary `auth.json` into agent homes (never overwrite, lock-protected)
 - server/src/agents/commandsSchema.ts — strict Zod v1 schema + safe parser for agent command JSON files
 - server/src/agents/commandsLoader.ts — reads command files and returns safe `{ name, description, disabled, stepCount }` summaries (`stepCount >= 1`, sentinel `1` for disabled/invalid)
-- server/src/agents/commandsRunner.ts — executes parsed agent commands sequentially with abort checks + conversation lock
+- server/src/agents/commandsRunner.ts — executes parsed agent commands sequentially with abort checks + conversation lock, including runtime `startStep` range validation (`1..N`), zero-based boundary conversion, and deterministic `INVALID_START_STEP` errors
 - server/src/agents/retry.ts — AbortSignal-aware retry/backoff helper used by the command runner
 - server/src/ingest/providers/openaiConstants.ts — OpenAI embedding adapter constants (allowlist, retry policy, guardrail thresholds, token-limit resolver)
 - server/src/ingest/providers/openaiErrors.ts — OpenAI error taxonomy mapper + normalized/secret-safe OpenAI embedding error shape
@@ -722,7 +722,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/config/openaiIngestRetries.ts — OpenAI ingest retry-budget resolver (`OPENAI_INGEST_MAX_RETRIES`, retries after initial attempt, fallback default 3)
 - server/src/agents/runLock.ts — in-memory per-conversation run lock for agent/command execution
 - server/src/agents/config.ts — minimal agent `config.toml` parsing helpers (e.g. top-level `model`)
-- server/src/agents/service.ts — shared agents service used by REST + Agents MCP (list agents + run agent instruction)
+- server/src/agents/service.ts — shared agents service used by REST + Agents MCP (list agents + run agent instruction), including `startStep` defaulting to `1` for command runs and T03 start-step diagnostic logging
 - server/src/routes/agents.ts — `GET /agents` agent listing endpoint (REST source of truth)
 - server/src/routes/codexDeviceAuth.ts — `POST /codex/device-auth` device-auth endpoint for chat/agent targets
 - server/src/routes/agentsRun.ts — `POST /agents/:agentName/run` agent execution endpoint (REST; delegates to shared service)
@@ -737,7 +737,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/agent-commands-schema.test.ts — unit coverage for v1 agent command JSON schema parsing/strictness/trimming
 - server/src/test/unit/agent-commands-loader.test.ts — unit coverage for loading command summaries from disk (valid/invalid/missing)
 - server/src/test/unit/agent-commands-list.test.ts — unit coverage for listing agent commands from `commands/` (missing folder, filtering, sorting, no-cache, and `stepCount` semantics for valid/invalid entries)
-- server/src/test/unit/agent-commands-runner.test.ts — unit coverage for command execution runner (sequential steps, abort stop, lock behavior)
+- server/src/test/unit/agent-commands-runner.test.ts — unit coverage for command execution runner (sequential steps, abort stop, lock behavior, `startStep` defaults/boundaries/offsets, and deterministic `INVALID_START_STEP` failures)
 - server/src/test/unit/agent-commands-runner-retry.test.ts — unit coverage for transient reconnect retry behavior in the command runner
 - server/src/test/unit/flow-command-retries-config.test.ts — unit coverage for shared flow/command retry-budget parsing behavior
 - server/src/test/unit/agent-commands-runner-abort-retry.test.ts — unit coverage that retries stop immediately when aborted
@@ -771,9 +771,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/ws-chat-stream.test.ts — unit coverage for WS transcript sequencing, catch-up snapshots, cancellation errors, stale/late delta guards, unsubscribe behavior, and inflight cleanup
 - server/src/test/integration/mcp-codebase-question-ws-stream.test.ts — integration coverage proving MCP `codebase_question` runs publish WS transcript updates
 - server/src/test/integration/mcp-server.test.ts — integration coverage for MCP v1 tools/list + tools/call (vector search + AST tools) and error mappings
-- server/src/test/integration/agents-run-ws-stream.test.ts — integration coverage proving agent runs publish WS transcript updates
+- server/src/test/integration/agents-run-ws-stream.test.ts — integration coverage proving agent runs publish WS transcript updates, including absolute `stepIndex`/`totalSteps` metadata for `startStep > 1`
 - server/src/test/integration/agents-run-ws-cancel.test.ts — integration coverage proving agent runs can be cancelled via WS `cancel_inflight`
-- server/src/test/integration/agents-run-client-conversation-id.test.ts — integration coverage proving client-supplied conversation ids can be new on first Agents run
+- server/src/test/integration/agents-run-client-conversation-id.test.ts — integration coverage for client-supplied conversation ids plus command-run `startStep` omission defaults and runtime step-drift rejection
+- server/src/test/integration/conversations.turns.test.ts — integration coverage for conversation turns API including persisted `command` metadata stability for start-step offset histories
 - server/src/test/integration/ws-logs.test.ts — integration coverage proving WS lifecycle logs are queryable via `GET /logs`
 - server/src/test/unit/turn-command-metadata.test.ts — unit coverage that turn repo helpers persist and rehydrate optional `command` metadata
 - server/src/mcpAgents/server.ts — start/stop Agents MCP JSON-RPC server on `AGENTS_MCP_PORT` (default 5012)

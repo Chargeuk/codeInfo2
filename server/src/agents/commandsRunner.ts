@@ -36,6 +36,7 @@ export type RunAgentCommandRunnerParams = {
   agentName: string;
   agentHome: string;
   commandName: string;
+  startStep?: number;
   conversationId?: string;
   commandsRoot?: string;
   commandFilePath?: string;
@@ -60,7 +61,8 @@ export type RunAgentCommandRunnerParams = {
 type CommandRunnerErrorCode =
   | 'COMMAND_INVALID'
   | 'COMMAND_NOT_FOUND'
-  | 'RUN_IN_PROGRESS';
+  | 'RUN_IN_PROGRESS'
+  | 'INVALID_START_STEP';
 
 type CommandRunnerError = {
   code: CommandRunnerErrorCode;
@@ -114,6 +116,14 @@ export async function runAgentCommandRunner(
 
   const command = parsed.command;
   const totalSteps = command.items.length;
+  const startStep = params.startStep ?? 1;
+  if (!Number.isInteger(startStep) || startStep < 1 || startStep > totalSteps) {
+    throw toCommandRunnerError(
+      'INVALID_START_STEP',
+      `startStep must be between 1 and ${totalSteps}`,
+    );
+  }
+  const startIndex = startStep - 1;
   const clientProvidedConversationId = Boolean(params.conversationId);
   const conversationId = params.conversationId ?? crypto.randomUUID();
 
@@ -152,13 +162,29 @@ export async function runAgentCommandRunner(
       mustExist,
     },
   });
+  append({
+    level: 'info',
+    message: 'DEV_0000040_T03_RUNNER_START_STEP',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      stage: 'runner_start',
+      agentName: params.agentName,
+      commandName,
+      conversationId,
+      startStep,
+      totalSteps,
+      startIndex,
+      source: params.source,
+    },
+  });
 
   let modelId = 'gpt-5.1-codex-max';
   const logger = params.logger ?? (baseLogger as LoggerLike);
   const maxAttempts = getFlowAndCommandRetries();
 
   try {
-    for (let i = 0; i < totalSteps; i++) {
+    for (let i = startIndex; i < totalSteps; i++) {
       if (combinedSignal.aborted) break;
 
       const item = command.items[i];

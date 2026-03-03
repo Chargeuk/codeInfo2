@@ -93,6 +93,213 @@ describe('agent commands runner (v1)', () => {
     });
   });
 
+  test('omitted startStep defaults to step 1', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    await writeCommandFile({
+      agentHome,
+      commandName: 'improve',
+      jsonText: JSON.stringify({
+        Description: 'Improve plan',
+        items: [
+          { type: 'message', role: 'user', content: ['s1'] },
+          { type: 'message', role: 'user', content: ['s2'] },
+          { type: 'message', role: 'user', content: ['s3'] },
+        ],
+      }),
+    });
+    const calls: number[] = [];
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'improve',
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        calls.push(params.command?.stepIndex ?? -1);
+        return { modelId: 'm1' };
+      },
+    });
+
+    assert.deepEqual(calls, [1, 2, 3]);
+  });
+
+  test('valid non-default startStep runs from selected step and preserves absolute metadata', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    await writeCommandFile({
+      agentHome,
+      commandName: 'improve',
+      jsonText: JSON.stringify({
+        Description: 'Improve plan',
+        items: [
+          { type: 'message', role: 'user', content: ['s1'] },
+          { type: 'message', role: 'user', content: ['s2'] },
+          { type: 'message', role: 'user', content: ['s3'] },
+          { type: 'message', role: 'user', content: ['s4'] },
+        ],
+      }),
+    });
+    const calls: Array<{ stepIndex: number; totalSteps: number }> = [];
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'improve',
+      startStep: 3,
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        calls.push({
+          stepIndex: params.command?.stepIndex ?? -1,
+          totalSteps: params.command?.totalSteps ?? -1,
+        });
+        return { modelId: 'm1' };
+      },
+    });
+
+    assert.deepEqual(calls, [
+      { stepIndex: 3, totalSteps: 4 },
+      { stepIndex: 4, totalSteps: 4 },
+    ]);
+  });
+
+  test('startStep lower bound of 1 is accepted', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    await writeCommandFile({
+      agentHome,
+      commandName: 'improve',
+      jsonText: JSON.stringify({
+        Description: 'Improve plan',
+        items: [
+          { type: 'message', role: 'user', content: ['s1'] },
+          { type: 'message', role: 'user', content: ['s2'] },
+        ],
+      }),
+    });
+    const calls: number[] = [];
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'improve',
+      startStep: 1,
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        calls.push(params.command?.stepIndex ?? -1);
+        return { modelId: 'm1' };
+      },
+    });
+
+    assert.deepEqual(calls, [1, 2]);
+  });
+
+  test('startStep upper bound of N executes only the final step', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    await writeCommandFile({
+      agentHome,
+      commandName: 'improve',
+      jsonText: JSON.stringify({
+        Description: 'Improve plan',
+        items: [
+          { type: 'message', role: 'user', content: ['s1'] },
+          { type: 'message', role: 'user', content: ['s2'] },
+          { type: 'message', role: 'user', content: ['s3'] },
+        ],
+      }),
+    });
+    const calls: number[] = [];
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'improve',
+      startStep: 3,
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        calls.push(params.command?.stepIndex ?? -1);
+        return { modelId: 'm1' };
+      },
+    });
+
+    assert.deepEqual(calls, [3]);
+  });
+
+  test('startStep 0 fails with INVALID_START_STEP and deterministic message', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    await writeCommandFile({
+      agentHome,
+      commandName: 'improve',
+      jsonText: JSON.stringify({
+        Description: 'Improve plan',
+        items: [
+          { type: 'message', role: 'user', content: ['s1'] },
+          { type: 'message', role: 'user', content: ['s2'] },
+          { type: 'message', role: 'user', content: ['s3'] },
+        ],
+      }),
+    });
+
+    await assert.rejects(
+      async () =>
+        runAgentCommandRunner({
+          agentName: 'a1',
+          agentHome,
+          commandName: 'improve',
+          startStep: 0,
+          source: 'REST',
+          runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
+        }),
+      (err) =>
+        (err as { code?: string; reason?: string }).code ===
+          'INVALID_START_STEP' &&
+        (err as { code?: string; reason?: string }).reason ===
+          'startStep must be between 1 and 3',
+    );
+  });
+
+  test('startStep N+1 fails with INVALID_START_STEP and deterministic message', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    await writeCommandFile({
+      agentHome,
+      commandName: 'improve',
+      jsonText: JSON.stringify({
+        Description: 'Improve plan',
+        items: [
+          { type: 'message', role: 'user', content: ['s1'] },
+          { type: 'message', role: 'user', content: ['s2'] },
+          { type: 'message', role: 'user', content: ['s3'] },
+        ],
+      }),
+    });
+
+    await assert.rejects(
+      async () =>
+        runAgentCommandRunner({
+          agentName: 'a1',
+          agentHome,
+          commandName: 'improve',
+          startStep: 4,
+          source: 'REST',
+          runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
+        }),
+      (err) =>
+        (err as { code?: string; reason?: string }).code ===
+          'INVALID_START_STEP' &&
+        (err as { code?: string; reason?: string }).reason ===
+          'startStep must be between 1 and 3',
+    );
+  });
+
   test('abort after step 1 prevents steps 2+ from running', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');

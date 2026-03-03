@@ -15,7 +15,7 @@ This story introduces five related improvements for agent workflows and chat def
 2. Chat defaults currently controlled by environment variables (for example sandbox mode, approval policy, reasoning effort, and default model) should instead come from `codex/chat/config.toml`, so the server can return one canonical default set and the client can initialize from those values.
 3. If `codex/chat/config.toml` is missing, the server should ensure a usable default is generated during startup/bootstrap.
 4. Upgrade `@openai/codex-sdk` to the latest stable version.
-5. Investigate and reproduce an issue where flows in a repository appear unable to resolve commands in that same repository, while direct command execution from the GUI can still work.
+5. Fix a confirmed issue where flows in a repository cannot resolve commands in that same repository while direct command execution from the GUI can still work, using red-green repro tests.
 
 Working definitions used in this story (to remove ambiguity):
 
@@ -54,7 +54,7 @@ Decisions confirmed for this story:
 - Server workspace TypeScript is currently `^5.6.3` (root/client are `5.9.3`), so server-task implementations must remain TypeScript 5.6-compatible unless a separate TypeScript-upgrade story is approved.
 - Flow command lookup for repository-sourced flows resolves in this order: same source repository first, then the codeInfo2 repository, then other repositories by first match where "first" means case-insensitive ASCII ascending on normalized source label, tie-broken by case-insensitive ASCII ascending on full source path.
 - Flow command fallback to codeInfo2/other repositories occurs only for command-not-found cases; if same-source command exists but is schema-invalid, resolution fails fast without fallback.
-- Investigation output must include an automated failing repro test and a fix.
+- Flow resolution changes must include an automated failing repro test first and a passing fix on the same test.
 - `GET /agents/:agentName/commands` must include `stepCount` so AGENTS UI can render deterministic `Start step` options.
 - Disabled command entries still include `stepCount` as sentinel `1` when command file cannot be parsed; execution remains blocked by `disabled=true`/server validation.
 - `POST /agents/:agentName/commands/run` accepts optional `startStep`; omitted means server default `1` for backward compatibility.
@@ -93,7 +93,7 @@ Expected end-user outcome:
 18. Flow command lookup order for repository-scoped flows is: same source repository first, then codeInfo2 repository, then other repositories.
 19. For "other repositories", candidate sources are sorted deterministically by case-insensitive ASCII on normalized source label, then case-insensitive ASCII on full source path, and first match is used.
 20. Cross-repository fallback is used only for command-not-found; if same-source command exists but is schema-invalid, execution fails immediately and does not fallback.
-21. Investigation and fix follow red-green evidence: add an automated failing repro test first, implement fix, then verify passing result on the same test.
+21. Flow resolver changes follow red-green evidence: add an automated failing repro test first, implement fix, then verify passing result on the same test.
 22. `GET /agents/:agentName/commands` response includes `stepCount` per command (`integer >= 1`) so client can render `Step 1..Step N` without reading command files in browser.
 23. For disabled commands with unreadable/invalid command files, response still includes `stepCount: 1` as sentinel plus `disabled: true`; client keeps execution disabled.
 24. `POST /agents/:agentName/commands/run` remains backward compatible: when `startStep` is omitted by older clients, server executes from step `1`.
@@ -414,6 +414,8 @@ None.
   - Flow command loading currently reads only `<agentHome>/commands/<name>.json` and does not use flow source repository fallback order.
   - REST chat and MCP codebase-question still source Codex defaults from env-backed paths in key locations.
   - Existing Mongo/in-memory shapes already support this story without schema changes (`Turn.command` already stores `{ name, stepIndex, totalSteps }`).
+- Manual repository path validation confirms all linked task file locations in this plan resolve to existing files (including root-level `openapi.json`), so implementation risk is behavioral rather than broken references.
+- Additional compatibility risk review confirms start-step changes need explicit websocket + persisted-turn metadata non-regression coverage to prevent downstream rendering/history regressions when runs begin at `startStep > 1`.
 - `code_info` + manifest cross-check confirms current version baseline is:
   - server `@openai/codex-sdk`: `0.106.0` (target in this story: `0.107.0`)
   - client `@mui/material`: `^6.4.1`
@@ -831,7 +833,23 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 24.
    - Done when: test fails if omission path diverges from step-1 default.
-12. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for runtime `startStep` execution behavior and validation paths, including a Mermaid sequence diagram for execution flow and invalid-range failure handling.
+12. [ ] Add an integration websocket-stream test proving `startStep > 1` preserves absolute command metadata (`stepIndex`, `totalSteps`) in emitted conversation events.
+   - Test type: `Integration` (websocket).
+   - Test location: [server/src/test/integration/agents-run-ws-stream.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-ws-stream.test.ts).
+   - Description: Execute a command with `startStep > 1` and assert websocket stream metadata uses absolute step numbering (for example step 3 of N), not restarted numbering.
+   - Purpose: Prevent websocket consumer regressions while introducing start-step execution offsets.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 6, AC 24.
+   - Done when: test fails if websocket metadata shifts to relative numbering or incorrect totals.
+13. [ ] Add an integration persistence test proving `startStep > 1` preserves stored turn command metadata (`stepIndex`, `totalSteps`) for conversation history.
+   - Test type: `Integration` (persistence).
+   - Test location: [server/src/test/integration/conversations.turns.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/conversations.turns.test.ts).
+   - Description: Execute a command from a non-default start step and assert persisted turns keep stable command metadata shape with absolute step numbering.
+   - Purpose: Prevent history-render regressions in existing conversation views and APIs.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 6, AC 24.
+   - Done when: test fails if persisted turn metadata shape or numbering semantics drift.
+14. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for runtime `startStep` execution behavior and validation paths, including a Mermaid sequence diagram for execution flow and invalid-range failure handling.
    - Document name: `design.md`.
    - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Description: Document runtime `startStep` boundary conversion, omitted-value defaults, and deterministic error propagation path.
@@ -839,7 +857,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
    - Done when: `design.md` includes correct runtime behavior and valid Mermaid syntax for the flow/error diagram.
-13. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-3 runner/service/test file changes.
+15. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-3 runner/service/test file changes.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Description: Record all files changed for runner execution behavior and associated tests.
@@ -848,7 +866,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
    - Done when: `projectStructure.md` accurately reflects task-3 file layout changes.
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 6, AC 7, AC 24, AC 25.
    - Done when: both commands pass.
@@ -861,8 +879,10 @@ Implement runtime start-step behavior in the command runner. This task covers st
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-runner.test.ts`
 6. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts`
-7. [ ] `npm run test:summary:server:cucumber`
-8. [ ] `npm run compose:down`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-ws-stream.test.ts`
+8. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts`
+9. [ ] `npm run test:summary:server:cucumber`
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1476,7 +1496,15 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
    - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
    - Done when: test fails if MCP and REST diverge.
-7. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for MCP default-source alignment, including a Mermaid sequence diagram for `codebase_question` resolver behavior and REST parity.
+7. [ ] Add an integration parity test asserting REST and MCP surfaces produce aligned codex defaults/warnings when config values are missing and env fallbacks are used.
+   - Test type: `Integration` (cross-surface parity).
+   - Test location: [server/src/test/integration/chat-codex-mcp.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/chat-codex-mcp.test.ts).
+   - Description: Under controlled missing-config fixtures, assert `/chat/models`/`/chat/providers` outputs and MCP `codebase_question` defaults/warnings remain aligned.
+   - Purpose: Catch runtime wiring regressions between REST and MCP default-resolution paths.
+   - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
+   - Acceptance criteria coverage: AC 10, AC 11, AC 12, AC 13, AC 14, AC 16.
+   - Done when: test fails if REST/MCP defaults or warning-field lists diverge for the same fixture inputs.
+8. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for MCP default-source alignment, including a Mermaid sequence diagram for `codebase_question` resolver behavior and REST parity.
    - Document name: `design.md`.
    - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Description: Document shared resolver usage in MCP path and parity expectations with REST defaults/warnings.
@@ -1484,7 +1512,7 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `design.md` clearly documents MCP/REST parity and includes valid Mermaid syntax.
-8. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-8 MCP tool and test file changes.
+9. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-8 MCP tool and test file changes.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Description: Record all MCP tool implementation/test files touched by this task.
@@ -1493,7 +1521,7 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `projectStructure.md` accurately lists task-8 file changes.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
    - Done when: both commands pass.
@@ -1507,7 +1535,8 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
 6. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
 7. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
-8. [ ] `npm run compose:down`
+8. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex-mcp.test.ts`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

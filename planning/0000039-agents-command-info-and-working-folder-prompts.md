@@ -1456,6 +1456,7 @@ Run full validation for the complete story, verify acceptance criteria end-to-en
 - Docker Compose docs: https://docs.docker.com/compose/ (used for build/up/down validation steps and troubleshooting flow)
 - Playwright introduction: https://playwright.dev/docs/intro (used for manual/automated acceptance checks and screenshot evidence guidance)
 - Jest getting started: https://jestjs.io/docs/getting-started (used for interpreting client test wrapper outcomes and failure triage)
+- Context7 Jest docs: `/jestjs/jest` (used as MCP source for Jest assertion and test-run interpretation patterns during final verification)
 - Cucumber guides index: https://cucumber.io/docs/guides/ (used as canonical guide index for selecting the correct BDD execution/documentation guidance)
 - Cucumber guide (10-minute tutorial subpath): https://cucumber.io/docs/guides/10-minute-tutorial/ (used as canonical Cucumber guide reference for server BDD test expectations)
 - Markdown syntax guide: https://www.markdownguide.org/basic-syntax/ (used for final PR summary and documentation consistency)

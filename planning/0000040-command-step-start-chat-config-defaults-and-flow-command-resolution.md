@@ -473,7 +473,7 @@ Add the backend response contract for command list items so the frontend can ren
    - invalid/disabled command file -> sentinel `1`.
 3. [ ] Ensure list service returns `stepCount` in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) and route payload includes it in [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts).
 4. [ ] Add/extend server unit tests for command-list contract in [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts) and [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts).
-5. [ ] Update `openapi.json` list contract schema for `stepCount` in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and add/update OpenAPI contract tests in [server/src/test/unit/openapi.agents-commands.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.agents-commands.test.ts).
+5. [ ] Update `openapi.json` list contract schema for `stepCount` in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and add/update OpenAPI contract tests in [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts).
 6. [ ] Update documentation files changed by this task:
    - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
@@ -487,7 +487,7 @@ Add the backend response contract for command list items so the frontend can ren
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-list.test.ts`
 6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agents-commands-router-list.test.ts`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.agents-commands.test.ts`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`
 8. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -525,8 +525,8 @@ Add the run-request message contract for optional `startStep` with strict input 
    - optional `startStep` accepted,
    - invalid type rejected,
    - `INVALID_START_STEP` mapping shape.
-6. [ ] Add/extend MCP Agents `run_command` regression tests in [server/src/test/unit/mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts) to prove this story does not change MCP input contract shape (no required `startStep`, no MCP payload drift).
-7. [ ] Update run contract in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and add/update OpenAPI tests in [server/src/test/unit/openapi.agents-commands.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.agents-commands.test.ts).
+6. [ ] Add/extend MCP Agents `run_command` regression tests in [server/src/test/unit/mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts) and confirm [server/src/mcpAgents/tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts) input schema remains unchanged for this story scope (no `startStep` input field).
+7. [ ] Update run contract in [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) and add/update OpenAPI tests in [server/src/test/unit/openapi.contract.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openapi.contract.test.ts).
 8. [ ] Update documentation files changed by this task:
    - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
@@ -540,7 +540,7 @@ Add the run-request message contract for optional `startStep` with strict input 
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agents-commands-router-run.test.ts`
 6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-agents-commands-run.test.ts`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.agents-commands.test.ts`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`
 8. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -565,7 +565,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
 
 #### Subtasks
 
-1. [ ] Add `startStep` handling in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) so omitted values default to `1`.
+1. [ ] Add `startStep` handling in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) for both `startAgentCommand` (background run path) and `runAgentCommand` (synchronous path) so omitted values default to `1`.
 2. [ ] Update execution entrypoint in [server/src/agents/commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) to:
    - validate `startStep` against runtime `totalSteps`,
    - convert `1..N` to runner index at execution boundary,
@@ -575,7 +575,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - omitted `startStep` runs from step 1,
    - valid non-1 step executes from offset,
    - out-of-range values fail deterministically.
-5. [ ] Add/extend service integration tests in [server/src/test/unit/agents-service.command-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-service.command-run.test.ts) to prove backward compatibility with older clients.
+5. [ ] Add/extend service integration tests in [server/src/test/integration/agents-run-client-conversation-id.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-client-conversation-id.test.ts) to prove backward compatibility with older clients (omitted `startStep` still executes from step 1) for both command run entry paths.
 6. [ ] Update documentation files changed by this task:
    - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
@@ -588,7 +588,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-runner.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agents-service.command-run.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts`
 7. [ ] `npm run test:summary:server:cucumber`
 8. [ ] `npm run compose:down`
 
@@ -665,7 +665,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - disabled when `N = 1`.
 3. [ ] Add command-option step-count preview text in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) (for example `N steps`) using backend-provided `stepCount` so users can pick the correct command before choosing `Start step`.
 4. [ ] Wire execute action payload in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) to pass `startStep` in `POST /agents/:agentName/commands/run`.
-5. [ ] Add/extend UI tests in [client/src/test/AgentsPage.commandStartStep.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/AgentsPage.commandStartStep.test.tsx) to verify visibility, enable/disable behavior, reset behavior, command-option step-count preview text, and outbound payload.
+5. [ ] Add/extend UI tests in [client/src/test/agentsPage.commandStartStep.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandStartStep.test.tsx) to verify visibility, enable/disable behavior, reset behavior, command-option step-count preview text, and outbound payload.
 6. [ ] Ensure row-level inline error handling for backend `INVALID_START_STEP` responses in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) with deterministic range message display.
 7. [ ] Update documentation files changed by this task:
    - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
@@ -679,7 +679,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 2. [ ] `npm run build:summary:client`
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/AgentsPage.commandStartStep.test.tsx`
+5. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.commandStartStep.test.tsx`
 6. [ ] `npm run test:summary:client`
 7. [ ] `npm run compose:down`
 
@@ -705,22 +705,28 @@ Implement shared default-source behavior for covered Codex fields so REST chat a
 
 #### Subtasks
 
-1. [ ] Update default resolution logic in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) for fields:
-   - `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, `web_search`.
-2. [ ] Implement precedence `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback` in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts).
-3. [ ] Ensure fallback warning generation names the exact field using legacy env defaults in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) and [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts).
-4. [ ] Normalize deprecated web-search aliases to canonical `web_search` behavior in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), with canonical key precedence.
-5. [ ] Ensure MCP codebase-question path uses the same resolved defaults behavior as REST in [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts).
-6. [ ] Add/extend tests:
-   - [server/src/test/unit/chat-defaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chat-defaults.test.ts)
-   - [server/src/test/unit/chat-validators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chat-validators.test.ts)
-   - [server/src/test/unit/mcp-codebase-question.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-codebase-question.test.ts).
+1. [ ] Update shared default resolution in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) to read `codex/chat/config.toml` values for `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`, and return deterministic per-field source metadata.
+2. [ ] Implement precedence `request override > codex/chat/config.toml > legacy env defaults > hardcoded safe fallback` in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) and emit warning messages that include the exact field name whenever legacy env fallback is used.
+3. [ ] Keep canonical `web_search` precedence and deterministic alias normalization in the shared defaults path so `web_search` wins over deprecated aliases and bool aliases map to `live|disabled`.
+4. [ ] Update [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts) to source Codex defaults from the shared config-backed resolver instead of env-only defaults, while preserving existing model capability shape.
+5. [ ] Update [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts) to return `codexDefaults` and warning semantics from the shared config-backed resolver path (not env-first behavior).
+6. [ ] Update [server/src/routes/chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts) and [server/src/routes/chat.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chat.ts) to use the same config-backed default selection and source metadata, removing env-first assumptions in default-source logging.
+7. [ ] Update [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts) to apply shared resolved defaults for Codex flags and keep deterministic warning output for env/hardcoded fallback paths.
+8. [ ] Ensure MCP codebase-question path uses the same resolved defaults behavior as REST in [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts), replacing direct env-default sourcing for Codex thread options.
+9. [ ] Add/extend tests:
+   - [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts)
+   - [server/src/test/unit/chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts)
+   - [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts)
+   - [server/src/test/unit/chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts)
+   - [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts)
+   - [server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts)
+   - [server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts)
    - Include explicit cases for invalid TOML or invalid field values in `codex/chat/config.toml` to verify deterministic warnings and fallback-chain behavior without overwriting user config files.
-7. [ ] Update documentation files changed by this task:
+10. [ ] Update documentation files changed by this task:
    - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
    - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -728,10 +734,14 @@ Implement shared default-source behavior for covered Codex fields so REST chat a
 2. [ ] `npm run build:summary:client`
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chat-defaults.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chat-validators.test.ts`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-codebase-question.test.ts`
-8. [ ] `npm run compose:down`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/config.chatDefaults.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts`
+8. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts`
+9. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+10. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
+11. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
+12. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -761,7 +771,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - generate standard template when both files are missing,
    - keep existing chat config untouched when present.
 2. [ ] Ensure permission/read-write failures are logged as deterministic warnings in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) without silent fallback behavior.
-3. [ ] Add/extend bootstrap tests in [server/src/test/unit/runtime-config.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtime-config.test.ts) for:
+3. [ ] Add/extend bootstrap tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) for:
    - copy path,
    - template generation path,
    - non-destructive existing-file path,
@@ -778,7 +788,7 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
 2. [ ] `npm run build:summary:client`
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/runtime-config.test.ts`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts`
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -807,7 +817,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 1. [ ] Update `@openai/codex-sdk` version pin to `0.107.0` in [server/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/package.json).
 2. [ ] Update runtime guard constant in [server/src/config/codexSdkUpgrade.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexSdkUpgrade.ts) to `0.107.0`.
 3. [ ] Verify startup guard usage path remains aligned in [server/src/index.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/index.ts).
-4. [ ] Add/extend tests in [server/src/test/unit/codex-sdk-upgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codex-sdk-upgrade.test.ts) to ensure expected version and pre-release rejection behavior.
+4. [ ] Add/extend tests in [server/src/test/unit/codexSdkUpgrade.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexSdkUpgrade.test.ts) to ensure expected version and pre-release rejection behavior.
 5. [ ] Update documentation files changed by this task:
    - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
    - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
@@ -820,7 +830,7 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 2. [ ] `npm run build:summary:client`
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/codex-sdk-upgrade.test.ts`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/codexSdkUpgrade.test.ts`
 6. [ ] `npm run test:summary:server:unit`
 7. [ ] `npm run compose:down`
 
@@ -847,20 +857,22 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 #### Subtasks
 
 1. [ ] Add a failing repro test first in [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) that demonstrates current incorrect same-source/fallback behavior.
-2. [ ] Implement resolution ordering logic in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts):
+2. [ ] Add explicit source-context plumbing in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so `startFlowRun` passes flow source identity and repository list context into command-step resolution used by `validateCommandSteps` and runtime command execution.
+3. [ ] Implement a shared command candidate resolver in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) with deterministic ordering:
    - same-source repository first,
    - codeInfo2 repository second,
    - other repositories sorted by case-insensitive ASCII normalized source label, then case-insensitive ASCII full source path.
-3. [ ] Implement same-source schema-invalid fail-fast in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) with no downstream fallback.
-4. [ ] Extend integration tests in [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for:
+4. [ ] Implement same-source schema-invalid/read-failure fail-fast behavior in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) with no downstream fallback.
+5. [ ] Ensure both pre-run command validation and runtime command execution use the same shared resolver path in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so behavior does not diverge between validation and execution phases.
+6. [ ] Extend integration tests in [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for:
    - same-source success,
    - same-source missing with codeInfo2 fallback,
    - deterministic other-repo fallback ordering,
    - same-source schema-invalid fail-fast.
-5. [ ] Update documentation files changed by this task:
+7. [ ] Update documentation files changed by this task:
    - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -906,7 +918,7 @@ Perform documentation-only updates so product behavior, architecture notes, and 
 2. [ ] `npm run build:summary:client`
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.agents-commands.test.ts`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -949,11 +961,12 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit`
-6. [ ] `npm run test:summary:server:cucumber`
-7. [ ] `npm run test:summary:client`
-8. [ ] `npm run test:summary:e2e`
-9. [ ] Playwright MCP manual verification with screenshots in `test-results/screenshots/`
-10. [ ] `npm run compose:down`
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-agents-commands-run.test.ts`
+7. [ ] `npm run test:summary:server:cucumber`
+8. [ ] `npm run test:summary:client`
+9. [ ] `npm run test:summary:e2e`
+10. [ ] Playwright MCP manual verification with screenshots in `test-results/screenshots/`
+11. [ ] `npm run compose:down`
 
 #### Implementation notes
 

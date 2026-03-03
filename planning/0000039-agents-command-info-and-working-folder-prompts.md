@@ -498,11 +498,6 @@ Define the new REST message contract at the router boundary before any frontend 
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `server/src/test/unit/openapi.prompts-route.test.ts` when created. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-22. [ ] Run lint and formatting as the final subtask for this task.
-   - Files: repo root commands
-   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
-   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -513,6 +508,8 @@ Define the new REST message contract at the router boundary before any frontend 
 6. [ ] `npm run compose:build:summary`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces`
+10. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -669,11 +666,6 @@ Implement the actual prompt discovery behavior in the server service layer with 
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `server/src/test/unit/agent-prompts-list.test.ts` and any new prompt-discovery fixtures created for these tests. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-20. [ ] Run lint and formatting as the final subtask for this task.
-   - Files: repo root commands
-   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
-   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -681,6 +673,8 @@ Implement the actual prompt discovery behavior in the server service layer with 
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run compose:down`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -793,11 +787,6 @@ Add the frontend API function that consumes the new server prompt-discovery cont
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `client/src/test/agentsApi.promptsList.test.ts` when created. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-14. [ ] Run lint and formatting as the final subtask for this task.
-   - Files: repo root commands
-   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
-   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
-
 #### Testing
 
 1. [ ] `npm run build:summary:client`
@@ -805,6 +794,8 @@ Add the frontend API function that consumes the new server prompt-discovery cont
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run compose:down`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -892,11 +883,6 @@ Introduce the command-info icon and popover interaction only. This task does not
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-11. [ ] Run lint and formatting as the final subtask for this task.
-   - Files: repo root commands
-   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
-   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
-
 #### Testing
 
 1. [ ] `npm run build:summary:client`
@@ -904,6 +890,8 @@ Introduce the command-info icon and popover interaction only. This task does not
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run compose:down`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -978,11 +966,6 @@ Remove the old always-visible inline command description behavior now that comma
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-9. [ ] Run lint and formatting as the final subtask for this task.
-   - Files: repo root commands
-   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
-   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
-
 #### Testing
 
 1. [ ] `npm run build:summary:client`
@@ -990,6 +973,8 @@ Remove the old always-visible inline command description behavior now that comma
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run compose:down`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1133,11 +1118,6 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `client/src/test/agentsPage.promptsDiscovery.test.tsx` when created. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-19. [ ] Run lint and formatting as the final subtask for this task.
-   - Files: repo root commands
-   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
-   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
-
 #### Testing
 
 1. [ ] `npm run build:summary:client`
@@ -1146,6 +1126,8 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
 4. [ ] `npm run compose:build:summary`
 5. [ ] `npm run compose:up`
 6. [ ] `npm run compose:down`
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1264,11 +1246,6 @@ Implement prompts selector rendering rules and selection/reset behavior once req
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `client/src/test/agentsPage.promptsDiscovery.test.tsx` when this task creates it. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-15. [ ] Run lint and formatting as the final subtask for this task.
-   - Files: repo root commands
-   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
-   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
-
 #### Testing
 
 1. [ ] `npm run build:summary:client`
@@ -1276,6 +1253,8 @@ Implement prompts selector rendering rules and selection/reset behavior once req
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run compose:down`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1445,11 +1424,6 @@ Implement prompt execution by composing the canonical instruction string and dis
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `client/src/test/agentsPage.executePrompt.test.tsx` when created. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-22. [ ] Run lint and formatting as the final subtask for this task.
-   - Files: repo root commands
-   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
-   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
-
 #### Testing
 
 1. [ ] `npm run build:summary:client`
@@ -1461,6 +1435,8 @@ Implement prompt execution by composing the canonical instruction string and dis
 7. [ ] `npm run compose:build:summary`
 8. [ ] `npm run compose:up`
 9. [ ] `npm run compose:down`
+10. [ ] `npm run lint --workspaces`
+11. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1506,11 +1482,6 @@ Capture final behavior in repository docs once implementation is complete, inclu
    - Read first: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - Implement exactly: compare final route behavior and schemas to OpenAPI; update only if drift is detected.
 
-5. [ ] Run lint and formatting as the final subtask for this task.
-   - Files: repo root commands
-   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
-   - Run exactly: `npm run lint --workspaces` then `npm run format:check --workspaces`.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1518,6 +1489,8 @@ Capture final behavior in repository docs once implementation is complete, inclu
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run compose:down`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1548,54 +1521,44 @@ Run full validation for the complete story, verify acceptance criteria end-to-en
 
 #### Subtasks
 
-1. [ ] Build the server and verify no compile errors.
-   - Files: repo root command run
-   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
-   - Run exactly: `npm run build:summary:server`.
-
-2. [ ] Build the client and verify no compile errors.
-   - Files: repo root command run
-   - Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
-   - Run exactly: `npm run build:summary:client`.
-
-3. [ ] Perform clean docker build and confirm image success.
-   - Files: repo root command run
-   - Read first: https://docs.docker.com/compose/
-   - Run exactly: `npm run compose:build:clean`.
-
-4. [ ] Re-validate final `README.md` against implemented behavior.
+1. [ ] Re-validate final `README.md` against implemented behavior.
    - Document name: `README.md`
    - Location: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
    - Description: verify user-facing behavior notes match implementation, including command-info popover behavior, prompt discovery conditions, and Execute Prompt usage flow.
    - Purpose: ensure end-user documentation is accurate and complete for the delivered feature.
    - Read first: https://www.markdownguide.org/basic-syntax/
 
-5. [ ] Re-validate final `design.md` architecture and Mermaid diagrams against implemented behavior.
+2. [ ] Re-validate final `design.md` architecture and Mermaid diagrams against implemented behavior.
    - Document name: `design.md`
    - Location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - Description: verify architecture notes and Mermaid diagrams match the implemented prompts discovery and execution flow, including route contracts and error handling paths.
    - Purpose: ensure technical design documentation remains a reliable source for implementation and maintenance decisions.
    - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
 
-6. [ ] Re-validate final file map.
+3. [ ] Re-validate final file map.
    - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: ensure every changed file in this story is represented correctly.
 
-7. [ ] Write final implementation summary for PR use.
+4. [ ] Write final implementation summary for PR use.
    - Files: story notes and commit history
    - Read first: https://www.markdownguide.org/basic-syntax/
    - Implement exactly: summarize server contract changes, client behavior changes, test coverage, and regression outcomes.
 
 #### Testing
 
-1. [ ] `npm run test:summary:client`
-2. [ ] `npm run test:summary:server:unit`
-3. [ ] `npm run test:summary:server:cucumber`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:e2e`
-6. [ ] Use Playwright MCP/manual browser check for key acceptance criteria and save screenshots under `test-results/screenshots/` with names prefixed `0000039-<task-number>-<description>.png`.
-7. [ ] `npm run compose:down`
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:clean`
+4. [ ] `npm run test:summary:client`
+5. [ ] `npm run test:summary:server:unit`
+6. [ ] `npm run test:summary:server:cucumber`
+7. [ ] `npm run compose:up`
+8. [ ] `npm run test:summary:e2e`
+9. [ ] Use Playwright MCP/manual browser check for key acceptance criteria and save screenshots under `test-results/screenshots/` with names prefixed `0000039-<task-number>-<description>.png`.
+10. [ ] `npm run compose:down`
+11. [ ] `npm run lint --workspaces`
+12. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 

@@ -2537,7 +2537,8 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 ### 12. Documentation synchronization for story 0000040 outputs
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits:
+  - `8f0bac18` — DEV-0000040 - implement Task 12 documentation and OpenAPI synchronization
 
 #### Overview
 

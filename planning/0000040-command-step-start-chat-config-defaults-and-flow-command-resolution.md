@@ -21,6 +21,7 @@ Working definitions used in this story (to remove ambiguity):
 
 - `N` means the number of executable steps in the selected command (`N = command.steps.length`).
 - `Start step` means the first step index the server should execute for a command run. It is 1-based (`1..N`), not 0-based.
+- For disabled command summary entries where command content cannot be parsed, effective UI `N` comes from sentinel `stepCount: 1`.
 - `Same source repository` means the repository source that provided the flow file currently being executed.
 - `codeInfo2 repository` means the repository that contains this application codebase.
 - `Normalized source label` means `sourceLabel.trim()` when present and non-empty; otherwise basename of the repository source full path.
@@ -49,12 +50,13 @@ Decisions confirmed for this story:
   - `false` aliases -> canonical `web_search = "disabled"`
   - canonical `web_search` always wins when both canonical and alias are present.
 - `@openai/codex-sdk` is pinned to `0.107.0`.
-- Flow command lookup for repository-sourced flows resolves in this order: same source repository first, then the codeInfo2 repository, then other repositories by first match where "first" means source label alphabetical ascending, tie-broken by full source path alphabetical ascending.
+- Flow command lookup for repository-sourced flows resolves in this order: same source repository first, then the codeInfo2 repository, then other repositories by first match where "first" means case-insensitive ASCII ascending on normalized source label, tie-broken by case-insensitive ASCII ascending on full source path.
 - Flow command fallback to codeInfo2/other repositories occurs only for command-not-found cases; if same-source command exists but is schema-invalid, resolution fails fast without fallback.
 - Investigation output must include an automated failing repro test and a fix.
 - `GET /agents/:agentName/commands` must include `stepCount` so AGENTS UI can render deterministic `Start step` options.
 - Disabled command entries still include `stepCount` as sentinel `1` when command file cannot be parsed; execution remains blocked by `disabled=true`/server validation.
 - `POST /agents/:agentName/commands/run` accepts optional `startStep`; omitted means server default `1` for backward compatibility.
+- `startStep` contract in this story applies to REST `POST /agents/:agentName/commands/run`; MCP Agents `run_command` tool input remains unchanged in this story.
 - Invalid start-step uses deterministic validation contract with code `INVALID_START_STEP`.
 - SDK upgrade is complete only when dependency version and the runtime guard (`DEV_0000037_T01_REQUIRED_VERSION`) are both updated to `0.107.0`.
 - Upstream Codex docs currently describe top-level `web_search` default behavior as `cached`; this story keeps existing app compatibility by using explicit mapping for legacy bool aliases (`true -> live`, `false -> disabled`) and explicit app fallback behavior instead of relying on implicit upstream defaults.
@@ -76,7 +78,7 @@ Expected end-user outcome:
 5. If `N = 1`, `Start step` remains visible, preselected to `Step 1`, and disabled.
 6. Clicking `Execute command` sends `startStep` as an integer in `POST /agents/:agentName/commands/run` payload, and value must be within `[1, N]`.
 7. Server rejects invalid `startStep` values (missing when required, non-integer, `< 1`, `> N`) with `400` request-validation error and a message that includes the accepted range.
-8. Start-step behavior is added only for `AGENTS` command execution and does not introduce start-step controls to Flows page or other execution surfaces.
+8. Start-step behavior is added only for REST `AGENTS` command execution and does not introduce start-step controls or start-step input fields for Flows page, chat surfaces, or MCP Agents `run_command`.
 9. No command-step dependency inference is added; server executes from selected valid step without auto-adjusting based on previous step dependencies.
 10. Chat defaults for Codex options are sourced from `codex/chat/config.toml` for both REST chat and MCP chat responses/execution paths.
 11. Covered Codex default fields are explicitly: `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
@@ -87,7 +89,7 @@ Expected end-user outcome:
 16. Deprecated `web_search_request`/legacy boolean web-search inputs are normalized to canonical `web_search` (`true -> "live"`, `false -> "disabled"`), and canonical `web_search` wins if both are present.
 17. `@openai/codex-sdk` is upgraded and pinned to `0.107.0` in dependency manifests, and regression checks confirm existing chat/agent/flow flows still execute.
 18. Flow command lookup order for repository-scoped flows is: same source repository first, then codeInfo2 repository, then other repositories.
-19. For "other repositories", candidate sources are sorted deterministically by source label ascending, then full source path ascending, and first match is used.
+19. For "other repositories", candidate sources are sorted deterministically by case-insensitive ASCII on normalized source label, then case-insensitive ASCII on full source path, and first match is used.
 20. Cross-repository fallback is used only for command-not-found; if same-source command exists but is schema-invalid, execution fails immediately and does not fallback.
 21. Investigation and fix follow red-green evidence: add an automated failing repro test first, implement fix, then verify passing result on the same test.
 22. `GET /agents/:agentName/commands` response includes `stepCount` per command (`integer >= 1`) so client can render `Step 1..Step N` without reading command files in browser.
@@ -133,7 +135,7 @@ This section defines contract and persistence impacts up front so implementation
 - `POST /chat` request/response shape remains unchanged; only default-value sourcing changes behind existing fields.
 - `GET /chat/models` and `GET /chat/providers` payload shape remains unchanged; only `codexDefaults`/`codexWarnings` value origin changes.
 - MCP `codebase_question` request/response shape remains unchanged.
-- MCP Agents `run_command` tool contract remains unchanged for this story scope (`AGENTS` page start-step only).
+- MCP Agents `run_command` tool contract remains unchanged for this story scope (start-step applies only to REST AGENTS page command runs).
 - WebSocket event schemas remain unchanged (`WsInflightSnapshotEvent`, `WsTurnFinalEvent`, and existing `command` metadata shape).
 
 3. Flow-run contract behavior in scope
@@ -220,8 +222,8 @@ Likely code surfaces to change:
 4. Flow command resolution order/fallback:
    - Source-aware command lookup strategy for flow command steps:
      - `server/src/flows/service.ts`
-   - Reuse existing repository listing metadata, but enforce deterministic fallback ordering in flow lookup logic itself:
-     - same-source repository -> codeInfo2 repository -> sorted other repositories.
+  - Reuse existing repository listing metadata, but enforce deterministic fallback ordering in flow lookup logic itself:
+    - same-source repository -> codeInfo2 repository -> other repositories sorted by case-insensitive normalized source label, then case-insensitive full source path.
 
 Integration notes to keep implementation simple:
 
@@ -259,7 +261,7 @@ Control behavior:
 - Before command selection, `Start step` is disabled with placeholder text (for example `Select command first`).
 - Default selected value is always `1` on command selection and on command change.
 - Step options are rendered as readable labels: `Step 1`, `Step 2`, ... `Step N`.
-- Command dropdown includes step-count preview in option secondary text when available (for example `build_release` + `6 steps`).
+- Command dropdown includes step-count preview in option secondary text for every command option (for example `build_release` + `6 steps`).
 - If command metadata is loading, start-step remains disabled.
 - If command is invalid/disabled, start-step remains disabled and execution remains disabled.
 - If command has only one step, start-step remains visible and disabled with `Step 1` selected.

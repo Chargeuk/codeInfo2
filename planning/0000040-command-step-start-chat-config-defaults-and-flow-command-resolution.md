@@ -849,7 +849,15 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 6, AC 24.
    - Done when: test fails if persisted turn metadata shape or numbering semantics drift.
-14. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for runtime `startStep` execution behavior and validation paths, including a Mermaid sequence diagram for execution flow and invalid-range failure handling.
+14. [ ] Add an integration test for step-count drift where command metadata is stale but runtime command file has fewer steps, and assert deterministic `INVALID_START_STEP` failure is returned.
+   - Test type: `Integration`.
+   - Test location: [server/src/test/integration/agents-run-client-conversation-id.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/agents-run-client-conversation-id.test.ts).
+   - Description: Simulate command-list metadata for higher `N`, reduce command file steps before execution, submit old `startStep`, and assert runtime range validation rejects the request.
+   - Purpose: Corner-case runtime source-of-truth coverage for AC 7, AC 24, and AC 25.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 7, AC 24, AC 25.
+   - Done when: test fails if stale client metadata can bypass runtime range validation.
+15. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for runtime `startStep` execution behavior and validation paths, including a Mermaid sequence diagram for execution flow and invalid-range failure handling.
    - Document name: `design.md`.
    - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Description: Document runtime `startStep` boundary conversion, omitted-value defaults, and deterministic error propagation path.
@@ -857,7 +865,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
    - Done when: `design.md` includes correct runtime behavior and valid Mermaid syntax for the flow/error diagram.
-15. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-3 runner/service/test file changes.
+16. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-3 runner/service/test file changes.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Description: Record all files changed for runner execution behavior and associated tests.
@@ -866,7 +874,7 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
    - Done when: `projectStructure.md` accurately reflects task-3 file layout changes.
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 6, AC 7, AC 24, AC 25.
    - Done when: both commands pass.
@@ -1116,7 +1124,15 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/, https://jestjs.io/docs/getting-started.
    - Acceptance criteria coverage: AC 7, AC 25.
    - Done when: test fails if UI rewrites or drops server message text.
-13. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) for AGENTS `Start step` user-facing behavior and usage notes.
+13. [ ] Add a UI test for disabled command entries (`disabled: true`, `stepCount: 1`) proving `Start step` remains disabled and execute action remains blocked.
+   - Test type: `Component/UI`.
+   - Test location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx).
+   - Description: Use disabled command fixture with sentinel `stepCount: 1` and assert `Start step` is disabled, execute button is disabled, and no run request is triggered.
+   - Purpose: Error/corner-case UI guard coverage for AC 5, AC 23, and AC 24.
+   - Docs to read first: https://testing-library.com/docs/ecosystem-jest-dom/, https://jestjs.io/docs/getting-started.
+   - Acceptance criteria coverage: AC 5, AC 23, AC 24.
+   - Done when: test fails if disabled command fixtures allow start-step editing or command execution.
+14. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) for AGENTS `Start step` user-facing behavior and usage notes.
    - Document name: `README.md`.
    - Document location: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md).
    - Description: Add clear user guidance for AGENTS command execution from selected step and visible validation feedback.
@@ -1124,7 +1140,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 1-8.
    - Done when: `README.md` documents `Start step` behavior, defaults, and scope boundaries.
-14. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for AGENTS `Start step` UI flow and server error-display integration.
+15. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for AGENTS `Start step` UI flow and server error-display integration.
    - Document name: `design.md`.
    - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Description: Document control state transitions, payload wiring, and rendering of deterministic `INVALID_START_STEP` responses.
@@ -1132,7 +1148,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 1-8, AC 25.
    - Done when: `design.md` captures UI behavior, request behavior, and error rendering contract.
-15. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for AGENTS page and test file changes in this task.
+16. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for AGENTS page and test file changes in this task.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Description: Record modified/added client page and test files related to `Start step` UI behavior.
@@ -1141,7 +1157,7 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 1-8.
    - Done when: `projectStructure.md` mirrors actual task-5 file changes.
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 1-8.
    - Done when: both commands pass.
@@ -1268,7 +1284,15 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
    - Acceptance criteria coverage: AC 16.
    - Done when: test fails if alias `false` maps to any value other than `disabled`.
-13. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for shared resolver behavior, including a Mermaid flow diagram for precedence (`override > config > env > hardcoded`) and warning emission points.
+13. [ ] Add a resolver precedence unit test for canonical `web_search` value with full source chain (`override > config > env > hardcoded`) and field-specific warning emission on env fallback.
+   - Test type: `Unit`.
+   - Test location: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
+   - Description: Assert canonical `web_search` follows the same source precedence ordering as other covered fields and warnings are emitted only for env-fallback selection.
+   - Purpose: Close missing precedence-chain coverage for AC 11, AC 13, AC 14, and AC 16.
+   - Docs to read first: https://nodejs.org/api/test.html, https://developers.openai.com/codex/config-reference.
+   - Acceptance criteria coverage: AC 11, AC 13, AC 14, AC 16.
+   - Done when: test fails if `web_search` precedence diverges from resolver contract.
+14. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for shared resolver behavior, including a Mermaid flow diagram for precedence (`override > config > env > hardcoded`) and warning emission points.
    - Document name: `design.md`.
    - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Description: Document all covered default fields, deterministic precedence logic, legacy-env fallback warnings, and canonical web-search handling.
@@ -1276,7 +1300,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `design.md` includes precedence/warning behavior and valid Mermaid syntax.
-14. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-6 resolver and test file changes.
+15. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-6 resolver and test file changes.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Description: Record all changed/added resolver and unit test files from this task.
@@ -1285,7 +1309,7 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `projectStructure.md` accurately reflects task-6 file changes.
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 10-16.
    - Done when: both commands pass.
@@ -1864,7 +1888,23 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Docs to read first: https://nodejs.org/api/test.html.
    - Acceptance criteria coverage: AC 20, AC 27.
    - Done when: test fails if resolver continues fallback after same-source schema failure.
-10. [ ] Add an integration test for normalized-label comparison with trimmed `sourceLabel`.
+10. [ ] Add an integration test for same-source command read/parse failure fail-fast behavior.
+   - Test type: `Integration`.
+   - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
+   - Description: Same-source command file exists but read/parse fails; assert run fails immediately and does not attempt fallback repositories.
+   - Purpose: Error-path fail-fast coverage for edge-case rules and AC 20/AC 27 scope behavior.
+   - Docs to read first: https://nodejs.org/api/test.html.
+   - Acceptance criteria coverage: AC 20, AC 27.
+   - Done when: test fails if resolver falls back after same-source read/parse failure.
+11. [ ] Add an integration test for command-not-found across all candidate repositories preserving existing not-found failure path.
+   - Test type: `Integration`.
+   - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
+   - Description: Configure same-source, codeInfo2, and sorted-other candidates without the target command and assert deterministic not-found failure behavior.
+   - Purpose: Corner-case exhaustive fallback coverage for AC 18, AC 19, AC 27, and AC 28.
+   - Docs to read first: https://nodejs.org/api/test.html, https://nodejs.org/api/path.html.
+   - Acceptance criteria coverage: AC 18, AC 19, AC 27, AC 28.
+   - Done when: test fails if missing command across all candidates produces inconsistent/non-standard failure behavior.
+12. [ ] Add an integration test for normalized-label comparison with trimmed `sourceLabel`.
    - Test type: `Integration`.
    - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
    - Description: Use labels with surrounding whitespace and assert comparator uses trimmed normalized label.
@@ -1872,7 +1912,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Docs to read first: https://nodejs.org/api/test.html, https://nodejs.org/api/path.html.
    - Acceptance criteria coverage: AC 19, AC 28.
    - Done when: test fails if whitespace affects ordering.
-11. [ ] Add an integration test for empty/absent `sourceLabel` basename fallback ordering.
+13. [ ] Add an integration test for empty/absent `sourceLabel` basename fallback ordering.
    - Test type: `Integration`.
    - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
    - Description: Use empty labels and assert comparator falls back to repository basename before path tie-break.
@@ -1880,7 +1920,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Docs to read first: https://nodejs.org/api/test.html, https://nodejs.org/api/path.html.
    - Acceptance criteria coverage: AC 19, AC 28.
    - Done when: test fails if empty labels are not normalized correctly.
-12. [ ] Add an integration test for path tie-break when normalized labels compare equal case-insensitively.
+14. [ ] Add an integration test for path tie-break when normalized labels compare equal case-insensitively.
    - Test type: `Integration`.
    - Test location: [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts).
    - Description: Create same normalized labels and assert deterministic first match by case-insensitive full path ordering.
@@ -1888,7 +1928,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Docs to read first: https://nodejs.org/api/test.html, https://nodejs.org/api/path.html.
    - Acceptance criteria coverage: AC 19, AC 28.
    - Done when: test fails if equal-label ordering is non-deterministic.
-13. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for flow resolver ordering and fail-fast behavior, including Mermaid flow/sequence diagrams for same-source success, codeInfo2 fallback, and same-source schema-invalid stop conditions.
+15. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) for flow resolver ordering and fail-fast behavior, including Mermaid flow/sequence diagrams for same-source success, codeInfo2 fallback, and same-source schema-invalid stop conditions.
    - Document name: `design.md`.
    - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Description: Document deterministic source ordering comparator, fallback boundaries, and fail-fast semantics across validation/execution paths.
@@ -1896,7 +1936,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Docs to read first: `/mermaid-js/mermaid`, https://www.markdownguide.org/basic-syntax/.
    - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
    - Done when: `design.md` includes exact rules and valid Mermaid syntax for all required flow scenarios.
-14. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-11 flow service/integration test file changes.
+16. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for task-11 flow service/integration test file changes.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Description: Record all flow service and integration test files added/updated in this task.
@@ -1905,7 +1945,7 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
    - Done when: `projectStructure.md` reflects all task-11 file changes with no omissions.
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Acceptance criteria coverage: quality gate for AC 18-21 and AC 27-28.
    - Done when: both commands pass.

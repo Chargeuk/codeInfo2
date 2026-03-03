@@ -582,12 +582,6 @@ Add the backend response contract for command list items so the frontend can ren
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 22, AC 23.
    - Done when: `projectStructure.md` matches the post-task repository state and explicitly includes all added and removed files.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
-   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
-   - Acceptance criteria coverage: quality gate for AC 22, AC 23 implementation.
-   - Done when: both commands pass with no remaining lint/format errors.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -597,7 +591,9 @@ Add the backend response contract for command list items so the frontend can ren
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-list.test.ts`
 6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agents-commands-router-list.test.ts`
 7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`
-8. [ ] `npm run compose:down`
+8. [ ] `npm run lint --workspaces`
+9. [ ] `npm run format:check --workspaces`
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -742,12 +738,6 @@ Add the run-request message contract for optional `startStep` with strict input 
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 24, AC 25.
    - Done when: `projectStructure.md` contains accurate entries for all added and removed files (and any modified files) in this task.
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
-   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
-   - Acceptance criteria coverage: quality gate for AC 6, AC 7, AC 24, AC 25.
-   - Done when: both commands pass.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -757,7 +747,9 @@ Add the run-request message contract for optional `startStep` with strict input 
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agents-commands-router-run.test.ts`
 6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-agents-commands-run.test.ts`
 7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`
-8. [ ] `npm run compose:down`
+8. [ ] `npm run lint --workspaces`
+9. [ ] `npm run format:check --workspaces`
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -920,12 +912,6 @@ Implement runtime start-step behavior in the command runner. This task covers st
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 6, AC 7, AC 24, AC 25.
    - Done when: `projectStructure.md` accurately reflects task-3 file layout and explicitly lists all added and removed files.
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
-   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
-   - Acceptance criteria coverage: quality gate for AC 6, AC 7, AC 24, AC 25.
-   - Done when: both commands pass.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -937,7 +923,9 @@ Implement runtime start-step behavior in the command runner. This task covers st
 7. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-ws-stream.test.ts`
 8. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts`
 9. [ ] `npm run test:summary:server:cucumber`
-10. [ ] `npm run compose:down`
+10. [ ] `npm run lint --workspaces`
+11. [ ] `npm run format:check --workspaces`
+12. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1057,12 +1045,6 @@ Update the frontend API layer contracts to match backend message changes. This t
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 6, AC 22, AC 24.
    - Done when: `projectStructure.md` entries match task-4 file changes and include all added and removed files.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
-   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
-   - Acceptance criteria coverage: quality gate for AC 6, AC 22, AC 24.
-   - Done when: both commands pass.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1071,7 +1053,9 @@ Update the frontend API layer contracts to match backend message changes. This t
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:client -- --file client/src/test/agentsApi.commandsList.test.ts`
 6. [ ] `npm run test:summary:client -- --file client/src/test/agentsApi.commandsRun.test.ts`
-7. [ ] `npm run compose:down`
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1232,12 +1216,6 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 1-8.
    - Done when: `projectStructure.md` mirrors actual task-5 file changes and explicitly includes all added and removed files.
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
-   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
-   - Acceptance criteria coverage: quality gate for AC 1-8.
-   - Done when: both commands pass.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1248,7 +1226,9 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
 6. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.run.commandError.test.tsx`
 7. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx`
 8. [ ] `npm run test:summary:client`
-9. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces`
+10. [ ] `npm run format:check --workspaces`
+11. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1400,12 +1380,6 @@ Implement the shared Codex default-resolution behavior in one place so all consu
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `projectStructure.md` accurately reflects task-6 file changes and includes all added and removed files.
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
-   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
-   - Acceptance criteria coverage: quality gate for AC 10-16.
-   - Done when: both commands pass.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1413,7 +1387,9 @@ Implement the shared Codex default-resolution behavior in one place so all consu
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/config.chatDefaults.test.ts`
-6. [ ] `npm run compose:down`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1538,12 +1514,6 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `projectStructure.md` reflects all task-7 file changes and explicitly includes all added and removed files.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
-   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
-   - Acceptance criteria coverage: quality gate for AC 10-16.
-   - Done when: both commands pass.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1553,7 +1523,9 @@ Wire REST and capability endpoints to the shared resolver so runtime defaults an
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts`
 6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts`
 7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts`
-8. [ ] `npm run compose:down`
+8. [ ] `npm run lint --workspaces`
+9. [ ] `npm run format:check --workspaces`
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1659,12 +1631,6 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 10-16.
    - Done when: `projectStructure.md` accurately lists task-8 file changes and includes all added and removed files.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
-   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
-   - Acceptance criteria coverage: quality gate for AC 10-16.
-   - Done when: both commands pass.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1675,7 +1641,9 @@ Align MCP `codebase_question` Codex default behavior with REST by reusing the sa
 6. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
 7. [ ] `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
 8. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex-mcp.test.ts`
-9. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces`
+10. [ ] `npm run format:check --workspaces`
+11. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1804,12 +1772,6 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 15.
    - Done when: `projectStructure.md` accurately mirrors task-9 repository changes and includes all added and removed files.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
-   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
-   - Acceptance criteria coverage: quality gate for AC 15.
-   - Done when: both commands pass.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1817,7 +1779,9 @@ Implement startup/bootstrap behavior for missing chat config with non-destructiv
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts`
-6. [ ] `npm run compose:down`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1930,12 +1894,6 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 17, AC 26.
    - Done when: `projectStructure.md` lists all task-10 file changes accurately, including all added and removed files.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
-   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
-   - Acceptance criteria coverage: quality gate for AC 17, AC 26.
-   - Done when: both commands pass.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1944,7 +1902,9 @@ Upgrade dependency and runtime guard together so install-time and runtime expect
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/codexSdkUpgrade.test.ts`
 6. [ ] `npm run test:summary:server:unit`
-7. [ ] `npm run compose:down`
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -2102,12 +2062,6 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
    - Ordering requirement: complete this subtask after all file additions/removals in this task.
    - Acceptance criteria coverage: documentation support for AC 18-21 and AC 27-28.
    - Done when: `projectStructure.md` reflects all task-11 file changes with no omissions, including all added and removed files.
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
-   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
-   - Acceptance criteria coverage: quality gate for AC 18-21 and AC 27-28.
-   - Done when: both commands pass.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -2116,7 +2070,9 @@ Implement and verify the flow command-resolution fix with red-green evidence, de
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts`
 6. [ ] `npm run test:summary:server:cucumber`
-7. [ ] `npm run compose:down`
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -2176,12 +2132,6 @@ Perform documentation-only updates so product behavior, architecture notes, and 
    - Files to read/edit: [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json).
    - Acceptance criteria coverage: AC 22, AC 23, AC 24, AC 25.
    - Done when: OpenAPI schema matches live request/response behavior.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
-   - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
-   - Acceptance criteria coverage: documentation quality gate.
-   - Done when: both commands pass.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -2189,7 +2139,9 @@ Perform documentation-only updates so product behavior, architecture notes, and 
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`
-6. [ ] `npm run compose:down`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -2228,89 +2180,17 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Files to read/edit: [0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md) (acceptance criteria + this task's implementation notes section).
    - Acceptance criteria coverage: AC 1-28.
    - Done when: every AC has a concrete evidence note (test name, endpoint check, or manual check), and each evidence note is tagged as happy-path, error-path, or corner-case coverage.
-2. [ ] Run and record results for full server unit regression wrapper.
-   - Test type: `Regression` (`server unit` wrapper).
-   - Test location: `test-results/server-unit-tests-<timestamp>.*` and `logs/test-summaries/`.
-   - Description: Execute `npm run test:summary:server:unit` and log pass/fail plus remediation steps if failures occur.
-   - Purpose: Broad backend regression coverage for AC 1-28.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://nodejs.org/api/test.html.
-   - Files to read/edit: `test-results/`, `logs/test-summaries/`, and this task's implementation notes section.
-   - Acceptance criteria coverage: regression validation for AC 1-28.
-   - Done when: wrapper passes or all failures are remediated and rerun evidence is recorded.
-3. [ ] Run and record results for full server cucumber regression wrapper.
-   - Test type: `Regression` (`server cucumber` wrapper).
-   - Test location: `test-results/server-cucumber-tests-<timestamp>.log`.
-   - Description: Execute `npm run test:summary:server:cucumber` and record failures/remediation.
-   - Purpose: BDD behavior regression coverage for AC 1-28.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/10-minute-tutorial/.
-   - Files to read/edit: `test-results/` and this task's implementation notes section.
-   - Acceptance criteria coverage: regression validation for AC 1-28.
-   - Done when: wrapper passes or all failing scenarios are remediated and rerun evidence is recorded.
-4. [ ] Run and record results for full client regression wrapper.
-   - Test type: `Regression` (`client` wrapper).
-   - Test location: `test-results/client-tests-<timestamp>.*`.
-   - Description: Execute `npm run test:summary:client` and record pass/fail evidence with remediation notes.
-   - Purpose: Frontend regression coverage for AC 1-28.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://jestjs.io/docs/getting-started.
-   - Files to read/edit: `test-results/` and this task's implementation notes section.
-   - Acceptance criteria coverage: regression validation for AC 1-28.
-   - Done when: wrapper passes or all failures are remediated and rerun evidence is recorded.
-5. [ ] Run and record results for end-to-end regression wrapper.
-   - Test type: `Regression` (`e2e` wrapper).
-   - Test location: `logs/test-summaries/e2e-tests-latest.log`.
-   - Description: Execute `npm run test:summary:e2e` and record pass/fail evidence with remediation notes.
-   - Purpose: End-to-end behavior coverage for AC 1-28.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
-   - Files to read/edit: `logs/test-summaries/` and this task's implementation notes section.
-   - Acceptance criteria coverage: regression validation for AC 1-28.
-   - Done when: wrapper passes or all failures are remediated and rerun evidence is recorded.
-6. [ ] Run explicit MCP non-regression checks proving `run_command` contract did not gain required `startStep` input and payload shape did not drift.
-   - Test type: `Unit` (MCP contract non-regression).
-   - Test location: [server/src/test/unit/mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts) with schema source in [server/src/mcpAgents/tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts).
-   - Description: Execute targeted MCP contract assertions and confirm `run_command` input schema remains unchanged.
-   - Purpose: Protect scope boundary for AC 8 and backward compatibility for AC 24.
-   - Docs to read first: https://deepwiki.com/openai/codex, https://nodejs.org/api/test.html.
-   - Files to read/edit: [server/src/mcpAgents/tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts), [server/src/test/unit/mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts).
-   - Acceptance criteria coverage: AC 8, AC 24.
-   - Done when: targeted MCP tests/assertions confirm unchanged contract.
-7. [ ] Execute Playwright manual check for AGENTS start-step behavior.
-   - Test type: `Manual UI` (Playwright-assisted).
-   - Test location: `test-results/screenshots/`.
-   - Description: Validate AGENTS `Start step` visibility, disable states, reset behavior, and request payload trigger behavior.
-   - Purpose: Manual behavior confirmation for AC 1-8.
-   - Docs to read first: https://playwright.dev/docs/intro, https://docs.docker.com/compose/.
-   - Files to read/edit: `test-results/screenshots/` and this task's implementation notes section.
-   - Acceptance criteria coverage: AC 1-8.
-   - Done when: manual check results and screenshot evidence are recorded.
-8. [ ] Execute Playwright manual check for chat default initialization and warning behavior.
-   - Test type: `Manual UI/API` (Playwright-assisted).
-   - Test location: `test-results/screenshots/`.
-   - Description: Validate defaults/warnings align with shared config-backed resolver behavior on chat-capability surfaces.
-   - Purpose: Manual confirmation for AC 10-16.
-   - Docs to read first: https://playwright.dev/docs/intro, https://docs.docker.com/compose/.
-   - Files to read/edit: `test-results/screenshots/` and this task's implementation notes section.
-   - Acceptance criteria coverage: AC 10-16.
-   - Done when: manual check results and screenshot evidence are recorded.
-9. [ ] Execute Playwright manual check for flow resolver success/failure behavior.
-   - Test type: `Manual integration`.
-   - Test location: `test-results/screenshots/`.
-   - Description: Validate same-source success, fallback behavior, and fail-fast behavior for invalid same-source command cases.
-   - Purpose: Manual confirmation for AC 18-21.
-   - Docs to read first: https://playwright.dev/docs/intro, https://docs.docker.com/compose/.
-   - Files to read/edit: `test-results/screenshots/` and this task's implementation notes section.
-   - Acceptance criteria coverage: AC 18-21.
-   - Done when: manual check results and screenshot evidence are recorded.
-10. [ ] Save screenshots to `test-results/screenshots/` with naming format `0000040-13-<short-name>.png`.
-   - Docs to read first: https://playwright.dev/docs/screenshots.
-   - Files to read/edit: `test-results/screenshots/`.
-   - Acceptance criteria coverage: final verification evidence for manual checks.
-   - Done when: screenshots exist with correct naming convention and map to manual checks.
-11. [ ] Produce pull-request summary text covering all completed tasks, contract changes, tests run, and remaining risks.
+2. [ ] After completing this task's Testing section, document outcomes for all wrapper/manual checks in this task's implementation notes, including pass/fail status, remediation actions, and rerun evidence.
+   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://nodejs.org/api/test.html, https://playwright.dev/docs/intro.
+   - Files to read/edit: [0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md) (this task's implementation notes section), [mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts), [tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts).
+   - Acceptance criteria coverage: AC 1-28.
+   - Done when: implementation notes include explicit evidence for server unit, cucumber, client, e2e, targeted MCP non-regression, and manual Playwright checks.
+3. [ ] Produce pull-request summary text covering all completed tasks, contract changes, tests run, and remaining risks.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Files to read/edit: [0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md), [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Acceptance criteria coverage: release readiness communication for AC 1-28.
    - Done when: summary includes what changed, why, and proof points.
-12. [ ] Confirm [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) is fully current after all code/test changes.
+4. [ ] Confirm [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) is fully current after all code/test changes.
    - Document name: `README.md`.
    - Document location: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md).
    - Description: Verify final user-facing behavior descriptions and command references match implemented functionality and test evidence.
@@ -2320,7 +2200,7 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Ordering requirement: complete this subtask after all file additions/removals in this task (including screenshot files) are finished.
    - Acceptance criteria coverage: final documentation readiness for AC 1-28.
    - Done when: `README.md` aligns with final behavior and no stale instructions remain.
-13. [ ] Confirm [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) is fully current and all newly added Mermaid diagrams render and match implemented architecture/flow behavior.
+5. [ ] Confirm [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) is fully current and all newly added Mermaid diagrams render and match implemented architecture/flow behavior.
    - Document name: `design.md`.
    - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Description: Verify all architecture notes and Mermaid diagrams represent the final implemented flow and contract behavior.
@@ -2330,7 +2210,7 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Ordering requirement: complete this subtask after all file additions/removals in this task (including screenshot files) are finished.
    - Acceptance criteria coverage: final documentation readiness for AC 1-28.
    - Done when: `design.md` has no known drift and all Mermaid blocks are syntax-valid and behavior-accurate.
-14. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) so it is fully current after all code/test/documentation changes.
+6. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) so it is fully current after all code/test/documentation changes.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Description: Update and verify that all added, removed, and modified files for the story (including screenshot artifacts) are correctly reflected in structure documentation.
@@ -2340,12 +2220,6 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Ordering requirement: complete this subtask after all file additions/removals in this task (including screenshot files) are finished.
    - Acceptance criteria coverage: final documentation readiness for AC 1-28.
    - Done when: `projectStructure.md` matches final repository state with no missing entries and explicitly includes all added and removed files from this task.
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
-   - Files to read/edit: this task's implementation notes section for recording final lint/format results.
-   - Acceptance criteria coverage: final quality gate for story completion.
-   - Done when: both commands pass at end of final verification.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -2357,8 +2231,13 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
 7. [ ] `npm run test:summary:server:cucumber`
 8. [ ] `npm run test:summary:client`
 9. [ ] `npm run test:summary:e2e`
-10. [ ] Playwright MCP manual verification with screenshots in `test-results/screenshots/`
-11. [ ] `npm run compose:down`
+10. [ ] Playwright manual check: AGENTS `Start step` behavior (`test-results/screenshots/` evidence for AC 1-8).
+11. [ ] Playwright manual check: chat default initialization/warning behavior (`test-results/screenshots/` evidence for AC 10-16).
+12. [ ] Playwright manual check: flow resolver success/failure behavior (`test-results/screenshots/` evidence for AC 18-21).
+13. [ ] Save screenshots to `test-results/screenshots/` using naming format `0000040-13-<short-name>.png`.
+14. [ ] `npm run lint --workspaces`
+15. [ ] `npm run format:check --workspaces`
+16. [ ] `npm run compose:down`
 
 #### Implementation notes
 

@@ -237,6 +237,7 @@ None.
 - DeepWiki and Context7 MCP research attempts were unavailable in this environment (repository not indexed in DeepWiki; Context7 API key unavailable), so decisions were cross-checked with repo code and official Node/MUI/GitHub web documentation.
 - Contract/storage confirmation for this story: only one new REST read contract is required (`GET /agents/:agentName/prompts`), while run contracts, WS/MCP schemas, and Mongo storage shapes remain unchanged.
 - React `19.2.0` security advisory for React Server Components/React Server Functions was reviewed; this repo uses a Vite SPA client with no RSC/RSF runtime path, so advisory assumptions for server-component execution do not apply directly to this story.
+- De-risking scope note: prompt discovery can stay scoped to the resolved `working_folder`; adding repository fan-out for this endpoint is unnecessary complexity because execution already relies on resolved runtime/container paths.
 
 ## Implementation Ideas
 
@@ -253,7 +254,7 @@ Use a single end-to-end approach that reuses existing Agents route/service patte
 2. Server service implementation
 - Add a new service function in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts), for example `listAgentPrompts({ agentName, working_folder })`.
 - Reuse `resolveWorkingFolderWorkingDirectory(...)` for runtime/container path resolution, so the client never performs host/container mapping logic.
-- Reuse the local+ingested source fan-out approach already used in `listAgentCommands(...)` and `listIngestedRepositories(...)` so prompt discovery behaves consistently across local and ingested sources.
+- Keep discovery scoped to the resolved `working_folder` path only; do not add `listIngestedRepositories(...)` fan-out for this endpoint.
 - Verify agent existence using existing discovery path (`discoverAgents`) before scanning for prompts.
 - Implement case-insensitive folder resolution for `.github/prompts` by matching each path segment against on-disk directory entries at each level.
 - Walk the resolved prompts directory recursively, include only markdown files (`.md`, case-insensitive), ignore symlink entries, and skip non-markdown files.
@@ -377,6 +378,7 @@ Define the new REST message contract at the router boundary before any frontend 
 8. [ ] Add/extend regression tests so existing command/run route contracts remain unchanged:
    - [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts),
    - [server/src/test/unit/agents-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-router-run.test.ts).
+   - Keep these tests green as the primary regression guard; only add new assertions if route behavior changes unexpectedly.
 9. [ ] Update [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) with `GET /agents/{agentName}/prompts`:
    - required query param `working_folder`,
    - `200` response schema `{ prompts: [{ relativePath, fullPath }] }`,
@@ -420,7 +422,7 @@ Implement the actual prompt discovery behavior in the server service layer with 
 #### Subtasks
 
 1. [ ] Add service-level contract in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts): `listAgentPrompts({ agentName, working_folder })`.
-   - Implement alongside `listAgentCommands(...)` and reuse existing service-level source fan-out/dependency patterns.
+   - Implement alongside `listAgentCommands(...)` and reuse existing service error/helper patterns without introducing new source fan-out dependencies.
 2. [ ] Reuse `resolveWorkingFolderWorkingDirectory(...)` to resolve/validate `working_folder` before traversal.
    - Reuse existing `discoverAgents()` agent lookup pattern used by `listAgentCommands(...)`.
 3. [ ] Implement case-insensitive segment matching for `.github/prompts` under resolved working folder.
@@ -526,7 +528,8 @@ Introduce the command-info icon and popover interaction only. This task does not
    - Disabled when no command is selected.
 2. [ ] Add command-info popover state and rendering for selected-command description.
    - Reuse the existing agent-info popover pattern (`anchorEl`, `open`, `id`, open/close handlers, `Popover` wiring).
-3. [ ] Ensure no-command state remains understandable and non-crashing when command-info is opened.
+3. [ ] Ensure disabled command-info behavior is safe and predictable when no command is selected.
+   - Clicking the disabled button should not open the popover or throw runtime errors.
 4. [ ] Extend [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx) pattern for command-info popover behavior.
 5. [ ] If this task adds/removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) in this task.
 6. [ ] Run workspace lint/format checks as final subtask for this task.
@@ -602,8 +605,8 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
 1. [ ] Add prompt discovery request state in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx):
    - prompts loading,
    - prompts error,
-   - committed working folder token,
-   - request token/version for latest-response-wins behavior.
+   - committed working folder value,
+   - request sequence id for latest-response-wins behavior.
 2. [ ] Trigger discovery only on committed events:
    - `working_folder` blur,
    - Enter in `working_folder`,
@@ -612,7 +615,7 @@ Implement prompt discovery request timing and request lifecycle safety only. Thi
    - Scope this handling to the `working_folder` field only so multiline `Instruction` keeps normal Enter/newline behavior.
 4. [ ] Do not request discovery if committed `working_folder` is unchanged from the last committed value.
 5. [ ] Implement stale-response handling so only latest committed-folder response updates state.
-   - Reuse existing cancellation/guard pattern already used by page async effects (`let cancelled = false`) and explicit request-token comparison.
+   - Use one deterministic guard pattern (monotonic request sequence/ref check) instead of combining multiple cancellation strategies.
 6. [ ] Extend [client/src/test/agentsPage.workingFolderPicker.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.workingFolderPicker.test.tsx) for:
    - commit trigger timing (`blur`/`Enter`/picker),
    - no keystroke-only discovery before commit,
@@ -762,7 +765,7 @@ Capture final behavior in repository docs once implementation is complete, inclu
 1. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) with user-facing behavior updates for command info and prompt execution flow.
 2. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) with API contract and interaction flow updates (including prompt discovery + execute flow).
 3. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) for all files added/removed across this story.
-4. [ ] Update [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) contract examples/response schemas to match final implementation for prompts discovery.
+4. [ ] Verify [openapi.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/openapi.json) from Task 1 still matches final implementation and update only if implementation drift is discovered.
 5. [ ] Run workspace lint/format checks as final subtask for this task.
 
 #### Testing

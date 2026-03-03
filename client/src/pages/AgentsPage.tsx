@@ -243,9 +243,6 @@ export default function AgentsPage() {
   const [committedWorkingFolder, setCommittedWorkingFolder] = useState('');
   const lastCommittedWorkingFolderRef = useRef('');
   const promptsRequestSeqRef = useRef(0);
-  const promptsRequestContextByIdRef = useRef(
-    new Map<number, { agentName: string; committedWorkingFolder: string }>(),
-  );
   const promptSelectorVisibilityLogRef = useRef('');
   const promptSelectionLogRef = useRef('');
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
@@ -345,7 +342,6 @@ export default function AgentsPage() {
       clearCommittedWorkingFolder?: boolean;
     }) => {
       promptsRequestSeqRef.current += 1;
-      promptsRequestContextByIdRef.current.clear();
       setPromptsLoading(false);
       setPromptsError(null);
       setPromptEntries([]);
@@ -613,7 +609,6 @@ export default function AgentsPage() {
       agentName: selectedAgentName,
       committedWorkingFolder,
     };
-    promptsRequestContextByIdRef.current.set(requestId, requestContext);
     setPromptsLoading(true);
     setPromptsError(null);
     console.info(
@@ -655,7 +650,6 @@ export default function AgentsPage() {
         setPromptsError((err as Error).message);
       })
       .finally(() => {
-        promptsRequestContextByIdRef.current.delete(requestId);
         const stillActive =
           requestId === promptsRequestSeqRef.current &&
           selectedAgentNameRef.current === requestContext.agentName &&
@@ -710,7 +704,11 @@ export default function AgentsPage() {
       ) ?? null,
     [promptEntries, selectedPromptFullPath],
   );
-  const executePromptEnabled = selectedPromptEntry !== null;
+  const executePromptEnabled =
+    selectedPromptEntry !== null &&
+    Boolean(selectedAgentName) &&
+    !startPending &&
+    !persistenceUnavailable;
 
   useEffect(() => {
     if (!selectedPromptFullPath) return;
@@ -2464,7 +2462,7 @@ export default function AgentsPage() {
                             type="button"
                             variant="contained"
                             size="small"
-                            disabled={!executePromptEnabled}
+                            disabled={!executePromptEnabled || !wsTranscriptReady}
                             onClick={handleExecutePrompt}
                             data-testid="agent-prompt-execute"
                             sx={{ flexShrink: 0 }}

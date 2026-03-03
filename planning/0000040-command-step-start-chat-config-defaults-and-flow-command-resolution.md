@@ -343,7 +343,6 @@ Control behavior:
 - Before command selection, `Start step` is disabled with placeholder text (for example `Select command first`).
 - Default selected value is always `1` on command selection and on command change.
 - Step options are rendered as readable labels: `Step 1`, `Step 2`, ... `Step N`.
-- Command dropdown includes step-count preview in option secondary text for every command option (for example `build_release` + `6 steps`).
 - If command metadata is loading, start-step remains disabled.
 - If command is invalid/disabled, start-step remains disabled and execution remains disabled.
 - If command has only one step, start-step remains visible and disabled with `Step 1` selected.
@@ -353,10 +352,9 @@ Execution behavior:
 - Existing run locks, persistence checks, and websocket readiness checks remain unchanged and still gate execution.
 
 Validation and feedback:
-- Invalid step requests (out of range, malformed) surface as inline error feedback in the command area.
+- Invalid step requests (out of range, malformed) surface through the existing command error area.
 - Command row should preserve existing warning notes (Mongo persistence and websocket requirement).
 - If backend rejects start-step, the user should see a specific message tied to that command run attempt, including allowed range (for example: `startStep must be between 1 and 6`).
-- Start-step validation feedback uses inline row-level `Alert` (no snackbar for this path).
 
 Accessibility and keyboard behavior:
 - `Start step` select must have a visible label and be keyboard navigable.
@@ -380,7 +378,7 @@ UI behavior:
 - Existing `CodexFlagsPanel` remains the editing surface for sandbox/approval/reasoning/network/web-search controls.
 - Existing warnings banner remains the display surface for server warnings.
 - Add/continue warning text for env fallback usage so migration status is visible without blocking user actions; warning includes which field fell back.
-- Env-fallback warning banner is shown on every load while fallback is active.
+- Env-fallback warnings are shown whenever returned in API response; do not add extra client-side warning replay/persistence logic.
 
 State behavior:
 - Initial flag values come from server-provided defaults (no client-side env assumptions).
@@ -399,7 +397,7 @@ Primary user outcome:
 UI behavior expectation:
 - Flow run errors for schema-invalid same-source commands should be surfaced as explicit run failure messages.
 - Error text should include enough context to identify the failing command and source location label.
-- Error wording should be operator-first with optional technical suffix (for example: `Command file invalid for selected source` + `schema validation failed`) and must not be replaced by fallback-success output from another repository.
+- Error wording should be clear and actionable and must not be replaced by fallback-success output from another repository.
 
 Viability checks:
 - Existing flow/chat transcript already renders warning/error bubbles, so this requirement can be satisfied through improved server error detail and existing UI surfaces.
@@ -683,19 +681,18 @@ Implement AGENTS page UI behavior for selecting and validating start step using 
    - options `Step 1..Step N`,
    - reset to `1` on command change,
    - disabled when `N = 1`.
-3. [ ] Add command-option step-count preview text in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) (for example `N steps`) using backend-provided `stepCount` so users can pick the correct command before choosing `Start step`.
-4. [ ] Wire execute action payload in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) to pass `startStep` in `POST /agents/:agentName/commands/run`.
-5. [ ] Add/extend UI tests in existing command-row suites (do not create a parallel page-test scaffold):
+3. [ ] Wire execute action payload in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) to pass `startStep` in `POST /agents/:agentName/commands/run`.
+4. [ ] Add/extend UI tests in existing command-row suites (do not create a parallel page-test scaffold):
    - [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
    - [client/src/test/agentsPage.run.commandError.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.commandError.test.tsx)
    - [client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx)
-   to verify visibility, enable/disable behavior, reset behavior, command-option step-count preview text, outbound payload, and `INVALID_START_STEP` inline feedback.
-6. [ ] Ensure row-level inline error handling for backend `INVALID_START_STEP` responses in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) with deterministic range message display.
-7. [ ] Update documentation files changed by this task:
+   to verify visibility, enable/disable behavior, reset behavior, outbound payload, and `INVALID_START_STEP` command-error feedback.
+5. [ ] Ensure backend `INVALID_START_STEP` responses are shown using the existing command error surface in [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) with deterministic range message display.
+6. [ ] Update documentation files changed by this task:
    - [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
    - [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
    - [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 

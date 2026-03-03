@@ -672,7 +672,8 @@ Add the backend response contract for command list items so the frontend can ren
 ### 2. Server Message Contract: add optional `startStep` to `POST /agents/:agentName/commands/run` and deterministic validation error mapping
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits:
+  - `cf6d702d` — DEV-[0000040] - Add Task 2 startStep route contract and validation mapping
 
 #### Overview
 

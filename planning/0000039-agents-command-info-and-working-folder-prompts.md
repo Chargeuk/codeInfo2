@@ -1183,8 +1183,8 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 6. Frontend: prompt discovery request lifecycle (commit triggers and stale-response guard)
 
-- Task Status: ****completed****
-- Git Commits: ****to_do****
+- Task Status: **__completed__**
+- Git Commits: `f7b6867f`
 
 #### Overview
 

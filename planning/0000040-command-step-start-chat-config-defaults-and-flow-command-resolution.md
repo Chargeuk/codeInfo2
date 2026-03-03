@@ -70,9 +70,101 @@ Expected end-user outcome:
 - Start-step controls for Flows page or non-Agents command execution surfaces.
 - Broad refactors unrelated to start-step execution, config-default sourcing, or flow-command resolution.
 
+### Interface Draft (Web GUI)
+
+This section defines concrete UI behavior for the unresolved interface requirements in this story.
+
+#### A. AGENTS page - command start-step interaction
+
+Primary user outcome:
+- A user can re-run a command from a chosen step quickly without editing command files or re-running all prior steps.
+
+Layout proposal:
+- Keep controls in the existing command action row on `AgentsPage`.
+- Row order (desktop): `Command` select -> `Start step` select -> command info icon -> `Execute command` button.
+- Row order (mobile): stack into one column in the same visual order.
+
+Control behavior:
+- `Start step` is a single-select dropdown (`1..N`) and is shown only when a command is selected.
+- Default selected value is always `1` on command selection and on command change.
+- Step options are rendered as readable labels: `Step 1`, `Step 2`, ... `Step N`.
+- If command metadata is loading, start-step remains disabled.
+- If command is invalid/disabled, start-step remains disabled and execution remains disabled.
+
+Execution behavior:
+- Clicking `Execute command` sends selected `startStep` as `1..N` in the command-run payload.
+- Existing run locks, persistence checks, and websocket readiness checks remain unchanged and still gate execution.
+
+Validation and feedback:
+- Invalid step requests (out of range, malformed) surface as inline error feedback in the command area.
+- Command row should preserve existing warning notes (Mongo persistence and websocket requirement).
+- If backend rejects start-step, the user should see a specific message tied to that command run attempt.
+
+Accessibility and keyboard behavior:
+- `Start step` select must have a visible label and be keyboard navigable.
+- Tab order follows the visual sequence in the row.
+- Disabled states are announced by native control semantics (MUI/HTML disabled behavior).
+
+Responsive behavior:
+- On small screens, controls stack with full-width selects and fixed-width action buttons dropped to full-width.
+- No horizontal overflow in the command row at common mobile widths.
+
+Viability checks:
+- Current row structure and disabled-state patterns in `client/src/pages/AgentsPage.tsx` support adding one more `FormControl + Select` without changing overall flow ownership.
+- Existing API contract in `client/src/api/agents.ts` and `server/src/routes/agentsCommands.ts` requires extension to carry/validate `startStep`.
+
+#### B. Chat page - defaults and warnings presentation
+
+Primary user outcome:
+- Chat settings open with expected defaults from `codex/chat/config.toml`, while still allowing manual override in GUI.
+
+UI behavior:
+- Existing `CodexFlagsPanel` remains the editing surface for sandbox/approval/reasoning/network/web-search controls.
+- Existing warnings banner remains the display surface for server warnings.
+- Add/continue warning text for env fallback usage so migration status is visible without blocking user actions.
+
+State behavior:
+- Initial flag values come from server-provided defaults (no client-side env assumptions).
+- User can still override values in the current session before sending a message.
+- Warning display is informational; it should not disable controls by itself.
+
+Viability checks:
+- Chat already consumes `codexDefaults` and `codexWarnings` and renders a warnings banner in `client/src/pages/ChatPage.tsx`.
+- Existing initialization logic and gating (`codexDefaultsReady`) can support the new fallback-source semantics without introducing new panel components.
+
+#### C. Flow command resolution - UX surface expectation
+
+Primary user outcome:
+- When a command cannot run due to invalid same-source command file, users get a clear, actionable error instead of silent fallback behavior.
+
+UI behavior expectation:
+- Flow run errors for schema-invalid same-source commands should be surfaced as explicit run failure messages.
+- Error text should include enough context to identify the failing command and source location label.
+
+Viability checks:
+- Existing flow/chat transcript already renders warning/error bubbles, so this requirement can be satisfied through improved server error detail and existing UI surfaces.
+
 ### Questions
 
-None.
+1. For AGENTS start-step control, should the selector always stay visible (disabled until command selected), or appear only after command selection?
+Why this matters: persistent visibility improves discoverability; conditional visibility reduces visual noise.
+Best-case answer example: Keep visible but disabled until a command is selected.
+
+2. Should the command dropdown include step count preview in each option label (for example `build_release (6 steps)`)?
+Why this matters: users can choose a command with full context before opening the start-step selector.
+Best-case answer example: Yes, include step count in option secondary text.
+
+3. For invalid start-step responses, do you want inline row-level `Alert` messages, toast/snackbar notifications, or both?
+Why this matters: inline alerts are clearer for form correction; snackbars are less disruptive but easier to miss.
+Best-case answer example: Inline row-level alert only, consistent with existing page patterns.
+
+4. When server warnings indicate env fallback was used for chat defaults, should the warning banner be shown on every load or only once per browser session?
+Why this matters: always-on improves visibility; once-per-session reduces repetitive noise.
+Best-case answer example: Show on every load while fallback is active.
+
+5. For flow command resolution errors, should UI wording prefer technical detail (`schema validation failed`) or operator detail (`Command file invalid for selected source`)?
+Why this matters: technical text helps engineers; operator phrasing helps broader users and support staff.
+Best-case answer example: Operator detail first, technical detail in suffix/secondary text.
 
 ### Research Findings (2026-03-03)
 

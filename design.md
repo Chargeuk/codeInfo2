@@ -4113,3 +4113,38 @@ sequenceDiagram
     UI->>UI: Hide prompts row (zero-results state)
   end
 ```
+
+## Story 0000039 Task 8: Execute Prompt instruction-run orchestration
+
+- Execute Prompt now composes a canonical instruction string from a fixed template and replaces only `<full path of markdown file>` with the selected prompt runtime `fullPath`.
+- Prompt execution reuses the standard instruction run path (`POST /agents/{agentName}/run`) and forwards committed `working_folder` so run context matches prompt discovery context.
+- Standard Send-instruction and Execute-command flows remain unchanged:
+  - Send continues using instruction endpoint.
+  - Execute Command continues using command-run endpoint.
+- Conflict and generic error UX parity is preserved for Execute Prompt by reusing the same instruction conflict/generic error handling behavior.
+- Execute Prompt runtime observability is exposed via:
+  - `[agents.prompts.execute.clicked]`
+  - `[agents.prompts.execute.payload_built]`
+  - `[agents.prompts.execute.result]`
+
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant UI as Agents Page
+  participant API as POST /agents/{agentName}/run
+
+  User->>UI: Select prompt + click Execute Prompt
+  UI->>UI: Log execute.clicked(relativePath, fullPath)
+  UI->>UI: Build canonical instruction payload with fullPath replacement
+  UI->>UI: Log execute.payload_built(instructionHasFullPath=true)
+  UI->>API: runAgentInstruction(instruction, committed working_folder, conversationId)
+  alt started
+    API-->>UI: status=started
+    UI->>UI: update active conversation/model + clear pending
+    UI->>UI: Log execute.result(status=started, code=none)
+  else conflict or generic error
+    API-->>UI: 409 RUN_IN_PROGRESS or other error
+    UI->>UI: preserve existing conflict/generic error UX
+    UI->>UI: Log execute.result(status=error, code=<error-code|none>)
+  end
+```

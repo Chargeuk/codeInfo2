@@ -991,3 +991,15 @@ web_search = "live"
   - `design.md`
   - `projectStructure.md`
   - `planning/0000039-agents-command-info-and-working-folder-prompts.md`
+
+## Story 0000039 Task 8 structural change ledger
+
+- Added files:
+  - `client/src/test/agentsPage.executePrompt.test.tsx`
+- Modified files:
+  - `client/src/pages/AgentsPage.tsx`
+  - `client/src/test/agentsPage.commandsList.test.tsx`
+  - `client/src/test/agentsPage.run.test.tsx`
+  - `design.md`
+  - `projectStructure.md`
+  - `planning/0000039-agents-command-info-and-working-folder-prompts.md`

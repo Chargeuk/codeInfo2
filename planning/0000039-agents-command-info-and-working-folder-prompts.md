@@ -1542,7 +1542,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 8. Frontend: execute prompt through instruction run path
 
-- Task Status: ****to_do****
+- Task Status: **__completed__**
 - Git Commits: ****to_do****
 
 #### Overview
@@ -1562,12 +1562,12 @@ Implement prompt execution by composing the canonical instruction string and dis
 
 #### Subtasks
 
-1. [ ] Add Execute Prompt click handler that reuses instruction run orchestration.
+1. [x] Add Execute Prompt click handler that reuses instruction run orchestration.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Read first: https://react.dev/learn/responding-to-events
    - Implement exactly: mirror the same run-start sequence used by existing `handleSubmit`/`handleExecuteCommand` (loading, error reset, run start, response handling).
 
-2. [ ] Compose the instruction payload from canonical preamble text.
+2. [x] Compose the instruction payload from canonical preamble text.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Read first: https://jestjs.io/docs/expect
    - Implement exactly: use this exact preamble string and replace only `<full path of markdown file>` with selected prompt `fullPath`; do not alter any other characters/spacing/punctuation:
@@ -1576,36 +1576,36 @@ Implement prompt execution by composing the canonical instruction string and dis
      ```
    - Placeholder replacement rule for this subtask: `<full path of markdown file>` -> selected prompt runtime/container `fullPath` returned by `GET /agents/:agentName/prompts`.
 
-3. [ ] Execute through existing instruction API only.
+3. [x] Execute through existing instruction API only.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx), [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts)
    - Read first: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Implement exactly: call `runAgentInstruction(...)` and pass the committed `working_folder`; do not call command-run endpoint.
 
-4. [ ] Preserve conflict and generic error UX behavior.
+4. [x] Preserve conflict and generic error UX behavior.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Read first: https://react.dev/learn/responding-to-events
    - Implement exactly: keep existing `RUN_IN_PROGRESS` handling and generic error messaging behavior unchanged.
 
-5. [ ] Keep Send instruction and Execute command flows unchanged.
+5. [x] Keep Send instruction and Execute command flows unchanged.
    - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
    - Read first: https://react.dev/learn/responding-to-events
    - Implement exactly: no behavior changes outside new Execute Prompt path.
 
-6. [ ] Add existing-instruction-conflict regression test.
+6. [x] Add existing-instruction-conflict regression test.
    - Test type: Client component unit regression test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.run.instructionError.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.instructionError.test.tsx)
    - Description: add/keep explicit assertion that standard instruction path still surfaces `RUN_IN_PROGRESS` with unchanged UX.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify prompt work does not alter existing instruction conflict behavior.
 
-7. [ ] Add existing-command-conflict regression test.
+7. [x] Add existing-command-conflict regression test.
    - Test type: Client component unit regression test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.commandsRun.conflict.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsRun.conflict.test.tsx)
    - Description: add/keep explicit assertion that command-run path still surfaces `RUN_IN_PROGRESS` with unchanged UX.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify prompt work does not alter existing command conflict behavior.
 
-8. [ ] Add execute-prompt exact-preamble-payload test.
+8. [x] Add execute-prompt exact-preamble-payload test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
    - Description: create `client/src/test/agentsPage.executePrompt.test.tsx` if it does not already exist, then add a test asserting outbound `instruction` exactly equals the following text with only `<full path of markdown file>` replaced by selected runtime/container `fullPath`:
@@ -1615,14 +1615,14 @@ Implement prompt execution by composing the canonical instruction string and dis
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify strict payload contract compliance.
 
-9. [ ] Add execute-prompt `fullPath`-not-`relativePath` replacement test.
+9. [x] Add execute-prompt `fullPath`-not-`relativePath` replacement test.
    - Test type: Client component unit test (React Testing Library + Jest).
    - Location: [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
    - Description: add a test asserting selected prompt runtime `fullPath` is injected into instruction text, never `relativePath`.
    - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
    - Purpose: verify runtime path correctness.
 
-10. [ ] Add execute-prompt committed-working-folder-forwarding test.
+10. [x] Add execute-prompt committed-working-folder-forwarding test.
 
 - Test type: Client component unit test (React Testing Library + Jest).
 - Location: [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
@@ -1630,7 +1630,7 @@ Implement prompt execution by composing the canonical instruction string and dis
 - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
 - Purpose: verify run context propagation.
 
-11. [ ] Add execute-prompt button-state test.
+11. [x] Add execute-prompt button-state test.
 
 - Test type: Client component unit test (React Testing Library + Jest).
 - Location: [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
@@ -1638,7 +1638,7 @@ Implement prompt execution by composing the canonical instruction string and dis
 - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
 - Purpose: verify prompt-run action gating.
 
-12. [ ] Add execute-prompt `409 RUN_IN_PROGRESS` conflict test.
+12. [x] Add execute-prompt `409 RUN_IN_PROGRESS` conflict test.
 
 - Test type: Client component unit test (React Testing Library + Jest).
 - Location: [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
@@ -1646,7 +1646,7 @@ Implement prompt execution by composing the canonical instruction string and dis
 - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
 - Purpose: verify conflict-path parity for execute-prompt flow.
 
-13. [ ] Add execute-prompt deleted/moved-file error-flow test.
+13. [x] Add execute-prompt deleted/moved-file error-flow test.
 
 - Test type: Client component unit test (React Testing Library + Jest).
 - Location: [client/src/test/agentsPage.executePrompt.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.executePrompt.test.tsx)
@@ -1654,7 +1654,7 @@ Implement prompt execution by composing the canonical instruction string and dis
 - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
 - Purpose: verify resilience to post-discovery file churn.
 
-14. [ ] Add Send-button-still-uses-instruction-endpoint regression test.
+14. [x] Add Send-button-still-uses-instruction-endpoint regression test.
 
 - Test type: Client component unit regression test (React Testing Library + Jest).
 - Location: [client/src/test/agentsPage.run.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.test.tsx)
@@ -1662,7 +1662,7 @@ Implement prompt execution by composing the canonical instruction string and dis
 - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
 - Purpose: verify non-prompt instruction path remains unchanged.
 
-15. [ ] Add Execute-command-still-uses-command-endpoint regression test.
+15. [x] Add Execute-command-still-uses-command-endpoint regression test.
 
 - Test type: Client component unit regression test (React Testing Library + Jest).
 - Location: [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx)
@@ -1670,7 +1670,7 @@ Implement prompt execution by composing the canonical instruction string and dis
 - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
 - Purpose: verify non-prompt command path remains unchanged.
 
-16. [ ] Add existing-run conversation-reuse/new-conversation regression test.
+16. [x] Add existing-run conversation-reuse/new-conversation regression test.
 
 - Test type: Client component unit regression test (React Testing Library + Jest).
 - Location: [client/src/test/agentsPage.run.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.test.tsx)
@@ -1678,7 +1678,7 @@ Implement prompt execution by composing the canonical instruction string and dis
 - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
 - Purpose: verify unchanged conversation lifecycle behavior after Execute Prompt additions.
 
-17. [ ] Add existing-run state-transition regression test.
+17. [x] Add existing-run state-transition regression test.
 
 - Test type: Client component unit regression test (React Testing Library + Jest).
 - Location: [client/src/test/agentsPage.run.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.test.tsx)
@@ -1686,7 +1686,7 @@ Implement prompt execution by composing the canonical instruction string and dis
 - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
 - Purpose: verify unchanged run state machine behavior after Execute Prompt additions.
 
-18. [ ] Add existing transcript-streaming regression test.
+18. [x] Add existing transcript-streaming regression test.
 
 - Test type: Client component unit regression test (React Testing Library + Jest).
 - Location: [client/src/test/agentsPage.streaming.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.streaming.test.tsx)
@@ -1694,7 +1694,7 @@ Implement prompt execution by composing the canonical instruction string and dis
 - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
 - Purpose: verify unchanged transcript streaming behavior after Execute Prompt additions.
 
-19. [ ] Add existing-instruction generic-error regression test.
+19. [x] Add existing-instruction generic-error regression test.
 
 - Test type: Client component unit regression test (React Testing Library + Jest).
 - Location: [client/src/test/agentsPage.run.instructionError.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.run.instructionError.test.tsx)
@@ -1702,19 +1702,19 @@ Implement prompt execution by composing the canonical instruction string and dis
 - Read first: https://testing-library.com/docs/react-testing-library/intro, https://jestjs.io/docs/expect, and Context7 Jest docs `/jestjs/jest`
 - Purpose: verify unchanged instruction error handling behavior after Execute Prompt additions.
 
-20. [ ] Update design documentation for Execute Prompt run flow.
+20. [x] Update design documentation for Execute Prompt run flow.
 
 - Files: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
 - Read first: https://mermaid.js.org/syntax/sequenceDiagram.html and Context7 Mermaid docs `/mermaid-js/mermaid`
 - Implement exactly: add/update Execute Prompt orchestration notes and include a Mermaid sequence diagram covering payload composition, call to `POST /agents/{agentName}/run`, and conflict/error handling.
 
-21. [ ] Update structure docs only if files changed.
+21. [x] Update structure docs only if files changed.
 
 - Files: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
 - Read first: https://www.markdownguide.org/basic-syntax/
 - Implement exactly: include every file/folder added or removed by this task in projectStructure.md, including `client/src/test/agentsPage.executePrompt.test.tsx` when created. Complete this subtask only after all add/remove-file subtasks in this task are finished.
 
-22. [ ] Add execute-prompt orchestration log lines.
+22. [x] Add execute-prompt orchestration log lines.
 
 - Files: [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx)
 - Implement exactly: emit browser debug logs with these exact prefixes:
@@ -1723,25 +1723,44 @@ Implement prompt execution by composing the canonical instruction string and dis
   - `[agents.prompts.execute.result] status=<started|error> code=<code|none>` after run request result is known.
 - Purpose: verify Execute Prompt payload composition and run-result handling via Manual Playwright-MCP checks.
 
-23. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+23. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests without using the wrapper commands listed below.
 
-1. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
-4. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, select a prompt, click Execute Prompt, and cover both success and error/conflict paths. Verify `[agents.prompts.execute.clicked]`, `[agents.prompts.execute.payload_built] instructionHasFullPath=true`, and `[agents.prompts.execute.result] status=<started|error> code=<...>`. Capture screenshots `0000039-task8-execute-enabled.png`, `0000039-task8-execute-running-or-success.png`, and `0000039-task8-execute-conflict-or-error.png`, store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped within `docker-compose.local.yml`), and review them with the agent to confirm Execute Prompt UX and error handling match this task’s expectations. Expected outcome: execution uses full path in payload, instruction endpoint is used, screenshots confirm success and failure/conflict GUI behavior, and no browser debug-console errors.
-7. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+4. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [x] `npm run compose:up`
+6. [x] Manual Playwright-MCP check: open Agents page at `http://host.docker.internal:5001`, select a prompt, click Execute Prompt, and cover both success and error/conflict paths. Verify `[agents.prompts.execute.clicked]`, `[agents.prompts.execute.payload_built] instructionHasFullPath=true`, and `[agents.prompts.execute.result] status=<started|error> code=<...>`. Capture screenshots `0000039-task8-execute-enabled.png`, `0000039-task8-execute-running-or-success.png`, and `0000039-task8-execute-conflict-or-error.png`, store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped within `docker-compose.local.yml`), and review them with the agent to confirm Execute Prompt UX and error handling match this task’s expectations. Expected outcome: execution uses full path in payload, instruction endpoint is used, screenshots confirm success and failure/conflict GUI behavior, and no browser debug-console errors.
+7. [x] `npm run compose:down`
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtasks 1-5: Added Execute Prompt orchestration in `AgentsPage` via shared `executeInstructionRun(...)` instruction-run helper, preserving existing instruction and command flows while routing prompt execution through `runAgentInstruction(...)` with committed `working_folder`.
+- Subtasks 2-3: Added exact canonical prompt preamble constant and runtime `fullPath` placeholder replacement for execute-prompt payload composition.
+- Subtasks 4-5: Preserved existing conflict (`RUN_IN_PROGRESS`) and generic instruction error UX behavior by reusing the same instruction error-path handling for Execute Prompt.
+- Subtasks 6-7: Verified existing regression coverage remains explicit for standard instruction conflict handling (`agentsPage.run.instructionError.test.tsx`) and command conflict handling (`agentsPage.commandsRun.conflict.test.tsx`).
+- Subtasks 8-13: Added `client/src/test/agentsPage.executePrompt.test.tsx` with exact-preamble payload, fullPath-not-relativePath replacement, committed-folder forwarding, button-state gating, 409 conflict, and generic moved/deleted prompt-file error-flow coverage.
+- Subtask 14: Added `agentsPage.run.test.tsx` regression asserting Send still targets the standard instruction-run endpoint and not command-run.
+- Subtask 15: Added `agentsPage.commandsList.test.tsx` regression asserting Execute Command still targets `/commands/run` and not instruction `/run`.
+- Subtasks 16-17: Added `agentsPage.run.test.tsx` regressions confirming instruction-run conversation lifecycle parity (reuse active conversation / create new when none active) and preserved start/success state transitions.
+- Subtasks 18-19: Verified existing regression coverage remains explicit for transcript streaming updates (`agentsPage.streaming.test.tsx`) and non-conflict instruction generic error UX (`agentsPage.run.instructionError.test.tsx`).
+- Subtask 20: Updated `design.md` with Task 8 Execute Prompt orchestration notes and Mermaid sequence flow covering payload build, `POST /agents/{agentName}/run`, and started/error handling.
+- Subtask 21: Updated `projectStructure.md` Task 8 ledger with added test file and all modified files from this task.
+- Subtask 22: Added required execute-prompt browser logs in `AgentsPage` for clicked, payload-built, and result outcomes using exact required prefixes and fields.
+- Subtask 23: Ran `npm run lint --workspaces` (pass with unchanged repository-wide server import-order warnings) and `npm run format --workspaces && npm run format:check --workspaces` to fix and verify formatting in Task 8 files.
+- Testing step 1: `npm run build:summary:client` passed with `warnings: 1` (existing Vite chunk-size advisory) and log `logs/test-summaries/build-client-latest.log`.
+- Testing step 2: `npm run test:summary:client` passed with `tests run: 450`, `passed: 450`, `failed: 0` (`test-results/client-tests-2026-03-03T09-15-24-852Z.log`).
+- Testing step 3: `npm run test:summary:e2e` passed with `tests run: 39`, `passed: 39`, `failed: 0` (`logs/test-summaries/e2e-tests-latest.log`).
+- Testing step 4: `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0` (`logs/test-summaries/compose-build-latest.log`).
+- Testing step 5: `npm run compose:up` succeeded and started the full stack, including healthy `codeinfo2-server-1` and started `codeinfo2-client-1`.
+- Testing step 6: Manual Playwright-MCP validation on `http://host.docker.internal:5001/agents` confirmed Execute Prompt success and conflict/error paths with required logs (`[agents.prompts.execute.clicked]`, `[agents.prompts.execute.payload_built] instructionHasFullPath=true`, `[agents.prompts.execute.result] status=started|error code=none|RUN_IN_PROGRESS`), and required screenshots were captured as `0000039-task8-execute-enabled.png`, `0000039-task8-execute-running-or-success.png`, and `0000039-task8-execute-conflict-or-error.png` in Playwright MCP output storage (`/tmp/playwright-output/playwright-output-local`).
+- Testing step 7: `npm run compose:down` succeeded and removed all Task 8 compose services plus network `codeinfo2_internal`.
 
 ---
 

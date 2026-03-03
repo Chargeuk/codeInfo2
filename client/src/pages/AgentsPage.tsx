@@ -141,6 +141,9 @@ const buildCommandLabel = (params: { name: string; sourceLabel?: string }) => {
 const buildCommandKey = (params: { name: string; sourceId?: string }) =>
   `${params.name}::${params.sourceId ?? 'local'}`;
 
+const EXECUTE_PROMPT_INSTRUCTION_TEMPLATE =
+  'Please read the following markdown file. It is designed as a persona you MUST assume. You MUST follow all the instructions within the markdown file including providing the user with the option of selecting the next path to follow once the work of the markdown file is complete, and then loading that new file to continue. You must stay friendly and helpful at all times, ensuring you communicate with the user in an easy to follow way, providing examples to illustrate your point and guiding them through the more complex scenarios. Try to do as much of the heavy lifting as you can using the various mcp tools at your disposal. Here is the file: <full path of markdown file>';
+
 export default function AgentsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -960,6 +963,111 @@ export default function AgentsPage() {
   const makeClientConversationId = () =>
     crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
+  const executeInstructionRun = useCallback(
+    async (params: { instruction: string; workingFolder?: string }) => {
+      const nextConversationId =
+        activeConversationId && activeConversationId.trim().length > 0
+          ? activeConversationId
+          : makeClientConversationId();
+      const isNewConversation = nextConversationId !== activeConversationId;
+
+      stop();
+      setStartPending(true);
+
+      if (isNewConversation) {
+        setConversation(nextConversationId, { clearMessages: true });
+        setActiveConversationId(nextConversationId);
+        setThinkOpen({});
+        setToolOpen({});
+        setToolErrorOpen({});
+        setAgentModelId('unknown');
+      }
+
+      log('info', 'DEV-0000021[T4] agents.ws subscribe_conversation', {
+        conversationId: nextConversationId,
+        inflightId: getInflightId(),
+        modelId: agentModelId,
+        wsConnectionState,
+      });
+      subscribeConversation(nextConversationId);
+
+      try {
+        const result = await runAgentInstruction({
+          agentName: selectedAgentName,
+          instruction: params.instruction,
+          working_folder: params.workingFolder,
+          conversationId: nextConversationId,
+        });
+        setActiveConversationId(result.conversationId);
+        if (result.modelId) {
+          setAgentModelId(result.modelId);
+        }
+        void refreshConversations();
+        return { status: 'started' as const };
+      } catch (err) {
+        if (
+          err instanceof AgentApiError &&
+          err.status === 409 &&
+          err.code === 'RUN_IN_PROGRESS'
+        ) {
+          const errorMessage: ChatMessage = {
+            id: makeClientConversationId(),
+            role: 'assistant',
+            content:
+              'This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.',
+            kind: 'error',
+            streamStatus: 'failed',
+            createdAt: new Date().toISOString(),
+          };
+          hydrateHistory(
+            nextConversationId,
+            [...messages, errorMessage],
+            'replace',
+          );
+          setRunError(errorMessage.content);
+          return { status: 'error' as const, code: err.code };
+        }
+
+        const message =
+          (err as Error).message || 'Failed to run agent instruction.';
+        const errorMessage: ChatMessage = {
+          id: makeClientConversationId(),
+          role: 'assistant',
+          content: message,
+          kind: 'error',
+          streamStatus: 'failed',
+          createdAt: new Date().toISOString(),
+        };
+        hydrateHistory(
+          nextConversationId,
+          [...messages, errorMessage],
+          'replace',
+        );
+        setRunError(message);
+        return {
+          status: 'error' as const,
+          code: err instanceof AgentApiError ? err.code : undefined,
+        };
+      } finally {
+        setStartPending(false);
+      }
+    },
+    [
+      activeConversationId,
+      agentModelId,
+      getInflightId,
+      hydrateHistory,
+      log,
+      messages,
+      refreshConversations,
+      selectedAgentName,
+      setConversation,
+      stop,
+      subscribeConversation,
+      wsConnectionState,
+    ],
+  );
+
   const resetConversation = useCallback(() => {
     stop();
     setStartPending(false);
@@ -1178,89 +1286,58 @@ export default function AgentsPage() {
       return;
     }
 
-    stop();
-    setStartPending(true);
     lastSentRef.current = rawInstruction;
     setInput('');
-
-    const nextConversationId =
-      activeConversationId && activeConversationId.trim().length > 0
-        ? activeConversationId
-        : makeClientConversationId();
-    const isNewConversation = nextConversationId !== activeConversationId;
-
-    if (isNewConversation) {
-      setConversation(nextConversationId, { clearMessages: true });
-      setActiveConversationId(nextConversationId);
-      setThinkOpen({});
-      setToolOpen({});
-      setToolErrorOpen({});
-      setAgentModelId('unknown');
-    }
-
-    log('info', 'DEV-0000021[T4] agents.ws subscribe_conversation', {
-      conversationId: nextConversationId,
-      inflightId: getInflightId(),
-      modelId: agentModelId,
-      wsConnectionState,
+    await executeInstructionRun({
+      instruction: rawInstruction,
+      workingFolder: workingFolder.trim() || undefined,
     });
-    subscribeConversation(nextConversationId);
-
-    try {
-      const result = await runAgentInstruction({
-        agentName: selectedAgentName,
-        instruction: rawInstruction,
-        working_folder: workingFolder.trim() || undefined,
-        conversationId: nextConversationId,
-      });
-      setActiveConversationId(result.conversationId);
-      if (result.modelId) {
-        setAgentModelId(result.modelId);
-      }
-      void refreshConversations();
-    } catch (err) {
-      if (
-        err instanceof AgentApiError &&
-        err.status === 409 &&
-        err.code === 'RUN_IN_PROGRESS'
-      ) {
-        const errorMessage: ChatMessage = {
-          id: makeClientConversationId(),
-          role: 'assistant',
-          content:
-            'This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.',
-          kind: 'error',
-          streamStatus: 'failed',
-          createdAt: new Date().toISOString(),
-        };
-        hydrateHistory(
-          nextConversationId,
-          [...messages, errorMessage],
-          'replace',
-        );
-        setRunError(errorMessage.content);
-        return;
-      }
-      const message =
-        (err as Error).message || 'Failed to run agent instruction.';
-      const errorMessage: ChatMessage = {
-        id: makeClientConversationId(),
-        role: 'assistant',
-        content: message,
-        kind: 'error',
-        streamStatus: 'failed',
-        createdAt: new Date().toISOString(),
-      };
-      hydrateHistory(
-        nextConversationId,
-        [...messages, errorMessage],
-        'replace',
-      );
-      setRunError(message);
-    } finally {
-      setStartPending(false);
-    }
   };
+
+  const handleExecutePrompt = useCallback(async () => {
+    setRunError(null);
+    if (
+      !selectedAgentName ||
+      !selectedPromptEntry ||
+      startPending ||
+      persistenceUnavailable ||
+      !wsTranscriptReady
+    ) {
+      return;
+    }
+
+    console.info(
+      `[agents.prompts.execute.clicked] relativePath=${selectedPromptEntry.relativePath} fullPath=${selectedPromptEntry.fullPath}`,
+    );
+    const instruction = EXECUTE_PROMPT_INSTRUCTION_TEMPLATE.replace(
+      '<full path of markdown file>',
+      selectedPromptEntry.fullPath,
+    );
+    const instructionHasFullPath = instruction.includes(
+      selectedPromptEntry.fullPath,
+    );
+    console.info(
+      `[agents.prompts.execute.payload_built] instructionHasFullPath=${instructionHasFullPath ? 'true' : 'false'}`,
+    );
+
+    lastSentRef.current = instruction;
+    const result = await executeInstructionRun({
+      instruction,
+      workingFolder: committedWorkingFolder || undefined,
+    });
+    console.info(
+      `[agents.prompts.execute.result] status=${result.status} code=${result.status === 'error' ? (result.code ?? 'none') : 'none'}`,
+    );
+  }, [
+    committedWorkingFolder,
+    executeInstructionRun,
+    persistenceUnavailable,
+    selectedAgentName,
+    selectedPromptEntry,
+    startPending,
+    wsTranscriptReady,
+  ]);
+
   const handleExecuteCommand = useCallback(async () => {
     setRunError(null);
     if (
@@ -2327,6 +2404,7 @@ export default function AgentsPage() {
                             variant="contained"
                             size="small"
                             disabled={!executePromptEnabled}
+                            onClick={handleExecutePrompt}
                             data-testid="agent-prompt-execute"
                             sx={{ flexShrink: 0 }}
                           >

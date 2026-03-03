@@ -459,4 +459,82 @@ describe('Agents page - commands list', () => {
 
     await waitFor(() => expect(executeButton).toBeEnabled());
   });
+
+  it('keeps Execute Command mapped to command-run endpoint (not instruction endpoint)', async () => {
+    const user = userEvent.setup();
+    const commandRunUrls: string[] = [];
+    const instructionRunUrls: string[] = [];
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (
+        target.includes('/agents') &&
+        !target.includes('/commands') &&
+        !target.includes('/run')
+      ) {
+        return mockJsonResponse({ agents: [{ name: 'a1' }] });
+      }
+
+      if (target.includes('/agents/a1/commands/run')) {
+        commandRunUrls.push(target);
+        return mockJsonResponse(
+          {
+            status: 'started',
+            agentName: 'a1',
+            commandName: 'improve_plan',
+            conversationId: 'c1',
+            modelId: 'gpt-5.3-codex',
+          },
+          { status: 202 },
+        );
+      }
+
+      if (target.includes('/agents/a1/commands')) {
+        return mockJsonResponse({
+          commands: [
+            {
+              name: 'improve_plan',
+              description: 'Improves a plan step-by-step.',
+              disabled: false,
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/agents/a1/run')) {
+        instructionRunUrls.push(target);
+        return mockJsonResponse({ status: 'started' }, { status: 202 });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const commandSelect = await screen.findByRole('combobox', {
+      name: /command/i,
+    });
+    await waitFor(() => expect(commandSelect).toBeEnabled());
+    await user.click(commandSelect);
+    await user.click(
+      await screen.findByTestId('agent-command-option-improve_plan::local'),
+    );
+
+    const executeButton = await screen.findByTestId('agent-command-execute');
+    await waitFor(() => expect(executeButton).toBeEnabled());
+    await user.click(executeButton);
+
+    await waitFor(() => expect(commandRunUrls).toHaveLength(1));
+    expect(instructionRunUrls).toHaveLength(0);
+  });
 });

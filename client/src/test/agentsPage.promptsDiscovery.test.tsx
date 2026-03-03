@@ -610,7 +610,9 @@ describe('Agents page - prompts selector state transitions', () => {
         screen.queryByRole('dialog', { name: 'Choose folder…' }),
       ).not.toBeInTheDocument(),
     );
-    const executeButtonAfterPicker = screen.queryByTestId('agent-prompt-execute');
+    const executeButtonAfterPicker = screen.queryByTestId(
+      'agent-prompt-execute',
+    );
     if (executeButtonAfterPicker) {
       expect(executeButtonAfterPicker).toBeDisabled();
       expect(

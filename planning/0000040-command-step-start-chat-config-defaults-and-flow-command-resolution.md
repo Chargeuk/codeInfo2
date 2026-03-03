@@ -85,11 +85,14 @@ Layout proposal:
 - Row order (mobile): stack into one column in the same visual order.
 
 Control behavior:
-- `Start step` is a single-select dropdown (`1..N`) and is shown only when a command is selected.
+- `Start step` is a single-select dropdown (`1..N`) and is always visible in the command row.
+- Before command selection, `Start step` is disabled with placeholder text (for example `Select command first`).
 - Default selected value is always `1` on command selection and on command change.
 - Step options are rendered as readable labels: `Step 1`, `Step 2`, ... `Step N`.
+- Command dropdown includes step-count preview in option secondary text when available (for example `build_release` + `6 steps`).
 - If command metadata is loading, start-step remains disabled.
 - If command is invalid/disabled, start-step remains disabled and execution remains disabled.
+- If command has only one step, start-step remains visible and disabled with `Step 1` selected.
 
 Execution behavior:
 - Clicking `Execute command` sends selected `startStep` as `1..N` in the command-run payload.
@@ -99,6 +102,7 @@ Validation and feedback:
 - Invalid step requests (out of range, malformed) surface as inline error feedback in the command area.
 - Command row should preserve existing warning notes (Mongo persistence and websocket requirement).
 - If backend rejects start-step, the user should see a specific message tied to that command run attempt.
+- Start-step validation feedback uses inline row-level `Alert` (no snackbar for this path).
 
 Accessibility and keyboard behavior:
 - `Start step` select must have a visible label and be keyboard navigable.
@@ -122,6 +126,7 @@ UI behavior:
 - Existing `CodexFlagsPanel` remains the editing surface for sandbox/approval/reasoning/network/web-search controls.
 - Existing warnings banner remains the display surface for server warnings.
 - Add/continue warning text for env fallback usage so migration status is visible without blocking user actions.
+- Env-fallback warning banner is shown on every load while fallback is active.
 
 State behavior:
 - Initial flag values come from server-provided defaults (no client-side env assumptions).
@@ -140,31 +145,14 @@ Primary user outcome:
 UI behavior expectation:
 - Flow run errors for schema-invalid same-source commands should be surfaced as explicit run failure messages.
 - Error text should include enough context to identify the failing command and source location label.
+- Error wording should be operator-first with optional technical suffix (for example: `Command file invalid for selected source` + `schema validation failed`).
 
 Viability checks:
 - Existing flow/chat transcript already renders warning/error bubbles, so this requirement can be satisfied through improved server error detail and existing UI surfaces.
 
 ### Questions
 
-1. For AGENTS start-step control, should the selector always stay visible (disabled until command selected), or appear only after command selection?
-Why this matters: persistent visibility improves discoverability; conditional visibility reduces visual noise.
-Best-case answer example: Keep visible but disabled until a command is selected.
-
-2. Should the command dropdown include step count preview in each option label (for example `build_release (6 steps)`)?
-Why this matters: users can choose a command with full context before opening the start-step selector.
-Best-case answer example: Yes, include step count in option secondary text.
-
-3. For invalid start-step responses, do you want inline row-level `Alert` messages, toast/snackbar notifications, or both?
-Why this matters: inline alerts are clearer for form correction; snackbars are less disruptive but easier to miss.
-Best-case answer example: Inline row-level alert only, consistent with existing page patterns.
-
-4. When server warnings indicate env fallback was used for chat defaults, should the warning banner be shown on every load or only once per browser session?
-Why this matters: always-on improves visibility; once-per-session reduces repetitive noise.
-Best-case answer example: Show on every load while fallback is active.
-
-5. For flow command resolution errors, should UI wording prefer technical detail (`schema validation failed`) or operator detail (`Command file invalid for selected source`)?
-Why this matters: technical text helps engineers; operator phrasing helps broader users and support staff.
-Best-case answer example: Operator detail first, technical detail in suffix/secondary text.
+None.
 
 ### Research Findings (2026-03-03)
 

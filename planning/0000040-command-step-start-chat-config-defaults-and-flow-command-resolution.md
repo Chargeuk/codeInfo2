@@ -17,6 +17,19 @@ This story introduces five related improvements for agent workflows and chat def
 4. Upgrade `@openai/codex-sdk` to the latest stable version.
 5. Investigate and reproduce an issue where flows in a repository appear unable to resolve commands in that same repository, while direct command execution from the GUI can still work.
 
+Decisions confirmed for this story:
+
+- Start-step selection uses `1..N` in both UI and API payloads, with server-side validation.
+- Start-step scope is `AGENTS` page command execution only.
+- Default start step is always step `1` when a command is selected.
+- Dependency analysis between command steps is out of scope for this story; users can pick any valid step.
+- Chat defaults use precedence `request override > codex/chat/config.toml`, replacing env-default sourcing for these fields.
+- Missing `codex/chat/config.toml` bootstraps by copying `codex/config.toml` first, then generating standard template if base config is missing.
+- Deprecated web search alias handling is normalized to canonical `web_search` with default `"live"` parity.
+- `@openai/codex-sdk` is pinned to `0.107.0`.
+- Flow command lookup for repository-sourced flows resolves in this order: same source repository first, then the codeInfo2 repository, then other repositories by first match.
+- Investigation output must include an automated failing repro test and a fix.
+
 Expected end-user outcome:
 
 - Command reruns are faster and less repetitive because users can resume from a chosen step.
@@ -27,37 +40,31 @@ Expected end-user outcome:
 ### Acceptance Criteria
 
 1. `AGENTS` command execution supports a selectable start step after command selection.
-2. Start-step UX is clear and prevents invalid selections (for example, out-of-range step numbers).
-3. Command execution request semantics clearly define how start-step is transmitted and validated.
-4. Chat default values used by server responses and chat execution are sourced from `codex/chat/config.toml` defaults rather than environment-variable defaults.
-5. MCP chat paths use the same default source policy as REST chat for Codex options.
-6. If `codex/chat/config.toml` is missing at startup/initialization, a default file is created (without overwriting an existing file).
-7. Deprecated web-search config usage is replaced with currently valid config usage and covered by tests.
-8. `@openai/codex-sdk` is upgraded to latest stable and compatibility/regression checks are completed.
-9. Flow command lookup behavior for repository-scoped flows is investigated with a concrete reproduction path and outcome.
-10. Story output includes either:
-- a bug fix with acceptance tests, or
-- a validated usage correction with clear example and documentation updates.
+2. Start-step selector uses `1..N` values in the UI and sends `1..N` in API payloads.
+3. Server validates start-step range and rejects invalid values with clear request validation errors.
+4. Start-step defaults to `1` whenever a command is selected.
+5. Start-step execution is in scope only for `AGENTS` page command runs.
+6. Command-step dependency inference/enforcement is not introduced in this story; users may execute from any valid selected step.
+7. Chat default values used by server responses and chat execution are sourced from `codex/chat/config.toml` defaults rather than env-default resolution for these fields.
+8. Chat default precedence is `request override > codex/chat/config.toml`.
+9. MCP chat interface uses the same default source policy and precedence as REST chat for Codex options.
+10. If `codex/chat/config.toml` is missing, bootstrap copies `codex/config.toml`; if base config is missing, a standard template is generated; existing chat config is never overwritten.
+11. Deprecated `web_search_request` usage is replaced by canonical `web_search`, with default behavior aligned to `"live"` parity and regression-tested.
+12. `@openai/codex-sdk` is upgraded and pinned to `0.107.0`, with compatibility/regression checks completed.
+13. Flow command lookup for repository-scoped flows resolves commands in this order: same source repository, then codeInfo2 repository, then first matching command in other repositories.
+14. Investigation and fix follow red-green: automated failing repro test first, then fix, then passing verification.
 
 ### Out Of Scope
 
 - Redesigning full command authoring format beyond start-step execution support.
 - Replacing existing flow JSON schema with a new DSL.
 - Introducing new chat providers beyond current Codex/LM Studio behavior.
+- Start-step controls for Flows page or non-Agents command execution surfaces.
 - Broad refactors unrelated to start-step execution, config-default sourcing, or flow-command resolution.
 
 ### Questions
 
-1. Start-step indexing: should the UI show and accept steps as `1..N` (human readable), and should backend payloads also be `1..N`, or internal `0..N-1`?
-2. Start-step behavior with dependencies: if earlier steps produce context required by later steps, should execution fail with a clear error, or should such commands be marked as non-resumable?
-3. Start-step scope: should this be `AGENTS` page only for this story, or also `Flows` and any MCP command-run path in the same release?
-4. Default selection behavior: when a command is selected, should the default start step be first step, last-used step, or explicit empty/unselected requiring user choice?
-5. Chat default precedence: when both request payload values and `codex/chat/config.toml` defaults exist, confirm precedence as `request value > chat config default`, with env defaults removed for these fields.
-6. Missing `codex/chat/config.toml`: should creation copy from `codex/config.toml` if available, or generate a dedicated chat template as first choice?
-7. Web search replacement target: should this story normalize to top-level `web_search = "live"` (legacy `true` parity) or to `"cached"` for safer default behavior?
-8. Codex SDK upgrade policy: should we pin exact latest (`0.107.0` as of 2026-03-03) or allow range-based updates?
-9. Flow command resolution expectation: when a flow is loaded from a repository source, should command lookup resolve against that same repository's agent command files by default?
-10. Investigation deliverable: do you want this story to require an automated failing test first (red-green), or is a reproducible manual scenario plus fix acceptable?
+1. For fallback to "first matching command from other repositories", what deterministic ordering should define "first" (for example source label alphabetical, source path alphabetical, or ingestion order)?
 
 ### Research Findings (2026-03-03)
 
@@ -67,4 +74,3 @@ Expected end-user outcome:
 - Flow execution supports repository-sourced flow files, but command validation/loading is agent-discovery based and appears to resolve commands from discovered agent homes only.
 - Latest npm stable for `@openai/codex-sdk` is `0.107.0` (from npm registry on 2026-03-03).
 - OpenAI Codex config reference currently marks `features.web_search_request` as deprecated in favor of top-level `web_search`.
-

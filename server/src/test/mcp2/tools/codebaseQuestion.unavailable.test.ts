@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import test from 'node:test';
+import { resolveCodexCapabilities } from '../../../codex/capabilityResolver.js';
+import { query, resetStore } from '../../../logStore.js';
 import { handleRpc } from '../../../mcp2/router.js';
 
 async function postJson(port: number, body: unknown) {
@@ -18,6 +20,7 @@ test('codebase_question returns CODE_INFO_LLM_UNAVAILABLE when Codex is missing'
   const originalLmBaseUrl = process.env.LMSTUDIO_BASE_URL;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'false';
   process.env.LMSTUDIO_BASE_URL = 'invalid-url';
+  resetStore();
 
   const server = http.createServer(handleRpc);
   server.listen(0);
@@ -34,6 +37,26 @@ test('codebase_question returns CODE_INFO_LLM_UNAVAILABLE when Codex is missing'
     const body = await postJson(port, payload);
     assert.equal(body.error.code, -32001);
     assert.equal(body.error.message, 'CODE_INFO_LLM_UNAVAILABLE');
+    const markerLogs = query({
+      source: ['server'],
+      text: 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED',
+    });
+    const capabilities = await resolveCodexCapabilities({
+      consumer: 'chat_validation',
+      codexHome: process.env.CODEX_HOME,
+    });
+    const context = markerLogs.at(-1)?.context as
+      | {
+          defaults?: {
+            sandboxMode?: string;
+            approvalPolicy?: string;
+            modelReasoningEffort?: string;
+            networkAccessEnabled?: boolean;
+            webSearchEnabled?: boolean;
+          };
+        }
+      | undefined;
+    assert.deepEqual(context?.defaults, capabilities.defaults);
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
     if (originalLmBaseUrl === undefined) {

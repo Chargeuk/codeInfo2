@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 
 import type { LMStudioClient } from '@lmstudio/sdk';
@@ -67,7 +70,7 @@ async function startServer(params: {
   clientFactory?: () => LMStudioClient;
   codexCapabilityResolver?: (options: {
     consumer: 'chat_models' | 'chat_validation';
-  }) => CodexCapabilityResolution;
+  }) => Promise<CodexCapabilityResolution>;
 }) {
   const app = express();
   app.use(express.json());
@@ -235,7 +238,7 @@ test('chat models payload is derived from shared capability resolver fixture', a
 
   const server = await startServer({
     mcpAvailable: true,
-    codexCapabilityResolver: () => fixture,
+    codexCapabilityResolver: async () => fixture,
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
@@ -290,8 +293,8 @@ test('codex capability resolver fallback is deterministic when metadata resoluti
 
   const server = await startServer({
     mcpAvailable: true,
-    codexCapabilityResolver: (options) =>
-      resolveCodexCapabilities({
+    codexCapabilityResolver: async (options) =>
+      await resolveCodexCapabilities({
         ...options,
         resolveReasoningEffortsMetadata: () => {
           throw new Error('injected metadata failure');
@@ -320,8 +323,103 @@ test('codex capability resolver fallback is deterministic when metadata resoluti
   }
 });
 
-test('codex env default warnings propagate into codexWarnings', async () => {
-  env.set('Codex_sandbox_mode', 'invalid');
+test('chat models codexDefaults and warnings come from shared resolver precedence', async () => {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-task7-models-'),
+  );
+  const codexHome = path.join(root, 'codex');
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    [
+      'sandbox_mode = "workspace-write"',
+      'approval_policy = "on-request"',
+      'model_reasoning_effort = "medium"',
+      'web_search_request = false',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  env.set('CODEX_HOME', codexHome);
+  env.set('Codex_network_access_enabled', 'false');
+  env.set('Codex_model_list', 'alpha');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    assert.equal(res.body.codexDefaults.sandboxMode, 'workspace-write');
+    assert.equal(res.body.codexDefaults.approvalPolicy, 'on-request');
+    assert.equal(res.body.codexDefaults.modelReasoningEffort, 'medium');
+    assert.equal(res.body.codexDefaults.networkAccessEnabled, false);
+    assert.equal(res.body.codexDefaults.webSearchEnabled, false);
+    assert.ok(Array.isArray(res.body.codexWarnings));
+  } finally {
+    await stopServer(server);
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('chat models parity fixture remains deterministic across resolver-backed defaults', async () => {
+  const fixture: CodexCapabilityResolution = {
+    defaults: {
+      sandboxMode: 'workspace-write',
+      approvalPolicy: 'on-request',
+      modelReasoningEffort: 'medium',
+      networkAccessEnabled: false,
+      webSearchEnabled: false,
+    },
+    models: [
+      {
+        model: 'fixture-model',
+        supportedReasoningEfforts: ['minimal', 'medium'],
+        defaultReasoningEffort: 'medium',
+      },
+    ],
+    byModel: new Map([
+      [
+        'fixture-model',
+        {
+          model: 'fixture-model',
+          supportedReasoningEfforts: ['minimal', 'medium'],
+          defaultReasoningEffort: 'medium',
+        },
+      ],
+    ]),
+    warnings: ['fixture warning'],
+    fallbackUsed: false,
+  };
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+  const server = await startServer({
+    mcpAvailable: true,
+    codexCapabilityResolver: async () => fixture,
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+    assert.deepEqual(res.body.codexDefaults, fixture.defaults);
+    assert.ok((res.body.codexWarnings as string[]).includes('fixture warning'));
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('codex resolver warnings propagate into codexWarnings', async () => {
+  env.set('Codex_network_access_enabled', 'invalid');
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -337,7 +435,7 @@ test('codex env default warnings propagate into codexWarnings', async () => {
 
     assert.ok(
       res.body.codexWarnings.some((warning: string) =>
-        warning.includes('Codex_sandbox_mode'),
+        warning.includes('Codex_network_access_enabled'),
       ),
     );
   } finally {
@@ -455,6 +553,21 @@ test('codex runtime warning when web search enabled but tools unavailable', asyn
 });
 
 test('codex defaults include SDK-native minimal reasoning effort when configured', async () => {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-task7-minimal-'),
+  );
+  const codexHome = path.join(root, 'codex');
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    [
+      'sandbox_mode = "workspace-write"',
+      'approval_policy = "on-request"',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  env.set('CODEX_HOME', codexHome);
   env.set('Codex_reasoning_effort', 'minimal');
   setCodexDetection({
     available: true,
@@ -472,6 +585,7 @@ test('codex defaults include SDK-native minimal reasoning effort when configured
     assert.equal(res.body.codexDefaults?.modelReasoningEffort, 'minimal');
   } finally {
     await stopServer(server);
+    await fs.rm(root, { recursive: true, force: true });
   }
 });
 
@@ -711,7 +825,7 @@ test('codex payload includes non-standard reasoning effort values from shared ca
 
   const server = await startServer({
     mcpAvailable: true,
-    codexCapabilityResolver: () => fixture,
+    codexCapabilityResolver: async () => fixture,
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {

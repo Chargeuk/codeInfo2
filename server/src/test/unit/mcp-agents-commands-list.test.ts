@@ -32,6 +32,7 @@ test('callTool list_commands without agentName returns all agents and excludes d
                 name: 'build',
                 description: 'Builds',
                 disabled: false,
+                stepCount: 3,
                 sourceId: '/data/repo',
                 sourceLabel: 'My Repo',
               },
@@ -39,18 +40,25 @@ test('callTool list_commands without agentName returns all agents and excludes d
                 name: 'improve_plan',
                 description: 'Improves a plan',
                 disabled: false,
+                stepCount: 1,
               },
               {
                 name: 'broken',
                 description: 'Invalid command file',
                 disabled: true,
+                stepCount: 1,
               },
             ],
           };
         }
         return {
           commands: [
-            { name: 'broken_only', description: 'Invalid', disabled: true },
+            {
+              name: 'broken_only',
+              description: 'Invalid',
+              disabled: true,
+              stepCount: 1,
+            },
           ],
         };
       },
@@ -160,7 +168,14 @@ test('callTool list_commands local entries omit source metadata', async () => {
     {
       listAgents: async () => ({ agents: [] }),
       listAgentCommands: async () => ({
-        commands: [{ name: 'local', description: 'Local', disabled: false }],
+        commands: [
+          {
+            name: 'local',
+            description: 'Local',
+            disabled: false,
+            stepCount: 1,
+          },
+        ],
       }),
       runAgentInstruction: async () => {
         throw new Error('not used');
@@ -188,6 +203,7 @@ test('callTool list_commands returns fallback sourceLabel metadata', async () =>
             name: 'build',
             description: 'Build',
             disabled: false,
+            stepCount: 2,
             sourceId: '/data/repo-folder',
             sourceLabel: 'repo-folder',
           },
@@ -222,7 +238,14 @@ test('callTool list_commands omits agents missing locally', async () => {
         ],
       }),
       listAgentCommands: async () => ({
-        commands: [{ name: 'local', description: 'Local', disabled: false }],
+        commands: [
+          {
+            name: 'local',
+            description: 'Local',
+            disabled: false,
+            stepCount: 1,
+          },
+        ],
       }),
       runAgentInstruction: async () => {
         throw new Error('not used');
@@ -252,6 +275,7 @@ test('callTool list_commands preserves duplicate ingested labels order', async (
             name: 'build',
             description: 'Build A',
             disabled: false,
+            stepCount: 2,
             sourceId: '/data/a',
             sourceLabel: 'A',
           },
@@ -259,6 +283,7 @@ test('callTool list_commands preserves duplicate ingested labels order', async (
             name: 'build',
             description: 'Build B',
             disabled: false,
+            stepCount: 2,
             sourceId: '/data/b',
             sourceLabel: 'B',
           },
@@ -287,7 +312,14 @@ test('callTool list_commands returns local commands when ingest roots missing', 
     {
       listAgents: async () => ({ agents: [] }),
       listAgentCommands: async () => ({
-        commands: [{ name: 'local', description: 'Local', disabled: false }],
+        commands: [
+          {
+            name: 'local',
+            description: 'Local',
+            disabled: false,
+            stepCount: 1,
+          },
+        ],
       }),
       runAgentInstruction: async () => {
         throw new Error('not used');

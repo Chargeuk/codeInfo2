@@ -120,6 +120,7 @@ export async function listAgentCommands(agentName: string): Promise<{
     name: string;
     description: string;
     disabled: boolean;
+    stepCount: number;
     sourceId?: string;
     sourceLabel?: string;
   }>;
@@ -134,36 +135,41 @@ export async function listAgentCommands(agentName: string): Promise<{
     throw new Error(`Failed to load agent commands (${res.status})`);
   }
   const data = (await res.json()) as { commands?: unknown };
-  const commands = Array.isArray(data.commands)
-    ? (data.commands as unknown[])
-        .map((item) => {
-          if (!item || typeof item !== 'object') return null;
-          const record = item as Record<string, unknown>;
-          const name =
-            typeof record.name === 'string' ? record.name : undefined;
-          if (!name) return null;
-          return {
-            name,
-            description:
-              typeof record.description === 'string' ? record.description : '',
-            disabled:
-              typeof record.disabled === 'boolean' ? record.disabled : false,
-            sourceId:
-              typeof record.sourceId === 'string' ? record.sourceId : undefined,
-            sourceLabel:
-              typeof record.sourceLabel === 'string'
-                ? record.sourceLabel
-                : undefined,
-          };
-        })
-        .filter(Boolean)
-    : [];
+  if (!Array.isArray(data.commands)) {
+    throw new Error('Invalid agent commands response');
+  }
+  const commands = data.commands.map((item) => {
+    if (!item || typeof item !== 'object') {
+      throw new Error('Invalid agent commands response');
+    }
+    const record = item as Record<string, unknown>;
+    const name = typeof record.name === 'string' ? record.name : undefined;
+    const stepCount =
+      typeof record.stepCount === 'number' && Number.isInteger(record.stepCount)
+        ? record.stepCount
+        : undefined;
+    if (!name || stepCount === undefined || stepCount < 1) {
+      throw new Error('Invalid agent commands response');
+    }
+    return {
+      name,
+      description:
+        typeof record.description === 'string' ? record.description : '',
+      disabled: typeof record.disabled === 'boolean' ? record.disabled : false,
+      stepCount,
+      sourceId:
+        typeof record.sourceId === 'string' ? record.sourceId : undefined,
+      sourceLabel:
+        typeof record.sourceLabel === 'string' ? record.sourceLabel : undefined,
+    };
+  });
 
   return {
     commands: commands as Array<{
       name: string;
       description: string;
       disabled: boolean;
+      stepCount: number;
       sourceId?: string;
       sourceLabel?: string;
     }>,
@@ -240,6 +246,7 @@ export async function runAgentInstruction(params: {
 export async function runAgentCommand(params: {
   agentName: string;
   commandName: string;
+  startStep?: number;
   sourceId?: string;
   conversationId?: string;
   working_folder?: string;
@@ -251,6 +258,28 @@ export async function runAgentCommand(params: {
   conversationId: string;
   modelId: string;
 }> {
+  const payload = {
+    commandName: params.commandName,
+    ...(typeof params.startStep === 'number'
+      ? { startStep: params.startStep }
+      : {}),
+    ...(params.sourceId?.trim() ? { sourceId: params.sourceId } : {}),
+    ...(params.conversationId ? { conversationId: params.conversationId } : {}),
+    ...(params.working_folder?.trim()
+      ? { working_folder: params.working_folder }
+      : {}),
+  };
+  console.info('DEV_0000040_T04_CLIENT_AGENTS_API', {
+    endpoint: '/agents/:agentName/commands/run',
+    agentName: params.agentName,
+    commandName: params.commandName,
+    includesStartStep: Object.prototype.hasOwnProperty.call(
+      payload,
+      'startStep',
+    ),
+    startStep: typeof params.startStep === 'number' ? params.startStep : null,
+  });
+
   const res = await fetch(
     new URL(
       `/agents/${encodeURIComponent(params.agentName)}/commands/run`,
@@ -259,16 +288,7 @@ export async function runAgentCommand(params: {
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        commandName: params.commandName,
-        ...(params.sourceId?.trim() ? { sourceId: params.sourceId } : {}),
-        ...(params.conversationId
-          ? { conversationId: params.conversationId }
-          : {}),
-        ...(params.working_folder?.trim()
-          ? { working_folder: params.working_folder }
-          : {}),
-      }),
+      body: JSON.stringify(payload),
       signal: params.signal,
     },
   );

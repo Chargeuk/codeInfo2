@@ -70,6 +70,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
                 name: 'improve_plan',
                 description: 'd',
                 disabled: false,
+                stepCount: 1,
               },
             ],
           });
@@ -138,6 +139,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
                 name: 'build',
                 description: 'd',
                 disabled: false,
+                stepCount: 1,
                 sourceId: '/data/repo-a',
                 sourceLabel: 'Repo A',
               },
@@ -220,6 +222,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
                 name: 'improve_plan',
                 description: 'd',
                 disabled: false,
+                stepCount: 1,
               },
             ],
           });

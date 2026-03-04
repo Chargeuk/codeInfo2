@@ -9,6 +9,7 @@ type AgentCommandSummary = {
   name: string;
   description: string;
   disabled: boolean;
+  stepCount: number;
 };
 
 type AgentPromptSummary = {
@@ -64,7 +65,12 @@ test('GET /agents/:agentName/commands returns payload with commands array', asyn
       assert.equal(agentName, 'coding_agent');
       return {
         commands: [
-          { name: 'hello', description: 'Says hello', disabled: false },
+          {
+            name: 'hello',
+            description: 'Says hello',
+            disabled: false,
+            stepCount: 2,
+          },
         ],
       };
     },
@@ -76,6 +82,7 @@ test('GET /agents/:agentName/commands returns payload with commands array', asyn
   assert.equal(Array.isArray(res.body.commands), true);
   assert.equal(res.body.commands.length, 1);
   assert.equal(res.body.commands[0].name, 'hello');
+  assert.equal(res.body.commands[0].stepCount, 2);
 });
 
 test('GET /agents/:agentName/commands includes disabled entries', async () => {
@@ -86,6 +93,7 @@ test('GET /agents/:agentName/commands includes disabled entries', async () => {
           name: 'bad',
           description: 'Invalid command file',
           disabled: true,
+          stepCount: 1,
         },
       ],
     }),
@@ -97,6 +105,37 @@ test('GET /agents/:agentName/commands includes disabled entries', async () => {
   assert.equal(res.body.commands.length, 1);
   assert.equal(res.body.commands[0].name, 'bad');
   assert.equal(res.body.commands[0].disabled, true);
+  assert.equal(res.body.commands[0].stepCount, 1);
+});
+
+test('GET /agents/:agentName/commands includes stepCount in every command item', async () => {
+  const app = buildApp({
+    listAgentCommands: async () => ({
+      commands: [
+        {
+          name: 'multi',
+          description: 'Runs many steps',
+          disabled: false,
+          stepCount: 4,
+        },
+        {
+          name: 'bad',
+          description: 'Invalid command file',
+          disabled: true,
+          stepCount: 1,
+        },
+      ],
+    }),
+  });
+
+  const res = await request(app).get('/agents/coding_agent/commands');
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.commands.length, 2);
+  for (const command of res.body.commands) {
+    assert.equal(typeof command.stepCount, 'number');
+    assert.ok(command.stepCount >= 1);
+  }
 });
 
 test("GET /agents/:agentName/commands returns 404 when agent doesn't exist", async () => {

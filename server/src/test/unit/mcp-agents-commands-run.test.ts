@@ -5,6 +5,7 @@ import {
   InvalidParamsError,
   RunInProgressError,
   callTool,
+  listTools,
 } from '../../mcpAgents/tools.js';
 
 test('callTool run_command success returns minimal JSON payload', async () => {
@@ -175,6 +176,29 @@ test('callTool run_command maps AGENT_NOT_FOUND to InvalidParamsError', async ()
           },
         },
       ),
+    InvalidParamsError,
+  );
+});
+
+test('run_command tool schema does not include startStep input', async () => {
+  const tools = await listTools();
+  const runCommand = tools.tools.find((tool) => tool.name === 'run_command');
+  assert.ok(runCommand);
+  const properties = (runCommand?.inputSchema?.properties ?? {}) as Record<
+    string,
+    unknown
+  >;
+  assert.equal('startStep' in properties, false);
+});
+
+test('callTool run_command rejects unexpected startStep input', async () => {
+  await assert.rejects(
+    () =>
+      callTool('run_command', {
+        agentName: 'planning_agent',
+        commandName: 'improve_plan',
+        startStep: 2,
+      }),
     InvalidParamsError,
   );
 });

@@ -27,6 +27,7 @@ function buildApp(deps?: {
 
 test('POST /agents/:agentName/commands/run returns 202 + a stable started payload shape', async () => {
   let receivedSourceId: string | undefined;
+  let receivedStartStep: number | undefined;
   const res = await request(
     buildApp({
       startAgentCommand: async (params: unknown) => {
@@ -35,6 +36,7 @@ test('POST /agents/:agentName/commands/run returns 202 + a stable started payloa
           'improve_plan',
         );
         receivedSourceId = (params as { sourceId?: string }).sourceId;
+        receivedStartStep = (params as { startStep?: number }).startStep;
         return {
           agentName: 'planning_agent',
           commandName: 'improve_plan',
@@ -55,6 +57,7 @@ test('POST /agents/:agentName/commands/run returns 202 + a stable started payloa
   assert.equal(typeof res.body.modelId, 'string');
   assert.equal(res.body.modelId.length > 0, true);
   assert.equal(receivedSourceId, undefined);
+  assert.equal(receivedStartStep, undefined);
 });
 
 test('POST /agents/:agentName/commands/run forwards sourceId for ingested command runs', async () => {
@@ -78,6 +81,29 @@ test('POST /agents/:agentName/commands/run forwards sourceId for ingested comman
   assert.equal(res.status, 202);
   assert.equal(res.body.status, 'started');
   assert.equal(receivedSourceId, '/data/repo');
+});
+
+test('POST /agents/:agentName/commands/run forwards startStep when provided', async () => {
+  let receivedStartStep: number | undefined;
+  const res = await request(
+    buildApp({
+      startAgentCommand: async (params: unknown) => {
+        receivedStartStep = (params as { startStep?: number }).startStep;
+        return {
+          agentName: 'planning_agent',
+          commandName: 'build',
+          conversationId: 'conv-2',
+          modelId: 'model-from-config',
+        };
+      },
+    }),
+  )
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'build', startStep: 2 });
+
+  assert.equal(res.status, 202);
+  assert.equal(res.body.status, 'started');
+  assert.equal(receivedStartStep, 2);
 });
 
 test('POST /agents/:agentName/commands/run maps unknown sourceId to 404', async () => {
@@ -267,4 +293,78 @@ test("POST /agents/:agentName/commands/run maps unknown agent to 404 { error: 'n
 
   assert.equal(res.status, 404);
   assert.deepEqual(res.body, { error: 'not_found' });
+});
+
+test('POST /agents/:agentName/commands/run rejects string startStep with deterministic INVALID_START_STEP payload', async () => {
+  const res = await request(buildApp())
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'improve_plan', startStep: '2' });
+
+  assert.equal(res.status, 400);
+  assert.deepEqual(res.body, {
+    error: 'invalid_request',
+    code: 'INVALID_START_STEP',
+    message: 'startStep must be between 1 and N',
+  });
+});
+
+test('POST /agents/:agentName/commands/run rejects fractional startStep with deterministic INVALID_START_STEP payload', async () => {
+  const res = await request(buildApp())
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'improve_plan', startStep: 2.5 });
+
+  assert.equal(res.status, 400);
+  assert.deepEqual(res.body, {
+    error: 'invalid_request',
+    code: 'INVALID_START_STEP',
+    message: 'startStep must be between 1 and N',
+  });
+});
+
+test('POST /agents/:agentName/commands/run rejects boolean startStep with deterministic INVALID_START_STEP payload', async () => {
+  const res = await request(buildApp())
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'improve_plan', startStep: true });
+
+  assert.equal(res.status, 400);
+  assert.deepEqual(res.body, {
+    error: 'invalid_request',
+    code: 'INVALID_START_STEP',
+    message: 'startStep must be between 1 and N',
+  });
+});
+
+test('POST /agents/:agentName/commands/run rejects null startStep with deterministic INVALID_START_STEP payload', async () => {
+  const res = await request(buildApp())
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'improve_plan', startStep: null });
+
+  assert.equal(res.status, 400);
+  assert.deepEqual(res.body, {
+    error: 'invalid_request',
+    code: 'INVALID_START_STEP',
+    message: 'startStep must be between 1 and N',
+  });
+});
+
+test('POST /agents/:agentName/commands/run maps service INVALID_START_STEP to deterministic 400 payload', async () => {
+  const res = await request(
+    buildApp({
+      startAgentCommand: async () => {
+        throw {
+          code: 'INVALID_START_STEP',
+          reason: 'startStep must be between 1 and N',
+        };
+      },
+    }),
+  )
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'improve_plan', startStep: 999 });
+
+  assert.equal(res.status, 400);
+  assert.deepEqual(res.body, {
+    error: 'invalid_request',
+    code: 'INVALID_START_STEP',
+    message: 'startStep must be between 1 and N',
+  });
 });

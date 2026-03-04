@@ -119,7 +119,7 @@ test('passes every supported reasoning effort through thread options', async () 
   }
 });
 
-test('chat validation uses shared capability resolver fixture for accepted effort values', () => {
+test('chat validation uses shared capability resolver fixture for accepted effort values', async () => {
   const fixture: CodexCapabilityResolution = {
     defaults: {
       sandboxMode: 'danger-full-access',
@@ -149,7 +149,7 @@ test('chat validation uses shared capability resolver fixture for accepted effor
     fallbackUsed: false,
   };
 
-  const result = validateChatRequest(
+  const result = await validateChatRequest(
     {
       model: 'future-model',
       message: 'hello',
@@ -158,14 +158,14 @@ test('chat validation uses shared capability resolver fixture for accepted effor
       modelReasoningEffort: 'turbo',
     },
     {
-      codexCapabilityResolver: () => fixture,
+      codexCapabilityResolver: async () => fixture,
     },
   );
 
   assert.equal(result.codexFlags.modelReasoningEffort, 'turbo');
 });
 
-test('chat validation rejects effort values outside shared capability resolver support', () => {
+test('chat validation rejects effort values outside shared capability resolver support', async () => {
   const fixture: CodexCapabilityResolution = {
     defaults: {
       sandboxMode: 'danger-full-access',
@@ -195,9 +195,9 @@ test('chat validation rejects effort values outside shared capability resolver s
     fallbackUsed: false,
   };
 
-  assert.throws(
-    () =>
-      validateChatRequest(
+  await assert.rejects(
+    async () =>
+      await validateChatRequest(
         {
           model: 'strict-model',
           message: 'hello',
@@ -206,7 +206,7 @@ test('chat validation rejects effort values outside shared capability resolver s
           modelReasoningEffort: 'high',
         },
         {
-          codexCapabilityResolver: () => fixture,
+          codexCapabilityResolver: async () => fixture,
         },
       ),
     /modelReasoningEffort must be one of: minimal/,

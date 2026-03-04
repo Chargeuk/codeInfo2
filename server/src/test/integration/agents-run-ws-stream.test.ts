@@ -1,14 +1,21 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import express from 'express';
+import pkg from '../../../package.json' with { type: 'json' };
 
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import { resetStore } from '../../logStore.js';
-import { runAgentInstructionUnlocked } from '../../agents/service.js';
+import {
+  runAgentCommand,
+  runAgentInstructionUnlocked,
+} from '../../agents/service.js';
+import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
 import { attachWs } from '../../ws/server.js';
 import {
   closeWs,
@@ -50,6 +57,10 @@ class StreamingChat extends ChatInterface {
 }
 
 test('Agents runs publish WS transcript events while the run is in progress', async () => {
+  assert.equal(
+    pkg.dependencies?.['@openai/codex-sdk'],
+    DEV_0000037_T01_REQUIRED_VERSION,
+  );
   resetStore();
 
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -250,5 +261,113 @@ test('Agents run passes inflightId into chat.run(...) flags', async () => {
     assert.equal(capturedFlags['source'], 'REST');
   } finally {
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+  }
+});
+
+test('startStep > 1 keeps absolute command metadata in websocket events', async () => {
+  resetStore();
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  const commandsDir = path.join(agentHome, 'commands');
+  await fs.mkdir(commandsDir, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "agent-model-1"', 'approval_policy = "never"'].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(commandsDir, 'offset.json'),
+    JSON.stringify(
+      {
+        Description: 'Offset command',
+        items: [
+          { type: 'message', role: 'user', content: ['s1'] },
+          { type: 'message', role: 'user', content: ['s2'] },
+          { type: 'message', role: 'user', content: ['s3'] },
+        ],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+
+  const app = express();
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const conversationId = 'agents-ws-start-step-offset';
+  const ws = await connectWs({ baseUrl });
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    const snapshotPromise = waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'inflight_snapshot';
+        conversationId: string;
+        inflight: {
+          command?: { name: string; stepIndex: number; totalSteps: number };
+        };
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          inflight?: { command?: { name?: string; stepIndex?: number } };
+        };
+        return (
+          e.type === 'inflight_snapshot' &&
+          e.conversationId === conversationId &&
+          e.inflight?.command?.name === 'offset' &&
+          e.inflight.command.stepIndex === 3
+        );
+      },
+      timeoutMs: 8000,
+    });
+
+    await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'offset',
+      startStep: 3,
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new StreamingChat(),
+    });
+
+    const snapshot = await snapshotPromise;
+    assert.deepEqual(snapshot.inflight.command, {
+      name: 'offset',
+      stepIndex: 3,
+      totalSteps: 3,
+    });
+  } finally {
+    await closeWs(ws);
+    await wsHandle.close();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
   }
 });

@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import http from 'node:http';
 import { AddressInfo } from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import { McpResponder } from '../../../chat/responders/McpResponder.js';
 import { resolveChatDefaults } from '../../../config/chatDefaults.js';
+import { query, resetStore } from '../../../logStore.js';
 import { handleRpc } from '../../../mcp2/router.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
 
@@ -99,6 +103,28 @@ class MockCodex {
   }
 }
 
+async function withTempCodexHome(chatToml: string): Promise<{
+  codexHome: string;
+  cleanup: () => Promise<void>;
+}> {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-task8-happy-'),
+  );
+  const codexHome = path.join(root, 'codex');
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    chatToml,
+    'utf8',
+  );
+  return {
+    codexHome,
+    cleanup: async () => {
+      await fs.rm(root, { recursive: true, force: true });
+    },
+  };
+}
+
 async function postJson(port: number, body: unknown) {
   const response = await fetch(`http://127.0.0.1:${port}`, {
     method: 'POST',
@@ -110,9 +136,22 @@ async function postJson(port: number, body: unknown) {
 
 test('codebase_question returns answer-only payloads and preserves conversationId', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  resetStore();
   const mockCodex = new MockCodex('thread-abc');
   setToolDeps({ codexFactory: () => mockCodex });
+  const tempHome = await withTempCodexHome(
+    [
+      'sandbox_mode = "workspace-write"',
+      'approval_policy = "on-request"',
+      'model_reasoning_effort = "minimal"',
+      'web_search = "disabled"',
+      '',
+    ].join('\n'),
+  );
+  process.env.CODEX_HOME = tempHome.codexHome;
+  process.env.Codex_network_access_enabled = 'false';
 
   const server = http.createServer(handleRpc);
   server.listen(0);
@@ -157,9 +196,37 @@ test('codebase_question returns answer-only payloads and preserves conversationI
     const secondPayload = JSON.parse(secondCall.result.content[0].text);
     assert.equal(secondPayload.conversationId, 'thread-abc');
     assert.equal(mockCodex.lastResumeId, 'thread-abc');
+    assert.equal(
+      (mockCodex.lastStartOptions as { sandboxMode?: string }).sandboxMode,
+      'workspace-write',
+    );
+    assert.equal(
+      (mockCodex.lastStartOptions as { approvalPolicy?: string })
+        .approvalPolicy,
+      'on-request',
+    );
+    assert.equal(
+      (mockCodex.lastStartOptions as { modelReasoningEffort?: string })
+        .modelReasoningEffort,
+      'minimal',
+    );
+    assert.equal(
+      (mockCodex.lastStartOptions as { webSearchEnabled?: boolean })
+        .webSearchEnabled,
+      false,
+    );
+    const markerLogs = query({
+      source: ['server'],
+      text: 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED',
+    });
+    assert.ok(markerLogs.length > 0);
   } finally {
     resetToolDeps();
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    delete process.env.Codex_network_access_enabled;
+    await tempHome.cleanup();
     server.close();
   }
 });
@@ -204,8 +271,12 @@ class MockCodexNoAnswer {
 
 test('codebase_question returns an empty answer segment when no answer emitted', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
   setToolDeps({ codexFactory: () => new MockCodexNoAnswer() });
+  resetStore();
+  const tempHome = await withTempCodexHome('web_search_request = false\n');
+  process.env.CODEX_HOME = tempHome.codexHome;
 
   const server = http.createServer(handleRpc);
   server.listen(0);
@@ -231,6 +302,9 @@ test('codebase_question returns an empty answer segment when no answer emitted',
   } finally {
     resetToolDeps();
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    await tempHome.cleanup();
     server.close();
   }
 });
@@ -273,4 +347,56 @@ test('vector summary match uses the lowest distance', () => {
   assert.equal(summaries[0].files[0].modelId, 'text-embedding-3-small');
   assert.equal(summaries[0].files[0].embeddingProvider, 'openai');
   assert.equal(summaries[0].files[0].embeddingModel, 'text-embedding-3-small');
+});
+
+test('codebase_question parity fixture aligns MCP defaults with REST resolver expectations', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  resetStore();
+  const tempHome = await withTempCodexHome(
+    [
+      'sandbox_mode = "danger-full-access"',
+      'approval_policy = "on-failure"',
+      'model_reasoning_effort = "high"',
+      'web_search = "cached"',
+      '',
+    ].join('\n'),
+  );
+  process.env.CODEX_HOME = tempHome.codexHome;
+  const mockCodex = new MockCodex('thread-parity');
+  setToolDeps({ codexFactory: () => mockCodex });
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+  try {
+    const result = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 120,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: { question: 'Parity?' },
+      },
+    });
+    assert.equal(result.result.content[0].type, 'text');
+    const markerLogs = query({
+      source: ['server'],
+      text: 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED',
+    });
+    const latest = markerLogs.at(-1);
+    const context = latest?.context as
+      | { defaults?: { webSearchEnabled?: boolean } }
+      | undefined;
+    assert.ok(context?.defaults);
+    assert.equal(context.defaults?.webSearchEnabled, true);
+  } finally {
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    await tempHome.cleanup();
+    server.close();
+  }
 });

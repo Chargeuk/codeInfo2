@@ -219,6 +219,273 @@ sequenceDiagram
   end
 ```
 
+## Agents command client API contract (Story 0000040 Task 4)
+
+- `client/src/api/agents.ts` contract alignment:
+  - `listAgentCommands(agentName)` now requires `stepCount` on every returned command item.
+  - Client parsing fails fast with `Invalid agent commands response` when `stepCount` is missing, non-integer, or `< 1`.
+  - `runAgentCommand(...)` accepts optional `startStep`; payload includes `startStep` only when supplied by caller.
+- Request/response expectations:
+  - `GET /agents/:agentName/commands` consumes `{ commands: [{ name, description, disabled, stepCount, sourceId?, sourceLabel? }] }`.
+  - `POST /agents/:agentName/commands/run` sends `{ commandName, startStep?, sourceId?, conversationId?, working_folder? }`.
+- Required client observability marker:
+  - `DEV_0000040_T04_CLIENT_AGENTS_API` emitted on command-run dispatch with `includesStartStep` and selected `startStep` context.
+
+## Agents Start step UI behavior (Story 0000040 Task 5)
+
+- `client/src/pages/AgentsPage.tsx` now renders a labeled `Start step` select directly after the command select in the command row.
+- UI state rules are deterministic:
+  - before selecting a valid command, `Start step` is disabled and shows `Select command first`;
+  - once selected, options are exactly `Step 1..Step N` where `N = stepCount`;
+  - command changes reset selection to `Step 1`;
+  - when `N = 1`, the control remains visible but disabled on `Step 1`;
+  - disabled commands (`disabled: true`, sentinel `stepCount: 1`) keep `Start step` disabled and leave execute blocked.
+- Execute wiring now always sends the currently selected numeric `startStep` in `runAgentCommand(...)` payloads.
+- Backend `INVALID_START_STEP` errors surface in the existing `agents-run-error` banner without rewriting server range text.
+- Required UI observability marker:
+  - `DEV_0000040_T05_AGENTS_UI_EXECUTE` emitted once per successful execute click with selected command/source/start-step context.
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as AgentsPage
+  participant API as runAgentCommand
+  participant Route as POST /agents/:agentName/commands/run
+
+  User->>UI: Select command
+  UI->>UI: reset startStep = 1
+  UI-->>User: Start step options Step 1..N (or disabled when N=1)
+  User->>UI: Select Start step (optional change)
+  User->>UI: Click Execute command
+  UI->>UI: log DEV_0000040_T05_AGENTS_UI_EXECUTE
+  UI->>API: runAgentCommand({ commandName, startStep, sourceId?, ... })
+  API->>Route: POST payload includes integer startStep
+  alt startStep invalid at runtime
+    Route-->>UI: 400 INVALID_START_STEP + range message
+    UI-->>User: existing agents-run-error shows server message unchanged
+  else accepted
+    Route-->>UI: 202 started
+  end
+```
+
+## Shared Codex chat defaults resolver (Story 0000040 Task 6)
+
+- `server/src/config/chatDefaults.ts` now exposes `resolveCodexChatDefaults(...)` so REST and MCP surfaces can consume one deterministic Codex-default pipeline.
+- Covered fields: `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
+- Precedence for each field is deterministic:
+  - request override -> `codex/chat/config.toml` -> legacy env default -> hardcoded safe fallback.
+- Legacy env usage emits field-specific warnings naming both field and env source.
+- Canonical `web_search` always wins over alias keys; alias bool values normalize to canonical modes (`true -> live`, `false -> disabled`).
+- Resolver emits `DEV_0000040_T06_CHAT_DEFAULT_RESOLVER` with per-field source/value and warning count.
+
+```mermaid
+flowchart TD
+  A[resolveCodexChatDefaults field] --> B{Request override present?}
+  B -- yes --> O[Use override source=override]
+  B -- no --> C{Valid config value in codex/chat/config.toml?}
+  C -- yes --> G[Use config source=config]
+  C -- no --> D{Valid legacy env value?}
+  D -- yes --> E[Use env source=env]
+  E --> W[Append field-specific legacy env warning]
+  D -- no --> F[Use hardcoded safe fallback source=hardcoded]
+  O --> Z[Emit DEV_0000040_T06_CHAT_DEFAULT_RESOLVER]
+  G --> Z
+  W --> Z
+  F --> Z
+```
+
+## REST and capability surfaces consume shared defaults (Story 0000040 Task 7)
+
+- `server/src/codex/capabilityResolver.ts` now resolves Codex defaults via `resolveCodexChatDefaults(...)` instead of env-only parsing for the covered fields.
+- `/chat/models?provider=codex`, `/chat/providers`, and `/chat` validation all consume the same resolver-backed defaults/warnings path through `resolveCodexCapabilities(...)`.
+- `/chat/providers` now returns `codexDefaults` and `codexWarnings` alongside ordered provider metadata so REST surfaces expose one consistent default/warning contract.
+- Deterministic Task 7 marker is emitted when resolver-backed defaults are applied:
+  - `DEV_0000040_T07_REST_DEFAULTS_APPLIED`.
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Models as GET /chat/models
+  participant Providers as GET /chat/providers
+  participant Chat as POST /chat
+  participant Caps as resolveCodexCapabilities
+  participant Defaults as resolveCodexChatDefaults
+
+  Client->>Models: ?provider=codex
+  Models->>Caps: consumer=chat_models
+  Caps->>Defaults: load codex/chat/config.toml + fallback chain
+  Defaults-->>Caps: values + sources + warnings
+  Caps-->>Models: codex defaults + warnings + model capabilities
+  Models-->>Client: codexDefaults/codexWarnings
+
+  Client->>Providers: /chat/providers
+  Providers->>Caps: consumer=chat_models
+  Caps->>Defaults: shared resolver path
+  Caps-->>Providers: codex defaults + warnings + models
+  Providers-->>Client: providers + codexDefaults/codexWarnings
+
+  Client->>Chat: POST /chat (flags optional)
+  Chat->>Caps: consumer=chat_validation
+  Caps->>Defaults: shared resolver path
+  Caps-->>Chat: defaults/warnings for validation defaults
+  Chat-->>Client: validation/execute response using shared defaults
+```
+
+## MCP `codebase_question` shared defaults parity (Story 0000040 Task 8)
+
+- `server/src/mcp2/tools/codebaseQuestion.ts` now uses the same shared Codex defaults path used by REST capability/validation surfaces.
+- MCP Codex thread-option defaults for `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, and `webSearchEnabled` are derived from resolver-backed capability defaults instead of env-only parsing.
+- Deterministic Task 8 marker is emitted in MCP tool execution flow:
+  - `DEV_0000040_T08_MCP_DEFAULTS_APPLIED`.
+- Parity tests assert MCP defaults/warnings align with `/chat/models` and `/chat/providers` for identical fixture inputs (including env-fallback scenarios).
+
+```mermaid
+sequenceDiagram
+  participant Client as MCP Client
+  participant Tool as codebase_question
+  participant Caps as resolveCodexCapabilities
+  participant Defaults as resolveCodexChatDefaults
+  participant Rest as /chat/models + /chat/providers
+
+  Client->>Tool: tools/call codebase_question
+  Tool->>Caps: consumer=chat_validation
+  Caps->>Defaults: shared precedence chain
+  Defaults-->>Caps: values/sources/warnings
+  Caps-->>Tool: codex defaults + warnings
+  Tool->>Tool: apply ThreadOptions defaults
+  Tool->>Tool: log DEV_0000040_T08_MCP_DEFAULTS_APPLIED
+  Tool-->>Client: answer payload (contract unchanged)
+  Rest-->>Tool: parity expectation for defaults/warnings
+```
+
+## Chat runtime bootstrap for missing `codex/chat/config.toml` (Story 0000040 Task 9)
+
+- `server/src/config/runtimeConfig.ts` bootstrap now follows deterministic branch selection:
+  - `existing_noop`: chat config already exists, no overwrite.
+  - `copied`: chat config missing and base config exists, copy base once.
+  - `generated_template`: both chat and base configs missing, generate standard chat template.
+- IO/permission failures are not silent. Bootstrap emits deterministic warning markers and rethrows:
+  - `chat_stat_failed`, `base_stat_failed`, `chat_dir_create_failed`, `copy_failed`, `template_write_failed`.
+- Deterministic Task 9 marker:
+  - `DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH` with branch, paths, and warning metadata.
+- Data-safety rule: failed copy/template writes clean up partial destination artifacts so `codex/chat/config.toml` is not left corrupted.
+
+```mermaid
+flowchart TD
+  A[ensureChatRuntimeConfigBootstrapped] --> B{chat config exists?}
+  B -- yes --> C[branch existing_noop]
+  B -- no --> D{base config exists?}
+  D -- yes --> E[copy base -> chat with COPYFILE_EXCL]
+  D -- no --> F[write deterministic template]
+  E --> G{copy success?}
+  F --> H{write+rename success?}
+  G -- yes --> I[branch copied]
+  H -- yes --> J[branch generated_template]
+  G -- no --> K[branch copy_failed + warning + cleanup + throw]
+  H -- no --> L[branch template_write_failed + warning + cleanup + throw]
+  C --> M[emit DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH]
+  I --> M
+  J --> M
+  K --> M
+  L --> M
+```
+
+## Codex SDK pin and startup guard alignment (Story 0000040 Task 10)
+
+- `server/package.json` pins `@openai/codex-sdk` to `0.107.0`.
+- `server/src/config/codexSdkUpgrade.ts` enforces exact stable-version matching:
+  - accepted only when installed version is stable semver and exactly `0.107.0`.
+  - rejected for missing version, pre-release versions, lower versions, and higher versions.
+- Deterministic Task 10 marker:
+  - `DEV_0000040_T10_CODEX_SDK_GUARD`
+  - payload/log context includes installed version, required version, decision (`accepted`/`rejected`), and reason when rejected.
+- `server/src/index.ts` still executes the guard during startup and emits a structured startup log event with the same marker for operational visibility.
+
+```mermaid
+flowchart TD
+  A[Server startup] --> B[Read installed @openai/codex-sdk version from server package]
+  B --> C{stable semver?}
+  C -- no --> D[decision=rejected reason=non_stable_version]
+  C -- yes --> E{exactly 0.107.0?}
+  E -- yes --> F[decision=accepted]
+  E -- no --> G[decision=rejected reason=version_mismatch]
+  B --> H{missing version?}
+  H -- yes --> I[decision=rejected reason=missing_version]
+  D --> J[emit DEV_0000040_T10_CODEX_SDK_GUARD]
+  F --> J
+  G --> J
+  I --> J
+```
+
+## Flow command resolution ordering and fail-fast behavior (Story 0000040 Task 11)
+
+- `server/src/flows/service.ts` now resolves flow `command` steps through one shared resolver path used by both:
+  - pre-run flow validation (`validateCommandSteps`),
+  - runtime command-step execution (`runCommandStep`).
+- Candidate source order is deterministic:
+  - same-source repository first (flow `sourceId`, or codeInfo2 root for local flows),
+  - codeInfo2 repository second,
+  - remaining repositories sorted by case-insensitive ASCII on normalized source label, then case-insensitive ASCII full source path.
+- Normalized label rules:
+  - `sourceLabel.trim()` when non-empty,
+  - otherwise `basename(sourceId)` fallback.
+- Fallback boundary:
+  - continue to next candidate only for command-not-found,
+  - stop immediately (no fallback) on same-source schema/read/parse failures and any other non-not-found command-load failure.
+- Deterministic marker:
+  - `DEV_0000040_T11_FLOW_RESOLUTION_ORDER` logs candidate order and outcome (`selected`, `fail_fast`, `not_found`) with selected source metadata or fail-fast reason.
+
+```mermaid
+flowchart TD
+  A[Flow command step] --> B[Build ordered candidates]
+  B --> C[same-source]
+  C --> D[codeInfo2]
+  D --> E[sorted other repositories]
+  E --> F[Try load command by candidate]
+  F --> G{load result}
+  G -- ok --> H[selected source, execute/validate command]
+  G -- not_found --> I[next candidate]
+  I --> F
+  G -- invalid/read_failed --> J[fail_fast no further fallback]
+```
+
+```mermaid
+sequenceDiagram
+  participant Flow as Flow Run
+  participant Resolver as Shared Command Resolver
+  participant Same as Same-source Repo
+  participant Code as codeInfo2 Repo
+
+  Flow->>Resolver: resolve(commandName, agentType)
+  Resolver->>Same: load command
+  alt same-source command exists and valid
+    Same-->>Resolver: ok
+    Resolver-->>Flow: selected same-source
+  else same-source command missing
+    Same-->>Resolver: not_found
+    Resolver->>Code: load command
+    Code-->>Resolver: ok
+    Resolver-->>Flow: selected codeInfo2 fallback
+  else same-source schema/read/parse invalid
+    Same-->>Resolver: invalid/read_failed
+    Resolver-->>Flow: fail_fast (COMMAND_INVALID)
+  end
+```
+
+## Story 0000040 Task 12 documentation/contract synchronization checkpoint
+
+- Task 12 is documentation/contract sync only; runtime behavior remains unchanged.
+- Final aligned command-run contract references:
+  - `GET /agents/:agentName/commands` response includes required `stepCount` (`integer >= 1`) on every item.
+  - `POST /agents/:agentName/commands/run` accepts optional `startStep`; omitted values default to step `1` during execution.
+  - invalid `startStep` remains deterministic: `400 invalid_request` with `code: INVALID_START_STEP` and range message format `startStep must be between 1 and N`.
+- Final aligned flow resolver references:
+  - candidate order is same-source -> codeInfo2 -> sorted others,
+  - sorted others uses case-insensitive ASCII normalized label then case-insensitive ASCII full path,
+  - fallback only on not-found, with fail-fast for same-source schema/read/parse failures.
+- Task 12 synchronization marker:
+  - `DEV_0000040_T12_DOC_SYNC_COMPLETE` records doc/contract parity completion and expected context includes touched docs (`README.md`, `design.md`, `projectStructure.md`, `openapi.json`) plus status fields for sync verification.
+
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
 - Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
 - Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.
@@ -1366,7 +1633,7 @@ sequenceDiagram
 ### Chat page (models list)
 
 - Route `/chat` surfaces the chat shell; controls sit at the top with Provider/Model selectors implemented as MUI `TextField` with `select` enabled (avoids label clipping seen with raw `FormControl + InputLabel + Select`). The first available provider is auto-selected and the first model for that provider auto-selects when data loads; provider locks after the first message while model can still change.
-- Codex-only controls live in a collapsible (collapsed by default) **Codex flags** panel rendered under the Provider/Model row whenever `provider === 'codex'`. The panel defaults come from `Codex_*` env-driven defaults (surfaced via `/chat/models`), exposes `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, plus **Enable network access** and **Enable web search** toggles; unchanged defaults are omitted from the `/chat` payload so the server can apply env defaults, while user-changed flags are sent. The controls reset to their defaults on provider changes or when **New conversation** is clicked while preserving choices during an active Codex session. Any `codexWarnings` returned by `/chat/models?provider=codex` render a warning banner above the flags panel.
+- Codex-only controls live in a collapsible (collapsed by default) **Codex flags** panel rendered under the Provider/Model row whenever `provider === 'codex'`. The panel defaults come from the shared server-side Codex resolver (surfaced via `/chat/models` and `/chat/providers`), exposes `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, plus **Enable network access** and **Enable web search** toggles; unchanged defaults are omitted from the `/chat` payload so the server applies resolver defaults, while user-changed flags are sent. The controls reset to their defaults on provider changes or when **New conversation** is clicked while preserving choices during an active Codex session. Any `codexWarnings` returned by Codex metadata endpoints render a warning banner above the flags panel.
 - Chat/Agents controls use `size="small"` with contained primary actions, outlined secondary actions, and Stop styled as contained error.
 - LM Studio/Ingest controls use `size="small"` with contained primary actions and outlined secondary actions.
 - Agents controls group Command + Execute and Instruction + Send/Stop on shared rows, with a fixed-width Send/Stop slot to avoid layout shifts.
@@ -1712,8 +1979,13 @@ runAgentInstruction()
 
 - Agent commands live in each agent home at `commands/<commandName>.json` and are loaded at execution time.
 - REST endpoints:
-  - `GET /agents/:agentName/commands` returns `{ commands: [{ name, description, disabled, sourceId?, sourceLabel? }] }`.
-  - `POST /agents/:agentName/commands/run` accepts `{ commandName, conversationId?, working_folder?, sourceId? }` and returns `{ agentName, commandName, conversationId, modelId }`.
+  - `GET /agents/:agentName/commands` returns `{ commands: [{ name, description, disabled, stepCount, sourceId?, sourceLabel? }] }`.
+  - `stepCount` is required and must be an integer `>= 1`; valid command files use `command.items.length`, and invalid/disabled entries use sentinel `stepCount: 1` with `disabled: true`.
+  - `POST /agents/:agentName/commands/run` accepts `{ commandName, startStep?, conversationId?, working_folder?, sourceId? }` and returns `{ agentName, commandName, conversationId, modelId }`.
+  - `startStep` is optional for backward compatibility; when omitted, service defaults to `1` before entering runner execution.
+  - Route-level validation enforces integer shape when `startStep` is present; runtime runner validation enforces range against loaded command file step count (`1..N`).
+  - Invalid values map deterministically to `400 { error: 'invalid_request', code: 'INVALID_START_STEP', message: 'startStep must be between 1 and N' }`, where `N` is runtime `command.items.length`.
+  - MCP `run_command` input remains unchanged in this step and does not accept `startStep`.
 - Command discovery includes ingested repo commands at `<ingestRoot>/codex_agents/<agentName>/commands` when the agent exists locally; ingested entries include `sourceId = RepoEntry.containerPath`, `sourceLabel = RepoEntry.id` (fallback to ingest root basename), and the list is sorted by display label `<name>` or `<name> - [sourceLabel]`.
 - Command runs accept optional `sourceId` (container path). Unknown `sourceId` values return a 404 `{ error: 'not_found' }`, and the server logs `DEV-0000034:T2:command_run_resolved` with the resolved command path.
 - REST error mapping (command run):
@@ -1724,6 +1996,7 @@ runAgentInstruction()
 - Steps execute sequentially; each step runs as a normal agent instruction with `turn.command` metadata `{ name, stepIndex, totalSteps }`.
 - Cancellation is abort-based: the client aborts the in-flight HTTP request (AbortController), the server propagates that abort to the provider call via an `AbortSignal`, and the runner stops after the current step (never starts the next step once aborted).
 - If abort triggers mid-step, the chat layer persists a `Stopped` assistant turn (status `stopped`) and still tags that step with `turn.command`. The caller may not receive a normal JSON response because the request was aborted.
+- Contract-guard coverage: `server/src/test/unit/agent-commands-list.test.ts`, `server/src/test/unit/agents-commands-router-list.test.ts`, and `server/src/test/unit/openapi.contract.test.ts` assert `stepCount` presence and `minimum: 1` behavior.
 
 ```mermaid
 sequenceDiagram
@@ -1733,18 +2006,24 @@ sequenceDiagram
   participant Runner as Command runner
   participant Codex as Codex
 
-  UI->>API: POST /agents/:agentName/commands/run\n{ commandName, conversationId?, working_folder? }
+  UI->>API: POST /agents/:agentName/commands/run\n{ commandName, startStep?, conversationId?, working_folder? }
   Note over API: Creates an AbortController\n(req 'aborted' / res 'close' => controller.abort())
-  API->>Svc: runAgentCommand(..., signal)
-  Svc->>Runner: runAgentCommandRunner(...)\n(load JSON + acquire lock)
+  API->>Svc: startAgentCommand(...)
+  Svc->>Svc: startStep = request.startStep ?? 1
+  Svc->>Runner: runAgentCommandRunner(..., startStep)\n(load JSON + acquire lock)
   Runner->>Runner: tryAcquireConversationLock(conversationId)
+  Runner->>Runner: validate startStep in [1..N]\nconvert startIndex = startStep - 1
 
   alt RUN_IN_PROGRESS
     Runner-->>Svc: throw RUN_IN_PROGRESS
     Svc-->>API: error
     API-->>UI: 409 conflict
+  else INVALID_START_STEP
+    Runner-->>Svc: throw INVALID_START_STEP
+    Svc-->>API: error
+    API-->>UI: 400 invalid_request\ncode=INVALID_START_STEP\nmessage=startStep must be between 1 and N
   else ok
-    loop for each step
+    loop for each step i=startIndex..N-1
       alt signal.aborted
         Runner-->>Runner: stop (do not start next step)
       else continue
@@ -1758,7 +2037,7 @@ sequenceDiagram
     Runner->>Runner: releaseConversationLock(conversationId)
     Runner-->>Svc: { agentName, commandName, conversationId, modelId }
     Svc-->>API: result
-    API-->>UI: 200 { ... }
+    API-->>UI: 202 { status: started, ... }\n(background run path)
   end
 
   opt User cancels
@@ -2708,7 +2987,7 @@ The proxy does not cache results and times out after 60s. Invalid base URLs are 
 - Success returns `200` with `[ { key, displayName, type } ]` and the chat UI defaults to the first entry when none is selected.
 - Failure or invalid/unreachable base URL returns `503 { error: "lmstudio unavailable" }`.
 - Logging: start, success, and failure entries record the sanitized base URL origin; success logs the model count for visibility.
-- `GET /chat/models?provider=codex` uses `Codex_model_list` (CSV trim + de-duplicate) with a fallback default list when the env list is empty; it returns the list only when Codex is available and always includes `codexDefaults` plus `codexWarnings` (env/default/model-list/runtime warnings). `codexDefaults` mirrors `Codex_sandbox_mode`, `Codex_approval_policy`, `Codex_reasoning_effort`, `Codex_network_access_enabled`, and `Codex_web_search_enabled` from `server/.env`. If web search is enabled while tools are unavailable, a runtime warning is appended. Logs include `[codex-model-list] using env list` with `modelCount`, `fallbackUsed`, and `warningsCount`.
+- `GET /chat/models?provider=codex` uses `Codex_model_list` (CSV trim + de-duplicate) with a fallback default list when the env list is empty; it returns the list only when Codex is available and always includes `codexDefaults` plus `codexWarnings` (shared-resolver/model-list/runtime warnings). `codexDefaults` for `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, and `webSearchEnabled` come from the shared `resolveCodexChatDefaults` precedence chain (`override -> config -> env -> hardcoded`), while `networkAccessEnabled` remains env-defaulted with deterministic fallback. If web search is enabled while tools are unavailable, a runtime warning is appended. Logs include `[codex-model-list] using env list` with `modelCount`, `fallbackUsed`, and `warningsCount`.
 
 ```mermaid
 sequenceDiagram
@@ -4182,28 +4461,28 @@ sequenceDiagram
 
 ## Story 0000039 manual verification log matrix
 
-| Prefix | Expected runtime outcome |
-| --- | --- |
-| `[agents.prompts.route.request]` | Prompts route called with agent/folder context. |
-| `[agents.prompts.route.success]` | Prompts route succeeded with `promptsCount`. |
-| `[agents.prompts.route.error]` | Prompts route failed (validation/not-found/internal) with status/code context. |
-| `[agents.prompts.discovery.start]` | Discovery service started for committed `working_folder`. |
-| `[agents.prompts.discovery.complete]` | Discovery service completed with prompt entries. |
-| `[agents.prompts.discovery.empty]` | Discovery service completed with zero prompts / missing prompts dir. |
-| `[agents.prompts.api.request]` | Client prompts API request dispatched. |
-| `[agents.prompts.api.success]` | Client prompts API request succeeded. |
-| `[agents.prompts.api.error]` | Client prompts API request failed. |
-| `[agents.commandInfo.open]` | Command info popover opened for selected command. |
-| `[agents.commandInfo.blocked]` | Command info interaction blocked because no command selected. |
-| `[agents.prompts.discovery.commit]` | UI committed working folder (`blur`, `enter`, `picker`). |
-| `[agents.prompts.discovery.request.start]` | UI started a discovery request with request id. |
-| `[agents.prompts.discovery.request.stale_ignored]` | UI ignored stale discovery response. |
-| `[agents.prompts.selector.visible]` | Selector row shown with discovered prompts. |
-| `[agents.prompts.selector.hidden]` | Selector row hidden (`empty_working_folder` or `discovery_zero_results`). |
-| `[agents.prompts.selection.changed]` | Prompt selection changed (`relativePath` or `none`). |
-| `[agents.prompts.execute.clicked]` | Execute Prompt clicked with selected prompt context. |
-| `[agents.prompts.execute.payload_built]` | Canonical prompt payload constructed; `instructionHasFullPath=true` expected. |
-| `[agents.prompts.execute.result]` | Execute Prompt finished with `status=started` or `status=error` and code. |
+| Prefix                                             | Expected runtime outcome                                                       |
+| -------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `[agents.prompts.route.request]`                   | Prompts route called with agent/folder context.                                |
+| `[agents.prompts.route.success]`                   | Prompts route succeeded with `promptsCount`.                                   |
+| `[agents.prompts.route.error]`                     | Prompts route failed (validation/not-found/internal) with status/code context. |
+| `[agents.prompts.discovery.start]`                 | Discovery service started for committed `working_folder`.                      |
+| `[agents.prompts.discovery.complete]`              | Discovery service completed with prompt entries.                               |
+| `[agents.prompts.discovery.empty]`                 | Discovery service completed with zero prompts / missing prompts dir.           |
+| `[agents.prompts.api.request]`                     | Client prompts API request dispatched.                                         |
+| `[agents.prompts.api.success]`                     | Client prompts API request succeeded.                                          |
+| `[agents.prompts.api.error]`                       | Client prompts API request failed.                                             |
+| `[agents.commandInfo.open]`                        | Command info popover opened for selected command.                              |
+| `[agents.commandInfo.blocked]`                     | Command info interaction blocked because no command selected.                  |
+| `[agents.prompts.discovery.commit]`                | UI committed working folder (`blur`, `enter`, `picker`).                       |
+| `[agents.prompts.discovery.request.start]`         | UI started a discovery request with request id.                                |
+| `[agents.prompts.discovery.request.stale_ignored]` | UI ignored stale discovery response.                                           |
+| `[agents.prompts.selector.visible]`                | Selector row shown with discovered prompts.                                    |
+| `[agents.prompts.selector.hidden]`                 | Selector row hidden (`empty_working_folder` or `discovery_zero_results`).      |
+| `[agents.prompts.selection.changed]`               | Prompt selection changed (`relativePath` or `none`).                           |
+| `[agents.prompts.execute.clicked]`                 | Execute Prompt clicked with selected prompt context.                           |
+| `[agents.prompts.execute.payload_built]`           | Canonical prompt payload constructed; `instructionHasFullPath=true` expected.  |
+| `[agents.prompts.execute.result]`                  | Execute Prompt finished with `status=started` or `status=error` and code.      |
 
 ```mermaid
 sequenceDiagram

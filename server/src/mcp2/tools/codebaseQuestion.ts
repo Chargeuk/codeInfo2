@@ -26,13 +26,11 @@ import type {
 import { McpResponder } from '../../chat/responders/McpResponder.js';
 import {
   resolveChatDefaults,
+  resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
   type ChatDefaultProvider,
 } from '../../config/chatDefaults.js';
-import {
-  getCodexEnvDefaults,
-  getCodexModelList,
-} from '../../config/codexEnvDefaults.js';
+import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import { append } from '../../logStore.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
@@ -52,6 +50,7 @@ import {
 } from '../errors.js';
 
 export const CODEBASE_QUESTION_TOOL_NAME = 'codebase_question';
+const TASK8_LOG_MARKER = 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED';
 
 const paramsSchema = z
   .object({
@@ -175,6 +174,16 @@ export function validateParams(params: unknown): CodebaseQuestionParams {
   return parsed.data;
 }
 
+const extractWarningFields = (warnings: string[]): string[] =>
+  Array.from(
+    new Set(
+      warnings
+        .map((warning) => warning.match(/"([^"]+)"/))
+        .map((match) => match?.[1])
+        .filter((field): field is string => typeof field === 'string'),
+    ),
+  );
+
 async function getConversation(
   conversationId: string,
 ): Promise<Conversation | null> {
@@ -295,9 +304,22 @@ export async function runCodebaseQuestion(
   }
 
   const codexAvailable = await isCodexAvailable();
+  const codexCapabilities = await resolveCodexCapabilities({
+    consumer: 'chat_validation',
+    codexHome: process.env.CODEX_HOME,
+  });
+  const codexChatDefaults = await resolveCodexChatDefaults({
+    codexHome: process.env.CODEX_HOME,
+  });
+  const codexWarnings = [
+    ...codexCapabilities.warnings,
+    ...resolvedDefaults.warnings,
+    ...codexChatDefaults.warnings,
+  ];
+  const codexWarningFields = extractWarningFields(codexWarnings);
   const codexState = {
     available: codexAvailable,
-    models: getCodexModelList().models,
+    models: codexCapabilities.models.map((entry) => entry.model),
     reason: codexAvailable ? undefined : 'CODE_INFO_LLM_UNAVAILABLE',
   };
 
@@ -368,6 +390,30 @@ export async function runCodebaseQuestion(
       decision: runtimeSelection.decision,
     },
   });
+  append({
+    level: 'info',
+    message: TASK8_LOG_MARKER,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface: 'mcp2.codebase_question',
+      requestedProvider: runtimeSelection.requestedProvider,
+      executionProvider: runtimeSelection.executionProvider,
+      executionModel: runtimeSelection.executionModel,
+      warningCount: codexWarnings.length,
+      warningFields: codexWarningFields,
+      defaults: codexCapabilities.defaults,
+    },
+  });
+  console.info(TASK8_LOG_MARKER, {
+    surface: 'mcp2.codebase_question',
+    requestedProvider: runtimeSelection.requestedProvider,
+    executionProvider: runtimeSelection.executionProvider,
+    executionModel: runtimeSelection.executionModel,
+    warningCount: codexWarnings.length,
+    warningFields: codexWarningFields,
+    defaults: codexCapabilities.defaults,
+  });
 
   if (runtimeSelection.unavailable) {
     throw new ProviderUnavailableError('CODE_INFO_LLM_UNAVAILABLE');
@@ -377,7 +423,7 @@ export async function runCodebaseQuestion(
   const executionModel = runtimeSelection.executionModel;
   const codexWorkingDirectory =
     process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data';
-  const { defaults: codexDefaults } = getCodexEnvDefaults();
+  const codexDefaults = codexCapabilities.defaults;
 
   const threadOpts: ThreadOptions = {
     model: executionModel,

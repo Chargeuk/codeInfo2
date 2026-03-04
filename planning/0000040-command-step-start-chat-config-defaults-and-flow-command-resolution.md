@@ -2624,7 +2624,7 @@ Perform documentation-only updates so product behavior, architecture notes, and 
 
 ### 13. Final verification: full acceptance and regression gate for story 0000040
 
-- Task Status: **to_do**
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview
@@ -2648,22 +2648,22 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
 
 #### Subtasks
 
-1. [ ] Validate every acceptance criterion and record explicit pass/fail evidence with file/test references in this task’s implementation notes.
+1. [x] Validate every acceptance criterion and record explicit pass/fail evidence with file/test references in this task’s implementation notes.
    - Docs to read first: https://nodejs.org/api/test.html.
    - Files to read/edit: [0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md) (acceptance criteria + this task's implementation notes section).
    - Acceptance criteria coverage: AC 1-28.
    - Done when: every AC has a concrete evidence note (test name, endpoint check, or manual check), and each evidence note is tagged as happy-path, error-path, or corner-case coverage.
-2. [ ] After completing this task's Testing section, document outcomes for all wrapper/manual checks in this task's implementation notes, including pass/fail status, remediation actions, and rerun evidence.
+2. [x] After completing this task's Testing section, document outcomes for all wrapper/manual checks in this task's implementation notes, including pass/fail status, remediation actions, and rerun evidence.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://nodejs.org/api/test.html, https://playwright.dev/docs/intro.
    - Files to read/edit: [0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md) (this task's implementation notes section), [mcp-agents-commands-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp-agents-commands-run.test.ts), [tools.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcpAgents/tools.ts).
    - Acceptance criteria coverage: AC 1-28.
    - Done when: implementation notes include explicit evidence for server unit, cucumber, client, e2e, targeted MCP non-regression, and manual Playwright checks.
-3. [ ] Produce pull-request summary text covering all completed tasks, contract changes, tests run, and remaining risks.
+3. [x] Produce pull-request summary text covering all completed tasks, contract changes, tests run, and remaining risks.
    - Docs to read first: https://www.markdownguide.org/basic-syntax/.
    - Files to read/edit: [0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md), [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Acceptance criteria coverage: release readiness communication for AC 1-28.
    - Done when: summary includes what changed, why, and proof points.
-4. [ ] Confirm [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) is fully current after all code/test changes.
+4. [x] Confirm [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) is fully current after all code/test changes.
    - Document name: `README.md`.
    - Document location: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md).
    - Description: Verify final user-facing behavior descriptions and command references match implemented functionality and test evidence.
@@ -2673,7 +2673,7 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Ordering requirement: complete this subtask after all file additions/removals in this task (including screenshot files) are finished.
    - Acceptance criteria coverage: final documentation readiness for AC 1-28.
    - Done when: `README.md` aligns with final behavior and no stale instructions remain.
-5. [ ] Confirm [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) is fully current and all newly added Mermaid diagrams render and match implemented architecture/flow behavior.
+5. [x] Confirm [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) is fully current and all newly added Mermaid diagrams render and match implemented architecture/flow behavior.
    - Document name: `design.md`.
    - Document location: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
    - Description: Verify all architecture notes and Mermaid diagrams represent the final implemented flow and contract behavior.
@@ -2683,7 +2683,7 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Ordering requirement: complete this subtask after all file additions/removals in this task (including screenshot files) are finished.
    - Acceptance criteria coverage: final documentation readiness for AC 1-28.
    - Done when: `design.md` has no known drift and all Mermaid blocks are syntax-valid and behavior-accurate.
-6. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) so it is fully current after all code/test/documentation changes.
+6. [x] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) so it is fully current after all code/test/documentation changes.
    - Document name: `projectStructure.md`.
    - Document location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
    - Description: Update and verify that all added, removed, and modified files for the story (including screenshot artifacts) are correctly reflected in structure documentation.
@@ -2693,13 +2693,13 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
    - Ordering requirement: complete this subtask after all file additions/removals in this task (including screenshot files) are finished.
    - Acceptance criteria coverage: final documentation readiness for AC 1-28.
    - Done when: `projectStructure.md` matches final repository state with no missing entries and explicitly includes all added and removed files from this task.
-7. [ ] Add deterministic diagnostic log marker [DEV_0000040_T13_MANUAL_CHECK_COMPLETE] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
+7. [x] Add deterministic diagnostic log marker [DEV_0000040_T13_MANUAL_CHECK_COMPLETE] for this task's primary event flow, and include enough context fields to prove the trigger path executed correctly.
    - Docs to read first: https://nodejs.org/api/console.html, https://playwright.dev/docs/next/debug#browser-logs.
    - Files to read/edit: [0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md).
    - Acceptance criteria coverage: AC 1-28.
    - Manual Playwright-MCP expected outcome: after all manual checks pass, emit marker once in browser console and capture screenshot/log evidence tied to final regression completion.
    - Done when: [DEV_0000040_T13_MANUAL_CHECK_COMPLETE] is emitted deterministically for the relevant action and is included in Task 13 Manual Playwright-MCP verification evidence.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read first: https://docs.npmjs.com/cli/v10/commands/npm-run-script.
    - Files to read/edit: None (command-only subtask; update this story file implementation notes if behavior or evidence changes).
    - Acceptance criteria coverage: quality gate for this task's implementation outputs.
@@ -2710,39 +2710,89 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
 - Wrapper-only rule: do not attempt to run tests without using the summary wrappers listed below.
 - Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server`
+1. [x] `npm run build:summary:server`
    - Use when server/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run build:summary:client`
+2. [x] `npm run build:summary:client`
    - Use when client/common code may be affected. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log`.
-3. [ ] `npm run test:summary:server:unit`
+3. [x] `npm run test:summary:server:unit`
    - Use for server node:test unit/integration coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--test-name`), then rerun full `npm run test:summary:server:unit`.
-4. [ ] `npm run test:summary:server:cucumber`
+4. [x] `npm run test:summary:server:cucumber`
    - Use for server Cucumber feature/step coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands (`--tags` / `--feature` / `--scenario`), then rerun full `npm run test:summary:server:cucumber`.
-5. [ ] `npm run test:summary:client`
+5. [x] `npm run test:summary:client`
    - Use when client/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/client-tests-*.log`), diagnose with targeted wrapper commands (`--file` / `--subset` / `--test-name`), then rerun full `npm run test:summary:client`.
-6. [ ] `npm run test:summary:e2e`
+6. [x] `npm run test:summary:e2e`
    - Allow up to 7 minutes (for example `timeout 7m` or harness `timeout_ms=420000`). If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands (`--file` / `--grep`), then rerun full `npm run test:summary:e2e`.
-7. [ ] `npm run compose:build:summary`
+7. [x] `npm run compose:build:summary`
    - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log`.
-8. [ ] `npm run compose:up`
+8. [x] `npm run compose:up`
    - Start the dockerized app stack before manual Playwright-MCP checks.
-9. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001)
+9. [x] Manual Playwright-MCP check (http://host.docker.internal:5001)
    - Manually confirm story behavior and verify these debug-console markers appear with expected outcomes: `[DEV_0000040_T01_STEP_COUNT_RESPONSE]` (command list returns `stepCount >= 1`), `[DEV_0000040_T02_START_STEP_VALIDATION]` (valid and invalid `startStep` attempts are logged with invalid cases tagged `INVALID_START_STEP`), `[DEV_0000040_T03_RUNNER_START_STEP]` (runner logs selected `startStep` and `totalSteps`), `[DEV_0000040_T04_CLIENT_AGENTS_API]` (outbound AGENTS payload logging), `[DEV_0000040_T05_AGENTS_UI_EXECUTE]` (execute click emission only for enabled runs), `[DEV_0000040_T06_CHAT_DEFAULT_RESOLVER]` (default-source selection per field), `[DEV_0000040_T07_REST_DEFAULTS_APPLIED]` (REST chat defaults/warnings applied), `[DEV_0000040_T08_MCP_DEFAULTS_APPLIED]` (MCP defaults/warnings aligned), `[DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH]` (bootstrap branch reported once), `[DEV_0000040_T10_CODEX_SDK_GUARD]` (guard decision with installed/required versions), `[DEV_0000040_T11_FLOW_RESOLUTION_ORDER]` (flow candidate ordering and fail-fast reason), `[DEV_0000040_T12_DOC_SYNC_COMPLETE]` (documentation/contract sync verification marker), and no unexpected error-level console logs.
    - Capture screenshots for every GUI-verifiable acceptance surface (AGENTS start-step interactions, chat defaults/warnings states, and flow resolver success/failure UI outcomes) and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`).
    - Agent validation requirement: review all captured screenshots against story acceptance criteria and task expectations, and record explicit pass/fail notes for each GUI-verifiable acceptance point in implementation notes.
    - Expected outcome: each marker appears for its corresponding interaction exactly as defined in task subtasks, payload context matches expected values, and console errors remain zero for happy-path checks.
-10. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-agents-commands-run.test.ts`
+10. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-agents-commands-run.test.ts`
 
 - Explicit unchanged-contract regression check proving MCP `run_command` schema remains unchanged by REST `startStep` work.
 
-11. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-ws-stream.test.ts`
+11. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-ws-stream.test.ts`
 
 - Explicit websocket metadata regression check proving command-step metadata shape remains stable after start-step support.
 
-12. [ ] `npm run compose:down`
+12. [x] `npm run compose:down`
 
 - Stop the dockerized app stack after manual checks complete.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1 (AC evidence matrix):
+  - AC1 [happy-path]: manual Agents validation + `playwright-output-local/task13-agents-start-step-options.png`.
+  - AC2 [corner-case]: manual pre-selection disabled state on Agents command row.
+  - AC3 [happy-path]: manual `Step 1..N` list (N=9) and default step 1 evidence screenshot.
+  - AC4 [corner-case]: manual command-change reset evidence in `task13-agents-start-step-reset-on-command-change.png`.
+  - AC5 [corner-case]: covered by `client/src/test/agentsPage.run.commandError.test.tsx` and `server/src/test/unit/agent-commands-list.test.ts`.
+  - AC6 [happy-path]: `server/src/test/unit/agent-commands-runner.test.ts` + manual run with `startStep=3`.
+  - AC7 [error-path]: `server/src/test/unit/agents-commands-router-run.test.ts` + manual invalid type probe returned 400 `INVALID_START_STEP`.
+  - AC8 [corner-case]: `server/src/test/unit/mcp-agents-commands-run.test.ts` targeted pass (`10/10`).
+  - AC9 [corner-case]: `server/src/test/unit/agent-commands-runner.test.ts` verifies no dependency inference/auto-adjust.
+  - AC10 [happy-path]: `server/src/test/integration/chat-codex.test.ts` in full server-unit pass + manual Chat defaults load.
+  - AC11 [happy-path]: `server/src/config/chatDefaults.ts` + `chat-codex` integration suite coverage in full pass.
+  - AC12 [happy-path]: resolver precedence validated via `chat-codex` integration tests.
+  - AC13 [corner-case]: fallback chain validated via chat defaults tests in full server-unit run.
+  - AC14 [corner-case]: warning behavior covered by chat defaults integration tests and server log marker `DEV_0000040_T07_REST_DEFAULTS_APPLIED`.
+  - AC15 [corner-case]: `server/src/test/unit/runtimeConfig.test.ts` bootstrap branch coverage.
+  - AC16 [corner-case]: canonical web search precedence covered by chat validator/default tests in full pass.
+  - AC17 [happy-path]: `server/package.json` pin + `server/src/config/codexSdkUpgrade.ts` + full regression wrappers pass.
+  - AC18 [happy-path]: `server/src/test/integration/flows.run.command.test.ts` (same-source/fallback order).
+  - AC19 [corner-case]: deterministic ordering assertions in `flows.run.command.test.ts`.
+  - AC20 [error-path]: fail-fast on same-source schema-invalid in `flows.run.command.test.ts`.
+  - AC21 [happy-path]: red-green repro retained in Task 11 flow tests and verified again in full run.
+  - AC22 [happy-path]: `server/src/test/unit/agent-commands-list.test.ts` + `openapi.contract.test.ts`.
+  - AC23 [corner-case]: disabled/sentinel `stepCount: 1` tests in loader/router suites.
+  - AC24 [corner-case]: omission path tests in `agents-commands-router-run.test.ts` and runner/service integration tests.
+  - AC25 [error-path]: deterministic 400 payload tests in router/openapi contract suites.
+  - AC26 [corner-case]: `server/src/test/unit/codexSdkUpgrade.test.ts` validates required version + stable-only behavior.
+  - AC27 [happy-path]: explicit flow resolution test set in `flows.run.command.test.ts` rerun via full server-unit wrapper.
+  - AC28 [corner-case]: deterministic comparator assertions in flow resolution integration tests.
+- Subtask 2 (testing outcomes + remediation):
+  - Testing 1: `npm run build:summary:server` passed (`status: passed`, `warnings: 0`), log `logs/test-summaries/build-server-latest.log`.
+  - Testing 2: `npm run build:summary:client` passed with one non-blocking Vite chunk-size advisory, log `logs/test-summaries/build-client-latest.log`.
+  - Testing 3: `npm run test:summary:server:unit` passed (`976/976`) with log evidence `test-results/server-unit-tests-2026-03-03T23-52-25-484Z.log`.
+  - Testing 4: `npm run test:summary:server:cucumber` passed (`68/68`), log `test-results/server-cucumber-tests-2026-03-04T00-03-48-126Z.log`.
+  - Testing 5: `npm run test:summary:client` passed (`467/467`), log `test-results/client-tests-2026-03-04T00-05-18-237Z.log`.
+  - Testing 6: `npm run test:summary:e2e` passed (`42/42`), log `logs/test-summaries/e2e-tests-latest.log`.
+  - Testing 7: `npm run compose:build:summary` passed (`items passed: 2`, `failed: 0`), log `logs/test-summaries/compose-build-latest.log`.
+  - Testing 8: `npm run compose:up` passed; stack healthy for manual checks.
+  - Testing 9: manual Playwright-MCP checks completed against `http://host.docker.internal:5001`; GUI evidence captured in `playwright-output-local/task13-*.png` for Agents start-step, Chat defaults panel, and Flows success/failure surfaces.
+  - Testing 10: targeted MCP contract regression passed (`10/10`), log `test-results/server-unit-tests-2026-03-04T00-15-10-222Z.log`.
+  - Testing 11: targeted websocket metadata regression passed (`3/3`), log `test-results/server-unit-tests-2026-03-04T00-15-17-560Z.log`.
+  - Testing 12: `npm run compose:down` passed; docker stack stopped cleanly.
+- Subtask 3 (PR summary text):
+  - Summary: Story 0000040 is closed with AGENTS start-step contracts/UX, chat defaults migration to `codex/chat/config.toml` precedence, deterministic bootstrap/fallback behavior, `@openai/codex-sdk` 0.107.0 guard alignment, deterministic flow command resolution ordering/fail-fast semantics, and synchronized docs/OpenAPI/contracts.
+  - Proof points: full wrapper matrix pass (server/client builds, server-unit, cucumber, client, e2e, compose), targeted MCP/websocket regression passes, and manual GUI evidence screenshots.
+  - Residual risk: runtime marker visibility differs by surface (some markers emit to browser console, some only to server logs/tests); behavior itself is validated by automated suites.
+- Subtask 4: Confirmed `README.md` remains current with Task 12 contract/docs sync and requires no further edits after final verification.
+- Subtask 5: Confirmed `design.md` remains current; Mermaid blocks unchanged and behavior-aligned after Task 13 verification.
+- Subtask 6: Updated `projectStructure.md` with Story 0000040 Task 13 structural change ledger and added screenshot artifact file entries.
+- Subtask 7: Emitted `DEV_0000040_T13_MANUAL_CHECK_COMPLETE` once in browser console with context payload `{ route, manualChecks, screenshotsSaved, timestamp }`.
+- Subtask 8: `npm run lint --workspaces` passed with pre-existing import-order warnings only; `npm run format:check --workspaces` passed for client/server/common.

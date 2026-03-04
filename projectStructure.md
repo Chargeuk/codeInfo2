@@ -269,6 +269,29 @@ Modified files (implementation traceability):
 - `planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md`
 - `projectStructure.md`
 
+## Story 0000040 Task 13 structural change ledger
+
+Added files:
+
+- `playwright-output-local/task13-agents-start-step-options.png`
+- `playwright-output-local/task13-agents-start-step-reset-on-command-change.png`
+- `playwright-output-local/task13-chat-codex-flags-expanded.png`
+- `playwright-output-local/task13-flows-smoke-failure-working-folder.png`
+- `playwright-output-local/task13-flows-smoke-success.png`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md`
+- `projectStructure.md`
+
 ## Story 0000038 Tasks 1-7 structural change ledger
 
 Added files:

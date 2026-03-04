@@ -1,0 +1,125 @@
+# Story 0000042 – Flow Streaming Transcript Bubble Text Loss During Live Runs
+
+## Implementation Plan
+
+This is a list of steps that must be followed whilst working on a story. The first step of any plan is to copy this file to a new markdown document that starts with an index padded with zeroes starting at 1 and the title of the story. eg: ./planning/0000001-initial-skeleton-setup.md
+Create (or reuse if it already exists) the feature branch for this phase using the established naming convention (for example `feature/<number>-<Title>`).
+The Description, Acceptance Criteria & Out Of Scope sections must be fully documented to the point where a very junior, inexperienced developer who has never seen the product before would be able to read and understand what we want to do and why.
+The Questions sections should be populated by an AI at the start of the planning phase, as soon as the initial description is provided. As these questions get answered, the questions should be removed and relevent information should be added to the other sections. The Questions section must be empty before creating tasks.
+
+### Description
+
+Users running Flows (example: `flows/implement_next_plan.json`) can see assistant text stream into the current bubble as expected, but as soon as the next assistant bubble starts, the previous bubble can lose text in the live UI. This is visible in `tmp/missing_text.png`.
+
+If the user navigates away and then returns, all previously missing text appears again (example in `tmp/visible_text.png`), which indicates persistence and snapshot hydration are likely correct and the defect is in live streaming state handling or live render-state transitions.
+
+The issue appears to be Flow-specific. Chat and Agents pages do not show the same user-visible failure pattern under normal use, suggesting a Flow run lifecycle difference or a Flow-only state transition that amplifies a shared streaming bug.
+
+This story captures investigation findings and implementation direction so the fix can be resumed later without rediscovery.
+
+### Acceptance Criteria
+
+- The plan clearly documents reproduction behavior, observed/expected behavior, and why the bug appears transient.
+- The plan identifies the most likely root cause with exact file/function evidence and line references.
+- The plan documents at least one secondary contributing factor and explains why it is likely not the primary root cause.
+- The plan explains why Chat and Agents are less likely to reproduce the issue.
+- The plan captures existing test coverage and explicitly identifies missing coverage needed to prevent regressions.
+- The plan provides implementation ideas detailed enough for a follow-up tasking phase to start immediately.
+- The plan keeps API/WS/storage contract scope unchanged unless a later implementation task explicitly proposes otherwise.
+
+### Out Of Scope
+
+- Implementing code fixes in this planning story.
+- Running wrapper tests/builds/system commands for validation in this planning story.
+- Changing server API contract shapes, WS event schema, or Mongo persistence schema.
+- UX redesign of bubble layout/styling unrelated to this streaming state defect.
+
+### Questions
+
+- Should mismatched `assistant_delta`/`analysis_delta`/`tool_event` updates always be ignored for non-active inflight IDs, or merged using an isolated per-inflight state map?
+- Is the current `status === 'sending'` guard still required for any chat-send edge case, or can it be replaced with strict inflight matching without regressions?
+- Should Flow explicitly mark `useChatStream` as a sending state while a run is active, or should stream safety be fully decoupled from `status`?
+- Do we also need to harden Flow conversation visibility reset logic to avoid transcript clearing during transient sidebar/filter churn?
+- What is the minimal deterministic regression test matrix across Flow, Chat, and Agents for late/out-of-order websocket events?
+
+## Implementation Ideas
+
+- Investigation timestamp context:
+  - Initial report and investigation date: 2026-03-04.
+  - User-provided visual evidence:
+    - Missing live text: `tmp/missing_text.png`
+    - Text restored after navigation: `tmp/visible_text.png`
+
+- Reproduction summary:
+  - Start a Flow run (`flows/implement_next_plan.json` is a known reproducer).
+  - Observe assistant bubble N streaming content.
+  - When bubble N+1 starts, bubble N may lose visible text in live UI.
+  - Navigate away and return.
+  - Bubble N text reappears from persisted/snapshot state.
+
+- Most likely root cause:
+  - `useChatStream` transcript event handling gates mismatched inflight updates with `status === 'sending'`.
+  - Flow runs use websocket-driven `runFlow` lifecycle and usually keep `status` at `idle`.
+  - Result: out-of-band/mismatched events can still mutate shared assistant refs and sync them into bubbles, overwriting live content.
+
+- Primary evidence (client):
+  - Flow run path does not enter `send()`:
+    - `client/src/pages/FlowsPage.tsx:696`
+    - `startFlowRun` uses `runFlow(...)` and websocket subscription.
+  - `status` becomes `sending` in chat send path:
+    - `client/src/hooks/useChatStream.ts:964`
+  - Mismatch guards tied to `status === 'sending'`:
+    - `client/src/hooks/useChatStream.ts:1444` (`assistant_delta`)
+    - `client/src/hooks/useChatStream.ts:1499` (`analysis_delta`)
+    - `client/src/hooks/useChatStream.ts:1513` (`tool_event`)
+    - `client/src/hooks/useChatStream.ts:1404` (`inflight_snapshot`)
+  - Shared mutable refs used to compose assistant message content:
+    - `client/src/hooks/useChatStream.ts:280`
+    - `client/src/hooks/useChatStream.ts:285`
+    - `client/src/hooks/useChatStream.ts:416`
+    - `client/src/hooks/useChatStream.ts:440`
+
+- Secondary Flow-specific amplifier:
+  - Flow page clears transcript when active conversation falls out of filtered `flowConversations`.
+  - This can cause additional transient disappearance but is less consistent with the user screenshot pattern than the inflight mismatch path.
+  - Evidence:
+    - `client/src/pages/FlowsPage.tsx:488`
+    - `client/src/pages/FlowsPage.tsx:495`
+    - `client/src/pages/FlowsPage.tsx:497`
+  - Note:
+    - Existing flow test already guards one related case where `conversation_upsert` omits `flowName`:
+      - `client/src/test/flowsPage.test.tsx:219`
+
+- Why Chat/Agents usually show this less:
+  - Chat commonly streams through `send()`, which sets `status='sending'`, activating existing mismatch short-circuit paths.
+  - Agents can still share core hook behavior, but observed lifecycle and user interaction pattern more often keep mismatch behavior from becoming user-visible.
+
+- Server-side investigation notes:
+  - `conversation_upsert` payload path generally preserves `flowName` when present:
+    - `server/src/mongo/repo.ts:39`
+    - `server/src/ws/sidebar.ts:27`
+  - No strong evidence found that persistence is dropping content, matching user observation that content reappears after reload.
+
+- Existing tests and gaps:
+  - Existing coverage for late `turn_final` race exists:
+    - `client/src/test/chatPage.stream.test.tsx:369`
+  - Missing targeted coverage:
+    - Late/out-of-band `assistant_delta` while `status='idle'` and inflight mismatch (Flow-like lifecycle).
+    - Late/out-of-band `analysis_delta` and `tool_event` under same conditions.
+    - Flow page integration scenario asserting previous bubble text is retained when next flow step starts streaming.
+
+- Candidate implementation directions for follow-up tasking:
+  - Option A (preferred first pass):
+    - In `useChatStream`, always isolate or ignore mismatched inflight deltas and tool/reasoning events independent of `status`.
+    - Keep `turn_final` out-of-band completion behavior explicit and non-destructive.
+  - Option B:
+    - Track stream state per inflight ID instead of shared refs to remove cross-inflight mutation risk.
+  - Option C (defense-in-depth):
+    - In Flow page, avoid hard transcript clear on temporary filtered-list absence; debounce/confirm before reset.
+
+- Suggested verification approach for implementation story:
+  - Add hook-level tests reproducing mismatched delta events while `status='idle'`.
+  - Add Flow page regression test that simulates two sequential flow-step inflights and asserts prior bubble text remains visible in live UI.
+  - Keep existing late `turn_final` regression tests passing.
+  - Manual validation in Flows with a known multi-step flow (`flows/implement_next_plan.json`) and screenshot before/after fix.
+

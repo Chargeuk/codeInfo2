@@ -1246,3 +1246,26 @@ web_search = "live"
   - `planning/0000039-agents-command-info-and-working-folder-prompts.md`
 - Prompt-discovery fixtures from Task 2:
   - No new persistent fixture files were introduced by Task 2 (behavior coverage implemented via service/unit tests and runtime path handling).
+
+## Story 0000041 Task 1 structural change ledger
+
+Added files:
+
+- `certs/empty-corp-ca/.gitkeep`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `projectStructure.md`
+
+Task notes:
+
+- Complete Task 1 add/remove list: added `certs/empty-corp-ca/.gitkeep`, removed `none`.
+- There are no other add/remove subtasks in Task 1.

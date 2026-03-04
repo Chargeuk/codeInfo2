@@ -5,8 +5,12 @@ services:
       dockerfile: server/Dockerfile
       args:
         HOME: ${HOME}
+        CODEINFO_NPM_REGISTRY: ${CODEINFO_NPM_REGISTRY:-}
+        CODEINFO_PIP_INDEX_URL: ${CODEINFO_PIP_INDEX_URL:-}
+        CODEINFO_PIP_TRUSTED_HOST: ${CODEINFO_PIP_TRUSTED_HOST:-}
+        CODEINFO_NODE_EXTRA_CA_CERTS: ${CODEINFO_NODE_EXTRA_CA_CERTS:-}
     image: codeinfo2-server
-    user: "${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}"
+    user: '${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}'
     ports:
       - '5010:5010'
       - '5011:5011'
@@ -28,6 +32,8 @@ services:
       - AGENTS_MCP_PORT=5012
       - MONGO_URI=mongodb://host.docker.internal:27517/db?directConnection=true
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
+      - CODEINFO_NODE_EXTRA_CA_CERTS=${CODEINFO_NODE_EXTRA_CA_CERTS:-}
+      - CODEINFO_REFRESH_CA_CERTS_ON_START=${CODEINFO_REFRESH_CA_CERTS_ON_START:-}
     volumes:
       - ./logs:/app/logs
       - ${HOST_INGEST_DIR:-/tmp}:${CODEINFO_CODEX_WORKDIR}:ro
@@ -36,6 +42,7 @@ services:
       - ./codex:/app/codex
       - ./codex_agents:/app/codex_agents
       - ./flows-sandbox:/app/flows-sandbox
+      - "${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro"
     depends_on:
       chroma:
         condition: service_started
@@ -58,6 +65,7 @@ services:
         VITE_API_URL: http://host.docker.internal:5010
         VITE_LMSTUDIO_URL: ${VITE_LMSTUDIO_URL:-http://host.docker.internal:1234}
         VITE_LOG_FORWARD_ENABLED: true
+        CODEINFO_NPM_REGISTRY: ${CODEINFO_NPM_REGISTRY:-}
     image: codeinfo2-client
     ports:
       - '5001:5001'
@@ -148,9 +156,22 @@ services:
 
   playwright-mcp:
     image: mcr.microsoft.com/playwright/mcp:latest
-    user: "${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}"
+    user: '${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}'
     entrypoint: ['node', 'cli.js']
-    command: ['--host', '0.0.0.0', '--headless', '--browser', 'chromium', '--no-sandbox', '--isolated', '--port', '8931', '--allowed-hosts', '*']
+    command:
+      [
+        '--host',
+        '0.0.0.0',
+        '--headless',
+        '--browser',
+        'chromium',
+        '--no-sandbox',
+        '--isolated',
+        '--port',
+        '8931',
+        '--allowed-hosts',
+        '*',
+      ]
     volumes:
       - ./playwright-output:/tmp/playwright-output
     networks:

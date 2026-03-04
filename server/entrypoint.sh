@@ -21,4 +21,21 @@ else
   echo "Chrome binary not found at $CHROME_BIN" >&2
 fi
 
+corp_certs_mount_source="${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}"
+npm_registry_set=false
+pip_index_set=false
+pip_trusted_host_set=false
+
+if [ -n "${CODEINFO_NPM_REGISTRY:-}" ]; then
+  npm_registry_set=true
+fi
+if [ -n "${CODEINFO_PIP_INDEX_URL:-}" ]; then
+  pip_index_set=true
+fi
+if [ -n "${CODEINFO_PIP_TRUSTED_HOST:-}" ]; then
+  pip_trusted_host_set=true
+fi
+
+echo "[CODEINFO][T01_COMPOSE_WIRING_APPLIED] corp_certs_mount_source=${corp_certs_mount_source} npm_registry_set=${npm_registry_set} pip_index_set=${pip_index_set} pip_trusted_host_set=${pip_trusted_host_set}"
+
 exec node dist/index.js

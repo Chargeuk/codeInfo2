@@ -4505,3 +4505,23 @@ sequenceDiagram
     UI->>UI: Reuse existing generic instruction error UX
   end
 ```
+
+## Story 0000041 Task 1 - Compose Wiring Flow
+
+- `compose` and `compose:local` continue to interpolate using `server/.env` + `server/.env.local`; `e2e` uses `.env.e2e`.
+- Compose now maps `CODEINFO_*` values into server/client `build.args`, server runtime `environment`, and the server corporate cert mount target.
+- Certificate mount source is deterministic with fallback: `${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}` -> `/usr/local/share/ca-certificates/codeinfo-corp:ro`.
+
+```mermaid
+flowchart TD
+  A[Workflow env sources] --> B{Workflow}
+  B -->|compose or compose:local| C[server/.env + server/.env.local]
+  B -->|e2e| D[.env.e2e]
+  C --> E[Compose interpolation]
+  D --> E
+  E --> F[Server build args: CODEINFO_NPM_REGISTRY, CODEINFO_PIP_INDEX_URL, CODEINFO_PIP_TRUSTED_HOST, CODEINFO_NODE_EXTRA_CA_CERTS]
+  E --> G[Client build args: CODEINFO_NPM_REGISTRY]
+  E --> H[Server runtime env: CODEINFO_NODE_EXTRA_CA_CERTS, CODEINFO_REFRESH_CA_CERTS_ON_START]
+  E --> I[Server volume source: ${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}]
+  I --> J[/usr/local/share/ca-certificates/codeinfo-corp:ro]
+```

@@ -413,6 +413,16 @@ Add compose-level build/runtime mappings for the canonical `CODEINFO_*` variable
 - Docker Compose services reference: https://docs.docker.com/reference/compose-file/services/ (authoritative keys and shapes for `build.args`, `environment`, and `volumes` blocks).
 - Docker Compose environment-variable usage: https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/ (clarifies how `environment` and env files are applied at runtime).
 - Docker Compose `config` command reference: https://docs.docker.com/reference/cli/docker/compose/config/ (used to validate rendered config for unset/set variable scenarios).
+- npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required because this task executes wrapper commands via `npm run ...` and records wrapper/log behavior).
+- Git docs index: https://git-scm.com/docs (used for evidence capture and change-validation commands referenced in this task’s verification flow).
+- Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (used to interpret `test:summary:server:unit` wrapper outcomes).
+- Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (baseline for understanding feature/scenario semantics used by cucumber wrapper checks).
+- Cucumber guide (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (used when triaging runtime/order-sensitive cucumber wrapper failures).
+- DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for tag/feature/scenario filtering behavior used by wrappers).
+- Context7: `/jestjs/jest` (authoritative Jest API/config reference for `test:summary:client` wrapper diagnostics in this task).
+- Jest getting started: https://jestjs.io/docs/getting-started (maps wrapper failures to Jest config and execution expectations).
+- Playwright intro docs: https://playwright.dev/docs/intro (baseline for e2e wrapper expectations and runner behavior).
+- DeepWiki repo reference: `microsoft/playwright` (use sections `4 Test Framework` and `6 Reporting System` when triaging e2e wrapper/report failures).
 
 #### Subtasks
 
@@ -469,6 +479,16 @@ Validate and document env-file source behavior for compose/local/e2e workflows, 
 - Docker Compose variable interpolation and multi-env-file behavior: https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/ (source of truth for interpolation precedence and default syntax).
 - Docker Compose `config` command reference: https://docs.docker.com/reference/cli/docker/compose/config/ (required to verify effective config under positive/negative env-file checks).
 - Docker Compose env-variable usage guide: https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/ (documents how env-file inputs and `environment` entries are consumed).
+- npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required because this task validates compose wrapper pass-through behavior via `npm run` commands).
+- Git docs index: https://git-scm.com/docs (used for command evidence capture and diff-style verification references in this task).
+- Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (used to interpret server unit wrapper results in this task’s testing checklist).
+- Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (baseline for understanding cucumber scenario output in wrapper-driven checks).
+- Cucumber guide (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (reference for debugging order/concurrency-related cucumber wrapper issues).
+- DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for CLI filter and execution semantics).
+- Context7: `/jestjs/jest` (authoritative Jest reference for `test:summary:client` wrapper diagnostics in this task).
+- Jest getting started: https://jestjs.io/docs/getting-started (used to map wrapper errors to Jest configuration/runner behavior).
+- Playwright intro docs: https://playwright.dev/docs/intro (used for e2e wrapper expectation baselines and execution flow).
+- DeepWiki repo reference: `microsoft/playwright` (use sections `4 Test Framework` and `6 Reporting System` for e2e/report triage).
 
 #### Subtasks
 
@@ -518,6 +538,14 @@ Implement server image build-time handling for npm and pip corporate registry/in
 - pip configuration docs: https://pip.pypa.io/en/stable/topics/configuration/ (defines `PIP_INDEX_URL` and `PIP_TRUSTED_HOST` behavior, including empty env handling).
 - pip install options: https://pip.pypa.io/en/stable/cli/pip_install/ (verifies valid flags and expected install-time argument forms).
 - POSIX shell command language (`/bin/sh` compatibility): https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html (required because Dockerfile `RUN` logic must remain POSIX-compliant).
+- npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required because this task’s verification executes wrappers through `npm run`).
+- Git docs index: https://git-scm.com/docs (used for evidence-oriented command references in implementation/testing validation).
+- Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (used to interpret server unit wrapper output in this task).
+- Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (baseline for reading cucumber wrapper scenario output).
+- Cucumber guide (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (reference when diagnosing concurrency/order issues in cucumber wrappers).
+- DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for wrapper CLI/filter behavior).
+- Playwright intro docs: https://playwright.dev/docs/intro (baseline for e2e wrapper execution semantics used in this task).
+- DeepWiki repo reference: `microsoft/playwright` (use sections `4 Test Framework` and `6 Reporting System` for e2e/report troubleshooting).
 
 #### Subtasks
 
@@ -563,6 +591,13 @@ Implement client build-stage registry override support via `CODEINFO_NPM_REGISTR
 - Docker Build variables (`ARG`, `ENV`): https://docs.docker.com/build/building/variables/ (defines where `ARG CODEINFO_NPM_REGISTRY` must be declared for client build stage visibility).
 - Dockerfile reference: https://docs.docker.com/reference/dockerfile/ (documents stage boundaries and `RUN` command execution rules).
 - npm config docs: https://docs.npmjs.com/cli/v10/using-npm/config/ (source of truth for registry override semantics and defaults when unset).
+- Docker Compose CLI docs: https://docs.docker.com/reference/cli/docker/compose/ (required because this task’s testing uses compose wrappers and lifecycle commands).
+- npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required for wrapper execution semantics and argument pass-through behavior).
+- Git docs index: https://git-scm.com/docs (used for command-evidence capture and verification flow in this task).
+- Context7: `/jestjs/jest` (authoritative Jest reference for `test:summary:client` wrapper diagnostics in this task).
+- Jest getting started: https://jestjs.io/docs/getting-started (maps client wrapper failures to core Jest config/runner concepts).
+- Playwright intro docs: https://playwright.dev/docs/intro (baseline for e2e wrapper behavior and browser-test expectations in this task).
+- DeepWiki repo reference: `microsoft/playwright` (use sections `4 Test Framework` and `6 Reporting System` for e2e/report diagnostics).
 
 #### Subtasks
 
@@ -608,6 +643,14 @@ Implement deterministic runtime env parsing and default CA export behavior in `s
 - Node CLI `NODE_EXTRA_CA_CERTS`: https://nodejs.org/docs/latest-v22.x/api/cli.html#node_extra_ca_certsfile
 - Docker container environment variables guide: https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/
 - Debian `update-ca-certificates`: https://manpages.debian.org/testing/ca-certificates/update-ca-certificates.8.en.html (needed for validating refresh-disabled checks that assert refresh command is not invoked).
+- npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required because this task validates behavior through wrapper commands).
+- Git docs index: https://git-scm.com/docs (used for evidence capture and shell-level verification command references).
+- Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (used to interpret `test:summary:server:unit` wrapper outcomes).
+- Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (baseline for scenario/step interpretation during cucumber wrapper checks).
+- Cucumber guide (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (reference for concurrency-related cucumber wrapper triage).
+- DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for wrapper CLI/filter behavior).
+- Playwright intro docs: https://playwright.dev/docs/intro (baseline for e2e wrapper execution and expectation model).
+- DeepWiki repo reference: `microsoft/playwright` (use sections `4 Test Framework` and `6 Reporting System` for e2e/report debugging).
 
 #### Subtasks
 
@@ -651,6 +694,14 @@ Implement and verify the refresh-enabled certificate execution path and fail-fas
 - Debian `update-ca-certificates`: https://manpages.debian.org/testing/ca-certificates/update-ca-certificates.8.en.html
 - Node CLI process-start trust-store behavior: https://nodejs.org/docs/latest-v22.x/api/cli.html#node_extra_ca_certsfile
 - Docker bind mounts and mount-source behavior: https://docs.docker.com/engine/storage/bind-mounts/
+- npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required because refresh/fail-fast validation runs through wrapper commands).
+- Git docs index: https://git-scm.com/docs (used for command evidence and failure-path verification references).
+- Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (used to interpret server unit wrapper failures after entrypoint changes).
+- Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (baseline reference for scenario-level cucumber wrapper output).
+- Cucumber guide (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (used when diagnosing order/concurrency behavior in cucumber wrapper runs).
+- DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for CLI filter and runtime behavior).
+- Playwright intro docs: https://playwright.dev/docs/intro (used for e2e wrapper expectations while validating success/fail-fast startup scenarios).
+- DeepWiki repo reference: `microsoft/playwright` (use sections `4 Test Framework` and `6 Reporting System` for e2e/report triage).
 
 #### Subtasks
 
@@ -696,6 +747,12 @@ Update host helper install behavior so restricted-network users can install `git
 - npm config docs: https://docs.npmjs.com/cli/v10/using-npm/config/ (defines registry precedence and expected behavior for env-driven override).
 - npm install command docs: https://docs.npmjs.com/cli/v10/commands/npm-install (confirms supported global-install invocation used by helper script).
 - POSIX shell command language (`/bin/sh` compatibility): https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html (ensures script conditionals remain portable and non-Bash-specific).
+- npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required because this task’s verification/test flow is wrapper-driven via `npm run`).
+- Git docs index: https://git-scm.com/docs (used for command evidence and script-diff verification references).
+- Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (used to interpret server unit wrapper failures/regressions after script changes).
+- Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (baseline reference for reading cucumber wrapper scenario output).
+- Cucumber guide (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (used when diagnosing cucumber wrapper order/concurrency behavior).
+- DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for wrapper CLI/filter behavior).
 
 #### Subtasks
 
@@ -739,6 +796,8 @@ Document corporate setup clearly and precisely so users can configure each workf
 - pip configuration docs (index/trusted host behavior): https://pip.pypa.io/en/stable/topics/configuration/ (provides wording basis for pip override behavior in docs).
 - Node CLI `NODE_EXTRA_CA_CERTS`: https://nodejs.org/docs/latest-v22.x/api/cli.html#node_extra_ca_certsfile (needed for documenting runtime CA-path defaults).
 - Debian `update-ca-certificates`: https://manpages.debian.org/testing/ca-certificates/update-ca-certificates.8.en.html (needed for documenting cert-refresh preconditions and failure behavior).
+- npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required because this task’s verification uses wrapper build/lint/format commands).
+- Git docs index: https://git-scm.com/docs (used for evidence capture and documentation-validation command references).
 
 #### Subtasks
 
@@ -783,6 +842,15 @@ Run contract and immutability guard checks so this infra-only story cannot chang
 - npm `.npmrc` documentation: https://docs.npmjs.com/cli/v10/configuring-npm/npmrc/ (used to validate no scoped registry/auth/proxy policy changes were introduced).
 - Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (applies to targeted server unit test wrapper expectations).
 - Git diff reference (immutability checks): https://git-scm.com/docs/git-diff (source of truth for exact diff commands used in validation subtasks).
+- npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required because this task’s testing checklist executes wrappers via `npm run`).
+- Docker Compose CLI docs: https://docs.docker.com/reference/cli/docker/compose/ (reference for wrapper-runtime behavior when diagnosing shared infrastructure test failures).
+- Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (baseline for reading cucumber feature/scenario failures in this task’s tests).
+- Cucumber guide (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (reference for triaging concurrency/filter behavior in cucumber wrappers).
+- DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for tag/filter and execution details).
+- Context7: `/jestjs/jest` (authoritative Jest reference for client wrapper diagnostics in this guard-validation task).
+- Jest getting started: https://jestjs.io/docs/getting-started (maps client test wrapper failures to Jest config/runtime behavior).
+- Playwright intro docs: https://playwright.dev/docs/intro (used for e2e wrapper expectation baselines during guard validation).
+- DeepWiki repo reference: `microsoft/playwright` (use sections `4 Test Framework` and `6 Reporting System` for e2e/report debugging).
 
 #### Subtasks
 
@@ -826,9 +894,10 @@ Perform full end-to-end validation against acceptance criteria, confirm document
 - Docker docs (build + compose): https://docs.docker.com/ (reference for final verification commands that build and compose environments).
 - npm scripts and run lifecycle docs: https://docs.npmjs.com/cli/v10/using-npm/scripts (reference for wrapper script execution semantics in final validation).
 - Git docs index: https://git-scm.com/docs (reference for release-note evidence commands such as `git log`/`git show`).
-- Cucumber Guides root: https://cucumber.io/docs/guides/ (required baseline reference for cucumber test concepts and execution flow).
-- Cucumber Guides overview: https://cucumber.io/docs/guides/overview/ (required because final validation includes cucumber wrapper execution).
-- Cucumber 10-minute tutorial: https://cucumber.io/docs/guides/10-minute-tutorial/ (practical reference for interpreting feature/scenario-level failures).
+- Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (applies to `test:summary:server:unit` wrapper interpretation during closeout).
+- Cucumber 10-minute tutorial: https://cucumber.io/docs/guides/10-minute-tutorial/ (practical baseline for interpreting feature/scenario output in closeout checks).
+- Cucumber parallel execution guide: https://cucumber.io/docs/guides/parallel-execution/ (reference for concurrency-related execution behavior during wrapper triage).
+- Cucumber continuous integration guide: https://cucumber.io/docs/guides/continuous-integration/ (reference for CI/exit-code expectations when evaluating final wrapper results).
 - DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for CLI and filtering behavior during wrapper triage).
 - Context7: `/jestjs/jest` (authoritative Jest framework reference for client test execution, configuration, and troubleshooting).
 - Jest getting started: https://jestjs.io/docs/getting-started (required because final validation includes client Jest summary wrapper).

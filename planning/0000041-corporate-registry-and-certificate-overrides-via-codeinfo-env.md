@@ -278,13 +278,19 @@ The following behavior is mandatory and is the single source of truth for taskin
   - https://manpages.debian.org/testing/ca-certificates/update-ca-certificates.8.en.html
 - Repository version validation from manifests/lockfile for this story scope:
   - Node runtime/tooling baseline in repo is Node `22` (`node:22-slim` images; `engines.node >=22` in workspaces).
-  - npm in this environment is `10.9.4` and README prerequisite is npm `10+`; npm docs references in this story stay on CLI v10 URLs.
+  - npm major version is governed by repo requirements (`10+` in README); no npm patch/version is pinned in repository manifests/lock metadata, so npm CLI v10 docs are the baseline for this story.
   - Frontend dependency resolution is React `19.2.0`, MUI `6.5.0` (resolved from `^6.4.1`), TypeScript `5.9.3`, Vite `7.2.4`; this story remains infra-only and must not modify frontend dependency/interface surfaces.
-  - Server dependency resolution includes Express `5.1.0`, Mongoose `9.0.1`, OpenAI SDK `6.24.0`, and `ws` `8.18.3`; this story must not modify API/WS/storage contracts.
+  - Server dependency resolution includes Express `5.1.0`, Mongoose `9.0.1`, OpenAI SDK `6.24.0`, and `ws` `8.18.3`; test tooling resolution includes Jest `30.2.0`, Playwright `1.56.1`, and Cucumber.js `11.3.0` from lockfile; this story must not modify API/WS/storage contracts.
 - Tooling availability caveat from this research session:
-  - `deepwiki` could not be used for this repository because it is not indexed there.
+  - `deepwiki` was used for upstream libraries (`jestjs/jest`, `microsoft/playwright`, `cucumber/cucumber-js`), but this repository itself is not indexed there.
   - `context7` could not be used due API key failure in this environment.
   - MUI MCP docs were available for Material UI `6.4.12`; repository lockfile currently resolves MUI to `6.5.0`, so MUI MCP references are informational only for this story because no MUI component/API work is in scope.
+  - Jest 30 guidance check: direct CLI option rename (`--testPathPattern` -> `--testPathPatterns`) is already abstracted by repo wrapper `test:summary:client -- --subset`, so no task changes are required to targeted-run commands.
+    - https://jestjs.io/docs/upgrading-to-jest30
+  - Playwright filtering check: file selectors plus `--grep` remain valid for targeted runs and align with current wrapper behavior.
+    - https://playwright.dev/docs/test-cli
+  - Cucumber filtering check: tags/name/path filtering remains valid; wrapper-level `--scenario` maps to Cucumber `--name`.
+    - https://github.com/cucumber/cucumber-js/blob/main/docs/filtering.md
 
 ## Implementation Ideas
 

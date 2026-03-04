@@ -429,7 +429,7 @@ The following behavior is mandatory and is the single source of truth for taskin
 ### 1. Compose Wiring: map `CODEINFO_*` values and cert mount fallbacks
 
 - Task Status: ****in_progress****
-- Git Commits: `none yet`
+- Git Commits: `3401898d`
 
 #### Overview
 
@@ -515,7 +515,8 @@ Note: steps 7-9 are explicit compose `config` assertions and are intentional exc
 - Subtask 16: `npm run lint --workspaces` completed with existing baseline warnings only (exit 0); `npm run format:check --workspaces` passed for client/server/common (exit 0).
 - Testing 1: command=`npm run build:summary:server`, exit=0, log=`logs/test-summaries/build-server-latest.log`, summary status=`passed`, warnings=`0`.
 - Testing 2: command=`npm run build:summary:client`, exit=0, log=`logs/test-summaries/build-client-latest.log`, summary status=`passed`, warnings=`1` (existing Vite chunk-size warning in log; no task-specific failure).
-- Blocker: full `npm run test:summary:server:unit` repeatedly hangs without emitting a summary (multiple attempts, including `timeout 5m` => `RC=124`); targeted wrapper run `npm run test:summary:server:unit -- --file src/test/integration/agents-run-ws-stream.test.ts` passes (`tests run: 3`, `failed: 0`, log `test-results/server-unit-tests-2026-03-04T23-31-20-756Z.log`), but the required full-wrapper step cannot currently be completed in this environment.
+- Blocker (raised): full `npm run test:summary:server:unit` repeatedly hangs without emitting a summary (multiple attempts, including `timeout 5m` => `RC=124`); targeted wrapper run `npm run test:summary:server:unit -- --file src/test/integration/agents-run-ws-stream.test.ts` passes (`tests run: 3`, `failed: 0`, log `test-results/server-unit-tests-2026-03-04T23-31-20-756Z.log`), but the required full-wrapper step cannot currently be completed in this environment.
+- Blocker Answer (decision): treat this as an environment/runtime execution issue, not a compose-wiring implementation defect. Keep Testing step 3 unchecked and Task 1 `in_progress`, continue with subsequent implementation tasks, and require rerun of full `npm run test:summary:server:unit` in Task 10 final closeout (plus attach the resulting log path there).
 
 ---
 

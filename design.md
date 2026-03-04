@@ -4525,3 +4525,27 @@ flowchart TD
   E --> I[Server volume source: ${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}]
   I --> J[/usr/local/share/ca-certificates/codeinfo-corp:ro]
 ```
+
+## Story 0000041 Task 2 - Env Source Verification Flow
+
+- Wrapper interpolation sources remain unchanged: `compose` and `compose:local` use `server/.env` + `server/.env.local`; `e2e` uses `.env.e2e`.
+- Runtime `env_file` declarations in compose YAML remain unchanged while interpolation source is workflow-specific.
+- Wrapper now exports internal observability handoff values to make env-source resolution explicit at server startup.
+
+```mermaid
+flowchart LR
+  A[npm run compose or compose:local] --> B[scripts/docker-compose-with-env.sh]
+  B --> C[--env-file server/.env]
+  B --> D[--env-file server/.env.local]
+  C --> E[docker compose interpolation]
+  D --> E
+
+  F[npm run compose:e2e:*] --> G[scripts/docker-compose-with-env.sh]
+  G --> H[--env-file .env.e2e]
+  H --> E2[docker compose interpolation]
+
+  E --> I[Runtime env_file in compose YAML unchanged]
+  E2 --> I
+  I --> J[Wrapper exports CODEINFO_COMPOSE_WORKFLOW, CODEINFO_INTERPOLATION_SOURCE, CODEINFO_RUNTIME_ENV_FILE_SOURCE]
+  J --> K[server/entrypoint emits T02 env-source token]
+```

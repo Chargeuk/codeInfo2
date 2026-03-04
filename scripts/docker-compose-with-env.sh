@@ -89,4 +89,19 @@ export CODEINFO_DOCKER_UID="${DOCKER_UID}"
 export CODEINFO_DOCKER_GID="${DOCKER_GID}"
 export CODEINFO_DOCKER_SOCK_GID="${SOCKET_GID}"
 
+compose_args="$*"
+if [[ "${compose_args}" == *"--env-file .env.e2e"* ]]; then
+  export CODEINFO_COMPOSE_WORKFLOW="e2e"
+  export CODEINFO_INTERPOLATION_SOURCE=".env.e2e"
+  export CODEINFO_RUNTIME_ENV_FILE_SOURCE="unchanged"
+else
+  if [[ "${compose_args}" == *"-f docker-compose.local.yml"* ]]; then
+    export CODEINFO_COMPOSE_WORKFLOW="compose:local"
+  else
+    export CODEINFO_COMPOSE_WORKFLOW="compose"
+  fi
+  export CODEINFO_INTERPOLATION_SOURCE="server/.env+server/.env.local"
+  export CODEINFO_RUNTIME_ENV_FILE_SOURCE="unchanged"
+fi
+
 exec docker compose "$@"

@@ -1269,3 +1269,27 @@ Task notes:
 
 - Complete Task 1 add/remove list: added `certs/empty-corp-ca/.gitkeep`, removed `none`.
 - There are no other add/remove subtasks in Task 1.
+
+## Story 0000041 Task 2 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `.env.e2e`
+- `projectStructure.md`
+
+Task notes:
+
+- Tracked-file outcome for Task 2 structure step: added files `none`, removed files `none`.
+- Local helper input `server/.env.local` is untracked and excluded from tracked structure changes.

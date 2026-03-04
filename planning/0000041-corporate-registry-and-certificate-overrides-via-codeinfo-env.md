@@ -429,7 +429,7 @@ The following behavior is mandatory and is the single source of truth for taskin
 ### 1. Compose Wiring: map `CODEINFO_*` values and cert mount fallbacks
 
 - Task Status: ****in_progress****
-- Git Commits: `3401898d`
+- Git Commits: `3401898d, 01507039`
 
 #### Overview
 
@@ -523,7 +523,7 @@ Note: steps 7-9 are explicit compose `config` assertions and are intentional exc
 ### 2. Env Source Verification: compose interpolation and wrapper env-file pass-through parity
 
 - Task Status: ****in_progress****
-- Git Commits: `a1ba0878`
+- Git Commits: `a1ba0878, 4bfd6acc`
 
 #### Overview
 
@@ -588,6 +588,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Testing 1: command=`npm run build:summary:server`, exit=0, log=`logs/test-summaries/build-server-latest.log`, summary status=`passed`, warnings=`0`.
 - Testing 2: command=`npm run build:summary:client`, exit=0, log=`logs/test-summaries/build-client-latest.log`, summary status=`passed`, warnings=`1` (existing Vite chunk-size warning; no task-specific failure).
 - Blocker: Testing step 3 (`npm run test:summary:server:unit`) hangs in this environment and does not emit wrapper summary; bounded run `timeout 5m npm run test:summary:server:unit` returned `RC=124` again for Task 2, so the task cannot be completed end-to-end until this wrapper hang is resolved.
+- Blocker Answer (decision): treat this as the same environment/runtime wrapper issue already observed in Task 1, not an implementation defect in Task 2 env-source wiring. Keep Testing step 3 unchecked and Task 2 `in_progress`, continue with subsequent implementation tasks, and rerun full `npm run test:summary:server:unit` during Task 10 closeout with attached log path evidence.
 - Env-source matrix:
   | Workflow | Interpolation Source | Runtime env_file Source |
   | --- | --- | --- |

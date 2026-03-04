@@ -2625,7 +2625,8 @@ Perform documentation-only updates so product behavior, architecture notes, and 
 ### 13. Final verification: full acceptance and regression gate for story 0000040
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits:
+  - `1737cb57` — DEV-[0000040] - Complete Task 13 final verification and regression gate
 
 #### Overview
 

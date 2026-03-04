@@ -416,6 +416,7 @@ Add compose-level build/runtime mappings for the canonical `CODEINFO_*` variable
 - npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required because this task executes wrapper commands via `npm run ...` and records wrapper/log behavior).
 - Git docs index: https://git-scm.com/docs (used for evidence capture and change-validation commands referenced in this task’s verification flow).
 - Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (used to interpret `test:summary:server:unit` wrapper outcomes).
+- Cucumber guides index: https://cucumber.io/docs/guides/ (required base reference for all cucumber guidance used by this task).
 - Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (baseline for understanding feature/scenario semantics used by cucumber wrapper checks).
 - Cucumber guide (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (used when triaging runtime/order-sensitive cucumber wrapper failures).
 - DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for tag/feature/scenario filtering behavior used by wrappers).
@@ -486,6 +487,7 @@ Validate and document env-file source behavior for compose/local/e2e workflows, 
 - npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required because this task validates compose wrapper pass-through behavior via `npm run` commands).
 - Git docs index: https://git-scm.com/docs (used for command evidence capture and diff-style verification references in this task).
 - Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (used to interpret server unit wrapper results in this task’s testing checklist).
+- Cucumber guides index: https://cucumber.io/docs/guides/ (required base reference for all cucumber guidance used by this task).
 - Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (baseline for understanding cucumber scenario output in wrapper-driven checks).
 - Cucumber guide (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (reference for debugging order/concurrency-related cucumber wrapper issues).
 - DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for CLI filter and execution semantics).
@@ -547,6 +549,7 @@ Implement server image build-time handling for npm and pip corporate registry/in
 - npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required because this task’s verification executes wrappers through `npm run`).
 - Git docs index: https://git-scm.com/docs (used for evidence-oriented command references in implementation/testing validation).
 - Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (used to interpret server unit wrapper output in this task).
+- Cucumber guides index: https://cucumber.io/docs/guides/ (required base reference for all cucumber guidance used by this task).
 - Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (baseline for reading cucumber wrapper scenario output).
 - Cucumber guide (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (reference when diagnosing concurrency/order issues in cucumber wrappers).
 - DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for wrapper CLI/filter behavior).
@@ -657,6 +660,7 @@ Implement deterministic runtime env parsing and default CA export behavior in `s
 - npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required because this task validates behavior through wrapper commands).
 - Git docs index: https://git-scm.com/docs (used for evidence capture and shell-level verification command references).
 - Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (used to interpret `test:summary:server:unit` wrapper outcomes).
+- Cucumber guides index: https://cucumber.io/docs/guides/ (required base reference for all cucumber guidance used by this task).
 - Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (baseline for scenario/step interpretation during cucumber wrapper checks).
 - Cucumber guide (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (reference for concurrency-related cucumber wrapper triage).
 - DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for wrapper CLI/filter behavior).
@@ -713,6 +717,7 @@ Implement and verify the refresh-enabled certificate execution path and fail-fas
 - npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required because refresh/fail-fast validation runs through wrapper commands).
 - Git docs index: https://git-scm.com/docs (used for command evidence and failure-path verification references).
 - Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (used to interpret server unit wrapper failures after entrypoint changes).
+- Cucumber guides index: https://cucumber.io/docs/guides/ (required base reference for all cucumber guidance used by this task).
 - Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (baseline reference for scenario-level cucumber wrapper output).
 - Cucumber guide (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (used when diagnosing order/concurrency behavior in cucumber wrapper runs).
 - DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for CLI filter and runtime behavior).
@@ -767,6 +772,7 @@ Update host helper install behavior so restricted-network users can install `git
 - npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required because this task’s verification/test flow is wrapper-driven via `npm run`).
 - Git docs index: https://git-scm.com/docs (used for command evidence and script-diff verification references).
 - Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (used to interpret server unit wrapper failures/regressions after script changes).
+- Cucumber guides index: https://cucumber.io/docs/guides/ (required base reference for all cucumber guidance used by this task).
 - Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (baseline reference for reading cucumber wrapper scenario output).
 - Cucumber guide (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (used when diagnosing cucumber wrapper order/concurrency behavior).
 - DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for wrapper CLI/filter behavior).
@@ -863,6 +869,7 @@ Run contract and immutability guard checks so this infra-only story cannot chang
 - Git diff reference (immutability checks): https://git-scm.com/docs/git-diff (source of truth for exact diff commands used in validation subtasks).
 - npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script (required because this task’s testing checklist executes wrappers via `npm run`).
 - Docker Compose CLI docs: https://docs.docker.com/reference/cli/docker/compose/ (reference for wrapper-runtime behavior when diagnosing shared infrastructure test failures).
+- Cucumber guides index: https://cucumber.io/docs/guides/ (required base reference for all cucumber guidance used by this task).
 - Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (baseline for reading cucumber feature/scenario failures in this task’s tests).
 - Cucumber guide (parallel execution): https://cucumber.io/docs/guides/parallel-execution/ (reference for triaging concurrency/filter behavior in cucumber wrappers).
 - DeepWiki repo reference: `cucumber/cucumber-js` (use sections `3 Command Line Interface` and `7 Test Execution` for tag/filter and execution details).
@@ -914,6 +921,7 @@ Perform full end-to-end validation against acceptance criteria, confirm document
 - npm scripts and run lifecycle docs: https://docs.npmjs.com/cli/v10/using-npm/scripts (reference for wrapper script execution semantics in final validation).
 - Git docs index: https://git-scm.com/docs (reference for release-note evidence commands such as `git log`/`git show`).
 - Node.js test runner docs (`node:test`): https://nodejs.org/docs/latest-v22.x/api/test.html (applies to `test:summary:server:unit` wrapper interpretation during closeout).
+- Cucumber guides index: https://cucumber.io/docs/guides/ (required base reference for all cucumber guidance used by this task).
 - Cucumber 10-minute tutorial: https://cucumber.io/docs/guides/10-minute-tutorial/ (practical baseline for interpreting feature/scenario output in closeout checks).
 - Cucumber parallel execution guide: https://cucumber.io/docs/guides/parallel-execution/ (reference for concurrency-related execution behavior during wrapper triage).
 - Cucumber continuous integration guide: https://cucumber.io/docs/guides/continuous-integration/ (reference for CI/exit-code expectations when evaluating final wrapper results).

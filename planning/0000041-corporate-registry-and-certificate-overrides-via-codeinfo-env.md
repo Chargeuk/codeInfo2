@@ -523,7 +523,7 @@ Note: steps 7-9 are explicit compose `config` assertions and are intentional exc
 ### 2. Env Source Verification: compose interpolation and wrapper env-file pass-through parity
 
 - Task Status: ****in_progress****
-- Git Commits: `none yet`
+- Git Commits: `a1ba0878`
 
 #### Overview
 

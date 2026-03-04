@@ -2797,3 +2797,33 @@ Run final end-to-end verification against all acceptance criteria, full builds/t
 - Subtask 6: Updated `projectStructure.md` with Story 0000040 Task 13 structural change ledger and added screenshot artifact file entries.
 - Subtask 7: Emitted `DEV_0000040_T13_MANUAL_CHECK_COMPLETE` once in browser console with context payload `{ route, manualChecks, screenshotsSaved, timestamp }`.
 - Subtask 8: `npm run lint --workspaces` passed with pre-existing import-order warnings only; `npm run format:check --workspaces` passed for client/server/common.
+
+## Branch-vs-Main Code Review (Post-Implementation)
+
+### Review Scope
+
+- Branch reviewed: `feature/0000040-command-start-step-and-chat-config-defaults`
+- Base branch reviewed against: `main`
+- Diff basis used: `git diff main...HEAD`
+- Commits inspected include Task 11-13 implementation and ledger commits (`6fba48cd`, `8f0bac18`, `1737cb57`, plus ledger follow-ups).
+
+### Checks Performed
+
+- Full changed-file inventory and diff-stat review across server, client, contracts, tests, and documentation.
+- Deep code-path review for:
+  - AGENTS command contracts and runtime validation (`server/src/routes/agentsCommands.ts`, `server/src/agents/service.ts`, `server/src/agents/commandsRunner.ts`, `client/src/api/agents.ts`, `client/src/pages/AgentsPage.tsx`).
+  - Chat defaults migration and resolver precedence (`server/src/config/chatDefaults.ts`, `server/src/config/runtimeConfig.ts`, `server/src/codex/capabilityResolver.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`).
+  - Flow command source resolution ordering and fail-fast behavior (`server/src/flows/service.ts`).
+  - Contract/docs synchronization (`openapi.json`, `README.md`, `design.md`, `projectStructure.md`).
+- Test/verification evidence cross-check against Task 13 implementation notes (full wrapper matrix + targeted regressions + manual Playwright-MCP evidence).
+
+### Review Result
+
+- No additional defects were identified that require reopening implementation tasks.
+- Code quality, maintainability, performance, and security posture are acceptable for this story scope.
+- Acceptance criteria AC1-AC28 remain fully evidenced by the existing Task 13 verification matrix and passing test wrappers.
+
+### Outcome
+
+- No follow-up remediation tasks were added.
+- Story remains in completed state with Task 13 as `done`.

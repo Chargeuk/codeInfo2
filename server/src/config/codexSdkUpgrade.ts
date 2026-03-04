@@ -1,6 +1,8 @@
 export const DEV_0000037_T01_EVENT = 'codex_sdk_upgraded';
-export const DEV_0000037_T01_REQUIRED_VERSION = '0.106.0';
+export const DEV_0000037_T01_REQUIRED_VERSION = '0.107.0';
 const DEV_0000037_T01_PREFIX = '[DEV-0000037][T01]';
+export const DEV_0000040_T10_CODEX_SDK_GUARD =
+  'DEV_0000040_T10_CODEX_SDK_GUARD';
 
 type LogFn = (message: string) => void;
 
@@ -20,10 +22,14 @@ export const validateAndLogCodexSdkUpgrade = (
   const stable = isStableSemver(normalizedVersion);
   const matchesRequired =
     normalizedVersion === DEV_0000037_T01_REQUIRED_VERSION;
+  const installedVersion = normalizedVersion || 'missing';
 
   if (stable && matchesRequired) {
     logger(
       `${DEV_0000037_T01_PREFIX} event=${DEV_0000037_T01_EVENT} result=success version=${normalizedVersion}`,
+    );
+    logger(
+      `${DEV_0000040_T10_CODEX_SDK_GUARD} installed=${installedVersion} required=${DEV_0000037_T01_REQUIRED_VERSION} decision=accepted stable=${stable} matchesRequired=${matchesRequired}`,
     );
     return true;
   }
@@ -36,6 +42,9 @@ export const validateAndLogCodexSdkUpgrade = (
         : 'version_mismatch';
   errorLogger(
     `${DEV_0000037_T01_PREFIX} event=${DEV_0000037_T01_EVENT} result=error version=${normalizedVersion || 'missing'} reason=${reason}`,
+  );
+  errorLogger(
+    `${DEV_0000040_T10_CODEX_SDK_GUARD} installed=${installedVersion} required=${DEV_0000037_T01_REQUIRED_VERSION} decision=rejected stable=${stable} matchesRequired=${matchesRequired} reason=${reason}`,
   );
   return false;
 };

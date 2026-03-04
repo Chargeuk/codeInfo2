@@ -5,6 +5,7 @@ import {
   listAgentPrompts,
   startAgentCommand,
 } from '../agents/service.js';
+import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 
 type Deps = {
@@ -15,6 +16,7 @@ type Deps = {
 
 type AgentCommandsBody = {
   commandName?: unknown;
+  startStep?: unknown;
   conversationId?: unknown;
   working_folder?: unknown;
   sourceId?: unknown;
@@ -26,6 +28,7 @@ type AgentCommandsError =
   | { code: 'AGENT_MISMATCH' }
   | { code: 'COMMAND_NOT_FOUND' }
   | { code: 'COMMAND_INVALID'; reason?: string }
+  | { code: 'INVALID_START_STEP'; reason?: string }
   | { code: 'RUN_IN_PROGRESS'; reason?: string }
   | { code: 'CODEX_UNAVAILABLE'; reason?: string }
   | { code: 'WORKING_FOLDER_INVALID'; reason?: string }
@@ -59,6 +62,7 @@ const validateRunBody = (
   body: unknown,
 ): {
   commandName: string;
+  startStep?: number;
   conversationId?: string;
   working_folder?: string;
   sourceId?: string;
@@ -73,6 +77,18 @@ const validateRunBody = (
     throw new Error('commandName is required');
   }
   const commandName = rawCommandName.trim();
+
+  const rawStartStep = candidate.startStep;
+  let startStep: number | undefined;
+  if (rawStartStep !== undefined) {
+    if (typeof rawStartStep !== 'number' || !Number.isInteger(rawStartStep)) {
+      throw {
+        code: 'INVALID_START_STEP',
+        message: 'startStep must be between 1 and N',
+      } as const;
+    }
+    startStep = rawStartStep;
+  }
 
   const rawConversationId = candidate.conversationId;
   const conversationId =
@@ -102,7 +118,7 @@ const validateRunBody = (
       ? rawSourceId.trim()
       : undefined;
 
-  return { commandName, conversationId, working_folder, sourceId };
+  return { commandName, startStep, conversationId, working_folder, sourceId };
 };
 
 export function createAgentsCommandsRouter(
@@ -262,13 +278,55 @@ export function createAgentsCommandsRouter(
 
     let parsedBody: {
       commandName: string;
+      startStep?: number;
       conversationId?: string;
       working_folder?: string;
       sourceId?: string;
     };
     try {
       parsedBody = validateRunBody(req.body);
+      append({
+        level: 'info',
+        message: 'DEV_0000040_T02_START_STEP_VALIDATION',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          stage: 'route_validated',
+          agentName,
+          commandName: parsedBody.commandName,
+          startStep: parsedBody.startStep ?? null,
+          invalidCode: null,
+        },
+      });
     } catch (err) {
+      if (
+        err &&
+        typeof err === 'object' &&
+        (err as { code?: unknown }).code === 'INVALID_START_STEP'
+      ) {
+        const message =
+          (err as { message?: string }).message ??
+          'startStep must be between 1 and N';
+        append({
+          level: 'warn',
+          message: 'DEV_0000040_T02_START_STEP_VALIDATION',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stage: 'route_rejected',
+            agentName,
+            commandName: null,
+            startStep: (req.body as { startStep?: unknown })?.startStep ?? null,
+            invalidCode: 'INVALID_START_STEP',
+            invalidMessage: message,
+          },
+        });
+        return res.status(400).json({
+          error: 'invalid_request',
+          code: 'INVALID_START_STEP',
+          message,
+        });
+      }
       return res
         .status(400)
         .json({ error: 'invalid_request', message: (err as Error).message });
@@ -278,6 +336,7 @@ export function createAgentsCommandsRouter(
       const result = await deps.startAgentCommand({
         agentName,
         commandName: parsedBody.commandName,
+        startStep: parsedBody.startStep,
         conversationId: parsedBody.conversationId,
         working_folder: parsedBody.working_folder,
         sourceId: parsedBody.sourceId,
@@ -320,6 +379,28 @@ export function createAgentsCommandsRouter(
             error: 'invalid_request',
             code: 'COMMAND_INVALID',
             message: err.reason ?? 'command file validation failed',
+          });
+        }
+        if (err.code === 'INVALID_START_STEP') {
+          const message = err.reason ?? 'startStep must be between 1 and N';
+          append({
+            level: 'warn',
+            message: 'DEV_0000040_T02_START_STEP_VALIDATION',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              stage: 'service_rejected',
+              agentName,
+              commandName: parsedBody.commandName,
+              startStep: parsedBody.startStep ?? null,
+              invalidCode: 'INVALID_START_STEP',
+              invalidMessage: message,
+            },
+          });
+          return res.status(400).json({
+            error: 'invalid_request',
+            code: 'INVALID_START_STEP',
+            message,
           });
         }
         if (err.code === 'RUN_IN_PROGRESS') {

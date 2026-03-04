@@ -87,6 +87,7 @@ type RunAgentErrorCode =
   | 'RUN_IN_PROGRESS'
   | 'COMMAND_NOT_FOUND'
   | 'COMMAND_INVALID'
+  | 'INVALID_START_STEP'
   | 'CODEX_UNAVAILABLE'
   | 'WORKING_FOLDER_INVALID'
   | 'WORKING_FOLDER_NOT_FOUND';
@@ -409,10 +410,12 @@ function isSafeAgentCommandName(raw: string): boolean {
 export async function startAgentCommand(params: {
   agentName: string;
   commandName: string;
+  startStep?: number;
   conversationId?: string;
   working_folder?: string;
   sourceId?: string;
   source: 'REST' | 'MCP';
+  chatFactory?: typeof getChatInterface;
 }): Promise<{
   agentName: string;
   commandName: string;
@@ -428,11 +431,40 @@ export async function startAgentCommand(params: {
   }
 
   const commandName = params.commandName.trim();
+  const startStep = params.startStep ?? 1;
   const sourceId =
     typeof params.sourceId === 'string' && params.sourceId.trim().length > 0
       ? params.sourceId.trim()
       : undefined;
   const conversationId = params.conversationId ?? crypto.randomUUID();
+
+  append({
+    level: 'info',
+    message: 'DEV_0000040_T02_START_STEP_VALIDATION',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      stage: 'service_received',
+      agentName: params.agentName,
+      commandName,
+      startStep,
+      source: params.source,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV_0000040_T03_RUNNER_START_STEP',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      stage: 'service_defaulted',
+      path: 'startAgentCommand',
+      agentName: params.agentName,
+      commandName,
+      startStep,
+      source: params.source,
+    },
+  });
 
   if (!tryAcquireConversationLock(conversationId)) {
     throw toRunAgentError(
@@ -557,11 +589,16 @@ export async function startAgentCommand(params: {
           commandsRoot: commandsDir,
           commandFilePath,
           commandName,
+          startStep,
           conversationId,
           working_folder: params.working_folder,
           signal: undefined,
           source: params.source,
-          runAgentInstructionUnlocked,
+          runAgentInstructionUnlocked: (runParams) =>
+            runAgentInstructionUnlocked({
+              ...runParams,
+              chatFactory: params.chatFactory,
+            }),
           lockAlreadyHeld: true,
         });
       } catch (err) {
@@ -588,6 +625,7 @@ export async function startAgentCommand(params: {
 export async function runAgentCommand(params: {
   agentName: string;
   commandName: string;
+  startStep?: number;
   conversationId?: string;
   working_folder?: string;
   sourceId?: string;
@@ -609,6 +647,35 @@ export async function runAgentCommand(params: {
     typeof params.sourceId === 'string' && params.sourceId.trim().length > 0
       ? params.sourceId.trim()
       : undefined;
+  const startStep = params.startStep ?? 1;
+
+  append({
+    level: 'info',
+    message: 'DEV_0000040_T02_START_STEP_VALIDATION',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      stage: 'service_received',
+      agentName: params.agentName,
+      commandName: params.commandName,
+      startStep,
+      source: params.source,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV_0000040_T03_RUNNER_START_STEP',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      stage: 'service_defaulted',
+      path: 'runAgentCommand',
+      agentName: params.agentName,
+      commandName: params.commandName,
+      startStep,
+      source: params.source,
+    },
+  });
 
   let commandsRoot: string | undefined;
   let commandFilePath: string | undefined;
@@ -664,6 +731,7 @@ export async function runAgentCommand(params: {
     commandsRoot,
     commandFilePath,
     commandName: params.commandName,
+    startStep,
     conversationId: params.conversationId,
     working_folder: params.working_folder,
     signal: params.signal,
@@ -943,6 +1011,7 @@ export type AgentCommandSummary = {
   name: string;
   description: string;
   disabled: boolean;
+  stepCount: number;
   sourceId?: string;
   sourceLabel?: string;
 };
@@ -1143,6 +1212,22 @@ export async function listAgentCommands(
       localCount: localCommands.length,
       ingestedCount: ingestedCommands.length,
       totalCount: commands.length,
+    },
+  });
+
+  append({
+    level: 'info',
+    message: 'DEV_0000040_T01_STEP_COUNT_RESPONSE',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      agentName: params.agentName,
+      commandStepCounts: commands.map((command) => ({
+        name: command.name,
+        sourceLabel: command.sourceLabel ?? null,
+        disabled: command.disabled,
+        stepCount: command.stepCount,
+      })),
     },
   });
 

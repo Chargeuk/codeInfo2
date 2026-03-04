@@ -8,7 +8,11 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import supertest from 'supertest';
 
-import { runAgentCommand, runAgentInstruction } from '../../agents/service.js';
+import {
+  runAgentCommand,
+  runAgentInstruction,
+  startAgentCommand,
+} from '../../agents/service.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
@@ -103,6 +107,240 @@ test('Agents runs accept a client-supplied conversationId even when it does not 
     assert.equal(result.agentName, 'coding_agent');
   } finally {
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+  }
+});
+
+test('startAgentCommand omission path defaults startStep to 1 and executes from step 1', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  const commandsDir = path.join(agentHome, 'commands');
+
+  await fs.mkdir(commandsDir, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "agent-model-1"', 'approval_policy = "never"'].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(commandsDir, 'start-default.json'),
+    JSON.stringify(
+      {
+        Description: 'Start default',
+        items: [
+          { type: 'message', role: 'user', content: ['step 1'] },
+          { type: 'message', role: 'user', content: ['step 2'] },
+        ],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+
+  const conversationId = 't03-start-command-omitted-start-step';
+  try {
+    await startAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'start-default',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+
+    await waitFor(
+      () =>
+        (memoryTurns.get(conversationId) ?? []).some(
+          (turn) =>
+            turn.command?.stepIndex === 1 && turn.command.totalSteps === 2,
+        ),
+      5000,
+    );
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+  }
+});
+
+test('runAgentCommand omission path defaults startStep to 1 and executes from step 1', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  const commandsDir = path.join(agentHome, 'commands');
+
+  await fs.mkdir(commandsDir, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "agent-model-1"', 'approval_policy = "never"'].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(commandsDir, 'run-default.json'),
+    JSON.stringify(
+      {
+        Description: 'Run default',
+        items: [
+          { type: 'message', role: 'user', content: ['step 1'] },
+          { type: 'message', role: 'user', content: ['step 2'] },
+        ],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+
+  const conversationId = 't03-run-command-omitted-start-step';
+  try {
+    await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'run-default',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+
+    const turns = memoryTurns.get(conversationId) ?? [];
+    assert.equal(
+      turns.some(
+        (turn) =>
+          turn.command?.stepIndex === 1 && turn.command.totalSteps === 2,
+      ),
+      true,
+    );
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+  }
+});
+
+test('runtime step-count drift rejects stale startStep with deterministic INVALID_START_STEP', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  const commandsDir = path.join(agentHome, 'commands');
+
+  await fs.mkdir(commandsDir, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "agent-model-1"', 'approval_policy = "never"'].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+
+  const commandPath = path.join(commandsDir, 'drift.json');
+  await fs.writeFile(
+    commandPath,
+    JSON.stringify(
+      {
+        Description: 'Drift test',
+        items: [
+          { type: 'message', role: 'user', content: ['step 1'] },
+          { type: 'message', role: 'user', content: ['step 2'] },
+          { type: 'message', role: 'user', content: ['step 3'] },
+        ],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  // Simulate stale client metadata by shrinking command file before execution.
+  await fs.writeFile(
+    commandPath,
+    JSON.stringify(
+      {
+        Description: 'Drift test',
+        items: [
+          { type: 'message', role: 'user', content: ['step 1'] },
+          { type: 'message', role: 'user', content: ['step 2'] },
+        ],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+
+  try {
+    await assert.rejects(
+      async () =>
+        runAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'drift',
+          startStep: 3,
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        }),
+      (error: unknown) =>
+        Boolean(
+          error &&
+            typeof error === 'object' &&
+            (error as { code?: string }).code === 'INVALID_START_STEP' &&
+            (error as { reason?: string }).reason ===
+              'startStep must be between 1 and 2',
+        ),
+    );
+  } finally {
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
   }
 });
 

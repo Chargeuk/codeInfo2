@@ -73,6 +73,7 @@ describe('Agents page - run conflict handling', () => {
               name: 'improve_plan',
               description: 'd',
               disabled: false,
+              stepCount: 1,
             },
           ],
         });

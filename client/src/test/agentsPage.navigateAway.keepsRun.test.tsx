@@ -68,7 +68,12 @@ describe('Agents page - navigate away keeps run', () => {
           status: 200,
           json: async () => ({
             commands: [
-              { name: 'improve_plan', description: 'Improve', disabled: false },
+              {
+                name: 'improve_plan',
+                description: 'Improve',
+                disabled: false,
+                stepCount: 1,
+              },
             ],
           }),
         } as Response);
@@ -261,7 +266,12 @@ describe('Agents page - navigate away keeps run', () => {
           status: 200,
           json: async () => ({
             commands: [
-              { name: 'improve_plan', description: 'Improve', disabled: false },
+              {
+                name: 'improve_plan',
+                description: 'Improve',
+                disabled: false,
+                stepCount: 1,
+              },
             ],
           }),
         } as Response);

@@ -178,6 +178,7 @@ export default function AgentsPage() {
       name: string;
       description: string;
       disabled: boolean;
+      stepCount: number;
       sourceId?: string;
       sourceLabel?: string;
     }>
@@ -185,6 +186,7 @@ export default function AgentsPage() {
   const [commandsError, setCommandsError] = useState<string | null>(null);
   const [commandsLoading, setCommandsLoading] = useState(false);
   const [selectedCommandKey, setSelectedCommandKey] = useState('');
+  const [startStep, setStartStep] = useState<number>(1);
 
   const [agentModelId, setAgentModelId] = useState<string>('unknown');
   const {
@@ -554,6 +556,7 @@ export default function AgentsPage() {
       setCommandsError(null);
       setCommandsLoading(false);
       setSelectedCommandKey('');
+      setStartStep(1);
       return;
     }
 
@@ -577,6 +580,7 @@ export default function AgentsPage() {
         setCommandsError((err as Error).message);
         setCommands([]);
         setSelectedCommandKey('');
+        setStartStep(1);
       })
       .finally(() => {
         if (cancelled) return;
@@ -680,6 +684,7 @@ export default function AgentsPage() {
     () => commandOptions.find((cmd) => cmd.key === selectedCommandKey),
     [commandOptions, selectedCommandKey],
   );
+  const selectedCommandStepCount = selectedCommand?.stepCount ?? 0;
 
   const selectedCommandDescription = useMemo(() => {
     if (!selectedCommand) {
@@ -709,6 +714,12 @@ export default function AgentsPage() {
     Boolean(selectedAgentName) &&
     !startPending &&
     !persistenceUnavailable;
+
+  useEffect(() => {
+    if (selectedCommand && startStep > selectedCommand.stepCount) {
+      setStartStep(1);
+    }
+  }, [selectedCommand, startStep]);
 
   useEffect(() => {
     if (!selectedPromptFullPath) return;
@@ -1150,6 +1161,7 @@ export default function AgentsPage() {
       if (next === selectedAgentName) return;
       setSelectedAgentName(next);
       setSelectedCommandKey('');
+      setStartStep(1);
       setAgentModelId('unknown');
       resetConversation();
     },
@@ -1159,6 +1171,18 @@ export default function AgentsPage() {
   const handleCommandChange = useCallback(
     (event: SelectChangeEvent<string>) => {
       setSelectedCommandKey(event.target.value);
+      setStartStep(1);
+    },
+    [],
+  );
+
+  const handleStartStepChange = useCallback(
+    (event: SelectChangeEvent<string>) => {
+      const parsed = Number.parseInt(event.target.value, 10);
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        return;
+      }
+      setStartStep(parsed);
     },
     [],
   );
@@ -1439,10 +1463,18 @@ export default function AgentsPage() {
       log('info', 'DEV-0000034:T5:agents.command_run_payload', {
         commandName: selectedCommand.name,
         sourceId: selectedCommand.sourceId ?? 'local',
+        startStep,
+      });
+      console.info('DEV_0000040_T05_AGENTS_UI_EXECUTE', {
+        agentName: selectedAgentName,
+        commandName: selectedCommand.name,
+        sourceId: selectedCommand.sourceId ?? null,
+        startStep,
       });
       const result = await runAgentCommand({
         agentName: selectedAgentName,
         commandName: selectedCommand.name,
+        startStep,
         sourceId: selectedCommand.sourceId,
         working_folder: workingFolder.trim() || undefined,
         conversationId: nextConversationId,
@@ -1508,6 +1540,7 @@ export default function AgentsPage() {
     refreshConversations,
     selectedAgentName,
     selectedCommand,
+    startStep,
     setConversation,
     startPending,
     stop,
@@ -1522,6 +1555,14 @@ export default function AgentsPage() {
   const controlsDisabled =
     agentsLoading || !!agentsError || !selectedAgentName || persistenceLoading;
   const submitDisabledForRun = isRunActive;
+  const startStepDisabled =
+    controlsDisabled ||
+    submitDisabledForRun ||
+    selectedAgent?.disabled ||
+    commandsLoading ||
+    !selectedCommand ||
+    selectedCommand.disabled ||
+    selectedCommandStepCount <= 1;
   const inputEditableDuringRun = true;
   const sidebarSelectableDuringRun = true;
   const isWorkingFolderDisabled =
@@ -2333,6 +2374,47 @@ export default function AgentsPage() {
                         ))}
                       </Select>
                     </FormControl>
+                    <FormControl
+                      fullWidth
+                      size="small"
+                      disabled={startStepDisabled}
+                      sx={{ flex: 1 }}
+                    >
+                      <InputLabel id="agent-command-start-step-label">
+                        Start step
+                      </InputLabel>
+                      <Select
+                        labelId="agent-command-start-step-label"
+                        label="Start step"
+                        value={selectedCommand ? `${startStep}` : ''}
+                        onChange={handleStartStepChange}
+                        displayEmpty
+                        inputProps={{
+                          'data-testid': 'agent-command-start-step-select',
+                        }}
+                      >
+                        {!selectedCommand ? (
+                          <MenuItem value="" disabled>
+                            Select command first
+                          </MenuItem>
+                        ) : null}
+                        {Array.from(
+                          { length: Math.max(1, selectedCommandStepCount) },
+                          (_, index) => {
+                            const step = index + 1;
+                            return (
+                              <MenuItem
+                                key={step}
+                                value={`${step}`}
+                                data-testid={`agent-command-start-step-option-${step}`}
+                              >
+                                {`Step ${step}`}
+                              </MenuItem>
+                            );
+                          },
+                        )}
+                      </Select>
+                    </FormControl>
                     <Box onMouseDownCapture={handleCommandInfoAttempt}>
                       <IconButton
                         aria-describedby={commandInfoId}
@@ -2462,7 +2544,9 @@ export default function AgentsPage() {
                             type="button"
                             variant="contained"
                             size="small"
-                            disabled={!executePromptEnabled || !wsTranscriptReady}
+                            disabled={
+                              !executePromptEnabled || !wsTranscriptReady
+                            }
                             onClick={handleExecutePrompt}
                             data-testid="agent-prompt-execute"
                             sx={{ flexShrink: 0 }}

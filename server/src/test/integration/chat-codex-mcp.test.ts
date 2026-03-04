@@ -18,8 +18,12 @@ import {
 } from '../../chat/memoryPersistence.js';
 import { getCodexEnvDefaults } from '../../config/codexEnvDefaults.js';
 import { query, resetStore } from '../../logStore.js';
+import { handleRpc } from '../../mcp2/router.js';
+import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
+import { createChatModelsRouter } from '../../routes/chatModels.js';
+import { createChatProvidersRouter } from '../../routes/chatProviders.js';
 import { attachWs } from '../../ws/server.js';
 import {
   closeWs,
@@ -1069,5 +1073,126 @@ test('fallback from codex to lmstudio updates stored provider/model and clears s
     );
   } finally {
     process.env.LMSTUDIO_BASE_URL = originalBaseUrl;
+  }
+});
+
+test('REST and MCP codex defaults/warnings remain aligned for env fallback fixtures', async () => {
+  const originalForce = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalLmBase = process.env.LMSTUDIO_BASE_URL;
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-codex-mcp-parity-'),
+  );
+  const codexHome = path.join(root, 'codex');
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    '# empty\n',
+    'utf8',
+  );
+  process.env.CODEX_HOME = codexHome;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  process.env.LMSTUDIO_BASE_URL = 'invalid-url';
+  process.env.Codex_sandbox_mode = 'workspace-write';
+  process.env.Codex_approval_policy = 'on-request';
+  process.env.Codex_reasoning_effort = 'medium';
+  process.env.Codex_web_search_enabled = 'false';
+  resetStore();
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+  const mockCodex = new MockCodex('thread-rest-mcp-parity');
+  setToolDeps({ codexFactory: () => mockCodex });
+
+  const restApp = express();
+  restApp.use(
+    '/chat',
+    createChatModelsRouter({
+      clientFactory: dummyClientFactory,
+    }),
+  );
+  restApp.use(
+    '/chat',
+    createChatProvidersRouter({
+      clientFactory: dummyClientFactory,
+    }),
+  );
+  const restServer = http.createServer(restApp);
+  await new Promise<void>((resolve) => restServer.listen(0, resolve));
+
+  const rpcServer = http.createServer(handleRpc);
+  await new Promise<void>((resolve) => rpcServer.listen(0, resolve));
+
+  try {
+    const restModels = await request(restServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+    const restProviders = await request(restServer)
+      .get('/chat/providers')
+      .expect(200);
+    const rpcAddress = rpcServer.address();
+    assert(rpcAddress && typeof rpcAddress === 'object');
+    const rpcResponse = await fetch(`http://127.0.0.1:${rpcAddress.port}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 300,
+        method: 'tools/call',
+        params: {
+          name: 'codebase_question',
+          arguments: { question: 'parity' },
+        },
+      }),
+    });
+    const rpcBody = (await rpcResponse.json()) as {
+      result?: { content: Array<{ type: string; text: string }> };
+    };
+    assert.equal(rpcBody.result?.content[0]?.type, 'text');
+
+    const marker = query({
+      source: ['server'],
+      text: 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED',
+    }).at(-1);
+    const markerContext = marker?.context as
+      | {
+          defaults?: {
+            sandboxMode?: string;
+            approvalPolicy?: string;
+            modelReasoningEffort?: string;
+            webSearchEnabled?: boolean;
+          };
+          warningFields?: string[];
+        }
+      | undefined;
+    assert.ok(markerContext?.defaults);
+    assert.deepEqual(markerContext?.defaults, restModels.body.codexDefaults);
+    assert.deepEqual(
+      restProviders.body.codexDefaults,
+      restModels.body.codexDefaults,
+    );
+    assert.ok(
+      (markerContext?.warningFields ?? []).includes('sandbox_mode'),
+      'MCP warning fields should include sandbox fallback',
+    );
+  } finally {
+    resetToolDeps();
+    if (originalForce === undefined)
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    else process.env.MCP_FORCE_CODEX_AVAILABLE = originalForce;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    if (originalLmBase === undefined) delete process.env.LMSTUDIO_BASE_URL;
+    else process.env.LMSTUDIO_BASE_URL = originalLmBase;
+    delete process.env.Codex_sandbox_mode;
+    delete process.env.Codex_approval_policy;
+    delete process.env.Codex_reasoning_effort;
+    delete process.env.Codex_web_search_enabled;
+    await fs.rm(root, { recursive: true, force: true });
+    await new Promise<void>((resolve) => restServer.close(() => resolve()));
+    await new Promise<void>((resolve) => rpcServer.close(() => resolve()));
   }
 });

@@ -7,7 +7,6 @@ import {
   resolveChatDefaults,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
-import { getCodexEnvDefaults } from '../config/codexEnvDefaults.js';
 import {
   getCodexCapabilityForModel,
   resolveCodexCapabilities,
@@ -127,14 +126,16 @@ export const modelReasoningEfforts = [
   'xhigh',
 ] as const satisfies readonly ModelReasoningEffort[];
 
-export function validateChatRequest(
+const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
+
+export async function validateChatRequest(
   body: ChatRequestBody | unknown,
   options?: {
     codexCapabilityResolver?: (options: {
       consumer: 'chat_models' | 'chat_validation';
-    }) => CodexCapabilityResolution;
+    }) => Promise<CodexCapabilityResolution>;
   },
-): ValidatedChatRequest {
+): Promise<ValidatedChatRequest> {
   if (!isPlainObject(body)) {
     throw new ChatValidationError('request body must be an object');
   }
@@ -209,11 +210,9 @@ export function validateChatRequest(
 
   const codexFlags: ValidatedChatRequest['codexFlags'] = {};
   const defaultedFlags: Array<keyof ValidatedChatRequest['codexFlags']> = [];
-  const codexEnvDefaults =
-    provider === 'codex' ? getCodexEnvDefaults() : undefined;
   const codexCapabilities =
     provider === 'codex'
-      ? (options?.codexCapabilityResolver ?? resolveCodexCapabilities)({
+      ? await (options?.codexCapabilityResolver ?? resolveCodexCapabilities)({
           consumer: 'chat_validation',
         })
       : undefined;
@@ -221,9 +220,6 @@ export function validateChatRequest(
     provider === 'codex' && codexCapabilities
       ? getCodexCapabilityForModel(codexCapabilities, model)
       : undefined;
-  if (codexEnvDefaults?.warnings.length) {
-    warnings.push(...codexEnvDefaults.warnings);
-  }
   if (codexCapabilities?.warnings.length) {
     warnings.push(...codexCapabilities.warnings);
   }
@@ -250,7 +246,7 @@ export function validateChatRequest(
       codexFlags.sandboxMode = sandboxMode as SandboxMode;
     }
   } else if (provider === 'codex') {
-    codexFlags.sandboxMode = codexEnvDefaults?.defaults.sandboxMode;
+    codexFlags.sandboxMode = codexCapabilities?.defaults.sandboxMode;
     defaultedFlags.push('sandboxMode');
   }
 
@@ -268,7 +264,7 @@ export function validateChatRequest(
     }
   } else if (provider === 'codex') {
     codexFlags.networkAccessEnabled =
-      codexEnvDefaults?.defaults.networkAccessEnabled;
+      codexCapabilities?.defaults.networkAccessEnabled;
     defaultedFlags.push('networkAccessEnabled');
   }
 
@@ -285,7 +281,7 @@ export function validateChatRequest(
       codexFlags.webSearchEnabled = webSearchEnabled;
     }
   } else if (provider === 'codex') {
-    codexFlags.webSearchEnabled = codexEnvDefaults?.defaults.webSearchEnabled;
+    codexFlags.webSearchEnabled = codexCapabilities?.defaults.webSearchEnabled;
     defaultedFlags.push('webSearchEnabled');
   }
 
@@ -307,7 +303,7 @@ export function validateChatRequest(
       codexFlags.approvalPolicy = approvalPolicy as ApprovalMode;
     }
   } else if (provider === 'codex') {
-    codexFlags.approvalPolicy = codexEnvDefaults?.defaults.approvalPolicy;
+    codexFlags.approvalPolicy = codexCapabilities?.defaults.approvalPolicy;
     defaultedFlags.push('approvalPolicy');
   }
 
@@ -337,7 +333,7 @@ export function validateChatRequest(
   } else if (provider === 'codex') {
     codexFlags.modelReasoningEffort =
       (selectedModelCapability?.defaultReasoningEffort ??
-        codexEnvDefaults?.defaults
+        codexCapabilities?.defaults
           .modelReasoningEffort) as ModelReasoningEffort;
     defaultedFlags.push('modelReasoningEffort');
   }
@@ -345,9 +341,16 @@ export function validateChatRequest(
   if (provider === 'codex' && defaultedFlags.length > 0) {
     baseLogger.info(
       { defaultedFlags },
-      '[codex-validate] applied env defaults',
+      '[codex-validate] applied resolver defaults',
     );
   }
+  console.info(TASK7_LOG_MARKER, {
+    surface: 'chat_validation',
+    provider,
+    warningCount: warnings.length,
+    defaultedFlags,
+    resolvedModel: model,
+  });
 
   return {
     model,

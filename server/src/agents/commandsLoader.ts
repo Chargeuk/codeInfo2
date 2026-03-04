@@ -19,13 +19,38 @@ export async function loadAgentCommandFile(params: {
 export async function loadAgentCommandSummary(params: {
   filePath: string;
   name: string;
-}): Promise<{ name: string; description: string; disabled: boolean }> {
+}): Promise<{
+  name: string;
+  description: string;
+  disabled: boolean;
+  stepCount: number;
+}> {
   const { filePath, name } = params;
 
   const parsed = await loadAgentCommandFile({ filePath });
   if (!parsed.ok) {
-    return { name, description: INVALID_DESCRIPTION, disabled: true };
+    return {
+      name,
+      description: INVALID_DESCRIPTION,
+      disabled: true,
+      stepCount: 1,
+    };
   }
 
-  return { name, description: parsed.command.Description, disabled: false };
+  const stepCount = parsed.command.items.length;
+  if (!Number.isInteger(stepCount) || stepCount < 1) {
+    return {
+      name,
+      description: INVALID_DESCRIPTION,
+      disabled: true,
+      stepCount: 1,
+    };
+  }
+
+  return {
+    name,
+    description: parsed.command.Description,
+    disabled: false,
+    stepCount,
+  };
 }

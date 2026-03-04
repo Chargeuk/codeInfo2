@@ -10,6 +10,7 @@ import type {
 
 import { handleRpc } from '../../mcp2/router.js';
 import { runCodebaseQuestion } from '../../mcp2/tools/codebaseQuestion.js';
+import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import { resolveChatDefaults } from '../../config/chatDefaults.js';
 import {
   getCodexDetection,
@@ -169,22 +170,8 @@ test('MCP responder only returns the final answer segment', async () => {
   }
 });
 
-test('MCP codebase_question uses Codex env defaults for thread options', async () => {
+test('MCP codebase_question uses shared resolver defaults for thread options', async () => {
   const prev = getCodexDetection();
-  const originalEnv = {
-    Codex_sandbox_mode: process.env.Codex_sandbox_mode,
-    Codex_network_access_enabled: process.env.Codex_network_access_enabled,
-    Codex_web_search_enabled: process.env.Codex_web_search_enabled,
-    Codex_approval_policy: process.env.Codex_approval_policy,
-    Codex_reasoning_effort: process.env.Codex_reasoning_effort,
-  };
-
-  process.env.Codex_sandbox_mode = 'read-only';
-  process.env.Codex_network_access_enabled = 'false';
-  process.env.Codex_web_search_enabled = 'false';
-  process.env.Codex_approval_policy = 'on-request';
-  process.env.Codex_reasoning_effort = 'medium';
-
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -195,45 +182,35 @@ test('MCP codebase_question uses Codex env defaults for thread options', async (
 
   try {
     await runCodebaseQuestion(
-      { question: 'Use env defaults please' },
+      { question: 'Use shared defaults please' },
       { codexFactory: () => mockCodex },
     );
-
-    assert.equal(mockCodex.lastStartOptions?.sandboxMode, 'read-only');
-    assert.equal(mockCodex.lastStartOptions?.networkAccessEnabled, false);
-    assert.equal(mockCodex.lastStartOptions?.webSearchEnabled, false);
-    assert.equal(mockCodex.lastStartOptions?.approvalPolicy, 'on-request');
-    assert.equal(mockCodex.lastStartOptions?.modelReasoningEffort, 'medium');
+    const capabilities = await resolveCodexCapabilities({
+      consumer: 'chat_validation',
+      codexHome: process.env.CODEX_HOME,
+    });
+    assert.equal(
+      mockCodex.lastStartOptions?.sandboxMode,
+      capabilities.defaults.sandboxMode,
+    );
+    assert.equal(
+      mockCodex.lastStartOptions?.networkAccessEnabled,
+      capabilities.defaults.networkAccessEnabled,
+    );
+    assert.equal(
+      mockCodex.lastStartOptions?.webSearchEnabled,
+      capabilities.defaults.webSearchEnabled,
+    );
+    assert.equal(
+      mockCodex.lastStartOptions?.approvalPolicy,
+      capabilities.defaults.approvalPolicy,
+    );
+    assert.equal(
+      mockCodex.lastStartOptions?.modelReasoningEffort,
+      capabilities.defaults.modelReasoningEffort,
+    );
   } finally {
     setCodexDetection(prev);
-
-    if (originalEnv.Codex_sandbox_mode === undefined) {
-      delete process.env.Codex_sandbox_mode;
-    } else {
-      process.env.Codex_sandbox_mode = originalEnv.Codex_sandbox_mode;
-    }
-    if (originalEnv.Codex_network_access_enabled === undefined) {
-      delete process.env.Codex_network_access_enabled;
-    } else {
-      process.env.Codex_network_access_enabled =
-        originalEnv.Codex_network_access_enabled;
-    }
-    if (originalEnv.Codex_web_search_enabled === undefined) {
-      delete process.env.Codex_web_search_enabled;
-    } else {
-      process.env.Codex_web_search_enabled =
-        originalEnv.Codex_web_search_enabled;
-    }
-    if (originalEnv.Codex_approval_policy === undefined) {
-      delete process.env.Codex_approval_policy;
-    } else {
-      process.env.Codex_approval_policy = originalEnv.Codex_approval_policy;
-    }
-    if (originalEnv.Codex_reasoning_effort === undefined) {
-      delete process.env.Codex_reasoning_effort;
-    } else {
-      process.env.Codex_reasoning_effort = originalEnv.Codex_reasoning_effort;
-    }
   }
 });
 

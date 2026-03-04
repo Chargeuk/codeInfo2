@@ -13,7 +13,9 @@ import type {
 } from '@openai/codex-sdk';
 import express from 'express';
 import request from 'supertest';
+import pkg from '../../../package.json' with { type: 'json' };
 import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
+import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
 import {
   getMemoryTurns,
   memoryConversations,
@@ -221,6 +223,10 @@ async function waitForNoSecondFinal(params: {
 }
 
 test('codex chat streams token/final/complete with thread id', async () => {
+  assert.equal(
+    pkg.dependencies?.['@openai/codex-sdk'],
+    DEV_0000037_T01_REQUIRED_VERSION,
+  );
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -402,7 +408,7 @@ test('codex chat accepts non-standard reasoning effort when provided by shared c
     createChatRouter({
       clientFactory: dummyClientFactory,
       codexFactory: () => mockCodex,
-      codexCapabilityResolver: () => fixture,
+      codexCapabilityResolver: async () => fixture,
     }),
   );
 
@@ -465,7 +471,7 @@ test('codex chat rejects reasoning effort not supported by shared capability res
     createChatRouter({
       clientFactory: dummyClientFactory,
       codexFactory: () => mockCodex,
-      codexCapabilityResolver: () => fixture,
+      codexCapabilityResolver: async () => fixture,
     }),
   );
 

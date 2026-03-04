@@ -80,6 +80,218 @@ Modified files (implementation traceability):
 - `client/src/test/agentsPage.descriptionPopover.test.tsx`
 - `design.md`
 
+## Story 0000040 Task 4 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/api/agents.ts`
+- `client/src/test/agentsApi.commandsList.test.ts`
+- `client/src/test/agentsApi.commandsRun.test.ts`
+- `design.md`
+
+## Story 0000040 Task 6 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `server/src/config/chatDefaults.ts`
+- `server/src/test/unit/config.chatDefaults.test.ts`
+
+## Story 0000040 Task 7 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `projectStructure.md`
+- `server/src/codex/capabilityResolver.ts`
+- `server/src/routes/chat.ts`
+- `server/src/routes/chatModels.ts`
+- `server/src/routes/chatProviders.ts`
+- `server/src/routes/chatValidators.ts`
+- `server/src/test/integration/chat-codex.test.ts`
+- `server/src/test/unit/capabilityResolver.test.ts`
+- `server/src/test/unit/chat-codex-reasoning-delta.test.ts`
+- `server/src/test/unit/chatModels.codex.test.ts`
+- `server/src/test/unit/chatProviders.test.ts`
+- `server/src/test/unit/chatValidators.test.ts`
+
+## Story 0000040 Task 8 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `projectStructure.md`
+- `server/src/mcp2/tools/codebaseQuestion.ts`
+- `server/src/test/integration/chat-codex-mcp.test.ts`
+- `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+- `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
+- `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
+
+## Story 0000040 Task 9 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `projectStructure.md`
+- `server/src/config/runtimeConfig.ts`
+- `server/src/test/unit/runtimeConfig.test.ts`
+
+## Story 0000040 Task 10 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `package-lock.json`
+- `projectStructure.md`
+- `server/package.json`
+- `server/src/config/codexSdkUpgrade.ts`
+- `server/src/index.ts`
+- `server/src/test/integration/agents-run-ws-stream.test.ts`
+- `server/src/test/integration/chat-codex.test.ts`
+- `server/src/test/integration/flows.run.basic.test.ts`
+- `server/src/test/unit/codexSdkUpgrade.test.ts`
+
+## Story 0000040 Task 11 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `projectStructure.md`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+
+## Story 0000040 Task 12 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `openapi.json`
+- `planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md`
+- `projectStructure.md`
+
+## Story 0000040 Task 13 structural change ledger
+
+Added files:
+
+- `playwright-output-local/task13-agents-start-step-options.png`
+- `playwright-output-local/task13-agents-start-step-reset-on-command-change.png`
+- `playwright-output-local/task13-chat-codex-flags-expanded.png`
+- `playwright-output-local/task13-flows-smoke-failure-working-folder.png`
+- `playwright-output-local/task13-flows-smoke-success.png`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md`
+- `projectStructure.md`
+
 ## Story 0000038 Tasks 1-7 structural change ledger
 
 Added files:
@@ -227,7 +439,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |- utils/
 |     |  - isDevEnv.ts ? shared dev/test environment detection helper
 |     |- api/
-|     |  - agents.ts ? client wrapper for GET /agents and POST /agents/:agentName/run (AbortSignal supported) with Task 11 raw-send logging tags
+|     |  - agents.ts ? client wrapper for agent discovery + command/instruction runs, including strict command `stepCount` parsing and optional `startStep` payload wiring
 |     |  - baseUrl.ts ? runtime API base resolver (config/env/location)
 |     |  - codex.ts ? client wrapper for POST /codex/device-auth with structured errors + logging
 |     |  - flows.ts ? client wrapper for GET /flows and POST /flows/:flowName/run with structured errors + logging
@@ -235,7 +447,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |- main.tsx ? app entry with RouterProvider
 |     |- pages/
 |     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, rounded 14px bubbles, tool blocks, citations accordion (closed by default), stream status/thinking UI (1s idle guard, ignores tool-only waits), and raw-input send guards/logging
-|     |  |- AgentsPage.tsx ? agents UI with selector/stop/new-conversation controls, description markdown, persisted conversation continuation, raw-instruction send guards, and shared user-markdown rendering/logging
+|     |  |- AgentsPage.tsx ? agents UI with selector/stop/new-conversation controls, command `Start step` selector (`Step 1..N`), persisted conversation continuation, raw-instruction send guards, and shared user-markdown rendering/logging
 |     |  |- FlowsPage.tsx ? flows UI with selector/run/resume/stop controls, flow-filtered sidebar, and step metadata transcript
 |     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
 |     |  |- HomePage.tsx ? version card page
@@ -282,13 +494,13 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- flowsPage.test.tsx ? Flows page renders flow list and step metadata
 |     |     |- flowsPage.run.test.tsx ? Flows page run/resume controls send expected payloads
 |     |     |- flowsPage.stop.test.tsx ? Flows page stop button sends cancel_inflight
-|     |     |- agentsPage.run.commandError.test.tsx ? Agents page shows error banner when command start fails
+|     |     |- agentsPage.run.commandError.test.tsx ? Agents page shows command start errors, including unchanged `INVALID_START_STEP` range text
 |     |     |- agentsPage.navigateAway.keepsRun.test.tsx ? navigating away does not cancel run; transcript resumes via WS
 |     |     |- agentsPage.persistenceFallbackSegments.test.tsx ? Agents page shows realtime banner + disables Send when WS is unavailable
-|     |     |- agentsPage.commandsList.test.tsx ? Agents page command dropdown refresh, disabled entries, labels, and description display
+|     |     |- agentsPage.commandsList.test.tsx ? Agents page command dropdown + `Start step` ordering/state rules, disabled entries, labels, and execute gating
 |     |     |- agentsPage.commandsRun.refreshTurns.test.tsx ? Agents page command execute triggers run, then refreshes conversations and hydrates turns
 |     |     |- agentsPage.commandsRun.conflict.test.tsx ? Agents page surfaces RUN_IN_PROGRESS conflicts for command execute and normal send
-|     |     |- agentsPage.commandsRun.persistenceDisabled.test.tsx ? Agents page disables command execute when mongoConnected is false
+|     |     |- agentsPage.commandsRun.persistenceDisabled.test.tsx ? Agents page persistence guard plus command-run payload coverage for selected `startStep`
 |     |     |- agentsPage.commandMetadataRender.test.tsx ? Agents page renders per-turn command metadata note with step progress
 |     |     |- agentsPage.commandsRun.abort.test.tsx ? Agents page Stop sends WS cancel_inflight (does not abort HTTP start)
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
@@ -493,7 +705,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”‚  â”œâ”€ errors.ts — shared MCP error helpers
 â”‚     â”‚  â”œâ”€ codexAvailability.ts — detects Codex readiness for provider-aware execution fallback
 â”‚     â”‚  â”œâ”€ tools.ts — MCP tool registry wiring (`codebase_question`, `reingest_repository`)
-â”‚     â”‚  â”œâ”€ tools/codebaseQuestion.ts — `codebase_question` tool bridging chat (Codex default, LM Studio optional) + vector search
+â”‚     â”‚  â”œâ”€ tools/codebaseQuestion.ts — `codebase_question` tool bridging chat with resolver-backed Codex defaults/warnings parity plus vector-search-backed answer shaping
 â”‚     â”‚  â””â”€ tools/reingestRepository.ts — MCP v2 `reingest_repository` tool wrapper over shared reingest validation/service
 â”‚     â”œâ”€ mcpAgents/ — Agents MCP v2 server on port 5012
 â”‚     â”‚  â”œâ”€ server.ts — start/stop Agents JSON-RPC server
@@ -708,8 +920,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/agents/discovery.ts — discovers agents from `CODEINFO_CODEX_AGENT_HOME`
 - server/src/agents/authSeed.ts — best-effort copy of primary `auth.json` into agent homes (never overwrite, lock-protected)
 - server/src/agents/commandsSchema.ts — strict Zod v1 schema + safe parser for agent command JSON files
-- server/src/agents/commandsLoader.ts — reads command files and returns safe `{ name, description, disabled }` summaries
-- server/src/agents/commandsRunner.ts — executes parsed agent commands sequentially with abort checks + conversation lock
+- server/src/agents/commandsLoader.ts — reads command files and returns safe `{ name, description, disabled, stepCount }` summaries (`stepCount >= 1`, sentinel `1` for disabled/invalid)
+- server/src/agents/commandsRunner.ts — executes parsed agent commands sequentially with abort checks + conversation lock, including runtime `startStep` range validation (`1..N`), zero-based boundary conversion, and deterministic `INVALID_START_STEP` errors
 - server/src/agents/retry.ts — AbortSignal-aware retry/backoff helper used by the command runner
 - server/src/ingest/providers/openaiConstants.ts — OpenAI embedding adapter constants (allowlist, retry policy, guardrail thresholds, token-limit resolver)
 - server/src/ingest/providers/openaiErrors.ts — OpenAI error taxonomy mapper + normalized/secret-safe OpenAI embedding error shape
@@ -722,22 +934,22 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/config/openaiIngestRetries.ts — OpenAI ingest retry-budget resolver (`OPENAI_INGEST_MAX_RETRIES`, retries after initial attempt, fallback default 3)
 - server/src/agents/runLock.ts — in-memory per-conversation run lock for agent/command execution
 - server/src/agents/config.ts — minimal agent `config.toml` parsing helpers (e.g. top-level `model`)
-- server/src/agents/service.ts — shared agents service used by REST + Agents MCP (list agents + run agent instruction)
+- server/src/agents/service.ts — shared agents service used by REST + Agents MCP (list agents + run agent instruction), including `startStep` defaulting to `1` for command runs and T03 start-step diagnostic logging
 - server/src/routes/agents.ts — `GET /agents` agent listing endpoint (REST source of truth)
 - server/src/routes/codexDeviceAuth.ts — `POST /codex/device-auth` device-auth endpoint for chat/agent targets
 - server/src/routes/agentsRun.ts — `POST /agents/:agentName/run` agent execution endpoint (REST; delegates to shared service)
-- server/src/routes/agentsCommands.ts — agent command endpoints: `GET /agents/:agentName/commands` (list) + `POST /agents/:agentName/commands/run` (execute)
+- server/src/routes/agentsCommands.ts — agent command endpoints: `GET /agents/:agentName/commands` (list) + `POST /agents/:agentName/commands/run` (execute), including optional `startStep` request parsing/type validation and deterministic `INVALID_START_STEP` mapping
 - server/src/test/unit/agents-discovery.test.ts — unit coverage for agent discovery rules (config/description/system prompt)
 - server/src/test/unit/agents-authSeed.test.ts — unit coverage for agent auth seeding (copy/no-overwrite/concurrency)
 - server/src/test/unit/agents-router-list.test.ts — Supertest coverage for `GET /agents` response shape and description handling
 - server/src/test/unit/agents-router-run.test.ts — Supertest coverage for `POST /agents/:agentName/run` validation/error mapping/shape
-- server/src/test/unit/agents-commands-router-list.test.ts — Supertest coverage for `GET /agents/:agentName/commands` response shape and 404 mapping
-- server/src/test/unit/agents-commands-router-run.test.ts — Supertest coverage for `POST /agents/:agentName/commands/run` validation/error mapping/abort wiring
+- server/src/test/unit/agents-commands-router-list.test.ts — Supertest coverage for `GET /agents/:agentName/commands` response shape (`stepCount` included on every item) and 404 mapping
+- server/src/test/unit/agents-commands-router-run.test.ts — Supertest coverage for `POST /agents/:agentName/commands/run` validation/error mapping/abort wiring, including optional `startStep` and deterministic `INVALID_START_STEP` payloads
 - server/src/test/unit/agents-working-folder.test.ts — unit coverage for resolving agent working folder into a Codex workingDirectory override
 - server/src/test/unit/agent-commands-schema.test.ts — unit coverage for v1 agent command JSON schema parsing/strictness/trimming
 - server/src/test/unit/agent-commands-loader.test.ts — unit coverage for loading command summaries from disk (valid/invalid/missing)
-- server/src/test/unit/agent-commands-list.test.ts — unit coverage for listing agent commands from `commands/` (missing folder, filtering, sorting, no-cache)
-- server/src/test/unit/agent-commands-runner.test.ts — unit coverage for command execution runner (sequential steps, abort stop, lock behavior)
+- server/src/test/unit/agent-commands-list.test.ts — unit coverage for listing agent commands from `commands/` (missing folder, filtering, sorting, no-cache, and `stepCount` semantics for valid/invalid entries)
+- server/src/test/unit/agent-commands-runner.test.ts — unit coverage for command execution runner (sequential steps, abort stop, lock behavior, `startStep` defaults/boundaries/offsets, and deterministic `INVALID_START_STEP` failures)
 - server/src/test/unit/agent-commands-runner-retry.test.ts — unit coverage for transient reconnect retry behavior in the command runner
 - server/src/test/unit/flow-command-retries-config.test.ts — unit coverage for shared flow/command retry-budget parsing behavior
 - server/src/test/unit/agent-commands-runner-abort-retry.test.ts — unit coverage that retries stop immediately when aborted
@@ -749,12 +961,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/flows.break-parser.test.ts — unit coverage for strict/fenced/balanced break-answer parsing order, schema gating, and terminal failure behavior
 - server/src/test/unit/mcp-responder-transient-error.test.ts — unit coverage that McpResponder ignores transient reconnect error events
 - server/src/test/unit/chat-command-metadata.test.ts — unit coverage that chat persistence attaches `command` metadata to turns created by command runs
-- server/src/test/unit/chatModels.codex.test.ts — unit coverage for `/chat/models` Codex defaults, warnings, and env model lists
-- server/src/test/unit/chatProviders.test.ts — unit coverage for `/chat/providers` runtime availability ordering and fallback-ready provider selection
+- server/src/test/unit/chatModels.codex.test.ts — unit coverage for `/chat/models` resolver-backed Codex defaults/warnings, model capability payloads, and parity fixtures
+- server/src/test/unit/chatProviders.test.ts — unit coverage for `/chat/providers` availability ordering plus resolver-backed `codexDefaults`/`codexWarnings` parity
 - server/src/test/integration/openai-retry-env-override.test.ts — integration coverage for OpenAI retryable-failure attempt counts honoring `OPENAI_INGEST_MAX_RETRIES`
-- server/src/config/chatDefaults.ts — shared resolver for chat provider/model defaults (`request -> env -> fallback`)
+- server/src/config/chatDefaults.ts — shared Codex chat-default resolver for `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search` with precedence (`override -> config -> env -> hardcoded`) plus field-specific env fallback warnings
 - server/src/test/unit/config.chatDefaults.test.ts — unit coverage for shared chat default resolution precedence
-- server/src/test/unit/chatValidators.test.ts — unit coverage for Codex env defaults + warnings in chat validation
+- server/src/test/unit/chatValidators.test.ts — unit coverage for resolver-backed Codex validation defaults, warning semantics, and parity fixtures
 - server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts — ensures ChatInterfaceCodex honors per-call workingDirectory overrides
 - server/src/test/unit/conversations-router-agent-filter.test.ts — Supertest coverage for `/conversations?agentName=...` request forwarding
 - server/src/test/integration/conversations.bulk.test.ts — Supertest coverage for bulk conversation endpoints (archive/restore/delete + validation/conflicts)
@@ -771,9 +983,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/ws-chat-stream.test.ts — unit coverage for WS transcript sequencing, catch-up snapshots, cancellation errors, stale/late delta guards, unsubscribe behavior, and inflight cleanup
 - server/src/test/integration/mcp-codebase-question-ws-stream.test.ts — integration coverage proving MCP `codebase_question` runs publish WS transcript updates
 - server/src/test/integration/mcp-server.test.ts — integration coverage for MCP v1 tools/list + tools/call (vector search + AST tools) and error mappings
-- server/src/test/integration/agents-run-ws-stream.test.ts — integration coverage proving agent runs publish WS transcript updates
+- server/src/test/integration/agents-run-ws-stream.test.ts — integration coverage proving agent runs publish WS transcript updates, including absolute `stepIndex`/`totalSteps` metadata for `startStep > 1`
 - server/src/test/integration/agents-run-ws-cancel.test.ts — integration coverage proving agent runs can be cancelled via WS `cancel_inflight`
-- server/src/test/integration/agents-run-client-conversation-id.test.ts — integration coverage proving client-supplied conversation ids can be new on first Agents run
+- server/src/test/integration/agents-run-client-conversation-id.test.ts — integration coverage for client-supplied conversation ids plus command-run `startStep` omission defaults and runtime step-drift rejection
+- server/src/test/integration/conversations.turns.test.ts — integration coverage for conversation turns API including persisted `command` metadata stability for start-step offset histories
 - server/src/test/integration/ws-logs.test.ts — integration coverage proving WS lifecycle logs are queryable via `GET /logs`
 - server/src/test/unit/turn-command-metadata.test.ts — unit coverage that turn repo helpers persist and rehydrate optional `command` metadata
 - server/src/mcpAgents/server.ts — start/stop Agents MCP JSON-RPC server on `AGENTS_MCP_PORT` (default 5012)
@@ -785,23 +998,26 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/mcp-agents-router-list.test.ts — unit coverage that Agents MCP exposes exactly four tools
 - server/src/test/unit/mcp-agents-commands-list.test.ts — unit coverage for Agents MCP list_commands output shapes, filtering, and param errors
 - server/src/test/unit/mcp-agents-router-run.test.ts — unit coverage that Agents MCP returns JSON text content with segments
-- server/src/test/unit/mcp-agents-commands-run.test.ts — unit coverage for Agents MCP run_command tool (success + error mappings)
+- server/src/test/unit/mcp-agents-commands-run.test.ts — unit coverage for Agents MCP run_command tool (success + error mappings) plus regression guard that MCP schema/input still excludes `startStep`
 - server/src/test/unit/mcp-agents-tools.test.ts — unit coverage for tools-layer argument forwarding and invalid-params error mapping
 - server/src/test/integration/mcp-persistence-source.test.ts — MCP persistence adds source metadata and persists MCP runs
 - codex_agents/planning_agent/commands/improve_plan.json — long-form planning macro used to refine story plans
 - codex_agents/planning_agent/commands/smoke.json — smoke-test planning macro for validating `run_command` wiring
 - client/src/test/useConversations.source.test.ts — hook defaults missing source to REST and preserves MCP
 - client/src/test/chatPage.source.test.tsx — conversation list renders source labels for REST and MCP conversations
+- client/src/api/agents.ts — Agents REST client wrapper with strict command-list `stepCount` parsing, optional `startStep` run payload serialization, and marker `DEV_0000040_T04_CLIENT_AGENTS_API`
 - client/src/test/agentsApi.workingFolder.payload.test.ts — Agents API wrapper includes `working_folder` only when non-empty
-- client/src/test/agentsApi.commandsList.test.ts — Agents API wrapper calls `GET /agents/:agentName/commands` and preserves disabled command entries
-- client/src/test/agentsApi.commandsRun.test.ts — Agents API wrapper calls `POST /agents/:agentName/commands/run` and omits optional fields when absent
+- client/src/test/agentsApi.commandsList.test.ts — Agents API wrapper enforces required `stepCount` parsing (`integer >= 1`) and rejects missing/invalid command-list payloads
+- client/src/test/agentsApi.commandsRun.test.ts — Agents API wrapper calls `POST /agents/:agentName/commands/run`, includes `startStep` only when provided, and omits optional fields when absent
 - client/src/test/agentsApi.errors.test.ts — Agents API wrapper throws structured errors exposing HTTP status + server error codes (e.g., `RUN_IN_PROGRESS`)
 - client/src/test/flowsApi.test.ts — Flows API wrapper list/run request shapes, parsed responses, and structured error coverage
 - client/src/test/flowsApi.run.payload.test.ts — Flows API wrapper includes optional run payload fields (`working_folder`, `resumeStepPath`) when set
-- client/src/test/agentsPage.commandsList.test.tsx — Agents page command dropdown refresh, disabled entries, labels, and description display
+- client/src/pages/AgentsPage.tsx — Agents command row includes `Start step` (`Step 1..N`) state machine and execute marker `DEV_0000040_T05_AGENTS_UI_EXECUTE`
+- client/src/test/agentsPage.commandsList.test.tsx — Agents page command dropdown plus `Start step` ordering/state/reset/single-step/disabled-command coverage
 - client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx — Agents page command execution refreshes conversation turns for rendering
 - client/src/test/agentsPage.commandsRun.conflict.test.tsx — Agents page surfaces RUN_IN_PROGRESS conflicts for both command execute and normal send
-- client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx — Agents page disables command execution when persistence is unavailable (mongoConnected=false)
+- client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx — Agents page persistence-disable behavior and execute payload `startStep` assertions
+- client/src/test/agentsPage.run.commandError.test.tsx — Agents page command run errors include unchanged backend `INVALID_START_STEP` range messages
 - client/src/test/agentsPage.commandsRun.abort.test.tsx — Agents page Stop sends WS cancel_inflight (does not abort async start request)
 - client/src/test/agentsPage.streaming.test.tsx — Agents page renders live WS transcript updates and unsubscribes on conversation switch
 - client/src/test/agentsPage.sidebarWs.test.tsx — Agents page sidebar applies subscribe_sidebar conversation_upsert/delete with agentName filtering + ordering

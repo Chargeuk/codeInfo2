@@ -89,6 +89,11 @@ To keep Windows and WSL in sync, use these settings.
 
 - The repo ships `config.toml.example` at the root. On server startup, if `${CODEINFO_CODEX_HOME:-./codex}/config.toml` is missing, it is copied from the example (the `codex/` directory is git-ignored).
 - Customize `./codex/config.toml` after the first run; subsequent starts leave your edits intact.
+- Chat runtime config bootstrap (`./codex/chat/config.toml`) is deterministic and non-destructive:
+  - if chat config exists: no overwrite (`existing_noop`).
+  - if chat config is missing and base config exists: copy `./codex/config.toml` once (`copied`).
+  - if both chat and base configs are missing: generate a standard chat template (`generated_template`).
+  - IO/permission failures are surfaced with deterministic warnings and no silent fallback; failed copy/write paths clean up partial destination files.
 
 ## Codex (CLI)
 
@@ -98,6 +103,22 @@ To keep Windows and WSL in sync, use these settings.
 - Codex home: `CODEINFO_CODEX_HOME=./codex` (mounted to `/app/codex` in Docker); seeded from `config.toml.example` on first start—edit `./codex/config.toml` after seeding to add MCP servers or overrides.
 - Behaviour when missing: if the CLI, `auth.json`, or `config.toml` are absent (and no host auth is available to copy), Codex stays disabled; startup logs explain which prerequisite is missing and the chat UI shows a disabled-state banner.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
+- Server SDK pin and runtime guard are coupled:
+  - `@openai/codex-sdk` is pinned at `0.107.0` in `server/package.json`.
+  - startup guard requires exact `0.107.0`; pre-release, lower, and higher versions are rejected.
+  - if installed and required versions diverge, startup emits deterministic guard-rejection logs and the mismatch must be corrected before release.
+
+## REST Codex defaults behavior
+
+- REST chat capability surfaces now use one shared Codex-default resolver path.
+- Covered fields are `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
+- Resolution precedence is deterministic per field:
+  - request override -> `codex/chat/config.toml` -> legacy env fallback -> hardcoded safe fallback.
+- `web_search` handling is canonical-first:
+  - canonical `web_search` wins over alias keys;
+  - alias bool values normalize to canonical modes (`true -> live`, `false -> disabled`).
+- `/chat/models?provider=codex` and `/chat/providers` return resolver-backed `codexDefaults` and `codexWarnings`.
+- `/chat` request validation applies the same resolver-backed defaults when Codex flags are omitted.
 
 ## Chrome DevTools MCP
 
@@ -142,6 +163,16 @@ codex_agents/<agentName>/
 
 ## Agents Workspace Behavior Notes
 
+- Command start-step execution:
+  - The command row shows `Command` -> `Start step` -> `Command info` -> `Execute command`.
+  - `Start step` is always visible and uses backend `stepCount` to render `Step 1..Step N`.
+  - `GET /agents/{agentName}/commands` always returns `stepCount >= 1` per command; unreadable/invalid command files return sentinel `stepCount: 1` with `disabled: true`.
+  - Before selecting a valid command, `Start step` stays disabled with `Select command first`.
+  - Changing command selection resets `Start step` back to `Step 1`.
+  - Single-step commands (`stepCount: 1`) keep `Start step` visible but disabled on `Step 1`.
+  - Execute Command sends `startStep` in `POST /agents/{agentName}/commands/run` and backend range errors (for example `startStep must be between 1 and N`) are shown in the existing run error banner.
+  - Backward compatibility is preserved: when `startStep` is omitted, server execution defaults to step `1`.
+  - Scope boundary: start-step controls are AGENTS-page command execution only (not flows/chat/MCP).
 - Command info popover:
   - The **Command info** control is disabled until a command is selected.
   - Clicking the disabled wrapper logs a blocked event (`[agents.commandInfo.blocked] reason=no_command_selected`).
@@ -171,6 +202,9 @@ codex_agents/<agentName>/
 - `[agents.prompts.api.error]`: client received prompts API error.
 - `[agents.commandInfo.open]`: command info popover opened with selected command.
 - `[agents.commandInfo.blocked]`: command info was clicked with no command selected.
+- `DEV_0000040_T04_CLIENT_AGENTS_API`: command-run API payload marker with `includesStartStep`/`startStep`.
+- `DEV_0000040_T05_AGENTS_UI_EXECUTE`: AGENTS execute-click marker with selected command + `startStep`.
+- `DEV_0000040_T12_DOC_SYNC_COMPLETE`: docs/contract synchronization marker emitted once during final verification with context fields for `readme`, `design`, `projectStructure`, and `openapi` sync status.
 - `[agents.prompts.discovery.commit]`: UI committed `working_folder` (blur/enter/picker).
 - `[agents.prompts.discovery.request.start]`: UI started a prompts discovery request id.
 - `[agents.prompts.discovery.request.stale_ignored]`: stale discovery response was ignored.

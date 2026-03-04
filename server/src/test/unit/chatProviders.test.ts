@@ -6,6 +6,7 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
 
+import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
@@ -60,6 +61,9 @@ function createClient(
 async function startServer(params: {
   mcpAvailable: boolean;
   clientFactory: () => LMStudioClient;
+  codexCapabilityResolver?: (options: {
+    consumer: 'chat_models' | 'chat_validation';
+  }) => Promise<CodexCapabilityResolution>;
 }) {
   const app = express();
   app.use(express.json());
@@ -74,7 +78,10 @@ async function startServer(params: {
 
   app.use(
     '/chat',
-    createChatProvidersRouter({ clientFactory: params.clientFactory }),
+    createChatProvidersRouter({
+      clientFactory: params.clientFactory,
+      codexCapabilityResolver: params.codexCapabilityResolver,
+    }),
   );
 
   const httpServer = http.createServer(app);
@@ -132,6 +139,8 @@ test('providers route orders lmstudio first when codex default is unavailable an
     assert.equal(res.body.providers[1].id, 'codex');
     assert.equal(res.body.providers[1].available, false);
     assert.equal(res.body.providers[1].reason, 'CODE_INFO_LLM_UNAVAILABLE');
+    assert.ok(res.body.codexDefaults);
+    assert.ok(Array.isArray(res.body.codexWarnings));
   } finally {
     await stopServer(server);
   }
@@ -163,6 +172,61 @@ test('providers route keeps codex first when lmstudio has no selectable model', 
     assert.equal(res.body.providers[1].id, 'lmstudio');
     assert.equal(res.body.providers[1].available, false);
     assert.equal(res.body.providers[1].reason, 'lmstudio unavailable');
+    assert.ok(res.body.codexDefaults);
+    assert.ok(Array.isArray(res.body.codexWarnings));
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers route exposes shared resolver-backed codex defaults and warnings parity', async () => {
+  const fixture: CodexCapabilityResolution = {
+    defaults: {
+      sandboxMode: 'workspace-write',
+      approvalPolicy: 'on-request',
+      modelReasoningEffort: 'medium',
+      networkAccessEnabled: false,
+      webSearchEnabled: false,
+    },
+    models: [
+      {
+        model: 'fixture-model',
+        supportedReasoningEfforts: ['medium'],
+        defaultReasoningEffort: 'medium',
+      },
+    ],
+    byModel: new Map([
+      [
+        'fixture-model',
+        {
+          model: 'fixture-model',
+          supportedReasoningEfforts: ['medium'],
+          defaultReasoningEffort: 'medium',
+        },
+      ],
+    ]),
+    warnings: ['fixture warning'],
+    fallbackUsed: false,
+  };
+  env.set('LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+    codexCapabilityResolver: async () => fixture,
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+    assert.deepEqual(res.body.codexDefaults, fixture.defaults);
+    assert.ok((res.body.codexWarnings as string[]).includes('fixture warning'));
   } finally {
     await stopServer(server);
   }

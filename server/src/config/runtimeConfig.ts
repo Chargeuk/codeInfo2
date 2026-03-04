@@ -24,6 +24,7 @@ const T22_SUCCESS_LOG =
   '[DEV-0000037][T22] event=final_config_minimization_completed result=success';
 const T22_ERROR_LOG =
   '[DEV-0000037][T22] event=final_config_minimization_completed result=error';
+const T09_BOOTSTRAP_LOG_MARKER = 'DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH';
 
 export type RuntimeTomlConfig = Record<string, unknown>;
 export type RuntimeConfigWarning = { path: string; message: string };
@@ -60,6 +61,16 @@ export class RuntimeConfigResolutionError extends Error {
   }
 }
 
+type ChatBootstrapBranch =
+  | 'existing_noop'
+  | 'copied'
+  | 'generated_template'
+  | 'copy_failed'
+  | 'template_write_failed'
+  | 'chat_stat_failed'
+  | 'base_stat_failed'
+  | 'chat_dir_create_failed';
+
 export type RuntimeConfigSnapshot = {
   codexHome: string;
   baseConfigPath: string;
@@ -71,6 +82,14 @@ export type RuntimeConfigSnapshot = {
 };
 
 const WEB_SEARCH_MODES = new Set(['live', 'cached', 'disabled']);
+const CHAT_CONFIG_TEMPLATE = [
+  'model = "gpt-5.3-codex"',
+  'model_reasoning_effort = "high"',
+  'approval_policy = "on-failure"',
+  'sandbox_mode = "danger-full-access"',
+  'web_search = "live"',
+  '',
+].join('\n');
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -493,6 +512,44 @@ function logValidationWarnings(warnings: RuntimeConfigWarning[]) {
   }
 }
 
+function logTask9Bootstrap(params: {
+  branch: ChatBootstrapBranch;
+  codexHome: string;
+  baseConfigPath: string;
+  chatConfigPath: string;
+  warning?: string;
+  warningCode?: string;
+  copied: boolean;
+  generatedTemplate: boolean;
+}) {
+  const payload = {
+    branch: params.branch,
+    codexHome: params.codexHome,
+    baseConfigPath: params.baseConfigPath,
+    chatConfigPath: params.chatConfigPath,
+    copied: params.copied,
+    generatedTemplate: params.generatedTemplate,
+    warning: params.warning,
+    warningCode: params.warningCode,
+  };
+  console.info(T09_BOOTSTRAP_LOG_MARKER, payload);
+  if (params.warning) {
+    console.warn(T09_BOOTSTRAP_LOG_MARKER, payload);
+  }
+}
+
+async function cleanupPartialChatConfig(chatConfigPath: string) {
+  const exists = await fs
+    .stat(chatConfigPath)
+    .then((stat) => stat.isFile())
+    .catch((error) => {
+      if ((error as { code?: string }).code === 'ENOENT') return false;
+      return false;
+    });
+  if (!exists) return;
+  await fs.unlink(chatConfigPath).catch(() => undefined);
+}
+
 export async function resolveMergedAndValidatedRuntimeConfig(params: {
   surface: RuntimeConfigSurface;
   codexHome?: string;
@@ -567,47 +624,214 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
   baseConfigPath: string;
   chatConfigPath: string;
   copied: boolean;
+  generatedTemplate: boolean;
+  branch: ChatBootstrapBranch;
 }> {
   const codexHome = resolveCodexHome(params?.codexHome);
   const baseConfigPath = getCodexConfigPathForHome(codexHome);
   const chatConfigPath = getCodexChatConfigPathForHome(codexHome);
 
-  const chatExists = await fs
-    .stat(chatConfigPath)
-    .then((stat) => stat.isFile())
-    .catch((error) => {
+  const chatExists = await fs.stat(chatConfigPath).then(
+    (stat) => stat.isFile(),
+    (error: unknown) => {
       if ((error as { code?: string }).code === 'ENOENT') return false;
+      const code = (error as { code?: string }).code;
+      const warning =
+        error instanceof Error ? error.message : 'Failed to stat chat config';
+      logTask9Bootstrap({
+        branch: 'chat_stat_failed',
+        codexHome,
+        baseConfigPath,
+        chatConfigPath,
+        copied: false,
+        generatedTemplate: false,
+        warning,
+        warningCode: code,
+      });
       throw error;
-    });
+    },
+  );
 
   if (chatExists) {
-    return { codexHome, baseConfigPath, chatConfigPath, copied: false };
+    logTask9Bootstrap({
+      branch: 'existing_noop',
+      codexHome,
+      baseConfigPath,
+      chatConfigPath,
+      copied: false,
+      generatedTemplate: false,
+    });
+    return {
+      codexHome,
+      baseConfigPath,
+      chatConfigPath,
+      copied: false,
+      generatedTemplate: false,
+      branch: 'existing_noop',
+    };
   }
 
-  const baseExists = await fs
-    .stat(baseConfigPath)
-    .then((stat) => stat.isFile())
-    .catch((error) => {
+  const baseExists = await fs.stat(baseConfigPath).then(
+    (stat) => stat.isFile(),
+    (error: unknown) => {
       if ((error as { code?: string }).code === 'ENOENT') return false;
+      const code = (error as { code?: string }).code;
+      const warning =
+        error instanceof Error ? error.message : 'Failed to stat base config';
+      logTask9Bootstrap({
+        branch: 'base_stat_failed',
+        codexHome,
+        baseConfigPath,
+        chatConfigPath,
+        copied: false,
+        generatedTemplate: false,
+        warning,
+        warningCode: code,
+      });
+      throw error;
+    },
+  );
+
+  await fs
+    .mkdir(path.dirname(chatConfigPath), { recursive: true })
+    .catch((error: unknown) => {
+      const code = (error as { code?: string }).code;
+      const warning =
+        error instanceof Error
+          ? error.message
+          : 'Failed to create chat config directory';
+      logTask9Bootstrap({
+        branch: 'chat_dir_create_failed',
+        codexHome,
+        baseConfigPath,
+        chatConfigPath,
+        copied: false,
+        generatedTemplate: false,
+        warning,
+        warningCode: code,
+      });
       throw error;
     });
 
   if (!baseExists) {
-    return { codexHome, baseConfigPath, chatConfigPath, copied: false };
+    const tempPath = `${chatConfigPath}.tmp`;
+    try {
+      await fs.writeFile(tempPath, CHAT_CONFIG_TEMPLATE, {
+        encoding: 'utf8',
+        flag: 'wx',
+      });
+      await fs.rename(tempPath, chatConfigPath);
+      logTask9Bootstrap({
+        branch: 'generated_template',
+        codexHome,
+        baseConfigPath,
+        chatConfigPath,
+        copied: false,
+        generatedTemplate: true,
+      });
+      return {
+        codexHome,
+        baseConfigPath,
+        chatConfigPath,
+        copied: false,
+        generatedTemplate: true,
+        branch: 'generated_template',
+      };
+    } catch (error) {
+      await fs.unlink(tempPath).catch(() => undefined);
+      await cleanupPartialChatConfig(chatConfigPath);
+      if ((error as { code?: string }).code === 'EEXIST') {
+        logTask9Bootstrap({
+          branch: 'existing_noop',
+          codexHome,
+          baseConfigPath,
+          chatConfigPath,
+          copied: false,
+          generatedTemplate: false,
+        });
+        return {
+          codexHome,
+          baseConfigPath,
+          chatConfigPath,
+          copied: false,
+          generatedTemplate: false,
+          branch: 'existing_noop',
+        };
+      }
+      const code = (error as { code?: string }).code;
+      const warning =
+        error instanceof Error
+          ? error.message
+          : 'Failed to write chat config template';
+      logTask9Bootstrap({
+        branch: 'template_write_failed',
+        codexHome,
+        baseConfigPath,
+        chatConfigPath,
+        copied: false,
+        generatedTemplate: false,
+        warning,
+        warningCode: code,
+      });
+      throw error;
+    }
   }
 
-  await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
   try {
     await fs.copyFile(
       baseConfigPath,
       chatConfigPath,
       fsConstants.COPYFILE_EXCL,
     );
-    return { codexHome, baseConfigPath, chatConfigPath, copied: true };
+    logTask9Bootstrap({
+      branch: 'copied',
+      codexHome,
+      baseConfigPath,
+      chatConfigPath,
+      copied: true,
+      generatedTemplate: false,
+    });
+    return {
+      codexHome,
+      baseConfigPath,
+      chatConfigPath,
+      copied: true,
+      generatedTemplate: false,
+      branch: 'copied',
+    };
   } catch (error) {
     if ((error as { code?: string }).code === 'EEXIST') {
-      return { codexHome, baseConfigPath, chatConfigPath, copied: false };
+      logTask9Bootstrap({
+        branch: 'existing_noop',
+        codexHome,
+        baseConfigPath,
+        chatConfigPath,
+        copied: false,
+        generatedTemplate: false,
+      });
+      return {
+        codexHome,
+        baseConfigPath,
+        chatConfigPath,
+        copied: false,
+        generatedTemplate: false,
+        branch: 'existing_noop',
+      };
     }
+    await cleanupPartialChatConfig(chatConfigPath);
+    const code = (error as { code?: string }).code;
+    const warning =
+      error instanceof Error ? error.message : 'Failed to copy base config';
+    logTask9Bootstrap({
+      branch: 'copy_failed',
+      codexHome,
+      baseConfigPath,
+      chatConfigPath,
+      copied: false,
+      generatedTemplate: false,
+      warning,
+      warningCode: code,
+    });
     throw error;
   }
 }

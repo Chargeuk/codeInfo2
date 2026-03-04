@@ -2,10 +2,8 @@ import {
   CODEX_MODEL_REASONING_EFFORTS,
   type CodexDefaults,
 } from '@codeinfo2/common';
-import {
-  getCodexEnvDefaults,
-  getCodexModelList,
-} from '../config/codexEnvDefaults.js';
+import { getCodexModelList } from '../config/codexEnvDefaults.js';
+import { resolveCodexChatDefaults } from '../config/chatDefaults.js';
 import { baseLogger } from '../logger.js';
 
 const T13_SUCCESS_LOG =
@@ -30,6 +28,25 @@ export type CodexCapabilityResolution = {
 export type ResolveCodexCapabilitiesOptions = {
   consumer: 'chat_models' | 'chat_validation';
   resolveReasoningEffortsMetadata?: () => string | undefined;
+  codexHome?: string;
+};
+
+const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
+
+const parseNetworkAccessEnv = (
+  value: string | undefined,
+  warnings: string[],
+): boolean => {
+  if (value === undefined) {
+    return true;
+  }
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === 'true') return true;
+  if (trimmed === 'false') return false;
+  warnings.push(
+    'Codex_network_access_enabled must be "true" or "false"; using default "true" instead.',
+  );
+  return true;
 };
 
 const parseReasoningEffortsMetadata = (
@@ -73,12 +90,14 @@ const parseReasoningEffortsMetadata = (
   return { efforts, fallbackUsed: false };
 };
 
-export const resolveCodexCapabilities = (
+export const resolveCodexCapabilities = async (
   options: ResolveCodexCapabilitiesOptions,
-): CodexCapabilityResolution => {
-  const codexEnv = getCodexEnvDefaults();
+): Promise<CodexCapabilityResolution> => {
+  const codexDefaults = await resolveCodexChatDefaults({
+    codexHome: options.codexHome ?? process.env.CODEX_HOME,
+  });
   const modelList = getCodexModelList();
-  const warnings = [...codexEnv.warnings, ...modelList.warnings];
+  const warnings = [...codexDefaults.warnings, ...modelList.warnings];
   const resolveReasoningEffortsMetadata =
     options.resolveReasoningEffortsMetadata ??
     (() => process.env.Codex_reasoning_efforts_metadata);
@@ -90,13 +109,13 @@ export const resolveCodexCapabilities = (
     );
 
     const normalizedEfforts = Array.from(
-      new Set([...metadata.efforts, codexEnv.defaults.modelReasoningEffort]),
+      new Set([...metadata.efforts, codexDefaults.values.modelReasoningEffort]),
     );
     const defaultReasoningEffort = normalizedEfforts.includes(
-      codexEnv.defaults.modelReasoningEffort,
+      codexDefaults.values.modelReasoningEffort,
     )
-      ? codexEnv.defaults.modelReasoningEffort
-      : (normalizedEfforts[0] ?? codexEnv.defaults.modelReasoningEffort);
+      ? codexDefaults.values.modelReasoningEffort
+      : (normalizedEfforts[0] ?? codexDefaults.values.modelReasoningEffort);
 
     const models = modelList.models.map((model) => ({
       model,
@@ -104,13 +123,32 @@ export const resolveCodexCapabilities = (
       defaultReasoningEffort,
     }));
 
+    const networkAccessEnabled = parseNetworkAccessEnv(
+      process.env.Codex_network_access_enabled,
+      warnings,
+    );
+    const defaults: CodexDefaults = {
+      sandboxMode: codexDefaults.values.sandboxMode,
+      approvalPolicy: codexDefaults.values.approvalPolicy,
+      modelReasoningEffort: codexDefaults.values.modelReasoningEffort,
+      networkAccessEnabled,
+      webSearchEnabled: codexDefaults.values.webSearch !== 'disabled',
+    };
+
     const resolution: CodexCapabilityResolution = {
-      defaults: codexEnv.defaults,
+      defaults,
       models,
       byModel: new Map(models.map((entry) => [entry.model, entry])),
       warnings,
       fallbackUsed: modelList.fallbackUsed || metadata.fallbackUsed,
     };
+
+    console.info(TASK7_LOG_MARKER, {
+      surface: options.consumer,
+      warningCount: warnings.length,
+      defaultsSources: codexDefaults.sources,
+      defaults,
+    });
 
     baseLogger.info(
       {
@@ -126,16 +164,27 @@ export const resolveCodexCapabilities = (
   } catch (error) {
     const fallbackEfforts = [
       ...CODEX_MODEL_REASONING_EFFORTS,
-      codexEnv.defaults.modelReasoningEffort,
+      codexDefaults.values.modelReasoningEffort,
     ];
     const normalizedFallbackEfforts = Array.from(new Set(fallbackEfforts));
     const fallbackDefault =
-      codexEnv.defaults.modelReasoningEffort ?? normalizedFallbackEfforts[0];
+      codexDefaults.values.modelReasoningEffort ?? normalizedFallbackEfforts[0];
     const models = modelList.models.map((model) => ({
       model,
       supportedReasoningEfforts: normalizedFallbackEfforts,
       defaultReasoningEffort: fallbackDefault,
     }));
+    const networkAccessEnabled = parseNetworkAccessEnv(
+      process.env.Codex_network_access_enabled,
+      warnings,
+    );
+    const defaults: CodexDefaults = {
+      sandboxMode: codexDefaults.values.sandboxMode,
+      approvalPolicy: codexDefaults.values.approvalPolicy,
+      modelReasoningEffort: codexDefaults.values.modelReasoningEffort,
+      networkAccessEnabled,
+      webSearchEnabled: codexDefaults.values.webSearch !== 'disabled',
+    };
 
     baseLogger.error(
       {
@@ -147,7 +196,7 @@ export const resolveCodexCapabilities = (
     );
 
     return {
-      defaults: codexEnv.defaults,
+      defaults,
       models,
       byModel: new Map(models.map((entry) => [entry.model, entry])),
       warnings: [

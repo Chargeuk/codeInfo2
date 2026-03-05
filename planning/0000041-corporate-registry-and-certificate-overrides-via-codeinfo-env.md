@@ -687,7 +687,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 4. Client Dockerfile Build Wiring: apply npm registry variable in client build stage
 
 - Task Status: ****done****
-- Git Commits: `ca60ce53`
+- Git Commits: `ca60ce53`, `948263a5`
 
 #### Overview
 

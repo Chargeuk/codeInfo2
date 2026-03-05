@@ -686,7 +686,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 4. Client Dockerfile Build Wiring: apply npm registry variable in client build stage
 
-- Task Status: ****in_progress****
+- Task Status: ****done****
 - Git Commits: `ca60ce53`
 
 #### Overview
@@ -735,8 +735,8 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 6. [x] `npm run test:summary:e2e` (allow up to 10 minutes; e.g., `timeout 10m` or set `timeout_ms=600000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
 7. [x] `npm run compose:build:summary` (allow up to 20 minutes; e.g., `timeout 20m` or set `timeout_ms=1200000` in the harness) - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 8. [x] `npm run compose:up` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
-9. [ ] Manual Playwright-MCP check (allow up to 12 minutes in total) to manually confirm story items and general regression signals, including that there are no logged errors within the debug console. Use Playwright MCP tools against http://host.docker.internal:5001, take screenshots, and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`). Required screenshots for this task: `task-4-home-load.png` (home UI renders without layout breakage), `task-4-logs-tokens.png` (Logs page with `[CODEINFO][T01_COMPOSE_WIRING_APPLIED]`, `[CODEINFO][T02_ENV_SOURCE_RESOLVED]`, `[CODEINFO][T03_SERVER_BUILD_OVERRIDE_STATE]`, and `[CODEINFO][T04_CLIENT_BUILD_OVERRIDE_STATE]`), and `task-4-console-clean.png` (browser console with no unexpected errors). The agent must review these screenshots and confirm expected outcomes: each listed token appears once with fields matching the launched workflow/inputs, and UI/console checks pass.
-10. [ ] `npm run compose:down` (allow up to 3 minutes; e.g., `timeout 3m` or set `timeout_ms=180000` in the harness)
+9. [x] Manual Playwright-MCP check (allow up to 12 minutes in total) to manually confirm story items and general regression signals, including that there are no logged errors within the debug console. Use Playwright MCP tools against http://host.docker.internal:5001, take screenshots, and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`). Required screenshots for this task: `task-4-home-load.png` (home UI renders without layout breakage), `task-4-logs-tokens.png` (Logs page with `[CODEINFO][T01_COMPOSE_WIRING_APPLIED]`, `[CODEINFO][T02_ENV_SOURCE_RESOLVED]`, `[CODEINFO][T03_SERVER_BUILD_OVERRIDE_STATE]`, and `[CODEINFO][T04_CLIENT_BUILD_OVERRIDE_STATE]`), and `task-4-console-clean.png` (browser console with no unexpected errors). The agent must review these screenshots and confirm expected outcomes: each listed token appears once with fields matching the launched workflow/inputs, and UI/console checks pass.
+10. [x] `npm run compose:down` (allow up to 3 minutes; e.g., `timeout 3m` or set `timeout_ms=180000` in the harness)
 
 #### Implementation notes
 
@@ -755,6 +755,8 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Testing 3-6: reused single-pass regression wrapper evidence executed in this session (`server-unit` log `test-results/server-unit-tests-2026-03-05T22-11-51-634Z.log`, `server-cucumber` log `test-results/server-cucumber-tests-2026-03-05T22-20-49-835Z.log`, `client` log `test-results/client-tests-2026-03-05T22-22-14-530Z.log`, `e2e` log `logs/test-summaries/e2e-tests-latest.log`), all with `failed: 0`.
 - Testing 7: command=`npm run compose:build:summary`, exit=0, log=`logs/test-summaries/compose-build-latest.log`, summary status=`passed`, items failed=`0`.
 - Testing 8: command=`npm run compose:up`, exit=0, log=`not_applicable`, result=`stack started` (server/client containers reached Started/Healthy).
+- Testing 9: command=`Playwright MCP manual checks against http://host.docker.internal:5001`, exit=0, log=`not_applicable`; screenshots saved in `playwright-output-local/` (`task-4-home-load.png`, `task-4-logs-tokens.png`, `task-4-console-clean.png`); verified required T01-T04 tokens and `browser_console_messages(level=error)` returned no entries.
+- Testing 10: command=`npm run compose:down`, exit=0, log=`not_applicable`, result=`compose stack stopped and network removed`.
 
 ---
 

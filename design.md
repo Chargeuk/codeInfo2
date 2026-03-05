@@ -57,6 +57,34 @@ flowchart LR
   V --> C[chat route persists resolved provider/model]
 ```
 
+## Story 0000041 Task 3 server build override wiring
+
+- `server/Dockerfile` now declares stage-local corporate override ARGs in every install stage (`deps`, `runtime`) so build-time inputs are available where install commands run.
+- Install commands keep existing anchors unchanged while branching conditionally:
+  - deps `npm ci` runs with `NPM_CONFIG_REGISTRY` only when `CODEINFO_NPM_REGISTRY` is non-empty.
+  - runtime pip install appends `--index-url` and `--trusted-host` only when corresponding values are non-empty.
+  - runtime global npm install reads `/tmp/npm-global.txt` unchanged and applies `NPM_CONFIG_REGISTRY` only when non-empty.
+- Runtime metadata handoff is two-step: Docker build computes `CODEINFO_SERVER_BUILD_OVERRIDE_STATE` into a metadata file, and entrypoint resolves/parses that state to emit `[CODEINFO][T03_SERVER_BUILD_OVERRIDE_STATE]` with deterministic `off` fallbacks for missing/malformed input.
+
+```mermaid
+flowchart TD
+  A[Build args received in deps/runtime stages] --> B{CODEINFO_NPM_REGISTRY non-empty?}
+  B -- yes --> C[deps npm ci with NPM_CONFIG_REGISTRY]
+  B -- no --> D[deps npm ci default registry path]
+  C --> E[runtime stage install path]
+  D --> E
+  E --> F{pip index/trusted host values non-empty?}
+  F -- yes --> G[runtime pip install adds conditional flags]
+  F -- no --> H[runtime pip install default flags only]
+  G --> I{CODEINFO_NPM_REGISTRY non-empty?}
+  H --> I
+  I -- yes --> J[runtime global npm install with NPM_CONFIG_REGISTRY using /tmp/npm-global.txt]
+  I -- no --> K[runtime global npm install default registry using /tmp/npm-global.txt]
+  J --> L[Build writes CODEINFO_SERVER_BUILD_OVERRIDE_STATE metadata file]
+  K --> L
+  L --> M[Entrypoint loads/parses state and emits T03 token]
+```
+
 ```mermaid
 flowchart TD
   R[Resolved default provider/model] --> A{Selected provider available?}

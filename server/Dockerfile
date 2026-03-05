@@ -1,6 +1,10 @@
 # syntax=docker/dockerfile:1.7
 FROM node:22-slim AS deps
 WORKDIR /app
+ARG CODEINFO_NPM_REGISTRY
+ARG CODEINFO_PIP_INDEX_URL
+ARG CODEINFO_PIP_TRUSTED_HOST
+ARG CODEINFO_NODE_EXTRA_CA_CERTS
 ENV HUSKY=0
 RUN apt-get update && apt-get install -y \
     python3 \
@@ -11,7 +15,14 @@ COPY package*.json ./
 COPY package-lock.json ./
 COPY common/package*.json ./common/
 COPY server/package*.json ./server/
-RUN npm ci --workspaces --include-workspace-root --no-audit --no-fund
+RUN set -eu; \
+    if [ -n "${CODEINFO_NPM_REGISTRY:-}" ]; then \
+      echo "[CODEINFO][T03_BUILD][deps] npm registry override enabled"; \
+      NPM_CONFIG_REGISTRY="${CODEINFO_NPM_REGISTRY}" npm ci --workspaces --include-workspace-root --no-audit --no-fund; \
+    else \
+      echo "[CODEINFO][T03_BUILD][deps] npm registry override disabled"; \
+      npm ci --workspaces --include-workspace-root --no-audit --no-fund; \
+    fi
 FROM node:22-slim AS build
 WORKDIR /app
 ENV HUSKY=0
@@ -30,6 +41,10 @@ RUN npm run build --workspace common && npm run build --workspace server
 
 FROM node:22-slim AS runtime
 ARG HOME
+ARG CODEINFO_NPM_REGISTRY
+ARG CODEINFO_PIP_INDEX_URL
+ARG CODEINFO_PIP_TRUSTED_HOST
+ARG CODEINFO_NODE_EXTRA_CA_CERTS
 RUN mkdir -p ${HOME}/tmp
 RUN mkdir -p ${HOME}/.docker
 # Install prerequisites
@@ -94,13 +109,55 @@ RUN ln -s /usr/bin/chromium /usr/bin/google-chrome
 # Add Python tooling in an isolated, cacheable layer.
 COPY server/requirements.txt /tmp/requirements.txt
 RUN --mount=type=cache,target=/root/.cache/pip \
-    python3 -m pip install --break-system-packages --upgrade pip && \
-    python3 -m pip install --break-system-packages -r /tmp/requirements.txt
+    set -eu; \
+    pip_args=""; \
+    if [ -n "${CODEINFO_PIP_INDEX_URL:-}" ]; then \
+      pip_args="$pip_args --index-url ${CODEINFO_PIP_INDEX_URL}"; \
+    fi; \
+    if [ -n "${CODEINFO_PIP_TRUSTED_HOST:-}" ]; then \
+      pip_args="$pip_args --trusted-host ${CODEINFO_PIP_TRUSTED_HOST}"; \
+    fi; \
+    if [ -n "$pip_args" ]; then \
+      echo "[CODEINFO][T03_BUILD][runtime] pip override enabled"; \
+      set -- $pip_args; \
+      python3 -m pip install --break-system-packages --upgrade pip "$@" && \
+      python3 -m pip install --break-system-packages -r /tmp/requirements.txt "$@"; \
+    else \
+      echo "[CODEINFO][T03_BUILD][runtime] pip override disabled"; \
+      python3 -m pip install --break-system-packages --upgrade pip && \
+      python3 -m pip install --break-system-packages -r /tmp/requirements.txt; \
+    fi
 
 # Install global CLI tooling in a cacheable layer.
 COPY server/npm-global.txt /tmp/npm-global.txt
 RUN --mount=type=cache,target=/root/.npm \
-    xargs -r npm install -g --force < /tmp/npm-global.txt
+    set -eu; \
+    if [ -n "${CODEINFO_NPM_REGISTRY:-}" ]; then \
+      echo "[CODEINFO][T03_BUILD][runtime] npm registry override enabled"; \
+      NPM_CONFIG_REGISTRY="${CODEINFO_NPM_REGISTRY}" xargs -r npm install -g --force < /tmp/npm-global.txt; \
+    else \
+      echo "[CODEINFO][T03_BUILD][runtime] npm registry override disabled"; \
+      xargs -r npm install -g --force < /tmp/npm-global.txt; \
+    fi
+
+RUN set -eu; \
+    npm_override=off; \
+    pip_index_override=off; \
+    pip_trusted_host_override=off; \
+    if [ -n "${CODEINFO_NPM_REGISTRY:-}" ]; then \
+      npm_override=on; \
+    fi; \
+    if [ -n "${CODEINFO_PIP_INDEX_URL:-}" ]; then \
+      pip_index_override=on; \
+    fi; \
+    if [ -n "${CODEINFO_PIP_TRUSTED_HOST:-}" ]; then \
+      pip_trusted_host_override=on; \
+    fi; \
+    printf 'CODEINFO_SERVER_BUILD_OVERRIDE_STATE=npm=%s;pip_index=%s;pip_trusted_host=%s\n' \
+      "$npm_override" \
+      "$pip_index_override" \
+      "$pip_trusted_host_override" \
+      > /app/server/.codeinfo-server-build-override-state.env
 
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=deps /app/server/node_modules /app/server/node_modules
@@ -123,6 +180,7 @@ RUN git config --system credential.helper '!f(){ gcf-client $*; }; f'
 # Make HOME and all subfolders read/write for all users
 RUN chmod -R 777 "${HOME}"
 ENV CODEINFO_CODEX_HOME=/app/codex
+ENV CODEINFO_SERVER_BUILD_OVERRIDE_STATE="npm=off;pip_index=off;pip_trusted_host=off"
 ENV SERVER_PORT=5010
 ENV NPM_CONFIG_SCRIPT_SHELL=/bin/bash
 EXPOSE 5010

@@ -259,6 +259,29 @@ Removed files:
 
 Renamed files:
 
+## Story 0000041 Task 3 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000041-corporate-registry-and-certificate-overrides-via-codeinfo-env.md`
+- `projectStructure.md`
+- `server/Dockerfile`
+- `server/entrypoint.sh`
+- `server/npm-global.txt`
+
 - None.
 
 Modified files (implementation traceability):
@@ -624,9 +647,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)
 â”‚  â”œâ”€ .env.local â€” server local overrides (ignored by git consumers)
 â”‚  â”œâ”€ .prettierignore â€” server-specific Prettier ignore
-â”‚  â”œâ”€ Dockerfile â€” server image build (deps stage installs Python/make/g++ for Tree-sitter)
-â”‚  â”œâ”€ entrypoint.sh â€” server startup script (launches headless Chrome + API)
-â”‚  â”œâ”€ npm-global.txt â€” list of global npm tools installed in the server image
+â”‚  â”œâ”€ Dockerfile â€” server image build with stage-local corporate override args and conditional npm/pip install wiring (defaults preserved when unset)
+â”‚  â”œâ”€ entrypoint.sh â€” server startup script (launches headless Chrome + API) and emits CODEINFO wiring/build-override observability tokens
+â”‚  â”œâ”€ npm-global.txt â€” source list consumed by `xargs -r npm install -g --force < /tmp/npm-global.txt` during runtime image global tool install
 â”‚  â”œâ”€ requirements.txt â€” Python package list for the server image
 â”‚  â”œâ”€ cucumber.js â€” Cucumber config
 â”‚  â”œâ”€ package.json â€” server workspace manifest

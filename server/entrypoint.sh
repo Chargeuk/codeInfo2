@@ -39,4 +39,57 @@ fi
 echo "[CODEINFO][T01_COMPOSE_WIRING_APPLIED] corp_certs_mount_source=${corp_certs_mount_source} npm_registry_set=${npm_registry_set} pip_index_set=${pip_index_set} pip_trusted_host_set=${pip_trusted_host_set}"
 echo "[CODEINFO][T02_ENV_SOURCE_RESOLVED] workflow=${CODEINFO_COMPOSE_WORKFLOW:-compose} interpolation_source=${CODEINFO_INTERPOLATION_SOURCE:-server/.env+server/.env.local} runtime_env_file=${CODEINFO_RUNTIME_ENV_FILE_SOURCE:-unchanged}"
 
+build_override_state_file="/app/server/.codeinfo-server-build-override-state.env"
+if [ -z "${CODEINFO_SERVER_BUILD_OVERRIDE_STATE:-}" ] && [ -r "$build_override_state_file" ]; then
+  file_state="$(sed -n 's/^CODEINFO_SERVER_BUILD_OVERRIDE_STATE=//p' "$build_override_state_file" | head -n 1)"
+  if [ -n "$file_state" ]; then
+    CODEINFO_SERVER_BUILD_OVERRIDE_STATE="$file_state"
+    export CODEINFO_SERVER_BUILD_OVERRIDE_STATE
+  fi
+fi
+
+build_override_state="${CODEINFO_SERVER_BUILD_OVERRIDE_STATE:-}"
+npm_registry_override="off"
+pip_index_override="off"
+pip_trusted_host_override="off"
+
+if [ -n "$build_override_state" ]; then
+  state_npm_segment="${build_override_state#npm=}"
+  state_after_npm="${state_npm_segment#*;}"
+  state_pip_index_segment="${state_after_npm#pip_index=}"
+  state_after_pip_index="${state_pip_index_segment#*;}"
+  state_pip_trusted_host_segment="${state_after_pip_index#pip_trusted_host=}"
+
+  if [ "$state_npm_segment" != "$build_override_state" ] && \
+    [ "$state_after_npm" != "$state_npm_segment" ] && \
+    [ "$state_pip_index_segment" != "$state_after_npm" ] && \
+    [ "$state_after_pip_index" != "$state_pip_index_segment" ] && \
+    [ "$state_pip_trusted_host_segment" != "$state_after_pip_index" ]; then
+    candidate_npm="${state_npm_segment%%;*}"
+    candidate_pip_index="${state_pip_index_segment%%;*}"
+    candidate_pip_trusted_host="$state_pip_trusted_host_segment"
+
+    case "$candidate_npm" in
+      on | off) ;;
+      *) candidate_npm="" ;;
+    esac
+    case "$candidate_pip_index" in
+      on | off) ;;
+      *) candidate_pip_index="" ;;
+    esac
+    case "$candidate_pip_trusted_host" in
+      on | off) ;;
+      *) candidate_pip_trusted_host="" ;;
+    esac
+
+    if [ -n "$candidate_npm" ] && [ -n "$candidate_pip_index" ] && [ -n "$candidate_pip_trusted_host" ]; then
+      npm_registry_override="$candidate_npm"
+      pip_index_override="$candidate_pip_index"
+      pip_trusted_host_override="$candidate_pip_trusted_host"
+    fi
+  fi
+fi
+
+echo "[CODEINFO][T03_SERVER_BUILD_OVERRIDE_STATE] npm_registry_override=${npm_registry_override} pip_index_override=${pip_index_override} pip_trusted_host_override=${pip_trusted_host_override}"
+
 exec node dist/index.js

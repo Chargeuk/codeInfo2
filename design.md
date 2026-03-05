@@ -85,6 +85,28 @@ flowchart TD
   L --> M[Entrypoint loads/parses state and emits T03 token]
 ```
 
+## Story 0000041 Task 4 client build override wiring
+
+- `client/Dockerfile` now declares `ARG CODEINFO_NPM_REGISTRY` in the build stage that runs `npm ci`.
+- Client install keeps the original command anchor and applies `NPM_CONFIG_REGISTRY` only when `CODEINFO_NPM_REGISTRY` is non-empty.
+- Empty and unset inputs follow the same default branch to preserve baseline npm behavior.
+- Build metadata is persisted as `CODEINFO_CLIENT_BUILD_OVERRIDE_STATE` (`client_npm=<on|off>`), and `client/entrypoint.sh` emits `[CODEINFO][T04_CLIENT_BUILD_OVERRIDE_STATE]` with deterministic fallback `off` for missing/malformed state.
+
+```mermaid
+flowchart TD
+  A[Client build stage starts] --> B{CODEINFO_NPM_REGISTRY non-empty?}
+  B -- yes --> C[npm ci with NPM_CONFIG_REGISTRY override]
+  B -- no --> D[npm ci default registry path]
+  C --> E[Compute client_npm=on metadata]
+  D --> F[Compute client_npm=off metadata]
+  E --> G[Persist CODEINFO_CLIENT_BUILD_OVERRIDE_STATE]
+  F --> G
+  G --> H[Runtime entrypoint reads state]
+  H --> I{State valid?}
+  I -- yes --> J[Emit T04 token with on/off value]
+  I -- no --> K[Emit T04 token with fallback off]
+```
+
 ```mermaid
 flowchart TD
   R[Resolved default provider/model] --> A{Selected provider available?}

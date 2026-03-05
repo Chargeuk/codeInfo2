@@ -409,7 +409,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ .env â€” client default env (VITE_API_URL, VITE_LMSTUDIO_URL)
 â”‚  â”œâ”€ .env.local â€” client local overrides (ignored by git consumers)
 â”‚  â”œâ”€ .gitignore â€” client-specific ignores
-â”‚  â”œâ”€ Dockerfile â€” client image build
+â”‚  â”œâ”€ Dockerfile â€” client image build with optional corporate npm registry override during `npm ci` and build-state metadata handoff (`CODEINFO_CLIENT_BUILD_OVERRIDE_STATE`)
 â”‚  â”œâ”€ entrypoint.sh â€” client runtime config writer + preview runner
 â”‚  â”œâ”€ README.md â€” client-specific notes
 â”‚  â”œâ”€ eslint.config.js â€” client ESLint entry

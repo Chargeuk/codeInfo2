@@ -22,23 +22,6 @@ else
 fi
 
 corp_certs_mount_source="${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}"
-npm_registry_set=false
-pip_index_set=false
-pip_trusted_host_set=false
-
-if [ -n "${CODEINFO_NPM_REGISTRY:-}" ]; then
-  npm_registry_set=true
-fi
-if [ -n "${CODEINFO_PIP_INDEX_URL:-}" ]; then
-  pip_index_set=true
-fi
-if [ -n "${CODEINFO_PIP_TRUSTED_HOST:-}" ]; then
-  pip_trusted_host_set=true
-fi
-
-echo "[CODEINFO][T01_COMPOSE_WIRING_APPLIED] corp_certs_mount_source=${corp_certs_mount_source} npm_registry_set=${npm_registry_set} pip_index_set=${pip_index_set} pip_trusted_host_set=${pip_trusted_host_set}"
-echo "[CODEINFO][T02_ENV_SOURCE_RESOLVED] workflow=${CODEINFO_COMPOSE_WORKFLOW:-compose} interpolation_source=${CODEINFO_INTERPOLATION_SOURCE:-server/.env+server/.env.local} runtime_env_file=${CODEINFO_RUNTIME_ENV_FILE_SOURCE:-unchanged}"
-
 build_override_state_file="/app/server/.codeinfo-server-build-override-state.env"
 if [ -r "$build_override_state_file" ]; then
   file_state="$(sed -n 's/^CODEINFO_SERVER_BUILD_OVERRIDE_STATE=//p' "$build_override_state_file" | head -n 1)"
@@ -52,6 +35,9 @@ build_override_state="${CODEINFO_SERVER_BUILD_OVERRIDE_STATE:-}"
 npm_registry_override="off"
 pip_index_override="off"
 pip_trusted_host_override="off"
+npm_registry_set=false
+pip_index_set=false
+pip_trusted_host_set=false
 
 if [ -n "$build_override_state" ]; then
   state_npm_segment="${build_override_state#npm=}"
@@ -89,6 +75,19 @@ if [ -n "$build_override_state" ]; then
     fi
   fi
 fi
+
+if [ "$npm_registry_override" = "on" ]; then
+  npm_registry_set=true
+fi
+if [ "$pip_index_override" = "on" ]; then
+  pip_index_set=true
+fi
+if [ "$pip_trusted_host_override" = "on" ]; then
+  pip_trusted_host_set=true
+fi
+
+echo "[CODEINFO][T01_COMPOSE_WIRING_APPLIED] corp_certs_mount_source=${corp_certs_mount_source} npm_registry_set=${npm_registry_set} pip_index_set=${pip_index_set} pip_trusted_host_set=${pip_trusted_host_set}"
+echo "[CODEINFO][T02_ENV_SOURCE_RESOLVED] workflow=${CODEINFO_COMPOSE_WORKFLOW:-compose} interpolation_source=${CODEINFO_INTERPOLATION_SOURCE:-server/.env+server/.env.local} runtime_env_file=${CODEINFO_RUNTIME_ENV_FILE_SOURCE:-unchanged}"
 
 echo "[CODEINFO][T03_SERVER_BUILD_OVERRIDE_STATE] npm_registry_override=${npm_registry_override} pip_index_override=${pip_index_override} pip_trusted_host_override=${pip_trusted_host_override}"
 

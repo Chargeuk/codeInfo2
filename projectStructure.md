@@ -1401,3 +1401,38 @@ Task notes:
 
 - Tracked-file outcome for Task 2 structure step: added files `none`, removed files `none`.
 - Local helper input `server/.env.local` is untracked and excluded from tracked structure changes.
+
+## Story 0000041 Task 10 structural verification ledger
+
+Added files:
+
+- `certs/empty-corp-ca/.gitkeep` — tracked placeholder for deterministic compose fallback mount source when `CODEINFO_CORP_CERTS_DIR` is unset.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (story-wide traceability):
+
+- `.env.e2e` — e2e interpolation defaults/placeholders for canonical `CODEINFO_*` corporate override variables.
+- `README.md` — restricted-network setup section with canonical variable semantics, workflow split, and refresh/fail-fast guidance.
+- `client/Dockerfile` — conditional npm registry override wiring in client build stage.
+- `client/entrypoint.sh` — client build override observability token emission (`T04`).
+- `design.md` — implementation flow/prose/diagrams for compose wiring and runtime refresh behavior.
+- `docker-compose.yml` — canonical compose wiring for server/client build args, runtime env, and cert mount fallback.
+- `docker-compose.local.yml` — local compose variant wiring for build args/runtime env/cert mount fallback.
+- `docker-compose.e2e.yml` — e2e compose variant wiring for build args/runtime env/cert mount fallback.
+- `scripts/docker-compose-with-env.sh` — wrapper env-source observability emission for workflow interpolation provenance.
+- `server/Dockerfile` — conditional npm/pip override wiring across dependency-install stages.
+- `server/entrypoint.sh` — runtime CA defaults/refresh gate/fail-fast flow and Task 1..10 observability tokens.
+- `start-gcf-server.sh` — optional npm registry override for host helper global install path.
+- `projectStructure.md` — structure and story ledgers synchronized with story file changes.
+- `planning/0000041-corporate-registry-and-certificate-overrides-via-codeinfo-env.md` — task-by-task implementation and verification evidence.
+
+Task notes:
+
+- Task 10 closeout check confirmed every story-touched tracked file from `git diff --name-only 3401898d..HEAD` has a matching purpose entry in this document.

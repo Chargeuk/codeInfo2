@@ -92,4 +92,22 @@ fi
 
 echo "[CODEINFO][T03_SERVER_BUILD_OVERRIDE_STATE] npm_registry_override=${npm_registry_override} pip_index_override=${pip_index_override} pip_trusted_host_override=${pip_trusted_host_override}"
 
+refresh_flag_raw="${CODEINFO_REFRESH_CA_CERTS_ON_START:-}"
+refresh_flag_trimmed="$(printf '%s' "$refresh_flag_raw" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+refresh_flag_normalized="$(printf '%s' "$refresh_flag_trimmed" | tr '[:upper:]' '[:lower:]')"
+refresh_requested=false
+if [ "$refresh_flag_normalized" = "true" ]; then
+  refresh_requested=true
+fi
+
+node_extra_ca_certs_value="${CODEINFO_NODE_EXTRA_CA_CERTS:-}"
+node_extra_ca_certs_source="override"
+if [ -z "$node_extra_ca_certs_value" ]; then
+  node_extra_ca_certs_value="/etc/ssl/certs/ca-certificates.crt"
+  node_extra_ca_certs_source="default"
+fi
+export NODE_EXTRA_CA_CERTS="$node_extra_ca_certs_value"
+
+echo "[CODEINFO][T05_NODE_EXTRA_CA_CERTS_RESOLVED] value=${NODE_EXTRA_CA_CERTS} source=${node_extra_ca_certs_source} refresh_requested=${refresh_requested}"
+
 exec node dist/index.js

@@ -282,6 +282,27 @@ Modified files (implementation traceability):
 - `server/entrypoint.sh`
 - `server/npm-global.txt`
 
+## Story 0000041 Task 5 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000041-corporate-registry-and-certificate-overrides-via-codeinfo-env.md`
+- `projectStructure.md`
+- `server/entrypoint.sh`
+
 - None.
 
 Modified files (implementation traceability):
@@ -648,7 +669,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ .env.local â€” server local overrides (ignored by git consumers)
 â”‚  â”œâ”€ .prettierignore â€” server-specific Prettier ignore
 â”‚  â”œâ”€ Dockerfile â€” server image build with stage-local corporate override args and conditional npm/pip install wiring (defaults preserved when unset)
-â”‚  â”œâ”€ entrypoint.sh â€” server startup script (launches headless Chrome + API) and emits CODEINFO wiring/build-override observability tokens
+â”‚  â”œâ”€ entrypoint.sh â€” server startup script (launches headless Chrome + API), resolves `NODE_EXTRA_CA_CERTS` default/override export, parses refresh gate flag (`CODEINFO_REFRESH_CA_CERTS_ON_START`), and emits CODEINFO wiring/build/runtime observability tokens
 â”‚  â”œâ”€ npm-global.txt â€” source list consumed by `xargs -r npm install -g --force < /tmp/npm-global.txt` during runtime image global tool install
 â”‚  â”œâ”€ requirements.txt â€” Python package list for the server image
 â”‚  â”œâ”€ cucumber.js â€” Cucumber config

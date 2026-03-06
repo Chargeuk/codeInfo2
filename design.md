@@ -107,6 +107,30 @@ flowchart TD
   I -- no --> K[Emit T04 token with fallback off]
 ```
 
+## Story 0000041 Task 5 server runtime CA setup defaults
+
+- `server/entrypoint.sh` now normalizes `CODEINFO_REFRESH_CA_CERTS_ON_START` in POSIX shell by trimming surrounding whitespace and lowercasing before boolean evaluation.
+- Refresh is requested only when the normalized value equals `true`; any other value maps to `false`.
+- Runtime resolves `NODE_EXTRA_CA_CERTS` deterministically:
+  - unset/empty `CODEINFO_NODE_EXTRA_CA_CERTS` -> `/etc/ssl/certs/ca-certificates.crt`,
+  - non-empty `CODEINFO_NODE_EXTRA_CA_CERTS` -> provided override path.
+- Entry point emits `[CODEINFO][T05_NODE_EXTRA_CA_CERTS_RESOLVED]` before Node startup so later refresh/fail-fast logic can consume a stable `refresh_requested` signal.
+
+```mermaid
+flowchart TD
+  A[Entrypoint reaches runtime CA setup] --> B[Normalize refresh flag: trim and lowercase]
+  B --> C{Normalized value equals true?}
+  C -- yes --> D[refresh_requested=true]
+  C -- no --> E[refresh_requested=false]
+  D --> F{CODEINFO_NODE_EXTRA_CA_CERTS non-empty?}
+  E --> F
+  F -- yes --> G[Export NODE_EXTRA_CA_CERTS override path]
+  F -- no --> H[Export NODE_EXTRA_CA_CERTS default path]
+  G --> I[Emit T05 token with value source and refresh_requested]
+  H --> I
+  I --> J[Continue to optional refresh branch then exec node]
+```
+
 ```mermaid
 flowchart TD
   R[Resolved default provider/model] --> A{Selected provider available?}

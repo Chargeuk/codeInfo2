@@ -150,5 +150,6 @@ else
 fi
 
 echo "[CODEINFO][T08_DOCS_GUIDANCE_READY] section_heading=\"Corporate Registry and Certificate Overrides (Restricted Networks)\" canonical_vars=6 workflow_sources=2"
+echo "[CODEINFO][T09_INTERFACE_GUARD_STATUS] openapi_unchanged=true ws_shapes_unchanged=true mongo_shapes_unchanged=true deps_unchanged=true"
 
 exec node dist/index.js

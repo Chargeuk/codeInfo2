@@ -37,7 +37,13 @@ fi
 export GIT_CREDENTIAL_FORWARDER_GIT_PATH="$GCF_GIT_PATH"
 
 echo "Installing git-credential-forwarder globally..."
-npm install -g git-credential-forwarder
+if [ -n "${CODEINFO_NPM_REGISTRY:-}" ]; then
+  echo "[CODEINFO][T07_GCF_INSTALL_REGISTRY_STATE] registry_override=on install_target=git-credential-forwarder"
+  npm_config_registry="$CODEINFO_NPM_REGISTRY" npm install -g git-credential-forwarder
+else
+  echo "[CODEINFO][T07_GCF_INSTALL_REGISTRY_STATE] registry_override=off install_target=git-credential-forwarder"
+  npm install -g git-credential-forwarder
+fi
 
 echo "Starting gcf-server..."
 exec gcf-server

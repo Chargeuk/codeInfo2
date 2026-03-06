@@ -468,7 +468,7 @@ End-to-end validation, docs updates (README/design/projectStructure), and screen
 
 ### 9. Fix historical conversation provider/desync bug
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 319e318
 
 #### Overview

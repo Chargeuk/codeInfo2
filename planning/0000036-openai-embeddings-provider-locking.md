@@ -607,55 +607,65 @@ This section defines additional failure-mode expectations that must be implement
 This is a rough implementation sequence only (not tasking). It reflects current repository architecture checks plus external SDK/DB behavior research.
 
 1. Establish one canonical embedding lock/service abstraction.
+
 - Create a shared embedding provider layer under `server/src/ingest/` with explicit provider identity and methods for model list, embed, and token counting.
 - Implement provider adapters for LM Studio and OpenAI.
 - Introduce one canonical lock object shape (`embeddingProvider`, `embeddingModel`, `embeddingDimensions`) and central lock read/write helpers.
 - Primary files: `server/src/ingest/chromaClient.ts`, `server/src/ingest/ingestJob.ts`, `server/src/ingest/modelLock.ts` (remove/repurpose), new provider files under `server/src/ingest/`.
 
 2. Unify lock-source behavior before any UI/API contract expansion.
+
 - Ensure all lock consumers call the same canonical lock resolver.
 - Remove split behavior where `/ingest/models` reads placeholder lock logic while ingest/vector paths read Chroma lock metadata.
 - Primary files: `server/src/routes/ingestModels.ts`, `server/src/routes/ingestStart.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/lmstudio/toolService.ts`.
 
 3. Add provider-aware request parsing with backward compatibility.
+
 - Support canonical ingest start input fields (`embeddingProvider`, `embeddingModel`) while retaining legacy `model` input mapping to LM Studio.
 - Apply the same canonical interpretation in re-embed paths.
 - Primary files: `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, `server/src/ingest/reingestService.ts`, shared validation/parser helper under `server/src/ingest/`.
 
 4. Make metadata writes canonical while keeping legacy reads.
+
 - Persist canonical provider/model/dimension lock metadata on new ingest/re-embed writes.
 - Continue reading legacy model-only metadata and infer `provider=lmstudio` when provider metadata is absent.
 - Keep compatibility alias fields (`lockedModelId`) in current response surfaces.
 - Primary files: `server/src/ingest/chromaClient.ts`, `server/src/ingest/ingestJob.ts`, `server/src/routes/ingestModels.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/mcp/server.ts`, `server/src/lmstudio/tools.ts`.
 
 5. Integrate OpenAI embedding execution with explicit retry ownership.
+
 - Implement OpenAI embedding calls via official SDK using `OPENAI_EMBEDDING_KEY`.
 - Disable SDK-level retries for these calls (`maxRetries=0`) and use one shared server retry utility with existing bounded backoff contract.
 - Keep deterministic mapping for OpenAI taxonomy codes across ingest and vector-search flows.
 - Primary files: new OpenAI provider adapter under `server/src/ingest/`, `server/src/ingest/ingestJob.ts`, `server/src/lmstudio/toolService.ts`, `server/src/routes/toolsVectorSearch.ts`.
 
 6. Enforce request guardrails and dimension safety.
+
 - Add OpenAI request guards (`<=2048` inputs per request, `<=300000` total tokens per request, per-input token limits).
 - Persist and validate `embeddingDimensions`; fail deterministically before issuing a Chroma query when dimensions do not match lock metadata.
 - Primary files: OpenAI provider adapter/utilities under `server/src/ingest/`, `server/src/ingest/chromaClient.ts`, `server/src/lmstudio/toolService.ts`.
 
 7. Add environment loading parity for local and docker startup.
+
 - Update server bootstrap to load `.env.local` and `.env` deterministically (same practical behavior as docker compose env files) so `OPENAI_EMBEDDING_KEY` is predictable in local non-docker runs.
 - Primary files: `server/src/index.ts` and related startup/env notes in docs.
 
 8. Expand model-listing contracts and ingest UI behavior.
+
 - Update `/ingest/models` contract to include provider-tagged model options and explicit OpenAI availability/warning state.
 - Keep stable lock compatibility alias while surfacing canonical lock object.
 - Update Ingest UI hooks/components to render provider-tagged options and the required info/warning bars.
 - Primary files: `server/src/routes/ingestModels.ts`, `client/src/hooks/useIngestModels.ts`, `client/src/components/ingest/IngestForm.tsx`, `client/src/pages/IngestPage.tsx`, `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/RootDetailsDrawer.tsx`.
 
 9. Align REST, MCP, and schema/docs surfaces.
+
 - Update lock-related payloads for existing surfaces while keeping compatibility fields.
 - Keep classic MCP `ListIngestedRepositories` and related outputs consistent with canonical+alias contract.
 - Update API documentation/schema artifacts accordingly.
 - Primary files: `server/src/mcp/server.ts`, `server/src/lmstudio/tools.ts`, `openapi.json`.
 
 10. Update validation-focused tests before implementation completion.
+
 - Server lock/contract tests: ingest start/reembed/models/roots and lock-state unit tests.
 - Vector-search parity tests: provider-aware lock usage, missing-lock behavior, dimension mismatch behavior.
 - Client ingest UI tests: provider-tagged model dropdown, info/warning states, lock-display compatibility behavior.
@@ -695,7 +705,7 @@ This section defines how implementation tasks must be executed once development 
 
 ### 1. Server: Refactor LM Studio embedding flow behind a shared provider interface (parity only)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `be6470e`, `7a1b0f7`, `5eb9e73`, `c2ab615`, `cccf011`
 
 #### Overview
@@ -774,7 +784,7 @@ Refactor existing LM Studio embedding calls into a common provider interface wit
 
 ### 2. Server: Unify lock resolution source and remove placeholder lock path
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `4b64c72`, `8b7f31e`
 
 #### Overview
@@ -846,7 +856,7 @@ Make one canonical lock resolver for all lock consumers so `/ingest/models` no l
 
 ### 3. Server: Environment loading parity for `.env` and `.env.local`
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `ed9074f`, `320c151`, `39739e9`, `1fe83f4`
   - `ed9074f` - DEV-0000036 - Start Task 3 env loading parity
   - `320c151` - DEV-0000036 - Complete Task 3 env loading parity and verification
@@ -924,7 +934,7 @@ Implement deterministic local env loading (`server/.env` then `server/.env.local
 
 ### 4. Server: Make break-step answer parsing robust while preserving strict JSON schema
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `eb7aaaa`, `4d3ca55`, `d2d3339`
 
 #### Overview
@@ -1021,7 +1031,7 @@ Improve break-step parsing so the flow engine can safely recover the required JS
 
 ### 5. Server: Add configurable retry budget for failed command and flow steps
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `77de0ef`, `64d5e95`, `a3597fc`
 
 #### Overview
@@ -1107,7 +1117,7 @@ Increase resilience by retrying failed command and flow execution steps with a s
 
 ### 6. Server: Add OpenAI embedding provider adapter with retries, limits, and taxonomy mapping
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `69e1034`, `9d3d17d`
   - `69e1034` — Added OpenAI embedding provider adapter modules, provider selection wiring for ingest/query paths, guardrails/retry/taxonomy handling, Task 6 OpenAI adapter unit tests, and Task 6 documentation/verification updates.
 
@@ -1216,7 +1226,7 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 
 ### 7. Server: Provider-aware lock identity and embedding execution in ingest/reembed/vector-search internals
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `ff8b653`, `f0278c9`
 
 #### Overview
@@ -1315,7 +1325,7 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 
 ### 8. Server Messages: `/ingest/models` provider-aware response contract and warning states
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `a7df34c`
 
 #### Overview
@@ -1408,7 +1418,7 @@ Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, `lms
 
 ### 9. Server Messages: ingest start/reembed/vector-search request and error contracts
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `59630b7`, `afd89bf`
 
 #### Overview
@@ -1505,7 +1515,7 @@ Implement provider-aware request/response contracts for ingest start and vector 
 
 ### 10. Server Messages: `/ingest/roots`, `/tools/ingested-repos`, classic MCP `ListIngestedRepositories`, and schema docs
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `baff46d`
 
 #### Overview
@@ -1595,7 +1605,7 @@ Finalize the remaining message-contract surfaces so canonical lock/provider fiel
 
 ### 11. Server: Update transitive runtime consumers to canonical+compat ingest repo contracts
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `51e76ce`
 
 #### Overview
@@ -1674,7 +1684,7 @@ Align server-side transitive consumers that depend on ingest repository/tool pay
 
 ### 12. Client: Update ingest data hooks and API types to new server contracts
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `479b947`, `3061e91`
 
 #### Overview
@@ -1754,7 +1764,7 @@ Update the client data layer (`useIngestModels`, `useIngestRoots`, related types
 
 ### 13. Client: Ingest UI provider-model selection and info/warning state behavior
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `5ecd1af`, `3e1eeb6`
 
 #### Overview
@@ -1844,7 +1854,7 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 
 ### 14. Final verification: full acceptance validation, regressions, and documentation sync
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `b695ed9`
 
 #### Overview
@@ -1865,80 +1875,80 @@ Run the complete verification gate for Story 0000036, confirm acceptance criteri
 
 ##### Acceptance Criteria Coverage
 
-| ID | Acceptance criterion summary | Coverage evidence (automated/manual) | Status |
-| --- | --- | --- | --- |
-| AC-01 | Backward-compatible legacy metadata read with no migration rewrite | `server/src/test/integration/ingest-lock-lifecycle.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts` | Covered |
-| AC-02 | Non-docker startup loads `.env` and `.env.local` parity | `server/src/test/unit/env-loading.test.ts` | Covered |
-| AC-03 | Deterministic precedence `.env` then `.env.local` | `server/src/test/unit/env-loading.test.ts` | Covered |
-| AC-04 | OpenAI discovery enabled only when key configured | `server/src/test/unit/ingest-models.test.ts` (disabled/enabled states) | Covered |
-| AC-05 | `/ingest/models` deterministic 200 contract (`models`,`lock`,`openai`,`lmstudio`) | `server/src/test/unit/ingest-models.test.ts`, `server/src/test/features/ingest-models.feature` | Covered |
-| AC-06 | LM Studio models still returned when OpenAI transient listing fails | `server/src/test/unit/ingest-models.test.ts` | Covered |
-| AC-07 | LM Studio warning + OpenAI success keeps `200` | `server/src/test/unit/ingest-models.test.ts` | Covered |
-| AC-08 | Both providers fail -> deterministic `200` warnings + empty list | `server/src/test/unit/ingest-models.test.ts` | Covered |
-| AC-09 | Missing key -> `OPENAI_DISABLED` + UI guidance banner | `server/src/test/unit/ingest-models.test.ts`, `client/src/test/ingestForm.test.tsx` | Covered |
-| AC-10 | Key set + allowlist match -> `openai.status=ok` + allowlisted options only | `server/src/test/unit/ingest-models.test.ts`, `client/src/test/useIngestModels.test.tsx` | Covered |
-| AC-11 | Key set + transient listing failure -> warning code + LM options remain | `server/src/test/unit/ingest-models.test.ts`, `client/src/test/ingestForm.test.tsx` | Covered |
-| AC-12 | Key set + allowlist no match -> warning `OPENAI_ALLOWLIST_NO_MATCH` | `server/src/test/unit/ingest-models.test.ts`, `client/src/test/ingestForm.test.tsx` | Covered |
-| AC-13 | OpenAI options strictly `allowlist ∩ models.list()`; ingest/reembed reject non-allowlisted | `server/src/test/unit/ingest-models.test.ts`, `server/src/test/integration/openai-model-unavailable-contract.test.ts` | Covered |
-| AC-14 | Allowlist order deterministic (`3-small` then `3-large`) | `server/src/test/unit/ingest-models.test.ts` | Covered |
-| AC-15 | UI options provider-qualified, unambiguous | `client/src/test/ingestForm.test.tsx` | Covered |
-| AC-16 | No dimensions control in ingest UI | `client/src/test/ingestForm.test.tsx` | Covered |
-| AC-17 | `POST /ingest/start` supports canonical + legacy compatibility mapping | `server/src/test/unit/ingest-start.test.ts`, `server/src/test/features/ingest-start-body.feature` | Covered |
-| AC-18 | Canonical lock identity is provider+model everywhere | `server/src/test/integration/ingest-lock-lifecycle.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts` | Covered |
-| AC-19 | Canonical lock stores dimensions | `server/src/test/integration/ingest-lock-lifecycle.test.ts`, `server/src/test/unit/tools-ingested-repos.test.ts` | Covered |
-| AC-20 | Locked mismatch rejects with stable 409 + canonical lock payload | `server/src/test/unit/ingest-start.test.ts`, `server/src/test/integration/ingest-lock-lifecycle.test.ts` | Covered |
-| AC-21 | Re-embed always uses stored lock provider/model | `server/src/test/features/ingest-reembed.feature`, `server/src/test/integration/ingest-reembed.test.ts` | Covered |
-| AC-22 | Query embeddings (REST/classic MCP/internal) all use locked provider/model | `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`, `server/src/test/integration/mcp-vector-search.test.ts` | Covered |
-| AC-23 | Query embedding dimension checked pre-Chroma; deterministic mismatch error | `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`, `server/src/test/integration/mcp-vector-search.test.ts` | Covered |
-| AC-24 | Legacy-only lock metadata remains readable with LM Studio inference | `server/src/test/unit/ingest-roots-dedupe.test.ts`, `client/src/test/useIngestRoots.test.tsx` | Covered |
-| AC-25 | New writes persist canonical fields with legacy-read compatibility | `server/src/test/integration/ingest-lock-lifecycle.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts` | Covered |
-| AC-26 | Option A naming mandatory (`embeddingProvider` + `embeddingModel`) | `server/src/test/unit/openapi.contract.test.ts`, `server/src/test/unit/tools-ingested-repos.test.ts` | Covered |
-| AC-27 | One canonical lock resolver for reporting + enforcement | `server/src/test/integration/ingest-lock-lifecycle.test.ts`, `server/src/test/unit/ingest-start.test.ts` | Covered |
-| AC-28 | Alias behavior consistent across all lock-bearing surfaces | `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts` | Covered |
-| AC-29 | LM Studio-only workflows still work without OpenAI | `server/src/test/unit/ingest-models.test.ts`, `server/src/test/features/ingest-models.feature` | Covered |
-| AC-30 | OpenAI failures mapped to stable taxonomy incl. quota/credits semantics | `server/src/test/unit/openai-provider-errors.test.ts`, `server/src/test/integration/openai-error-parity.test.ts` | Covered |
-| AC-31 | Retryable OpenAI failures use bounded exponential retry | `server/src/test/unit/openai-provider-retry.test.ts` | Covered |
-| AC-32 | Retry defaults fixed (`3/500/8000/jitter/wait-hint`) | `server/src/test/unit/openai-provider-retry.test.ts` | Covered |
-| AC-33 | OpenAI batching/token guardrails enforced (`2048`, per-model, `300000`) | `server/src/test/unit/openai-provider-guardrails.test.ts` | Covered |
-| AC-34 | SDK retries disabled (`maxRetries=0`) | `server/src/test/unit/openai-provider-retry.test.ts` | Covered |
-| AC-35 | Break parser robust wrapper handling with strict schema acceptance | `server/src/test/unit/flows.break-parser.test.ts`, `server/src/test/integration/flows.run.loop.test.ts` | Covered |
-| AC-36 | Command/flow retries default `5`, env override, no retry on abort/stopped | `server/src/test/unit/flow-command-retries-config.test.ts`, `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` | Covered |
-| AC-37 | Retry prompt deterministic prefix format | `server/src/test/unit/agent-commands-runner-retry.test.ts`, `server/src/test/integration/flows.run.loop.test.ts` | Covered |
-| AC-38 | Retry prompt context normalized/secret-safe/truncated | `server/src/test/unit/agent-commands-runner-retry.test.ts`, `server/src/test/unit/openai-provider-errors.test.ts` | Covered |
-| AC-39 | Flow retries emit one terminal `turn_final` per logical step | `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/integration/flows.turn-metadata.test.ts` | Covered |
-| AC-40 | No duplicate persisted turns for intermediate failed attempts | `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/integration/flows.turn-metadata.test.ts` | Covered |
-| AC-41 | End-to-end acceptance coverage present across automated + manual evidence | Task 14 Testing 1-12 outputs + Task 14 screenshots under `playwright-output-local/0000036-14-*.png` | Covered |
+| ID    | Acceptance criterion summary                                                               | Coverage evidence (automated/manual)                                                                                                                                     | Status  |
+| ----- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| AC-01 | Backward-compatible legacy metadata read with no migration rewrite                         | `server/src/test/integration/ingest-lock-lifecycle.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`                                                          | Covered |
+| AC-02 | Non-docker startup loads `.env` and `.env.local` parity                                    | `server/src/test/unit/env-loading.test.ts`                                                                                                                               | Covered |
+| AC-03 | Deterministic precedence `.env` then `.env.local`                                          | `server/src/test/unit/env-loading.test.ts`                                                                                                                               | Covered |
+| AC-04 | OpenAI discovery enabled only when key configured                                          | `server/src/test/unit/ingest-models.test.ts` (disabled/enabled states)                                                                                                   | Covered |
+| AC-05 | `/ingest/models` deterministic 200 contract (`models`,`lock`,`openai`,`lmstudio`)          | `server/src/test/unit/ingest-models.test.ts`, `server/src/test/features/ingest-models.feature`                                                                           | Covered |
+| AC-06 | LM Studio models still returned when OpenAI transient listing fails                        | `server/src/test/unit/ingest-models.test.ts`                                                                                                                             | Covered |
+| AC-07 | LM Studio warning + OpenAI success keeps `200`                                             | `server/src/test/unit/ingest-models.test.ts`                                                                                                                             | Covered |
+| AC-08 | Both providers fail -> deterministic `200` warnings + empty list                           | `server/src/test/unit/ingest-models.test.ts`                                                                                                                             | Covered |
+| AC-09 | Missing key -> `OPENAI_DISABLED` + UI guidance banner                                      | `server/src/test/unit/ingest-models.test.ts`, `client/src/test/ingestForm.test.tsx`                                                                                      | Covered |
+| AC-10 | Key set + allowlist match -> `openai.status=ok` + allowlisted options only                 | `server/src/test/unit/ingest-models.test.ts`, `client/src/test/useIngestModels.test.tsx`                                                                                 | Covered |
+| AC-11 | Key set + transient listing failure -> warning code + LM options remain                    | `server/src/test/unit/ingest-models.test.ts`, `client/src/test/ingestForm.test.tsx`                                                                                      | Covered |
+| AC-12 | Key set + allowlist no match -> warning `OPENAI_ALLOWLIST_NO_MATCH`                        | `server/src/test/unit/ingest-models.test.ts`, `client/src/test/ingestForm.test.tsx`                                                                                      | Covered |
+| AC-13 | OpenAI options strictly `allowlist ∩ models.list()`; ingest/reembed reject non-allowlisted | `server/src/test/unit/ingest-models.test.ts`, `server/src/test/integration/openai-model-unavailable-contract.test.ts`                                                    | Covered |
+| AC-14 | Allowlist order deterministic (`3-small` then `3-large`)                                   | `server/src/test/unit/ingest-models.test.ts`                                                                                                                             | Covered |
+| AC-15 | UI options provider-qualified, unambiguous                                                 | `client/src/test/ingestForm.test.tsx`                                                                                                                                    | Covered |
+| AC-16 | No dimensions control in ingest UI                                                         | `client/src/test/ingestForm.test.tsx`                                                                                                                                    | Covered |
+| AC-17 | `POST /ingest/start` supports canonical + legacy compatibility mapping                     | `server/src/test/unit/ingest-start.test.ts`, `server/src/test/features/ingest-start-body.feature`                                                                        | Covered |
+| AC-18 | Canonical lock identity is provider+model everywhere                                       | `server/src/test/integration/ingest-lock-lifecycle.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts`                                             | Covered |
+| AC-19 | Canonical lock stores dimensions                                                           | `server/src/test/integration/ingest-lock-lifecycle.test.ts`, `server/src/test/unit/tools-ingested-repos.test.ts`                                                         | Covered |
+| AC-20 | Locked mismatch rejects with stable 409 + canonical lock payload                           | `server/src/test/unit/ingest-start.test.ts`, `server/src/test/integration/ingest-lock-lifecycle.test.ts`                                                                 | Covered |
+| AC-21 | Re-embed always uses stored lock provider/model                                            | `server/src/test/features/ingest-reembed.feature`, `server/src/test/integration/ingest-reembed.test.ts`                                                                  | Covered |
+| AC-22 | Query embeddings (REST/classic MCP/internal) all use locked provider/model                 | `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`, `server/src/test/integration/mcp-vector-search.test.ts`                                            | Covered |
+| AC-23 | Query embedding dimension checked pre-Chroma; deterministic mismatch error                 | `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`, `server/src/test/integration/mcp-vector-search.test.ts`                                            | Covered |
+| AC-24 | Legacy-only lock metadata remains readable with LM Studio inference                        | `server/src/test/unit/ingest-roots-dedupe.test.ts`, `client/src/test/useIngestRoots.test.tsx`                                                                            | Covered |
+| AC-25 | New writes persist canonical fields with legacy-read compatibility                         | `server/src/test/integration/ingest-lock-lifecycle.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`                                                          | Covered |
+| AC-26 | Option A naming mandatory (`embeddingProvider` + `embeddingModel`)                         | `server/src/test/unit/openapi.contract.test.ts`, `server/src/test/unit/tools-ingested-repos.test.ts`                                                                     | Covered |
+| AC-27 | One canonical lock resolver for reporting + enforcement                                    | `server/src/test/integration/ingest-lock-lifecycle.test.ts`, `server/src/test/unit/ingest-start.test.ts`                                                                 | Covered |
+| AC-28 | Alias behavior consistent across all lock-bearing surfaces                                 | `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts` | Covered |
+| AC-29 | LM Studio-only workflows still work without OpenAI                                         | `server/src/test/unit/ingest-models.test.ts`, `server/src/test/features/ingest-models.feature`                                                                           | Covered |
+| AC-30 | OpenAI failures mapped to stable taxonomy incl. quota/credits semantics                    | `server/src/test/unit/openai-provider-errors.test.ts`, `server/src/test/integration/openai-error-parity.test.ts`                                                         | Covered |
+| AC-31 | Retryable OpenAI failures use bounded exponential retry                                    | `server/src/test/unit/openai-provider-retry.test.ts`                                                                                                                     | Covered |
+| AC-32 | Retry defaults fixed (`3/500/8000/jitter/wait-hint`)                                       | `server/src/test/unit/openai-provider-retry.test.ts`                                                                                                                     | Covered |
+| AC-33 | OpenAI batching/token guardrails enforced (`2048`, per-model, `300000`)                    | `server/src/test/unit/openai-provider-guardrails.test.ts`                                                                                                                | Covered |
+| AC-34 | SDK retries disabled (`maxRetries=0`)                                                      | `server/src/test/unit/openai-provider-retry.test.ts`                                                                                                                     | Covered |
+| AC-35 | Break parser robust wrapper handling with strict schema acceptance                         | `server/src/test/unit/flows.break-parser.test.ts`, `server/src/test/integration/flows.run.loop.test.ts`                                                                  | Covered |
+| AC-36 | Command/flow retries default `5`, env override, no retry on abort/stopped                  | `server/src/test/unit/flow-command-retries-config.test.ts`, `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`                                             | Covered |
+| AC-37 | Retry prompt deterministic prefix format                                                   | `server/src/test/unit/agent-commands-runner-retry.test.ts`, `server/src/test/integration/flows.run.loop.test.ts`                                                         | Covered |
+| AC-38 | Retry prompt context normalized/secret-safe/truncated                                      | `server/src/test/unit/agent-commands-runner-retry.test.ts`, `server/src/test/unit/openai-provider-errors.test.ts`                                                        | Covered |
+| AC-39 | Flow retries emit one terminal `turn_final` per logical step                               | `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/integration/flows.turn-metadata.test.ts`                                                          | Covered |
+| AC-40 | No duplicate persisted turns for intermediate failed attempts                              | `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/integration/flows.turn-metadata.test.ts`                                                          | Covered |
+| AC-41 | End-to-end acceptance coverage present across automated + manual evidence                  | Task 14 Testing 1-12 outputs + Task 14 screenshots under `playwright-output-local/0000036-14-*.png`                                                                      | Covered |
 
 ##### Edge Case Coverage
 
-| ID | Edge case summary | Coverage evidence (automated/manual) | Status |
-| --- | --- | --- | --- |
-| EC-01 | Key present but blank/whitespace treated as disabled; no OpenAI call | `server/src/test/unit/ingest-models.test.ts` | Covered |
-| EC-02 | LM fail + OpenAI success returns 200 with LM warning | `server/src/test/unit/ingest-models.test.ts` | Covered |
-| EC-03 | Both listing calls fail returns 200 deterministic warnings | `server/src/test/unit/ingest-models.test.ts` | Covered |
-| EC-04 | Lock model unavailable to OpenAI key rejects deterministically | `server/src/test/integration/openai-model-unavailable-contract.test.ts` | Covered |
-| EC-05 | Same model id under different providers stays provider-qualified | `client/src/test/ingestForm.test.tsx`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts` | Covered |
-| EC-06 | Lock source divergence eliminated via canonical resolver | `server/src/test/integration/ingest-lock-lifecycle.test.ts` | Covered |
-| EC-07 | Partial canonical lock metadata rejects deterministically | `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts` | Covered |
-| EC-08 | Legacy-only metadata dual-read compatibility retained | `server/src/test/unit/ingest-roots-dedupe.test.ts`, `client/src/test/useIngestRoots.test.tsx` | Covered |
-| EC-09 | Alias drift prevention (`lockedModelId == lock.embeddingModel`) | `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts` | Covered |
-| EC-10 | Idempotent lock clear when vectors empty without clearing newer lock | `server/src/test/integration/ingest-lock-lifecycle.test.ts` | Covered |
-| EC-11 | Start precheck race guarded by authoritative lock gate | `server/src/test/integration/ingest-lock-lifecycle.test.ts` | Covered |
-| EC-12 | Cancel terminal stale ownership released (no false BUSY) | `server/src/test/features/ingest-cancel.feature`, `server/src/test/integration/ingest-lock-lifecycle.test.ts` | Covered |
-| EC-13 | Concurrent remove/reembed/start honor lock discipline with BUSY | `server/src/test/integration/ingest-lock-lifecycle.test.ts`, `server/src/test/features/ingest-remove.feature` | Covered |
-| EC-14 | Reembed on cancelled/error root state rejected | `server/src/test/integration/ingest-reembed-invalid-state.test.ts` | Covered |
-| EC-15 | Invalid/negative retry hints ignored, fallback delay used | `server/src/test/unit/openai-provider-retry.test.ts` | Covered |
-| EC-16 | Retry budget exhausted returns deterministic normalized terminal OpenAI error | `server/src/test/unit/openai-provider-retry.test.ts`, `server/src/test/unit/openai-provider-errors.test.ts` | Covered |
-| EC-17 | Single retry layer enforced (SDK retries disabled) | `server/src/test/unit/openai-provider-retry.test.ts` | Covered |
-| EC-18 | Timeout/connection reset after partial writes preserves deterministic progress/error | `server/src/test/integration/ingest-progress-accounting.test.ts`, `server/src/test/integration/openai-error-parity.test.ts` | Covered |
-| EC-19 | Preflight batching limits (`>2048`, `>300000`) split/reject deterministically | `server/src/test/unit/openai-provider-guardrails.test.ts` | Covered |
-| EC-20 | Upstream oversize still maps to `OPENAI_INPUT_TOO_LARGE` non-retryable | `server/src/test/unit/openai-provider-errors.test.ts` | Covered |
-| EC-21 | Empty/non-numeric embedding payload fails fast deterministically | `server/src/test/unit/openai-provider.test.ts` | Covered |
-| EC-22 | Query dimension mismatch returns deterministic `EMBEDDING_DIMENSION_MISMATCH` | `server/src/test/integration/chat-vectorsearch-locked-model.test.ts` | Covered |
-| EC-23 | REST/classic MCP error-code/message parity maintained | `server/src/test/integration/openai-error-parity.test.ts`, `server/src/test/integration/mcp-vector-search.test.ts` | Covered |
-| EC-24 | Classic MCP schema extensions keep envelope compatibility | `server/src/test/integration/mcp-ingested-repositories.test.ts`, `server/src/test/integration/mcp-server.test.ts` | Covered |
-| EC-25 | UI stale selected model cleared on refresh removal | `client/src/test/ingestForm.test.tsx` | Covered |
-| EC-26 | Secret leakage prevention (no key in logs/contracts) | `server/src/test/unit/openai-provider-errors.test.ts`, Task 14 manual `/logs` check | Covered |
+| ID    | Edge case summary                                                                    | Coverage evidence (automated/manual)                                                                                                                       | Status  |
+| ----- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| EC-01 | Key present but blank/whitespace treated as disabled; no OpenAI call                 | `server/src/test/unit/ingest-models.test.ts`                                                                                                               | Covered |
+| EC-02 | LM fail + OpenAI success returns 200 with LM warning                                 | `server/src/test/unit/ingest-models.test.ts`                                                                                                               | Covered |
+| EC-03 | Both listing calls fail returns 200 deterministic warnings                           | `server/src/test/unit/ingest-models.test.ts`                                                                                                               | Covered |
+| EC-04 | Lock model unavailable to OpenAI key rejects deterministically                       | `server/src/test/integration/openai-model-unavailable-contract.test.ts`                                                                                    | Covered |
+| EC-05 | Same model id under different providers stays provider-qualified                     | `client/src/test/ingestForm.test.tsx`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts` | Covered |
+| EC-06 | Lock source divergence eliminated via canonical resolver                             | `server/src/test/integration/ingest-lock-lifecycle.test.ts`                                                                                                | Covered |
+| EC-07 | Partial canonical lock metadata rejects deterministically                            | `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`                                                            | Covered |
+| EC-08 | Legacy-only metadata dual-read compatibility retained                                | `server/src/test/unit/ingest-roots-dedupe.test.ts`, `client/src/test/useIngestRoots.test.tsx`                                                              | Covered |
+| EC-09 | Alias drift prevention (`lockedModelId == lock.embeddingModel`)                      | `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts`                                       | Covered |
+| EC-10 | Idempotent lock clear when vectors empty without clearing newer lock                 | `server/src/test/integration/ingest-lock-lifecycle.test.ts`                                                                                                | Covered |
+| EC-11 | Start precheck race guarded by authoritative lock gate                               | `server/src/test/integration/ingest-lock-lifecycle.test.ts`                                                                                                | Covered |
+| EC-12 | Cancel terminal stale ownership released (no false BUSY)                             | `server/src/test/features/ingest-cancel.feature`, `server/src/test/integration/ingest-lock-lifecycle.test.ts`                                              | Covered |
+| EC-13 | Concurrent remove/reembed/start honor lock discipline with BUSY                      | `server/src/test/integration/ingest-lock-lifecycle.test.ts`, `server/src/test/features/ingest-remove.feature`                                              | Covered |
+| EC-14 | Reembed on cancelled/error root state rejected                                       | `server/src/test/integration/ingest-reembed-invalid-state.test.ts`                                                                                         | Covered |
+| EC-15 | Invalid/negative retry hints ignored, fallback delay used                            | `server/src/test/unit/openai-provider-retry.test.ts`                                                                                                       | Covered |
+| EC-16 | Retry budget exhausted returns deterministic normalized terminal OpenAI error        | `server/src/test/unit/openai-provider-retry.test.ts`, `server/src/test/unit/openai-provider-errors.test.ts`                                                | Covered |
+| EC-17 | Single retry layer enforced (SDK retries disabled)                                   | `server/src/test/unit/openai-provider-retry.test.ts`                                                                                                       | Covered |
+| EC-18 | Timeout/connection reset after partial writes preserves deterministic progress/error | `server/src/test/integration/ingest-progress-accounting.test.ts`, `server/src/test/integration/openai-error-parity.test.ts`                                | Covered |
+| EC-19 | Preflight batching limits (`>2048`, `>300000`) split/reject deterministically        | `server/src/test/unit/openai-provider-guardrails.test.ts`                                                                                                  | Covered |
+| EC-20 | Upstream oversize still maps to `OPENAI_INPUT_TOO_LARGE` non-retryable               | `server/src/test/unit/openai-provider-errors.test.ts`                                                                                                      | Covered |
+| EC-21 | Empty/non-numeric embedding payload fails fast deterministically                     | `server/src/test/unit/openai-provider.test.ts`                                                                                                             | Covered |
+| EC-22 | Query dimension mismatch returns deterministic `EMBEDDING_DIMENSION_MISMATCH`        | `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`                                                                                       | Covered |
+| EC-23 | REST/classic MCP error-code/message parity maintained                                | `server/src/test/integration/openai-error-parity.test.ts`, `server/src/test/integration/mcp-vector-search.test.ts`                                         | Covered |
+| EC-24 | Classic MCP schema extensions keep envelope compatibility                            | `server/src/test/integration/mcp-ingested-repositories.test.ts`, `server/src/test/integration/mcp-server.test.ts`                                          | Covered |
+| EC-25 | UI stale selected model cleared on refresh removal                                   | `client/src/test/ingestForm.test.tsx`                                                                                                                      | Covered |
+| EC-26 | Secret leakage prevention (no key in logs/contracts)                                 | `server/src/test/unit/openai-provider-errors.test.ts`, Task 14 manual `/logs` check                                                                        | Covered |
 
 #### Final PR Summary Comment (Task 14)
 
@@ -2000,7 +2010,7 @@ Story `0000036` is now finalized with provider-aware embedding lock contracts an
 
 ### 15. Post-implementation review remediation: provider-qualified lock-option collision and startup env precedence hardening
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `c950b51`
   - `c950b51` - DEV-0000036 - Fix provider-qualified lock fallback and preserve pre-seeded startup env values
 
@@ -2050,7 +2060,7 @@ Address issues found during branch-vs-main code review that affect lock-selectio
 
 ### 16. Final re-verification: full acceptance regression after Task 15 remediation
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `c5523f2`
 
 #### Overview
@@ -2110,7 +2120,7 @@ Re-run full story verification after Task 15 remediation to reconfirm acceptance
 
 ### 17. Server observability hardening: frontend-visible ingest failure logging for OpenAI and LM Studio
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `2444830`, `1de3d3b`, `4797be7`
 
 #### Overview
@@ -2179,7 +2189,7 @@ Ensure all ingest-process failures tied to OpenAI or LM Studio are emitted as fr
 
 ### 18. Server configuration extension: env-configurable OpenAI ingest retry budget (`OPENAI_INGEST_MAX_RETRIES`)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `bf3e628`
 
 #### Overview
@@ -2249,7 +2259,7 @@ Add a server environment variable, `OPENAI_INGEST_MAX_RETRIES`, to override the 
 
 ### 19. Ingest reliability hardening: close missing catch/log coverage gaps with retry-aware severity semantics
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `1feb4b6`, `777649c`
 
 #### Overview
@@ -2344,7 +2354,7 @@ Close the remaining ingest failure-handling gaps identified during Story 0000036
 
 ### 20. Post-review remediation: retry-env parsing strictness and reembed failure log context correctness
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **5d1b225, 4110887**
 
 #### Overview
@@ -2410,7 +2420,7 @@ Address defects identified during branch-vs-main code review: (1) `OPENAI_INGEST
 
 ### 21. Final re-verification after Task 20 remediation: full acceptance regression and traceability re-audit
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **eed4752, 3f3f856, 38b92da**
 
 #### Overview

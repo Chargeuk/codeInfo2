@@ -184,13 +184,14 @@ This should only be started once all the above sections are clear and understood
 11. As soon as a task’s implementation is done, add detailed notes in the Implementation notes section covering the code changes, decisions made, and any issues encountered. Push immediately after writing the notes.
 12. Record the relevant git commit hash(es) in the Git Commits section. Once they are pushed, set the task status to `Done`, and push again so both the commit IDs and updated status are captured in this document.
 13. After a task is fully documented (status, notes, commits), proceed to the next task and repeat the same process.
+
 - Mixed-language repos: AST indexing runs for all supported files and skips only unsupported files.
 
 ---
 
 ### 1. Server: AST Mongo schemas
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: ceb28fd, 0e93765
 
 #### Overview
@@ -289,19 +290,23 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 10. [x] Add AST schema registration log line:
-   - Files to edit:
-     - `server/src/mongo/astCoverage.ts`
-   - Log line:
-     - `DEV-0000032:T1:ast-mongo-models-ready`
-   - Implementation details:
-     - Use `baseLogger.info` to emit the log when AST models are registered (module load time).
-     - Include `event: 'DEV-0000032:T1:ast-mongo-models-ready'` and `collection: 'ast_coverage'`.
-   - Documentation to read (repeat):
-     - Mongoose schema guide: https://mongoosejs.com/docs/guide.html
+
+- Files to edit:
+  - `server/src/mongo/astCoverage.ts`
+- Log line:
+  - `DEV-0000032:T1:ast-mongo-models-ready`
+- Implementation details:
+  - Use `baseLogger.info` to emit the log when AST models are registered (module load time).
+  - Include `event: 'DEV-0000032:T1:ast-mongo-models-ready'` and `collection: 'ast_coverage'`.
+- Documentation to read (repeat):
+  - Mongoose schema guide: https://mongoosejs.com/docs/guide.html
+
 11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
+
+- Documentation to read (repeat):
+  - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -343,7 +348,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 
 ### 2. Server: AST repo helpers
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 0dd078e, a9b0c43
 
 #### Overview
@@ -421,6 +426,7 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -454,7 +460,7 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
 
 ### 3. Server: Tree-sitter dependencies + Docker build support
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 8d10bf2
 
 #### Overview
@@ -528,6 +534,7 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -554,7 +561,7 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
 
 ### 4. Server: Tree-sitter parser module
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 35d2d19
 
 #### Overview
@@ -606,17 +613,17 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
    - Implementation details:
      - Export `parseAstSource({ root, text, relPath, fileHash })` returning `{ language, symbols, edges, references, imports }`.
      - Load JS/TS/TSX grammars and select parser by file extension (use `tree-sitter-typescript`.typescript and `.tsx` for TS/TSX).
-    - Load `queries/tags.scm` / `queries/locals.scm` by reading the grammar package files (via `tree-sitter.json` or direct `queries/` paths) instead of assuming exported constants.
-    - If query files are missing, mark the file as `failed` and log once per run (do not add custom AST walking as a fallback).
-     - Constrain symbol kinds to the Option B list: `Module`, `Class`, `Function`, `Method`, `Interface`, `TypeAlias`, `Enum`, `Property`.
-     - Constrain edge types to `DEFINES`, `CALLS`, `IMPORTS`, `EXPORTS`, `EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`.
-     - Convert Tree-sitter `row`/`column` to 1-based `range`.
-     - Generate deterministic `symbolId` from `{ root, relPath, kind, name, range }` and handle collisions with a stable suffix.
-     - Populate `container` for child symbols where a parent name or symbol id is available.
-     - Return `imports` data shaped for `ModuleImportsRecord` and `references` data shaped for `ReferenceRecord`.
-     - Create a `Module` symbol per file to anchor IMPORTS/EXPORTS edges.
-     - Treat `tree.rootNode.hasError` as a parse failure and surface it as `failed` output.
-     - Keep parsing errors isolated to the file being parsed (return a failure result, do not throw).
+   - Load `queries/tags.scm` / `queries/locals.scm` by reading the grammar package files (via `tree-sitter.json` or direct `queries/` paths) instead of assuming exported constants.
+   - If query files are missing, mark the file as `failed` and log once per run (do not add custom AST walking as a fallback).
+   - Constrain symbol kinds to the Option B list: `Module`, `Class`, `Function`, `Method`, `Interface`, `TypeAlias`, `Enum`, `Property`.
+   - Constrain edge types to `DEFINES`, `CALLS`, `IMPORTS`, `EXPORTS`, `EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`.
+   - Convert Tree-sitter `row`/`column` to 1-based `range`.
+   - Generate deterministic `symbolId` from `{ root, relPath, kind, name, range }` and handle collisions with a stable suffix.
+   - Populate `container` for child symbols where a parent name or symbol id is available.
+   - Return `imports` data shaped for `ModuleImportsRecord` and `references` data shaped for `ReferenceRecord`.
+   - Create a `Module` symbol per file to anchor IMPORTS/EXPORTS edges.
+   - Treat `tree.rootNode.hasError` as a parse failure and surface it as `failed` output.
+   - Keep parsing errors isolated to the file being parsed (return a failure result, do not throw).
 3. [x] Unit test — parser extracts symbols for TS/TSX:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
@@ -667,63 +674,79 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
 10. [x] Unit test — unsupported extension returns unsupported result:
-   - Test type: Unit (parser).
-   - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
-   - Description: Parse a non-supported extension and check the returned language flag.
-   - Purpose: Ensure unsupported files are skipped without crashes.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+
+- Test type: Unit (parser).
+- Test location: `server/src/test/unit/ast-parser.test.ts` (new).
+- Description: Parse a non-supported extension and check the returned language flag.
+- Purpose: Ensure unsupported files are skipped without crashes.
+- Documentation to read (repeat):
+  - Node.js test runner: https://nodejs.org/api/test.html
+
 11. [x] Unit test — missing query files returns failed parse:
-   - Test type: Unit (parser).
-   - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
-   - Description: Simulate missing `tags.scm` or `locals.scm` files.
-   - Purpose: Ensure parser returns a failed result without throwing.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
-     - Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
+
+- Test type: Unit (parser).
+- Test location: `server/src/test/unit/ast-parser.test.ts` (new).
+- Description: Simulate missing `tags.scm` or `locals.scm` files.
+- Purpose: Ensure parser returns a failed result without throwing.
+- Documentation to read (repeat):
+  - Node.js test runner: https://nodejs.org/api/test.html
+  - Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
+
 12. [x] Unit test — error tree marks file as failed:
-   - Test type: Unit (parser).
-   - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
-   - Description: Force `rootNode.hasError === true` and validate failure output.
-   - Purpose: Ensure malformed files do not crash AST indexing.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+
+- Test type: Unit (parser).
+- Test location: `server/src/test/unit/ast-parser.test.ts` (new).
+- Description: Force `rootNode.hasError === true` and validate failure output.
+- Purpose: Ensure malformed files do not crash AST indexing.
+- Documentation to read (repeat):
+  - Node.js test runner: https://nodejs.org/api/test.html
+
 13. [x] Unit test — grammar load failure logs once:
-   - Test type: Unit (parser).
-   - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
-   - Description: Simulate grammar load failure and assert logging + failure result.
-   - Purpose: Ensure consistent failure handling when parser setup fails.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+
+- Test type: Unit (parser).
+- Test location: `server/src/test/unit/ast-parser.test.ts` (new).
+- Description: Simulate grammar load failure and assert logging + failure result.
+- Purpose: Ensure consistent failure handling when parser setup fails.
+- Documentation to read (repeat):
+  - Node.js test runner: https://nodejs.org/api/test.html
+
 14. [x] Update documentation — `design.md`:
-   - Document: `design.md`.
-   - Location: `design.md`.
-   - Description: Document the Tree-sitter parsing approach, query usage, and add an AST parse-flow mermaid diagram.
-   - Purpose: Explain the AST parsing pipeline and data extraction flow.
-   - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-     - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+
+- Document: `design.md`.
+- Location: `design.md`.
+- Description: Document the Tree-sitter parsing approach, query usage, and add an AST parse-flow mermaid diagram.
+- Purpose: Explain the AST parsing pipeline and data extraction flow.
+- Documentation to read (repeat):
+  - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+  - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+
 15. [x] Update documentation — `projectStructure.md`:
-   - Document: `projectStructure.md`.
-   - Location: `projectStructure.md`.
-   - Description: Add new AST parser files and tests to the tree (`server/src/ast/parser.ts`, `server/src/ast/types.ts`, `server/src/test/unit/ast-parser.test.ts`).
-   - Purpose: Keep project structure documentation current with new AST modules.
-   - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+
+- Document: `projectStructure.md`.
+- Location: `projectStructure.md`.
+- Description: Add new AST parser files and tests to the tree (`server/src/ast/parser.ts`, `server/src/ast/types.ts`, `server/src/test/unit/ast-parser.test.ts`).
+- Purpose: Keep project structure documentation current with new AST modules.
+- Documentation to read (repeat):
+  - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+
 16. [x] Add AST parser log line:
-   - Files to edit:
-     - `server/src/ast/parser.ts`
-   - Log line:
-     - `DEV-0000032:T4:ast-parser-queries-loaded`
-   - Implementation details:
-     - Emit `baseLogger.info` the first time parser query files load successfully.
-     - Include `event: 'DEV-0000032:T4:ast-parser-queries-loaded'` and `language` in the payload.
-   - Documentation to read (repeat):
-     - Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
+
+- Files to edit:
+  - `server/src/ast/parser.ts`
+- Log line:
+  - `DEV-0000032:T4:ast-parser-queries-loaded`
+- Implementation details:
+  - Emit `baseLogger.info` the first time parser query files load successfully.
+  - Include `event: 'DEV-0000032:T4:ast-parser-queries-loaded'` and `language` in the payload.
+- Documentation to read (repeat):
+  - Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
+
 17. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
+
+- Documentation to read (repeat):
+  - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -773,7 +796,7 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 
 ### 5. Server: Ingest AST indexing + persistence
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 1ca39a4
 
 #### Overview
@@ -816,7 +839,7 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
      - Skip writes when `dryRun` is true, but still compute counts.
      - If Mongo is disconnected, skip AST writes with a warning and continue.
      - Ensure vector ingest counts + model locking behavior are unchanged by AST indexing.
-      - When grammar load fails, treat supported files as failed and log the failure once per run.
+     - When grammar load fails, treat supported files as failed and log the failure once per run.
    - Documentation to read (repeat):
      - Tree-sitter docs (parsers): https://tree-sitter.github.io/tree-sitter/using-parsers
      - MongoDB write operations: https://www.mongodb.com/docs/manual/crud/
@@ -837,8 +860,8 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
      - For `reembed` with delta, delete AST records for deleted/changed files and upsert new records for added/changed files.
      - Persist `ast_references` and `ast_module_imports` alongside symbols/edges.
      - Ensure unchanged files keep their existing AST records (no delete for `deltaPlan.unchanged`).
-      - If delta plan has no changes, skip AST re-indexing and leave existing AST records untouched.
-      - Update `ast_coverage` with `supportedFileCount`, `skippedFileCount`, `failedFileCount`, and `lastIndexedAt` (ISO).
+     - If delta plan has no changes, skip AST re-indexing and leave existing AST records untouched.
+     - Update `ast_coverage` with `supportedFileCount`, `skippedFileCount`, `failedFileCount`, and `lastIndexedAt` (ISO).
    - Documentation to read (repeat):
      - MongoDB write operations: https://www.mongodb.com/docs/manual/crud/
 5. [x] Handle cancellation during AST indexing:
@@ -878,69 +901,87 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
 10. [x] Unit test — ingest cancellation stops AST work:
-   - Test type: Unit (ingest flow).
-   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
-   - Description: Trigger cancellation mid-run.
-   - Purpose: Ensure parsing halts and queued writes are skipped.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+
+- Test type: Unit (ingest flow).
+- Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
+- Description: Trigger cancellation mid-run.
+- Purpose: Ensure parsing halts and queued writes are skipped.
+- Documentation to read (repeat):
+  - Node.js test runner: https://nodejs.org/api/test.html
+
 11. [x] Unit test — Mongo disconnected skips AST writes:
-   - Test type: Unit (ingest flow).
-   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
-   - Description: Simulate `mongoose.connection.readyState !== 1`.
-   - Purpose: Ensure write helpers are not called and a warning is logged.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+
+- Test type: Unit (ingest flow).
+- Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
+- Description: Simulate `mongoose.connection.readyState !== 1`.
+- Purpose: Ensure write helpers are not called and a warning is logged.
+- Documentation to read (repeat):
+  - Node.js test runner: https://nodejs.org/api/test.html
+
 12. [x] Unit test — delta re-embed deletes/upserts AST records:
-   - Test type: Unit (ingest flow).
-   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
-   - Description: Simulate a delta plan with added, changed, and deleted files.
-   - Purpose: Ensure deletes run for deleted/changed files and upserts run for added/changed files only.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+
+- Test type: Unit (ingest flow).
+- Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
+- Description: Simulate a delta plan with added, changed, and deleted files.
+- Purpose: Ensure deletes run for deleted/changed files and upserts run for added/changed files only.
+- Documentation to read (repeat):
+  - Node.js test runner: https://nodejs.org/api/test.html
+
 13. [x] Unit test — delta re-embed skips unchanged files:
-   - Test type: Unit (ingest flow).
-   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
-   - Description: Include `deltaPlan.unchanged` entries and verify they are not parsed or written.
-   - Purpose: Ensure unchanged files keep existing AST records without reprocessing.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+
+- Test type: Unit (ingest flow).
+- Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
+- Description: Include `deltaPlan.unchanged` entries and verify they are not parsed or written.
+- Purpose: Ensure unchanged files keep existing AST records without reprocessing.
+- Documentation to read (repeat):
+  - Node.js test runner: https://nodejs.org/api/test.html
+
 14. [x] Unit test — delta re-embed skips when no changes:
-   - Test type: Unit (ingest flow).
-   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
-   - Description: Provide a delta plan with no added/changed/deleted files.
-   - Purpose: Ensure AST parsing and writes are skipped when no re-index is needed.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+
+- Test type: Unit (ingest flow).
+- Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
+- Description: Provide a delta plan with no added/changed/deleted files.
+- Purpose: Ensure AST parsing and writes are skipped when no re-index is needed.
+- Documentation to read (repeat):
+  - Node.js test runner: https://nodejs.org/api/test.html
+
 15. [x] Update documentation — `design.md`:
-   - Document: `design.md`.
-   - Location: `design.md`.
-   - Description: Add AST coverage and ingest persistence notes plus a mermaid diagram for the ingest/AST pipeline.
-   - Purpose: Capture the end-to-end ingest + AST indexing flow.
-   - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-     - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+
+- Document: `design.md`.
+- Location: `design.md`.
+- Description: Add AST coverage and ingest persistence notes plus a mermaid diagram for the ingest/AST pipeline.
+- Purpose: Capture the end-to-end ingest + AST indexing flow.
+- Documentation to read (repeat):
+  - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+  - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+
 16. [x] Update documentation — `projectStructure.md`:
-   - Document: `projectStructure.md`.
-   - Location: `projectStructure.md`.
-   - Description: Add new AST ingest indexing tests to the project tree (`server/src/test/unit/ingest-ast-indexing.test.ts`).
-   - Purpose: Keep projectStructure aligned with new test coverage.
-   - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+
+- Document: `projectStructure.md`.
+- Location: `projectStructure.md`.
+- Description: Add new AST ingest indexing tests to the project tree (`server/src/test/unit/ingest-ast-indexing.test.ts`).
+- Purpose: Keep projectStructure aligned with new test coverage.
+- Documentation to read (repeat):
+  - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+
 17. [x] Add ingest AST indexing log line:
-   - Files to edit:
-     - `server/src/ingest/ingestJob.ts`
-   - Log line:
-     - `DEV-0000032:T5:ast-index-complete`
-   - Implementation details:
-     - Emit `baseLogger.info` when AST indexing finishes for a root (after coverage counts are persisted).
-     - Include `event: 'DEV-0000032:T5:ast-index-complete'`, `root`, and counts in the payload.
-   - Documentation to read (repeat):
-     - Node.js fs/promises: https://nodejs.org/api/fs.html#fspromisesreadfilepath-options
+
+- Files to edit:
+  - `server/src/ingest/ingestJob.ts`
+- Log line:
+  - `DEV-0000032:T5:ast-index-complete`
+- Implementation details:
+  - Emit `baseLogger.info` when AST indexing finishes for a root (after coverage counts are persisted).
+  - Include `event: 'DEV-0000032:T5:ast-index-complete'`, `root`, and counts in the payload.
+- Documentation to read (repeat):
+  - Node.js fs/promises: https://nodejs.org/api/fs.html#fspromisesreadfilepath-options
+
 18. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
+
+- Documentation to read (repeat):
+  - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -983,7 +1024,7 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
 
 ### 6. Server: Ingest status AST fields
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: f70e5ab
 
 #### Overview
@@ -1063,6 +1104,7 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -1091,7 +1133,7 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
 
 ### 7. Server: AST tool service
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 358ea01
 
 #### Overview
@@ -1124,13 +1166,13 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
      - Implement validation for each AST tool request; apply default `limit=50` and cap at `200`.
      - Resolve repository → root using `listIngestedRepositories` to match the existing repo id contract.
      - Use the repo entry’s `containerPath` as the `root` value when querying AST collections (not `hostPath`).
-    - When multiple repos share the same id, select the most recent `lastIngestAt`.
-    - Return `INGEST_REQUIRED` (409) when there are no ingested repositories.
-    - Return `AST_INDEX_REQUIRED` (409) when no coverage data exists for the repo.
-     - Reuse `ValidationError` and `RepoNotFoundError` from `server/src/lmstudio/toolService.ts` to keep error mapping consistent.
-     - Implement call graph traversal by following `CALLS` edges up to the requested depth.
-      - `AstModuleImports` should map persisted import records into `{ relPath, imports: [{ source, names[] }] }`.
-      - `AstFindReferences` should query `ast_references` by `symbolId` or by `{ name, kind }`.
+   - When multiple repos share the same id, select the most recent `lastIngestAt`.
+   - Return `INGEST_REQUIRED` (409) when there are no ingested repositories.
+   - Return `AST_INDEX_REQUIRED` (409) when no coverage data exists for the repo.
+   - Reuse `ValidationError` and `RepoNotFoundError` from `server/src/lmstudio/toolService.ts` to keep error mapping consistent.
+   - Implement call graph traversal by following `CALLS` edges up to the requested depth.
+   - `AstModuleImports` should map persisted import records into `{ relPath, imports: [{ source, names[] }] }`.
+   - `AstFindReferences` should query `ast_references` by `symbolId` or by `{ name, kind }`.
    - Documentation to read (repeat):
      - Mongoose queries: https://mongoosejs.com/docs/queries.html
      - MongoDB CRUD: https://www.mongodb.com/docs/manual/crud/
@@ -1184,76 +1226,96 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
 10. [x] Unit test — tool service list symbols filters + limits:
-   - Test type: Unit (service query).
-   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
-   - Description: Request symbols with `kinds` and `limit` filters.
-   - Purpose: Verify list results are filtered and capped as expected.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+
+- Test type: Unit (service query).
+- Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+- Description: Request symbols with `kinds` and `limit` filters.
+- Purpose: Verify list results are filtered and capped as expected.
+- Documentation to read (repeat):
+  - Node.js test runner: https://nodejs.org/api/test.html
+
 11. [x] Unit test — tool service find definition by symbolId:
-   - Test type: Unit (service query).
-   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
-   - Description: Query `AstFindDefinition` with a known `symbolId`.
-   - Purpose: Ensure definition lookup returns the matching symbol.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+
+- Test type: Unit (service query).
+- Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+- Description: Query `AstFindDefinition` with a known `symbolId`.
+- Purpose: Ensure definition lookup returns the matching symbol.
+- Documentation to read (repeat):
+  - Node.js test runner: https://nodejs.org/api/test.html
+
 12. [x] Unit test — tool service references by symbolId:
-   - Test type: Unit (service query).
-   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
-   - Description: Query `AstFindReferences` using a `symbolId`.
-   - Purpose: Ensure references return for direct symbol lookups.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+
+- Test type: Unit (service query).
+- Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+- Description: Query `AstFindReferences` using a `symbolId`.
+- Purpose: Ensure references return for direct symbol lookups.
+- Documentation to read (repeat):
+  - Node.js test runner: https://nodejs.org/api/test.html
+
 13. [x] Unit test — tool service call graph depth:
-   - Test type: Unit (service query).
-   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
-   - Description: Build a call chain longer than requested depth.
-   - Purpose: Ensure traversal respects depth and stops correctly.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+
+- Test type: Unit (service query).
+- Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+- Description: Build a call chain longer than requested depth.
+- Purpose: Ensure traversal respects depth and stops correctly.
+- Documentation to read (repeat):
+  - Node.js test runner: https://nodejs.org/api/test.html
+
 14. [x] Unit test — tool service module imports mapping:
-   - Test type: Unit (service query).
-   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
-   - Description: Seed module import records with sources + names.
-   - Purpose: Verify `AstModuleImports` shape `{ relPath, imports: [{ source, names[] }] }`.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+
+- Test type: Unit (service query).
+- Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+- Description: Seed module import records with sources + names.
+- Purpose: Verify `AstModuleImports` shape `{ relPath, imports: [{ source, names[] }] }`.
+- Documentation to read (repeat):
+  - Node.js test runner: https://nodejs.org/api/test.html
+
 14. [x] Unit test — tool service references fallback:
-   - Test type: Unit (service query).
-   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
-   - Description: Query by `{ name, kind }` when `symbolId` missing.
-   - Purpose: Ensure fallback reference lookup works for legacy callers.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+
+- Test type: Unit (service query).
+- Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+- Description: Query by `{ name, kind }` when `symbolId` missing.
+- Purpose: Ensure fallback reference lookup works for legacy callers.
+- Documentation to read (repeat):
+  - Node.js test runner: https://nodejs.org/api/test.html
+
 15. [x] Update documentation — `design.md`:
-   - Document: `design.md`.
-   - Location: `design.md`.
-   - Description: Document AST tool service behavior and add a mermaid diagram for tool query flow.
-   - Purpose: Explain how AST tool requests map to Mongo queries and responses.
-   - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-     - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+
+- Document: `design.md`.
+- Location: `design.md`.
+- Description: Document AST tool service behavior and add a mermaid diagram for tool query flow.
+- Purpose: Explain how AST tool requests map to Mongo queries and responses.
+- Documentation to read (repeat):
+  - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+  - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+
 16. [x] Update documentation — `projectStructure.md`:
-   - Document: `projectStructure.md`.
-   - Location: `projectStructure.md`.
-   - Description: Add AST tool service + unit test files to the tree (`server/src/ast/toolService.ts`, `server/src/test/unit/ast-tool-validation.test.ts`, `server/src/test/unit/ast-tool-service.test.ts`).
-   - Purpose: Keep project structure docs aligned with added service/test files.
-   - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+
+- Document: `projectStructure.md`.
+- Location: `projectStructure.md`.
+- Description: Add AST tool service + unit test files to the tree (`server/src/ast/toolService.ts`, `server/src/test/unit/ast-tool-validation.test.ts`, `server/src/test/unit/ast-tool-service.test.ts`).
+- Purpose: Keep project structure docs aligned with added service/test files.
+- Documentation to read (repeat):
+  - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+
 17. [x] Add AST tool service log line:
-   - Files to edit:
-     - `server/src/ast/toolService.ts`
-   - Log line:
-     - `DEV-0000032:T7:ast-tool-service-request`
-   - Implementation details:
-     - Emit `baseLogger.info` at the start of each tool service handler.
-     - Include `event: 'DEV-0000032:T7:ast-tool-service-request'`, `tool`, and `repository`.
-   - Documentation to read (repeat):
-     - Mongoose queries: https://mongoosejs.com/docs/queries.html
+
+- Files to edit:
+  - `server/src/ast/toolService.ts`
+- Log line:
+  - `DEV-0000032:T7:ast-tool-service-request`
+- Implementation details:
+  - Emit `baseLogger.info` at the start of each tool service handler.
+  - Include `event: 'DEV-0000032:T7:ast-tool-service-request'`, `tool`, and `repository`.
+- Documentation to read (repeat):
+  - Mongoose queries: https://mongoosejs.com/docs/queries.html
+
 18. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
+
+- Documentation to read (repeat):
+  - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -1288,7 +1350,7 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
 
 ### 8. Server: AST REST endpoints
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: d62af2e
 
 #### Overview
@@ -1386,6 +1448,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -1420,7 +1483,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
 
 ### 9. Server: MCP AST tool definitions
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: a8919f4
 
 #### Overview
@@ -1514,19 +1577,23 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 10. [x] Add MCP tool registration log line:
-   - Files to edit:
-     - `server/src/mcp/server.ts`
-   - Log line:
-     - `DEV-0000032:T9:ast-mcp-tools-registered`
-   - Implementation details:
-     - Emit `baseLogger.info` after AST tool definitions are registered.
-     - Include `event: 'DEV-0000032:T9:ast-mcp-tools-registered'` and `toolCount`.
-   - Documentation to read (repeat):
-     - MCP tool spec: https://modelcontextprotocol.io/specification
+
+- Files to edit:
+  - `server/src/mcp/server.ts`
+- Log line:
+  - `DEV-0000032:T9:ast-mcp-tools-registered`
+- Implementation details:
+  - Emit `baseLogger.info` after AST tool definitions are registered.
+  - Include `event: 'DEV-0000032:T9:ast-mcp-tools-registered'` and `toolCount`.
+- Documentation to read (repeat):
+  - MCP tool spec: https://modelcontextprotocol.io/specification
+
 11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
+
+- Documentation to read (repeat):
+  - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -1555,7 +1622,7 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
 
 ### 10. Client: Ingest status type updates
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: f7e7bf8
 
 #### Overview
@@ -1633,6 +1700,7 @@ Extend client ingest status types to include optional AST counts and update test
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -1661,7 +1729,7 @@ Extend client ingest status types to include optional AST counts and update test
 
 ### 11. Client: Ingest AST status banners
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: c36cb16
 
 #### Overview
@@ -1750,6 +1818,7 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -1776,7 +1845,7 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
 
 ### 12. Final Task: Full verification + acceptance criteria
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: adf928e
 
 #### Overview
@@ -1864,11 +1933,12 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 - Lint still reports existing import/order warnings in server/test files; formatting clean.
 - `npm run build --workspace server` completed successfully.
 - `npm run build --workspace client` completed with the usual Vite chunk size warning.
+
 ---
 
 ### 13. Server: AST relationship edges + collision logging
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 8333efe
 
 #### Overview
@@ -1934,6 +2004,7 @@ Add missing AST edge types (`EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`) and log 
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -1972,7 +2043,7 @@ Add missing AST edge types (`EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`) and log 
 
 ### 14. Final Task: Full verification + acceptance criteria (retest)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits:
   - `f7697e0` DEV-0000032 - Task 14 verification artifacts
 
@@ -2033,7 +2104,7 @@ Re-run full verification after the added AST edge work to ensure the story still
 
 ### 15. Server: Persist AST stats in ingest roots
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 7d8798c
 
 #### Overview
@@ -2124,7 +2195,7 @@ Duplicate AST coverage counts into ingest root metadata and return them from `GE
 
 ### 16. Client: Show AST stats per ingested root
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 86b619e
 
 #### Overview
@@ -2219,7 +2290,7 @@ Surface AST coverage counts on the Ingest page per embedded root, and handle mis
 
 ### 17. Final Task: Full verification + acceptance criteria (retest)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: ca8c26c
 
 #### Overview
@@ -2279,7 +2350,7 @@ Re-run full verification after adding AST counts to ingest roots so the story me
 
 ### 18. Server: Normalize AST tool inputs (case-insensitive)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: f87bd2c, a616f79
 
 #### Overview
@@ -2365,7 +2436,7 @@ Make AST tool inputs tolerant of case differences so users can pass repository i
 
 ### 19. Server: Validate unsupported AST tool inputs
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 3461645, 8efebfc
 
 #### Overview
@@ -2450,7 +2521,7 @@ Ensure AST tool inputs reject unsupported kinds and repositories with clear erro
 
 ### 20. Final Task: Full verification + acceptance criteria (retest)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 5a4bb50, d177b21
 
 #### Overview
@@ -2510,7 +2581,7 @@ Re-run full verification after normalising/validating AST tool inputs so the sto
 
 ### 21. Server: Always full AST parse on re-embed
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 112abf4
 
 #### Overview

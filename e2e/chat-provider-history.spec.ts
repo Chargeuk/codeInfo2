@@ -135,9 +135,10 @@ test('historical conversation uses its provider and shows turns', async ({
   } catch (err) {
     console.log('[browser] turns payload error', err);
   }
-  await page.waitForFunction(() =>
-    Boolean((window as unknown as { __chatDebug?: unknown }).__chatDebug) &&
-    document.body.textContent?.includes('codex reply'),
+  await page.waitForFunction(
+    () =>
+      Boolean((window as unknown as { __chatDebug?: unknown }).__chatDebug) &&
+      document.body.textContent?.includes('codex reply'),
   );
   const debugState = await page.evaluate(
     () => (window as unknown as { __chatDebug?: unknown }).__chatDebug,

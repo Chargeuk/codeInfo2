@@ -7,6 +7,7 @@ This story follows `planning/plan_format.md`.
 Follow `planning/plan_format.md` (update Task Status before coding; work tasks in order; run required tests; update docs; record commits; push at each stage).
 
 Story convention (important for this repo’s planning style):
+
 - Each task’s **Documentation Locations** section must contain **external** references only (website docs, Context7 library docs, MUI MCP docs, Deepwiki MCP docs when available).
 - Any repo file paths that must be read/edited belong in the relevant **Subtask** under “Files to read” / “Files to edit”.
 
@@ -19,9 +20,11 @@ Today, ingest (and re-embed) behaves like a full rebuild of a folder’s embeddi
 We want to introduce a **delta re-ingest** mechanism driven by **file content hashes** so that when a user requests a re-ingest, the server only re-embeds files that are new or have changed, and removes embeddings for files that have been deleted.
 
 Glossary:
+
 - **root**: the ingest root id/name stored for a folder and used as the collection namespace in ingest metadata (the same value returned by `GET /ingest/roots`).
 
 To make deletions/changes fast and avoid scanning chunk metadata in Chroma, we will introduce a lightweight **per-file index stored in MongoDB** (collection `ingest_files`) keyed by `{ root, relPath }` and storing `fileHash` (plus a minimal `updatedAt` for debugging). This index is used to:
+
 - detect deleted files (present in the index but not found on disk),
 - detect changed files (hash differs), and
 - detect new files (present on disk but not in the index).
@@ -31,6 +34,7 @@ File hashes use a simple, deterministic algorithm (SHA-256 of the file bytes as 
 For changed files, we will treat re-ingest as a **file-level replacement**: re-chunk and re-add the file’s vectors tagged with the run id, and only after success delete older vectors for `{ root, relPath }` where the stored `fileHash` differs. We will not attempt chunk-level upserts because modified files are very unlikely to retain the same chunk boundaries. If a run is cancelled mid-file, existing vectors remain intact.
 
 Separately, the Ingest page UI has a couple of small usability issues:
+
 - When the embedding model is locked, the same info notice appears twice (once on the page and once inside the form). We want to show it only once to reduce noise.
 - The “Folder path” field is currently text-only; we want an optional “Choose folder…” affordance that helps users select a folder path more reliably.
   - This should be a **server-backed directory picker** (a modal that lists directories under an allowed base like `/data` / `HOST_INGEST_DIR`) and writes the chosen server-readable path back into the text field.
@@ -45,11 +49,13 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 ### Directory picker (new endpoint)
 
 **Request**
+
 - `GET /ingest/dirs?path=<absolute server path>`
 - `path` is optional; when omitted, the base defaults to `HOST_INGEST_DIR` (or `/data`).
 - Lexical base validation only (no realpath containment checks). Paths that escape via symlink are allowed if accessible.
 
 **Response (success)**
+
 ```json
 {
   "base": "/data",
@@ -59,6 +65,7 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 ```
 
 **Response (error)**
+
 ```json
 {
   "status": "error",
@@ -71,6 +78,7 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 ### Mongo per-file index (collection `ingest_files`)
 
 **Document shape**
+
 ```json
 {
   "root": "repo-name",
@@ -81,6 +89,7 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 ```
 
 **Indexes**
+
 - Unique: `{ root: 1, relPath: 1 }`
 - Non-unique: `{ root: 1 }`
 
@@ -89,6 +98,7 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 ### Vector metadata (Chroma)
 
 Each chunk includes:
+
 ```json
 {
   "root": "repo-name",
@@ -105,6 +115,7 @@ Each chunk includes:
 ```
 
 Notes:
+
 - Deletes for file replacement use Chroma `where` metadata filters over `{ root, relPath, fileHash }`.
 - `runId` is used to clean up in-progress vectors on cancel.
 - `chunkIndex` is encoded in the vector id (e.g., `${runId}:${relPath}:${chunkIndex}`); `tokenCount` is not persisted in metadata today.
@@ -207,7 +218,7 @@ None (resolved; details folded into Description / Acceptance Criteria / Out Of S
 
 ### 1. MongoDB per-file index schema (`ingest_files`)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 64751be
 
 #### Overview
@@ -245,6 +256,7 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
      - Use Mongoose `timestamps: true` so `updatedAt` is maintained automatically (and is available for debugging).
      - Use a stable model name (e.g. `IngestFile`) and follow the existing `models.<Name> || model(...)` pattern.
    - Copy/paste starter snippet (adapt names to match repo conventions):
+
      ```ts
      import mongoose, { Schema } from 'mongoose';
 
@@ -402,7 +414,7 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
 
 ### 2. MongoDB per-file index repository helpers (safe when Mongo is unavailable)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 2ad58ce
 
 #### Overview
@@ -442,6 +454,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
        - `clearIngestFilesByRoot(root: string)` → deleteMany (used for legacy upgrade/full rebuilds)
      - KISS: do not add “clever” partial updates (no mtime/size shortcuts; no chunk-level indexing).
    - Copy/paste guard snippet (apply to each helper):
+
      ```ts
      import mongoose from 'mongoose';
 
@@ -449,6 +462,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
        return null;
      }
      ```
+
    - Copy/paste bulk upsert snippet (adapt to actual model name/imports):
      ```ts
      await IngestFileModel.bulkWrite(
@@ -595,7 +609,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
 
 ### 3. Delta decision engine (pure planning of new/changed/deleted files)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 85d37ca
 
 #### Overview
@@ -780,7 +794,7 @@ Create a pure “delta planner” that compares the discovered on-disk file list
 
 ### 4. Server delta re-embed (file-level replacement) + legacy upgrade
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 0531ae5
 
 #### Overview
@@ -821,7 +835,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
 
 2. [x] Update `reembed()` so it no longer performs a root-wide **vector** delete before starting (delta needs existing vectors):
    - Docs to read (repeat; do not skip):
-     - https://docs.trychroma.com/ (delete semantics; we are intentionally *not* deleting root vectors up front)
+     - https://docs.trychroma.com/ (delete semantics; we are intentionally _not_ deleting root vectors up front)
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Requirements:
@@ -841,7 +855,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - `server/src/ingest/ingestJob.ts`
    - Requirements:
      - Today, `processRun` returns early for re-embed when `files.length === 0`.
-     - Delta re-embed must still be able to detect that *previously ingested* files were deleted (including "all files deleted"), so it must still load the `ingest_files` index and compute deletions.
+     - Delta re-embed must still be able to detect that _previously ingested_ files were deleted (including "all files deleted"), so it must still load the `ingest_files` index and compute deletions.
 
 4. [x] Load the previous per-file index and compute hashes for the newly discovered files:
    - Docs to read (repeat; do not skip):
@@ -896,7 +910,9 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
    - Copy/paste delete-by-relPath outline:
      ```ts
      for (const file of deleted) {
-       await deleteVectors({ where: { $and: [{ root }, { relPath: file.relPath }] } });
+       await deleteVectors({
+         where: { $and: [{ root }, { relPath: file.relPath }] },
+       });
      }
      ```
 
@@ -937,436 +953,462 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      ```
 
 10. [x] Implement `/ingest/roots` response dedupe by root `path` (prevents duplicate rows in the UI):
-   - Purpose: keep the roots table stable without risky write-time deletes.
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/routes/ingestRoots.ts`
-   - Requirements:
-     - Implement the dedupe at read/response time (not write time):
-       - If multiple root metadata entries exist for the same `path`, return only one entry for that path.
-       - Keep the most recent entry (prefer `lastIngestAt` when present; otherwise fall back to `runId` ordering).
-     - KISS: implement a small pure helper (e.g. `dedupeRootsByPath(roots: RootEntry[]): RootEntry[]`).
-   - Copy/paste helper outline:
-     ```ts
-     // group by path, keep the entry with the greatest lastIngestAt (Date.parse)
-     // if lastIngestAt is missing, keep the later runId entry (string compare is fine for IDs)
-     ```
+
+- Purpose: keep the roots table stable without risky write-time deletes.
+- Docs to read:
+  - https://nodejs.org/api/test.html
+- Files to edit:
+  - `server/src/routes/ingestRoots.ts`
+- Requirements:
+  - Implement the dedupe at read/response time (not write time):
+    - If multiple root metadata entries exist for the same `path`, return only one entry for that path.
+    - Keep the most recent entry (prefer `lastIngestAt` when present; otherwise fall back to `runId` ordering).
+  - KISS: implement a small pure helper (e.g. `dedupeRootsByPath(roots: RootEntry[]): RootEntry[]`).
+- Copy/paste helper outline:
+  ```ts
+  // group by path, keep the entry with the greatest lastIngestAt (Date.parse)
+  // if lastIngestAt is missing, keep the later runId entry (string compare is fine for IDs)
+  ```
 
 11. [x] Unit test: dedupe keeps the most recent entry by `lastIngestAt` when multiple paths are duplicated:
-   - Test type: Server unit (node:test)
-   - Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`
-   - Purpose: ensure UI shows the latest ingest activity for a path.
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-   - Files to add:
-     - `server/src/test/unit/ingest-roots-dedupe.test.ts`
-   - Requirements:
-     - Create two root entries with the same `path` but different `lastIngestAt`.
-     - Assert the deduped output keeps the one with the later `lastIngestAt`.
+
+- Test type: Server unit (node:test)
+- Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`
+- Purpose: ensure UI shows the latest ingest activity for a path.
+- Docs to read:
+  - https://nodejs.org/api/test.html
+- Files to add:
+  - `server/src/test/unit/ingest-roots-dedupe.test.ts`
+- Requirements:
+  - Create two root entries with the same `path` but different `lastIngestAt`.
+  - Assert the deduped output keeps the one with the later `lastIngestAt`.
 
 12. [x] Unit test: dedupe falls back to `runId` ordering when `lastIngestAt` is missing:
-   - Test type: Server unit (node:test)
-   - Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`
-   - Purpose: keep deterministic selection even when timestamps are absent.
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/unit/ingest-roots-dedupe.test.ts`
-   - Requirements:
-     - Create two root entries with the same `path` and no `lastIngestAt`.
-     - Assert the deduped output keeps the one with the later `runId`.
+
+- Test type: Server unit (node:test)
+- Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`
+- Purpose: keep deterministic selection even when timestamps are absent.
+- Docs to read:
+  - https://nodejs.org/api/test.html
+- Files to edit:
+  - `server/src/test/unit/ingest-roots-dedupe.test.ts`
+- Requirements:
+  - Create two root entries with the same `path` and no `lastIngestAt`.
+  - Assert the deduped output keeps the one with the later `runId`.
 
 13. [x] Ensure the per-file index is written/maintained for both initial ingest and re-embed:
-   - Docs to read (repeat; do not skip):
-     - Context7 `/automattic/mongoose/9.0.1` (bulkWrite, deleteMany)
-   - Files to edit:
-     - `server/src/ingest/ingestJob.ts`
-     - `server/src/mongo/repo.ts`
-   - Requirements:
-     - Initial ingest (`operation === 'start'`): after a successful run, write `ingest_files` rows for all discovered files and their `fileHash` values.
-       - KISS approach: clear existing rows for the root and insert/upsert all discovered file hashes (start ingest is already a "full rebuild" operation).
-     - Re-embed (`operation === 'reembed'`): after a successful run, update the index using the delta plan:
-       - Upsert rows for `added + changed`.
-       - Delete rows for `deleted`.
-       - Do not rewrite rows for `unchanged`.
-     - Do not update the Mongo per-file index on cancellation or error.
-     - Reminder of exact document shape in `ingest_files` (do not improvise fields):
-       - `{ root: string, relPath: string, fileHash: string, updatedAt: Date }`
+
+- Docs to read (repeat; do not skip):
+  - Context7 `/automattic/mongoose/9.0.1` (bulkWrite, deleteMany)
+- Files to edit:
+  - `server/src/ingest/ingestJob.ts`
+  - `server/src/mongo/repo.ts`
+- Requirements:
+  - Initial ingest (`operation === 'start'`): after a successful run, write `ingest_files` rows for all discovered files and their `fileHash` values.
+    - KISS approach: clear existing rows for the root and insert/upsert all discovered file hashes (start ingest is already a "full rebuild" operation).
+  - Re-embed (`operation === 'reembed'`): after a successful run, update the index using the delta plan:
+    - Upsert rows for `added + changed`.
+    - Delete rows for `deleted`.
+    - Do not rewrite rows for `unchanged`.
+  - Do not update the Mongo per-file index on cancellation or error.
+  - Reminder of exact document shape in `ingest_files` (do not improvise fields):
+    - `{ root: string, relPath: string, fileHash: string, updatedAt: Date }`
 
 14. [x] Implement "legacy root upgrade" behavior:
-   - Docs to read (repeat; do not skip):
-     - https://docs.trychroma.com/ (delete all by metadata filter)
-   - Files to edit:
-     - `server/src/ingest/ingestJob.ts`
-     - `server/src/mongo/repo.ts`
-   - Requirements:
-     - Legacy root definition: there are **zero** `ingest_files` rows for the root.
-     - When legacy is detected on a re-embed:
-       - Delete all vectors for `{ root }`.
-       - Delete all root metadata entries for `{ root }`.
-       - Perform a full ingest of all discovered files (same behavior as current re-embed today).
-      - Populate `ingest_files` for all files as part of the successful run.
-     - Reminder: legacy upgrade is only for the case where Mongo is connected and the index is empty.
-       - If Mongo is disconnected (`listIngestFilesByRoot` returns `null`), treat it as a degraded mode and do not attempt to update `ingest_files`.
+
+- Docs to read (repeat; do not skip):
+  - https://docs.trychroma.com/ (delete all by metadata filter)
+- Files to edit:
+  - `server/src/ingest/ingestJob.ts`
+  - `server/src/mongo/repo.ts`
+- Requirements:
+  - Legacy root definition: there are **zero** `ingest_files` rows for the root.
+  - When legacy is detected on a re-embed:
+    - Delete all vectors for `{ root }`.
+    - Delete all root metadata entries for `{ root }`.
+    - Perform a full ingest of all discovered files (same behavior as current re-embed today).
+  - Populate `ingest_files` for all files as part of the successful run.
+  - Reminder: legacy upgrade is only for the case where Mongo is connected and the index is empty.
+    - If Mongo is disconnected (`listIngestFilesByRoot` returns `null`), treat it as a degraded mode and do not attempt to update `ingest_files`.
 
 15. [x] Ensure run cancellation remains safe and does not corrupt older vectors:
-   - Docs to read (repeat; do not skip):
-     - https://docs.trychroma.com/ (delete with `where: { runId }`)
-   - Files to edit:
-     - `server/src/ingest/ingestJob.ts`
-   - Requirements:
-     - Cancel must delete only `{ runId }` vectors (existing behavior) and must not delete vectors for unchanged files.
-     - Do not update `ingest_files` until the run is in a successful terminal state (completed or skipped).
+
+- Docs to read (repeat; do not skip):
+  - https://docs.trychroma.com/ (delete with `where: { runId }`)
+- Files to edit:
+  - `server/src/ingest/ingestJob.ts`
+- Requirements:
+  - Cancel must delete only `{ runId }` vectors (existing behavior) and must not delete vectors for unchanged files.
+  - Do not update `ingest_files` until the run is in a successful terminal state (completed or skipped).
 
 16. [x] Add Mongo Testcontainers support for Cucumber delta scenarios (hook + cucumber registration):
-   - Docs to read (repeat; do not skip):
-     - Context7 `/testcontainers/testcontainers-node` (GenericContainer + Wait)
-     - https://cucumber.io/docs/guides/
-     - Context7 `/automattic/mongoose/9.0.1` (connect/disconnect)
-   - Files to add:
-     - `server/src/test/support/mongoContainer.ts`
-   - Files to edit:
-     - `server/cucumber.js`
-   - Requirements:
-     - In `server/src/test/support/mongoContainer.ts`, use a `@mongo` tag and a `Before({ tags: '@mongo' }, ...)` hook to start a Mongo Testcontainers instance only for these scenarios.
-      - Important: to keep the plan’s “No-Mongo” scenario real and deterministic, ensure Mongo is **disconnected** at the start of every scenario unless the scenario is tagged `@mongo`.
-        - KISS approach:
-          - Add a global `Before` hook that calls `disconnectMongo()` if connected (ignore errors).
-          - Add `Before({ tags: '@mongo' }, ...)` to connect for `@mongo` scenarios.
-      - Update `server/cucumber.js` to require `src/test/support/mongoContainer.ts` (alongside `chromaContainer.ts`) so the hooks are registered.
-      - Important: this repo does **not** currently include `@testcontainers/mongodb`, so do not use `MongoDBContainer`.
-        - Use `GenericContainer('mongo:8')` from the existing `testcontainers` dependency.
-       - Configure it explicitly for reliability:
-         - `.withExposedPorts(27017)`
-         - `.withWaitStrategy(Wait.forLogMessage(/Waiting for connections/))`
-         - `.withStartupTimeout(120_000)`
-       - Construct a connection string like:
-         - `mongodb://<host>:<mappedPort>/db?directConnection=true`
-       - Set `process.env.MONGO_URI` to the container URI and call `connectMongo(process.env.MONGO_URI)` during the hook.
-      - De-risk: start the container lazily once and reuse it across all `@mongo` scenarios (like the existing Chroma compose setup) instead of starting/stopping per scenario.
-      - Clear the `ingest_files` collection (or at least the relevant `root`) in a `Before` hook so scenarios stay isolated.
-      - Ensure `disconnectMongo()` and container stop happen in an `AfterAll` hook.
+
+- Docs to read (repeat; do not skip):
+  - Context7 `/testcontainers/testcontainers-node` (GenericContainer + Wait)
+  - https://cucumber.io/docs/guides/
+  - Context7 `/automattic/mongoose/9.0.1` (connect/disconnect)
+- Files to add:
+  - `server/src/test/support/mongoContainer.ts`
+- Files to edit:
+  - `server/cucumber.js`
+- Requirements:
+  - In `server/src/test/support/mongoContainer.ts`, use a `@mongo` tag and a `Before({ tags: '@mongo' }, ...)` hook to start a Mongo Testcontainers instance only for these scenarios.
+  - Important: to keep the plan’s “No-Mongo” scenario real and deterministic, ensure Mongo is **disconnected** at the start of every scenario unless the scenario is tagged `@mongo`.
+    - KISS approach:
+      - Add a global `Before` hook that calls `disconnectMongo()` if connected (ignore errors).
+      - Add `Before({ tags: '@mongo' }, ...)` to connect for `@mongo` scenarios.
+  - Update `server/cucumber.js` to require `src/test/support/mongoContainer.ts` (alongside `chromaContainer.ts`) so the hooks are registered.
+  - Important: this repo does **not** currently include `@testcontainers/mongodb`, so do not use `MongoDBContainer`.
+    - Use `GenericContainer('mongo:8')` from the existing `testcontainers` dependency.
+  - Configure it explicitly for reliability:
+    - `.withExposedPorts(27017)`
+    - `.withWaitStrategy(Wait.forLogMessage(/Waiting for connections/))`
+    - `.withStartupTimeout(120_000)`
+  - Construct a connection string like:
+    - `mongodb://<host>:<mappedPort>/db?directConnection=true`
+  - Set `process.env.MONGO_URI` to the container URI and call `connectMongo(process.env.MONGO_URI)` during the hook.
+  - De-risk: start the container lazily once and reuse it across all `@mongo` scenarios (like the existing Chroma compose setup) instead of starting/stopping per scenario.
+  - Clear the `ingest_files` collection (or at least the relevant `root`) in a `Before` hook so scenarios stay isolated.
+  - Ensure `disconnectMongo()` and container stop happen in an `AfterAll` hook.
 
 17. [x] Add the Cucumber feature file scaffold for delta semantics (tagging rules + shared background):
-   - Test type: Cucumber feature (server integration)
-   - Location: `server/src/test/features/ingest-delta-reembed.feature`
-   - Purpose: define the acceptance-level behavior of delta re-embed in a way that exercises the real HTTP API + Chroma (and Mongo where tagged).
-   - Docs to read (repeat; do not skip):
-     - https://cucumber.io/docs/guides/
-     - https://cucumber.io/docs/guides/10-minute-tutorial/ (high-level how scenarios/steps fit together)
-     - https://cucumber.io/docs/gherkin/reference (exact keyword/tag syntax)
-   - Files to add:
-     - `server/src/test/features/ingest-delta-reembed.feature`
-   - Files to read (copy patterns; do not re-invent wiring):
-     - `server/src/test/features/ingest-reembed.feature`
-     - `server/src/test/features/ingest-roots.feature`
-   - Requirements:
-     - Tagging rules (important for running the right infrastructure):
-       - Add `@mongo` only to scenarios that require Mongo assertions.
-       - Do **not** tag the whole feature file `@mongo`, because we need at least one scenario to run with Mongo disconnected.
-     - Add a short `Feature:` description that explains what delta re-embed is and why `ingest_files` exists.
-   - Copy/paste skeleton (adapt step wording to match your step definitions):
-     ```gherkin
-     Feature: Ingest delta re-embed
 
-       Background:
-         Given the ingest delta test server is running with chroma and lmstudio
-         And ingest delta chroma stores are empty
-         And ingest delta models scenario "basic"
+- Test type: Cucumber feature (server integration)
+- Location: `server/src/test/features/ingest-delta-reembed.feature`
+- Purpose: define the acceptance-level behavior of delta re-embed in a way that exercises the real HTTP API + Chroma (and Mongo where tagged).
+- Docs to read (repeat; do not skip):
+  - https://cucumber.io/docs/guides/
+  - https://cucumber.io/docs/guides/10-minute-tutorial/ (high-level how scenarios/steps fit together)
+  - https://cucumber.io/docs/gherkin/reference (exact keyword/tag syntax)
+- Files to add:
+  - `server/src/test/features/ingest-delta-reembed.feature`
+- Files to read (copy patterns; do not re-invent wiring):
+  - `server/src/test/features/ingest-reembed.feature`
+  - `server/src/test/features/ingest-roots.feature`
+- Requirements:
+  - Tagging rules (important for running the right infrastructure):
+    - Add `@mongo` only to scenarios that require Mongo assertions.
+    - Do **not** tag the whole feature file `@mongo`, because we need at least one scenario to run with Mongo disconnected.
+  - Add a short `Feature:` description that explains what delta re-embed is and why `ingest_files` exists.
+- Copy/paste skeleton (adapt step wording to match your step definitions):
 
-       @mongo
-       Scenario: Changed file replacement updates vectors and ingest_files
-         Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
-         When I POST ingest start for the delta repo with model "embed-1"
-         Then ingest delta status for the last run becomes "completed"
-         When I change ingest delta temp file "a.ts" to "export const a=2;"
-         And I POST ingest reembed for the delta repo
-         Then ingest delta status for the last run becomes "completed"
-         And ingest delta vectors for "a.ts" have the latest fileHash
-     ```
+  ```gherkin
+  Feature: Ingest delta re-embed
+
+    Background:
+      Given the ingest delta test server is running with chroma and lmstudio
+      And ingest delta chroma stores are empty
+      And ingest delta models scenario "basic"
+
+    @mongo
+    Scenario: Changed file replacement updates vectors and ingest_files
+      Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
+      When I POST ingest start for the delta repo with model "embed-1"
+      Then ingest delta status for the last run becomes "completed"
+      When I change ingest delta temp file "a.ts" to "export const a=2;"
+      And I POST ingest reembed for the delta repo
+      Then ingest delta status for the last run becomes "completed"
+      And ingest delta vectors for "a.ts" have the latest fileHash
+  ```
 
 18. [x] Cucumber scenario: @mongo Changed file replacement updates vectors and `ingest_files`:
-   - Test type: Cucumber scenario (server integration)
-   - Location: `server/src/test/features/ingest-delta-reembed.feature`
-   - Purpose: ensure changed files are replaced without deleting vectors up-front.
-   - Docs to read:
-     - https://cucumber.io/docs/guides/
-     - https://cucumber.io/docs/gherkin/reference/
-     - https://docs.trychroma.com/ (metadata filter semantics)
-   - Files to edit:
-     - `server/src/test/features/ingest-delta-reembed.feature`
-   - Requirements:
-     - Steps must cause a file content change for a single `relPath` between runs.
-     - Assertions:
-       - vectors for the old hash are deleted
-       - vectors for the new hash exist
-       - `ingest_files` row for the relPath is updated
+
+- Test type: Cucumber scenario (server integration)
+- Location: `server/src/test/features/ingest-delta-reembed.feature`
+- Purpose: ensure changed files are replaced without deleting vectors up-front.
+- Docs to read:
+  - https://cucumber.io/docs/guides/
+  - https://cucumber.io/docs/gherkin/reference/
+  - https://docs.trychroma.com/ (metadata filter semantics)
+- Files to edit:
+  - `server/src/test/features/ingest-delta-reembed.feature`
+- Requirements:
+  - Steps must cause a file content change for a single `relPath` between runs.
+  - Assertions:
+    - vectors for the old hash are deleted
+    - vectors for the new hash exist
+    - `ingest_files` row for the relPath is updated
 
 19. [x] Cucumber scenario: @mongo Deleted file cleanup removes vectors and `ingest_files` row:
-   - Test type: Cucumber scenario (server integration)
-   - Location: `server/src/test/features/ingest-delta-reembed.feature`
-   - Purpose: ensure deletions are applied even if no re-embedding is required.
-   - Docs to read:
-     - https://cucumber.io/docs/guides/
-     - https://cucumber.io/docs/gherkin/reference/
-     - https://docs.trychroma.com/
-   - Files to edit:
-     - `server/src/test/features/ingest-delta-reembed.feature`
-   - Requirements:
-     - Steps must delete a previously ingested file.
-     - Assertions:
-       - vectors for the deleted relPath are removed
-       - `ingest_files` row for the relPath is removed
+
+- Test type: Cucumber scenario (server integration)
+- Location: `server/src/test/features/ingest-delta-reembed.feature`
+- Purpose: ensure deletions are applied even if no re-embedding is required.
+- Docs to read:
+  - https://cucumber.io/docs/guides/
+  - https://cucumber.io/docs/gherkin/reference/
+  - https://docs.trychroma.com/
+- Files to edit:
+  - `server/src/test/features/ingest-delta-reembed.feature`
+- Requirements:
+  - Steps must delete a previously ingested file.
+  - Assertions:
+    - vectors for the deleted relPath are removed
+    - `ingest_files` row for the relPath is removed
 
 20. [x] Cucumber scenario: @mongo Added file ingest inserts vectors and `ingest_files` row:
-   - Test type: Cucumber scenario (server integration)
-   - Location: `server/src/test/features/ingest-delta-reembed.feature`
-   - Purpose: ensure newly added files are embedded and indexed.
-   - Docs to read:
-     - https://cucumber.io/docs/guides/
-     - https://cucumber.io/docs/gherkin/reference/
-   - Files to edit:
-     - `server/src/test/features/ingest-delta-reembed.feature`
-   - Requirements:
-     - Steps must add a new file under the root between runs.
-     - Assertions:
-       - vectors exist for the newly added relPath
-       - `ingest_files` row for the relPath is inserted
+
+- Test type: Cucumber scenario (server integration)
+- Location: `server/src/test/features/ingest-delta-reembed.feature`
+- Purpose: ensure newly added files are embedded and indexed.
+- Docs to read:
+  - https://cucumber.io/docs/guides/
+  - https://cucumber.io/docs/gherkin/reference/
+- Files to edit:
+  - `server/src/test/features/ingest-delta-reembed.feature`
+- Requirements:
+  - Steps must add a new file under the root between runs.
+  - Assertions:
+    - vectors exist for the newly added relPath
+    - `ingest_files` row for the relPath is inserted
 
 21. [x] Cucumber scenario: @mongo Unchanged file untouched keeps vectors and `ingest_files` stable:
-   - Test type: Cucumber scenario (server integration)
-   - Location: `server/src/test/features/ingest-delta-reembed.feature`
-   - Purpose: ensure delta does not churn vectors when no changes exist.
-   - Docs to read:
-     - https://cucumber.io/docs/guides/
-     - https://cucumber.io/docs/gherkin/reference/
-   - Files to edit:
-     - `server/src/test/features/ingest-delta-reembed.feature`
-   - Requirements:
-     - Steps must keep one file unchanged between runs.
-     - Assertions:
-       - vectors remain for the unchanged relPath (same fileHash)
-       - `ingest_files` row remains unchanged
+
+- Test type: Cucumber scenario (server integration)
+- Location: `server/src/test/features/ingest-delta-reembed.feature`
+- Purpose: ensure delta does not churn vectors when no changes exist.
+- Docs to read:
+  - https://cucumber.io/docs/guides/
+  - https://cucumber.io/docs/gherkin/reference/
+- Files to edit:
+  - `server/src/test/features/ingest-delta-reembed.feature`
+- Requirements:
+  - Steps must keep one file unchanged between runs.
+  - Assertions:
+    - vectors remain for the unchanged relPath (same fileHash)
+    - `ingest_files` row remains unchanged
 
 22. [x] Cucumber scenario: @mongo Corner case “all files deleted” still cleans up and completes:
-   - Test type: Cucumber scenario (server integration)
-   - Location: `server/src/test/features/ingest-delta-reembed.feature`
-   - Purpose: ensure deletion detection works when discovery returns zero eligible files.
-   - Docs to read:
-     - https://cucumber.io/docs/guides/
-     - https://cucumber.io/docs/gherkin/reference/
-   - Files to edit:
-     - `server/src/test/features/ingest-delta-reembed.feature`
-   - Requirements:
-     - Steps must remove all eligible files under the root before re-embed.
-     - Assertions:
-       - discovery returns 0 eligible files
-       - vectors for previously indexed files are deleted
-       - `ingest_files` rows for the root are removed
-       - run ends in a terminal state and status polling completes
+
+- Test type: Cucumber scenario (server integration)
+- Location: `server/src/test/features/ingest-delta-reembed.feature`
+- Purpose: ensure deletion detection works when discovery returns zero eligible files.
+- Docs to read:
+  - https://cucumber.io/docs/guides/
+  - https://cucumber.io/docs/gherkin/reference/
+- Files to edit:
+  - `server/src/test/features/ingest-delta-reembed.feature`
+- Requirements:
+  - Steps must remove all eligible files under the root before re-embed.
+  - Assertions:
+    - discovery returns 0 eligible files
+    - vectors for previously indexed files are deleted
+    - `ingest_files` rows for the root are removed
+    - run ends in a terminal state and status polling completes
 
 23. [x] Cucumber scenario: @mongo Corner case “no-op re-embed” returns `skipped` with a clear message:
-   - Test type: Cucumber scenario (server integration)
-   - Location: `server/src/test/features/ingest-delta-reembed.feature`
-   - Purpose: ensure no-op delta runs are detectable by the UI.
-   - Docs to read:
-     - https://cucumber.io/docs/guides/
-     - https://cucumber.io/docs/gherkin/reference/
-   - Files to edit:
-     - `server/src/test/features/ingest-delta-reembed.feature`
-   - Requirements:
-     - Steps must ensure no file content changes between runs.
-     - Assertions:
-       - no vectors are added or removed
-       - run ends with `state: 'skipped'`
-       - message indicates no changes (must not be empty)
+
+- Test type: Cucumber scenario (server integration)
+- Location: `server/src/test/features/ingest-delta-reembed.feature`
+- Purpose: ensure no-op delta runs are detectable by the UI.
+- Docs to read:
+  - https://cucumber.io/docs/guides/
+  - https://cucumber.io/docs/gherkin/reference/
+- Files to edit:
+  - `server/src/test/features/ingest-delta-reembed.feature`
+- Requirements:
+  - Steps must ensure no file content changes between runs.
+  - Assertions:
+    - no vectors are added or removed
+    - run ends with `state: 'skipped'`
+    - message indicates no changes (must not be empty)
 
 24. [x] Cucumber scenario: @mongo Corner case “deletions-only re-embed” message must not claim “No changes detected”:
-   - Test type: Cucumber scenario (server integration)
-   - Location: `server/src/test/features/ingest-delta-reembed.feature`
-   - Purpose: avoid misleading UX when deletions occurred.
-   - Docs to read:
-     - https://cucumber.io/docs/guides/
-     - https://cucumber.io/docs/gherkin/reference/
-   - Files to edit:
-     - `server/src/test/features/ingest-delta-reembed.feature`
-   - Requirements:
-     - Steps must delete at least one file but not add/change any others.
-     - Assertions:
-       - vectors are deleted for removed relPaths
-       - run message is not “No changes detected”
+
+- Test type: Cucumber scenario (server integration)
+- Location: `server/src/test/features/ingest-delta-reembed.feature`
+- Purpose: avoid misleading UX when deletions occurred.
+- Docs to read:
+  - https://cucumber.io/docs/guides/
+  - https://cucumber.io/docs/gherkin/reference/
+- Files to edit:
+  - `server/src/test/features/ingest-delta-reembed.feature`
+- Requirements:
+  - Steps must delete at least one file but not add/change any others.
+  - Assertions:
+    - vectors are deleted for removed relPaths
+    - run message is not “No changes detected”
 
 25. [x] Cucumber scenario: No-Mongo corner case “re-embed works when Mongo is disconnected”:
-   - Test type: Cucumber scenario (server integration)
-   - Location: `server/src/test/features/ingest-delta-reembed.feature`
-   - Purpose: ensure the server does not crash/hang when Mongo is unavailable.
-   - Docs to read:
-     - https://cucumber.io/docs/guides/
-     - https://cucumber.io/docs/gherkin/reference/
-   - Files to edit:
-     - `server/src/test/features/ingest-delta-reembed.feature`
-   - Requirements:
-     - Do not start the Mongo container for this scenario (do not tag `@mongo`).
-     - Ensure the global Mongo hook leaves Mongoose disconnected for this scenario (readyState must not be `1`).
-     - Run completes in a terminal state (completed/skipped).
-     - The server does not crash/hang due to Mongo being unavailable.
+
+- Test type: Cucumber scenario (server integration)
+- Location: `server/src/test/features/ingest-delta-reembed.feature`
+- Purpose: ensure the server does not crash/hang when Mongo is unavailable.
+- Docs to read:
+  - https://cucumber.io/docs/guides/
+  - https://cucumber.io/docs/gherkin/reference/
+- Files to edit:
+  - `server/src/test/features/ingest-delta-reembed.feature`
+- Requirements:
+  - Do not start the Mongo container for this scenario (do not tag `@mongo`).
+  - Ensure the global Mongo hook leaves Mongoose disconnected for this scenario (readyState must not be `1`).
+  - Run completes in a terminal state (completed/skipped).
+  - The server does not crash/hang due to Mongo being unavailable.
 
 26. [x] Cucumber scenario: @mongo Legacy root upgrade deletes old vectors when `ingest_files` is empty and repopulates the index:
-   - Test type: Cucumber scenario (server integration)
-   - Location: `server/src/test/features/ingest-delta-reembed.feature`
-   - Purpose: prove the “legacy root upgrade” branch is real and prevents duplicate vectors when migrating existing roots.
-   - Docs to read:
-     - https://cucumber.io/docs/guides/
-     - https://cucumber.io/docs/gherkin/reference/
-     - https://docs.trychroma.com/ (delete with metadata `where`)
-   - Files to edit:
-     - `server/src/test/features/ingest-delta-reembed.feature`
-   - Requirements:
-     - Tag this scenario with `@mongo`.
-     - Scenario setup must create a legacy root state:
-       - Run an initial ingest for a temp repo root so vectors exist.
-       - Explicitly delete all `ingest_files` rows for that `root` (this simulates a pre-story root that has vectors but no per-file index).
-     - Re-embed that same root.
-     - Assertions:
-       - The re-embed run must **not** end with `state: 'skipped'` (it must do work).
-       - The post-reembed vectors must **not** include any vectors from the previous runId (assert by querying Chroma metadatas and confirming no `{ runId: <previousRunId> }` exist).
-       - `ingest_files` must be populated for **all discovered files** under the root.
-   - Copy/paste Gherkin outline (adapt step wording to match your step file):
-     ```gherkin
-     @mongo
-     Scenario: Legacy upgrade removes old vectors and repopulates ingest_files
-       Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
-       When I POST ingest start for the delta repo with model "embed-1"
-       Then ingest delta status for the last run becomes "completed"
-       And I remember the last runId as "initialRunId"
-       And I delete all ingest_files rows for the delta repo root
-       When I POST ingest reembed for the delta repo
-       Then ingest delta status for the last run becomes "completed"
-       And no vectors exist for runId "initialRunId"
-       And ingest_files contains at least 1 row for the delta repo root
-     ```
+
+- Test type: Cucumber scenario (server integration)
+- Location: `server/src/test/features/ingest-delta-reembed.feature`
+- Purpose: prove the “legacy root upgrade” branch is real and prevents duplicate vectors when migrating existing roots.
+- Docs to read:
+  - https://cucumber.io/docs/guides/
+  - https://cucumber.io/docs/gherkin/reference/
+  - https://docs.trychroma.com/ (delete with metadata `where`)
+- Files to edit:
+  - `server/src/test/features/ingest-delta-reembed.feature`
+- Requirements:
+  - Tag this scenario with `@mongo`.
+  - Scenario setup must create a legacy root state:
+    - Run an initial ingest for a temp repo root so vectors exist.
+    - Explicitly delete all `ingest_files` rows for that `root` (this simulates a pre-story root that has vectors but no per-file index).
+  - Re-embed that same root.
+  - Assertions:
+    - The re-embed run must **not** end with `state: 'skipped'` (it must do work).
+    - The post-reembed vectors must **not** include any vectors from the previous runId (assert by querying Chroma metadatas and confirming no `{ runId: <previousRunId> }` exist).
+    - `ingest_files` must be populated for **all discovered files** under the root.
+- Copy/paste Gherkin outline (adapt step wording to match your step file):
+  ```gherkin
+  @mongo
+  Scenario: Legacy upgrade removes old vectors and repopulates ingest_files
+    Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
+    When I POST ingest start for the delta repo with model "embed-1"
+    Then ingest delta status for the last run becomes "completed"
+    And I remember the last runId as "initialRunId"
+    And I delete all ingest_files rows for the delta repo root
+    When I POST ingest reembed for the delta repo
+    Then ingest delta status for the last run becomes "completed"
+    And no vectors exist for runId "initialRunId"
+    And ingest_files contains at least 1 row for the delta repo root
+  ```
 
 27. [x] Cucumber scenario: Re-embed selects the most recent root metadata entry when duplicates exist:
-   - Test type: Cucumber scenario (server integration)
-   - Location: `server/src/test/features/ingest-delta-reembed.feature`
-   - Purpose: ensure `reembed(rootPath)` uses the latest `name/description/model` when multiple root entries exist for the same root.
-   - Docs to read:
-     - https://cucumber.io/docs/guides/
-     - https://cucumber.io/docs/gherkin/reference/
-     - https://docs.trychroma.com/
-   - Files to edit:
-     - `server/src/test/features/ingest-delta-reembed.feature`
-   - Requirements:
-     - Create a temp repo root with at least one eligible file.
-     - Seed the Chroma roots collection with **two** metadata entries for the same `root` (path):
-       - Entry A: older `lastIngestAt`, `name: "old-name"` (and/or a distinct description)
-       - Entry B: newer `lastIngestAt`, `name: "new-name"`
-     - Trigger `POST /ingest/reembed/:root` for that root.
-    - Assertion:
-      - After the run completes, `GET /ingest/roots` must show the root’s `name` as `"new-name"` (proving the re-embed used the most recent metadata).
-   - Copy/paste Gherkin outline (adapt step wording to match your step file):
-     ```gherkin
-     Scenario: Re-embed uses latest root metadata when duplicates exist
-       Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
-       And ingest delta roots collection contains duplicate metadata for the delta repo root:
-         | lastIngestAt         | name     |
-         | 2026-01-01T00:00:00Z | old-name |
-         | 2026-01-02T00:00:00Z | new-name |
-       When I POST ingest reembed for the delta repo
-       Then ingest delta status for the last run becomes "completed"
-       And ingest roots for the delta repo should have name "new-name"
-     ```
+
+- Test type: Cucumber scenario (server integration)
+- Location: `server/src/test/features/ingest-delta-reembed.feature`
+- Purpose: ensure `reembed(rootPath)` uses the latest `name/description/model` when multiple root entries exist for the same root.
+- Docs to read:
+  - https://cucumber.io/docs/guides/
+  - https://cucumber.io/docs/gherkin/reference/
+  - https://docs.trychroma.com/
+- Files to edit:
+  - `server/src/test/features/ingest-delta-reembed.feature`
+- Requirements:
+  - Create a temp repo root with at least one eligible file.
+  - Seed the Chroma roots collection with **two** metadata entries for the same `root` (path):
+    - Entry A: older `lastIngestAt`, `name: "old-name"` (and/or a distinct description)
+    - Entry B: newer `lastIngestAt`, `name: "new-name"`
+  - Trigger `POST /ingest/reembed/:root` for that root.
+- Assertion:
+  - After the run completes, `GET /ingest/roots` must show the root’s `name` as `"new-name"` (proving the re-embed used the most recent metadata).
+- Copy/paste Gherkin outline (adapt step wording to match your step file):
+  ```gherkin
+  Scenario: Re-embed uses latest root metadata when duplicates exist
+    Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
+    And ingest delta roots collection contains duplicate metadata for the delta repo root:
+      | lastIngestAt         | name     |
+      | 2026-01-01T00:00:00Z | old-name |
+      | 2026-01-02T00:00:00Z | new-name |
+    When I POST ingest reembed for the delta repo
+    Then ingest delta status for the last run becomes "completed"
+    And ingest roots for the delta repo should have name "new-name"
+  ```
 
 28. [x] Implement the step definitions for the delta feature:
-   - Docs to read (repeat; do not skip):
-     - https://cucumber.io/docs/guides/
-     - https://cucumber.io/docs/guides/10-minute-tutorial/ (mental model for steps)
-     - https://cucumber.io/docs/cucumber/api/ (Before/After/BeforeAll/AfterAll)
-     - https://docs.trychroma.com/ (collection.get + include metadatas)
-   - Files to add:
-     - `server/src/test/steps/ingest-delta-reembed.steps.ts`
-   - Files to read (copy patterns; do not reinvent server harness or polling):
-     - `server/src/test/steps/ingest-manage.steps.ts`
-     - `server/src/test/steps/ingest-status.steps.ts`
-     - `server/src/test/steps/ingest-roots.steps.ts`
-     - `server/src/test/support/chromaContainer.ts`
-   - Requirements:
-     - Query Chroma metadata (via `getVectorsCollection().get({ where, include: ['metadatas'] })`) to assert:
-       - presence/absence of vectors for `{ root, relPath }`
-       - `fileHash` differences across re-embed runs for changed files
-     - Query Mongo (`ingest_files`) to assert per-file index rows are correct *only for scenarios tagged `@mongo`*.
-       - For non-@mongo scenarios, do not access Mongo and do not make assertions about `ingest_files`.
-     - Add assertions for the ingest status API:
-       - poll `GET /ingest/status/:runId` until terminal
-       - assert `state` is terminal (`completed|cancelled|error|skipped`)
-       - for no-op runs, assert `state === 'skipped'` and message contains a clear reason
-       - for deletions-only runs, assert message is not "No changes detected"
-     - Add step support for the new scenarios:
-       - A step to delete all `ingest_files` rows for a root (used to simulate a legacy root).
-       - A step to seed duplicate root metadata entries (two roots records for the same `root` path with different `lastIngestAt` and `name`).
-       - A step/assertion to confirm there are **zero** vectors matching `{ runId: <priorRunId> }` after a legacy-upgrade re-embed.
-     - The test must not rely on manual inspection.
+
+- Docs to read (repeat; do not skip):
+  - https://cucumber.io/docs/guides/
+  - https://cucumber.io/docs/guides/10-minute-tutorial/ (mental model for steps)
+  - https://cucumber.io/docs/cucumber/api/ (Before/After/BeforeAll/AfterAll)
+  - https://docs.trychroma.com/ (collection.get + include metadatas)
+- Files to add:
+  - `server/src/test/steps/ingest-delta-reembed.steps.ts`
+- Files to read (copy patterns; do not reinvent server harness or polling):
+  - `server/src/test/steps/ingest-manage.steps.ts`
+  - `server/src/test/steps/ingest-status.steps.ts`
+  - `server/src/test/steps/ingest-roots.steps.ts`
+  - `server/src/test/support/chromaContainer.ts`
+- Requirements:
+  - Query Chroma metadata (via `getVectorsCollection().get({ where, include: ['metadatas'] })`) to assert:
+    - presence/absence of vectors for `{ root, relPath }`
+    - `fileHash` differences across re-embed runs for changed files
+  - Query Mongo (`ingest_files`) to assert per-file index rows are correct _only for scenarios tagged `@mongo`_.
+    - For non-@mongo scenarios, do not access Mongo and do not make assertions about `ingest_files`.
+  - Add assertions for the ingest status API:
+    - poll `GET /ingest/status/:runId` until terminal
+    - assert `state` is terminal (`completed|cancelled|error|skipped`)
+    - for no-op runs, assert `state === 'skipped'` and message contains a clear reason
+    - for deletions-only runs, assert message is not "No changes detected"
+  - Add step support for the new scenarios:
+    - A step to delete all `ingest_files` rows for a root (used to simulate a legacy root).
+    - A step to seed duplicate root metadata entries (two roots records for the same `root` path with different `lastIngestAt` and `name`).
+    - A step/assertion to confirm there are **zero** vectors matching `{ runId: <priorRunId> }` after a legacy-upgrade re-embed.
+  - The test must not rely on manual inspection.
 
 29. [x] Add server log entries (visible in the Logs page) that prove delta re-embed branches are being hit:
-   - Purpose: allow manual verification to confirm the server executed the intended branch (delta/no-op/deletions-only/legacy upgrade) without guessing.
-   - Files to edit:
-     - `server/src/ingest/ingestJob.ts`
-     - `server/src/routes/ingestRoots.ts`
-   - Requirements:
-     - Emit **server** logStore entries (use the existing `logLifecycle(...)` helper where possible) with these exact `message` strings:
-       - `0000020 ingest reembed metadata selected`
-         - context must include: `{ root, selectedLastIngestAt, selectedRunId }`
-       - `0000020 ingest delta mode decided`
-         - context must include: `{ root, mode }` where `mode` is one of `delta`, `legacy_upgrade`, `degraded_full`
-       - `0000020 ingest delta plan summary`
-         - context must include: `{ root, added, changed, deleted, unchanged }` (counts as numbers)
-       - `0000020 ingest delta no-op skipped`
-         - context must include: `{ root }`
-       - `0000020 ingest delta deletions-only`
-         - context must include: `{ root, deleted }` (count)
-     - When implementing `/ingest/roots` response dedupe, append a **server** log entry:
-       - `message`: `0000020 ingest roots dedupe applied`
-       - `context`: include `{ before, after }` counts
+
+- Purpose: allow manual verification to confirm the server executed the intended branch (delta/no-op/deletions-only/legacy upgrade) without guessing.
+- Files to edit:
+  - `server/src/ingest/ingestJob.ts`
+  - `server/src/routes/ingestRoots.ts`
+- Requirements:
+  - Emit **server** logStore entries (use the existing `logLifecycle(...)` helper where possible) with these exact `message` strings:
+    - `0000020 ingest reembed metadata selected`
+      - context must include: `{ root, selectedLastIngestAt, selectedRunId }`
+    - `0000020 ingest delta mode decided`
+      - context must include: `{ root, mode }` where `mode` is one of `delta`, `legacy_upgrade`, `degraded_full`
+    - `0000020 ingest delta plan summary`
+      - context must include: `{ root, added, changed, deleted, unchanged }` (counts as numbers)
+    - `0000020 ingest delta no-op skipped`
+      - context must include: `{ root }`
+    - `0000020 ingest delta deletions-only`
+      - context must include: `{ root, deleted }` (count)
+  - When implementing `/ingest/roots` response dedupe, append a **server** log entry:
+    - `message`: `0000020 ingest roots dedupe applied`
+    - `context`: include `{ before, after }` counts
 
 30. [x] Update `design.md` to reflect the new delta re-embed behavior (including Mermaid diagrams):
-   - Docs to read (repeat; do not skip):
-     - https://www.markdownguide.org/basic-syntax/
-     - Context7 `/mermaid-js/mermaid`
-   - Files to edit:
-     - `design.md`
-   - Requirements:
-     - Describe delta vs legacy re-embed behavior and the safety guarantee (add new vectors first, delete old after).
-     - Add at least one Mermaid diagram so the flow is unambiguous (use fenced code blocks with language `mermaid`).
-       - Preferred diagrams:
-         - A Mermaid `sequenceDiagram` showing request → run creation → status polling → terminal state.
-         - A Mermaid `flowchart` showing the `processRun` decision points (delta vs legacy upgrade vs degraded-mode fallback).
-       - Copy/paste starter flowchart (adapt labels to match the final code paths):
-         ```mermaid
-         flowchart TD
-           A[POST /ingest/reembed/:root] --> B{Mongo connected?}
-           B -- no --> C[Degraded mode: full re-embed]\n(no ingest_files updates)
-           B -- yes --> D{ingest_files has rows for root?}
-           D -- no --> E[Legacy upgrade]\n(delete root vectors + full ingest + populate ingest_files]
-           D -- yes --> F[Delta plan]\n(added/changed/unchanged/deleted)
-           F --> G{Any added/changed/deleted?}
-           G -- no --> H[Mark run skipped]\n(message: no changes]
-           G -- yes --> I[Write new vectors for added/changed]
-           I --> J[Delete old vectors for changed]\n+ delete vectors for deleted
-           J --> K[Update ingest_files]\n(upsert added/changed, delete deleted)
-       ```
+
+- Docs to read (repeat; do not skip):
+  - https://www.markdownguide.org/basic-syntax/
+  - Context7 `/mermaid-js/mermaid`
+- Files to edit:
+  - `design.md`
+- Requirements:
+  - Describe delta vs legacy re-embed behavior and the safety guarantee (add new vectors first, delete old after).
+  - Add at least one Mermaid diagram so the flow is unambiguous (use fenced code blocks with language `mermaid`).
+    - Preferred diagrams:
+      - A Mermaid `sequenceDiagram` showing request → run creation → status polling → terminal state.
+      - A Mermaid `flowchart` showing the `processRun` decision points (delta vs legacy upgrade vs degraded-mode fallback).
+    - Copy/paste starter flowchart (adapt labels to match the final code paths):
+      ```mermaid
+      flowchart TD
+        A[POST /ingest/reembed/:root] --> B{Mongo connected?}
+        B -- no --> C[Degraded mode: full re-embed]\n(no ingest_files updates)
+        B -- yes --> D{ingest_files has rows for root?}
+        D -- no --> E[Legacy upgrade]\n(delete root vectors + full ingest + populate ingest_files]
+        D -- yes --> F[Delta plan]\n(added/changed/unchanged/deleted)
+        F --> G{Any added/changed/deleted?}
+        G -- no --> H[Mark run skipped]\n(message: no changes]
+        G -- yes --> I[Write new vectors for added/changed]
+        I --> J[Delete old vectors for changed]\n+ delete vectors for deleted
+        J --> K[Update ingest_files]\n(upsert added/changed, delete deleted)
+      ```
+    ```
+
+    ```
 
 31. [x] Update `projectStructure.md` to include all new server files added in this task:
-   - Docs to read:
-     - https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `projectStructure.md`
-   - Requirements:
-     - Add the new file paths:
-       - `server/src/test/support/mongoContainer.ts`
-       - `server/src/test/features/ingest-delta-reembed.feature`
-       - `server/src/test/steps/ingest-delta-reembed.steps.ts`
-       - `server/src/test/unit/ingest-roots-dedupe.test.ts`
+
+- Docs to read:
+  - https://www.markdownguide.org/basic-syntax/
+- Files to edit:
+  - `projectStructure.md`
+- Requirements:
+  - Add the new file paths:
+    - `server/src/test/support/mongoContainer.ts`
+    - `server/src/test/features/ingest-delta-reembed.feature`
+    - `server/src/test/steps/ingest-delta-reembed.steps.ts`
+    - `server/src/test/unit/ingest-roots-dedupe.test.ts`
 
 32. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
@@ -1423,7 +1465,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
 
 ### 5. Server directory picker endpoint (`GET /ingest/dirs`)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 18cbca5, 0b28e64
 
 #### Overview
@@ -1469,7 +1511,11 @@ Add a small server endpoint that lists child directories under a single allowed 
      - Exact response contract (copy/paste for reference; do not change keys):
        - Success:
          ```json
-         { "base": "/data", "path": "/data/projects", "dirs": ["repo-a", "repo-b"] }
+         {
+           "base": "/data",
+           "path": "/data/projects",
+           "dirs": ["repo-a", "repo-b"]
+         }
          ```
        - Error:
          ```json
@@ -1573,85 +1619,91 @@ Add a small server endpoint that lists child directories under a single allowed 
      - Create directories out of order and assert response `dirs` is sorted.
 
 10. [x] Unit test: `OUTSIDE_BASE` for a `path` outside the base:
-   - Test type: Server unit (node:test + SuperTest)
-   - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
-   - Purpose: enforce lexical containment and protect the server from browsing arbitrary FS paths.
-   - Docs to read:
-     - https://nodejs.org/api/path.html
-   - Files to edit:
-     - `server/src/test/unit/ingest-dirs-router.test.ts`
-   - Requirements:
-     - Request a path outside base and assert `400` with `{ status:'error', code:'OUTSIDE_BASE' }`.
+
+- Test type: Server unit (node:test + SuperTest)
+- Location: `server/src/test/unit/ingest-dirs-router.test.ts`
+- Purpose: enforce lexical containment and protect the server from browsing arbitrary FS paths.
+- Docs to read:
+  - https://nodejs.org/api/path.html
+- Files to edit:
+  - `server/src/test/unit/ingest-dirs-router.test.ts`
+- Requirements:
+  - Request a path outside base and assert `400` with `{ status:'error', code:'OUTSIDE_BASE' }`.
 
 11. [x] Unit test: `NOT_FOUND` for a missing path:
-   - Test type: Server unit (node:test + SuperTest)
-   - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
-   - Purpose: ensure the UI can show a meaningful error if the directory disappears.
-   - Docs to read:
-     - https://nodejs.org/api/fs.html
-   - Files to edit:
-     - `server/src/test/unit/ingest-dirs-router.test.ts`
-   - Requirements:
-     - Request a non-existent path inside base and assert `404` with `{ status:'error', code:'NOT_FOUND' }`.
+
+- Test type: Server unit (node:test + SuperTest)
+- Location: `server/src/test/unit/ingest-dirs-router.test.ts`
+- Purpose: ensure the UI can show a meaningful error if the directory disappears.
+- Docs to read:
+  - https://nodejs.org/api/fs.html
+- Files to edit:
+  - `server/src/test/unit/ingest-dirs-router.test.ts`
+- Requirements:
+  - Request a non-existent path inside base and assert `404` with `{ status:'error', code:'NOT_FOUND' }`.
 
 12. [x] Unit test: `NOT_DIRECTORY` when `path` points at a file:
-   - Test type: Server unit (node:test + SuperTest)
-   - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
-   - Purpose: ensure the API does not return an invalid list response for files.
-   - Docs to read:
-     - https://nodejs.org/api/fs.html
-   - Files to edit:
-     - `server/src/test/unit/ingest-dirs-router.test.ts`
-   - Requirements:
-     - Request a file path inside base and assert `400` with `{ status:'error', code:'NOT_DIRECTORY' }`.
+
+- Test type: Server unit (node:test + SuperTest)
+- Location: `server/src/test/unit/ingest-dirs-router.test.ts`
+- Purpose: ensure the API does not return an invalid list response for files.
+- Docs to read:
+  - https://nodejs.org/api/fs.html
+- Files to edit:
+  - `server/src/test/unit/ingest-dirs-router.test.ts`
+- Requirements:
+  - Request a file path inside base and assert `400` with `{ status:'error', code:'NOT_DIRECTORY' }`.
 
 13. [x] Update `design.md` with the `GET /ingest/dirs` endpoint contract and a Mermaid flow diagram:
-   - Docs to read (repeat; do not skip):
-     - https://www.markdownguide.org/basic-syntax/
-     - Context7 `/mermaid-js/mermaid`
-   - Files to edit:
-     - `design.md`
-   - Requirements:
-     - Add the endpoint contract (request + success/error responses).
-     - Add a short Mermaid diagram showing the server-side validation flow (base selection → lexical containment check → stat/isDirectory → readdir → sorted dirs).
-       - Copy/paste starter diagram (adapt names to match the final implementation):
-         ```mermaid
-         flowchart TD
-           A[GET /ingest/dirs?path=...] --> B[Derive base from HOST_INGEST_DIR or /data]
-           B --> C{path provided?}
-           C -- no/blank --> D[List base]
-           C -- yes --> E[Validate inside base (lexical)]
-           E -- outside --> F[400 OUTSIDE_BASE]
-           E -- ok --> G{exists?}
-           G -- no --> H[404 NOT_FOUND]
-           G -- yes --> I{isDirectory?}
-           I -- no --> J[400 NOT_DIRECTORY]
-           I -- yes --> K[readdir withFileTypes]\nfilter dirs\nsort
-           K --> L[200 { base, path, dirs[] }]
-         ```
+
+- Docs to read (repeat; do not skip):
+  - https://www.markdownguide.org/basic-syntax/
+  - Context7 `/mermaid-js/mermaid`
+- Files to edit:
+  - `design.md`
+- Requirements:
+  - Add the endpoint contract (request + success/error responses).
+  - Add a short Mermaid diagram showing the server-side validation flow (base selection → lexical containment check → stat/isDirectory → readdir → sorted dirs).
+    - Copy/paste starter diagram (adapt names to match the final implementation):
+      ```mermaid
+      flowchart TD
+        A[GET /ingest/dirs?path=...] --> B[Derive base from HOST_INGEST_DIR or /data]
+        B --> C{path provided?}
+        C -- no/blank --> D[List base]
+        C -- yes --> E[Validate inside base (lexical)]
+        E -- outside --> F[400 OUTSIDE_BASE]
+        E -- ok --> G{exists?}
+        G -- no --> H[404 NOT_FOUND]
+        G -- yes --> I{isDirectory?}
+        I -- no --> J[400 NOT_DIRECTORY]
+        I -- yes --> K[readdir withFileTypes]\nfilter dirs\nsort
+        K --> L[200 { base, path, dirs[] }]
+      ```
 
 14. [x] Add server log entries (visible in the Logs page) for directory browsing so the UI can be verified by logs:
-   - Purpose: allow manual verification to confirm the endpoint was hit and what it returned.
-   - Files to edit:
-     - `server/src/routes/ingestDirs.ts`
-   - Requirements:
-     - Append **server** logStore entries (use `server/src/logStore.ts` `append`) with these exact message strings:
-       - `0000020 ingest dirs list start`
-         - context must include: `{ base, path }`
-       - `0000020 ingest dirs list success`
-         - context must include: `{ base, path, dirs }` where `dirs` is the count
-       - `0000020 ingest dirs list error`
-         - context must include: `{ base, path, code }` where `code` matches the response (`OUTSIDE_BASE|NOT_FOUND|NOT_DIRECTORY`)
+
+- Purpose: allow manual verification to confirm the endpoint was hit and what it returned.
+- Files to edit:
+  - `server/src/routes/ingestDirs.ts`
+- Requirements:
+  - Append **server** logStore entries (use `server/src/logStore.ts` `append`) with these exact message strings:
+    - `0000020 ingest dirs list start`
+      - context must include: `{ base, path }`
+    - `0000020 ingest dirs list success`
+      - context must include: `{ base, path, dirs }` where `dirs` is the count
+    - `0000020 ingest dirs list error`
+      - context must include: `{ base, path, code }` where `code` matches the response (`OUTSIDE_BASE|NOT_FOUND|NOT_DIRECTORY`)
 
 15. [x] Update `projectStructure.md` with any new server files added in this task:
-   - Docs to read:
-     - https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `projectStructure.md`
-   - Requirements:
-     - Add the new file paths:
-       - `server/src/routes/ingestDirs.ts`
-       - `server/src/test/unit/ingest-dirs-router.test.ts`
+
+- Docs to read:
+  - https://www.markdownguide.org/basic-syntax/
+- Files to edit:
+  - `projectStructure.md`
+- Requirements:
+  - Add the new file paths:
+    - `server/src/routes/ingestDirs.ts`
+    - `server/src/test/unit/ingest-dirs-router.test.ts`
 
 16. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
@@ -1677,11 +1729,11 @@ Add a small server endpoint that lists child directories under a single allowed 
      - Context7 `/microsoft/playwright`
    - Checks:
      - Load `http://localhost:5010/ingest/dirs` in the browser and confirm response contains `{ base, path, dirs }`.
-    - Load `http://localhost:5010/ingest/dirs?path=<base>/does-not-exist` (must be lexically inside `base`) and confirm `{ status:'error', code:'NOT_FOUND' }`.
-     - Load `http://localhost:5001/logs` and confirm **server** logs include (triggered by the requests above):
-       - `0000020 ingest dirs list start`
-       - `0000020 ingest dirs list success`
-       - `0000020 ingest dirs list error`
+   - Load `http://localhost:5010/ingest/dirs?path=<base>/does-not-exist` (must be lexically inside `base`) and confirm `{ status:'error', code:'NOT_FOUND' }`.
+   - Load `http://localhost:5001/logs` and confirm **server** logs include (triggered by the requests above):
+     - `0000020 ingest dirs list start`
+     - `0000020 ingest dirs list success`
+     - `0000020 ingest dirs list error`
 
 9. [x] `npm run compose:down`
 
@@ -1708,7 +1760,7 @@ Add a small server endpoint that lists child directories under a single allowed 
 
 ### 6. Client ingest status: handle `skipped` as a terminal state
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: fc7cc7f
 
 #### Overview
@@ -1743,7 +1795,12 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
      - Add `'skipped'` to `terminalStates` so the hook stops polling.
    - Copy/paste hint:
      ```ts
-     const terminalStates: IngestState[] = ['completed', 'cancelled', 'error', 'skipped'];
+     const terminalStates: IngestState[] = [
+       'completed',
+       'cancelled',
+       'error',
+       'skipped',
+     ];
      ```
 
 3. [x] Update IngestPage terminal/run-active logic to treat `skipped` as terminal:
@@ -1826,6 +1883,7 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
      - Assertion:
        - Once the component renders with `activeRunId` and `status: 'skipped'`, `refetch` and `refresh` are each called exactly once.
    - Copy/paste test skeleton (adapt imports to match test file style):
+
      ```ts
      const refresh = jest.fn();
      const refetch = jest.fn();
@@ -1941,7 +1999,7 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
 
 ### 7. Ingest UI: remove duplicate “model locked” notice
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 1408145
 
 #### Overview
@@ -2072,7 +2130,7 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
 
 ### 8. Ingest UI: server-backed directory picker modal (“Choose folder…”)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: e6655a3
 
 #### Overview
@@ -2110,7 +2168,11 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - Reminder: this MUST match the server contract exactly (do not rename fields):
        - Success:
          ```json
-         { "base": "/data", "path": "/data/projects", "dirs": ["repo-a", "repo-b"] }
+         {
+           "base": "/data",
+           "path": "/data/projects",
+           "dirs": ["repo-a", "repo-b"]
+         }
          ```
        - Error:
          ```json
@@ -2124,7 +2186,10 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      ```ts
      const qs = new URLSearchParams();
      if (params.path) qs.set('path', params.path);
-     const url = new URL(`/ingest/dirs?${qs.toString()}`, serverBase).toString();
+     const url = new URL(
+       `/ingest/dirs?${qs.toString()}`,
+       serverBase,
+     ).toString();
      const res = await fetch(url);
      const payload = await res.json();
      ```
@@ -2236,90 +2301,96 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - Assert `fetch` is called twice and the second call includes the clicked path.
 
 10. [x] Client unit test: “Up” is disabled/hidden at the base and enabled when not at base:
-   - Test type: Client unit (Jest + React Testing Library)
-   - Location: `client/src/test/ingestForm.test.tsx`
-   - Purpose: prevent navigation that would attempt to browse above the allowed base.
-   - Docs to read:
-     - https://testing-library.com/docs/react-testing-library/intro/
-     - Context7 `/jestjs/jest`
-   - Files to edit:
-     - `client/src/test/ingestForm.test.tsx`
-   - Requirements:
-     - Assert “Up” is not available at base.
-     - After navigating into a subdirectory, assert “Up” becomes available.
+
+- Test type: Client unit (Jest + React Testing Library)
+- Location: `client/src/test/ingestForm.test.tsx`
+- Purpose: prevent navigation that would attempt to browse above the allowed base.
+- Docs to read:
+  - https://testing-library.com/docs/react-testing-library/intro/
+  - Context7 `/jestjs/jest`
+- Files to edit:
+  - `client/src/test/ingestForm.test.tsx`
+- Requirements:
+  - Assert “Up” is not available at base.
+  - After navigating into a subdirectory, assert “Up” becomes available.
 
 11. [x] Client unit test: “Use this folder” sets the current path even if no child directory is clicked:
-   - Test type: Client unit (Jest + React Testing Library)
-   - Location: `client/src/test/ingestForm.test.tsx`
-   - Purpose: allow selecting the currently viewed directory.
-   - Docs to read:
-     - https://testing-library.com/docs/react-testing-library/intro/
-     - Context7 `/jestjs/jest`
-   - Files to edit:
-     - `client/src/test/ingestForm.test.tsx`
-   - Requirements:
-     - Open the dialog and click “Use this folder”.
-     - Assert the Folder path input is set to the currently viewed `path`.
+
+- Test type: Client unit (Jest + React Testing Library)
+- Location: `client/src/test/ingestForm.test.tsx`
+- Purpose: allow selecting the currently viewed directory.
+- Docs to read:
+  - https://testing-library.com/docs/react-testing-library/intro/
+  - Context7 `/jestjs/jest`
+- Files to edit:
+  - `client/src/test/ingestForm.test.tsx`
+- Requirements:
+  - Open the dialog and click “Use this folder”.
+  - Assert the Folder path input is set to the currently viewed `path`.
 
 12. [x] Client unit test: error path displays an error message when server returns `{ status:'error', code:'OUTSIDE_BASE' }`:
-   - Test type: Client unit (Jest + React Testing Library)
-   - Location: `client/src/test/ingestForm.test.tsx`
-   - Purpose: ensure users can understand and recover from invalid navigation.
-   - Docs to read:
-     - https://testing-library.com/docs/react-testing-library/intro/
-     - Context7 `/jestjs/jest`
-   - Files to edit:
-     - `client/src/test/ingestForm.test.tsx`
-   - Requirements:
-     - Mock a server error payload and assert the dialog renders an error state/message.
+
+- Test type: Client unit (Jest + React Testing Library)
+- Location: `client/src/test/ingestForm.test.tsx`
+- Purpose: ensure users can understand and recover from invalid navigation.
+- Docs to read:
+  - https://testing-library.com/docs/react-testing-library/intro/
+  - Context7 `/jestjs/jest`
+- Files to edit:
+  - `client/src/test/ingestForm.test.tsx`
+- Requirements:
+  - Mock a server error payload and assert the dialog renders an error state/message.
 
 13. [x] Update `design.md` with the directory picker UX flow (including a Mermaid diagram):
-   - Docs to read:
-     - https://www.markdownguide.org/basic-syntax/
-     - Context7 `/mermaid-js/mermaid`
-   - Files to edit:
-     - `design.md`
-   - Requirements:
-     - Document how the “Choose folder…” dialog uses `GET /ingest/dirs` to browse within `HOST_INGEST_DIR`.
-     - Add a Mermaid `sequenceDiagram` that shows:
-       - opening the dialog triggers an initial `GET /ingest/dirs`
-       - clicking a directory triggers another `GET /ingest/dirs?path=...`
-       - clicking “Use this folder” calls `onPick(path)` and updates the Folder path field
-       - an error response (`OUTSIDE_BASE` / `NOT_FOUND` / `NOT_DIRECTORY`) results in an error state in the dialog
-     - Copy/paste starter diagram (adapt names/labels to match the final UI):
-       ```mermaid
-       sequenceDiagram
-         participant User
-         participant UI as Client UI (IngestForm + DirectoryPickerDialog)
-         participant API as Server API
 
-         User->>UI: Click "Choose folder…"
-         UI->>API: GET /ingest/dirs
-         API-->>UI: 200 { base, path, dirs[] }
-         UI-->>User: Show directory list
+- Docs to read:
+  - https://www.markdownguide.org/basic-syntax/
+  - Context7 `/mermaid-js/mermaid`
+- Files to edit:
+  - `design.md`
+- Requirements:
+  - Document how the “Choose folder…” dialog uses `GET /ingest/dirs` to browse within `HOST_INGEST_DIR`.
+  - Add a Mermaid `sequenceDiagram` that shows:
+    - opening the dialog triggers an initial `GET /ingest/dirs`
+    - clicking a directory triggers another `GET /ingest/dirs?path=...`
+    - clicking “Use this folder” calls `onPick(path)` and updates the Folder path field
+    - an error response (`OUTSIDE_BASE` / `NOT_FOUND` / `NOT_DIRECTORY`) results in an error state in the dialog
+  - Copy/paste starter diagram (adapt names/labels to match the final UI):
 
-         User->>UI: Click a directory
-         UI->>API: GET /ingest/dirs?path=<clicked>
-         API-->>UI: 200 { base, path, dirs[] }
+    ```mermaid
+    sequenceDiagram
+      participant User
+      participant UI as Client UI (IngestForm + DirectoryPickerDialog)
+      participant API as Server API
 
-         User->>UI: Click "Use this folder"
-         UI-->>User: Folder path field updated
+      User->>UI: Click "Choose folder…"
+      UI->>API: GET /ingest/dirs
+      API-->>UI: 200 { base, path, dirs[] }
+      UI-->>User: Show directory list
 
-         Note over UI,API: Error case
-         UI->>API: GET /ingest/dirs?path=<outside>
-         API-->>UI: 400 { status:'error', code:'OUTSIDE_BASE' }
-         UI-->>User: Show error state
-       ```
+      User->>UI: Click a directory
+      UI->>API: GET /ingest/dirs?path=<clicked>
+      API-->>UI: 200 { base, path, dirs[] }
+
+      User->>UI: Click "Use this folder"
+      UI-->>User: Folder path field updated
+
+      Note over UI,API: Error case
+      UI->>API: GET /ingest/dirs?path=<outside>
+      API-->>UI: 400 { status:'error', code:'OUTSIDE_BASE' }
+      UI-->>User: Show error state
+    ```
 
 14. [x] Update `projectStructure.md` with the new client ingest picker files:
-   - Docs to read:
-     - https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `projectStructure.md`
-   - Requirements:
-     - Add the new file paths:
-       - `client/src/components/ingest/ingestDirsApi.ts`
-       - `client/src/components/ingest/DirectoryPickerDialog.tsx`
+
+- Docs to read:
+  - https://www.markdownguide.org/basic-syntax/
+- Files to edit:
+  - `projectStructure.md`
+- Requirements:
+  - Add the new file paths:
+    - `client/src/components/ingest/ingestDirsApi.ts`
+    - `client/src/components/ingest/DirectoryPickerDialog.tsx`
 
 15. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
@@ -2377,11 +2448,12 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
 - Testing 7: `npm run compose:up` passed (containers started and healthy).
 - Testing 8: Performed a manual browser automation check against `http://host.docker.internal:5001/ingest` using Playwright with request routing to proxy `http://localhost:5010` API calls to `http://host.docker.internal:5010`; verified choose/navigate/pick updates the Folder path input, confirmed OUTSIDE_BASE error UI, and confirmed the required client log entries exist via `GET /logs?text=...`.
 - Testing 9: `npm run compose:down` passed.
+
 ---
 
 ### 9. Final verification (acceptance criteria, clean builds, docs, and PR summary)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 9bb1be5
 
 #### Overview
@@ -2425,7 +2497,6 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
      - Use `createLogger('client')` and emit this exact message string:
        - `0000020 logs page opened`
      - Emit once per mount (use a `useEffect` with a stable logger).
-
 
 3. [x] Client unit test: LogsPage emits `0000020 logs page opened` on mount:
    - Test type: Client unit (Jest)
@@ -2524,9 +2595,7 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
      - `0000020-9-ingest-picker.png` (Directory picker dialog open)
      - `0000020-9-ingest-delta.png` (Roots table reflects a completed/skipped re-embed run)
 
-
 9. [x] `npm run compose:down`
-
 
 #### Implementation notes
 

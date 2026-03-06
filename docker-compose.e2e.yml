@@ -8,8 +8,11 @@ services:
       dockerfile: server/Dockerfile
       args:
         HOME: ${HOME}
+        CODEINFO_NPM_REGISTRY: ${CODEINFO_NPM_REGISTRY:-}
+        CODEINFO_PIP_INDEX_URL: ${CODEINFO_PIP_INDEX_URL:-}
+        CODEINFO_PIP_TRUSTED_HOST: ${CODEINFO_PIP_TRUSTED_HOST:-}
+        CODEINFO_NODE_EXTRA_CA_CERTS: ${CODEINFO_NODE_EXTRA_CA_CERTS:-}
     image: codeinfo2-server-e2e
-    user: "${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}"
     ports:
       - '6010:5010'
       - '6011:5011'
@@ -23,6 +26,14 @@ services:
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
       - AGENTS_MCP_PORT=5012
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
+      - CODEINFO_RUNTIME_UID=${CODEINFO_DOCKER_UID:-1000}
+      - CODEINFO_RUNTIME_GID=${CODEINFO_DOCKER_GID:-1000}
+      - CODEINFO_CORP_CERTS_DIR=${CODEINFO_CORP_CERTS_DIR:-}
+      - CODEINFO_COMPOSE_WORKFLOW=${CODEINFO_COMPOSE_WORKFLOW:-}
+      - CODEINFO_INTERPOLATION_SOURCE=${CODEINFO_INTERPOLATION_SOURCE:-}
+      - CODEINFO_RUNTIME_ENV_FILE_SOURCE=${CODEINFO_RUNTIME_ENV_FILE_SOURCE:-}
+      - CODEINFO_NODE_EXTRA_CA_CERTS=${CODEINFO_NODE_EXTRA_CA_CERTS:-}
+      - CODEINFO_REFRESH_CA_CERTS_ON_START=${CODEINFO_REFRESH_CA_CERTS_ON_START:-}
     volumes:
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - ./logs:/app/logs
@@ -30,6 +41,7 @@ services:
       - ./e2e/fixtures/repo:/data:ro
       - ./codex:/app/codex
       - ./codex_agents:/app/codex_agents
+      - "${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro"
     depends_on:
       chroma-e2e:
         condition: service_started
@@ -49,6 +61,7 @@ services:
       args:
         VITE_API_URL: http://host.docker.internal:6010
         VITE_LMSTUDIO_URL: ${VITE_LMSTUDIO_URL:-http://host.docker.internal:1234}
+        CODEINFO_NPM_REGISTRY: ${CODEINFO_NPM_REGISTRY:-}
     image: codeinfo2-client-e2e
     ports:
       - '6001:5001'

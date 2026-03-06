@@ -5,7 +5,9 @@ type ChatModel = { key: string; displayName: string; type?: string };
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
 
-test('Logs page shows chat WS client log lines after transcript events', async ({ page }) => {
+test('Logs page shows chat WS client log lines after transcript events', async ({
+  page,
+}) => {
   try {
     const ping = await page.request.get(baseUrl);
     if (!ping.ok()) {
@@ -111,8 +113,9 @@ test('Logs page shows chat WS client log lines after transcript events', async (
   await expect(
     table.getByText('chat.ws.client_snapshot_received').first(),
   ).toBeVisible({ timeout: 20000 });
-  await expect(table.getByText('chat.ws.client_final_received').first()).toBeVisible({
+  await expect(
+    table.getByText('chat.ws.client_final_received').first(),
+  ).toBeVisible({
     timeout: 20000,
   });
 });
-

@@ -22,23 +22,23 @@ The Agents and Chat pages currently waste vertical space and feel inconsistent w
 ## Acceptance Criteria
 
 - Agents page removes the inline description block and replaces it with a small info icon next to the Agent selector; clicking it opens a popover that renders the agent description as Markdown and lists any warnings.
-   - When no description or warnings exist, the popover shows a friendly empty-state message (e.g., “No description or warnings are available for this agent yet.”).
+  - When no description or warnings exist, the popover shows a friendly empty-state message (e.g., “No description or warnings are available for this agent yet.”).
 - Agents controls are re-laid out to reclaim vertical space:
-   - The Command selector and the “Execute command” button appear on the same row, with the button to the right of the selector.
-   - The Instruction input and the Send/Stop action share a single row on desktop; Send and Stop use the same width so the row does not shift when toggling.
+  - The Command selector and the “Execute command” button appear on the same row, with the button to the right of the selector.
+  - The Instruction input and the Send/Stop action share a single row on desktop; Send and Stop use the same width so the row does not shift when toggling.
 - Chat and Agents conversation panels stretch to the bottom of the viewport (beneath the top navigation) with no visible blank gap below the transcript card; resizing the window stretches the transcript area instead of leaving empty whitespace.
 - Agents include a “Choose folder…” button next to the working-folder input that reuses the Ingest directory picker dialog:
-   - Clicking “Choose folder…” opens the same dialog title and folder list as Ingest.
-   - Selecting a folder fills the working-folder input with the chosen absolute host path.
-   - Cancel closes the dialog without changing the input value.
+  - Clicking “Choose folder…” opens the same dialog title and folder list as Ingest.
+  - Selecting a folder fills the working-folder input with the chosen absolute host path.
+  - Cancel closes the dialog without changing the input value.
 - Chat does not add a working-folder input or picker in this story.
 - All dropdowns, text inputs, and buttons across Chat, Agents, LM Studio, and Ingest use the same sizing rules:
-   - Form controls (TextField, Select, Autocomplete) use `size="small"`.
-   - Buttons on the same row use `size="small"` and align vertically with the adjacent input height.
+  - Form controls (TextField, Select, Autocomplete) use `size="small"`.
+  - Buttons on the same row use `size="small"` and align vertically with the adjacent input height.
 - Button hierarchy is consistent across pages with shared sizing:
-   - Primary actions use `variant="contained"` (e.g., Send, Execute command, Start/Run actions).
-   - Secondary actions use `variant="outlined"` (e.g., Choose folder, New conversation, Clear).
-   - Stop uses `variant="contained"` with `color="error"`.
+  - Primary actions use `variant="contained"` (e.g., Send, Execute command, Start/Run actions).
+  - Secondary actions use `variant="outlined"` (e.g., Choose folder, New conversation, Clear).
+  - Stop uses `variant="contained"` with `color="error"`.
 - Each task in this story captures and reviews fresh UI screenshots to confirm the layout and sizing changes.
 
 ## Visual References
@@ -88,10 +88,10 @@ None.
 - **Directory picker reuse**: Extract or reuse `client/src/components/ingest/DirectoryPickerDialog.tsx` plus `client/src/components/ingest/ingestDirsApi.ts` for Agents only. Wire “Choose folder…” next to the working-folder input and update state on selection.
 - **Chat transcript height**: Verify `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` containers keep `flex: 1` + `minHeight: 0` from page root to transcript. If a parent container constrains height (e.g., Stack/Container in `client/src/App.tsx`), adjust to let the transcript stretch to the bottom of the viewport.
 - **Sizing + variants alignment**:
-   - `ChatPage.tsx`: add `size="small"` to Provider/Model selects, Message field, and action buttons; update Stop to `contained` + `color="error"` (per Acceptance Criteria).
-   - `AgentsPage.tsx`: set all TextField/Select/Button sizes to `small` and align variants (primary contained, secondary outlined, Stop contained error).
-   - `LMStudioPage.tsx`: update TextField + Buttons to `size="small"` and adjust variants to match primary/secondary guidance (e.g., “Refresh models” should be outlined, not text).
-   - `client/src/components/ingest/IngestForm.tsx`: set all inputs and buttons to `size="small"` and keep “Choose folder…” as outlined secondary.
+  - `ChatPage.tsx`: add `size="small"` to Provider/Model selects, Message field, and action buttons; update Stop to `contained` + `color="error"` (per Acceptance Criteria).
+  - `AgentsPage.tsx`: set all TextField/Select/Button sizes to `small` and align variants (primary contained, secondary outlined, Stop contained error).
+  - `LMStudioPage.tsx`: update TextField + Buttons to `size="small"` and adjust variants to match primary/secondary guidance (e.g., “Refresh models” should be outlined, not text).
+  - `client/src/components/ingest/IngestForm.tsx`: set all inputs and buttons to `size="small"` and keep “Choose folder…” as outlined secondary.
 
 ---
 
@@ -99,8 +99,8 @@ None.
 
 - This story is UI-only, so **no new API contracts or storage schema changes are required**.
 - Existing contracts already cover the needed data:
-   - Agent metadata (name/description/warnings) comes from `GET /agents` and the `AgentSummary`/`DiscoveredAgent` types.
-   - Working-folder values are already accepted by Agents/Flows (`working_folder` in `POST /agents/:agentName/run` and `POST /flows/:flowName/run`).
+  - Agent metadata (name/description/warnings) comes from `GET /agents` and the `AgentSummary`/`DiscoveredAgent` types.
+  - Working-folder values are already accepted by Agents/Flows (`working_folder` in `POST /agents/:agentName/run` and `POST /flows/:flowName/run`).
   - Chat requests do **not** currently accept `working_folder`—adding this would require a new request field and validation updates, so it remains out of scope.
 - No new WebSocket event types or MongoDB document shape changes are expected for this story.
 
@@ -127,7 +127,7 @@ These instructions will be followed during implementation.
 
 ### 1. Client: Chat/Agents transcript fills viewport
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **c939d4a, 5f2ff38**
 
 #### Overview
@@ -250,12 +250,13 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - `projectStructure.md`
    - Description:
      - Update the repo tree to include the new screenshots:
-      - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-chat-height.png`
-      - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-agents-height.png`
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-chat-height.png`
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-agents-height.png`
    - Purpose:
      - Keeps the repo map accurate.
-  - Snippet example:
-    - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-chat-height.png`
+
+- Snippet example:
+  - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-chat-height.png`
 
 8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -323,7 +324,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
 
 ### 2. Client: Agents description/warnings popover
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **391df14, f2d5def**
 
 #### Overview
@@ -376,12 +377,12 @@ Replace the inline agent description block with an info icon and popover that re
      - Add `aria-label="Agent info"` and `data-testid="agent-info"` to the IconButton for accessibility and test selection.
      - Reuse the existing `Markdown` renderer for the description text.
      - Render warnings as a simple list under the description.
-    - Show the friendly empty-state message when both description and warnings are empty.
-    - Ensure the info icon does not render (or renders disabled) when agents fail to load.
-    - Remove the inline warnings alert and inline description `Paper` so metadata is only in the popover.
-    - Keep layout spacing compact; avoid introducing a new full-width block.
-    - Add a log line when the popover opens so the interaction can be confirmed in manual checks:
-      - `DEV-0000028[T2] agent info popover opened` (include `{ agentName, hasDescription, warningsCount }`).
+   - Show the friendly empty-state message when both description and warnings are empty.
+   - Ensure the info icon does not render (or renders disabled) when agents fail to load.
+   - Remove the inline warnings alert and inline description `Paper` so metadata is only in the popover.
+   - Keep layout spacing compact; avoid introducing a new full-width block.
+   - Add a log line when the popover opens so the interaction can be confirmed in manual checks:
+     - `DEV-0000028[T2] agent info popover opened` (include `{ agentName, hasDescription, warningsCount }`).
    - Snippet to apply (example):
      - `<IconButton size="small" aria-label="Agent info" data-testid="agent-info" onClick={...} />`
      - `<Popover open={Boolean(anchorEl)} anchorEl={anchorEl} onClose={handleClose}>...</Popover>`
@@ -470,38 +471,41 @@ Replace the inline agent description block with an info icon and popover that re
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-2-agents-popover.png`.
 
 10. [x] Documentation update: `projectStructure.md` (after new files are added)
-   - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Location:
-     - `projectStructure.md`
-   - Description:
-     - Update the repo tree to include:
-       - `client/src/test/agentsPage.descriptionPopover.test.tsx` (only if created)
-       - `planning/0000028-agents-chat-gui-consistency-data/0000028-2-agents-popover.png`
-   - Purpose:
-     - Keeps the repo map accurate after new test/screenshot files are added.
-   - Snippet example:
-     - `client/src/test/agentsPage.descriptionPopover.test.tsx`
+
+- Documentation to read (repeat):
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Location:
+  - `projectStructure.md`
+- Description:
+  - Update the repo tree to include:
+    - `client/src/test/agentsPage.descriptionPopover.test.tsx` (only if created)
+    - `planning/0000028-agents-chat-gui-consistency-data/0000028-2-agents-popover.png`
+- Purpose:
+  - Keeps the repo map accurate after new test/screenshot files are added.
+- Snippet example:
+  - `client/src/test/agentsPage.descriptionPopover.test.tsx`
 
 11. [x] Documentation update: `design.md`
-   - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `design.md`
-   - Description:
-     - Add a short note if agent metadata display behavior is described.
-   - Snippet example:
-     - `- Agents page uses an info popover to show agent description + warnings.`
+
+- Documentation to read (repeat):
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Files to edit:
+  - `design.md`
+- Description:
+  - Add a short note if agent metadata display behavior is described.
+- Snippet example:
+  - `- Agents page uses an info popover to show agent description + warnings.`
 
 12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI/options: https://prettier.io/docs/options
-   - Snippet to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+
+- Documentation to read (repeat):
+  - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier CLI/options: https://prettier.io/docs/options
+- Snippet to run:
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+  - `npm run lint:fix --workspaces`
+  - `npm run format --workspaces`
 
 #### Testing
 
@@ -534,8 +538,9 @@ Replace the inline agent description block with an info icon and popover that re
    - Expected log lines (debug console):
      - `DEV-0000028[T2] agent info popover opened` appears when the info popover is opened.
 10. [x] `npm run compose:down`
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
+
+- Documentation to read (repeat):
+  - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -564,7 +569,7 @@ Replace the inline agent description block with an info icon and popover that re
 
 ### 3. Client: Agents control rows layout
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **cc80949, 637ee94**
 
 #### Overview
@@ -612,13 +617,13 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - Restructure controls into two horizontal rows (Stack or Box with `display: 'flex'`).
      - Row 1: Command selector on the left and Execute command button on the right.
      - Keep the command description text below the row so it still renders.
-    - Row 2: Instruction input on the left and an action slot on the right.
-    - Move the Stop button out of the Agent selector row into the instruction row.
-    - Ensure the rows collapse to a single column on small screens without overlap.
-    - Do not implement fixed widths or send/stop toggling in this task (handled in Task 4).
-    - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
-    - Add a log line when the layout mode is resolved so manual checks can confirm responsive behavior:
-      - `DEV-0000028[T3] agents controls layout mode` (include `{ mode: 'row' | 'stacked' }`).
+   - Row 2: Instruction input on the left and an action slot on the right.
+   - Move the Stop button out of the Agent selector row into the instruction row.
+   - Ensure the rows collapse to a single column on small screens without overlap.
+   - Do not implement fixed widths or send/stop toggling in this task (handled in Task 4).
+   - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
+   - Add a log line when the layout mode is resolved so manual checks can confirm responsive behavior:
+     - `DEV-0000028[T3] agents controls layout mode` (include `{ mode: 'row' | 'stacked' }`).
    - Snippet to apply (example row):
      - `<Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center">...`)
 
@@ -738,8 +743,9 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - `DEV-0000028[T3] agents controls layout mode` appears with `mode: 'row'` on desktop.
      - `DEV-0000028[T3] agents controls layout mode` appears with `mode: 'stacked'` after resizing to a small viewport.
 10. [x] `npm run compose:down`
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
+
+- Documentation to read (repeat):
+  - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -766,7 +772,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
 
 ### 4. Client: Agents send/stop width stability
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **673006a, 48786af**
 
 #### Overview
@@ -808,11 +814,11 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Implementation details:
-    - Set a fixed `minWidth` (or similar) for the action slot so Send/Stop occupy the same width.
-    - Render only one action button at a time (Send when idle, Stop when streaming) to avoid layout jitter.
-    - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
-    - Add a log line when the action slot state changes so manual checks can confirm toggling:
-      - `DEV-0000028[T4] agents action slot state` (include `{ showStop: boolean, minWidth }`).
+   - Set a fixed `minWidth` (or similar) for the action slot so Send/Stop occupy the same width.
+   - Render only one action button at a time (Send when idle, Stop when streaming) to avoid layout jitter.
+   - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
+   - Add a log line when the action slot state changes so manual checks can confirm toggling:
+     - `DEV-0000028[T4] agents action slot state` (include `{ showStop: boolean, minWidth }`).
    - Snippet to apply (example):
      - `<Box sx={{ minWidth: 120 }}>...</Box>` wrapping the Send/Stop slot
 
@@ -915,8 +921,9 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
      - `DEV-0000028[T4] agents action slot state` appears with `showStop: false` when idle.
      - `DEV-0000028[T4] agents action slot state` appears with `showStop: true` after triggering Stop.
 10. [x] `npm run compose:down`
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
+
+- Documentation to read (repeat):
+  - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -943,7 +950,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
 
 ### 5. Client: Agents working-folder picker reuse
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **e098241**
 
 #### Overview
@@ -988,22 +995,23 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - MUI Dialog API: https://llms.mui.com/material-ui/6.4.12/api/dialog.md
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
      - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
-  - Files to edit:
-    - `client/src/pages/AgentsPage.tsx`
-    - `client/src/components/ingest/DirectoryPickerDialog.tsx` (only if a small prop tweak is needed for reuse)
-  - Implementation details:
-    - Import and reuse `DirectoryPickerDialog` and `ingestDirsApi` directly from the ingest components (do not move files unless necessary).
-    - Add a “Choose folder…” button next to the working-folder input that opens the dialog.
-      - Update the working-folder state when a folder is selected; cancel should be a no-op.
-      - Ensure server-side validation errors (e.g., `WORKING_FOLDER_INVALID`) do not clear the current working-folder value.
-      - Do not add a working-folder picker to Chat (explicitly out of scope).
-    - Add log lines for picker interactions so manual checks can confirm each step:
-      - `DEV-0000028[T5] agents folder picker opened` (include `{ source: 'agents' }`).
-      - `DEV-0000028[T5] agents folder picker picked` (include `{ path }`).
-      - `DEV-0000028[T5] agents folder picker cancelled` (no payload required).
-   - Snippet to apply (example):
-     - `<Button variant="outlined" size="small" onClick={() => setDirPickerOpen(true)}>Choose folder…</Button>`
-     - `<DirectoryPickerDialog open={dirPickerOpen} path={workingFolder} onClose={...} onPick={(path) => setWorkingFolder(path)} />`
+
+- Files to edit:
+  - `client/src/pages/AgentsPage.tsx`
+  - `client/src/components/ingest/DirectoryPickerDialog.tsx` (only if a small prop tweak is needed for reuse)
+- Implementation details:
+  - Import and reuse `DirectoryPickerDialog` and `ingestDirsApi` directly from the ingest components (do not move files unless necessary).
+  - Add a “Choose folder…” button next to the working-folder input that opens the dialog.
+    - Update the working-folder state when a folder is selected; cancel should be a no-op.
+    - Ensure server-side validation errors (e.g., `WORKING_FOLDER_INVALID`) do not clear the current working-folder value.
+    - Do not add a working-folder picker to Chat (explicitly out of scope).
+  - Add log lines for picker interactions so manual checks can confirm each step:
+    - `DEV-0000028[T5] agents folder picker opened` (include `{ source: 'agents' }`).
+    - `DEV-0000028[T5] agents folder picker picked` (include `{ path }`).
+    - `DEV-0000028[T5] agents folder picker cancelled` (no payload required).
+- Snippet to apply (example):
+  - `<Button variant="outlined" size="small" onClick={() => setDirPickerOpen(true)}>Choose folder…</Button>`
+  - `<DirectoryPickerDialog open={dirPickerOpen} path={workingFolder} onClose={...} onPick={(path) => setWorkingFolder(path)} />`
 
 3. [x] Test (unit/client): Picker opens
    - Documentation to read (repeat):
@@ -1090,24 +1098,26 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - `client/src/test/agentsPage.workingFolderPicker.test.tsx`
 
 10. [x] Documentation update: `design.md`
-   - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `design.md`
-   - Description:
-     - Add a short note describing the Agents working-folder picker.
-   - Snippet example:
-     - `- Agents page reuses the Ingest directory picker for working_folder selection.`
+
+- Documentation to read (repeat):
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Files to edit:
+  - `design.md`
+- Description:
+  - Add a short note describing the Agents working-folder picker.
+- Snippet example:
+  - `- Agents page reuses the Ingest directory picker for working_folder selection.`
 
 11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI/options: https://prettier.io/docs/options
-   - Snippet to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+
+- Documentation to read (repeat):
+  - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier CLI/options: https://prettier.io/docs/options
+- Snippet to run:
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+  - `npm run lint:fix --workspaces`
+  - `npm run format --workspaces`
 
 #### Testing
 
@@ -1142,8 +1152,9 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - `DEV-0000028[T5] agents folder picker picked` appears after choosing a folder and includes the selected path.
      - `DEV-0000028[T5] agents folder picker cancelled` appears after canceling the dialog.
 10. [x] `npm run compose:down`
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
+
+- Documentation to read (repeat):
+  - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -1196,7 +1207,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
 
 ### 6. Client: Control sizing + variant consistency (Chat + Agents)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **093038f**
 
 #### Overview
@@ -1240,20 +1251,21 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
      - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
      - MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md
-  - Files to edit:
-    - `client/src/pages/ChatPage.tsx`
-    - `client/src/pages/AgentsPage.tsx`
-  - Implementation details:
-    - Set `size="small"` on all TextField/Select controls.
-    - Update primary actions (Send, Execute command, Run/Start) to `contained`.
-    - Update secondary actions (Choose folder, New conversation) to `outlined`.
-    - Ensure Stop uses `contained` + `color="error"` consistently.
-    - Add log lines when sizing/variants are applied so manual checks can confirm each page:
-      - `DEV-0000028[T6] chat controls sizing applied` (include `{ page: 'chat' }`).
-      - `DEV-0000028[T6] agents controls sizing applied` (include `{ page: 'agents' }`).
-   - Snippet to apply (example):
-     - `<Button variant="contained" size="small" data-testid="agent-send">Send</Button>`
-     - `<Button variant="contained" color="error" size="small" data-testid="agent-stop">Stop</Button>`
+
+- Files to edit:
+  - `client/src/pages/ChatPage.tsx`
+  - `client/src/pages/AgentsPage.tsx`
+- Implementation details:
+  - Set `size="small"` on all TextField/Select controls.
+  - Update primary actions (Send, Execute command, Run/Start) to `contained`.
+  - Update secondary actions (Choose folder, New conversation) to `outlined`.
+  - Ensure Stop uses `contained` + `color="error"` consistently.
+  - Add log lines when sizing/variants are applied so manual checks can confirm each page:
+    - `DEV-0000028[T6] chat controls sizing applied` (include `{ page: 'chat' }`).
+    - `DEV-0000028[T6] agents controls sizing applied` (include `{ page: 'agents' }`).
+- Snippet to apply (example):
+  - `<Button variant="contained" size="small" data-testid="agent-send">Send</Button>`
+  - `<Button variant="contained" color="error" size="small" data-testid="agent-stop">Stop</Button>`
 
 3. [x] Test (unit/client): Chat control sizes/variants
    - Documentation to read (repeat):
@@ -1404,7 +1416,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
 
 ### 7. Client: Control sizing + variant consistency (LM Studio + Ingest)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: b93bb08
 
 #### Overview
@@ -1451,12 +1463,12 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - `client/src/pages/LmStudioPage.tsx`
      - `client/src/components/ingest/IngestForm.tsx`
    - Implementation details:
-    - Set `size="small"` on all TextField/Select controls.
-    - Update primary actions (Check status, Start ingest) to `contained`.
-    - Update secondary actions (Reset, Refresh models, Choose folder) to `outlined`.
-    - Add log lines when sizing/variants are applied so manual checks can confirm each page:
-      - `DEV-0000028[T7] lmstudio controls sizing applied` (include `{ page: 'lmstudio' }`).
-      - `DEV-0000028[T7] ingest controls sizing applied` (include `{ page: 'ingest' }`).
+   - Set `size="small"` on all TextField/Select controls.
+   - Update primary actions (Check status, Start ingest) to `contained`.
+   - Update secondary actions (Reset, Refresh models, Choose folder) to `outlined`.
+   - Add log lines when sizing/variants are applied so manual checks can confirm each page:
+     - `DEV-0000028[T7] lmstudio controls sizing applied` (include `{ page: 'lmstudio' }`).
+     - `DEV-0000028[T7] ingest controls sizing applied` (include `{ page: 'ingest' }`).
    - Snippet to apply (example):
      - `<Button variant="contained" size="small">Start ingest</Button>`
 
@@ -1606,7 +1618,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
 
 ### 8. Final: Verify acceptance criteria + full regression
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 9336a1b
 
 #### Overview

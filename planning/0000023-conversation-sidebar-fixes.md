@@ -56,16 +56,16 @@ We want the Chat and Agents sidebars to behave identically, with consistent padd
 
 ## Research Findings (code-confirmed)
 
-- **ConversationList layout:** The list container uses a Box with `overflow: 'hidden'`, `flex: 1`, `minHeight: 240`, and a column flex layout. The List itself uses `disablePadding` and each ListItem uses `disableGutters`, with row padding set on the ListItemButton (`py: 1.25`, `px: 1.5`). This explains the “squashed” look and why horizontal overflow is controlled by child widths rather than list padding.  
-- **Pagination behavior:** ConversationList already renders a “Load more” button and expects `hasMore` + `onLoadMore`. There is no infinite-scroll implementation.  
-- **Chat vs Agents differences:** Chat passes full archive/restore/bulk handlers and shows filters; Agents passes `variant="agents"` with no-op archive/restore and no bulk handlers, which disables filters/bulk actions in the shared component.  
+- **ConversationList layout:** The list container uses a Box with `overflow: 'hidden'`, `flex: 1`, `minHeight: 240`, and a column flex layout. The List itself uses `disablePadding` and each ListItem uses `disableGutters`, with row padding set on the ListItemButton (`py: 1.25`, `px: 1.5`). This explains the “squashed” look and why horizontal overflow is controlled by child widths rather than list padding.
+- **Pagination behavior:** ConversationList already renders a “Load more” button and expects `hasMore` + `onLoadMore`. There is no infinite-scroll implementation.
+- **Chat vs Agents differences:** Chat passes full archive/restore/bulk handlers and shows filters; Agents passes `variant="agents"` with no-op archive/restore and no bulk handlers, which disables filters/bulk actions in the shared component.
 - **Drawer layout:** Both Chat and Agents render the sidebar in a 320px MUI Drawer with a measured top offset and fixed height, and the content wrapper inside is set to `width: drawerWidth` and `height: '100%'`.
 
 ## Research Findings (docs/standards)
 
-- **MUI Drawer & Paper slot:** MUI recommends using `slotProps.paper` (rather than deprecated `PaperProps`) to control the Drawer paper element, which is the correct place to set width/overflow behavior and prevent horizontal scrolling.  
-- **MUI List/ListItem padding:** `disableGutters` removes left/right padding on ListItem; `disablePadding` removes padding on List. If these are used, explicit padding must be added back to avoid cramped content.  
-- **MUI Stack/nowrap overflow:** MUI recommends `minWidth: 0` on the parent container when child text uses `noWrap`, preventing unintended horizontal overflow.  
+- **MUI Drawer & Paper slot:** MUI recommends using `slotProps.paper` (rather than deprecated `PaperProps`) to control the Drawer paper element, which is the correct place to set width/overflow behavior and prevent horizontal scrolling.
+- **MUI List/ListItem padding:** `disableGutters` removes left/right padding on ListItem; `disablePadding` removes padding on List. If these are used, explicit padding must be added back to avoid cramped content.
+- **MUI Stack/nowrap overflow:** MUI recommends `minWidth: 0` on the parent container when child text uses `noWrap`, preventing unintended horizontal overflow.
 - **General overflow guidance:** MUI system docs show `overflow` control via `sx`, and community guidance suggests using `overflowX: 'hidden'` when only vertical scrolling is desired (with a preference to fix the underlying width/padding cause rather than masking).
 
 ## Scope Assessment
@@ -97,7 +97,7 @@ The story is well scoped: it is confined to the client-side sidebar layout and f
 
 ### 1. Client: ConversationList control parity (filters, row actions, bulk UI)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 8159bfb, f5d8af6
 
 #### Overview
@@ -166,7 +166,9 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
      - Selection: `conversation-select`, `conversation-select-all`
    - Target snippet (pseudocode for handler-driven gating):
      ```ts
-     const enableBulkUi = Boolean(onBulkArchive || onBulkRestore || onBulkDelete);
+     const enableBulkUi = Boolean(
+       onBulkArchive || onBulkRestore || onBulkDelete,
+     );
      const showFilters = Boolean(onFilterChange && onRefresh);
      const showRowActions = Boolean(onArchive && onRestore);
      ```
@@ -215,7 +217,7 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
 
 ### 2. Client: Agents sidebar wiring for archive/restore + bulk actions
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 7cdbce6, 0cdbe17
 
 #### Overview
@@ -316,7 +318,7 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
 
 ### 3. Client: Sidebar parity tests (ConversationList + Agents)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 9b0134c, cf28150
 
 #### Overview
@@ -352,8 +354,17 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
      - Proves the controls are now handler-driven instead of variant-driven.
    - Example snippet:
      ```tsx
-     render(<ConversationList variant="agents" onFilterChange={jest.fn()} onRefresh={jest.fn()} {...baseProps} />);
-     expect(screen.getByTestId('conversation-filter-active')).toBeInTheDocument();
+     render(
+       <ConversationList
+         variant="agents"
+         onFilterChange={jest.fn()}
+         onRefresh={jest.fn()}
+         {...baseProps}
+       />,
+     );
+     expect(
+       screen.getByTestId('conversation-filter-active'),
+     ).toBeInTheDocument();
      expect(screen.getByTestId('conversation-refresh')).toBeInTheDocument();
      ```
 
@@ -372,7 +383,14 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
      - Ensures bulk UI only appears when bulk handlers are supplied.
    - Example snippet:
      ```tsx
-     render(<ConversationList {...baseProps} onBulkArchive={undefined} onBulkRestore={undefined} onBulkDelete={undefined} />);
+     render(
+       <ConversationList
+         {...baseProps}
+         onBulkArchive={undefined}
+         onBulkRestore={undefined}
+         onBulkDelete={undefined}
+       />,
+     );
      expect(screen.queryByTestId('conversation-select-all')).toBeNull();
      ```
 
@@ -413,7 +431,13 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
    - Example snippet:
      ```tsx
      const onArchive = jest.fn();
-     render(<ConversationList {...baseProps} conversations={[activeRow]} onArchive={onArchive} />);
+     render(
+       <ConversationList
+         {...baseProps}
+         conversations={[activeRow]}
+         onArchive={onArchive}
+       />,
+     );
      await user.click(screen.getByTestId('conversation-archive'));
      expect(onArchive).toHaveBeenCalledWith(activeRow.conversationId);
      ```
@@ -434,7 +458,13 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
    - Example snippet:
      ```tsx
      const onRestore = jest.fn();
-     render(<ConversationList {...baseProps} conversations={[archivedRow]} onRestore={onRestore} />);
+     render(
+       <ConversationList
+         {...baseProps}
+         conversations={[archivedRow]}
+         onRestore={onRestore}
+       />,
+     );
      await user.click(screen.getByTestId('conversation-restore'));
      expect(onRestore).toHaveBeenCalledWith(archivedRow.conversationId);
      ```
@@ -458,7 +488,11 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
    - Example snippet:
      ```tsx
      mockFetch.mockImplementation((url) => mockAgentsResponses(url));
-     render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: ['/agents'] })} />);
+     render(
+       <RouterProvider
+         router={createMemoryRouter(routes, { initialEntries: ['/agents'] })}
+       />,
+     );
      await user.click(screen.getByTestId('conversation-filter-archived'));
      ```
 
@@ -518,121 +552,130 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
      ```
 
 10. [x] Integration test (RTL) - Agents persistence disabled state:
-   - Documentation to read (repeat for standalone subtask context):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Test location:
-     - `client/src/test/agentsPage.sidebarActions.test.tsx`
-   - Description:
-     - Mock `/health` with `mongoConnected: false`; assert filters/actions are disabled.
-   - Purpose:
-     - Verifies persistence-disabled state matches Chat behavior.
-   - Example snippet:
-     ```tsx
-     mockFetch.mockImplementation((url) => mockHealth(url, { mongoConnected: false }));
-     expect(screen.getByTestId('conversation-filter-active')).toBeDisabled();
-     ```
+
+- Documentation to read (repeat for standalone subtask context):
+  - Jest: Context7 `/jestjs/jest`
+  - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- Test location:
+  - `client/src/test/agentsPage.sidebarActions.test.tsx`
+- Description:
+  - Mock `/health` with `mongoConnected: false`; assert filters/actions are disabled.
+- Purpose:
+  - Verifies persistence-disabled state matches Chat behavior.
+- Example snippet:
+  ```tsx
+  mockFetch.mockImplementation((url) =>
+    mockHealth(url, { mongoConnected: false }),
+  );
+  expect(screen.getByTestId('conversation-filter-active')).toBeDisabled();
+  ```
 
 11. [x] Documentation update - projectStructure.md (new test file):
-   - Documentation to read (repeat for standalone subtask context):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `projectStructure.md`
-   - Description:
-     - Add `client/src/test/agentsPage.sidebarActions.test.tsx` to the tree with a short description and include any other files added/removed in this task.
-   - Purpose:
-     - Keep the repository map in sync after adding a new test file.
-   - Example snippet (tree entry):
-     ```text
-     |  |- agentsPage.sidebarActions.test.tsx — Agents sidebar filter/bulk action tests
-     ```
+
+- Documentation to read (repeat for standalone subtask context):
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Files to edit:
+  - `projectStructure.md`
+- Description:
+  - Add `client/src/test/agentsPage.sidebarActions.test.tsx` to the tree with a short description and include any other files added/removed in this task.
+- Purpose:
+  - Keep the repository map in sync after adding a new test file.
+- Example snippet (tree entry):
+  ```text
+  |  |- agentsPage.sidebarActions.test.tsx — Agents sidebar filter/bulk action tests
+  ```
 
 12. [x] Unit test (RTL) - Chat persistence banner disables sidebar controls:
-   - Documentation to read (repeat for standalone subtask context):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Test location:
-     - `client/src/test/chatPersistenceBanner.test.tsx`
-   - Setup note:
-     - Reuse the existing mock fetch + router setup in `chatPersistenceBanner.test.tsx` to drive the banner state.
-   - Description:
-     - Ensure conversation controls are disabled when `mongoConnected === false` (e.g., `conversation-filter-active`).
-   - Purpose:
-     - Keeps Chat persistence behavior explicit after sidebar changes.
-   - Example snippet:
-     ```tsx
-     expect(screen.getByTestId('conversation-filter-active')).toBeDisabled();
-     ```
+
+- Documentation to read (repeat for standalone subtask context):
+  - Jest: Context7 `/jestjs/jest`
+  - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- Test location:
+  - `client/src/test/chatPersistenceBanner.test.tsx`
+- Setup note:
+  - Reuse the existing mock fetch + router setup in `chatPersistenceBanner.test.tsx` to drive the banner state.
+- Description:
+  - Ensure conversation controls are disabled when `mongoConnected === false` (e.g., `conversation-filter-active`).
+- Purpose:
+  - Keeps Chat persistence behavior explicit after sidebar changes.
+- Example snippet:
+  ```tsx
+  expect(screen.getByTestId('conversation-filter-active')).toBeDisabled();
+  ```
 
 13. [x] Unit test (RTL) - ConversationList error state + retry:
-   - Documentation to read (repeat for standalone subtask context):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-     - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
-   - Test location:
-     - `client/src/test/chatSidebar.test.tsx`
-   - Setup note:
-     - Reuse the existing `Wrapper` pattern in `chatSidebar.test.tsx` to supply required props and base conversation data.
-   - Description:
-     - Render `ConversationList` with `isError: true` and `error` set; assert `conversation-error` and that clicking Retry calls `onRetry`.
-   - Purpose:
-     - Covers sidebar error handling path.
-   - Example snippet:
-     ```tsx
-     render(<ConversationList {...baseProps} isError error="Boom" />);
-     await user.click(screen.getByRole('button', { name: /retry/i }));
-     expect(onRetry).toHaveBeenCalled();
-     ```
+
+- Documentation to read (repeat for standalone subtask context):
+  - Jest: Context7 `/jestjs/jest`
+  - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+  - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
+- Test location:
+  - `client/src/test/chatSidebar.test.tsx`
+- Setup note:
+  - Reuse the existing `Wrapper` pattern in `chatSidebar.test.tsx` to supply required props and base conversation data.
+- Description:
+  - Render `ConversationList` with `isError: true` and `error` set; assert `conversation-error` and that clicking Retry calls `onRetry`.
+- Purpose:
+  - Covers sidebar error handling path.
+- Example snippet:
+  ```tsx
+  render(<ConversationList {...baseProps} isError error="Boom" />);
+  await user.click(screen.getByRole('button', { name: /retry/i }));
+  expect(onRetry).toHaveBeenCalled();
+  ```
 
 14. [x] Unit test (RTL) - ConversationList pagination happy path:
-   - Documentation to read (repeat for standalone subtask context):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-     - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
-   - Test location:
-     - `client/src/test/chatSidebar.test.tsx`
-   - Setup note:
-     - Reuse the existing `Wrapper` pattern in `chatSidebar.test.tsx` to supply required props and base conversation data.
-   - Description:
-     - With `hasMore: true` + `onLoadMore`, assert `conversation-load-more` renders and invokes `onLoadMore` on click.
-   - Purpose:
-     - Confirms paging control appears and functions.
-   - Example snippet:
-     ```tsx
-     render(<ConversationList {...baseProps} hasMore onLoadMore={loadMore} />);
-     await user.click(screen.getByTestId('conversation-load-more'));
-     expect(loadMore).toHaveBeenCalled();
-     ```
+
+- Documentation to read (repeat for standalone subtask context):
+  - Jest: Context7 `/jestjs/jest`
+  - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+  - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
+- Test location:
+  - `client/src/test/chatSidebar.test.tsx`
+- Setup note:
+  - Reuse the existing `Wrapper` pattern in `chatSidebar.test.tsx` to supply required props and base conversation data.
+- Description:
+  - With `hasMore: true` + `onLoadMore`, assert `conversation-load-more` renders and invokes `onLoadMore` on click.
+- Purpose:
+  - Confirms paging control appears and functions.
+- Example snippet:
+  ```tsx
+  render(<ConversationList {...baseProps} hasMore onLoadMore={loadMore} />);
+  await user.click(screen.getByTestId('conversation-load-more'));
+  expect(loadMore).toHaveBeenCalled();
+  ```
 
 15. [x] Unit test (RTL) - ConversationList pagination disabled when exhausted:
-   - Documentation to read (repeat for standalone subtask context):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Test location:
-     - `client/src/test/chatSidebar.test.tsx`
-   - Setup note:
-     - Reuse the existing `Wrapper` pattern in `chatSidebar.test.tsx` to supply required props and base conversation data.
-   - Description:
-     - With `hasMore: false`, assert `conversation-load-more` is disabled and shows the "No more" label.
-   - Purpose:
-     - Matches current UI behavior (Load more remains visible but disabled when exhausted).
-   - Example snippet:
-     ```tsx
-     render(<ConversationList {...baseProps} hasMore={false} />);
-     expect(screen.getByTestId('conversation-load-more')).toBeDisabled();
-     expect(screen.getByText('No more')).toBeInTheDocument();
-     ```
+
+- Documentation to read (repeat for standalone subtask context):
+  - Jest: Context7 `/jestjs/jest`
+  - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- Test location:
+  - `client/src/test/chatSidebar.test.tsx`
+- Setup note:
+  - Reuse the existing `Wrapper` pattern in `chatSidebar.test.tsx` to supply required props and base conversation data.
+- Description:
+  - With `hasMore: false`, assert `conversation-load-more` is disabled and shows the "No more" label.
+- Purpose:
+  - Matches current UI behavior (Load more remains visible but disabled when exhausted).
+- Example snippet:
+  ```tsx
+  render(<ConversationList {...baseProps} hasMore={false} />);
+  expect(screen.getByTestId('conversation-load-more')).toBeDisabled();
+  expect(screen.getByText('No more')).toBeInTheDocument();
+  ```
 
 16. [x] Add a client log line confirming sidebar parity test fixtures are rendered:
-   - Files to edit:
-     - `client/src/test/chatSidebar.test.tsx`
-     - `client/src/test/agentsPage.sidebarActions.test.tsx`
-   - Log line requirements:
-     - Use the test logger or existing log helpers (no new logger wiring).
-     - Message: `0000023 sidebar parity tests rendered`
-     - Include context fields: `variant`, `filtersVisible`, `bulkEnabled`
-   - Purpose:
-     - Manual Playwright-MCP check will validate parity by confirming both variants emit the log line.
+
+- Files to edit:
+  - `client/src/test/chatSidebar.test.tsx`
+  - `client/src/test/agentsPage.sidebarActions.test.tsx`
+- Log line requirements:
+  - Use the test logger or existing log helpers (no new logger wiring).
+  - Message: `0000023 sidebar parity tests rendered`
+  - Include context fields: `variant`, `filtersVisible`, `bulkEnabled`
+- Purpose:
+  - Manual Playwright-MCP check will validate parity by confirming both variants emit the log line.
 
 17. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
@@ -663,7 +706,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
 
 ### 4. Client: Drawer paper overflow guard (Chat + Agents)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 668da21, e73a67c
 
 #### Overview
@@ -754,7 +797,7 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
 
 ### 5. Client: List panel padding + vertical scroll behavior
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: f014306, d637c0b
 
 #### Overview
@@ -795,11 +838,13 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
      - The panel (the Box wrapping the List) has `overflowY: 'auto'` and still uses `borderColor: 'divider'`.
    - Example snippet (structure to target):
      ```tsx
-     <Box sx={{ border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+     <Box
+       sx={{ border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}
+     >
        <Stack sx={{ px: 1.5 }}>{/* header + filters */}</Stack>
-     <Box sx={{ flex: 1, overflowY: 'auto' }}>
-       <List disablePadding>{/* rows + load more */}</List>
-     </Box>
+       <Box sx={{ flex: 1, overflowY: 'auto' }}>
+         <List disablePadding>{/* rows + load more */}</List>
+       </Box>
      </Box>
      ```
 
@@ -846,7 +891,7 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
 
 ### 6. Client: Layout tests for scroll + overflow
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 237b835
 
 #### Overview
@@ -898,7 +943,9 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
    - Example snippet:
      ```tsx
      const panel = screen.getByTestId('conversation-list');
-     expect(within(panel).getByTestId('conversation-load-more')).toBeInTheDocument();
+     expect(
+       within(panel).getByTestId('conversation-load-more'),
+     ).toBeInTheDocument();
      ```
 
 3. [x] Unit test (RTL) - Chat Drawer paper hides horizontal overflow:
@@ -932,7 +979,9 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
      ```tsx
      const header = screen.getByTestId('conversation-filter');
      const row = screen.getByTestId('conversation-row');
-     expect(getComputedStyle(header).paddingLeft).toBe(getComputedStyle(row).paddingLeft);
+     expect(getComputedStyle(header).paddingLeft).toBe(
+       getComputedStyle(row).paddingLeft,
+     );
      ```
 
 5. [x] Integration test (RTL) - Agents layout parity (only if needed):
@@ -948,7 +997,9 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
    - Example snippet:
      ```tsx
      const panel = screen.getByTestId('conversation-list');
-     expect(within(panel).getByTestId('conversation-load-more')).toBeInTheDocument();
+     expect(
+       within(panel).getByTestId('conversation-load-more'),
+     ).toBeInTheDocument();
      ```
 
 6. [x] Documentation update - projectStructure.md (only if Agents layout test file added):
@@ -1009,7 +1060,7 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 
 ### 7. Final verification (acceptance criteria, clean builds, docs, PR summary)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: b3ef81a, c13036c, a16dd68
 
 #### Overview
@@ -1160,13 +1211,16 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
 - Reviewed `projectStructure.md`; no additional entries required beyond Task 6 updates.
 - Manual Playwright-MCP verification blocked by "Browser is already in use"; screenshots and `/logs` checks still need a local rerun with a free MCP browser profile.
 - PR summary prepared:
+
   ```md
   ## Summary
+
   - Brought Agents sidebar feature parity with Chat: filters, per-row archive/restore, bulk archive/restore, and archived-only bulk delete.
   - Tightened sidebar layout: consistent 12px padding on headers/rows, list panel vertical scrolling with Load more inside, and Drawer paper overflow guard.
   - Added/extended layout and parity tests for Chat + Agents sidebars, plus verification log lines for manual checks.
 
   ## Testing
+
   - npm run build --workspace server
   - npm run build --workspace client
   - npm run test --workspace server
@@ -1176,6 +1230,7 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
   - npm run compose:up
   - npm run compose:down
   ```
+
 - Ran `npm run compose:down`.
 - Ran `npm run lint --workspaces` (warnings only, pre-existing) and `npm run format:check --workspaces` (clean).
 - Re-ran `npm run format:check --workspaces` after documentation/log updates (clean).

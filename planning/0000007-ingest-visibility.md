@@ -286,7 +286,7 @@ Render assistant visible content as markdown (excluding mermaid) with safe strea
 
 ### 5. Mermaid rendering
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **to_do**
 
 #### Overview

@@ -165,7 +165,10 @@ test('user_turn streams to non-originating tabs and dedupes sender tab', async (
 
   mkdirSync('test-results/screenshots', { recursive: true });
 
-  await Promise.all([page.goto(`${baseUrl}/chat`), tabB.goto(`${baseUrl}/chat`)]);
+  await Promise.all([
+    page.goto(`${baseUrl}/chat`),
+    tabB.goto(`${baseUrl}/chat`),
+  ]);
 
   for (const tab of [page, tabB]) {
     const modelSelect = tab.getByRole('combobox', { name: /Model/i });
@@ -217,6 +220,10 @@ test('user_turn streams to non-originating tabs and dedupes sender tab', async (
     fullPage: true,
   });
 
-  await expect(page.getByText('Streaming reply')).toBeVisible({ timeout: 10000 });
-  await expect(tabB.getByText('Streaming reply')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText('Streaming reply')).toBeVisible({
+    timeout: 10000,
+  });
+  await expect(tabB.getByText('Streaming reply')).toBeVisible({
+    timeout: 10000,
+  });
 });

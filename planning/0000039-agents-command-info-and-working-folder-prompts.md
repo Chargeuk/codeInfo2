@@ -367,7 +367,7 @@ Use a single end-to-end approach that reuses existing Agents route/service patte
 
 ### 1. Server Message Contract: add `GET /agents/:agentName/prompts` route contract and error mapping
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: `d54cac36`, `346ce8e2`
 
 #### Overview
@@ -584,7 +584,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 2. Server: implement prompt discovery service (case-insensitive `.github/prompts`, recursive markdown scan, deterministic ordering)
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: `d54cac36`, `61a394ff`
 
 #### Overview
@@ -786,7 +786,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 3. Client Message Contract: add `listAgentPrompts` API client and contract tests
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: `a557d85e`, `c30e0621`
 
 #### Overview
@@ -945,7 +945,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 4. Frontend: add command-info popover interaction
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: `8fea1035`
 
 #### Overview
@@ -1072,7 +1072,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 5. Frontend: remove inline command description area
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: `66f5405d`
 
 #### Overview
@@ -1183,7 +1183,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 6. Frontend: prompt discovery request lifecycle (commit triggers and stale-response guard)
 
-- Task Status: **__completed__**
+- Task Status: ****completed****
 - Git Commits: `f7b6867f`
 
 #### Overview
@@ -1383,7 +1383,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 7. Frontend: prompt selector UI state transitions and visibility rules
 
-- Task Status: **__completed__**
+- Task Status: ****completed****
 - Git Commits: `bbd1a106`
 
 #### Overview
@@ -1542,7 +1542,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 8. Frontend: execute prompt through instruction run path
 
-- Task Status: **__completed__**
+- Task Status: ****completed****
 - Git Commits: `49443ed7`
 
 #### Overview
@@ -1767,7 +1767,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 9. Documentation: update story-facing product and architecture docs for final 0000039 behavior
 
-- Task Status: **__completed__**
+- Task Status: ****completed****
 - Git Commits: `33e8766e`
 
 #### Overview
@@ -1849,7 +1849,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 10. Final verification: full acceptance and regression gate for story 0000039
 
-- Task Status: **__completed__**
+- Task Status: ****completed****
 - Git Commits: `5a7d23ba`
 
 #### Overview
@@ -1958,7 +1958,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 11. Post-review remediation: invalidate stale prompt-discovery responses on prompt-state reset paths
 
-- Task Status: **__completed__**
+- Task Status: ****completed****
 - Git Commits: `186c5200`
 
 #### Overview
@@ -2043,7 +2043,7 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 
 ### 12. Final verification (re-run): full acceptance and regression gate after Task 11 remediation
 
-- Task Status: **__completed__**
+- Task Status: ****completed****
 - Git Commits: `4617493d`
 
 #### Overview

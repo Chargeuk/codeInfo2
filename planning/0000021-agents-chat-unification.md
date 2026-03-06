@@ -7,6 +7,7 @@ This story follows `planning/plan_format.md`.
 Follow `planning/plan_format.md` (update Task Status before coding; work tasks in order; run required tests; update docs; record commits; push at each stage).
 
 Story convention (important for this repo’s planning style):
+
 - Each task’s **Documentation Locations** section must contain **external** references only (website docs, Context7 library docs, MUI MCP docs, Deepwiki MCP docs when available).
 - Any repo file paths that must be read/edited belong in the relevant **Subtask** under “Files to read” / “Files to edit”.
 
@@ -86,7 +87,7 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 
 ### 1. Server: allow client-supplied `conversationId` for new Agents runs
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: ccd9772
 
 #### Overview
@@ -153,7 +154,6 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
            - `clientProvidedConversationId` (boolean)
            - `mustExist` (the exact value being passed into `runAgentInstructionUnlocked(...)`)
 
-
 3. [x] Update agent command orchestration to allow “new conversation with provided id”:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
@@ -186,7 +186,6 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
            - `conversationId`
            - `clientProvidedConversationId` (boolean)
            - `mustExist` (the exact value passed down into `runAgentInstructionUnlocked(...)`)
-
 
 4. [x] Server integration test: client-supplied `conversationId` works even when the conversation does not exist yet:
    - Test type:
@@ -312,50 +311,53 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
       - Stub `runAgentCommand` to throw `{ code: 'CODEX_UNAVAILABLE', reason: 'missing codex config' }`.
       - Assert `res.status === 503` and `res.body` contains `{ error: 'codex_unavailable', reason: 'missing codex config' }`.
 
-12. [x] Server unit test (node:test): command runs must allow a client-supplied `conversationId` to be *new*:
-   - Test type:
-     - node:test unit test (server)
-   - Test location:
-     - `server/src/test/unit/agent-commands-runner.test.ts`
-   - Description:
-     - Ensures the command runner does not turn a provided `conversationId` into a “must exist” requirement.
-   - Purpose:
-     - Prevents a regression where the UI passes a pre-generated id (for early WS subscription) but server rejects it as not-yet-created.
-   - Documentation to read:
-     - Node.js test runner (node:test): https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/unit/agent-commands-runner.test.ts`
-   - Requirements:
-     - Add a test that calls `runAgentCommandRunner({ conversationId: 'c1', ... })` and captures the params passed into `runAgentInstructionUnlocked(...)`.
-     - Assert the runner does **not** set `mustExist: true` just because `conversationId` was provided (it should be omitted or `false`), so a new conversation id can be created on first use.
+12. [x] Server unit test (node:test): command runs must allow a client-supplied `conversationId` to be _new_:
+
+- Test type:
+  - node:test unit test (server)
+- Test location:
+  - `server/src/test/unit/agent-commands-runner.test.ts`
+- Description:
+  - Ensures the command runner does not turn a provided `conversationId` into a “must exist” requirement.
+- Purpose:
+  - Prevents a regression where the UI passes a pre-generated id (for early WS subscription) but server rejects it as not-yet-created.
+- Documentation to read:
+  - Node.js test runner (node:test): https://nodejs.org/api/test.html
+- Files to edit:
+  - `server/src/test/unit/agent-commands-runner.test.ts`
+- Requirements:
+  - Add a test that calls `runAgentCommandRunner({ conversationId: 'c1', ... })` and captures the params passed into `runAgentInstructionUnlocked(...)`.
+  - Assert the runner does **not** set `mustExist: true` just because `conversationId` was provided (it should be omitted or `false`), so a new conversation id can be created on first use.
 
 13. [x] Update `design.md` with the new Agents conversationId flow and why the server must accept client-provided ids:
-   - Documentation to read:
-     - Mermaid diagrams (Markdown code block + sequence diagrams): Context7 `/mermaid-js/mermaid/v11_0_0`
-     - Mermaid sequence diagram syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
-     - Mermaid diagrams (DeepWiki): `mermaid-js/mermaid` → Diagram Types → Sequence Diagrams
-   - Files to edit:
-     - `design.md`
-   - Requirements:
-     - Add or update a short “Agents run (conversationId contract)” section that states:
-       - client may generate `conversationId` up front
-       - server must create the conversation when a new id is provided (do not require pre-existence)
-       - reason: Agents REST run is synchronous; WS must be subscribed before the request starts
-     - Add a Mermaid `sequenceDiagram` showing:
-       - client connects WS → `subscribe_conversation(conversationId)`
-       - client POSTs `/agents/:agentName/run` with the same `conversationId`
-       - server creates conversation if missing, then streams via WS.
+
+- Documentation to read:
+  - Mermaid diagrams (Markdown code block + sequence diagrams): Context7 `/mermaid-js/mermaid/v11_0_0`
+  - Mermaid sequence diagram syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
+  - Mermaid diagrams (DeepWiki): `mermaid-js/mermaid` → Diagram Types → Sequence Diagrams
+- Files to edit:
+  - `design.md`
+- Requirements:
+  - Add or update a short “Agents run (conversationId contract)” section that states:
+    - client may generate `conversationId` up front
+    - server must create the conversation when a new id is provided (do not require pre-existence)
+    - reason: Agents REST run is synchronous; WS must be subscribed before the request starts
+  - Add a Mermaid `sequenceDiagram` showing:
+    - client connects WS → `subscribe_conversation(conversationId)`
+    - client POSTs `/agents/:agentName/run` with the same `conversationId`
+    - server creates conversation if missing, then streams via WS.
 
 14. [x] Update `projectStructure.md` with the new/updated server test files:
-   - Documentation to read:
-     - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `projectStructure.md`
-   - Requirements:
-     - Add:
-       - `server/src/test/integration/agents-run-client-conversation-id.test.ts`
-     - Remove:
-       - (none)
+
+- Documentation to read:
+  - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
+- Files to edit:
+  - `projectStructure.md`
+- Requirements:
+  - Add:
+    - `server/src/test/integration/agents-run-client-conversation-id.test.ts`
+  - Remove:
+    - (none)
 
 15. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
@@ -435,7 +437,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
 
 ### 2. Server: emit chat-parity run-start WS events for agent runs
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 7d91851
 
 #### Overview
@@ -491,7 +493,11 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
      - Use the agent run’s `modelId` (resolved from config) for the inflight `model` field.
      - Replace the existing inflight creation call:
        ```ts
-       createInflight({ conversationId, inflightId, externalSignal: params.signal });
+       createInflight({
+         conversationId,
+         inflightId,
+         externalSignal: params.signal,
+       });
        ```
        with a chat-parity call (keep the same `externalSignal` wiring):
        ```ts
@@ -603,7 +609,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
      - Assert ordering (corner case): the `user_turn` event is observed before the first `assistant_delta` for the same `(conversationId, inflightId)`.
      - Keep existing assertions for `inflight_snapshot`, `assistant_delta`, and `turn_final`.
    - Test authoring guidance:
-     - In the test, start listening for events *before* starting the run (to avoid missing early frames).
+     - In the test, start listening for events _before_ starting the run (to avoid missing early frames).
      - Add a `waitForEvent` for `type === 'user_turn'` and assert it arrives.
 
 6. [x] Server integration test: agent run passes `inflightId` into `chat.run(...)` flags:
@@ -655,13 +661,13 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 
 9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
-9. [x] Update `projectStructure.md` for new files added in this task:
-   - Documentation to read:
-     - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `projectStructure.md`
-   - Requirements:
-     - Add `server/src/test/integration/agents-run-ws-stream.test.ts` after the file is created.
+10. [x] Update `projectStructure.md` for new files added in this task:
+    - Documentation to read:
+      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
+    - Files to edit:
+      - `projectStructure.md`
+    - Requirements:
+      - Add `server/src/test/integration/agents-run-ws-stream.test.ts` after the file is created.
 
 #### Testing
 
@@ -710,7 +716,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 
 ### 3. Server: cancellation test coverage for Agents (`cancel_inflight`)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: da3a93d
 
 #### Overview
@@ -834,12 +840,13 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
 - Testing: `npm run compose:build`.
 - Testing: `npm run compose:up`.
 - Manual verification (host.docker.internal): started `/agents/coding_agent/run` with `conversationId=manual-t3-1767552898649-24f1a37a`, observed WS `inflight_snapshot.inflightId=2729172a-308c-46b6-850c-2e0945e9f83d`, sent `cancel_inflight`, and observed `turn_final.status === 'stopped'` plus both required log messages in `/logs?text=DEV-0000021[T3]`.
-- 
+-
+
 ---
 
 ### 4. Client: switch Agents transcript state to the Chat WS pipeline
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: a6605c4
 
 #### Overview
@@ -927,11 +934,11 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - Requirements:
        - Use `createLogger('client')` (as used elsewhere in the repo) and emit these **exact** messages during a realtime-enabled run:
          - `DEV-0000021[T4] agents.ws subscribe_conversation` (when subscribing to WS for the conversation id)
-          - `DEV-0000021[T4] agents.ws event user_turn` (when receiving `user_turn`)
-          - `DEV-0000021[T4] agents.ws event inflight_snapshot` (when receiving `inflight_snapshot`)
-          - `DEV-0000021[T4] agents.ws event turn_final` (when receiving `turn_final`)
-        - Each log must include `conversationId` in `context`, and the transcript events must also include `inflightId` (where present).
-        - Include `modelId` in the log context (use the same model id passed into `useChatStream`).
+         - `DEV-0000021[T4] agents.ws event user_turn` (when receiving `user_turn`)
+         - `DEV-0000021[T4] agents.ws event inflight_snapshot` (when receiving `inflight_snapshot`)
+         - `DEV-0000021[T4] agents.ws event turn_final` (when receiving `turn_final`)
+       - Each log must include `conversationId` in `context`, and the transcript events must also include `inflightId` (where present).
+       - Include `modelId` in the log context (use the same model id passed into `useChatStream`).
 
 3. [x] Update client tests: realtime-enabled mode relies on WS events (and ignores REST `segments`):
    - Test type:
@@ -1078,20 +1085,21 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - (none)
 
 10. [x] Update `design.md` to document the Agents client transcript pipeline (Chat WS reuse):
-   - Documentation to read:
-     - Mermaid diagrams (flowchart syntax): Context7 `/mermaid-js/mermaid/v11_0_0`
-     - Mermaid flowchart syntax (official): https://mermaid.js.org/syntax/flowchart.html
-     - Mermaid diagrams (DeepWiki): `mermaid-js/mermaid` → Diagram Types → Flowchart Diagrams
-   - Files to edit:
-     - `design.md`
-   - Requirements:
-     - Add a Mermaid `flowchart` describing the client decision path:
-       - if `mongoConnected === false`: render REST `segments` (single instruction only)
-       - else: use WS transcript events only and ignore REST `segments`.
-     - Include the key hooks/components by name:
-       - `useChatWs` (transport)
-       - `useChatStream` (state/merge)
-       - `useConversationTurns` (history hydration)
+
+- Documentation to read:
+  - Mermaid diagrams (flowchart syntax): Context7 `/mermaid-js/mermaid/v11_0_0`
+  - Mermaid flowchart syntax (official): https://mermaid.js.org/syntax/flowchart.html
+  - Mermaid diagrams (DeepWiki): `mermaid-js/mermaid` → Diagram Types → Flowchart Diagrams
+- Files to edit:
+  - `design.md`
+- Requirements:
+  - Add a Mermaid `flowchart` describing the client decision path:
+    - if `mongoConnected === false`: render REST `segments` (single instruction only)
+    - else: use WS transcript events only and ignore REST `segments`.
+  - Include the key hooks/components by name:
+    - `useChatWs` (transport)
+    - `useChatStream` (state/merge)
+    - `useConversationTurns` (history hydration)
 
 11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
@@ -1141,7 +1149,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 
 ### 5. Client: align Agents transcript UI with Chat transcript UI
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 4fa7e20, 4851457
 
 #### Overview
@@ -1368,7 +1376,7 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
 
 ### 6. Client: Agents Stop uses WS `cancel_inflight` + abort request (Chat parity)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 7472ebd
 
 #### Overview
@@ -1462,7 +1470,7 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
    - Files to edit:
      - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
    - Requirements:
-     - Trigger a command execute request and immediately click Stop *before* emitting any WS `inflight_snapshot`/`user_turn` that would populate an inflight id.
+     - Trigger a command execute request and immediately click Stop _before_ emitting any WS `inflight_snapshot`/`user_turn` that would populate an inflight id.
      - Assert the request abort signal becomes aborted.
      - Assert the WS mock recorded **no** `{ type: 'cancel_inflight', ... }` messages.
 
@@ -1523,7 +1531,7 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
 
 ### 7. Client: Agents sidebar updates via WS (`subscribe_sidebar`)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 7992b39
 
 #### Overview
@@ -1697,7 +1705,7 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
 
 ### 8. Client: rebuild Agents page layout to match Chat (Drawer + controls + transcript)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: af10adb
 
 #### Overview
@@ -1916,7 +1924,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
 
 ### 9. Final verification (acceptance criteria, clean builds, docs, and PR summary)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: cd7bd8e, 2068188, 4c2e3bf
 
 #### Overview
@@ -1969,12 +1977,12 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
      - Add any missing diagram(s) only if the implementation diverged.
 
 4. [x] Update documentation: `projectStructure.md`
-    - Document:
-      - `projectStructure.md` (repo root)
-    - Purpose:
-      - Keep the file tree and test listings accurate after adding/removing files in this story.
-    - Description:
-      - Ensure every new/removed file referenced in Tasks 1–8 is reflected in the tree.
+   - Document:
+     - `projectStructure.md` (repo root)
+   - Purpose:
+     - Keep the file tree and test listings accurate after adding/removing files in this story.
+   - Description:
+     - Ensure every new/removed file referenced in Tasks 1–8 is reflected in the tree.
 
 5. [x] Capture UI verification screenshots under `test-results/screenshots/` (see `planning/plan_format.md` naming convention).
 6. [x] Write a pull request summary comment covering all tasks and major changes.
@@ -2046,7 +2054,7 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
   - Added/updated server unit + integration coverage around Agents WS streaming, cancellation, and router error mapping.
   - Updated client tests around Agents transcript status chip + parity expectations.
   - Ran full verification: server/client builds, server/client test suites, Playwright e2e suite, compose build/up/down, and manual UI smoke check with screenshots.
-  
+
   ### Screenshots
   - `test-results/screenshots/0000021-9-agents.png`
   - `test-results/screenshots/0000021-9-chat.png`
@@ -2057,7 +2065,7 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 
 ### 10. Simplify snapshots: always full history + inflight (no pagination), client replace-only
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 2aa8a84
 
 #### Overview
@@ -2102,7 +2110,9 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Replace the existing turns query schema usage so **limit/cursor are ignored**.
        - Today you’ll see something like:
          ```ts
-         const { limit, cursor, includeInflight } = listTurnsQuerySchema.parse(req.query);
+         const { limit, cursor, includeInflight } = listTurnsQuerySchema.parse(
+           req.query,
+         );
          ```
        - Target change: ignore `limit`, `cursor`, and `includeInflight`.
      - Replace `listTurns({ conversationId, limit, cursor })` with a “full history” query.
@@ -2219,59 +2229,64 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
 10. [x] Client RTL test: navigate away/back during inflight retains full history:
-   - Test type:
-     - Jest + React Testing Library (client)
-   - Test location:
-     - `client/src/test/chatPage.stream.test.tsx` (or create `client/src/test/chatPage.inflightNavigate.test.tsx`)
-   - Description:
-     - Simulate an inflight run, unmount/remount the page (or trigger refresh), and assert that earlier persisted turns remain visible alongside the inflight message.
-   - Purpose:
-     - Covers the original bug: re-entry mid-stream must keep full history.
-   - Documentation to read (repeat even if already read):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+- Test type:
+  - Jest + React Testing Library (client)
+- Test location:
+  - `client/src/test/chatPage.stream.test.tsx` (or create `client/src/test/chatPage.inflightNavigate.test.tsx`)
+- Description:
+  - Simulate an inflight run, unmount/remount the page (or trigger refresh), and assert that earlier persisted turns remain visible alongside the inflight message.
+- Purpose:
+  - Covers the original bug: re-entry mid-stream must keep full history.
+- Documentation to read (repeat even if already read):
+  - Jest: Context7 `/jestjs/jest`
+  - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
 11. [x] Client unit test: turns fetch error does not clear transcript:
-   - Test type:
-     - Jest (client)
-   - Test location:
-     - `client/src/test/useConversationTurns.refresh.test.ts`
-   - Description:
-     - Force a turns fetch error and assert the hook reports an error without wiping existing transcript state.
-   - Purpose:
-     - Covers the error case for snapshot refresh.
-   - Documentation to read (repeat even if already read):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+- Test type:
+  - Jest (client)
+- Test location:
+  - `client/src/test/useConversationTurns.refresh.test.ts`
+- Description:
+  - Force a turns fetch error and assert the hook reports an error without wiping existing transcript state.
+- Purpose:
+  - Covers the error case for snapshot refresh.
+- Documentation to read (repeat even if already read):
+  - Jest: Context7 `/jestjs/jest`
+  - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
 12. [x] Update docs to match the new snapshot contract **and add/adjust Mermaid flow diagrams when architecture/flow changes**:
-   - Documentation to read (repeat even if already read):
-     - Markdown guide: https://www.markdownguide.org/basic-syntax/
-     - Mermaid diagrams (spec + examples): Context7 `/mermaid-js/mermaid/v11_0_0`
-   - Files to edit:
-     - `design.md`
-     - `README.md`
-   - Required edits:
-     - State that `/conversations/:id/turns` returns **full history + inflight** always.
-     - Remove all references to pagination/cursors/nextCursor for turns snapshots.
-     - Add/update a Mermaid diagram in `design.md` that reflects the new full-snapshot flow (client refresh → server full history + inflight → client replace-only hydration).
+
+- Documentation to read (repeat even if already read):
+  - Markdown guide: https://www.markdownguide.org/basic-syntax/
+  - Mermaid diagrams (spec + examples): Context7 `/mermaid-js/mermaid/v11_0_0`
+- Files to edit:
+  - `design.md`
+  - `README.md`
+- Required edits:
+  - State that `/conversations/:id/turns` returns **full history + inflight** always.
+  - Remove all references to pagination/cursors/nextCursor for turns snapshots.
+  - Add/update a Mermaid diagram in `design.md` that reflects the new full-snapshot flow (client refresh → server full history + inflight → client replace-only hydration).
 
 13. [x] Update `projectStructure.md` for any test additions/removals **after all add/remove-file subtasks (4–11) are complete**:
-   - Documentation to read (repeat even if already read):
-     - Markdown guide: https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `projectStructure.md`
-   - Requirements:
-     - Add any new tests you create.
-     - Remove any deleted pagination-related tests.
+
+- Documentation to read (repeat even if already read):
+  - Markdown guide: https://www.markdownguide.org/basic-syntax/
+- Files to edit:
+  - `projectStructure.md`
+- Requirements:
+  - Add any new tests you create.
+  - Remove any deleted pagination-related tests.
 
 14. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`:
-   - Documentation to read (repeat even if already read):
-     - Jest: Context7 `/jestjs/jest`
-   - If either fails, rerun with:
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
-   - Manually resolve any remaining issues.
+
+- Documentation to read (repeat even if already read):
+  - Jest: Context7 `/jestjs/jest`
+- If either fails, rerun with:
+  - `npm run lint:fix --workspaces`
+  - `npm run format --workspaces`
+- Manually resolve any remaining issues.
 
 #### Testing
 
@@ -2311,7 +2326,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
 
 ### 11. Agents: decouple run lifecycle from HTTP request (async 202 + background)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: eb7c187
 
 #### Overview
@@ -2493,217 +2508,235 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
      - Ensures explicit WS cancellation stops multi-step command runs.
 
 10. [x] Server unit test: instruction run error `AGENT_NOT_FOUND` returns 4xx and does not start a background run:
-   - Documentation to read (repeat even if already read):
-     - Node.js test runner: https://nodejs.org/api/test.html
-   - Test type:
-     - node:test unit test (server)
-   - Test location:
-     - `server/src/test/unit/agents-router-run.test.ts`
-   - Description:
-     - Add a test case that asserts `AGENT_NOT_FOUND` returns the expected 4xx + error payload.
-     - Verify no background task is started for this error.
-   - Purpose:
-     - Covers the missing-agent error path for instruction runs.
+
+- Documentation to read (repeat even if already read):
+  - Node.js test runner: https://nodejs.org/api/test.html
+- Test type:
+  - node:test unit test (server)
+- Test location:
+  - `server/src/test/unit/agents-router-run.test.ts`
+- Description:
+  - Add a test case that asserts `AGENT_NOT_FOUND` returns the expected 4xx + error payload.
+  - Verify no background task is started for this error.
+- Purpose:
+  - Covers the missing-agent error path for instruction runs.
 
 11. [x] Server unit test: instruction run error `CONVERSATION_ARCHIVED` returns 4xx and does not start a background run:
-   - Documentation to read (repeat even if already read):
-     - Node.js test runner: https://nodejs.org/api/test.html
-   - Test type:
-     - node:test unit test (server)
-   - Test location:
-     - `server/src/test/unit/agents-router-run.test.ts`
-   - Description:
-     - Add a test case that asserts `CONVERSATION_ARCHIVED` returns the expected 4xx + error payload.
-     - Verify no background task is started for this error.
-   - Purpose:
-     - Covers the archived-conversation error path for instruction runs.
+
+- Documentation to read (repeat even if already read):
+  - Node.js test runner: https://nodejs.org/api/test.html
+- Test type:
+  - node:test unit test (server)
+- Test location:
+  - `server/src/test/unit/agents-router-run.test.ts`
+- Description:
+  - Add a test case that asserts `CONVERSATION_ARCHIVED` returns the expected 4xx + error payload.
+  - Verify no background task is started for this error.
+- Purpose:
+  - Covers the archived-conversation error path for instruction runs.
 
 12. [x] Server unit test: instruction run error `RUN_IN_PROGRESS` returns 4xx and does not start a background run:
-   - Documentation to read (repeat even if already read):
-     - Node.js test runner: https://nodejs.org/api/test.html
-   - Test type:
-     - node:test unit test (server)
-   - Test location:
-     - `server/src/test/unit/agents-router-run.test.ts`
-   - Description:
-     - Add a test case that asserts `RUN_IN_PROGRESS` returns the expected 4xx + error payload.
-     - Verify no background task is started for this error.
-   - Purpose:
-     - Covers the concurrent-run error path for instruction runs.
+
+- Documentation to read (repeat even if already read):
+  - Node.js test runner: https://nodejs.org/api/test.html
+- Test type:
+  - node:test unit test (server)
+- Test location:
+  - `server/src/test/unit/agents-router-run.test.ts`
+- Description:
+  - Add a test case that asserts `RUN_IN_PROGRESS` returns the expected 4xx + error payload.
+  - Verify no background task is started for this error.
+- Purpose:
+  - Covers the concurrent-run error path for instruction runs.
 
 13. [x] Server unit test: command run error `AGENT_NOT_FOUND` returns 4xx and does not start a background run:
-   - Documentation to read (repeat even if already read):
-     - Node.js test runner: https://nodejs.org/api/test.html
-   - Test type:
-     - node:test unit test (server)
-   - Test location:
-     - `server/src/test/unit/agents-commands-router-run.test.ts`
-   - Description:
-     - Add a test case that asserts `AGENT_NOT_FOUND` returns the expected 4xx + error payload.
-     - Verify no background task is started for this error.
-   - Purpose:
-     - Covers the missing-agent error path for command runs.
+
+- Documentation to read (repeat even if already read):
+  - Node.js test runner: https://nodejs.org/api/test.html
+- Test type:
+  - node:test unit test (server)
+- Test location:
+  - `server/src/test/unit/agents-commands-router-run.test.ts`
+- Description:
+  - Add a test case that asserts `AGENT_NOT_FOUND` returns the expected 4xx + error payload.
+  - Verify no background task is started for this error.
+- Purpose:
+  - Covers the missing-agent error path for command runs.
 
 14. [x] Server unit test: command run error `COMMAND_NOT_FOUND` returns 4xx and does not start a background run:
-   - Documentation to read (repeat even if already read):
-     - Node.js test runner: https://nodejs.org/api/test.html
-   - Test type:
-     - node:test unit test (server)
-   - Test location:
-     - `server/src/test/unit/agents-commands-router-run.test.ts`
-   - Description:
-     - Add a test case that asserts `COMMAND_NOT_FOUND` returns the expected 4xx + error payload.
-     - Verify no background task is started for this error.
-   - Purpose:
-     - Covers the missing-command error path for command runs.
+
+- Documentation to read (repeat even if already read):
+  - Node.js test runner: https://nodejs.org/api/test.html
+- Test type:
+  - node:test unit test (server)
+- Test location:
+  - `server/src/test/unit/agents-commands-router-run.test.ts`
+- Description:
+  - Add a test case that asserts `COMMAND_NOT_FOUND` returns the expected 4xx + error payload.
+  - Verify no background task is started for this error.
+- Purpose:
+  - Covers the missing-command error path for command runs.
 
 15. [x] Server unit test: command run error `CONVERSATION_ARCHIVED` returns 4xx and does not start a background run:
-   - Documentation to read (repeat even if already read):
-     - Node.js test runner: https://nodejs.org/api/test.html
-   - Test type:
-     - node:test unit test (server)
-   - Test location:
-     - `server/src/test/unit/agents-commands-router-run.test.ts`
-   - Description:
-     - Add a test case that asserts `CONVERSATION_ARCHIVED` returns the expected 4xx + error payload.
-     - Verify no background task is started for this error.
-   - Purpose:
-     - Covers the archived-conversation error path for command runs.
+
+- Documentation to read (repeat even if already read):
+  - Node.js test runner: https://nodejs.org/api/test.html
+- Test type:
+  - node:test unit test (server)
+- Test location:
+  - `server/src/test/unit/agents-commands-router-run.test.ts`
+- Description:
+  - Add a test case that asserts `CONVERSATION_ARCHIVED` returns the expected 4xx + error payload.
+  - Verify no background task is started for this error.
+- Purpose:
+  - Covers the archived-conversation error path for command runs.
 
 16. [x] Server unit test: command run error `RUN_IN_PROGRESS` returns 4xx and does not start a background run:
-   - Documentation to read (repeat even if already read):
-     - Node.js test runner: https://nodejs.org/api/test.html
-   - Test type:
-     - node:test unit test (server)
-   - Test location:
-     - `server/src/test/unit/agents-commands-router-run.test.ts`
-   - Description:
-     - Add a test case that asserts `RUN_IN_PROGRESS` returns the expected 4xx + error payload.
-     - Verify no background task is started for this error.
-   - Purpose:
-     - Covers the concurrent-run error path for command runs.
+
+- Documentation to read (repeat even if already read):
+  - Node.js test runner: https://nodejs.org/api/test.html
+- Test type:
+  - node:test unit test (server)
+- Test location:
+  - `server/src/test/unit/agents-commands-router-run.test.ts`
+- Description:
+  - Add a test case that asserts `RUN_IN_PROGRESS` returns the expected 4xx + error payload.
+  - Verify no background task is started for this error.
+- Purpose:
+  - Covers the concurrent-run error path for command runs.
 
 17. [x] Client Jest test: Agents run uses async start response + WS-only transcript:
-   - Documentation to read (repeat even if already read):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Test type:
-     - Jest + React Testing Library (client)
-   - Test location:
-     - `client/src/test/agentsPage.run.test.tsx`
-   - Description:
-     - Update mocks to return `{ status:'started', conversationId, inflightId, modelId }`.
-     - Assert the UI waits for WS transcript events instead of REST segments.
-   - Purpose:
-     - Ensures the new start response is handled correctly and transcript is WS-driven.
+
+- Documentation to read (repeat even if already read):
+  - Jest: Context7 `/jestjs/jest`
+  - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- Test type:
+  - Jest + React Testing Library (client)
+- Test location:
+  - `client/src/test/agentsPage.run.test.tsx`
+- Description:
+  - Update mocks to return `{ status:'started', conversationId, inflightId, modelId }`.
+  - Assert the UI waits for WS transcript events instead of REST segments.
+- Purpose:
+  - Ensures the new start response is handled correctly and transcript is WS-driven.
 
 18. [x] Client Jest test: instruction start error shows a visible error state:
-   - Documentation to read (repeat even if already read):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Test type:
-     - Jest + React Testing Library (client)
-   - Test location:
-     - Add `client/src/test/agentsPage.run.instructionError.test.tsx`
-   - Description:
-     - Mock `runAgentInstruction` to return 4xx errors (`AGENT_NOT_FOUND`, `RUN_IN_PROGRESS`).
-     - Assert the Agents page shows an error banner/toast and `isRunning` remains false.
-   - Purpose:
-     - Covers client-side error handling for instruction start failures.
+
+- Documentation to read (repeat even if already read):
+  - Jest: Context7 `/jestjs/jest`
+  - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- Test type:
+  - Jest + React Testing Library (client)
+- Test location:
+  - Add `client/src/test/agentsPage.run.instructionError.test.tsx`
+- Description:
+  - Mock `runAgentInstruction` to return 4xx errors (`AGENT_NOT_FOUND`, `RUN_IN_PROGRESS`).
+  - Assert the Agents page shows an error banner/toast and `isRunning` remains false.
+- Purpose:
+  - Covers client-side error handling for instruction start failures.
 
 19. [x] Client Jest test: command start error shows a visible error state:
-   - Documentation to read (repeat even if already read):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Test type:
-     - Jest + React Testing Library (client)
-   - Test location:
-     - Add `client/src/test/agentsPage.run.commandError.test.tsx`
-   - Description:
-     - Mock `runAgentCommand` to return 4xx errors (`COMMAND_NOT_FOUND`, `RUN_IN_PROGRESS`).
-     - Assert the Agents page shows an error banner/toast and `isRunning` remains false.
-   - Purpose:
-     - Covers client-side error handling for command start failures.
+
+- Documentation to read (repeat even if already read):
+  - Jest: Context7 `/jestjs/jest`
+  - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- Test type:
+  - Jest + React Testing Library (client)
+- Test location:
+  - Add `client/src/test/agentsPage.run.commandError.test.tsx`
+- Description:
+  - Mock `runAgentCommand` to return 4xx errors (`COMMAND_NOT_FOUND`, `RUN_IN_PROGRESS`).
+  - Assert the Agents page shows an error banner/toast and `isRunning` remains false.
+- Purpose:
+  - Covers client-side error handling for command start failures.
 
 20. [x] Client Jest test: Stop sends `cancel_inflight` but does not abort the start request:
-   - Documentation to read (repeat even if already read):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Test type:
-     - Jest + React Testing Library (client)
-   - Test location:
-     - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
-   - Description:
-     - Update expectations so the HTTP request is **not** aborted (it returns immediately).
-     - Assert `cancel_inflight` is still sent on Stop.
-   - Purpose:
-     - Confirms explicit cancellation still works without request-bound abort.
+
+- Documentation to read (repeat even if already read):
+  - Jest: Context7 `/jestjs/jest`
+  - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- Test type:
+  - Jest + React Testing Library (client)
+- Test location:
+  - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
+- Description:
+  - Update expectations so the HTTP request is **not** aborted (it returns immediately).
+  - Assert `cancel_inflight` is still sent on Stop.
+- Purpose:
+  - Confirms explicit cancellation still works without request-bound abort.
 
 21. [x] Client Jest test: remove REST segments fallback coverage (WS-only):
-   - Documentation to read (repeat even if already read):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Test type:
-     - Jest + React Testing Library (client)
-   - Test location:
-     - `client/src/test/agentsPage.persistenceFallbackSegments.test.tsx`
-   - Description:
-     - Replace fallback assertions with “WS required” behavior (expect an error banner when WS is unavailable).
-   - Purpose:
-     - Keeps the test suite aligned with the WS-only design.
+
+- Documentation to read (repeat even if already read):
+  - Jest: Context7 `/jestjs/jest`
+  - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- Test type:
+  - Jest + React Testing Library (client)
+- Test location:
+  - `client/src/test/agentsPage.persistenceFallbackSegments.test.tsx`
+- Description:
+  - Replace fallback assertions with “WS required” behavior (expect an error banner when WS is unavailable).
+- Purpose:
+  - Keeps the test suite aligned with the WS-only design.
 
 22. [x] Client Jest test: navigating away does not stop command execution:
-   - Documentation to read (repeat even if already read):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Test type:
-     - Jest + React Testing Library (client)
-   - Test location:
-     - Add `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`
-   - Description:
-     - Start a command run, unmount the component, then re-mount and verify the WS transcript continues and the run still completes.
-   - Purpose:
-     - Guarantees the “navigate away and come back” parity with Chat.
+
+- Documentation to read (repeat even if already read):
+  - Jest: Context7 `/jestjs/jest`
+  - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- Test type:
+  - Jest + React Testing Library (client)
+- Test location:
+  - Add `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`
+- Description:
+  - Start a command run, unmount the component, then re-mount and verify the WS transcript continues and the run still completes.
+- Purpose:
+  - Guarantees the “navigate away and come back” parity with Chat.
 
 23. [x] Documentation update: design + flow diagram for async Agents runs:
-   - Documentation to read (repeat even if already read):
-     - Mermaid: Context7 `/mermaid-js/mermaid/v11_0_0`
-     - Mermaid syntax: https://mermaid.js.org/syntax/sequenceDiagram.html
-   - Files to edit:
-     - `design.md`
-   - Requirements:
-     - Add/update a Mermaid sequence diagram showing:
-       - `POST /agents/:agent/run` returns `202` immediately.
-       - Background run continues and publishes WS events.
-       - `cancel_inflight` is the **only** cancellation path.
-     - Explicitly call out command-run multi-step behavior and cancellation signal.
+
+- Documentation to read (repeat even if already read):
+  - Mermaid: Context7 `/mermaid-js/mermaid/v11_0_0`
+  - Mermaid syntax: https://mermaid.js.org/syntax/sequenceDiagram.html
+- Files to edit:
+  - `design.md`
+- Requirements:
+  - Add/update a Mermaid sequence diagram showing:
+    - `POST /agents/:agent/run` returns `202` immediately.
+    - Background run continues and publishes WS events.
+    - `cancel_inflight` is the **only** cancellation path.
+  - Explicitly call out command-run multi-step behavior and cancellation signal.
 
 24. [x] Documentation update: note async Agents run behavior in README:
-   - Documentation to read (repeat even if already read):
-     - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `README.md`
-   - Requirements:
-     - Update the Agents REST API section to note `202` responses and background execution.
-     - Mention that navigation away does not cancel runs; cancellation is explicit via Stop.
+
+- Documentation to read (repeat even if already read):
+  - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
+- Files to edit:
+  - `README.md`
+- Requirements:
+  - Update the Agents REST API section to note `202` responses and background execution.
+  - Mention that navigation away does not cancel runs; cancellation is explicit via Stop.
 
 25. [x] Update `projectStructure.md` if any new files are added:
-   - Documentation to read (repeat even if already read):
-     - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `projectStructure.md`
-   - Requirements:
-     - If you add `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx` (or any other new files), add them here **after** the file is created.
+
+- Documentation to read (repeat even if already read):
+  - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
+- Files to edit:
+  - `projectStructure.md`
+- Requirements:
+  - If you add `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx` (or any other new files), add them here **after** the file is created.
 
 26. [x] Run lint/format checks (must be last subtask):
-   - Documentation to read (repeat even if already read):
-     - Jest: Context7 `/jestjs/jest`
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-   - If either fails, rerun with:
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
-   - Manually resolve any remaining issues.
+
+- Documentation to read (repeat even if already read):
+  - Jest: Context7 `/jestjs/jest`
+- `npm run lint --workspaces`
+- `npm run format:check --workspaces`
+- If either fails, rerun with:
+  - `npm run lint:fix --workspaces`
+  - `npm run format --workspaces`
+- Manually resolve any remaining issues.
+
 #### Testing
 
 1. [x] `npm run build --workspace server`

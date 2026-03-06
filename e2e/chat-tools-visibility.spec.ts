@@ -148,11 +148,7 @@ async function mockChatStream(
     await mockWs.waitForConversationSubscription(conversationId);
     mockWs.sendInflightSnapshot({ conversationId, inflightId });
     events.forEach((event) =>
-      sendLegacyStreamEvent(
-        mockWs,
-        { conversationId, inflightId },
-        event,
-      ),
+      sendLegacyStreamEvent(mockWs, { conversationId, inflightId }, event),
     );
     mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
   });
@@ -703,11 +699,7 @@ test.describe('Chat tool visibility details', () => {
       const maxDelay = Math.max(...events.map((e) => e.delay), 0);
       events.forEach(({ delay, event }) => {
         setTimeout(() => {
-          sendLegacyStreamEvent(
-            mockWs,
-            { conversationId, inflightId },
-            event,
-          );
+          sendLegacyStreamEvent(mockWs, { conversationId, inflightId }, event);
         }, delay);
       });
       setTimeout(() => {

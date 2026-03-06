@@ -21,3 +21,4 @@ codex/
 codex_agents/**/auth.json
 codex_agents/**/sessions/
 logs/
+certs/task6-valid/*.key

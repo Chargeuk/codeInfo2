@@ -30,6 +30,7 @@ Provider availability fallback behavior for this story is explicit: if the selec
 For MCP re-ingest safety, this story uses strict exact-match validation against known ingested roots. Input must be a `sourceId` string representing an already ingested repository root, normalized to POSIX form before matching. Re-ingest must reject unknown/non-string/empty/non-absolute `sourceId` values and must not perform any first-time ingest behavior.
 
 For markdown parity, user bubbles will use the exact same renderer and sanitization profile as assistant bubbles (`client/src/components/Markdown.tsx`). Current assistant markdown support (to be matched exactly for users) is:
+
 - GFM markdown via `remark-gfm` (including common GFM syntax such as lists and fenced code blocks; tables/checkbox/task-list/strikethrough/autolinks are handled by the same plugin path).
 - Sanitized HTML via `rehype-sanitize` using a schema derived from `defaultSchema` (with controlled `className` allowances on `code`/`span`/`pre`).
 - Mermaid fenced code blocks (language `mermaid`) rendered as diagrams, with script tags stripped before render.
@@ -38,6 +39,7 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 ### Story Output Summary (Junior-Friendly)
 
 At story completion, a junior developer should be able to verify these outcomes directly:
+
 - All MCP servers use one shared keepalive implementation with identical lifecycle behavior.
 - REST chat and MCP `codebase_question` choose provider/model from the same precedence rules, with the same fallback defaults and runtime provider auto-fallback behavior.
 - `reingest_repository` exists on both MCP surfaces with one identical request/response/error contract and strict existing-root-only safety.
@@ -154,6 +156,7 @@ None currently. Scope-defining questions for this story are resolved; if any new
 This section is authoritative for contracts/shapes in this story and is aligned with current code plus external MCP guidance verification.
 
 Contract decision summary:
+
 - New contract introduced in this story:
   - MCP tool `reingest_repository` on both MCP surfaces.
 - Existing contracts changed in this story:
@@ -185,9 +188,11 @@ Contract decision summary:
 ### New MCP Tool Contract In This Story
 
 Canonical MCP tool name on both MCP surfaces:
+
 - `reingest_repository`
 
 Canonical request payload (inside MCP `tools/call` arguments):
+
 ```json
 {
   "sourceId": "/data/my-repo"
@@ -195,6 +200,7 @@ Canonical request payload (inside MCP `tools/call` arguments):
 ```
 
 Canonical success payload (inside each surface's existing MCP content wrapper):
+
 ```json
 {
   "status": "started",
@@ -205,6 +211,7 @@ Canonical success payload (inside each surface's existing MCP content wrapper):
 ```
 
 Canonical `reingest_repository` error mapping:
+
 - Invalid params:
   - `error.code`: `-32602`
   - `error.message`: `"INVALID_PARAMS"`
@@ -219,10 +226,12 @@ Canonical `reingest_repository` error mapping:
   - Used when ingest/reembed lock is currently held and the operation cannot start.
 
 Compatibility lock:
+
 - MCP guidance recommends tool-execution failures as `result.isError=true`.
 - This story intentionally keeps JSON-RPC `error` envelopes for `reingest_repository` failures to match existing server behavior and avoid breaking current MCP clients in this repository.
 
 Canonical `error.data` for `sourceId` validation failures (AI-retry friendly, field-level):
+
 ```json
 {
   "tool": "reingest_repository",
@@ -236,18 +245,13 @@ Canonical `error.data` for `sourceId` validation failures (AI-retry friendly, fi
       "message": "sourceId must be an absolute normalized container path"
     }
   ],
-  "reingestableRepositoryIds": [
-    "repo-id-1",
-    "repo-id-2"
-  ],
-  "reingestableSourceIds": [
-    "/data/repo-1",
-    "/data/repo-2"
-  ]
+  "reingestableRepositoryIds": ["repo-id-1", "repo-id-2"],
+  "reingestableSourceIds": ["/data/repo-1", "/data/repo-2"]
 }
 ```
 
 Canonical `error.data` for unknown root (`NOT_FOUND`) and busy (`BUSY`):
+
 ```json
 {
   "tool": "reingest_repository",
@@ -261,14 +265,8 @@ Canonical `error.data` for unknown root (`NOT_FOUND`) and busy (`BUSY`):
       "message": "sourceId is not in the current ingested-root set"
     }
   ],
-  "reingestableRepositoryIds": [
-    "repo-id-1",
-    "repo-id-2"
-  ],
-  "reingestableSourceIds": [
-    "/data/repo-1",
-    "/data/repo-2"
-  ]
+  "reingestableRepositoryIds": ["repo-id-1", "repo-id-2"],
+  "reingestableSourceIds": ["/data/repo-1", "/data/repo-2"]
 }
 ```
 
@@ -284,6 +282,7 @@ Canonical `error.data` for unknown root (`NOT_FOUND`) and busy (`BUSY`):
 ### Existing Contracts Changed In This Story
 
 Provider/model defaulting contract (REST + MCP `codebase_question`):
+
 - Request-level `provider` and `model` remain accepted when explicitly supplied.
 - When either value is omitted, resolution order is:
   - explicit request value
@@ -300,6 +299,7 @@ Provider/model defaulting contract (REST + MCP `codebase_question`):
 Canonical non-empty input rejection contracts (raw input still preserved when valid):
 
 `POST /chat` (REST chat):
+
 ```json
 {
   "status": "error",
@@ -309,6 +309,7 @@ Canonical non-empty input rejection contracts (raw input still preserved when va
 ```
 
 `POST /agents/:agentName/run` (Agents REST):
+
 ```json
 {
   "error": "invalid_request",
@@ -317,6 +318,7 @@ Canonical non-empty input rejection contracts (raw input still preserved when va
 ```
 
 Notes:
+
 - These contracts apply only to whitespace-only/newline-only inputs.
 - Both contracts return HTTP status `400`.
 - Conversation title trimming (`slice(0, 80)`) may continue for metadata/title generation and is not treated as message-content trimming.
@@ -324,6 +326,7 @@ Notes:
 ### Storage Shapes (No Schema Changes)
 
 Repository/source listing shape used to build retry options (existing contract, reused):
+
 ```json
 {
   "id": "repo-id",
@@ -339,10 +342,12 @@ Repository/source listing shape used to build retry options (existing contract, 
 ```
 
 Ingest-root metadata (existing storage, reused):
+
 - Keys include `root`, `name`, `description`, `model`, `state`, `lastIngestAt`, `ingestedAtMs`, counts, and optional AST counters/timestamps.
 - Re-ingest selection remains strict root-based (`meta.root === sourceId` after normalization) and uses latest matching snapshot by timestamp/run ordering.
 
 Conversation/Turn Mongo shapes (existing storage, reused):
+
 - Conversation keeps `_id`, `provider`, `model`, `title`, optional `agentName`/`flowName`, `source`, `flags`, `lastMessageAt`, `archivedAt`, timestamps.
 - Turn keeps `conversationId`, `role`, raw `content`, `model`, `provider`, `toolCalls`, `status`, `source`, optional `command`, optional `usage`, optional `timing`, `createdAt`.
 - Raw-input preservation and provider fallback behavior are behavioral changes only; no schema extension/migration is required.
@@ -497,6 +502,7 @@ This should only be started once all the above sections are clear and understood
 11. Repeat for the next task in sequence.
 
 Server test command note (KISS, deterministic):
+
 - Treat commands in the form `npm run test --workspace server -- <token>` as suite-focus hints, not deterministic filters.
 - For deterministic execution, run `npm run test:unit --workspace server` for unit/integration-node tests and `npm run test:integration --workspace server` for Cucumber contract tests.
 - When a task calls out a specific server suite name, confirm that suite/file appears in the test output from the deterministic command above.
@@ -528,7 +534,7 @@ Server test command note (KISS, deterministic):
 
 ### 1. Server: Shared default resolver for REST chat + committed env defaults
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 8218fa92ad2f692213a5b5f5822b1abfe47af4a6, 1e8b3984549242e9f2c5557be024400ca7e8560e
 
 #### Overview
@@ -536,6 +542,7 @@ Server test command note (KISS, deterministic):
 Create one authoritative provider/model default resolver and wire it into REST chat so request defaults follow the locked precedence rules. This task also updates committed server env defaults to `codex` + `gpt-5.3-codex`.
 
 #### Documentation Locations
+
 - External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.)
@@ -650,6 +657,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
        // Assert
      });
      ```
+
      1. [x] Explicit values win.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit.
@@ -688,6 +696,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -706,6 +715,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -739,6 +749,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
      - `DEV-0000035:T1:defaults_resolution_result`
    - Expected outcome: During a chat request without explicit provider/model, both tags appear once and include resolved provider/model fields.
 10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -756,6 +767,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
 11. [x] `npm run test --workspace server -- chatValidators`
 12. [x] `npm run lint --workspaces`
 13. [x] `npm run format:check --workspaces`
+
 #### Implementation notes
 
 - Added `server/src/config/chatDefaults.ts` with deterministic shared resolution (`request -> CHAT_DEFAULT_* env -> codex/gpt-5.3-codex fallback`) and env-warning capture for empty/invalid defaults.
@@ -775,7 +787,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
 
 ### 2. Server: Runtime provider availability auto-fallback across REST + MCP selection paths
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 850d967fd34fa35d25fbf1cf8db09915838523ea
 
 #### Overview
@@ -783,6 +795,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
 Implement runtime provider availability fallback (`codex <-> lmstudio`) with single-hop behavior and fallback-model selection rules, and ensure the same selection logic drives REST execution, MCP `codebase_question`, and chat UI default model/provider selection endpoints.
 
 #### Documentation Locations
+
 - External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.)
@@ -939,6 +952,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
        // Assert
      });
      ```
+
      1. [x] Single-hop provider switch.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Integration + MCP tool happy path.
@@ -994,17 +1008,17 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
         - Description: Add tests covering `/chat/providers` responses where configured/default provider is unavailable but alternate provider is available, asserting stable provider list shape, availability flags, and reason fields.
         - Purpose: Prevent UI default-source regressions when fallback conditions are present.
      10. [x] MCP v2 unknown-tool contract remains unchanged after removing global Codex pre-block.
-        - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
-        - Test type: Unit router regression.
-        - Test location: `server/src/test/unit/mcp2-router-tool-not-found.test.ts`.
-        - Description: Add/adjust tests asserting unknown tool calls still return existing method-not-found behavior even when Codex is unavailable.
-        - Purpose: Prevent unintended contract drift in non-codebase_question paths.
+     - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
+     - Test type: Unit router regression.
+     - Test location: `server/src/test/unit/mcp2-router-tool-not-found.test.ts`.
+     - Description: Add/adjust tests asserting unknown tool calls still return existing method-not-found behavior even when Codex is unavailable.
+     - Purpose: Prevent unintended contract drift in non-codebase_question paths.
      11. [x] MCP v2 `tools/call(codebase_question)` is not globally pre-blocked by Codex availability.
-        - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
-        - Test type: Unit router fallback reachability.
-        - Test location: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`.
-        - Description: Add/adjust tests where Codex is unavailable but LM Studio is available and assert router execution reaches tool-call handling (no immediate global `CODE_INFO_LLM_UNAVAILABLE` pre-block).
-        - Purpose: Lock provider-aware fallback reachability on the `tools/call` path.
+     - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
+     - Test type: Unit router fallback reachability.
+     - Test location: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`.
+     - Description: Add/adjust tests where Codex is unavailable but LM Studio is available and assert router execution reaches tool-call handling (no immediate global `CODE_INFO_LLM_UNAVAILABLE` pre-block).
+     - Purpose: Lock provider-aware fallback reachability on the `tools/call` path.
 8. [x] Add server Cucumber contract scenarios for provider fallback and terminal unavailable behavior by extending existing chat feature coverage.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1031,6 +1045,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
        // Assert
      });
      ```
+
      1. [x] Alternate provider executes when selected/default provider is unavailable.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Cucumber contract.
@@ -1057,6 +1072,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -1068,45 +1084,53 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
    - `design.md` requirements:
      - Add/update Mermaid diagram(s) that show single-hop provider fallback decisions, fallback model selection, and persistence of resolved provider/model for REST and MCP `codebase_question`.
 10. [x] Update `README.md` for runtime auto-fallback/model-selection behavior.
-   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
-   - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
-   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-   - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
-   - Starter snippet (documentation-only changes must be explicit and testable):
-     ```md
-     ## <Section>
-     - Behavior/contract change:
-     - File/endpoint impacted:
-     - Verification command(s):
-     ```
-   - Document name: `README.md`
-   - Document location: `README.md`
-   - Description: Document runtime provider availability fallback behavior and user-visible model/provider selection outcomes.
-   - Purpose: Ensure operational docs match fallback behavior exposed to clients and tooling.
+
+- Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+- Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
+- Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
+- Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
+- Starter snippet (documentation-only changes must be explicit and testable):
+  ```md
+  ## <Section>
+
+  - Behavior/contract change:
+  - File/endpoint impacted:
+  - Verification command(s):
+  ```
+- Document name: `README.md`
+- Document location: `README.md`
+- Description: Document runtime provider availability fallback behavior and user-visible model/provider selection outcomes.
+- Purpose: Ensure operational docs match fallback behavior exposed to clients and tooling.
+
 11. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
-   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
-   - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
-   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-   - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
-   - Starter snippet (update exactly what changed in this task only):
-     ```md
-     - `path/to/added-file.ts` - one-line purpose
-     - Removed: `path/to/removed-file.ts` - one-line reason (if any)
-     ```
-   - Required `projectStructure.md` entries for this task:
-     - Added files:
-       - `server/src/test/unit/chatProviders.test.ts`
-     - Removed files:
-       - None planned in this task.
+
+- Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+- Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
+- Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
+- Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
+- Starter snippet (update exactly what changed in this task only):
+  ```md
+  - `path/to/added-file.ts` - one-line purpose
+  - Removed: `path/to/removed-file.ts` - one-line reason (if any)
+  ```
+- Required `projectStructure.md` entries for this task:
+  - Added files:
+    - `server/src/test/unit/chatProviders.test.ts`
+  - Removed files:
+    - None planned in this task.
+
 12. [x] Add task-specific structured log lines for Manual Playwright-MCP verification.
-   - Files to edit:
-     - `server/src/routes/chat.ts`
-     - `server/src/mcp2/tools/codebaseQuestion.ts`
-   - Add exactly these stable log tags (do not rename):
-     - `DEV-0000035:T2:provider_fallback_evaluated`
-     - `DEV-0000035:T2:provider_fallback_result`
-   - Expected outcome: During a fallback scenario, both tags appear once and the result tag records the selected execution provider/model.
+
+- Files to edit:
+  - `server/src/routes/chat.ts`
+  - `server/src/mcp2/tools/codebaseQuestion.ts`
+- Add exactly these stable log tags (do not rename):
+  - `DEV-0000035:T2:provider_fallback_evaluated`
+  - `DEV-0000035:T2:provider_fallback_result`
+- Expected outcome: During a fallback scenario, both tags appear once and the result tag records the selected execution provider/model.
+
 13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -1130,6 +1154,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 17. [x] `npm run test --workspace server -- mcp2-router-tool-not-found`
 18. [x] `npm run lint --workspaces`
 19. [x] `npm run format:check --workspaces`
+
 #### Implementation notes
 
 - Subtask 1 completed: reviewed provider availability + fallback touchpoints in `server/src/config/chatDefaults.ts`, `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chat.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, and `server/src/mcp2/router.ts`; confirmed codex global pre-block still exists in router and runtime fallback is not yet centralized.
@@ -1161,7 +1186,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 
 ### 3. Server: Raw-input acceptance policy and whitespace-only rejection message contracts
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 4219f76
 
 #### Overview
@@ -1169,6 +1194,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 Implement server-side non-empty-content enforcement without trimming valid user payloads and lock exact rejection messages for chat and agents endpoints. This task is intentionally separate and must complete before frontend send-path changes.
 
 #### Documentation Locations
+
 - External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.)
@@ -1259,6 +1285,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
        // Assert
      });
      ```
+
      1. [x] Whitespace-only payload is rejected with exact contract message.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit route validation.
@@ -1303,6 +1330,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
        // Assert
      });
      ```
+
      1. [x] Chat whitespace-only request contract.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Cucumber contract.
@@ -1329,6 +1357,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -1343,6 +1372,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -1359,6 +1389,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -1378,14 +1409,17 @@ Implement server-side non-empty-content enforcement without trimming valid user 
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
 10. [x] Add task-specific structured log lines for Manual Playwright-MCP verification.
-   - Files to edit:
-     - `server/src/routes/chatValidators.ts`
-     - `server/src/routes/agentsRun.ts`
-   - Add exactly these stable log tags (do not rename):
-     - `DEV-0000035:T3:raw_input_validation_evaluated`
-     - `DEV-0000035:T3:raw_input_validation_result`
-   - Expected outcome: During whitespace-only and non-whitespace submissions, both tags appear and the result tag records accepted/rejected decisions with unchanged contract messaging.
+
+- Files to edit:
+  - `server/src/routes/chatValidators.ts`
+  - `server/src/routes/agentsRun.ts`
+- Add exactly these stable log tags (do not rename):
+  - `DEV-0000035:T3:raw_input_validation_evaluated`
+  - `DEV-0000035:T3:raw_input_validation_result`
+- Expected outcome: During whitespace-only and non-whitespace submissions, both tags appear and the result tag records accepted/rejected decisions with unchanged contract messaging.
+
 11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -1403,6 +1437,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 11. [x] `npm run test --workspace server -- agents-router-run`
 12. [x] `npm run lint --workspaces`
 13. [x] `npm run format:check --workspaces`
+
 #### Implementation notes
 
 - Subtask 1 completed (read/review only): inspected `server/src/routes/chatValidators.ts`, `server/src/routes/agentsRun.ts`, `client/src/hooks/useChatStream.ts`, `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx` and confirmed current behavior:
@@ -1462,7 +1497,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 
 ### 4. Server: MCP keepalive helper unification across all MCP surfaces
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 627b2cc, eac12cb
 
 #### Overview
@@ -1470,6 +1505,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 Create one shared keepalive helper and use it for classic MCP, MCP v2, and agents MCP long-running tool calls. This task only covers keepalive lifecycle behavior and does not add tools or change business contracts.
 
 #### Documentation Locations
+
 - External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.)
@@ -1591,6 +1627,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
        // Assert
      });
      ```
+
      1. [x] Keepalive starts before tool dispatch on all MCP surfaces.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit + integration.
@@ -1635,6 +1672,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -1669,6 +1707,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
      - `DEV-0000035:T4:keepalive_lifecycle_stopped`
    - Expected outcome: During long-running tools/call execution, started appears before heartbeat output and stopped appears after completion/abort with no write-after-close errors.
 10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -1687,6 +1726,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 12. [x] Manual JSON parse smoke: invoke long-running MCP tool on each surface and confirm client parses final JSON-RPC payload.
 13. [x] `npm run lint --workspaces`
 14. [x] `npm run format:check --workspaces`
+
 #### Implementation notes
 
 - Subtask 1 completed: reviewed keepalive handling in `server/src/mcp2/router.ts`, `server/src/mcpAgents/router.ts`, and `server/src/mcp/server.ts`; confirmed duplicated timer logic in mcp2/agents, no shared helper, and classic `/mcp` currently has no keepalive for long-running `tools/call`.
@@ -1759,7 +1799,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 
 ### 5. Server: `reingest_repository` shared service + canonical validation/error mapping
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 5b0c2be2a154e6bb0b33f2715136c581721866c8
 
 #### Overview
@@ -1767,6 +1807,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 Build a shared re-ingest service that enforces strict existing-root-only safety and returns canonical success/error payloads for both MCP surfaces. This task does not wire endpoints yet; it produces the shared engine and contract mapping.
 
 #### Documentation Locations
+
 - External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.)
@@ -1861,6 +1902,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
        // Assert
      });
      ```
+
      1. [x] Success branch returns canonical payload.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit service contract.
@@ -1893,6 +1935,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -1911,6 +1954,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -1943,6 +1987,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
      - `DEV-0000035:T5:reingest_validation_result`
    - Expected outcome: During reingest invocation, both tags appear and the result tag records canonical success or mapped error code/data payload shape.
 9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -1959,6 +2004,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
 10. [x] `npm run test --workspace server -- reingestService`
 11. [x] `npm run lint --workspaces`
 12. [x] `npm run format:check --workspaces`
+
 #### Implementation notes
 
 - Subtask 1 completed:
@@ -2021,7 +2067,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
 
 ### 6. Server: Wire `reingest_repository` into classic MCP (`POST /mcp`)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 9aa98d2
 
 #### Overview
@@ -2029,6 +2075,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
 Expose `reingest_repository` on the classic MCP surface and map service outputs into existing classic MCP response envelopes. This task only covers classic MCP wiring.
 
 #### Documentation Locations
+
 - External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.)
@@ -2111,6 +2158,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
        // Assert
      });
      ```
+
      1. [x] Classic MCP success payload contract.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit JSON-RPC success contract.
@@ -2143,6 +2191,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -2159,6 +2208,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -2192,6 +2242,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
      - `DEV-0000035:T6:classic_reingest_tool_call_result`
    - Expected outcome: During classic MCP tools/call reingest_repository, both tags appear and the result tag records JSON-RPC success/error mapping.
 9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -2209,6 +2260,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
 11. [x] Manual smoke: `initialize` -> `tools/list` -> `tools/call reingest_repository` on `POST /mcp`
 12. [x] `npm run lint --workspaces`
 13. [x] `npm run format:check --workspaces`
+
 #### Implementation notes
 
 - Subtask 1 completed:
@@ -2273,7 +2325,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
 
 ### 7. Server: Wire `reingest_repository` into MCP v2 tools surface
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: c14d73a
 
 #### Overview
@@ -2281,6 +2333,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
 Expose `reingest_repository` on MCP v2 and enforce the exact same name and contract as classic MCP. This task only covers MCP v2 wiring and parity verification.
 
 #### Documentation Locations
+
 - External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.)
@@ -2363,6 +2416,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
        // Assert
      });
      ```
+
      1. [x] MCP v2 success payload contract.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit JSON-RPC success contract.
@@ -2413,6 +2467,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
        // Assert
      });
      ```
+
      1. [x] Success payload parity between classic MCP and MCP v2.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit parity.
@@ -2433,6 +2488,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -2449,6 +2505,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -2484,6 +2541,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
      - `DEV-0000035:T7:mcp2_reingest_tool_call_result`
    - Expected outcome: During MCP v2 tools/call reingest_repository, both tags appear and the result tag records parity-aligned JSON-RPC success/error mapping.
 10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -2501,6 +2559,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
 11. [x] Manual smoke: `initialize` -> `tools/list` -> `tools/call reingest_repository` on MCP v2 port
 12. [x] `npm run lint --workspaces`
 13. [x] `npm run format:check --workspaces`
+
 #### Implementation notes
 
 - Subtask 1 completed:
@@ -2577,7 +2636,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
 
 ### 8. Server: Codex stream merge fix for cropped/duplicate assistant output
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 598ebde, 4614193
 
 #### Overview
@@ -2585,6 +2644,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
 Fix server stream aggregation so tool-interleaved Codex runs do not produce cropped starts or duplicated final text. This task is limited to stream assembly correctness and keeps existing bubble UI/chrome behavior unchanged.
 
 #### Documentation Locations
+
 - External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server (Reason: defines item started/delta/completed event model used by stream merge logic.)
@@ -2674,6 +2734,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
        // Assert
      });
      ```
+
      1. [x] Truncated/non-prefix update after tool call finalizes correctly.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit merge regression.
@@ -2718,6 +2779,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -2745,6 +2807,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - `DEV-0000035:T8:codex_merge_finalized_once`
    - Expected outcome: During tool-interleaved Codex output, both tags appear and finalized_once confirms exactly one terminal publish.
 8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -2764,6 +2827,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
 13. [x] Manual smoke: run Codex chat with tool call and verify no cropped/duplicate final text
 14. [x] `npm run lint --workspaces`
 15. [x] `npm run format:check --workspaces`
+
 #### Implementation notes
 
 - Subtask 1 completed:
@@ -2841,7 +2905,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
 
 ### 9. Client: Chat page raw-input send behavior
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 9bcf8ff
 
 #### Overview
@@ -2849,6 +2913,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
 Update Chat page send behavior to preserve raw user text exactly as entered while still blocking whitespace-only submissions. This task is scoped to outbound payload behavior only and depends on server validation/message contracts implemented in Task 3.
 
 #### Documentation Locations
+
 - External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.)
@@ -2919,6 +2984,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
        // Assert
      });
      ```
+
      1. [x] Leading/trailing whitespace preserved in outbound payload.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client unit/integration (React).
@@ -2968,6 +3034,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
        // Assert
      });
      ```
+
      1. [x] E2E: leading/trailing whitespace preserved in chat outbound payload.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: End-to-end (Playwright).
@@ -2994,6 +3061,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -3010,6 +3078,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -3037,6 +3106,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
      - `DEV-0000035:T9:chat_raw_send_result`
    - Expected outcome: During chat send attempts, both tags appear and result records sent=true for non-whitespace input and sent=false for whitespace-only input.
 9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -3060,6 +3130,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
 13. [x] Manual smoke: Chat UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
 14. [x] `npm run lint --workspaces`
 15. [x] `npm run format:check --workspaces`
+
 #### Implementation notes
 
 - Subtask 1 completed:
@@ -3153,7 +3224,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
 
 ### 10. Client: Chat page user bubble markdown parity
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: e7a300c
 
 #### Overview
@@ -3161,6 +3232,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
 Render Chat user bubbles with the same markdown/sanitization component used by assistant bubbles, preserving existing bubble chrome/layout. This task is scoped to rendering parity and depends on Task 9 for raw-input send behavior.
 
 #### Documentation Locations
+
 - External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.)
@@ -3234,6 +3306,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
        // Assert
      });
      ```
+
      1. [x] User markdown rendering parity with assistant renderer.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client unit/integration (React).
@@ -3284,6 +3357,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
        // Assert
      });
      ```
+
      1. [x] E2E: user markdown/mermaid rendering parity with assistant path.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: End-to-end (Playwright).
@@ -3304,6 +3378,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -3320,6 +3395,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -3347,6 +3423,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
      - `DEV-0000035:T10:chat_user_markdown_render_result`
    - Expected outcome: During chat user-bubble markdown/mermaid rendering, both tags appear and result confirms markdown renderer path is used.
 9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -3371,6 +3448,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 14. [x] Manual smoke: Chat UI send multiline markdown and verify user bubble formatting parity
 15. [x] `npm run lint --workspaces`
 16. [x] `npm run format:check --workspaces`
+
 #### Implementation notes
 
 - Subtask 1 completed:
@@ -3483,7 +3561,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 
 ### 11. Client: Agents page raw-input send behavior
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: de6b087, 360e3ee
 
 #### Overview
@@ -3491,6 +3569,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 Update Agents page send behavior to preserve raw user text exactly as entered while still blocking whitespace-only submissions. This task is scoped to outbound payload behavior only and depends on server validation/message contracts implemented in Task 3.
 
 #### Documentation Locations
+
 - External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.)
@@ -3558,6 +3637,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
        // Assert
      });
      ```
+
      1. [x] Leading/trailing whitespace preserved in agents outbound payload.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client unit/integration (React).
@@ -3607,6 +3687,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
        // Assert
      });
      ```
+
      1. [x] E2E: leading/trailing whitespace preserved in agents outbound payload.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: End-to-end (Playwright).
@@ -3633,6 +3714,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -3649,6 +3731,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -3681,6 +3764,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
      - `DEV-0000035:T11:agents_raw_send_result`
    - Expected outcome: During agents send attempts, both tags appear and result records sent=true for non-whitespace input and sent=false for whitespace-only input.
 9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -3704,6 +3788,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 13. [x] Manual smoke: Agents UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
 14. [x] `npm run lint --workspaces`
 15. [x] `npm run format:check --workspaces`
+
 #### Implementation notes
 
 - Subtask 1 completed:
@@ -3818,7 +3903,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 
 ### 12. Client: Agents page user bubble markdown parity
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 2c46871
 
 #### Overview
@@ -3826,6 +3911,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 Render Agents user bubbles with the same markdown/sanitization component used by assistant bubbles, preserving existing bubble chrome/layout. This task is scoped to rendering parity and depends on Task 11 for raw-input send behavior.
 
 #### Documentation Locations
+
 - External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.)
@@ -3899,6 +3985,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
        // Assert
      });
      ```
+
      1. [x] Agents user markdown rendering parity with assistant rendering.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client unit/integration (React).
@@ -3942,6 +4029,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
        // Assert
      });
      ```
+
      1. [x] E2E: agents user markdown/mermaid rendering parity.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: End-to-end (Playwright).
@@ -3962,6 +4050,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -3978,6 +4067,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -4005,6 +4095,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
      - `DEV-0000035:T12:agents_user_markdown_render_result`
    - Expected outcome: During agents user-bubble markdown/mermaid rendering, both tags appear and result confirms markdown renderer path is used.
 9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -4029,6 +4120,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
 14. [x] Manual smoke: Agents UI send multiline markdown and verify user bubble formatting parity
 15. [x] `npm run lint --workspaces`
 16. [x] `npm run format:check --workspaces`
+
 #### Implementation notes
 
 - Subtask 1 completed:
@@ -4140,7 +4232,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
 
 ### 13. Final verification: acceptance check, full regressions, and documentation normalization
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: f179b78
 
 #### Overview
@@ -4148,6 +4240,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
 Validate every acceptance criterion end-to-end after all feature tasks are complete, run full regression layers (Jest, Cucumber, e2e), and finish all documentation and PR summary output.
 
 #### Documentation Locations
+
 - External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - Docker docs (Context7): `/docker/docs` (Reason: authoritative compose/build workflow reference for full-regression verification steps.)
@@ -4183,6 +4276,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -4199,6 +4293,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -4215,6 +4310,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -4244,6 +4340,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
    - Starter snippet (documentation-only changes must be explicit and testable):
      ```md
      ## <Section>
+
      - Behavior/contract change:
      - File/endpoint impacted:
      - Verification command(s):
@@ -4282,6 +4379,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
 10. [x] `npm run test:integration --workspace server`
 11. [x] `npm run compose:down`
 12. [x] Manual Playwright-MCP walkthrough of Chat, Agents, and MCP flows with screenshots saved to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` and linked in `Implementation notes`
+
 #### Implementation notes
 
 - Subtask 1 completed:
@@ -4314,6 +4412,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
   - Prepared PR summary comment for Task 13 outcomes, contract deltas, and verification evidence:
     ```md
     ## Story 0000035 - Task 13 final verification
+
     - Re-checked all acceptance criteria against implemented Task 1-12 behavior and recorded the remaining gap (T13 manual acceptance tags), then implemented it in shared client/server loggers.
     - Updated delivery documentation (`README.md`, `design.md`, `projectStructure.md`) to reflect final verification workflow, required command order, manual endpoint usage (`http://host.docker.internal:5001`), and required artifact files.
     - Added Task 13 manual acceptance logging hooks with stable tags:
@@ -4380,7 +4479,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
 
 ### 14. Post-review fixes: provider fallback correctness, render-side effects, and MCP tool contract text
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 6cf263a
 
 #### Overview
@@ -4511,7 +4610,7 @@ Address code-review findings discovered after Task 13 completion. This task rest
 
 ### 15. Re-test gate: full story regression and acceptance re-validation after Task 14
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 3a0d1e9
 
 #### Overview

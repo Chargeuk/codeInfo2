@@ -303,6 +303,48 @@ Modified files (implementation traceability):
 - `projectStructure.md`
 - `server/entrypoint.sh`
 
+## Story 0000041 Task 6 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000041-corporate-registry-and-certificate-overrides-via-codeinfo-env.md`
+- `projectStructure.md`
+- `server/entrypoint.sh`
+
+## Story 0000041 Task 7 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000041-corporate-registry-and-certificate-overrides-via-codeinfo-env.md`
+- `projectStructure.md`
+- `start-gcf-server.sh`
+
 - None.
 
 Modified files (implementation traceability):
@@ -411,7 +453,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”œâ”€ .prettierrc â€” Prettier settings
 â”œâ”€ AGENTS.md â€” agent workflow rules
 â”œâ”€ README.md â€” repo overview and commands
-â”œâ”€ start-gcf-server.sh â€” macOS/Linux helper to install/run git-credential-forwarder
+â”œâ”€ start-gcf-server.sh â€” macOS/Linux helper to install/run git-credential-forwarder with optional `CODEINFO_NPM_REGISTRY` override for the global install step
 â”œâ”€ logs/ â€” runtime server log output (gitignored, host-mounted)
 â”œâ”€ design.md â€” design notes and diagrams
 â”œâ”€ flows/ â€” flow JSON definitions (hot-reloaded, user-managed; resolved as sibling to codex_agents by default)
@@ -669,7 +711,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ .env.local â€” server local overrides (ignored by git consumers)
 â”‚  â”œâ”€ .prettierignore â€” server-specific Prettier ignore
 â”‚  â”œâ”€ Dockerfile â€” server image build with stage-local corporate override args and conditional npm/pip install wiring (defaults preserved when unset)
-â”‚  â”œâ”€ entrypoint.sh â€” server startup script (launches headless Chrome + API), resolves `NODE_EXTRA_CA_CERTS` default/override export, parses refresh gate flag (`CODEINFO_REFRESH_CA_CERTS_ON_START`), and emits CODEINFO wiring/build/runtime observability tokens
+â”‚  â”œâ”€ entrypoint.sh â€” server startup script (launches headless Chrome + API), resolves `NODE_EXTRA_CA_CERTS` default/override export, enforces refresh-gated cert discovery from `/usr/local/share/ca-certificates/codeinfo-corp` (including fail-fast missing/no-crt/unreadable/update failures), and emits CODEINFO wiring/build/runtime observability tokens
 â”‚  â”œâ”€ npm-global.txt â€” source list consumed by `xargs -r npm install -g --force < /tmp/npm-global.txt` during runtime image global tool install
 â”‚  â”œâ”€ requirements.txt â€” Python package list for the server image
 â”‚  â”œâ”€ cucumber.js â€” Cucumber config

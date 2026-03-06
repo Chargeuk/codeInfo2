@@ -131,6 +131,55 @@ flowchart TD
   I --> J[Continue to optional refresh branch then exec node]
 ```
 
+## Story 0000041 Task 6 server runtime CA refresh and fail-fast paths
+
+- Refresh branch now enforces certificate readiness checks before startup when `refresh_requested=true`.
+- Refresh-enabled startup requires `/usr/local/share/ca-certificates/codeinfo-corp` to exist and contain readable `*.crt` files; otherwise startup fails fast with non-zero exit and actionable stderr output.
+- When prerequisites pass, `update-ca-certificates` executes; command failure is treated as fail-fast.
+- Runtime emits `[CODEINFO][T06_CA_REFRESH_RESULT]` for all paths:
+  - `result=skipped` when refresh is disabled,
+  - `result=success` when refresh runs successfully,
+  - `result=failed` on any fail-fast branch.
+
+```mermaid
+flowchart TD
+  A[Refresh gate evaluated] --> B{refresh_requested true?}
+  B -- no --> C[Emit T06 result=skipped]
+  C --> D[Continue to exec node]
+  B -- yes --> E{Cert dir exists?}
+  E -- no --> F[Emit T06 result=failed and exit non-zero]
+  E -- yes --> G{Any .crt files?}
+  G -- no --> H[Emit T06 result=failed and exit non-zero]
+  G -- yes --> I{All cert files readable?}
+  I -- no --> J[Emit T06 result=failed and exit non-zero]
+  I -- yes --> K[Run update-ca-certificates]
+  K --> L{Command succeeded?}
+  L -- no --> M[Emit T06 result=failed and exit non-zero]
+  L -- yes --> N[Emit T06 result=success]
+  N --> D
+```
+
+## Story 0000041 Task 7 host-helper npm registry override path
+
+- `start-gcf-server.sh` keeps the install anchor command unchanged while adding a conditional registry override path for restricted networks.
+- When `CODEINFO_NPM_REGISTRY` is unset/empty, helper startup uses default npm behavior for `git-credential-forwarder` global install.
+- When `CODEINFO_NPM_REGISTRY` is set, only the `git-credential-forwarder` install command gets an override via `npm_config_registry`.
+- The helper emits deterministic startup state token `[CODEINFO][T07_GCF_INSTALL_REGISTRY_STATE]` before install with `registry_override=off|on`.
+- Invalid or unreachable registry values follow npm failure behavior (non-zero) and prevent helper startup from continuing.
+
+```mermaid
+flowchart TD
+  A[start-gcf-server.sh starts] --> B{CODEINFO_NPM_REGISTRY non-empty?}
+  B -- no --> C[Emit T07 registry_override=off]
+  C --> D[npm install -g git-credential-forwarder]
+  B -- yes --> E[Emit T07 registry_override=on]
+  E --> F[npm_config_registry=CODEINFO_NPM_REGISTRY npm install -g git-credential-forwarder]
+  D --> G{Install succeeded?}
+  F --> G
+  G -- yes --> H[exec gcf-server]
+  G -- no --> I[Exit non-zero from npm failure]
+```
+
 ```mermaid
 flowchart TD
   R[Resolved default provider/model] --> A{Selected provider available?}

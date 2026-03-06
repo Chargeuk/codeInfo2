@@ -110,4 +110,43 @@ export NODE_EXTRA_CA_CERTS="$node_extra_ca_certs_value"
 
 echo "[CODEINFO][T05_NODE_EXTRA_CA_CERTS_RESOLVED] value=${NODE_EXTRA_CA_CERTS} source=${node_extra_ca_certs_source} refresh_requested=${refresh_requested}"
 
+corp_cert_dir="/usr/local/share/ca-certificates/codeinfo-corp"
+refresh_result="skipped"
+crt_count=0
+
+if [ "$refresh_requested" = "true" ]; then
+  if [ ! -d "$corp_cert_dir" ]; then
+    echo "[CODEINFO][T06_CA_REFRESH_RESULT] refresh_enabled=true result=failed crt_count=0 cert_dir=${corp_cert_dir}"
+    echo "CODEINFO refresh failed: certificate directory not found at ${corp_cert_dir}" >&2
+    exit 1
+  fi
+
+  set -- "$corp_cert_dir"/*.crt
+  if [ "$1" = "$corp_cert_dir/*.crt" ]; then
+    echo "[CODEINFO][T06_CA_REFRESH_RESULT] refresh_enabled=true result=failed crt_count=0 cert_dir=${corp_cert_dir}"
+    echo "CODEINFO refresh failed: no usable .crt files found in ${corp_cert_dir}" >&2
+    exit 1
+  fi
+
+  for cert_file in "$corp_cert_dir"/*.crt; do
+    if [ ! -r "$cert_file" ]; then
+      echo "[CODEINFO][T06_CA_REFRESH_RESULT] refresh_enabled=true result=failed crt_count=${crt_count} cert_dir=${corp_cert_dir}"
+      echo "CODEINFO refresh failed: unreadable certificate file ${cert_file}" >&2
+      exit 1
+    fi
+    crt_count=$((crt_count + 1))
+  done
+
+  if ! update-ca-certificates; then
+    echo "[CODEINFO][T06_CA_REFRESH_RESULT] refresh_enabled=true result=failed crt_count=${crt_count} cert_dir=${corp_cert_dir}"
+    echo "CODEINFO refresh failed: update-ca-certificates returned non-zero status" >&2
+    exit 1
+  fi
+
+  refresh_result="success"
+  echo "[CODEINFO][T06_CA_REFRESH_RESULT] refresh_enabled=true result=${refresh_result} crt_count=${crt_count} cert_dir=${corp_cert_dir}"
+else
+  echo "[CODEINFO][T06_CA_REFRESH_RESULT] refresh_enabled=false result=${refresh_result} crt_count=0 cert_dir=${corp_cert_dir}"
+fi
+
 exec node dist/index.js

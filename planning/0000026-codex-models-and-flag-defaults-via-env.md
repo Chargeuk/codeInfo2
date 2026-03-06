@@ -158,7 +158,7 @@ These instructions will be followed during implementation.
 
 ### 1. Server: Codex env defaults helper
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 90770a6, b99ef7b
 
 #### Overview
@@ -269,31 +269,35 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Purpose: Keep setup documentation aligned with the env defaults helper behavior.
 
 10. [x] Update `design.md` for env-default architecture changes:
-   - Documentation to read (repeat):
-     - Mermaid docs: Context7 `/mermaid-js/mermaid`
-   - Location: `design.md`
-   - Description: Document the new env defaults helper and warning flow; add/update diagrams as needed.
-   - Purpose: Ensure architectural notes and diagrams reflect the new defaults layer.
+
+- Documentation to read (repeat):
+  - Mermaid docs: Context7 `/mermaid-js/mermaid`
+- Location: `design.md`
+- Description: Document the new env defaults helper and warning flow; add/update diagrams as needed.
+- Purpose: Ensure architectural notes and diagrams reflect the new defaults layer.
 
 11. [x] Update `projectStructure.md` after adding/removing files in this task:
-   - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Location: `projectStructure.md`
-   - Description: List every file added or removed in this task (paths) and update the tree entries.
-   - Purpose: Keep the repo tree map accurate after file additions/removals.
+
+- Documentation to read (repeat):
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Location: `projectStructure.md`
+- Description: List every file added or removed in this task (paths) and update the tree entries.
+- Purpose: Keep the repo tree map accurate after file additions/removals.
 
 12. [x] Add server log line for env defaults resolution:
-   - Files to edit:
-     - `server/src/config/codexEnvDefaults.ts`
-   - Log line to add:
-     - `baseLogger.info('[codex-env-defaults] resolved', { defaults, warningsCount: warnings.length })`
-   - Expected outcome:
-     - Logs once per `/chat/models` fetch and shows `warningsCount: 0` when env values are valid.
+
+- Files to edit:
+  - `server/src/config/codexEnvDefaults.ts`
+- Log line to add:
+  - `baseLogger.info('[codex-env-defaults] resolved', { defaults, warningsCount: warnings.length })`
+- Expected outcome:
+  - Logs once per `/chat/models` fetch and shows `warningsCount: 0` when env values are valid.
 
 13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
+
+- Documentation to read (repeat):
+  - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
@@ -359,7 +363,7 @@ Create a reusable helper that reads Codex default flag values from environment v
 
 ### 2. Server: Apply env defaults in chat validation
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 8123872, 76b7fc7
 
 #### Overview
@@ -454,17 +458,19 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
 10. [x] Add server log line when env defaults are applied during validation:
-   - Files to edit:
-     - `server/src/routes/chatValidators.ts`
-   - Log line to add:
-     - `baseLogger.info('[codex-validate] applied env defaults', { defaultedFlags })`
-   - Expected outcome:
-     - `defaultedFlags` lists every flag filled in from env when the request omits Codex flags.
+
+- Files to edit:
+  - `server/src/routes/chatValidators.ts`
+- Log line to add:
+  - `baseLogger.info('[codex-validate] applied env defaults', { defaultedFlags })`
+- Expected outcome:
+  - `defaultedFlags` lists every flag filled in from env when the request omits Codex flags.
 
 11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
+
+- Documentation to read (repeat):
+  - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
@@ -535,7 +541,7 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
 
 ### 3. Server: Align ChatInterfaceCodex defaults
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 64ab263, e46782b
 
 #### Overview
@@ -696,7 +702,7 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
 
 ### 4. Shared: Codex defaults response types
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 27f2fd1
 
 #### Overview
@@ -858,7 +864,7 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
 
 ### 5. Server: Codex models response + warnings
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 17867f7
 
 #### Overview
@@ -961,62 +967,70 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 10. [x] Add unit test: empty CSV fallback + warning
-   - Documentation to read (repeat):
-     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-   - Test type: server unit test
-   - Location: `server/src/test/unit/chatModels.codex.test.ts`
-   - Purpose: Warn and fall back to the built-in model list when the CSV yields no valid entries.
-   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
+
+- Documentation to read (repeat):
+  - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+- Test type: server unit test
+- Location: `server/src/test/unit/chatModels.codex.test.ts`
+- Purpose: Warn and fall back to the built-in model list when the CSV yields no valid entries.
+- Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 11. [x] Add unit test: runtime warning when web search enabled but tools unavailable
-   - Documentation to read (repeat):
-     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-   - Test type: server unit test
-   - Location: `server/src/test/unit/chatModels.codex.test.ts`
-   - Purpose: Append a warning if `webSearchEnabled` is true while tools are unavailable.
-   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
+
+- Documentation to read (repeat):
+  - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+- Test type: server unit test
+- Location: `server/src/test/unit/chatModels.codex.test.ts`
+- Purpose: Append a warning if `webSearchEnabled` is true while tools are unavailable.
+- Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 12. [x] Add unit test: non-Codex provider omits codexDefaults/codexWarnings
-   - Documentation to read (repeat):
-     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-   - Test type: server unit test
-   - Location: `server/src/test/unit/chatModels.codex.test.ts`
-   - Purpose: Ensure `/chat/models?provider=lmstudio` response does not include Codex-only fields.
-   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
+
+- Documentation to read (repeat):
+  - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+- Test type: server unit test
+- Location: `server/src/test/unit/chatModels.codex.test.ts`
+- Purpose: Ensure `/chat/models?provider=lmstudio` response does not include Codex-only fields.
+- Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 13. [x] Update `README.md` with model list env details if changed:
-   - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Location: `README.md`
-   - Description: Document `Codex_model_list` CSV format and default list updates.
-   - Purpose: Keep environment configuration docs aligned with model list behavior.
+
+- Documentation to read (repeat):
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Location: `README.md`
+- Description: Document `Codex_model_list` CSV format and default list updates.
+- Purpose: Keep environment configuration docs aligned with model list behavior.
 
 14. [x] Update `design.md` with model list response flow + mermaid diagrams:
-   - Documentation to read (repeat):
-     - Mermaid docs: Context7 `/mermaid-js/mermaid`
-   - Location: `design.md`
-   - Description: Add/update response-contract diagrams showing `codexDefaults`/`codexWarnings`.
-   - Purpose: Ensure architecture docs reflect the updated `/chat/models` response.
+
+- Documentation to read (repeat):
+  - Mermaid docs: Context7 `/mermaid-js/mermaid`
+- Location: `design.md`
+- Description: Add/update response-contract diagrams showing `codexDefaults`/`codexWarnings`.
+- Purpose: Ensure architecture docs reflect the updated `/chat/models` response.
 
 15. [x] Update `projectStructure.md` after adding/removing files in this task:
-   - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Location: `projectStructure.md`
-   - Description: List every file added or removed in this task (paths) and update the tree entries.
-   - Purpose: Keep the repo tree map accurate after file additions/removals.
+
+- Documentation to read (repeat):
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Location: `projectStructure.md`
+- Description: List every file added or removed in this task (paths) and update the tree entries.
+- Purpose: Keep the repo tree map accurate after file additions/removals.
 
 16. [x] Add server log line for Codex model list selection:
-   - Files to edit:
-     - `server/src/routes/chatModels.ts`
-   - Log line to add:
-     - `baseLogger.info('[codex-model-list] using env list', { modelCount, fallbackUsed, warningsCount })`
-   - Expected outcome:
-     - Logs whenever `/chat/models?provider=codex` is called; `fallbackUsed` is `false` when env CSV is valid.
+
+- Files to edit:
+  - `server/src/routes/chatModels.ts`
+- Log line to add:
+  - `baseLogger.info('[codex-model-list] using env list', { modelCount, fallbackUsed, warningsCount })`
+- Expected outcome:
+  - Logs whenever `/chat/models?provider=codex` is called; `fallbackUsed` is `false` when env CSV is valid.
 
 17. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
+
+- Documentation to read (repeat):
+  - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
@@ -1095,7 +1109,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
 
 ### 6. Client: Codex defaults consumption + flags init
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: eeef8f2
 
 #### Overview
@@ -1206,32 +1220,36 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
    - Purpose: Keep user-facing usage docs aligned with server-driven defaults.
 
 10. [x] Update `design.md` with client defaults flow + mermaid diagrams:
-   - Documentation to read (repeat):
-     - Mermaid docs: Context7 `/mermaid-js/mermaid`
-   - Location: `design.md`
-   - Description: Update UI flow diagrams to show defaults coming from `/chat/models`.
-   - Purpose: Keep architecture notes aligned with the new client initialization flow.
+
+- Documentation to read (repeat):
+  - Mermaid docs: Context7 `/mermaid-js/mermaid`
+- Location: `design.md`
+- Description: Update UI flow diagrams to show defaults coming from `/chat/models`.
+- Purpose: Keep architecture notes aligned with the new client initialization flow.
 
 11. [x] Update `projectStructure.md` after adding/removing files in this task:
-   - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Location: `projectStructure.md`
-   - Description: List every file added or removed in this task (paths) and update the tree entries.
-   - Purpose: Keep the repo tree map accurate after file additions/removals.
+
+- Documentation to read (repeat):
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Location: `projectStructure.md`
+- Description: List every file added or removed in this task (paths) and update the tree entries.
+- Purpose: Keep the repo tree map accurate after file additions/removals.
 
 12. [x] Add client log lines for default initialization/reset:
-   - Files to edit:
-     - `client/src/pages/ChatPage.tsx`
-   - Log lines to add:
-     - `console.info('[codex-ui-defaults] initialized', { codexDefaults })`
-     - `console.info('[codex-ui-defaults] reset', { reason, codexDefaults })`
-   - Expected outcome:
-     - One `initialized` log on first Codex load, plus `reset` logs on provider change and new conversation.
+
+- Files to edit:
+  - `client/src/pages/ChatPage.tsx`
+- Log lines to add:
+  - `console.info('[codex-ui-defaults] initialized', { codexDefaults })`
+  - `console.info('[codex-ui-defaults] reset', { reason, codexDefaults })`
+- Expected outcome:
+  - One `initialized` log on first Codex load, plus `reset` logs on provider change and new conversation.
 
 13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
+
+- Documentation to read (repeat):
+  - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
@@ -1300,7 +1318,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
 
 ### 7. Client: Codex payload omission + warnings banner
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 63dcd70, ed1e246
 
 #### Overview
@@ -1337,7 +1355,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
      - `client/src/pages/ChatPage.tsx` (pass `codexDefaults` into hook)
    - Requirements:
      - Compare user-selected flags against `codexDefaults`.
-     - Remove hard-coded DEFAULT_* values and rely on passed defaults.
+     - Remove hard-coded DEFAULT\_\* values and rely on passed defaults.
      - If defaults are missing, omit all Codex flags from the payload.
      - Update the `useChatStream` options signature to accept `codexDefaults` and use it for comparison.
 
@@ -1404,40 +1422,45 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Reference pattern: existing banner assertions in `chatPage.codexBanners.test.tsx`.
 
 10. [x] Update `README.md` if payload omission behavior is documented:
-   - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Location: `README.md`
-   - Description: Mention that Codex flags are omitted when unchanged so env defaults apply.
-   - Purpose: Keep usage docs aligned with payload behavior.
+
+- Documentation to read (repeat):
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Location: `README.md`
+- Description: Mention that Codex flags are omitted when unchanged so env defaults apply.
+- Purpose: Keep usage docs aligned with payload behavior.
 
 11. [x] Update `design.md` with warning/banner flow + mermaid diagrams:
-   - Documentation to read (repeat):
-     - Mermaid docs: Context7 `/mermaid-js/mermaid`
-   - Location: `design.md`
-   - Description: Document the `codexWarnings` banner flow and any UI/response updates.
-   - Purpose: Keep architecture/flow diagrams current.
+
+- Documentation to read (repeat):
+  - Mermaid docs: Context7 `/mermaid-js/mermaid`
+- Location: `design.md`
+- Description: Document the `codexWarnings` banner flow and any UI/response updates.
+- Purpose: Keep architecture/flow diagrams current.
 
 12. [x] Update `projectStructure.md` after adding/removing files in this task:
-   - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Location: `projectStructure.md`
-   - Description: List every file added or removed in this task (paths) and update the tree entries.
-   - Purpose: Keep the repo tree map accurate after file additions/removals.
+
+- Documentation to read (repeat):
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Location: `projectStructure.md`
+- Description: List every file added or removed in this task (paths) and update the tree entries.
+- Purpose: Keep the repo tree map accurate after file additions/removals.
 
 13. [x] Add client log lines for payload omission + warnings banner:
-   - Files to edit:
-     - `client/src/hooks/useChatStream.ts`
-     - `client/src/pages/ChatPage.tsx`
-   - Log lines to add:
-     - `console.info('[codex-payload] omitted flags', { omittedFlags })`
-     - `console.info('[codex-warnings] rendered', { warnings })`
-   - Expected outcome:
-     - `omittedFlags` lists all flags excluded when unchanged; `warnings` matches `codexWarnings` when the banner is shown.
+
+- Files to edit:
+  - `client/src/hooks/useChatStream.ts`
+  - `client/src/pages/ChatPage.tsx`
+- Log lines to add:
+  - `console.info('[codex-payload] omitted flags', { omittedFlags })`
+  - `console.info('[codex-warnings] rendered', { warnings })`
+- Expected outcome:
+  - `omittedFlags` lists all flags excluded when unchanged; `warnings` matches `codexWarnings` when the banner is shown.
 
 14. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
+
+- Documentation to read (repeat):
+  - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
@@ -1501,7 +1524,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
 
 ### 8. Docs: Codex env defaults updates
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 39bece7
 
 #### Overview
@@ -1613,7 +1636,7 @@ Update user-facing documentation to describe env-driven Codex models and default
 
 ### 9. Final verification + PR summary
 
-- status: **__done__**
+- status: ****done****
 - Git Commits: 31c9248, 7dc8d0d
 
 #### Overview
@@ -1732,7 +1755,7 @@ The final task must always check against the acceptance criteria of the story. I
 
 ### 10. Review fixes
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 120f59d, 98b6d35
 
 #### Overview

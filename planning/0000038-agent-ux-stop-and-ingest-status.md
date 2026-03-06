@@ -371,7 +371,7 @@ Validated from existing repository behavior/tests and official documentation ref
 
 ### 1. Server Message Contract: make `cancel_inflight` race-safe and conversation-authoritative
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `672573a`
 
 #### Overview
@@ -588,7 +588,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
 
 ### 2. Frontend: make Agents stop send `cancel_inflight` by conversation even when `inflightId` is unknown
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `12e1781`
 
 #### Overview
@@ -739,7 +739,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
 
 ### 3. Frontend: unblock Agents input editing and sidebar navigation during active runs
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `0c0f764`
 
 #### Overview
@@ -875,7 +875,7 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
 
 ### 4. Server Message Contract: make `reingest_repository` blocking and terminal-only (classic + MCP v2 parity)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `972027a`
 
 #### Overview
@@ -1254,7 +1254,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
 
 ### 5. Server Message Contract: normalize ingest listing status/phase mapping and active overlay visibility
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `263c7a1`
 
 #### Overview
@@ -1557,7 +1557,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
 
 ### 6. Server: move no-change reembed exit ahead of AST and embedding work, and normalize successful terminal status
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `7d77b59`
 
 #### Overview
@@ -1724,7 +1724,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
 
 ### 7. Frontend: consume external ingest `status`/`phase` contract and preserve active repository visibility
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `6cc4f66`
 
 #### Overview
@@ -1916,7 +1916,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
 
 ### 8. Documentation: update architecture and file-map docs for final 0000038 behavior
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `60e3298`
 
 #### Overview
@@ -2063,7 +2063,7 @@ Update story-adjacent documentation so junior developers can understand final st
 
 ### 9. Final verification: full acceptance and regression gate for story 0000038
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `f3e5eaa`
 
 #### Overview
@@ -2441,7 +2441,7 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
 
 ### 10. Security hardening: prevent prototype-pollution keys while preserving unknown runtime config fields
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `b9118fe`
 
 #### Overview
@@ -2484,7 +2484,7 @@ Harden runtime config validation so forward-compatible unknown-key preservation 
 
 ### 11. Performance/operability hardening: gate high-volume DEV-0000038 marker logs behind explicit debug controls
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `5abac0b`
 
 #### Overview
@@ -2531,7 +2531,7 @@ Reduce production log/console noise introduced by per-row/per-render DEV-0000038
 
 ### 12. Final verification (re-run): full acceptance and regression gate after Tasks 10-11
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: `29a1a80`
 
 #### Overview
@@ -2560,36 +2560,36 @@ Re-run end-to-end verification of AC1-AC28 after post-review hardening tasks com
 
 #### AC1-AC28 Matrix (Task 12 Refresh)
 
-| AC   | Task 12 refreshed evidence target                                                                                          |
-| ---- | -------------------------------------------------------------------------------------------------------------------------- |
+| AC   | Task 12 refreshed evidence target                                                                                       |
+| ---- | ----------------------------------------------------------------------------------------------------------------------- |
 | AC1  | Subtask 2 + Testing 8 (`[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE`, `0000038-task12-agents-active-edit.png`) |
-| AC2  | Subtask 2 + Testing 8 (`[DEV-0000038][T3] AGENTS_CONVERSATION_SWITCH_ALLOWED`, sidebar switch capture)                   |
-| AC3  | Subtask 2 + Testing 8 (stop race marker pair + no post-stop progression check)                                           |
-| AC4  | Subtask 2 + Testing 8 (conversation-only cancel path evidence)                                                            |
-| AC5  | Subtask 2 + Testing 8 (classic + v2 blocking terminal payload captures)                                                   |
-| AC6  | Subtask 2 + Testing 8 (no wait/blocking request flag behavior regression check)                                           |
-| AC7  | Subtask 2 + Testing 8 (blocking call health with keepalive / no timeout regressions)                                     |
-| AC8  | Subtask 2 + Testing 8 (terminal payload only; no `started`)                                                               |
-| AC9  | Subtask 2 + Testing 8 (summary-only terminal payload shape)                                                               |
-| AC10 | Subtask 2 + Testing 8 (GUI cancel while MCP waiting => terminal `cancelled`)                                              |
-| AC11 | Subtask 2 + Testing 8 (Ingest UI active visibility with `status=ingesting`)                                               |
-| AC12 | Subtask 2 + Testing 8 (classic listing active visibility with `status=ingesting`)                                         |
-| AC13 | Subtask 2 + Testing 8 (active overlay keeps persisted metadata in listings)                                               |
-| AC14 | Subtask 2 + Testing 8 (active `phase` limited to queued/scanning/embedding)                                               |
-| AC15 | Subtask 2 + Testing 8 (terminal listing rows omit `phase`)                                                                |
-| AC16 | Subtask 2 + Testing 8 (no-change/deletion/mixed successful paths terminal `completed`)                                   |
-| AC17 | Subtask 2 + Testing 8 (`REEMBED_NO_CHANGE_EARLY_RETURN` evidence + no AST/embed work path)                               |
-| AC18 | Subtask 2 + Testing 8 (terminal payload top-level fields present)                                                         |
-| AC19 | Subtask 2 + Testing 8 (terminal field constraints + cancelled counters behavior)                                          |
-| AC20 | Subtask 2 + Testing 8 (classic/v2 parity on terminal payload semantics)                                                   |
-| AC21 | Testing 3 + Testing 4 + Testing 5 (updated automated regression suite pass)                                               |
-| AC22 | Subtask 3 (doc consistency check across design/projectStructure/plan)                                                     |
-| AC23 | Subtask 2 + Testing 8 (conversation-authoritative stop in race paths)                                                     |
-| AC24 | Subtask 2 + Testing 8 (pre-run JSON-RPC errors vs post-start terminal payloads)                                          |
-| AC25 | Subtask 2 + Testing 8 (explicit external status mapping checks)                                                           |
-| AC26 | Subtask 2 + Testing 8 (active overlay precedence checks)                                                                   |
-| AC27 | Subtask 2 + Testing 8 (synthesized entry visibility when persisted metadata missing)                                      |
-| AC28 | Subtask 2 + Testing 8 (`schemaVersion=0000038-status-phase-v1` on REST + classic listing)                                |
+| AC2  | Subtask 2 + Testing 8 (`[DEV-0000038][T3] AGENTS_CONVERSATION_SWITCH_ALLOWED`, sidebar switch capture)                  |
+| AC3  | Subtask 2 + Testing 8 (stop race marker pair + no post-stop progression check)                                          |
+| AC4  | Subtask 2 + Testing 8 (conversation-only cancel path evidence)                                                          |
+| AC5  | Subtask 2 + Testing 8 (classic + v2 blocking terminal payload captures)                                                 |
+| AC6  | Subtask 2 + Testing 8 (no wait/blocking request flag behavior regression check)                                         |
+| AC7  | Subtask 2 + Testing 8 (blocking call health with keepalive / no timeout regressions)                                    |
+| AC8  | Subtask 2 + Testing 8 (terminal payload only; no `started`)                                                             |
+| AC9  | Subtask 2 + Testing 8 (summary-only terminal payload shape)                                                             |
+| AC10 | Subtask 2 + Testing 8 (GUI cancel while MCP waiting => terminal `cancelled`)                                            |
+| AC11 | Subtask 2 + Testing 8 (Ingest UI active visibility with `status=ingesting`)                                             |
+| AC12 | Subtask 2 + Testing 8 (classic listing active visibility with `status=ingesting`)                                       |
+| AC13 | Subtask 2 + Testing 8 (active overlay keeps persisted metadata in listings)                                             |
+| AC14 | Subtask 2 + Testing 8 (active `phase` limited to queued/scanning/embedding)                                             |
+| AC15 | Subtask 2 + Testing 8 (terminal listing rows omit `phase`)                                                              |
+| AC16 | Subtask 2 + Testing 8 (no-change/deletion/mixed successful paths terminal `completed`)                                  |
+| AC17 | Subtask 2 + Testing 8 (`REEMBED_NO_CHANGE_EARLY_RETURN` evidence + no AST/embed work path)                              |
+| AC18 | Subtask 2 + Testing 8 (terminal payload top-level fields present)                                                       |
+| AC19 | Subtask 2 + Testing 8 (terminal field constraints + cancelled counters behavior)                                        |
+| AC20 | Subtask 2 + Testing 8 (classic/v2 parity on terminal payload semantics)                                                 |
+| AC21 | Testing 3 + Testing 4 + Testing 5 (updated automated regression suite pass)                                             |
+| AC22 | Subtask 3 (doc consistency check across design/projectStructure/plan)                                                   |
+| AC23 | Subtask 2 + Testing 8 (conversation-authoritative stop in race paths)                                                   |
+| AC24 | Subtask 2 + Testing 8 (pre-run JSON-RPC errors vs post-start terminal payloads)                                         |
+| AC25 | Subtask 2 + Testing 8 (explicit external status mapping checks)                                                         |
+| AC26 | Subtask 2 + Testing 8 (active overlay precedence checks)                                                                |
+| AC27 | Subtask 2 + Testing 8 (synthesized entry visibility when persisted metadata missing)                                    |
+| AC28 | Subtask 2 + Testing 8 (`schemaVersion=0000038-status-phase-v1` on REST + classic listing)                               |
 
 #### Implementation notes
 

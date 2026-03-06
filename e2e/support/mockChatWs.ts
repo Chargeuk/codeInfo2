@@ -86,10 +86,17 @@ export async function installMockChatWs(page: Page): Promise<MockChatWsServer> {
       const text = typeof message === 'string' ? message : message.toString();
       try {
         const parsed = JSON.parse(text) as WsSentMessage;
-        if (parsed?.type === 'subscribe_conversation' && parsed.conversationId) {
+        if (
+          parsed?.type === 'subscribe_conversation' &&
+          parsed.conversationId
+        ) {
           onSubscribe(String(parsed.conversationId));
         }
-        if (parsed?.type === 'cancel_inflight' && parsed.conversationId && parsed.inflightId) {
+        if (
+          parsed?.type === 'cancel_inflight' &&
+          parsed.conversationId &&
+          parsed.inflightId
+        ) {
           lastCancel = {
             conversationId: String(parsed.conversationId),
             inflightId: String(parsed.inflightId),
@@ -101,7 +108,10 @@ export async function installMockChatWs(page: Page): Promise<MockChatWsServer> {
     });
   });
 
-  const sendTranscript = async (conversationId: string, payload: Record<string, unknown>) => {
+  const sendTranscript = async (
+    conversationId: string,
+    payload: Record<string, unknown>,
+  ) => {
     const ws = await waitForRoute();
     ws.send(JSON.stringify(withProtocol({ conversationId, ...payload })));
   };
@@ -134,7 +144,12 @@ export async function installMockChatWs(page: Page): Promise<MockChatWsServer> {
 
     getLastCancel: () => lastCancel,
 
-    sendUserTurn: async ({ conversationId, inflightId, content, createdAt }) => {
+    sendUserTurn: async ({
+      conversationId,
+      inflightId,
+      content,
+      createdAt,
+    }) => {
       await sendTranscript(conversationId, {
         type: 'user_turn',
         seq: nextSeq(conversationId),
@@ -191,7 +206,13 @@ export async function installMockChatWs(page: Page): Promise<MockChatWsServer> {
       });
     },
 
-    sendFinal: async ({ conversationId, inflightId, status, threadId, error }) => {
+    sendFinal: async ({
+      conversationId,
+      inflightId,
+      status,
+      threadId,
+      error,
+    }) => {
       await sendTranscript(conversationId, {
         type: 'turn_final',
         seq: nextSeq(conversationId),

@@ -112,11 +112,12 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 - Directory picker errors (network, OUTSIDE_BASE, NOT_FOUND, NOT_DIRECTORY): display the same inline error UI as Agents/Ingest and keep the rest of the flow form usable.
 
 ---
+
 ## Implementation Plan
 
 ### 1. Server: Validate customTitle on flow run requests
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 446d42a
 
 #### Overview
@@ -220,6 +221,7 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -274,7 +276,7 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
 
 ### 2. Server: Apply customTitle to flow conversation titles
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 0577321
 
 #### Overview
@@ -386,9 +388,11 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - Emit the applied log for the main flow and each agent conversation that receives a custom title.
      - Emit the resume_ignored log when a resume request includes `customTitle` but no title change occurs.
 10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
+
+- Documentation to read (repeat):
+  - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -437,7 +441,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
 
 ### 3. Server: Fix chat-only conversation filtering for agent + flow
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 13940d5
 
 #### Overview
@@ -530,6 +534,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -565,7 +570,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
 
 #### Implementation notes
 
-- Combined agent/flow __none__ filters in repo query with a new chat-only log line.
+- Combined agent/flow **none** filters in repo query with a new chat-only log line.
 - Added chat-only filter coverage to conversations list integration tests.
 - Updated design doc filter description + diagram; no project structure updates required.
 - Lint still reports existing import-order warnings; format checks now pass.
@@ -576,7 +581,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
 
 ### 4. Client: Preserve flowName on WS upserts
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 1145b1c
 
 #### Overview
@@ -671,6 +676,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -727,7 +733,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
 
 ### 5. Client: Add working-folder picker to Flows page
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 04c0462
 
 #### Overview
@@ -831,6 +837,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -844,7 +851,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - Node.js test runner: https://nodejs.org/api/test.html
 4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
-    - Jest: Context7 `/websites/jestjs_io_30_0`
+   - Jest: Context7 `/websites/jestjs_io_30_0`
 5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
@@ -887,7 +894,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
 
 ### 6. Client: Add flow info popover
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: f7d3b16
 
 #### Overview
@@ -994,6 +1001,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -1007,7 +1015,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - Node.js test runner: https://nodejs.org/api/test.html
 4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
-    - Jest: Context7 `/websites/jestjs_io_30_0`
+   - Jest: Context7 `/websites/jestjs_io_30_0`
 5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
@@ -1059,7 +1067,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
 
 ### 7. Client: Add custom title input UI
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 180f17b
 
 #### Overview
@@ -1151,6 +1159,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -1208,7 +1217,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
 
 ### 8. Client: Send customTitle in flow run payload
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: d3ac82c
 
 #### Overview
@@ -1306,6 +1315,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -1364,7 +1374,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
 
 ### 9. Client: Add “New Flow” reset action
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 9994e62, 9481b41
 
 #### Overview
@@ -1477,7 +1487,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - Node.js test runner: https://nodejs.org/api/test.html
 4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
-    - Jest: Context7 `/websites/jestjs_io_30_0`
+   - Jest: Context7 `/websites/jestjs_io_30_0`
 5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
@@ -1522,7 +1532,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
 
 ### 10. Final Task: Validate, document, and summarize
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 3e81722, e4c1a56
 
 #### Overview

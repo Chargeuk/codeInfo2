@@ -259,6 +259,114 @@ Removed files:
 
 Renamed files:
 
+## Story 0000041 Task 3 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000041-corporate-registry-and-certificate-overrides-via-codeinfo-env.md`
+- `projectStructure.md`
+- `server/Dockerfile`
+- `server/entrypoint.sh`
+- `server/npm-global.txt`
+
+## Story 0000041 Task 5 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000041-corporate-registry-and-certificate-overrides-via-codeinfo-env.md`
+- `projectStructure.md`
+- `server/entrypoint.sh`
+
+## Story 0000041 Task 6 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000041-corporate-registry-and-certificate-overrides-via-codeinfo-env.md`
+- `projectStructure.md`
+- `server/entrypoint.sh`
+
+## Story 0000041 Task 7 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000041-corporate-registry-and-certificate-overrides-via-codeinfo-env.md`
+- `projectStructure.md`
+- `start-gcf-server.sh`
+
+## Story 0000041 Task 8 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `planning/0000041-corporate-registry-and-certificate-overrides-via-codeinfo-env.md`
+- `projectStructure.md`
+- `server/entrypoint.sh`
+
 - None.
 
 Modified files (implementation traceability):
@@ -366,10 +474,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”œâ”€ .prettierignore â€” files skipped by Prettier
 â”œâ”€ .prettierrc â€” Prettier settings
 â”œâ”€ AGENTS.md â€” agent workflow rules
-â”œâ”€ README.md â€” repo overview and commands
-â”œâ”€ start-gcf-server.sh â€” macOS/Linux helper to install/run git-credential-forwarder
+â”œâ”€ README.md â€” repo overview and commands, including corporate registry/certificate override setup guidance and workflow-specific env-source rules
+â”œâ”€ start-gcf-server.sh â€” macOS/Linux helper to install/run git-credential-forwarder with optional `CODEINFO_NPM_REGISTRY` override for the global install step
 â”œâ”€ logs/ â€” runtime server log output (gitignored, host-mounted)
-â”œâ”€ design.md â€” design notes and diagrams
+â”œâ”€ design.md â€” design notes and diagrams, including end-to-end corporate override flow (env source -> compose interpolation -> build overrides -> runtime gate -> startup/fail-fast)
 â”œâ”€ flows/ â€” flow JSON definitions (hot-reloaded, user-managed; resolved as sibling to codex_agents by default)
 â”œâ”€ flows-sandbox/ â€” safe flow JSON definitions for manual MCP/Playwright testing
 â”œâ”€ observability/ â€” shared OpenTelemetry collector config for Chroma traces
@@ -386,7 +494,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ .env â€” client default env (VITE_API_URL, VITE_LMSTUDIO_URL)
 â”‚  â”œâ”€ .env.local â€” client local overrides (ignored by git consumers)
 â”‚  â”œâ”€ .gitignore â€” client-specific ignores
-â”‚  â”œâ”€ Dockerfile â€” client image build
+â”‚  â”œâ”€ Dockerfile â€” client image build with optional corporate npm registry override during `npm ci` and build-state metadata handoff (`CODEINFO_CLIENT_BUILD_OVERRIDE_STATE`)
 â”‚  â”œâ”€ entrypoint.sh â€” client runtime config writer + preview runner
 â”‚  â”œâ”€ README.md â€” client-specific notes
 â”‚  â”œâ”€ eslint.config.js â€” client ESLint entry
@@ -624,9 +732,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)
 â”‚  â”œâ”€ .env.local â€” server local overrides (ignored by git consumers)
 â”‚  â”œâ”€ .prettierignore â€” server-specific Prettier ignore
-â”‚  â”œâ”€ Dockerfile â€” server image build (deps stage installs Python/make/g++ for Tree-sitter)
-â”‚  â”œâ”€ entrypoint.sh â€” server startup script (launches headless Chrome + API)
-â”‚  â”œâ”€ npm-global.txt â€” list of global npm tools installed in the server image
+â”‚  â”œâ”€ Dockerfile â€” server image build with stage-local corporate override args and conditional npm/pip install wiring (defaults preserved when unset)
+â”‚  â”œâ”€ entrypoint.sh â€” server startup script (launches headless Chrome + API), resolves `NODE_EXTRA_CA_CERTS` default/override export, enforces refresh-gated cert discovery from `/usr/local/share/ca-certificates/codeinfo-corp` (including fail-fast missing/no-crt/unreadable/update failures), and emits CODEINFO wiring/build/runtime observability tokens
+â”‚  â”œâ”€ npm-global.txt â€” source list consumed by `xargs -r npm install -g --force < /tmp/npm-global.txt` during runtime image global tool install
 â”‚  â”œâ”€ requirements.txt â€” Python package list for the server image
 â”‚  â”œâ”€ cucumber.js â€” Cucumber config
 â”‚  â”œâ”€ package.json â€” server workspace manifest
@@ -1246,3 +1354,85 @@ web_search = "live"
   - `planning/0000039-agents-command-info-and-working-folder-prompts.md`
 - Prompt-discovery fixtures from Task 2:
   - No new persistent fixture files were introduced by Task 2 (behavior coverage implemented via service/unit tests and runtime path handling).
+
+## Story 0000041 Task 1 structural change ledger
+
+Added files:
+
+- `certs/empty-corp-ca/.gitkeep`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `projectStructure.md`
+
+Task notes:
+
+- Complete Task 1 add/remove list: added `certs/empty-corp-ca/.gitkeep`, removed `none`.
+- There are no other add/remove subtasks in Task 1.
+
+## Story 0000041 Task 2 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `.env.e2e`
+- `projectStructure.md`
+
+Task notes:
+
+- Tracked-file outcome for Task 2 structure step: added files `none`, removed files `none`.
+- Local helper input `server/.env.local` is untracked and excluded from tracked structure changes.
+
+## Story 0000041 Task 10 structural verification ledger
+
+Added files:
+
+- `certs/empty-corp-ca/.gitkeep` — tracked placeholder for deterministic compose fallback mount source when `CODEINFO_CORP_CERTS_DIR` is unset.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (story-wide traceability):
+
+- `.env.e2e` — e2e interpolation defaults/placeholders for canonical `CODEINFO_*` corporate override variables.
+- `README.md` — restricted-network setup section with canonical variable semantics, workflow split, and refresh/fail-fast guidance.
+- `client/Dockerfile` — conditional npm registry override wiring in client build stage.
+- `client/entrypoint.sh` — client build override observability token emission (`T04`).
+- `design.md` — implementation flow/prose/diagrams for compose wiring and runtime refresh behavior.
+- `docker-compose.yml` — canonical compose wiring for server/client build args, runtime env, and cert mount fallback.
+- `docker-compose.local.yml` — local compose variant wiring for build args/runtime env/cert mount fallback.
+- `docker-compose.e2e.yml` — e2e compose variant wiring for build args/runtime env/cert mount fallback.
+- `scripts/docker-compose-with-env.sh` — wrapper env-source observability emission for workflow interpolation provenance.
+- `server/Dockerfile` — conditional npm/pip override wiring across dependency-install stages.
+- `server/entrypoint.sh` — runtime CA defaults/refresh gate/fail-fast flow and Task 1..10 observability tokens.
+- `start-gcf-server.sh` — optional npm registry override for host helper global install path.
+- `projectStructure.md` — structure and story ledgers synchronized with story file changes.
+- `planning/0000041-corporate-registry-and-certificate-overrides-via-codeinfo-env.md` — task-by-task implementation and verification evidence.
+
+Task notes:
+
+- Task 10 closeout check confirmed every story-touched tracked file from `git diff --name-only 3401898d..HEAD` has a matching purpose entry in this document.

@@ -57,6 +57,152 @@ flowchart LR
   V --> C[chat route persists resolved provider/model]
 ```
 
+## Story 0000041 Task 3 server build override wiring
+
+- `server/Dockerfile` now declares stage-local corporate override ARGs in every install stage (`deps`, `runtime`) so build-time inputs are available where install commands run.
+- Install commands keep existing anchors unchanged while branching conditionally:
+  - deps `npm ci` runs with `NPM_CONFIG_REGISTRY` only when `CODEINFO_NPM_REGISTRY` is non-empty.
+  - runtime pip install appends `--index-url` and `--trusted-host` only when corresponding values are non-empty.
+  - runtime global npm install reads `/tmp/npm-global.txt` unchanged and applies `NPM_CONFIG_REGISTRY` only when non-empty.
+- Runtime metadata handoff is two-step: Docker build computes `CODEINFO_SERVER_BUILD_OVERRIDE_STATE` into a metadata file, and entrypoint resolves/parses that state to emit `[CODEINFO][T03_SERVER_BUILD_OVERRIDE_STATE]` with deterministic `off` fallbacks for missing/malformed input.
+
+```mermaid
+flowchart TD
+  A[Build args received in deps/runtime stages] --> B{CODEINFO_NPM_REGISTRY non-empty?}
+  B -- yes --> C[deps npm ci with NPM_CONFIG_REGISTRY]
+  B -- no --> D[deps npm ci default registry path]
+  C --> E[runtime stage install path]
+  D --> E
+  E --> F{pip index/trusted host values non-empty?}
+  F -- yes --> G[runtime pip install adds conditional flags]
+  F -- no --> H[runtime pip install default flags only]
+  G --> I{CODEINFO_NPM_REGISTRY non-empty?}
+  H --> I
+  I -- yes --> J[runtime global npm install with NPM_CONFIG_REGISTRY using /tmp/npm-global.txt]
+  I -- no --> K[runtime global npm install default registry using /tmp/npm-global.txt]
+  J --> L[Build writes CODEINFO_SERVER_BUILD_OVERRIDE_STATE metadata file]
+  K --> L
+  L --> M[Entrypoint loads/parses state and emits T03 token]
+```
+
+## Story 0000041 Task 4 client build override wiring
+
+- `client/Dockerfile` now declares `ARG CODEINFO_NPM_REGISTRY` in the build stage that runs `npm ci`.
+- Client install keeps the original command anchor and applies `NPM_CONFIG_REGISTRY` only when `CODEINFO_NPM_REGISTRY` is non-empty.
+- Empty and unset inputs follow the same default branch to preserve baseline npm behavior.
+- Build metadata is persisted as `CODEINFO_CLIENT_BUILD_OVERRIDE_STATE` (`client_npm=<on|off>`), and `client/entrypoint.sh` emits `[CODEINFO][T04_CLIENT_BUILD_OVERRIDE_STATE]` with deterministic fallback `off` for missing/malformed state.
+
+```mermaid
+flowchart TD
+  A[Client build stage starts] --> B{CODEINFO_NPM_REGISTRY non-empty?}
+  B -- yes --> C[npm ci with NPM_CONFIG_REGISTRY override]
+  B -- no --> D[npm ci default registry path]
+  C --> E[Compute client_npm=on metadata]
+  D --> F[Compute client_npm=off metadata]
+  E --> G[Persist CODEINFO_CLIENT_BUILD_OVERRIDE_STATE]
+  F --> G
+  G --> H[Runtime entrypoint reads state]
+  H --> I{State valid?}
+  I -- yes --> J[Emit T04 token with on/off value]
+  I -- no --> K[Emit T04 token with fallback off]
+```
+
+## Story 0000041 Task 5 server runtime CA setup defaults
+
+- `server/entrypoint.sh` now normalizes `CODEINFO_REFRESH_CA_CERTS_ON_START` in POSIX shell by trimming surrounding whitespace and lowercasing before boolean evaluation.
+- Refresh is requested only when the normalized value equals `true`; any other value maps to `false`.
+- Runtime resolves `NODE_EXTRA_CA_CERTS` deterministically:
+  - unset/empty `CODEINFO_NODE_EXTRA_CA_CERTS` -> `/etc/ssl/certs/ca-certificates.crt`,
+  - non-empty `CODEINFO_NODE_EXTRA_CA_CERTS` -> provided override path.
+- Entry point emits `[CODEINFO][T05_NODE_EXTRA_CA_CERTS_RESOLVED]` before Node startup so later refresh/fail-fast logic can consume a stable `refresh_requested` signal.
+
+```mermaid
+flowchart TD
+  A[Entrypoint reaches runtime CA setup] --> B[Normalize refresh flag: trim and lowercase]
+  B --> C{Normalized value equals true?}
+  C -- yes --> D[refresh_requested=true]
+  C -- no --> E[refresh_requested=false]
+  D --> F{CODEINFO_NODE_EXTRA_CA_CERTS non-empty?}
+  E --> F
+  F -- yes --> G[Export NODE_EXTRA_CA_CERTS override path]
+  F -- no --> H[Export NODE_EXTRA_CA_CERTS default path]
+  G --> I[Emit T05 token with value source and refresh_requested]
+  H --> I
+  I --> J[Continue to optional refresh branch then exec node]
+```
+
+## Story 0000041 Task 6 server runtime CA refresh and fail-fast paths
+
+- Refresh branch now enforces certificate readiness checks before startup when `refresh_requested=true`.
+- Refresh-enabled startup requires `/usr/local/share/ca-certificates/codeinfo-corp` to exist and contain readable `*.crt` files; otherwise startup fails fast with non-zero exit and actionable stderr output.
+- When prerequisites pass, `update-ca-certificates` executes; command failure is treated as fail-fast.
+- Runtime emits `[CODEINFO][T06_CA_REFRESH_RESULT]` for all paths:
+  - `result=skipped` when refresh is disabled,
+  - `result=success` when refresh runs successfully,
+  - `result=failed` on any fail-fast branch.
+
+```mermaid
+flowchart TD
+  A[Refresh gate evaluated] --> B{refresh_requested true?}
+  B -- no --> C[Emit T06 result=skipped]
+  C --> D[Continue to exec node]
+  B -- yes --> E{Cert dir exists?}
+  E -- no --> F[Emit T06 result=failed and exit non-zero]
+  E -- yes --> G{Any .crt files?}
+  G -- no --> H[Emit T06 result=failed and exit non-zero]
+  G -- yes --> I{All cert files readable?}
+  I -- no --> J[Emit T06 result=failed and exit non-zero]
+  I -- yes --> K[Run update-ca-certificates]
+  K --> L{Command succeeded?}
+  L -- no --> M[Emit T06 result=failed and exit non-zero]
+  L -- yes --> N[Emit T06 result=success]
+  N --> D
+```
+
+## Story 0000041 Task 7 host-helper npm registry override path
+
+- `start-gcf-server.sh` keeps the install anchor command unchanged while adding a conditional registry override path for restricted networks.
+- When `CODEINFO_NPM_REGISTRY` is unset/empty, helper startup uses default npm behavior for `git-credential-forwarder` global install.
+- When `CODEINFO_NPM_REGISTRY` is set, only the `git-credential-forwarder` install command gets an override via `npm_config_registry`.
+- The helper emits deterministic startup state token `[CODEINFO][T07_GCF_INSTALL_REGISTRY_STATE]` before install with `registry_override=off|on`.
+- Invalid or unreachable registry values follow npm failure behavior (non-zero) and prevent helper startup from continuing.
+
+```mermaid
+flowchart TD
+  A[start-gcf-server.sh starts] --> B{CODEINFO_NPM_REGISTRY non-empty?}
+  B -- no --> C[Emit T07 registry_override=off]
+  C --> D[npm install -g git-credential-forwarder]
+  B -- yes --> E[Emit T07 registry_override=on]
+  E --> F[npm_config_registry=CODEINFO_NPM_REGISTRY npm install -g git-credential-forwarder]
+  D --> G{Install succeeded?}
+  F --> G
+  G -- yes --> H[exec gcf-server]
+  G -- no --> I[Exit non-zero from npm failure]
+```
+
+## Story 0000041 Task 8 documentation parity for corporate override flow
+
+- README now documents the exact restricted-network section placement and six canonical `CODEINFO_*` variables with defaults and usage locations.
+- Workflow guidance is explicit and split by interpolation source: `compose`/`compose:local` use `server/.env.local`, while e2e interpolation uses `.env.e2e`.
+- Runtime behavior is documented to match implementation: `CODEINFO_REFRESH_CA_CERTS_ON_START` is disabled by default and refresh-enabled startup fails fast on missing/invalid corporate cert inputs.
+- Architecture scope remains infra-only for this story: no REST contract, WebSocket shape, or Mongo persistence changes are introduced.
+
+```mermaid
+flowchart TD
+  A[Select workflow] --> B{Workflow type}
+  B -- compose or compose:local --> C[Read server/.env plus server/.env.local]
+  B -- e2e --> D[Read .env.e2e for compose interpolation]
+  C --> E[Compose renders CODEINFO build and runtime values]
+  D --> E
+  E --> F[Server and client Docker builds apply npm or pip overrides]
+  F --> G[Server entrypoint evaluates refresh gate and cert inputs]
+  G --> H{Refresh enabled with valid certs?}
+  H -- yes --> I[Refresh CA store then start Node]
+  H -- no --> J{Refresh enabled with invalid or missing certs?}
+  J -- yes --> K[Fail fast with non-zero exit]
+  J -- no --> L[Skip refresh and start Node]
+```
+
 ```mermaid
 flowchart TD
   R[Resolved default provider/model] --> A{Selected provider available?}
@@ -4504,4 +4650,48 @@ sequenceDiagram
     Run-->>UI: 4xx/5xx
     UI->>UI: Reuse existing generic instruction error UX
   end
+```
+
+## Story 0000041 Task 1 - Compose Wiring Flow
+
+- `compose` and `compose:local` continue to interpolate using `server/.env` + `server/.env.local`; `e2e` uses `.env.e2e`.
+- Compose now maps `CODEINFO_*` values into server/client `build.args`, server runtime `environment`, and the server corporate cert mount target.
+- Certificate mount source is deterministic with fallback: `${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}` -> `/usr/local/share/ca-certificates/codeinfo-corp:ro`.
+
+```mermaid
+flowchart TD
+  A[Workflow env sources] --> B{Workflow}
+  B -->|compose or compose:local| C[server/.env + server/.env.local]
+  B -->|e2e| D[.env.e2e]
+  C --> E[Compose interpolation]
+  D --> E
+  E --> F[Server build args: CODEINFO_NPM_REGISTRY, CODEINFO_PIP_INDEX_URL, CODEINFO_PIP_TRUSTED_HOST, CODEINFO_NODE_EXTRA_CA_CERTS]
+  E --> G[Client build args: CODEINFO_NPM_REGISTRY]
+  E --> H[Server runtime env: CODEINFO_NODE_EXTRA_CA_CERTS, CODEINFO_REFRESH_CA_CERTS_ON_START]
+  E --> I[Server volume source: ${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}]
+  I --> J[/usr/local/share/ca-certificates/codeinfo-corp:ro]
+```
+
+## Story 0000041 Task 2 - Env Source Verification Flow
+
+- Wrapper interpolation sources remain unchanged: `compose` and `compose:local` use `server/.env` + `server/.env.local`; `e2e` uses `.env.e2e`.
+- Runtime `env_file` declarations in compose YAML remain unchanged while interpolation source is workflow-specific.
+- Wrapper now exports internal observability handoff values to make env-source resolution explicit at server startup.
+
+```mermaid
+flowchart LR
+  A[npm run compose or compose:local] --> B[scripts/docker-compose-with-env.sh]
+  B --> C[--env-file server/.env]
+  B --> D[--env-file server/.env.local]
+  C --> E[docker compose interpolation]
+  D --> E
+
+  F[npm run compose:e2e:*] --> G[scripts/docker-compose-with-env.sh]
+  G --> H[--env-file .env.e2e]
+  H --> E2[docker compose interpolation]
+
+  E --> I[Runtime env_file in compose YAML unchanged]
+  E2 --> I
+  I --> J[Wrapper exports CODEINFO_COMPOSE_WORKFLOW, CODEINFO_INTERPOLATION_SOURCE, CODEINFO_RUNTIME_ENV_FILE_SOURCE]
+  J --> K[server/entrypoint emits T02 env-source token]
 ```

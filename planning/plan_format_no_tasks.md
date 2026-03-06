@@ -26,6 +26,3 @@ Overview of where we are now, and where we would like to be once this phase has 
 ## Implementation Ideas
 
 - a list of rough implementation ideas for what is required for this story plan. This section should be continuously updated as new information is found or provided.
-
-
-

@@ -222,9 +222,11 @@ test('agents malformed mermaid input uses safe fallback for user and assistant b
   await skipIfUnreachable(page);
 
   const runBodies: Array<Record<string, unknown>> = [];
-  const malformed = ['```mermaid', 'this is not valid mermaid syntax', '```'].join(
-    '\n',
-  );
+  const malformed = [
+    '```mermaid',
+    'this is not valid mermaid syntax',
+    '```',
+  ].join('\n');
   await routeAgentsApis(page, runBodies, {
     conversations: [
       {

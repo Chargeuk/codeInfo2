@@ -8,11 +8,14 @@ services:
       dockerfile: server/Dockerfile
       args:
         HOME: ${HOME}
+        CODEINFO_NPM_REGISTRY: ${CODEINFO_NPM_REGISTRY:-}
+        CODEINFO_PIP_INDEX_URL: ${CODEINFO_PIP_INDEX_URL:-}
+        CODEINFO_PIP_TRUSTED_HOST: ${CODEINFO_PIP_TRUSTED_HOST:-}
+        CODEINFO_NODE_EXTRA_CA_CERTS: ${CODEINFO_NODE_EXTRA_CA_CERTS:-}
     image: codeinfo2-server-local
-    user: "${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}"
     group_add:
       # Allow non-root user to access /var/run/docker.sock for Testcontainers.
-      - "${CODEINFO_DOCKER_SOCK_GID:-0}"
+      - '${CODEINFO_DOCKER_SOCK_GID:-0}'
     ports:
       - '5510:5010'
       - '5511:5011'
@@ -43,6 +46,15 @@ services:
       - AGENTS_MCP_PORT=5012
       - MONGO_URI=mongodb://host.docker.internal:27417/db?directConnection=true
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
+      - CODEINFO_RUNTIME_UID=${CODEINFO_DOCKER_UID:-1000}
+      - CODEINFO_RUNTIME_GID=${CODEINFO_DOCKER_GID:-1000}
+      - CODEINFO_RUNTIME_SUPPLEMENTARY_GIDS=${CODEINFO_DOCKER_SOCK_GID:-0}
+      - CODEINFO_CORP_CERTS_DIR=${CODEINFO_CORP_CERTS_DIR:-}
+      - CODEINFO_COMPOSE_WORKFLOW=${CODEINFO_COMPOSE_WORKFLOW:-}
+      - CODEINFO_INTERPOLATION_SOURCE=${CODEINFO_INTERPOLATION_SOURCE:-}
+      - CODEINFO_RUNTIME_ENV_FILE_SOURCE=${CODEINFO_RUNTIME_ENV_FILE_SOURCE:-}
+      - CODEINFO_NODE_EXTRA_CA_CERTS=${CODEINFO_NODE_EXTRA_CA_CERTS:-}
+      - CODEINFO_REFRESH_CA_CERTS_ON_START=${CODEINFO_REFRESH_CA_CERTS_ON_START:-}
     volumes:
       - ./logs:/app/logs
       - ${HOST_INGEST_DIR}:${CODEINFO_CODEX_WORKDIR}
@@ -52,6 +64,7 @@ services:
       - ./codex_agents:/app/codex_agents
       - ./flows:/app/flows
       - /var/run/docker.sock:/var/run/docker.sock
+      - "${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro"
     depends_on:
       chroma:
         condition: service_started
@@ -75,6 +88,7 @@ services:
         VITE_API_URL: http://host.docker.internal:5510
         VITE_LMSTUDIO_URL: ${VITE_LMSTUDIO_URL:-http://host.docker.internal:1234}
         VITE_LOG_FORWARD_ENABLED: true
+        CODEINFO_NPM_REGISTRY: ${CODEINFO_NPM_REGISTRY:-}
     image: codeinfo2-client-local
     ports:
       - '5501:5001'
@@ -169,9 +183,22 @@ services:
   playwright-mcp:
     container_name: codeinfo2-playwright-mcp-local
     image: mcr.microsoft.com/playwright/mcp:latest
-    user: "${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}"
+    user: '${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}'
     entrypoint: ['node', 'cli.js']
-    command: ['--host', '0.0.0.0', '--headless', '--browser', 'chromium', '--no-sandbox', '--isolated', '--port', '8931', '--allowed-hosts', '*']
+    command:
+      [
+        '--host',
+        '0.0.0.0',
+        '--headless',
+        '--browser',
+        'chromium',
+        '--no-sandbox',
+        '--isolated',
+        '--port',
+        '8931',
+        '--allowed-hosts',
+        '*',
+      ]
     ports:
       - '8931:8931'
     volumes:

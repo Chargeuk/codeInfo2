@@ -31,7 +31,7 @@ if [ -d "/app/client/dist" ]; then
 fi
 
 build_override_state_file="/app/client/.codeinfo-client-build-override-state.env"
-if [ -z "${CODEINFO_CLIENT_BUILD_OVERRIDE_STATE:-}" ] && [ -r "$build_override_state_file" ]; then
+if [ -r "$build_override_state_file" ]; then
   file_state="$(sed -n 's/^CODEINFO_CLIENT_BUILD_OVERRIDE_STATE=//p' "$build_override_state_file" | head -n 1)"
   if [ -n "$file_state" ]; then
     CODEINFO_CLIENT_BUILD_OVERRIDE_STATE="$file_state"

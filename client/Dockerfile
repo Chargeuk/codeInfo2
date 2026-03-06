@@ -42,7 +42,6 @@ COPY --from=build /app/client/package*.json ./
 COPY --from=build /app/client/.codeinfo-client-build-override-state.env ./.codeinfo-client-build-override-state.env
 COPY client/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
-ENV CODEINFO_CLIENT_BUILD_OVERRIDE_STATE="client_npm=off"
 ENV PORT=5001
 EXPOSE 5001
 ENTRYPOINT ["./entrypoint.sh"]

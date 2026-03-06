@@ -40,7 +40,7 @@ echo "[CODEINFO][T01_COMPOSE_WIRING_APPLIED] corp_certs_mount_source=${corp_cert
 echo "[CODEINFO][T02_ENV_SOURCE_RESOLVED] workflow=${CODEINFO_COMPOSE_WORKFLOW:-compose} interpolation_source=${CODEINFO_INTERPOLATION_SOURCE:-server/.env+server/.env.local} runtime_env_file=${CODEINFO_RUNTIME_ENV_FILE_SOURCE:-unchanged}"
 
 build_override_state_file="/app/server/.codeinfo-server-build-override-state.env"
-if [ -z "${CODEINFO_SERVER_BUILD_OVERRIDE_STATE:-}" ] && [ -r "$build_override_state_file" ]; then
+if [ -r "$build_override_state_file" ]; then
   file_state="$(sed -n 's/^CODEINFO_SERVER_BUILD_OVERRIDE_STATE=//p' "$build_override_state_file" | head -n 1)"
   if [ -n "$file_state" ]; then
     CODEINFO_SERVER_BUILD_OVERRIDE_STATE="$file_state"
@@ -115,6 +115,12 @@ refresh_result="skipped"
 crt_count=0
 
 if [ "$refresh_requested" = "true" ]; then
+  if [ "$(id -u)" != "0" ]; then
+    echo "[CODEINFO][T06_CA_REFRESH_RESULT] refresh_enabled=true result=failed crt_count=0 cert_dir=${corp_cert_dir}"
+    echo "CODEINFO refresh failed: update-ca-certificates requires root privileges inside the container" >&2
+    exit 1
+  fi
+
   if [ ! -d "$corp_cert_dir" ]; then
     echo "[CODEINFO][T06_CA_REFRESH_RESULT] refresh_enabled=true result=failed crt_count=0 cert_dir=${corp_cert_dir}"
     echo "CODEINFO refresh failed: certificate directory not found at ${corp_cert_dir}" >&2

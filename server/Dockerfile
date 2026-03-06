@@ -110,18 +110,24 @@ RUN ln -s /usr/bin/chromium /usr/bin/google-chrome
 COPY server/requirements.txt /tmp/requirements.txt
 RUN --mount=type=cache,target=/root/.cache/pip \
     set -eu; \
-    pip_args=""; \
-    if [ -n "${CODEINFO_PIP_INDEX_URL:-}" ]; then \
-      pip_args="$pip_args --index-url ${CODEINFO_PIP_INDEX_URL}"; \
-    fi; \
-    if [ -n "${CODEINFO_PIP_TRUSTED_HOST:-}" ]; then \
-      pip_args="$pip_args --trusted-host ${CODEINFO_PIP_TRUSTED_HOST}"; \
-    fi; \
-    if [ -n "$pip_args" ]; then \
+    if [ -n "${CODEINFO_PIP_INDEX_URL:-}" ] || [ -n "${CODEINFO_PIP_TRUSTED_HOST:-}" ]; then \
       echo "[CODEINFO][T03_BUILD][runtime] pip override enabled"; \
-      set -- $pip_args; \
-      python3 -m pip install --break-system-packages --upgrade pip "$@" && \
-      python3 -m pip install --break-system-packages -r /tmp/requirements.txt "$@"; \
+      if [ -n "${CODEINFO_PIP_INDEX_URL:-}" ] && [ -n "${CODEINFO_PIP_TRUSTED_HOST:-}" ]; then \
+        PIP_INDEX_URL="${CODEINFO_PIP_INDEX_URL}" PIP_TRUSTED_HOST="${CODEINFO_PIP_TRUSTED_HOST}" \
+          python3 -m pip install --break-system-packages --upgrade pip && \
+        PIP_INDEX_URL="${CODEINFO_PIP_INDEX_URL}" PIP_TRUSTED_HOST="${CODEINFO_PIP_TRUSTED_HOST}" \
+          python3 -m pip install --break-system-packages -r /tmp/requirements.txt; \
+      elif [ -n "${CODEINFO_PIP_INDEX_URL:-}" ]; then \
+        PIP_INDEX_URL="${CODEINFO_PIP_INDEX_URL}" \
+          python3 -m pip install --break-system-packages --upgrade pip && \
+        PIP_INDEX_URL="${CODEINFO_PIP_INDEX_URL}" \
+          python3 -m pip install --break-system-packages -r /tmp/requirements.txt; \
+      else \
+        PIP_TRUSTED_HOST="${CODEINFO_PIP_TRUSTED_HOST}" \
+          python3 -m pip install --break-system-packages --upgrade pip && \
+        PIP_TRUSTED_HOST="${CODEINFO_PIP_TRUSTED_HOST}" \
+          python3 -m pip install --break-system-packages -r /tmp/requirements.txt; \
+      fi; \
     else \
       echo "[CODEINFO][T03_BUILD][runtime] pip override disabled"; \
       python3 -m pip install --break-system-packages --upgrade pip && \
@@ -180,7 +186,6 @@ RUN git config --system credential.helper '!f(){ gcf-client $*; }; f'
 # Make HOME and all subfolders read/write for all users
 RUN chmod -R 777 "${HOME}"
 ENV CODEINFO_CODEX_HOME=/app/codex
-ENV CODEINFO_SERVER_BUILD_OVERRIDE_STATE="npm=off;pip_index=off;pip_trusted_host=off"
 ENV SERVER_PORT=5010
 ENV NPM_CONFIG_SCRIPT_SHELL=/bin/bash
 EXPOSE 5010

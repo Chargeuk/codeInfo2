@@ -1264,3 +1264,26 @@ Final PR summary comment:
 | 21 | Final notes include compose build command evidence | Task 10 testing 7-9 command entries in this task notes | Pass |
 | 22 | Story notes include both positive and negative refresh runtime evidence | Task 6 implementation notes include both outcomes | Pass |
 | 23 | Story notes record exact fallback cert dir and compose references | Task 1 testing 9 notes: `./certs/empty-corp-ca` referenced in all compose files | Pass |
+
+---
+
+## Branch-vs-Main Code Review Summary (2026-03-06)
+
+### Review Scope
+
+- Compared `feature/0000041-corporate-registry-and-ca-config` against `main` using merge-base `cb9d104f3807070a38b21e52000d1f2ae7bc88df`.
+- Reviewed the full changed-file set in this branch, with deep inspection on high-risk runtime/configuration files (`docker-compose*.yml`, `server/entrypoint.sh`, `server/Dockerfile`, `client/Dockerfile`, `start-gcf-server.sh`, and wrapper scripts), plus plan and acceptance-evidence artifacts.
+
+### Checks Performed
+
+1. Change audit: reviewed `git log --reverse <merge-base>..HEAD`, `git diff --name-status`, and `git diff --stat` to verify scope and identify high-risk surfaces.
+2. Code-quality and maintainability audit: checked shell scripting patterns, env parsing, fallback behavior, logging determinism, and unnecessary branching in runtime/setup paths.
+3. Security and best-practice audit: verified no newly introduced npm auth token handling, scoped-registry auth paths, or proxy-variable plumbing for this story; confirmed cert-refresh fail-fast behavior and read-only cert mount usage.
+4. Performance and operational audit: verified build/install overrides are conditional, default paths remain unchanged when vars are unset, and startup logic remains linear with bounded file-system checks.
+5. Acceptance audit: validated Task 10 AC table coverage (`ac_passed=23/23`) and associated wrapper/manual evidence references are present and internally consistent with implemented behavior.
+
+### Outcome
+
+- No blocking defects were identified in this branch review.
+- No additional remediation tasks were added, because acceptance criteria and implementation evidence are complete for Story 0000041.
+- Residual risk is low and limited to normal environment-specific runtime variance outside repository-controlled configuration.

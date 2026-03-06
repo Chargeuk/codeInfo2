@@ -149,4 +149,6 @@ else
   echo "[CODEINFO][T06_CA_REFRESH_RESULT] refresh_enabled=false result=${refresh_result} crt_count=0 cert_dir=${corp_cert_dir}"
 fi
 
+echo "[CODEINFO][T08_DOCS_GUIDANCE_READY] section_heading=\"Corporate Registry and Certificate Overrides (Restricted Networks)\" canonical_vars=6 workflow_sources=2"
+
 exec node dist/index.js

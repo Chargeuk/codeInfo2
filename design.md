@@ -180,6 +180,29 @@ flowchart TD
   G -- no --> I[Exit non-zero from npm failure]
 ```
 
+## Story 0000041 Task 8 documentation parity for corporate override flow
+
+- README now documents the exact restricted-network section placement and six canonical `CODEINFO_*` variables with defaults and usage locations.
+- Workflow guidance is explicit and split by interpolation source: `compose`/`compose:local` use `server/.env.local`, while e2e interpolation uses `.env.e2e`.
+- Runtime behavior is documented to match implementation: `CODEINFO_REFRESH_CA_CERTS_ON_START` is disabled by default and refresh-enabled startup fails fast on missing/invalid corporate cert inputs.
+- Architecture scope remains infra-only for this story: no REST contract, WebSocket shape, or Mongo persistence changes are introduced.
+
+```mermaid
+flowchart TD
+  A[Select workflow] --> B{Workflow type}
+  B -- compose or compose:local --> C[Read server/.env plus server/.env.local]
+  B -- e2e --> D[Read .env.e2e for compose interpolation]
+  C --> E[Compose renders CODEINFO build and runtime values]
+  D --> E
+  E --> F[Server and client Docker builds apply npm or pip overrides]
+  F --> G[Server entrypoint evaluates refresh gate and cert inputs]
+  G --> H{Refresh enabled with valid certs?}
+  H -- yes --> I[Refresh CA store then start Node]
+  H -- no --> J{Refresh enabled with invalid or missing certs?}
+  J -- yes --> K[Fail fast with non-zero exit]
+  J -- no --> L[Skip refresh and start Node]
+```
+
 ```mermaid
 flowchart TD
   R[Resolved default provider/model] --> A{Selected provider available?}

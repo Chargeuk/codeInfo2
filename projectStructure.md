@@ -345,6 +345,28 @@ Modified files (implementation traceability):
 - `projectStructure.md`
 - `start-gcf-server.sh`
 
+## Story 0000041 Task 8 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `planning/0000041-corporate-registry-and-certificate-overrides-via-codeinfo-env.md`
+- `projectStructure.md`
+- `server/entrypoint.sh`
+
 - None.
 
 Modified files (implementation traceability):
@@ -452,10 +474,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”œâ”€ .prettierignore â€” files skipped by Prettier
 â”œâ”€ .prettierrc â€” Prettier settings
 â”œâ”€ AGENTS.md â€” agent workflow rules
-â”œâ”€ README.md â€” repo overview and commands
+â”œâ”€ README.md â€” repo overview and commands, including corporate registry/certificate override setup guidance and workflow-specific env-source rules
 â”œâ”€ start-gcf-server.sh â€” macOS/Linux helper to install/run git-credential-forwarder with optional `CODEINFO_NPM_REGISTRY` override for the global install step
 â”œâ”€ logs/ â€” runtime server log output (gitignored, host-mounted)
-â”œâ”€ design.md â€” design notes and diagrams
+â”œâ”€ design.md â€” design notes and diagrams, including end-to-end corporate override flow (env source -> compose interpolation -> build overrides -> runtime gate -> startup/fail-fast)
 â”œâ”€ flows/ â€” flow JSON definitions (hot-reloaded, user-managed; resolved as sibling to codex_agents by default)
 â”œâ”€ flows-sandbox/ â€” safe flow JSON definitions for manual MCP/Playwright testing
 â”œâ”€ observability/ â€” shared OpenTelemetry collector config for Chroma traces

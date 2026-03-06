@@ -12,68 +12,111 @@ Monorepo for client (React 19 + MUI), server (Express), and shared common packag
 ## Quick Setup
 
 ### WSL Prerequisites
+
 #### Configure WSL Git to use Windows Git Credential Manager.
+
 Reference: https://github.com/git-ecosystem/git-credential-manager/blob/main/docs/wsl.md
+
 1. Install Git for Windows on the host machine.
 
 2. In WSL, install Git:
-    ```bash
-    sudo apt update && sudo apt install -y git
-    ```
+
+   ```bash
+   sudo apt update && sudo apt install -y git
+   ```
 
 3. In Windows PowerShell, verify Git and Git Credential Manager are available:
-    ```powershell
-    git --version; git credential-manager --version
-    ```
+
+   ```powershell
+   git --version; git credential-manager --version
+   ```
 
 4. In WSL, point Git to the Windows credential helper:
-    ```bash
-    git config --global credential.helper "/mnt/c/Program\ Files/Git/mingw64/bin/git-credential-manager.exe"
-    ```
+
+   ```bash
+   git config --global credential.helper "/mnt/c/Program\ Files/Git/mingw64/bin/git-credential-manager.exe"
+   ```
 
 5. Authenticate once with any HTTPS Git operation (for example `git fetch`); Git Credential Manager will prompt and store credentials in Windows Credential Manager.
 
 #### Configure Executable Bit Access In WSL & Windows Git
+
 When git repos that are available within WSL and accessed from Windows tools (e.g., SourceTree via `\\wsl$`),
 file mode (executable bit) can appear different even when file contents are identical.
 To keep Windows and WSL in sync, use these settings.
 
 1. Update WSL Git to keep file mode tracking enabled so executable scripts stay correct:
-    ```bash
-    git config --global core.filemode true
-    ```
+
+   ```bash
+   git config --global core.filemode true
+   ```
 
 2. Update Windows Git to disable file mode tracking so `\\wsl$` does not show mode-only changes:
-    ```bash
-    git config --global core.filemode false
-    ```
+
+   ```bash
+   git config --global core.filemode false
+   ```
 
 3. Update Repo-local config ensuring you do not force `core.filemode` in the repo itself. If it exists, remove it:
-    ```bash
-    git config --local --unset core.filemode
-    ```
 
-3. Line endings for each repo checked out to be used within CodeInfo2 should be normalized by `.gitattributes`:
-    ```
-    * text=auto eol=lf
-    ```
+   ```bash
+   git config --local --unset core.filemode
+   ```
 
-3. Quick status checks- Use these to confirm both environments agree:
-    ```bash
-    # WSL or Windows
-    git status --porcelain=v2 -uno
-    git ls-files --eol | head -n 20
-    ```
+4. Line endings for each repo checked out to be used within CodeInfo2 should be normalized by `.gitattributes`:
 
+   ```
+   * text=auto eol=lf
+   ```
+
+5. Quick status checks- Use these to confirm both environments agree:
+   ```bash
+   # WSL or Windows
+   git status --porcelain=v2 -uno
+   git ls-files --eol | head -n 20
+   ```
 
 ### Mac & WSL That have followed the WSL setup above
+
+### Corporate Registry and Certificate Overrides (Restricted Networks)
+
+Use this section only when your network requires internal registries and/or corporate CA certificates. Standard users can leave all `CODEINFO_*` values unset.
+
+Workflow env-file rules:
+
+```text
+compose/compose:local -> edit server/.env.local
+e2e -> edit .env.e2e
+```
+
+For e2e specifically, `.env.e2e` is used for compose interpolation values. Container runtime defaults still come from `server/.env.e2e` and `client/.env.e2e`.
+
+Corporate certificate directory requirements:
+
+- Example host path: `/home/<user>/corp-certs`
+- Put corporate CA files in that directory as `.crt` files.
+- `CODEINFO_CORP_CERTS_DIR` points to this host directory and is mounted into `/usr/local/share/ca-certificates/codeinfo-corp`.
+
+`CODEINFO_REFRESH_CA_CERTS_ON_START=false` is the default behavior. Only case-insensitive `true` enables refresh. If refresh is enabled and certs are missing/invalid, server startup fails fast with non-zero exit.
+
+| Variable | Default when unset | Where used |
+| --- | --- | --- |
+| `CODEINFO_NPM_REGISTRY` | npm default registry behavior | Docker build-time npm install steps in server/client images, and host helper install in `start-gcf-server.sh` |
+| `CODEINFO_PIP_INDEX_URL` | pip default index behavior | Server Docker build-time `pip install` |
+| `CODEINFO_PIP_TRUSTED_HOST` | pip default trusted-host behavior | Server Docker build-time `pip install` |
+| `CODEINFO_NODE_EXTRA_CA_CERTS` | `/etc/ssl/certs/ca-certificates.crt` | Server runtime export before Node starts |
+| `CODEINFO_CORP_CERTS_DIR` | `./certs/empty-corp-ca` compose fallback source | Compose server cert mount source to `/usr/local/share/ca-certificates/codeinfo-corp:ro` |
+| `CODEINFO_REFRESH_CA_CERTS_ON_START` | Disabled (`false` behavior unless value is `true`) | Server entrypoint CA refresh gate before `exec node dist/index.js` |
+
 1. Install CLI (host): `npm install -g @openai/codex`.
 2. Ensure host.docker.internal is set to point to your local host
 3. Ensure you create the folder `${HOME}/Documents/dev` and open it in a terminal to procede with the following steps. Note that all repositories must be checked out under `${HOME}/Documents/dev` (or a subfolder of that directory) in order to be visible to CodeInfo2.
 4. Run `git clone https://github.com/Chargeuk/codeInfo2.git`
 5. Within the cloned repo create the following empty files:
-  - ./server/.env.local
-  - ./client/.env.local
+
+- ./server/.env.local
+- ./client/.env.local
+
 6. Run `start-gcf-server.sh` to allow docker from the containers to access your git credentials so it can push from the container.
 7. Run `npm run compose:local` to start the required local services.
 

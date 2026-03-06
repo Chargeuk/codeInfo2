@@ -983,7 +983,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 8. Documentation Task: README corporate section and workflow-specific setup guidance
 
 - Task Status: ****done****
-- Git Commits: `none yet`
+- Git Commits: `b503ddd0`
 
 #### Overview
 

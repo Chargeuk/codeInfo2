@@ -834,7 +834,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 6. Server Entrypoint Runtime CA Refresh: certificate refresh and fail-fast paths
 
 - Task Status: ****done****
-- Git Commits: `none yet`
+- Git Commits: `d0aab128`
 
 #### Overview
 
@@ -914,7 +914,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 7. Host Helper Script: honor npm registry override in `start-gcf-server.sh`
 
 - Task Status: ****done****
-- Git Commits: `none yet`
+- Git Commits: `d0aab128`
 
 #### Overview
 

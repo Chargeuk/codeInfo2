@@ -92,6 +92,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     python3-pip \
     python3-venv \
     unzip \
+    util-linux \
     zip \
     vim-tiny \
     nano \

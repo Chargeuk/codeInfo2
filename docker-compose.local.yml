@@ -13,7 +13,6 @@ services:
         CODEINFO_PIP_TRUSTED_HOST: ${CODEINFO_PIP_TRUSTED_HOST:-}
         CODEINFO_NODE_EXTRA_CA_CERTS: ${CODEINFO_NODE_EXTRA_CA_CERTS:-}
     image: codeinfo2-server-local
-    user: '${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}'
     group_add:
       # Allow non-root user to access /var/run/docker.sock for Testcontainers.
       - '${CODEINFO_DOCKER_SOCK_GID:-0}'
@@ -47,6 +46,9 @@ services:
       - AGENTS_MCP_PORT=5012
       - MONGO_URI=mongodb://host.docker.internal:27417/db?directConnection=true
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
+      - CODEINFO_RUNTIME_UID=${CODEINFO_DOCKER_UID:-1000}
+      - CODEINFO_RUNTIME_GID=${CODEINFO_DOCKER_GID:-1000}
+      - CODEINFO_RUNTIME_SUPPLEMENTARY_GIDS=${CODEINFO_DOCKER_SOCK_GID:-0}
       - CODEINFO_CORP_CERTS_DIR=${CODEINFO_CORP_CERTS_DIR:-}
       - CODEINFO_COMPOSE_WORKFLOW=${CODEINFO_COMPOSE_WORKFLOW:-}
       - CODEINFO_INTERPOLATION_SOURCE=${CODEINFO_INTERPOLATION_SOURCE:-}

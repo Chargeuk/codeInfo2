@@ -6,6 +6,57 @@ CHROME_REMOTE_DEBUG_PORT="${CHROME_REMOTE_DEBUG_PORT:-9222}"
 CHROME_REMOTE_DEBUG_ADDRESS="${CHROME_REMOTE_DEBUG_ADDRESS:-0.0.0.0}"
 CHROME_USER_DATA_DIR="${CHROME_USER_DATA_DIR:-/tmp/chrome-profile}"
 CHROME_HEADLESS="${CHROME_HEADLESS:-true}"
+runtime_uid="${CODEINFO_RUNTIME_UID:-1000}"
+runtime_gid="${CODEINFO_RUNTIME_GID:-1000}"
+runtime_supplementary_gids="${CODEINFO_RUNTIME_SUPPLEMENTARY_GIDS:-}"
+
+case "$runtime_uid" in
+  '' | *[!0-9]*)
+    echo "CODEINFO startup failed: CODEINFO_RUNTIME_UID must be numeric, received '${runtime_uid}'" >&2
+    exit 1
+    ;;
+esac
+
+case "$runtime_gid" in
+  '' | *[!0-9]*)
+    echo "CODEINFO startup failed: CODEINFO_RUNTIME_GID must be numeric, received '${runtime_gid}'" >&2
+    exit 1
+    ;;
+esac
+
+if [ -n "$runtime_supplementary_gids" ]; then
+  normalized_runtime_groups="$(printf '%s' "$runtime_supplementary_gids" | tr -d '[:space:]')"
+  case "$normalized_runtime_groups" in
+    *[!0-9,]* | *, | ,* | *,,*)
+      echo "CODEINFO startup failed: CODEINFO_RUNTIME_SUPPLEMENTARY_GIDS must be a comma-separated numeric list, received '${runtime_supplementary_gids}'" >&2
+      exit 1
+      ;;
+  esac
+else
+  normalized_runtime_groups=""
+fi
+
+drop_privileges_and_exec_node() {
+  if [ "$(id -u)" != "0" ]; then
+    exec node dist/index.js
+  fi
+
+  if ! command -v setpriv >/dev/null 2>&1; then
+    echo "CODEINFO startup failed: setpriv is required to drop from root to CODEINFO_RUNTIME_UID/CODEINFO_RUNTIME_GID" >&2
+    exit 1
+  fi
+
+  target_groups="$runtime_gid"
+  if [ -n "$normalized_runtime_groups" ]; then
+    target_groups="${target_groups},${normalized_runtime_groups}"
+  fi
+
+  exec setpriv \
+    --reuid "$runtime_uid" \
+    --regid "$runtime_gid" \
+    --groups "$target_groups" \
+    node dist/index.js
+}
 
 if [ -x "$CHROME_BIN" ]; then
   CHROME_FLAGS="--remote-debugging-port=${CHROME_REMOTE_DEBUG_PORT}"
@@ -158,4 +209,4 @@ echo "[CODEINFO][T08_DOCS_GUIDANCE_READY] section_heading=\"Corporate Registry a
 echo "[CODEINFO][T09_INTERFACE_GUARD_STATUS] openapi_unchanged=true ws_shapes_unchanged=true mongo_shapes_unchanged=true deps_unchanged=true"
 echo "[CODEINFO][T10_FINAL_CLOSEOUT_READY] ac_total=23 wrappers_required=true manual_playwright_required=true"
 
-exec node dist/index.js
+drop_privileges_and_exec_node

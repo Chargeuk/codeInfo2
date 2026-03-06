@@ -218,10 +218,7 @@ test.describe.serial('Ingest flows', () => {
 
     expect(firstPath).toBeTruthy();
 
-    await waitForCompletion(
-      page,
-      new RegExp(`${fixtureName}-progress`, 'i'),
-    );
+    await waitForCompletion(page, new RegExp(`${fixtureName}-progress`, 'i'));
   });
 
   test('happy path ingest completes', async ({ page }) => {

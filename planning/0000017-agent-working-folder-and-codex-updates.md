@@ -241,7 +241,6 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
 - In this environment, `npm run e2e` required `CODEX_HOME` to be set to a host-shared path (used `CODEX_HOME=$PWD/codex`) to avoid Docker Desktop “mounts denied” errors.
 - Completed the manual `/agents` + `/chat` smoke check with Playwright and captured screenshots under `test-results/screenshots/`.
 
-
 ---
 
 ### 2. Server: wire working_folder into agent execution (service + ChatInterfaceCodex)
@@ -588,7 +587,7 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
 - Added a short `POST /agents/:agentName/run` documentation section + Mermaid `sequenceDiagram` to `design.md`.
 - Local dev gotchas:
   - This environment had `CODEX_HOME=/app/codex_agents/coding_agent`, which breaks Docker Desktop mounts; ran `npm run e2e` and `npm run compose:*` with `CODEX_HOME=$PWD/codex`.
-  - Verified the compose REST contract by curling *inside* the server container (`docker exec codeinfo2-server-1 ...`) because host port access was inconsistent in this environment.
+  - Verified the compose REST contract by curling _inside_ the server container (`docker exec codeinfo2-server-1 ...`) because host port access was inconsistent in this environment.
 
 ---
 
@@ -997,6 +996,7 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
 
 - Task Status: **completed**
 - Git Commits: 59d5cb4
+
 #### Overview
 
 Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2`, and update any dependent tests/fixtures.
@@ -1360,7 +1360,6 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
 - Testing 7: `CODEX_HOME=$PWD/codex npm run compose:up`.
 - Testing 8: ran a headless Playwright check against `http://host.docker.internal:5001` with API rewrite from `http://localhost:5010` -> `http://host.docker.internal:5010`; verified `/agents` shows `working_folder`, `/chat` Codex models include `gpt-5.2`, and Codex reasoning effort includes `xhigh`; saved screenshots to `test-results/screenshots/0000017-09-agents-working-folder.png`, `test-results/screenshots/0000017-09-chat-codex-models.png`, and `test-results/screenshots/0000017-09-chat-xhigh.png`.
 - Testing 9: `CODEX_HOME=$PWD/codex npm run compose:down`.
-
 
 ---
 

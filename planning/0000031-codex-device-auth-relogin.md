@@ -25,15 +25,15 @@ This story does **not** add new business features; it only improves how the syst
 
 ## Acceptance Criteria
 
-- Chat page shows a **Re-authenticate (device auth)** button only when the provider dropdown is set to **Codex** *and* `/chat/providers` reports Codex `available=true`; hide it when the provider is LM Studio or Codex is unavailable.
+- Chat page shows a **Re-authenticate (device auth)** button only when the provider dropdown is set to **Codex** _and_ `/chat/providers` reports Codex `available=true`; hide it when the provider is LM Studio or Codex is unavailable.
 - Agents page shows the same button only when an agent is selected and Codex is available; Agents continue to use Codex as the provider and do not gain a new provider selector.
 - Clicking the button opens a centered modal titled **Codex device auth** with: a target selector (`Chat` or `Agent: <name>`), a **Start device auth** button, and a close action.
 - The target selector defaults to the current context (Chat page → `Chat`, Agents page → selected agent) and can be changed before starting.
 - On **Start device auth**, the client sends `POST /codex/device-auth` with `{ target: "chat" }` or `{ target: "agent", agentName: "<selected>" }`; the modal shows a loading state and disables inputs until the request finishes.
 - On success, the modal displays the raw CLI output returned by the server as a read-only text block; any URLs in the output are clickable and open in a new tab/window.
 - If the request fails, the modal shows a clear error message and re-enables **Start device auth** so the user can retry.
-- Successful device-auth writes updated credentials to the selected target only:  
-  - Target = `chat`: update the server Codex home **and** copy `auth.json` into **all** agent homes.  
+- Successful device-auth writes updated credentials to the selected target only:
+  - Target = `chat`: update the server Codex home **and** copy `auth.json` into **all** agent homes.
   - Target = `agent`: update only the selected agent’s Codex home (no changes to the server Codex home).
 - Subsequent agent runs (direct message, command, or flow step) use the updated auth without manual container access.
 - The dialog never auto-retries a chat/agent run; users manually re-send their message or command after authenticating.
@@ -124,7 +124,7 @@ This story does **not** add new business features; it only improves how the syst
 
 ### 1. Server: Device-auth CLI parsing helper
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: fadc1db, 2d8606c, ab7fc53, 5622418, df0937a, 9e8eef3, 132de26, 2f2aee2, f4d4632, c20fe2a, e7736dd, ca9a2ff, 1f489cb, 1d5942e, cae96c5, 751227d, dd8a311, f4c3873, 3cb26a9, d2a98fe, bf88193, 67981cb, ac612b1, e0c7abb, 402fbc3, 00b5629, fb6e17b, 2d91c23, 720b67b, 2d3f510, 64ffdbf, 91fdb95, e881736, bfd8598, 391453b, ab990e1, 1b09636, 2c3a4c2, f5b8fa7, a90dfbd, 2774bf2, d5e253a
 
 #### Overview
@@ -144,7 +144,7 @@ Create a reusable helper that runs `codex login --device-auth`, captures ANSI-st
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-     - Jest docs: https://jestjs.io/docs/getting-started
+  - Jest docs: https://jestjs.io/docs/getting-started
 - Cucumber guides (overview): https://cucumber.io/docs/guides/
 - Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
@@ -217,13 +217,15 @@ Create a reusable helper that runs `codex login --device-auth`, captures ANSI-st
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
    - `projectStructure.md`
-  - Files to edit:
-    - `projectStructure.md`
-  - Description & purpose:
-    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
-    - Add entries for:
-      - `server/src/utils/codexDeviceAuth.ts`
-      - `server/src/test/unit/codexDeviceAuth.test.ts`
+
+- Files to edit:
+  - `projectStructure.md`
+- Description & purpose:
+  - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+  - Add entries for:
+    - `server/src/utils/codexDeviceAuth.ts`
+    - `server/src/test/unit/codexDeviceAuth.test.ts`
+
 8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -296,7 +298,7 @@ Create a reusable helper that runs `codex login --device-auth`, captures ANSI-st
 
 ### 2. Server: Device-auth route contract
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: bc1a768, b6ba394
 
 #### Overview
@@ -318,7 +320,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-     - Jest docs: https://jestjs.io/docs/getting-started
+  - Jest docs: https://jestjs.io/docs/getting-started
 - Cucumber guides (overview): https://cucumber.io/docs/guides/
 - Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
@@ -424,35 +426,40 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - Request body includes `target` + optional `agentName`.
      - Response includes `verificationUrl`, `userCode`, optional `expiresInSec`.
 10. [x] Update `projectStructure.md` after any file additions/removals in this task.
-   - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - Files to read:
-   - `projectStructure.md`
-  - Files to edit:
-    - `projectStructure.md`
-  - Description & purpose:
-    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
-    - Add entries for:
-      - `server/src/routes/codexDeviceAuth.ts`
-      - `server/src/test/integration/codex.device-auth.test.ts`
+
+- Documentation to read (repeat):
+  - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Files to read:
+- `projectStructure.md`
+- Files to edit:
+  - `projectStructure.md`
+- Description & purpose:
+  - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+  - Add entries for:
+    - `server/src/routes/codexDeviceAuth.ts`
+    - `server/src/test/integration/codex.device-auth.test.ts`
+
 11. [x] Update `design.md` with device-auth architecture + mermaid diagram:
-   - Documentation to read (repeat):
-     - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `design.md`
-   - Description & purpose:
-     - Add a concise sequence/flow diagram showing the device-auth request, Codex CLI interaction, and auth propagation.
+
+- Documentation to read (repeat):
+  - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+  - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Files to edit:
+  - `design.md`
+- Description & purpose:
+  - Add a concise sequence/flow diagram showing the device-auth request, Codex CLI interaction, and auth propagation.
+
 12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - Files to read:
-     - `package.json`
-     - `server/package.json`
-     - `client/package.json`
-   - Snippets to locate:
-     - Root `lint` and `format:check` scripts
+
+- Documentation to read (repeat):
+  - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier CLI: https://prettier.io/docs/cli
+- Files to read:
+  - `package.json`
+  - `server/package.json`
+  - `client/package.json`
+- Snippets to locate:
+  - Root `lint` and `format:check` scripts
 
 #### Testing
 
@@ -530,7 +537,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 
 ### 3. Server: Persist auth configuration for device-auth
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: f1d9a07, 0e573fc
 
 #### Overview
@@ -549,7 +556,7 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-     - Jest docs: https://jestjs.io/docs/getting-started
+  - Jest docs: https://jestjs.io/docs/getting-started
 - Cucumber guides (overview): https://cucumber.io/docs/guides/
 - Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
@@ -607,12 +614,14 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
    - `projectStructure.md`
-  - Files to edit:
-    - `projectStructure.md`
-  - Description & purpose:
-    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
-    - Add entries for:
-      - `server/src/test/unit/codexConfig.device-auth.test.ts`
+
+- Files to edit:
+  - `projectStructure.md`
+- Description & purpose:
+  - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+  - Add entries for:
+    - `server/src/test/unit/codexConfig.device-auth.test.ts`
+
 7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -681,7 +690,7 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 
 ### 4. Server: Auth propagation + Codex availability refresh
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: b658207, b1ec61d
 
 #### Overview
@@ -700,7 +709,7 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-     - Jest docs: https://jestjs.io/docs/getting-started
+  - Jest docs: https://jestjs.io/docs/getting-started
 - Cucumber guides (overview): https://cucumber.io/docs/guides/
 - Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
@@ -765,12 +774,14 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
    - `projectStructure.md`
-  - Files to edit:
-    - `projectStructure.md`
-  - Description & purpose:
-    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
-    - Add entries for new files created in this task, including:
-      - `server/src/test/unit/agents.authSeed.test.ts` (if created)
+
+- Files to edit:
+  - `projectStructure.md`
+- Description & purpose:
+  - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+  - Add entries for new files created in this task, including:
+    - `server/src/test/unit/agents.authSeed.test.ts` (if created)
+
 7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -835,7 +846,7 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
 
 ### 5. Client: Codex device-auth API helper
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: dc8e625, 4eb15cb
 
 #### Overview
@@ -852,7 +863,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-     - Jest docs: https://jestjs.io/docs/getting-started
+  - Jest docs: https://jestjs.io/docs/getting-started
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
@@ -922,13 +933,15 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
    - `projectStructure.md`
-  - Files to edit:
-    - `projectStructure.md`
-  - Description & purpose:
-    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
-    - Add entries for:
-      - `client/src/api/codex.ts`
-      - `client/src/test/codexDeviceAuthApi.test.ts`
+
+- Files to edit:
+  - `projectStructure.md`
+- Description & purpose:
+  - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+  - Add entries for:
+    - `client/src/api/codex.ts`
+    - `client/src/test/codexDeviceAuthApi.test.ts`
+
 8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -992,7 +1005,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
 
 ### 6. Client: CodexDeviceAuthDialog component
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 2ffe048, 247378c
 
 #### Overview
@@ -1013,7 +1026,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-     - Jest docs: https://jestjs.io/docs/getting-started
+  - Jest docs: https://jestjs.io/docs/getting-started
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
@@ -1045,13 +1058,13 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - Use the `TextField select` pattern with `MenuItem` entries (matches existing Chat/Agents selects).
      - Ensure `MenuItem` entries are direct children of the select (per MUI Select API requirements).
      - Call `postCodexDeviceAuth` on “Start device auth”.
-      - Show `verificationUrl`, `userCode`, and `expiresInSec` on success.
-      - Provide copy buttons for URL + code (use `navigator.clipboard` with a fallback message when unavailable).
+     - Show `verificationUrl`, `userCode`, and `expiresInSec` on success.
+     - Provide copy buttons for URL + code (use `navigator.clipboard` with a fallback message when unavailable).
    - Display errors inline (including “Enable device code login in ChatGPT settings” when provided) and allow retry without closing the dialog.
-      - Provide a clear close action (dialog close button + ESC/backdrop).
-      - Ensure `onClose` handles `escapeKeyDown` and `backdropClick` reasons so standard close behaviors work.
-      - Invoke `onSuccess` so parent pages can refresh provider availability.
-      - Follow the async dialog state pattern from `DirectoryPickerDialog` (loading → success/error) instead of inventing new UI flows.
+     - Provide a clear close action (dialog close button + ESC/backdrop).
+     - Ensure `onClose` handles `escapeKeyDown` and `backdropClick` reasons so standard close behaviors work.
+     - Invoke `onSuccess` so parent pages can refresh provider availability.
+     - Follow the async dialog state pattern from `DirectoryPickerDialog` (loading → success/error) instead of inventing new UI flows.
    - Log lines to add (use `createLogger('codex-device-auth-dialog')`):
      - `DEV-0000031:T6:codex_device_auth_dialog_open` when the dialog opens.
      - `DEV-0000031:T6:codex_device_auth_dialog_success` after a successful response.
@@ -1114,27 +1127,30 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
    - Description & purpose:
      - When the API response includes `expiresInSec`, the dialog renders the expiry text.
 10. [x] Update `projectStructure.md` after any file additions/removals in this task.
-   - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - Files to read:
-   - `projectStructure.md`
-  - Files to edit:
-    - `projectStructure.md`
-  - Description & purpose:
-    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
-    - Add entries for:
-      - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
-      - `client/src/test/codexDeviceAuthDialog.test.tsx`
+
+- Documentation to read (repeat):
+  - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Files to read:
+- `projectStructure.md`
+- Files to edit:
+  - `projectStructure.md`
+- Description & purpose:
+  - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+  - Add entries for:
+    - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
+    - `client/src/test/codexDeviceAuthDialog.test.tsx`
+
 11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - Files to read:
-     - `package.json`
-     - `server/package.json`
-     - `client/package.json`
-   - Snippets to locate:
-     - Root `lint` and `format:check` scripts
+
+- Documentation to read (repeat):
+  - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier CLI: https://prettier.io/docs/cli
+- Files to read:
+  - `package.json`
+  - `server/package.json`
+  - `client/package.json`
+- Snippets to locate:
+  - Root `lint` and `format:check` scripts
 
 #### Testing
 
@@ -1183,7 +1199,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 
 ### 7. Client: Chat page device-auth entry point
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 0193108, 7314943
 
 #### Overview
@@ -1203,7 +1219,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-     - Jest docs: https://jestjs.io/docs/getting-started
+  - Jest docs: https://jestjs.io/docs/getting-started
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
@@ -1265,12 +1281,14 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
    - `projectStructure.md`
-  - Files to edit:
-    - `projectStructure.md`
-  - Description & purpose:
-    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
-    - Add entries for new files created in this task, including:
-      - `client/src/test/chatPage.deviceAuth.test.tsx` (if created)
+
+- Files to edit:
+  - `projectStructure.md`
+- Description & purpose:
+  - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+  - Add entries for new files created in this task, including:
+    - `client/src/test/chatPage.deviceAuth.test.tsx` (if created)
+
 7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1343,7 +1361,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
 
 ### 8. Client: Agents page device-auth entry point
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 453f073, 84881b9, 7314943
 
 #### Overview
@@ -1363,7 +1381,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-     - Jest docs: https://jestjs.io/docs/getting-started
+  - Jest docs: https://jestjs.io/docs/getting-started
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
@@ -1432,12 +1450,14 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
    - `projectStructure.md`
-  - Files to edit:
-    - `projectStructure.md`
-  - Description & purpose:
-    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
-    - Add entries for new files created in this task, including:
-      - `client/src/test/agentsPage.deviceAuth.test.tsx` (if created)
+
+- Files to edit:
+  - `projectStructure.md`
+- Description & purpose:
+  - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+  - Add entries for new files created in this task, including:
+    - `client/src/test/agentsPage.deviceAuth.test.tsx` (if created)
+
 8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1520,7 +1540,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 
 ### 9. Final Task: Validate, document, and summarize
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: af6684a, 4e9a1d4
 
 #### Overview
@@ -1568,8 +1588,8 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
-    - `planning/0000031-codex-device-auth-relogin.md`
-    - `test-results/screenshots/`
+   - `planning/0000031-codex-device-auth-relogin.md`
+   - `test-results/screenshots/`
    - Snippets to locate:
      - Final task acceptance criteria for summary scope
 5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -1676,10 +1696,9 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 - No blocking issues found.
 - Acceptance criteria are fully met.
 
-
 ### 10. Server: Device-auth persistence + post-completion propagation
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 22b3b8f
 
 #### Overview
@@ -1699,7 +1718,7 @@ Ensure device-auth always writes to `auth.json` by enforcing file-store config f
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-     - Jest docs: https://jestjs.io/docs/getting-started
+  - Jest docs: https://jestjs.io/docs/getting-started
 - Cucumber guides (overview): https://cucumber.io/docs/guides/
 - Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
@@ -1759,8 +1778,10 @@ Ensure device-auth always writes to `auth.json` by enforcing file-store config f
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
    - `projectStructure.md`
-  - Files to edit:
-    - `projectStructure.md`
+
+- Files to edit:
+  - `projectStructure.md`
+
 7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1831,7 +1852,7 @@ Ensure device-auth always writes to `auth.json` by enforcing file-store config f
 
 ### 11. Final Task: Re-validate after device-auth persistence fixes
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 226ef04
 
 #### Overview
@@ -1926,7 +1947,7 @@ Re-run the full validation suite and documentation checks after Task 10 to ensur
 
 ### 12. Server: Device-auth output parsing hardening
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: f86616f
 
 #### Overview
@@ -1945,7 +1966,7 @@ Harden device-auth stdout parsing to strip ANSI escape codes and prevent the use
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-     - Jest docs: https://jestjs.io/docs/getting-started
+  - Jest docs: https://jestjs.io/docs/getting-started
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
@@ -1996,8 +2017,10 @@ Harden device-auth stdout parsing to strip ANSI escape codes and prevent the use
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
    - `projectStructure.md`
-  - Files to edit:
-    - `projectStructure.md`
+
+- Files to edit:
+  - `projectStructure.md`
+
 7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -2061,7 +2084,7 @@ Harden device-auth stdout parsing to strip ANSI escape codes and prevent the use
 
 ### 13. Client: Device-auth dialog link + text presentation
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 5e8efa8
 
 #### Overview
@@ -2080,7 +2103,7 @@ Render the verification URL as a clickable link (opens in a new tab) and render 
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-     - Jest docs: https://jestjs.io/docs/getting-started
+  - Jest docs: https://jestjs.io/docs/getting-started
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
@@ -2132,8 +2155,10 @@ Render the verification URL as a clickable link (opens in a new tab) and render 
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
    - `projectStructure.md`
-  - Files to edit:
-    - `projectStructure.md`
+
+- Files to edit:
+  - `projectStructure.md`
+
 7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -2196,7 +2221,7 @@ Render the verification URL as a clickable link (opens in a new tab) and render 
 
 ### 14. Client + server: show raw device-auth output
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 951c085
 
 #### Overview
@@ -2214,7 +2239,7 @@ Replace the verification URL + user code fields with a single read-only output b
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-     - Jest docs: https://jestjs.io/docs/getting-started
+  - Jest docs: https://jestjs.io/docs/getting-started
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
@@ -2278,8 +2303,10 @@ Replace the verification URL + user code fields with a single read-only output b
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
    - `projectStructure.md`
-  - Files to edit:
-    - `projectStructure.md`
+
+- Files to edit:
+  - `projectStructure.md`
+
 8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -2346,7 +2373,7 @@ Replace the verification URL + user code fields with a single read-only output b
 
 ### 15. Final Task: Re-validate after parsing hardening
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: d0dbe6a, 4ab4a17
 
 #### Overview

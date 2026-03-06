@@ -196,9 +196,7 @@ const normalizeE2ePath = (value) => {
   return withoutDotPrefix;
 };
 
-const playwrightArgs = [
-  ...options.files.map((file) => normalizeE2ePath(file)),
-];
+const playwrightArgs = [...options.files.map((file) => normalizeE2ePath(file))];
 if (options.grep) {
   playwrightArgs.push('--grep', options.grep);
 }

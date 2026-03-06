@@ -4,9 +4,7 @@
     {
       "type": "message",
       "role": "user",
-      "content": [
-        "Reply with exactly: ok"
-      ]
+      "content": ["Reply with exactly: ok"]
     }
   ]
 }

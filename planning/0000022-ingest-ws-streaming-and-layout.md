@@ -195,7 +195,7 @@ type IngestStatusPayload = {
 
 ### 1. Server: ingest WS message types + subscribe/unsubscribe + placeholder snapshot
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **02ab83e, 1799357**
 
 #### Overview
@@ -512,7 +512,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
 
 ### 2. Server: determine active ingest status for snapshots (`getActiveStatus`)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **ca627be**
 
 #### Overview
@@ -715,7 +715,7 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
 
 ### 3. Server: broadcast ingest progress/status changes over WS (`ingest_update`)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **3a62740**
 
 #### Overview
@@ -940,7 +940,7 @@ This task completes the server-side realtime path for ingest by wiring status up
 
 ### 4. Client: extend `useChatWs` with ingest subscription + ingest event types
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **36f073f, a6f7ab6**
 
 #### Overview
@@ -1259,7 +1259,7 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
 
 ### 5. Client: refactor `useIngestStatus` to be WS-driven (remove polling)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **908e57f, 770f167**
 
 #### Overview
@@ -1539,7 +1539,7 @@ This task does not change the Ingest page layout yet; it only changes how status
 
 ### 6. Client: switch Ingest page to WS-only run UI (no last-run summary)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **d5d37d1, c04f817**
 
 #### Overview
@@ -1778,7 +1778,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
 
 ### 7. Client: full-width Ingest layout
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **eaaacae, 9bfc9a0**
 
 #### Overview
@@ -1909,7 +1909,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
 
 ### 8. Final verification: acceptance criteria, full test/build matrix, docs, PR comment
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **572d2e9, 1ed986e**
 
 #### Overview
@@ -2074,6 +2074,7 @@ Run the full validation checklist, confirm every acceptance criterion, update do
 - Testing: Playwright MCP transport could not be reattached after an initial “browser already in use” error, so a Playwright script (non-MCP) exercised `/ingest` and `/logs` via `http://host.docker.internal:5001`. Ingest start returned `429 BUSY`, so live WS update checks were skipped; captured screenshots `0000022-8-ingest-start-error.png`, `0000022-8-ingest-tab-b-no-active.png`, `0000022-8-ingest-tab-b-away.png`, `0000022-8-ingest-tab-b-return.png`. WS-down reload showed the connecting banner (screenshot `0000022-8-ingest-ws-connecting.png`). Logs filter confirmed `0000022 verification logs reviewed` (screenshot `0000022-8-logs-verification.png`).
 - Testing: `npm run compose:down` succeeded.
 - PR summary comment:
+
   ```
   ## Summary
   - Added ingest WebSocket message handling (subscribe/unsubscribe, ingest_snapshot/update) and broadcast hooks for active ingest status.

@@ -109,7 +109,11 @@ test('renders mermaid diagrams safely for assistant and user bubbles', async ({
 
     await mockWs.waitForConversationSubscription(conversationId);
     mockWs.sendInflightSnapshot({ conversationId, inflightId });
-    mockWs.sendAssistantDelta({ conversationId, inflightId, delta: mermaidMessage });
+    mockWs.sendAssistantDelta({
+      conversationId,
+      inflightId,
+      delta: mermaidMessage,
+    });
     mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
   });
 
@@ -135,7 +139,9 @@ test('renders mermaid diagrams safely for assistant and user bubbles', async ({
   });
 });
 
-test('shows safe fallback for malformed user mermaid input', async ({ page }) => {
+test('shows safe fallback for malformed user mermaid input', async ({
+  page,
+}) => {
   const mockWs = await installMockChatWs(page);
 
   await page.route('**/chat/providers', (route) =>

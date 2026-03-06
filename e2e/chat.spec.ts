@@ -332,7 +332,10 @@ test('chat renders user markdown list/code with same structure as assistant mark
   page,
 }) => {
   await skipIfUnreachable(page);
-  test.skip(!useMockChat, 'markdown parity assertions require mock chat routing');
+  test.skip(
+    !useMockChat,
+    'markdown parity assertions require mock chat routing',
+  );
 
   const mockModels: ChatModel[] = [
     { key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' },
@@ -431,7 +434,9 @@ test('chat renders user markdown list/code with same structure as assistant mark
   await expect(assistantMarkdown.getByRole('listitem')).toHaveCount(2, {
     timeout: 20000,
   });
-  await expect(userMarkdown.locator('pre code')).toContainText('const total = 2;');
+  await expect(userMarkdown.locator('pre code')).toContainText(
+    'const total = 2;',
+  );
   await expect(assistantMarkdown.locator('pre code')).toContainText(
     'const total = 2;',
   );
@@ -578,7 +583,9 @@ test('conversations drawer is persistent on desktop and pushes content', async (
           provider: 'lmstudio',
           available: true,
           toolsAvailable: true,
-          models: [{ key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' }],
+          models: [
+            { key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' },
+          ],
         }),
       }),
     );
@@ -596,7 +603,9 @@ test('conversations drawer is persistent on desktop and pushes content', async (
   const boxOpen = await chatColumn.boundingBox();
   expect(boxOpen).not.toBeNull();
 
-  const drawerPaper = page.locator('[data-testid="conversation-drawer"] .MuiDrawer-paper');
+  const drawerPaper = page.locator(
+    '[data-testid="conversation-drawer"] .MuiDrawer-paper',
+  );
   await expect(drawerPaper).toBeVisible();
   const drawerBox = await drawerPaper.boundingBox();
   expect(drawerBox).not.toBeNull();
@@ -643,7 +652,9 @@ test('conversations drawer is closed by default on mobile and overlays content',
           provider: 'lmstudio',
           available: true,
           toolsAvailable: true,
-          models: [{ key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' }],
+          models: [
+            { key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' },
+          ],
         }),
       }),
     );
@@ -654,7 +665,9 @@ test('conversations drawer is closed by default on mobile and overlays content',
   const drawerToggle = page.getByTestId('conversation-drawer-toggle');
   await expect(drawerToggle).toBeVisible();
   await expect(drawerToggle).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.locator('[data-testid="conversation-list"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="conversation-list"]')).toHaveCount(
+    0,
+  );
 
   const chatColumn = page.getByTestId('chat-column');
   const boxBefore = await chatColumn.boundingBox();
@@ -669,7 +682,9 @@ test('conversations drawer is closed by default on mobile and overlays content',
   expect(boxAfter).not.toBeNull();
   expect(Math.abs((boxAfter?.x ?? 0) - (boxBefore?.x ?? 0))).toBeLessThan(20);
 
-  const drawerPaper = page.locator('[data-testid="conversation-drawer"] .MuiDrawer-paper');
+  const drawerPaper = page.locator(
+    '[data-testid="conversation-drawer"] .MuiDrawer-paper',
+  );
   await expect(drawerPaper).toBeVisible();
   const drawerBox = await drawerPaper.boundingBox();
   expect(drawerBox).not.toBeNull();
@@ -709,7 +724,9 @@ test('conversations drawer toggle works after resizing across breakpoints', asyn
           provider: 'lmstudio',
           available: true,
           toolsAvailable: true,
-          models: [{ key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' }],
+          models: [
+            { key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' },
+          ],
         }),
       }),
     );
@@ -779,7 +796,9 @@ test('conversations drawer stays vertically aligned when persistence banner is v
           provider: 'lmstudio',
           available: true,
           toolsAvailable: true,
-          models: [{ key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' }],
+          models: [
+            { key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' },
+          ],
         }),
       }),
     );
@@ -789,7 +808,9 @@ test('conversations drawer stays vertically aligned when persistence banner is v
 
   await expect(page.getByTestId('persistence-banner')).toBeVisible();
 
-  const drawerPaper = page.locator('[data-testid="conversation-drawer"] .MuiDrawer-paper');
+  const drawerPaper = page.locator(
+    '[data-testid="conversation-drawer"] .MuiDrawer-paper',
+  );
   await expect(drawerPaper).toBeVisible();
 
   const drawerBox = await drawerPaper.boundingBox();

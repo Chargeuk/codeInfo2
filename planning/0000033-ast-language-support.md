@@ -35,7 +35,6 @@ Story convention (important for this repo’s planning style):
 
 - No blocking issues or regressions identified; implementation aligns with acceptance criteria and task requirements.
 
-
 ## Description
 
 CodeInfo2 currently builds AST symbol data only for JavaScript/TypeScript files during ingest, which limits AST tools to JS/TS repos. This story extends the same pipeline so Python, C#, Rust, and C++ repos can be indexed and queried without changing how ingest or the tools work for JS/TS.
@@ -83,6 +82,7 @@ No new message contracts or storage shapes are required. Existing AST collection
 We will use the following code‑graph‑rag files as **reference inputs** when authoring custom `locals.scm` queries. These are **not** drop‑in artifacts; they guide node‑type coverage and naming conventions.
 
 **Shared file extension mappings**
+
 - `codebase_rag/constants.py:64` (extension constants)
 - `codebase_rag/constants.py:90` (extension tuples by language)
 
@@ -210,6 +210,7 @@ Start from Python node types (function/class/assignment/import) and draft:
 ```
 
 Reference inputs:
+
 - `codebase_rag/language_spec.py:205`
 - `codebase_rag/constants.py:2082`
 - `codebase_rag/constants.py:2579`
@@ -229,6 +230,7 @@ Start from C# node types (method/constructor/local function/variable declarator)
 ```
 
 Reference inputs:
+
 - `codebase_rag/language_spec.py:382`
 - `codebase_rag/constants.py:1683`
 - `codebase_rag/constants.py:2711`
@@ -250,6 +252,7 @@ Start from Rust node types (function/impl/let bindings) and draft:
 ```
 
 Reference inputs:
+
 - `codebase_rag/language_spec.py:244`
 - `codebase_rag/constants.py:2303`
 - `codebase_rag/constants.py:2615`
@@ -271,6 +274,7 @@ Start from C++ node types (function/field/parameter declarators) and draft:
 ```
 
 Reference inputs:
+
 - `codebase_rag/language_spec.py:344`
 - `codebase_rag/constants.py:1709`
 - `codebase_rag/constants.py:2674`
@@ -304,7 +308,7 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Server: AST language enum + extension routing
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: e884dca, bdf3108
 
 #### Overview
@@ -445,7 +449,7 @@ Expand the AST language type and extension routing so ingest and tool validation
 
 ### 2. Server: Tree-sitter grammar dependencies + parser wiring
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 275cb6c, 3d402cb
 
 #### Overview
@@ -569,7 +573,7 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
 
 ### 3. Server: AST query assets + parser tests
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 3143f36, d92eff1
 
 #### Overview
@@ -694,20 +698,24 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Documentation to read (repeat):
      - Node.js logging patterns in repo (read existing `append` usage in `server/src/ast/parser.ts`).
 10. [x] Update documentation — `design.md`:
-   - Document: `design.md`.
-   - Location: `design.md`.
-   - Description: Note that Python/C#/Rust/C++ locals queries are CodeInfo2-owned and record any dependency version changes made to obtain tags. Add/update a Mermaid diagram if query wiring changes the AST flow.
-   - Purpose: Capture AST query ownership and any flow adjustments for maintainers.
-   - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-     - Mermaid: /mermaid-js/mermaid/v11_0_0
+
+- Document: `design.md`.
+- Location: `design.md`.
+- Description: Note that Python/C#/Rust/C++ locals queries are CodeInfo2-owned and record any dependency version changes made to obtain tags. Add/update a Mermaid diagram if query wiring changes the AST flow.
+- Purpose: Capture AST query ownership and any flow adjustments for maintainers.
+- Documentation to read (repeat):
+  - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+  - Mermaid: /mermaid-js/mermaid/v11_0_0
+
 11. [x] Update documentation — `projectStructure.md` **after** adding locals query files:
-   - Document: `projectStructure.md`.
-   - Location: `projectStructure.md`.
-   - Description: Add **all** new `server/src/ast/queries/*/locals.scm` files to the tree (python, c_sharp, rust, cpp) and include any removed/renamed files if applicable.
-   - Purpose: Keep the file tree accurate after adding new query assets and reflect all file changes.
-   - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+
+- Document: `projectStructure.md`.
+- Location: `projectStructure.md`.
+- Description: Add **all** new `server/src/ast/queries/*/locals.scm` files to the tree (python, c_sharp, rust, cpp) and include any removed/renamed files if applicable.
+- Purpose: Keep the file tree accurate after adding new query assets and reflect all file changes.
+- Documentation to read (repeat):
+  - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+
 12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read (repeat):
       - ESLint CLI: /eslint/eslint/v9.37.0
@@ -742,7 +750,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
 
 ### 4. Server: Ingest AST indexing coverage + logging
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: bc509af
 
 #### Overview
@@ -796,7 +804,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 4. [x] Add ingest test for **unsupported extension skip** (error path):
    - Test type: Unit (ingest AST indexing).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
-   - Description: Include a `.pyw` (or other unsupported) file and assert it is *not* treated as Python and appears in the unsupported-extension log with the skip reason.
+   - Description: Include a `.pyw` (or other unsupported) file and assert it is _not_ treated as Python and appears in the unsupported-extension log with the skip reason.
    - Fixture name suggestion:
      - `python/unsupported.pyw`
    - Purpose: Confirms unsupported extensions are rejected with explicit logging.
@@ -849,12 +857,14 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid: /mermaid-js/mermaid/v11_0_0
 10. [x] Update documentation — `projectStructure.md` **after** adding any fixture files:
-   - Document: `projectStructure.md`.
-   - Location: `projectStructure.md`.
-   - Description: Add **all** new fixture files (and any removed/renamed fixture files) to the tree if introduced.
-   - Purpose: Keep the repo tree accurate when fixtures change and capture all file changes.
-   - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+
+- Document: `projectStructure.md`.
+- Location: `projectStructure.md`.
+- Description: Add **all** new fixture files (and any removed/renamed fixture files) to the tree if introduced.
+- Purpose: Keep the repo tree accurate when fixtures change and capture all file changes.
+- Documentation to read (repeat):
+  - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+
 11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read (repeat):
       - ESLint CLI: /eslint/eslint/v9.37.0
@@ -887,7 +897,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 
 ### 5. Final verification + acceptance criteria
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 4f7efaf, 482ad1f
 
 #### Overview

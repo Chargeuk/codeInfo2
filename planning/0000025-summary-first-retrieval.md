@@ -139,7 +139,7 @@ These instructions will be followed during implementation.
 
 ### 1. Server: MCP answer-only responses for codebase_question
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 566d444, 58d8c91
 
 #### Overview
@@ -188,7 +188,8 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
      ```ts
      const payload = responder.toResult(modelId, conversationId);
      const answerOnly = payload.segments.filter((s) => s.type === 'answer');
-     payload.segments = answerOnly.length > 0 ? answerOnly : [{ type: 'answer', text: '' }];
+     payload.segments =
+       answerOnly.length > 0 ? answerOnly : [{ type: 'answer', text: '' }];
      ```
 
 3. [x] Update MCP tool definitions to reflect answer-only responses:
@@ -251,13 +252,14 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Purpose: Provide a deterministic log marker for manual verification.
 
 10. [x] Documentation update - `design.md` (MCP answer-only contract):
-   - Documentation to read (repeat):
-     - Mermaid: Context7 `/mermaid-js/mermaid`
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `design.md`
-   - Location: `design.md`
-   - Description: Update MCP response shape notes to reflect answer-only segments for `codebase_question` and agents.
-   - Purpose: Keep MCP contract documentation accurate.
+
+- Documentation to read (repeat):
+  - Mermaid: Context7 `/mermaid-js/mermaid`
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Document: `design.md`
+- Location: `design.md`
+- Description: Update MCP response shape notes to reflect answer-only segments for `codebase_question` and agents.
+- Purpose: Keep MCP contract documentation accurate.
 
 11. [x] Documentation update - `design.md` (MCP response flow diagram):
     - Documentation to read (repeat):
@@ -363,7 +365,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
 
 ### 2. Server: MCP agents answer-only responses
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 727168e, 585b497
 
 #### Overview
@@ -545,7 +547,7 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
 
 ### 3. Server: distance semantics for vector aggregations (min distance)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **7e897d9, eabb8c9**
 
 #### Overview
@@ -736,7 +738,7 @@ Switch vector “best match” aggregation to use minimum distance values (lower
 
 ### 4. Server: retrieval cutoff + fallback selection
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **7700d4a, 621762b**
 
 #### Overview
@@ -798,7 +800,11 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
      - Ensure `files` summaries are rebuilt from the filtered results (not the pre-cutoff list).
    - Example (selection outline):
      ```ts
-     const eligible = cutoffDisabled ? results : results.filter(r => typeof r.score === 'number' && r.score <= cutoff);
+     const eligible = cutoffDisabled
+       ? results
+       : results.filter(
+           (r) => typeof r.score === 'number' && r.score <= cutoff,
+         );
      const picked = eligible.length ? eligible : pickLowest(results, fallback);
      ```
 
@@ -850,61 +856,68 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Purpose: Validate missing score handling.
 
 10. [x] Add unit test for tie-break ordering:
-   - Documentation to read (repeat):
-     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
-   - Test type: Unit (vector search ordering)
-   - Location: `server/src/test/unit/tools-vector-search.test.ts`
-   - Description: Assert equal-distance items preserve original order after filtering/fallback.
-   - Purpose: Confirm stable ordering requirements.
+
+- Documentation to read (repeat):
+  - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Test type: Unit (vector search ordering)
+- Location: `server/src/test/unit/tools-vector-search.test.ts`
+- Description: Assert equal-distance items preserve original order after filtering/fallback.
+- Purpose: Confirm stable ordering requirements.
 
 11. [x] Add unit test for file summaries after filtering:
-   - Documentation to read (repeat):
-     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
-   - Test type: Unit (vector file summaries)
-   - Location: `server/src/test/unit/tools-vector-search.test.ts`
-   - Description: Assert `files` summaries are rebuilt from filtered results (e.g., excluded file paths are absent and chunk counts match filtered results).
-   - Purpose: Ensure summary payloads reflect the cutoff-filtered result set.
+
+- Documentation to read (repeat):
+  - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Test type: Unit (vector file summaries)
+- Location: `server/src/test/unit/tools-vector-search.test.ts`
+- Description: Assert `files` summaries are rebuilt from filtered results (e.g., excluded file paths are absent and chunk counts match filtered results).
+- Purpose: Ensure summary payloads reflect the cutoff-filtered result set.
 
 12. [x] Add unit test for invalid env values:
-   - Documentation to read (repeat):
-     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
-   - Test type: Unit (env parsing edge case)
-   - Location: `server/src/test/unit/tools-vector-search.test.ts`
-   - Description: Provide non-numeric or negative env values and assert defaults are used.
-   - Purpose: Ensure env parsing guards apply.
+
+- Documentation to read (repeat):
+  - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Test type: Unit (env parsing edge case)
+- Location: `server/src/test/unit/tools-vector-search.test.ts`
+- Description: Provide non-numeric or negative env values and assert defaults are used.
+- Purpose: Ensure env parsing guards apply.
 
 13. [x] Update server `.env` with retrieval cutoff defaults:
-   - Documentation to read (repeat):
-     - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
-   - Recap: document cutoff, bypass flag, and fallback defaults for local runs.
-   - Files to edit:
-     - `server/.env`
-   - Requirements:
-     - Add commented defaults for `CODEINFO_RETRIEVAL_DISTANCE_CUTOFF`, `CODEINFO_RETRIEVAL_CUTOFF_DISABLED`, and `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS`.
-     - Keep existing env ordering and comment style.
+
+- Documentation to read (repeat):
+  - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
+- Recap: document cutoff, bypass flag, and fallback defaults for local runs.
+- Files to edit:
+  - `server/.env`
+- Requirements:
+  - Add commented defaults for `CODEINFO_RETRIEVAL_DISTANCE_CUTOFF`, `CODEINFO_RETRIEVAL_CUTOFF_DISABLED`, and `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS`.
+  - Keep existing env ordering and comment style.
 
 14. [x] Documentation update - `design.md` (cutoff + fallback text):
-   - Documentation to read (repeat):
-     - Mermaid: Context7 `/mermaid-js/mermaid`
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `design.md`
-   - Location: `design.md`
-   - Description: Add retrieval cutoff, fallback defaults, and bypass flag text.
-   - Purpose: Keep retrieval strategy documentation accurate.
+
+- Documentation to read (repeat):
+  - Mermaid: Context7 `/mermaid-js/mermaid`
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Document: `design.md`
+- Location: `design.md`
+- Description: Add retrieval cutoff, fallback defaults, and bypass flag text.
+- Purpose: Keep retrieval strategy documentation accurate.
 
 15. [x] Documentation update - `design.md` (cutoff flow diagram):
-   - Documentation to read (repeat):
-     - Mermaid: Context7 `/mermaid-js/mermaid`
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `design.md`
-   - Location: `design.md`
-   - Description: Update or add a Mermaid retrieval flow diagram that includes cutoff + fallback steps.
-   - Purpose: Ensure architecture diagrams reflect cutoff logic.
+
+- Documentation to read (repeat):
+  - Mermaid: Context7 `/mermaid-js/mermaid`
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Document: `design.md`
+- Location: `design.md`
+- Description: Update or add a Mermaid retrieval flow diagram that includes cutoff + fallback steps.
+- Purpose: Ensure architecture diagrams reflect cutoff logic.
 
 16. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
+
+- Documentation to read (repeat):
+  - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+  - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
@@ -994,7 +1007,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
 
 ### 5. Server: tool payload size caps + server-side dedupe
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 72a98af
 
 #### Overview
@@ -1119,63 +1132,70 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Purpose: Ensure line totals match capped payloads.
 
 10. [x] Add unit test for file summaries after caps:
-   - Documentation to read (repeat):
-     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
-   - Test type: Unit (vector file summaries)
-   - Location: `server/src/test/unit/tools-vector-search.test.ts`
-   - Description: Assert `files` summaries use the capped results (chunk counts/line counts align with truncated output).
-   - Purpose: Keep summary payloads consistent with capped results.
+
+- Documentation to read (repeat):
+  - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Test type: Unit (vector file summaries)
+- Location: `server/src/test/unit/tools-vector-search.test.ts`
+- Description: Assert `files` summaries use the capped results (chunk counts/line counts align with truncated output).
+- Purpose: Keep summary payloads consistent with capped results.
 
 11. [x] Add unit test for invalid env values:
-   - Documentation to read (repeat):
-     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
-   - Test type: Unit (env parsing edge case)
-   - Location: `server/src/test/unit/tools-vector-search.test.ts`
-   - Description: Provide non-numeric or negative cap values and assert defaults are used.
-   - Purpose: Ensure env parsing guards apply.
+
+- Documentation to read (repeat):
+  - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Test type: Unit (env parsing edge case)
+- Location: `server/src/test/unit/tools-vector-search.test.ts`
+- Description: Provide non-numeric or negative cap values and assert defaults are used.
+- Purpose: Ensure env parsing guards apply.
 
 12. [x] Add unit test for server-side dedupe (duplicate chunk ids + top-2 per file):
-   - Documentation to read (repeat):
-     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
-   - Test type: Unit (payload dedupe)
-   - Location: `server/src/test/unit/tools-vector-search.test.ts`
-   - Description: Provide duplicate `chunkId` values and >2 chunks per file, assert only the two lowest distances remain.
-   - Purpose: Verify stage-1 dedupe + stage-2 top-2 selection.
+
+- Documentation to read (repeat):
+  - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Test type: Unit (payload dedupe)
+- Location: `server/src/test/unit/tools-vector-search.test.ts`
+- Description: Provide duplicate `chunkId` values and >2 chunks per file, assert only the two lowest distances remain.
+- Purpose: Verify stage-1 dedupe + stage-2 top-2 selection.
 
 13. [x] Add unit test for server-side dedupe (identical chunk text within same file):
-   - Documentation to read (repeat):
-     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
-   - Test type: Unit (payload dedupe)
-   - Location: `server/src/test/unit/tools-vector-search.test.ts`
-   - Description: Provide identical chunk text within the same file and assert only one remains.
-   - Purpose: Verify dedupe by identical chunk text.
+
+- Documentation to read (repeat):
+  - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Test type: Unit (payload dedupe)
+- Location: `server/src/test/unit/tools-vector-search.test.ts`
+- Description: Provide identical chunk text within the same file and assert only one remains.
+- Purpose: Verify dedupe by identical chunk text.
 
 14. [x] Add unit test for server-side dedupe (identical chunk text across different files):
-   - Documentation to read (repeat):
-     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
-   - Test type: Unit (payload dedupe)
-   - Location: `server/src/test/unit/tools-vector-search.test.ts`
-   - Description: Provide identical chunk text in different `repo + relPath` buckets and assert both files remain.
-   - Purpose: Ensure dedupe does not remove cross-file citations.
+
+- Documentation to read (repeat):
+  - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Test type: Unit (payload dedupe)
+- Location: `server/src/test/unit/tools-vector-search.test.ts`
+- Description: Provide identical chunk text in different `repo + relPath` buckets and assert both files remain.
+- Purpose: Ensure dedupe does not remove cross-file citations.
 
 15. [x] Update server `.env` with tool cap defaults:
-   - Documentation to read (repeat):
-     - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
-   - Recap: document total and per-chunk cap defaults for local runs.
-   - Files to edit:
-     - `server/.env`
-   - Requirements:
-     - Add commented defaults for `CODEINFO_TOOL_MAX_CHARS` and `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
-     - Keep existing env ordering and comment style.
+
+- Documentation to read (repeat):
+  - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
+- Recap: document total and per-chunk cap defaults for local runs.
+- Files to edit:
+  - `server/.env`
+- Requirements:
+  - Add commented defaults for `CODEINFO_TOOL_MAX_CHARS` and `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
+  - Keep existing env ordering and comment style.
 
 16. [x] Documentation update - `design.md` (tool cap defaults text):
-   - Documentation to read (repeat):
-     - Mermaid: Context7 `/mermaid-js/mermaid`
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `design.md`
-   - Location: `design.md`
-   - Description: Document total/per-chunk cap defaults and truncation behavior in text.
-   - Purpose: Keep tool payload documentation accurate.
+
+- Documentation to read (repeat):
+  - Mermaid: Context7 `/mermaid-js/mermaid`
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Document: `design.md`
+- Location: `design.md`
+- Description: Document total/per-chunk cap defaults and truncation behavior in text.
+- Purpose: Keep tool payload documentation accurate.
 
 17. [x] Documentation update - `design.md` (payload cap diagram):
     - Documentation to read (repeat):
@@ -1280,7 +1300,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
 
 ### 6. Client: render citations without dedupe (server-only)
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 4174f78
 
 #### Overview
@@ -1412,7 +1432,7 @@ Ensure the client renders VectorSearch citations exactly as the server returns t
 
 ### 7. Client: tool details show distance labels + per-match distances
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 91420ea
 
 #### Overview
@@ -1458,13 +1478,13 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
-    - Replace ambiguous “Match” labels with explicit “Distance” labels (avoid the word “Score”).
-    - Display per-match distance values alongside each chunk in expanded tool details.
-    - Render per-match rows from tool payload `results` (not just file summaries), including the distance value and chunk preview.
-    - Avoid introducing deprecated Accordion `TransitionProps`/`TransitionComponent`; use slots/slotProps if adjustments are needed per MUI 6.5.x API.
-    - Skip or gracefully handle entries missing `repo` or `relPath` without breaking the tool panel.
-    - Render a placeholder (e.g., “—”) when `score` is missing and avoid crashing if `chunk` is empty/missing.
-    - Keep formatting consistent with existing tool detail accordions.
+   - Replace ambiguous “Match” labels with explicit “Distance” labels (avoid the word “Score”).
+   - Display per-match distance values alongside each chunk in expanded tool details.
+   - Render per-match rows from tool payload `results` (not just file summaries), including the distance value and chunk preview.
+   - Avoid introducing deprecated Accordion `TransitionProps`/`TransitionComponent`; use slots/slotProps if adjustments are needed per MUI 6.5.x API.
+   - Skip or gracefully handle entries missing `repo` or `relPath` without breaking the tool panel.
+   - Render a placeholder (e.g., “—”) when `score` is missing and avoid crashing if `chunk` is empty/missing.
+   - Keep formatting consistent with existing tool detail accordions.
    - Example (UI row outline):
      - `Distance: 0.532 · repo/path.ts` + preview text from `result.chunk`.
 
@@ -1531,31 +1551,34 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Purpose: Ensure missing distance/preview values are handled safely in Agents UI.
 
 10. [x] Update AgentsPage tool details test for missing `repo`/`relPath`:
-   - Documentation to read (repeat):
-     - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
-     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
-   - Test type: Client unit (UI component)
-   - Location: `client/src/test/agentsPage.toolsUi.test.tsx`
-   - Description: Include entries missing `repo`/`relPath` and assert the panel still renders available matches.
-   - Purpose: Ensure tool panels tolerate malformed payload entries.
+
+- Documentation to read (repeat):
+  - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
+  - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
+- Test type: Client unit (UI component)
+- Location: `client/src/test/agentsPage.toolsUi.test.tsx`
+- Description: Include entries missing `repo`/`relPath` and assert the panel still renders available matches.
+- Purpose: Ensure tool panels tolerate malformed payload entries.
 
 11. [x] Documentation update - `design.md` (tool details distance text):
-   - Documentation to read (repeat):
-     - Mermaid: Context7 `/mermaid-js/mermaid`
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `design.md`
-   - Location: `design.md`
-   - Description: Document that tool details show raw distance values and that lower is better.
-   - Purpose: Keep UI documentation accurate.
+
+- Documentation to read (repeat):
+  - Mermaid: Context7 `/mermaid-js/mermaid`
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Document: `design.md`
+- Location: `design.md`
+- Description: Document that tool details show raw distance values and that lower is better.
+- Purpose: Keep UI documentation accurate.
 
 12. [x] Documentation update - `design.md` (tool details UI diagram):
-   - Documentation to read (repeat):
-     - Mermaid: Context7 `/mermaid-js/mermaid`
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `design.md`
-   - Location: `design.md`
-   - Description: Update or add a Mermaid UI flow diagram if tool-details interactions are documented.
-   - Purpose: Ensure UI flow diagrams reflect distance display updates.
+
+- Documentation to read (repeat):
+  - Mermaid: Context7 `/mermaid-js/mermaid`
+  - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Document: `design.md`
+- Location: `design.md`
+- Description: Update or add a Mermaid UI flow diagram if tool-details interactions are documented.
+- Purpose: Ensure UI flow diagrams reflect distance display updates.
 
 13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read (repeat):
@@ -1644,7 +1667,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
 
 ### 8. Final verification + documentation + PR summary
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: 6a5246d
 
 #### Overview

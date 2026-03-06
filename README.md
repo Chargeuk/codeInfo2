@@ -78,6 +78,18 @@ To keep Windows and WSL in sync, use these settings.
 
 ### Mac & WSL That have followed the WSL setup above
 
+1. Install CLI (host): `npm install -g @openai/codex`.
+2. Ensure host.docker.internal is set to point to your local host
+3. Ensure you create the folder `${HOME}/Documents/dev` and open it in a terminal to procede with the following steps. Note that all repositories must be checked out under `${HOME}/Documents/dev` (or a subfolder of that directory) in order to be visible to CodeInfo2.
+4. Run `git clone https://github.com/Chargeuk/codeInfo2.git`
+5. Within the cloned repo create the following empty files:
+
+- ./server/.env.local
+- ./client/.env.local
+
+6. Run `start-gcf-server.sh` to allow docker from the containers to access your git credentials so it can push from the container.
+7. Run `npm run compose:local` to start the required local services.
+
 ### Corporate Registry and Certificate Overrides (Restricted Networks)
 
 Use this section only when your network requires internal registries and/or corporate CA certificates. Standard users can leave all `CODEINFO_*` values unset.
@@ -107,18 +119,6 @@ Corporate certificate directory requirements:
 | `CODEINFO_NODE_EXTRA_CA_CERTS` | `/etc/ssl/certs/ca-certificates.crt` | Server runtime export before Node starts |
 | `CODEINFO_CORP_CERTS_DIR` | `./certs/empty-corp-ca` compose fallback source | Compose server cert mount source to `/usr/local/share/ca-certificates/codeinfo-corp:ro` |
 | `CODEINFO_REFRESH_CA_CERTS_ON_START` | Disabled (`false` behavior unless value is `true`) | Server entrypoint CA refresh gate before `exec node dist/index.js` |
-
-1. Install CLI (host): `npm install -g @openai/codex`.
-2. Ensure host.docker.internal is set to point to your local host
-3. Ensure you create the folder `${HOME}/Documents/dev` and open it in a terminal to procede with the following steps. Note that all repositories must be checked out under `${HOME}/Documents/dev` (or a subfolder of that directory) in order to be visible to CodeInfo2.
-4. Run `git clone https://github.com/Chargeuk/codeInfo2.git`
-5. Within the cloned repo create the following empty files:
-
-- ./server/.env.local
-- ./client/.env.local
-
-6. Run `start-gcf-server.sh` to allow docker from the containers to access your git credentials so it can push from the container.
-7. Run `npm run compose:local` to start the required local services.
 
 # CodeInfo2 Details
 

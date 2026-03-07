@@ -705,8 +705,7 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. This task is i
 - Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
 - WebSocket browser API reference: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 - WebSocket message event reference: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
-- WebSocket hook implementation:
-  - `client/src/hooks/useChatWs.ts`
+- React 19.2 effect synchronization guidance: https://react.dev/learn/synchronizing-with-effects
 
 #### Subtasks
 
@@ -786,11 +785,9 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
 #### Documentation Locations
 
 - React Router 7 docs (`react-router-dom` 7.9.6 in this repo): https://reactrouter.com/home
-- Existing router usage patterns in repo tests:
-  - `client/src/test/chatPage.stream.test.tsx`
-  - `client/src/test/agentsPage.streaming.test.tsx`
 - Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
 - React Testing Library docs (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
+- Testing Library user-event docs (`@testing-library/user-event` 14.x): https://testing-library.com/docs/user-event/intro/
 - MUI 6.x docs reference for current `FlowsPage` component patterns:
   - MUI MCP `@mui/material@6.4.12`
 
@@ -866,11 +863,9 @@ Apply the smallest Flow-page-only fix only if the new live Flow regression from 
 #### Documentation Locations
 
 - React Router 7 docs (`react-router-dom` 7.9.6 in this repo): https://reactrouter.com/home
-- Existing router usage patterns in repo tests:
-  - `client/src/test/chatPage.stream.test.tsx`
-  - `client/src/test/agentsPage.streaming.test.tsx`
 - Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
 - React Testing Library docs (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
+- Testing Library user-event docs (`@testing-library/user-event` 14.x): https://testing-library.com/docs/user-event/intro/
 - MUI 6.x docs reference for current `FlowsPage` component patterns:
   - MUI MCP `@mui/material@6.4.12`
 

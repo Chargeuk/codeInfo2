@@ -483,6 +483,16 @@ describe('Flows page run/resume controls', () => {
         inflightId: 'flow-step-2',
         content: 'Run step two',
       });
+      expect(
+        logSpy.mock.calls.find(([entry]) => {
+          if (!entry || typeof entry !== 'object') return false;
+          const record = entry as {
+            message?: string;
+            context?: Record<string, unknown>;
+          };
+          return record.message === 'flows.page.live_transcript_retained';
+        }),
+      ).toBeUndefined();
       harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-1',
@@ -520,6 +530,7 @@ describe('Flows page run/resume controls', () => {
           previousInflightId: 'flow-step-1',
           currentInflightId: 'flow-step-2',
           reason: 'next_step_started',
+          proof: 'post_event_transcript_visible',
         }),
       });
     } finally {
@@ -601,6 +612,11 @@ describe('Flows page run/resume controls', () => {
         inflightId: 'flow-step-2',
         content: 'Run step two',
       });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        delta: 'Second step answer',
+      });
       harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-1',
@@ -610,6 +626,11 @@ describe('Flows page run/resume controls', () => {
         conversationId: 'flow-1',
         inflightId: 'flow-step-3',
         content: 'Run step three',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-3',
+        delta: 'Third step answer',
       });
 
       await waitFor(() => {

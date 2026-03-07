@@ -189,6 +189,14 @@ export default function FlowsPage() {
   const assistantTranscriptVisibleRef = useRef(false);
   const seenFlowInflightIdsRef = useRef<Set<string>>(new Set());
   const lastFlowInflightIdRef = useRef<string | null>(null);
+  const pendingTranscriptRetentionRef = useRef<
+    Array<{
+      conversationId: string;
+      previousInflightId: string;
+      currentInflightId: string;
+      requiredVisibleAssistantCount: number;
+    }>
+  >([]);
 
   const flowOptions = useMemo<FlowOption[]>(() => {
     const options = flows.map((flow) => ({
@@ -323,9 +331,10 @@ export default function FlowsPage() {
   useEffect(() => {
     seenFlowInflightIdsRef.current.clear();
     lastFlowInflightIdRef.current = null;
+    pendingTranscriptRetentionRef.current = [];
   }, [activeConversationId]);
 
-  const maybeLogLiveTranscriptRetained = useCallback(
+  const updateLiveTranscriptRetentionCandidate = useCallback(
     (event: ChatWsServerEvent) => {
       if (event.type !== 'user_turn' && event.type !== 'inflight_snapshot') {
         return;
@@ -348,12 +357,17 @@ export default function FlowsPage() {
         previousInflightId !== currentInflightId &&
         assistantTranscriptVisibleRef.current
       ) {
-        log('info', 'flows.page.live_transcript_retained', {
-          conversationId: event.conversationId,
-          previousInflightId,
-          currentInflightId,
-          reason: 'next_step_started',
-        });
+        const hasPendingCandidate = pendingTranscriptRetentionRef.current.some(
+          (candidate) => candidate.currentInflightId === currentInflightId,
+        );
+        if (!hasPendingCandidate) {
+          pendingTranscriptRetentionRef.current.push({
+            conversationId: event.conversationId,
+            previousInflightId,
+            currentInflightId,
+            requiredVisibleAssistantCount: seenInflights.size + 1,
+          });
+        }
       }
 
       const isNewInflight = !seenInflights.has(currentInflightId);
@@ -367,8 +381,50 @@ export default function FlowsPage() {
         lastFlowInflightIdRef.current = currentInflightId;
       }
     },
-    [getInflightId, log],
+    [getInflightId],
   );
+
+  useEffect(() => {
+    const pendingRetentions = pendingTranscriptRetentionRef.current;
+    if (pendingRetentions.length === 0) return;
+
+    const visibleAssistantMessages = messages.filter((message) => {
+      if (message.role !== 'assistant') return false;
+      if (message.kind === 'error' || message.kind === 'status') return false;
+      if (message.content.trim().length > 0) return true;
+      if (message.think?.trim().length) return true;
+      if ((message.tools?.length ?? 0) > 0) return true;
+      return false;
+    });
+    const retainedEarlierBubbleVisible = visibleAssistantMessages.some(
+      (message) => message.streamStatus === 'processing',
+    );
+
+    if (!retainedEarlierBubbleVisible) return;
+
+    while (pendingTranscriptRetentionRef.current.length > 0) {
+      const nextRetention = pendingTranscriptRetentionRef.current[0];
+      if (nextRetention.conversationId !== activeConversationId) {
+        pendingTranscriptRetentionRef.current.shift();
+        continue;
+      }
+      if (
+        visibleAssistantMessages.length <
+        nextRetention.requiredVisibleAssistantCount
+      ) {
+        return;
+      }
+
+      log('info', 'flows.page.live_transcript_retained', {
+        conversationId: nextRetention.conversationId,
+        previousInflightId: nextRetention.previousInflightId,
+        currentInflightId: nextRetention.currentInflightId,
+        reason: 'next_step_started',
+        proof: 'post_event_transcript_visible',
+      });
+      pendingTranscriptRetentionRef.current.shift();
+    }
+  }, [activeConversationId, log, messages]);
 
   const {
     connectionState: wsConnectionState,
@@ -415,7 +471,7 @@ export default function FlowsPage() {
         case 'analysis_delta':
         case 'tool_event':
         case 'turn_final':
-          maybeLogLiveTranscriptRetained(event);
+          updateLiveTranscriptRetentionCandidate(event);
           handleWsEvent(event);
           return;
         default:

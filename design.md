@@ -1624,7 +1624,7 @@ sequenceDiagram
 - The Flow page must keep step N's already-rendered assistant bubble visible when step N+1 starts streaming in the same conversation.
 - Flow transcript simulation in page tests should reuse the shared `setupChatWsHarness` websocket emitters so page coverage still exercises the same `useChatWs` and `useChatStream` path as Chat and Agents.
 - A stale earlier-step `user_turn` or `assistant_delta` replay must not clear the visible transcript or retarget the active assistant bubble for the newer step.
-- When a new inflight starts and the previous assistant bubble is still visible, the page emits `flows.page.live_transcript_retained` with `{ conversationId, previousInflightId, currentInflightId, reason: 'next_step_started' }` for manual verification.
+- When a new inflight starts and the previous assistant bubble is still visible, the page queues `flows.page.live_transcript_retained` and only emits it once post-event UI state proves the earlier bubble is still visible after the next-step transition. The marker payload is `{ conversationId, previousInflightId, currentInflightId, reason: 'next_step_started', proof: 'post_event_transcript_visible' }`.
 - Flow-page hardening around temporary `flowConversations` visibility churn stayed secondary in this story: Task 7 closed as N/A because Tasks 1-6 fixed the user-visible bug without needing a page-local transcript-retention guard.
 
 ```mermaid
@@ -1636,8 +1636,8 @@ sequenceDiagram
 
   Stream->>Bubble1: render step N assistant text
   Stream-->>Page: user_turn(step N+1)
-  Page-->>Page: log flows.page.live_transcript_retained
   Stream->>Bubble2: stream step N+1 text
+  Page-->>Page: log flows.page.live_transcript_retained (post-event proof)
   Stream-->>Page: stale user_turn/assistant_delta(step N replay)
   Page-->>Stream: ignore replayed older-step ownership change
   Bubble1-->>Bubble1: remains visible
@@ -1651,7 +1651,7 @@ sequenceDiagram
 - `chat.ws.client_non_final_ignored`: proves a stale older-inflight non-final event (`analysis_delta`, `tool_event`, `stream_warning`, or replayed older `inflight_snapshot`) was ignored before mutating active transcript state.
 - `chat.ws.client_turn_final_preserved`: proves a late older-inflight `turn_final` completed only its own older bubble and left the newer active inflight untouched.
 - `chat.ws.client_stale_event_ignored`: proves `useChatWs` dropped a lower-sequence same-inflight packet at the transport layer before it reached `useChatStream`.
-- `flows.page.live_transcript_retained`: proves the Flow page still showed the earlier step bubble when the next step started streaming.
+- `flows.page.live_transcript_retained`: proves the Flow page still showed the earlier step bubble after the next step transition was applied, not just before the next inflight was observed.
 - `flows.page.visibility_reset_guarded`: reserved for the conditional Flow page safeguard only; Task 7 closed as not applicable, so the final implementation does not rely on this marker during normal verification.
 
 ## Server testing & Docker
@@ -3785,9 +3785,11 @@ Assistant bubble binding invariant (Task 30):
 - Seen-inflight replay detection is conversation-local and survives `turn_final` cleanup, so deleting the finalized inflight's assistant-message mapping does not let a replayed older `user_turn` rebind the active bubble later.
 - `analysis_delta`, `tool_event`, and `stream_warning` follow the same stale-inflight rule: if they arrive for an older inflight while a newer one is active, the hook ignores the event before mutating reasoning text, tool state, or warning refs and emits `chat.ws.client_non_final_ignored` with the relevant `eventType`.
 - `inflight_snapshot` uses the same ownership marker with one extra rule: a snapshot for an unseen next inflight is still allowed to create the next assistant bubble, but a replay for an already-mapped older inflight is ignored and logged with `chat.ws.client_non_final_ignored`.
+- Once an inflight has finalized, replayed same-inflight `assistant_delta`, `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot` packets are also ignored. They reuse the existing Story 42 markers with `reason: 'finalized_inflight_replay'` so a finalized bubble cannot be reopened or duplicated after `turn_final` cleaned up its live assistant mapping.
 - These ownership rules live in `useChatStream`, not in `FlowsPage`, because Chat, Agents, and Flows all share the same transcript merge path and Flow only made the bug easier to reproduce.
 - The `send()` path forces creation of a new assistant bubble even when the previous assistant bubble is still `processing` (for example after pressing **Stop**).
 - `turn_final` remains intentionally different from non-final events: when a late final arrives for an older inflight, the hook updates only that older bubble’s completion state and metadata, leaves the newer active inflight and shared `threadId` intact, and emits `chat.ws.client_turn_final_preserved`.
+- If a duplicate `turn_final` replays after that inflight already finalized, the hook treats it as a no-op and reuses `chat.ws.client_turn_final_preserved` with `reason: 'finalized_inflight_replay'` rather than creating a fresh assistant bubble.
 - When a `turn_final` arrives for the matching inflight, the active bubble still completes normally and retains its text, metadata, and status transition.
 
 ```mermaid
@@ -3819,13 +3821,13 @@ sequenceDiagram
   Hook-->>WS: log chat.ws.client_user_turn_ignored
   Hook->>Bubble2: keep active assistant pointer
   WS->>Hook: assistant_delta(i1, " late tail")
-  Hook-->>Hook: inflight mismatch -> ignore delta
+  Hook-->>Hook: finalized same-inflight replay -> ignore delta
   Hook-->>WS: log chat.ws.client_assistant_delta_ignored
   WS->>Hook: analysis_delta(i1, " late tail")
-  Hook-->>Hook: stale non-final -> ignore event
+  Hook-->>Hook: finalized same-inflight replay -> ignore event
   Hook-->>WS: log chat.ws.client_non_final_ignored
   WS->>Hook: inflight_snapshot(i1 replay)
-  Hook-->>Hook: mapped older inflight -> ignore snapshot
+  Hook-->>Hook: finalized same-inflight replay -> ignore snapshot
   Hook-->>WS: log chat.ws.client_non_final_ignored
   WS->>Hook: turn_final(i1 late)
   Hook-->>WS: log chat.ws.client_turn_final_preserved
@@ -3839,7 +3841,7 @@ sequenceDiagram
   - `ignoredInflightId`
   - `activeInflightId`
   - `assistantMessageId`
-  - `reason: 'stale_inflight'`
+  - `reason: 'stale_inflight' | 'finalized_inflight_replay'`
 - Manual verification for stale `user_turn` replays uses `chat.ws.client_user_turn_ignored` with:
   - `conversationId`
   - `ignoredInflightId`
@@ -3850,12 +3852,12 @@ sequenceDiagram
   - `eventType`
   - `ignoredInflightId`
   - `activeInflightId`
-  - `reason: 'stale_inflight'`
+  - `reason: 'stale_inflight' | 'finalized_inflight_replay'`
 - Manual verification for preserved late finals uses `chat.ws.client_turn_final_preserved` with:
   - `conversationId`
   - `finalInflightId`
   - `activeInflightId`
-  - `reason: 'late_final_non_destructive'`
+  - `reason: 'late_final_non_destructive' | 'finalized_inflight_replay'`
 
 ```mermaid
 sequenceDiagram

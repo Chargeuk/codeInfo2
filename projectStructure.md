@@ -556,7 +556,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |- pages/
 |     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, rounded 14px bubbles, tool blocks, citations accordion (closed by default), stream status/thinking UI (1s idle guard, ignores tool-only waits), and raw-input send guards/logging
 |     |  |- AgentsPage.tsx ? agents UI with selector/stop/new-conversation controls, command `Start step` selector (`Step 1..N`), persisted conversation continuation, raw-instruction send guards, and shared user-markdown rendering/logging
-|     |  |- FlowsPage.tsx ? flows UI with selector/run/resume/stop controls, flow-filtered sidebar, step metadata transcript, and `flows.page.live_transcript_retained` logging when the next step starts without clearing the earlier bubble
+|     |  |- FlowsPage.tsx ? flows UI with selector/run/resume/stop controls, flow-filtered sidebar, step metadata transcript, and `flows.page.live_transcript_retained` logging only after post-event UI proof shows the earlier bubble stayed visible through the next-step transition
 |     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
 |     |  |- HomePage.tsx ? version card page
 |     |  |- LmStudioPage.tsx ? LM Studio config/status/models UI

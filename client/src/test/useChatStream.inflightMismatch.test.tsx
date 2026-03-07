@@ -480,6 +480,447 @@ describe('useChatStream inflight mismatch handling', () => {
     });
   });
 
+  it('ignores a replayed same-inflight assistant delta after turn_final', async () => {
+    const conversationId = 'flow-conversation-assistant-finalized-replay';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        delta: 'First reply',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 3,
+        inflightId: 'i1',
+        status: 'completed',
+        turnId: 'turn-1',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 4,
+        inflightId: 'i1',
+        delta: ' late tail',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.content).toBe('First reply');
+      expect(assistantMessages[0]?.streamStatus).toBe('complete');
+      expect(assistantMessages[0]?.segments?.[0]?.content).toBe('First reply');
+    });
+  });
+
+  it('ignores a replayed same-inflight analysis delta after turn_final', async () => {
+    const conversationId = 'flow-conversation-analysis-finalized-replay';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        delta: 'First reply',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'analysis_delta',
+        conversationId,
+        seq: 3,
+        inflightId: 'i1',
+        delta: 'First reasoning',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 4,
+        inflightId: 'i1',
+        status: 'completed',
+        turnId: 'turn-1',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'analysis_delta',
+        conversationId,
+        seq: 5,
+        inflightId: 'i1',
+        delta: ' late tail',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.content).toBe('First reply');
+      expect(assistantMessages[0]?.think).toBe('First reasoning');
+      expect(assistantMessages[0]?.streamStatus).toBe('complete');
+    });
+  });
+
+  it('ignores a replayed same-inflight tool event after turn_final', async () => {
+    const conversationId = 'flow-conversation-tool-finalized-replay';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'tool_event',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        event: {
+          type: 'tool-request',
+          callId: 'call-1',
+          name: 'search_repo',
+          stage: 'running',
+        },
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 3,
+        inflightId: 'i1',
+        status: 'completed',
+        turnId: 'turn-1',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'tool_event',
+        conversationId,
+        seq: 4,
+        inflightId: 'i1',
+        event: {
+          type: 'tool-result',
+          callId: 'call-1',
+          name: 'search_repo',
+          stage: 'completed',
+          result: { matches: 10 },
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.streamStatus).toBe('complete');
+      expect(assistantMessages[0]?.tools).toEqual([
+        expect.objectContaining({
+          id: 'call-1',
+          status: 'requesting',
+        }),
+      ]);
+    });
+  });
+
+  it('ignores a replayed same-inflight stream warning after turn_final', async () => {
+    const conversationId = 'flow-conversation-warning-finalized-replay';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'stream_warning',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        message: 'First warning',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 3,
+        inflightId: 'i1',
+        status: 'completed',
+        turnId: 'turn-1',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'stream_warning',
+        conversationId,
+        seq: 4,
+        inflightId: 'i1',
+        message: 'late replay warning',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.warnings).toEqual(['First warning']);
+      expect(assistantMessages[0]?.streamStatus).toBe('complete');
+    });
+  });
+
+  it('ignores a replayed same-inflight snapshot after turn_final', async () => {
+    const conversationId = 'flow-conversation-snapshot-same-inflight-replay';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        delta: 'First reply',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'analysis_delta',
+        conversationId,
+        seq: 3,
+        inflightId: 'i1',
+        delta: 'First reasoning',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'tool_event',
+        conversationId,
+        seq: 4,
+        inflightId: 'i1',
+        event: {
+          type: 'tool-request',
+          callId: 'call-1',
+          name: 'search_repo',
+          stage: 'running',
+        },
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 5,
+        inflightId: 'i1',
+        status: 'completed',
+        turnId: 'turn-1',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'inflight_snapshot',
+        conversationId,
+        seq: 6,
+        inflight: {
+          inflightId: 'i1',
+          assistantText: 'overwrite',
+          assistantThink: 'overwrite',
+          toolEvents: [
+            {
+              type: 'tool-result',
+              callId: 'call-1',
+              name: 'search_repo',
+              stage: 'completed',
+              result: { matches: 99 },
+            },
+          ],
+          startedAt: '2025-01-01T00:00:00.000Z',
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.content).toBe('First reply');
+      expect(assistantMessages[0]?.think).toBe('First reasoning');
+      expect(assistantMessages[0]?.streamStatus).toBe('complete');
+      expect(assistantMessages[0]?.tools).toEqual([
+        expect.objectContaining({
+          id: 'call-1',
+          status: 'requesting',
+        }),
+      ]);
+    });
+  });
+
+  it('ignores a duplicate same-inflight turn_final replay after finalization', async () => {
+    const conversationId = 'flow-conversation-turn-final-replay';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        delta: 'First reply',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 3,
+        inflightId: 'i1',
+        status: 'completed',
+        turnId: 'turn-1',
+        usage: { outputTokens: 1 },
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 4,
+        inflightId: 'i1',
+        status: 'failed',
+        turnId: 'turn-1-replay',
+        usage: { outputTokens: 99 },
+        error: { message: 'should be ignored' },
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.content).toBe('First reply');
+      expect(assistantMessages[0]?.streamStatus).toBe('complete');
+      expect(assistantMessages[0]?.usage).toEqual(
+        expect.objectContaining({ outputTokens: 1 }),
+      );
+      expect(assistantMessages[0]?.kind).toBeUndefined();
+    });
+  });
+
   it('applies analysis deltas to the active inflight reasoning state', async () => {
     const conversationId = 'flow-conversation-analysis-happy-path';
 

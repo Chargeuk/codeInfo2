@@ -281,6 +281,7 @@ export function useChatStream(
     new Map(),
   );
   const seenInflightIdsRef = useRef<Set<string>>(new Set());
+  const finalizedInflightIdsRef = useRef<Set<string>>(new Set());
   const toolCallsRef = useRef<Map<string, ToolCall>>(new Map());
   const segmentsRef = useRef<ChatSegment[]>([]);
   const assistantTextRef = useRef('');
@@ -297,6 +298,7 @@ export function useChatStream(
   useEffect(() => {
     assistantMessageIdByInflightIdRef.current.clear();
     seenInflightIdsRef.current.clear();
+    finalizedInflightIdsRef.current.clear();
   }, [conversationId]);
 
   useEffect(() => {
@@ -726,6 +728,7 @@ export function useChatStream(
     threadIdRef.current = null;
     assistantMessageIdByInflightIdRef.current.clear();
     seenInflightIdsRef.current.clear();
+    finalizedInflightIdsRef.current.clear();
     const nextConversationId = makeId();
     setConversationId(nextConversationId);
     conversationIdRef.current = nextConversationId;
@@ -743,6 +746,7 @@ export function useChatStream(
       threadIdRef.current = null;
       assistantMessageIdByInflightIdRef.current.clear();
       seenInflightIdsRef.current.clear();
+      finalizedInflightIdsRef.current.clear();
       setConversationId(nextConversationId);
       conversationIdRef.current = nextConversationId;
     },
@@ -768,6 +772,7 @@ export function useChatStream(
       if (!sameConversation) {
         assistantMessageIdByInflightIdRef.current.clear();
         seenInflightIdsRef.current.clear();
+        finalizedInflightIdsRef.current.clear();
       } else if (!hasActiveInflight) {
         assistantMessageIdByInflightIdRef.current.clear();
       }
@@ -904,6 +909,7 @@ export function useChatStream(
       if (!sameConversation) {
         assistantMessageIdByInflightIdRef.current.clear();
         seenInflightIdsRef.current.clear();
+        finalizedInflightIdsRef.current.clear();
       }
       conversationIdRef.current = historyConversationId;
       setConversationId(historyConversationId);
@@ -1358,6 +1364,7 @@ export function useChatStream(
 
         if (nextInflightId) {
           rememberSeenInflightId(nextInflightId);
+          finalizedInflightIdsRef.current.delete(nextInflightId);
           inflightIdRef.current = nextInflightId;
           setInflightId(nextInflightId);
         }
@@ -1460,10 +1467,23 @@ export function useChatStream(
 
       if (event.type === 'inflight_snapshot') {
         const eventInflightId = event.inflight.inflightId;
+        const finalizedInflightReplay =
+          finalizedInflightIdsRef.current.has(eventInflightId);
         const staleInflightSnapshot =
           currentInflightId !== null &&
           eventInflightId !== currentInflightId &&
           seenInflightIdsRef.current.has(eventInflightId);
+
+        if (finalizedInflightReplay) {
+          logWithChannel('info', 'chat.ws.client_non_final_ignored', {
+            conversationId: event.conversationId,
+            eventType: 'inflight_snapshot',
+            ignoredInflightId: eventInflightId,
+            activeInflightId: currentInflightId,
+            reason: 'finalized_inflight_replay',
+          });
+          return;
+        }
 
         if (staleInflightSnapshot) {
           logIgnoredNonFinalEvent('inflight_snapshot', eventInflightId);
@@ -1520,6 +1540,8 @@ export function useChatStream(
       const eventInflightId = event.inflightId;
       const preMappedAssistantId =
         assistantMessageIdByInflightIdRef.current.get(eventInflightId) ?? null;
+      const finalizedInflightReplay =
+        finalizedInflightIdsRef.current.has(eventInflightId);
       let assistantId = preMappedAssistantId;
       const resolveAssistantId = () => {
         if (assistantId === null) {
@@ -1533,6 +1555,17 @@ export function useChatStream(
         currentInflightId !== null && eventInflightId !== currentInflightId;
 
       if (event.type === 'assistant_delta') {
+        if (finalizedInflightReplay) {
+          logWithChannel('info', 'chat.ws.client_assistant_delta_ignored', {
+            conversationId: event.conversationId,
+            ignoredInflightId: eventInflightId,
+            activeInflightId: currentInflightId,
+            assistantMessageId: preMappedAssistantId,
+            reason: 'finalized_inflight_replay',
+          });
+          return;
+        }
+
         if (inflightMismatch) {
           logWithChannel('info', 'chat.ws.client_assistant_delta_ignored', {
             conversationId: event.conversationId,
@@ -1568,6 +1601,17 @@ export function useChatStream(
       }
 
       if (event.type === 'stream_warning') {
+        if (finalizedInflightReplay) {
+          logWithChannel('info', 'chat.ws.client_non_final_ignored', {
+            conversationId: event.conversationId,
+            eventType: 'stream_warning',
+            ignoredInflightId: eventInflightId,
+            activeInflightId: currentInflightId,
+            reason: 'finalized_inflight_replay',
+          });
+          return;
+        }
+
         if (inflightMismatch) {
           logIgnoredNonFinalEvent('stream_warning', eventInflightId);
           return;
@@ -1593,6 +1637,17 @@ export function useChatStream(
       }
 
       if (event.type === 'analysis_delta') {
+        if (finalizedInflightReplay) {
+          logWithChannel('info', 'chat.ws.client_non_final_ignored', {
+            conversationId: event.conversationId,
+            eventType: 'analysis_delta',
+            ignoredInflightId: eventInflightId,
+            activeInflightId: currentInflightId,
+            reason: 'finalized_inflight_replay',
+          });
+          return;
+        }
+
         if (inflightMismatch) {
           logIgnoredNonFinalEvent('analysis_delta', eventInflightId);
           return;
@@ -1610,6 +1665,17 @@ export function useChatStream(
       }
 
       if (event.type === 'tool_event') {
+        if (finalizedInflightReplay) {
+          logWithChannel('info', 'chat.ws.client_non_final_ignored', {
+            conversationId: event.conversationId,
+            eventType: 'tool_event',
+            ignoredInflightId: eventInflightId,
+            activeInflightId: currentInflightId,
+            reason: 'finalized_inflight_replay',
+          });
+          return;
+        }
+
         if (inflightMismatch) {
           logIgnoredNonFinalEvent('tool_event', eventInflightId);
           return;
@@ -1627,8 +1693,19 @@ export function useChatStream(
       }
 
       if (event.type === 'turn_final') {
+        if (finalizedInflightReplay) {
+          logWithChannel('info', 'chat.ws.client_turn_final_preserved', {
+            conversationId: event.conversationId,
+            finalInflightId: eventInflightId,
+            activeInflightId: currentInflightId,
+            reason: 'finalized_inflight_replay',
+          });
+          return;
+        }
+
         const assistantId = resolveAssistantId();
         rememberSeenInflightId(event.inflightId);
+        finalizedInflightIdsRef.current.add(event.inflightId);
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
 
         const usage = normalizeUsage(event.usage);

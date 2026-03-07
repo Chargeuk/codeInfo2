@@ -191,11 +191,21 @@ This story does not require new transport contracts or persistence shapes for th
     - `client/src/hooks/useChatStream.ts:1499` (`analysis_delta`)
     - `client/src/hooks/useChatStream.ts:1513` (`tool_event`)
     - `client/src/hooks/useChatStream.ts:1404` (`inflight_snapshot`)
-  - Shared mutable refs used to compose assistant message content:
-    - `client/src/hooks/useChatStream.ts:280`
-    - `client/src/hooks/useChatStream.ts:285`
-    - `client/src/hooks/useChatStream.ts:416`
-    - `client/src/hooks/useChatStream.ts:440`
+- Shared mutable refs used to compose assistant message content:
+  - `client/src/hooks/useChatStream.ts:280`
+  - `client/src/hooks/useChatStream.ts:285`
+  - `client/src/hooks/useChatStream.ts:416`
+  - `client/src/hooks/useChatStream.ts:440`
+- Existing helpers that should be reused rather than replaced:
+  - `ensureAssistantMessage`
+  - `syncAssistantMessage`
+  - `resetInflightState`
+  - `resetAssistantPointer`
+  - websocket sequence filtering in `client/src/hooks/useChatWs.ts`
+- Existing test support that should be extended rather than recreated:
+  - `client/src/test/support/mockChatWs.ts`
+  - `setupChatWsHarness`
+  - harness emitters such as `emitUserTurn`, `emitAssistantDelta`, `emitAnalysisDelta`, `emitToolEvent`, `emitStreamWarning`, `emitInflightSnapshot`, and `emitFinal`
 
 - Secondary Flow-specific amplifier:
   - Flow page clears transcript when active conversation falls out of filtered `flowConversations`.
@@ -366,6 +376,7 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
      - `client/src/hooks/useChatStream.ts`
    - Goal:
      - understand exactly how a stale `assistant_delta` for an older inflight currently mutates the active shared refs
+     - identify where to reuse `ensureAssistantMessage`, `syncAssistantMessage`, `resetInflightState`, and `resetAssistantPointer` instead of adding new helper functions
 2. [ ] Update `client/src/hooks/useChatStream.ts` so stale mismatched `assistant_delta` events are rejected by inflight identity even when `status !== 'sending'`.
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
@@ -373,6 +384,7 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
      - keep the current matching-inflight happy path working
      - do not introduce synthetic Flow-only `sending` state
      - do not change websocket contracts or page-level event shapes
+     - reuse the existing assistant-message targeting and sync helpers instead of creating parallel bubble-management logic
 3. [ ] Update the existing proof test so it becomes a passing regression.
    - Files to edit:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
@@ -435,6 +447,8 @@ Extend the same inflight-safety rule to the other websocket events that can muta
      - `tool_event`
      - `stream_warning`
      - `inflight_snapshot`
+   - Reuse target:
+     - extend the existing `handleWsEvent` branches and shared refs/helpers in `useChatStream` rather than introducing a second websocket event dispatcher
 2. [ ] Update `client/src/hooks/useChatStream.ts` so stale mismatched `user_turn` and other non-final events are ignored consistently during Flow-style idle streaming.
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
@@ -443,6 +457,7 @@ Extend the same inflight-safety rule to the other websocket events that can muta
      - a legitimate next-step `user_turn` for a new inflight must still create or target the correct next assistant bubble
      - matching inflight events still update normally
      - stale earlier inflight events do not overwrite reasoning text, warnings, tool state, or snapshot-driven visible state
+     - reuse existing reset and assistant-targeting helpers instead of introducing new refs or duplicate state containers
 3. [ ] Add hook-level regression coverage for each event type under a Flow-style idle lifecycle.
    - Files to edit/create:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
@@ -509,6 +524,8 @@ Make sure the source-level fix does not reintroduce older stream-ordering bugs. 
      - `client/src/hooks/useChatWs.ts`
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/useChatWs.test.ts`
+   - Reuse target:
+     - preserve the existing `useChatWs` per-`(conversationId, inflightId)` sequence filter instead of adding a second stale-packet filter in a different layer
 2. [ ] Update `client/src/hooks/useChatStream.ts` and `client/src/hooks/useChatWs.ts` only as needed to preserve non-destructive late-final behavior and keep same-inflight lower-sequence filtering owned by the websocket layer.
    - Files to edit only if needed:
      - `client/src/hooks/useChatStream.ts`
@@ -516,13 +533,16 @@ Make sure the source-level fix does not reintroduce older stream-ordering bugs. 
    - Required behavior:
      - a late `turn_final` for an older inflight must not damage the currently active inflight
      - lower-sequence same-inflight websocket transcript events must continue to be ignored before they reach `handleWsEvent`
-     - sequence resets for a new inflight must still be accepted
+      - sequence resets for a new inflight must still be accepted
+      - reuse the existing `inflightKey` and `lastSeqByKeyRef` logic in `useChatWs` instead of creating a new sequence-tracking structure
 3. [ ] Add or update regression coverage for:
    - late `turn_final` for an older inflight
    - lower-sequence same-inflight websocket transcript events arriving after newer state
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
-     - `client/src/test/useChatWs.test.ts`
+      - `client/src/test/useChatWs.test.ts`
+   - Reuse target:
+     - extend the existing websocket regression suites and helper assertions instead of creating a separate ordering-only test harness
 4. [ ] Re-run shared consumer regression checks after the ordering/finalization changes.
    - Files to read/edit only if failures require updates:
      - `client/src/test/agentsPage.streaming.test.tsx`
@@ -576,6 +596,9 @@ Prove the user-visible Flow behavior is fixed in the actual page. Only if the sh
      - `client/src/pages/FlowsPage.tsx`
      - `client/src/test/flowsPage.test.tsx`
      - `client/src/test/flowsPage.run.test.tsx`
+     - `client/src/test/support/mockChatWs.ts`
+   - Reuse target:
+     - use the existing `setupChatWsHarness` helper and emitters from `mockChatWs.ts` for Flow transcript event simulation
 2. [ ] Add a Flow-page regression test that simulates two sequential Flow step inflights and asserts the earlier assistant bubble text remains visible while the later step streams.
    - Files to edit/create:
      - `client/src/test/flowsPage.run.test.tsx`
@@ -583,6 +606,8 @@ Prove the user-visible Flow behavior is fixed in the actual page. Only if the sh
       - first bubble text remains visible after the next step starts
       - stale earlier-step events do not remove that text from the live UI
       - a stale earlier-step `user_turn` replay does not reset the active transcript or retarget the current assistant bubble
+   - Constraint:
+     - extend the existing websocket harness and emit helpers rather than creating page-specific websocket mocks
 3. [ ] Add a Flow-page regression that remounts or revisits the Flow transcript after the live run scenario and proves the same bubble text remains visible without relying on reload to recover missing content.
    - Files to edit/create:
      - `client/src/test/flowsPage.run.test.tsx`

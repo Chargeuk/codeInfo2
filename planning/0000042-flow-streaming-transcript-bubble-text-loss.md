@@ -355,6 +355,7 @@ This story does not require new transport contracts or persistence shapes for th
 
 - Task Status: `__completed__`
 - Git Commits:
+  - `94f754a2` - `DEV-[0000042] - Preserve websocket seq filtering for chat streaming`
   - `cd3c9877` - `DEV-[0000042] - Guard stale assistant deltas in shared flow streaming`
 
 #### Overview

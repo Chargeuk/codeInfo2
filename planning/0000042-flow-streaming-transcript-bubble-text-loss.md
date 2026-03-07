@@ -2149,3 +2149,195 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
   - `npm run test:summary:e2e` passed with 42/42 tests green in `logs/test-summaries/e2e-tests-latest.log`
   - `npm run lint --workspaces` completed with the same pre-existing server import-order warnings and no new errors
   - `npm run format:check --workspaces` passed cleanly
+
+---
+
+### 12. Finalized-inflight replay hardening, Flow validation marker proof, and Task 7 bookkeeping cleanup
+
+- Task Status: `__todo__`
+- Git Commits:
+
+#### Overview
+
+A later branch review identified three remaining holes that still need explicit follow-up before Story 42 can be treated as fully closed:
+
+- replayed same-inflight transcript packets received after `turn_final` can still create a phantom assistant bubble because the assistant-message mapping was already deleted
+- the shipped `flows.page.live_transcript_retained` marker is currently logged too early to serve as strong proof that the earlier bubble actually remained visible after the next step was applied
+- Task 7 was correctly closed as not applicable, but its unchecked conditional subtasks/testing steps still leave this story looking like the next active todo plan
+
+This task keeps the scope narrow:
+
+- harden the shared hook against post-final same-inflight replays
+- strengthen the Flow-page retention marker so it reflects post-event UI truth rather than pre-event state
+- fix the plan bookkeeping so conditional N/A work no longer leaves the story falsely open
+
+Do not widen this task into contract/schema changes, Flow-only stream ownership logic, or unrelated sidebar refactors.
+
+#### Documentation Locations
+
+- React 19.2 effect synchronization: https://react.dev/learn/synchronizing-with-effects
+  - use this for reasoning about late async updates that should be ignored once a rendered unit of work has already been finalized
+- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
+  - use this for current test APIs in the repo when adding the separate replay regressions
+- Jest 30 getting started: https://jestjs.io/docs/getting-started
+  - use this for the targeted regression workflow and wrapper interpretation
+- React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+  - use this for the hook and Flow page assertions required by this task
+- Testing Library user-event: https://testing-library.com/docs/user-event/intro/
+  - use this if the Flow page regression needs explicit page interaction around the retained-transcript proof
+- Playwright docs: https://playwright.dev/docs/intro
+  - use this for the manual browser replay and screenshot verification steps
+- MUI 6.x docs reference for current `FlowsPage` component patterns:
+  - MUI MCP `@mui/material@6.4.12`
+  - use this because any Flow-page marker change must preserve the existing MUI 6.x page structure and behavior
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
+  - use this when updating `design.md` diagrams for any finalized-replay or Flow-marker behavior changes
+
+#### Subtasks
+
+1. [ ] Re-read the current post-final replay paths, Flow retention marker logic, and Task 7 closeout bookkeeping before editing.
+   - Files to read:
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/pages/FlowsPage.tsx`
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+     - `client/src/test/flowsPage.run.test.tsx`
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+   - Required outcome:
+     - identify the exact places where post-final same-inflight packets can still create a new assistant bubble
+     - identify why `flows.page.live_transcript_retained` currently reflects pre-event visibility rather than post-event retention
+     - identify the exact Task 7 boxes that must be normalized once this task lands
+2. [ ] Update `client/src/hooks/useChatStream.ts` so post-final same-inflight transcript replays are ignored instead of creating a new bubble or reopening a finalized one.
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+   - Start here in code:
+     - the `turn_final` branch inside `handleWsEvent`
+     - the helper path that resolves or creates assistant bubbles for transcript events
+   - Required behavior:
+     - replayed same-inflight `assistant_delta`, `analysis_delta`, `tool_event`, `stream_warning`, `inflight_snapshot`, and duplicate `turn_final` packets received after finalization must not create a new assistant bubble
+     - the already-finalized assistant bubble must keep its existing text/status/metadata
+     - legitimate unseen next inflights must still create their own assistant bubble normally after a previous inflight finalizes
+     - do not move sequence filtering out of `useChatWs`
+     - do not introduce Flow-only fallback logic for this shared-hook concern
+3. [ ] Keep logging coherent for ignored finalized-inflight replays without weakening the existing Story 42 markers.
+   - Files to edit only if required:
+     - `client/src/hooks/useChatStream.ts`
+     - `design.md`
+   - Required outcome:
+     - ignored finalized-inflight replays either reuse the existing ignore markers with a clear reason payload or introduce the smallest possible additional marker if reuse is not sufficient
+     - the final design docs explain how post-final replay ignore behavior differs from stale cross-inflight ignore behavior
+4. [ ] Add a separate hook regression test for replayed same-inflight `assistant_delta` after `turn_final`.
+   - Test type:
+     - hook regression test
+   - Location:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Required assertions:
+     - the finalized assistant bubble keeps its existing content/status
+     - no duplicate assistant bubble is created
+     - the replayed delta does not reopen the finalized bubble
+5. [ ] Add a separate hook regression test for replayed same-inflight `analysis_delta` after `turn_final`.
+   - Test type:
+     - hook regression test
+   - Location:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Required assertions:
+     - finalized reasoning state does not change
+     - no duplicate assistant bubble is created
+     - the finalized bubble does not return to `processing`
+6. [ ] Add a separate hook regression test for replayed same-inflight `tool_event` after `turn_final`.
+   - Test type:
+     - hook regression test
+   - Location:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Required assertions:
+     - finalized tool state does not change
+     - no duplicate assistant bubble is created
+     - no new processing bubble appears for the replayed tool event
+7. [ ] Add a separate hook regression test for replayed same-inflight `stream_warning` after `turn_final`.
+   - Test type:
+     - hook regression test
+   - Location:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Required assertions:
+     - finalized warning state does not change unexpectedly
+     - no duplicate assistant bubble is created
+     - the finalized bubble remains finalized
+8. [ ] Add a separate hook regression test for replayed same-inflight `inflight_snapshot` after `turn_final`.
+   - Test type:
+     - hook regression test
+   - Location:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Required assertions:
+     - the finalized assistant bubble keeps its existing text/reasoning/tool state
+     - no duplicate assistant bubble is created
+     - the replayed snapshot does not put the finalized bubble back into `processing`
+9. [ ] Add a separate hook regression test for duplicate same-inflight `turn_final` replay after finalization.
+   - Test type:
+     - hook regression test
+   - Location:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Required assertions:
+     - the finalized bubble remains singular and finalized
+     - duplicate finalization does not create a new bubble
+     - previously finalized metadata stays intact
+10. [ ] Re-run nearby shared-consumer regressions that exercise late-final and transcript-ownership behavior.
+   - Files to read/edit only if failures require updates:
+     - `client/src/test/chatPage.stream.test.tsx`
+     - `client/src/test/agentsPage.streaming.test.tsx`
+     - `client/src/test/flowsPage.run.test.tsx`
+   - Required outcome:
+     - the shared hook hardening does not regress Chat, Agents, or the Flow happy path
+11. [ ] Update `client/src/pages/FlowsPage.tsx` so `flows.page.live_transcript_retained` is emitted only after the page has enough post-event state to prove the earlier transcript actually remained visible through the next-step transition.
+   - Files to edit:
+     - `client/src/pages/FlowsPage.tsx`
+   - Constraint:
+     - keep this change limited to marker correctness/evidence strength
+     - do not convert this into Flow-only stream ownership logic
+     - do not widen scope into unrelated `flowConversations` reset hardening from Task 7
+   - Required outcome:
+     - the marker is tied to retained post-event UI state rather than only to pre-event visibility plus a new inflight id
+12. [ ] Add or update a separate Flow page regression proving the strengthened `flows.page.live_transcript_retained` marker only fires when the earlier bubble remains visible after the next step is applied.
+   - Test type:
+     - page integration regression test
+   - Location:
+     - `client/src/test/flowsPage.run.test.tsx`
+   - Required assertions:
+     - the earlier Flow bubble is still visible after the next step transition that emits the marker
+     - stale replay-only transitions do not move the marker bookkeeping backward
+     - the test proves the marker now reflects post-event transcript retention rather than a pre-event guess
+13. [ ] Normalize Task 7 N/A bookkeeping in this story file so conditional subtasks/testing steps no longer leave Story 42 falsely looking like the next active todo plan.
+   - Files to edit:
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+   - Required outcome:
+     - Task 7 still clearly records that no Flow-page hardening was required
+     - conditional Task 7 boxes are normalized so the plan no longer appears unfinished solely because that task was N/A
+     - the story remains active only because of Task 12 until this new work is complete
+14. [ ] Update `design.md`, `projectStructure.md`, and the `Acceptance audit` section in this story file if Task 12 changes the documented replay-ignore rules, Flow marker semantics, or story closeout bookkeeping.
+   - Files to edit:
+     - `design.md`
+     - `projectStructure.md`
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+   - Required content:
+     - document the final post-final replay ignore rule distinctly from stale cross-inflight ignores
+     - document the strengthened Flow retention marker semantics
+     - update the Acceptance audit evidence trail if Task 12 changes which markers/manual checks are still considered valid proof
+15. [ ] Update this story file’s Implementation notes for Task 12 once the code and tests are complete.
+   - Files to edit:
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Re-run because this task changes the final story plan/acceptance closeout and the full revalidation should follow the repo’s wrapper-first handoff convention.
+2. [ ] `npm run build:summary:client` - Required because Task 12 changes client hook and Flow page behavior.
+3. [ ] `npm run compose:build:summary` - Required clean compose build re-check before browser validation.
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit` - Re-run to preserve the full story-wide validation matrix even though the expected code changes remain client-focused.
+6. [ ] `npm run test:summary:server:cucumber` - Re-run because Task 12 is intended to be the final story-closeout pass and should repeat the full wrapper suite.
+7. [ ] `npm run test:summary:client` - Mandatory because Task 12 adds new client regression coverage and changes shared client behavior.
+8. [ ] `npm run test:summary:e2e` - Re-run the full browser-level wrapper suite again for the renewed final handoff.
+9. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save screenshots to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task12-post-final-replay-hardened.png` and `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task12-flow-marker-after-retention.png`, review those screenshots to confirm no phantom bubble appears after a post-final same-inflight replay and that the earlier Flow bubble remains visible at the point where the strengthened retention marker is emitted, and confirm the debug console contains the expected final Story 42 replay/retention markers with no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes

@@ -499,18 +499,27 @@ Handle the `user_turn` branch separately from later transcript events. This task
    - Files to edit:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
    - Documentation for this subtask:
-     - Jest 30: Context7 `/websites/jestjs_io_30_0`
+     - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
    - Required assertions:
      - stale `user_turn` is ignored when it arrives after a newer inflight has already become active
-4. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the `user_turn` filtering does not break them.
+4. [ ] Add a hook-level no-op regression for `user_turn` replay behavior.
+   - Files to edit:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Required assertions:
+     - a repeated same-inflight `user_turn` does not reset the assistant pointer or create a duplicate active assistant bubble
+     - a stale older-inflight `user_turn` replay remains a no-op after a newer inflight has already become active
+5. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the `user_turn` filtering does not break them.
    - Files to read/edit only if failures require updates:
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/agentsPage.streaming.test.tsx`
-5. [ ] Update this story file’s Implementation notes for Task 2 once the code and tests are complete.
+6. [ ] Update this story file’s Implementation notes for Task 2 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-6. [ ] Repo-wide lint + format gate for this task.
+7. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -591,21 +600,34 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Files to edit:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
    - Documentation for this subtask:
-     - Jest 30: Context7 `/websites/jestjs_io_30_0`
+     - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
    - Required assertions:
+     - matching-inflight `analysis_delta` still updates visible reasoning text normally
+     - matching-inflight `tool_event` still updates visible tool state normally
+     - matching-inflight `stream_warning` still adds the warning to the visible message normally
+     - matching-inflight `inflight_snapshot` still hydrates visible state normally
      - stale `analysis_delta` is ignored
      - stale `tool_event` is ignored
      - stale `stream_warning` is ignored
      - stale `inflight_snapshot` is ignored
-4. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the broader mismatch filtering does not break them.
+4. [ ] Add a corner-case regression for warning dedupe and no-op behavior.
+   - Files to edit:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Required assertions:
+     - a duplicate `stream_warning` message for the same inflight is not added twice to the visible warning list
+     - a stale duplicate warning from an older inflight remains a no-op
+5. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the broader mismatch filtering does not break them.
    - Files to read/edit only if failures require updates:
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/agentsPage.streaming.test.tsx`
-5. [ ] Update this story file’s Implementation notes for Task 3 once the code and tests are complete.
+6. [ ] Update this story file’s Implementation notes for Task 3 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-6. [ ] Repo-wide lint + format gate for this task.
+7. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -764,13 +786,22 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. This task is i
      - `client/src/test/chatPage.stream.test.tsx`
    - Reuse target:
      - extend the existing websocket regression suites and helper assertions instead of creating a separate ordering-only test harness
-4. [ ] Re-run shared consumer regression checks after the websocket sequence changes.
+4. [ ] Add an explicit sequence-boundary regression for new inflight resets versus stale prior inflight packets.
+   - Files to edit:
+     - `client/src/test/useChatWs.test.ts`
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - WebSocket message events: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
+   - Required assertions:
+     - a new `inflightId` with reset `seq: 1` is accepted as a new stream
+     - a later packet from the old inflight with lower or equal `seq` does not leak through after the new inflight becomes active
+5. [ ] Re-run shared consumer regression checks after the websocket sequence changes.
    - Files to read/edit only if failures require updates:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
-5. [ ] Update this story file’s Implementation notes for Task 5 once the code and tests are complete.
+6. [ ] Update this story file’s Implementation notes for Task 5 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-6. [ ] Repo-wide lint + format gate for this task.
+7. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

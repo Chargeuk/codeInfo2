@@ -641,7 +641,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 3. Shared hook fix: stale non-final events beyond `assistant_delta` and `user_turn`
 
-- Task Status: `__to_do__`
+- Task Status: `__completed__`
 - Git Commits:
 
 #### Overview
@@ -667,7 +667,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
 
 #### Subtasks
 
-1. [ ] Read the remaining non-final event branches in the shared hook before changing code.
+1. [x] Read the remaining non-final event branches in the shared hook before changing code.
    - Files to read:
      - `client/src/hooks/useChatStream.ts`
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
@@ -683,7 +683,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
      - `inflight_snapshot`
    - Reuse target:
      - extend the existing `handleWsEvent` branches and shared refs/helpers in `useChatStream` rather than introducing new event containers
-2. [ ] Update `client/src/hooks/useChatStream.ts` so stale mismatched non-final events are ignored consistently during Flow-style idle streaming.
+2. [x] Update `client/src/hooks/useChatStream.ts` so stale mismatched non-final events are ignored consistently during Flow-style idle streaming.
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
    - Start here in code:
@@ -695,7 +695,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
      - matching inflight events still update normally
      - stale earlier inflight events do not overwrite reasoning text, warnings, tool state, or snapshot-driven visible state
      - reuse existing reset and assistant-targeting helpers instead of introducing new refs or duplicate state containers
-3. [ ] Add or update a structured client log line for stale non-final event ignore paths.
+3. [x] Add or update a structured client log line for stale non-final event ignore paths.
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
    - Start here in code:
@@ -713,7 +713,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
      - give the Manual Playwright-MCP check one stable marker for all non-final event types this task hardens
    - When this subtask is complete:
      - each ignored `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot` emits `chat.ws.client_non_final_ignored` with the correct `eventType`
-4. [ ] Add a matching-inflight `analysis_delta` happy-path test.
+4. [x] Add a matching-inflight `analysis_delta` happy-path test.
    - Test type:
      - hook regression test
    - Location:
@@ -725,7 +725,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-5. [ ] Add a stale `analysis_delta` regression test.
+5. [x] Add a stale `analysis_delta` regression test.
    - Test type:
      - hook regression test
    - Location:
@@ -737,7 +737,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-6. [ ] Add a matching-inflight `tool_event` happy-path test.
+6. [x] Add a matching-inflight `tool_event` happy-path test.
    - Test type:
      - hook regression test
    - Location:
@@ -749,7 +749,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-7. [ ] Add a stale `tool_event` regression test.
+7. [x] Add a stale `tool_event` regression test.
    - Test type:
      - hook regression test
    - Location:
@@ -761,7 +761,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-8. [ ] Add a matching-inflight `stream_warning` happy-path test.
+8. [x] Add a matching-inflight `stream_warning` happy-path test.
    - Test type:
      - hook regression test
    - Location:
@@ -773,7 +773,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-9. [ ] Add a stale `stream_warning` regression test.
+9. [x] Add a stale `stream_warning` regression test.
    - Test type:
      - hook regression test
    - Location:
@@ -785,7 +785,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-10. [ ] Add a duplicate `stream_warning` dedupe test.
+10. [x] Add a duplicate `stream_warning` dedupe test.
    - Test type:
      - hook regression test
    - Location:
@@ -797,7 +797,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-11. [ ] Add a matching-inflight `inflight_snapshot` happy-path test.
+11. [x] Add a matching-inflight `inflight_snapshot` happy-path test.
    - Test type:
      - hook regression test
    - Location:
@@ -809,7 +809,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-12. [ ] Add a stale `inflight_snapshot` regression test.
+12. [x] Add a stale `inflight_snapshot` regression test.
    - Test type:
      - hook regression test
    - Location:
@@ -821,11 +821,11 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-13. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the broader mismatch filtering does not break them.
+13. [x] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the broader mismatch filtering does not break them.
    - Files to read/edit only if failures require updates:
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/agentsPage.streaming.test.tsx`
-14. [ ] Update `design.md` with the non-final event filtering rules and any affected mermaid diagram.
+14. [x] Update `design.md` with the non-final event filtering rules and any affected mermaid diagram.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -833,25 +833,46 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Required content:
      - document how `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot` now follow the same inflight-ownership rule
      - update any stream-event mermaid diagram affected by those rules
-15. [ ] Update this story file’s Implementation notes for Task 3 once the code and tests are complete.
+15. [x] Update this story file’s Implementation notes for Task 3 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task3-non-final-state-retained.png`, review that screenshot to confirm the visible reasoning/tool/warning/snapshot state stays correct while stale non-final events are ignored, and confirm the debug console contains `chat.ws.client_non_final_ignored` with the expected `eventType` values and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task3-non-final-state-retained.png`, review that screenshot to confirm the visible reasoning/tool/warning/snapshot state stays correct while stale non-final events are ignored, and confirm the debug console contains `chat.ws.client_non_final_ignored` with the expected `eventType` values and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Reviewed the `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot` branches in `useChatStream` plus the existing mismatch tests before editing; the stale guards still rely on `status === 'sending'` outside Task 1 and Task 2 paths.
+- Hardened the four remaining non-final branches in `useChatStream` so stale cross-inflight updates return before assistant targeting or ref mutation; `inflight_snapshot` needed the guard moved ahead of `ensureAssistantMessage`.
+- Added `chat.ws.client_non_final_ignored` for stale `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot` paths with the task-required payload and event type.
+- Added a matching-inflight `analysis_delta` regression proving active reasoning still updates the visible assistant bubble.
+- Added a stale `analysis_delta` regression proving older-inflight reasoning does not overwrite the newer bubble.
+- Added a matching-inflight `tool_event` regression proving active tool-call rendering still updates normally.
+- Added a stale `tool_event` regression proving older-inflight tool results do not mutate the current tool state.
+- Added a matching-inflight `stream_warning` regression proving active warnings still appear on the current assistant message.
+- Added a stale `stream_warning` regression proving older-inflight warnings are ignored after a newer step becomes active.
+- Added a duplicate-warning regression to keep same-inflight warning dedupe intact while broadening the stale-event filter.
+- Added a matching-inflight `inflight_snapshot` regression proving valid snapshots still hydrate the active assistant bubble.
+- Added a stale `inflight_snapshot` regression proving older-inflight snapshots cannot replace the newer visible transcript state.
+- Re-ran the nearby Chat and Agents streaming suites; Agents surfaced that unseen next-step snapshots must still create a new bubble, so the snapshot guard was narrowed to ignore only already-mapped older inflights.
+- Updated `design.md` to document the shared non-final ignore marker and the `inflight_snapshot` exception for unseen next inflights.
+- Ran repo lint and format checks; Prettier initially flagged the expanded hook regression file, so the client format script was rerun and the follow-up checks passed while existing server import-order warnings remained unchanged.
+- `npm run build:summary:client` passed; the only warning in `logs/test-summaries/build-client-latest.log` was the existing Vite chunk-size warning, with no Task 3 build regressions.
+- `npm run test:summary:client` passed with 480/480 tests green after the snapshot guard was narrowed to keep unseen next-step snapshots working for Agents.
+- `npm run compose:build:summary` passed cleanly with both compose build targets green.
+- `npm run compose:up` brought the local stack up cleanly with healthy server and client containers for the required browser validation.
+- Manual Playwright validation on `http://host.docker.internal:5001/chat` injected a two-inflight non-final event sequence into the real browser WebSocket client, saved `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task3-non-final-state-retained.png`, confirmed the screenshot kept the current snapshot/reasoning/tool/warning state visible, and verified `chat.ws.client_non_final_ignored` for `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot` with no browser console errors.
+- Recorded the completed Task 3 implementation and validation trail here after the wrapper pass, browser replay, and screenshot review finished.
+- `npm run compose:down` stopped the local stack cleanly after the manual Playwright validation.
 
 ---
 

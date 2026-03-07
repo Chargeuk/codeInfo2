@@ -3,6 +3,11 @@ import useChatStream from '../hooks/useChatStream';
 import type { ChatWsTranscriptEvent } from '../hooks/useChatWs';
 
 describe('useChatStream inflight mismatch handling', () => {
+  const getAssistantMessages = (
+    result: ReturnType<typeof renderHook<typeof useChatStream>>['result'],
+  ) =>
+    result.current.messages.filter((message) => message.role === 'assistant');
+
   it('keeps the previous assistant bubble content when a stale delta arrives after the next Flow-style user_turn', async () => {
     const conversationId = 'flow-conversation';
 
@@ -284,6 +289,558 @@ describe('useChatStream inflight mismatch handling', () => {
       expect(assistantMessages.map((message) => message.id)).toEqual(
         assistantMessageIdsBeforeReplay,
       );
+    });
+  });
+
+  it('applies analysis deltas to the active inflight reasoning state', async () => {
+    const conversationId = 'flow-conversation-analysis-happy-path';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'analysis_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        delta: 'First reasoning',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.think).toBe('First reasoning');
+    });
+  });
+
+  it('ignores stale analysis deltas for an older inflight', async () => {
+    const conversationId = 'flow-conversation-analysis-stale';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'analysis_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        delta: 'First reasoning',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 3,
+        inflightId: 'i2',
+        content: 'Step 2 prompt',
+        createdAt: '2025-01-01T00:00:10.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'analysis_delta',
+        conversationId,
+        seq: 4,
+        inflightId: 'i2',
+        delta: 'Second reasoning',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'analysis_delta',
+        conversationId,
+        seq: 5,
+        inflightId: 'i1',
+        delta: ' late tail',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(2);
+      expect(assistantMessages[0]?.think).toBe('First reasoning');
+      expect(assistantMessages[1]?.think).toBe('Second reasoning');
+    });
+  });
+
+  it('applies tool events to the active inflight tool state', async () => {
+    const conversationId = 'flow-conversation-tool-happy-path';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'tool_event',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        event: {
+          type: 'tool-request',
+          callId: 'call-1',
+          name: 'search_repo',
+          stage: 'running',
+          parameters: { query: 'bubble text' },
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.tools).toEqual([
+        expect.objectContaining({
+          id: 'call-1',
+          name: 'search_repo',
+          status: 'requesting',
+          parameters: { query: 'bubble text' },
+        }),
+      ]);
+    });
+  });
+
+  it('ignores stale tool events for an older inflight', async () => {
+    const conversationId = 'flow-conversation-tool-stale';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'tool_event',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        event: {
+          type: 'tool-request',
+          callId: 'call-1',
+          name: 'search_repo',
+          stage: 'running',
+        },
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 3,
+        inflightId: 'i2',
+        content: 'Step 2 prompt',
+        createdAt: '2025-01-01T00:00:10.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'tool_event',
+        conversationId,
+        seq: 4,
+        inflightId: 'i2',
+        event: {
+          type: 'tool-request',
+          callId: 'call-2',
+          name: 'open_file',
+          stage: 'running',
+        },
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'tool_event',
+        conversationId,
+        seq: 5,
+        inflightId: 'i1',
+        event: {
+          type: 'tool-result',
+          callId: 'call-1',
+          name: 'search_repo',
+          stage: 'completed',
+          result: { matches: 10 },
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(2);
+      expect(assistantMessages[0]?.tools).toEqual([
+        expect.objectContaining({
+          id: 'call-1',
+          status: 'requesting',
+        }),
+      ]);
+      expect(assistantMessages[1]?.tools).toEqual([
+        expect.objectContaining({
+          id: 'call-2',
+          status: 'requesting',
+        }),
+      ]);
+    });
+  });
+
+  it('applies stream warnings to the active inflight warning list', async () => {
+    const conversationId = 'flow-conversation-warning-happy-path';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'stream_warning',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        message: 'Transient reconnect',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.warnings).toEqual(['Transient reconnect']);
+    });
+  });
+
+  it('ignores stale stream warnings for an older inflight', async () => {
+    const conversationId = 'flow-conversation-warning-stale';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'stream_warning',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        message: 'First inflight warning',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 3,
+        inflightId: 'i2',
+        content: 'Step 2 prompt',
+        createdAt: '2025-01-01T00:00:10.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'stream_warning',
+        conversationId,
+        seq: 4,
+        inflightId: 'i2',
+        message: 'Second inflight warning',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'stream_warning',
+        conversationId,
+        seq: 5,
+        inflightId: 'i1',
+        message: 'stale older warning',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(2);
+      expect(assistantMessages[0]?.warnings).toEqual([
+        'First inflight warning',
+      ]);
+      expect(assistantMessages[1]?.warnings).toEqual([
+        'Second inflight warning',
+      ]);
+    });
+  });
+
+  it('dedupes duplicate stream warnings for the same inflight', async () => {
+    const conversationId = 'flow-conversation-warning-dedupe';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+
+    const warningEvent: ChatWsTranscriptEvent = {
+      protocolVersion: 'v1',
+      type: 'stream_warning',
+      conversationId,
+      seq: 2,
+      inflightId: 'i1',
+      message: 'Transient reconnect',
+    };
+
+    act(() => result.current.handleWsEvent(warningEvent));
+    act(() =>
+      result.current.handleWsEvent({
+        ...warningEvent,
+        seq: 3,
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.warnings).toEqual(['Transient reconnect']);
+    });
+  });
+
+  it('hydrates the active inflight from inflight snapshots', async () => {
+    const conversationId = 'flow-conversation-snapshot-happy-path';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'inflight_snapshot',
+        conversationId,
+        seq: 2,
+        inflight: {
+          inflightId: 'i1',
+          assistantText: 'Hydrated reply',
+          assistantThink: 'Hydrated reasoning',
+          toolEvents: [
+            {
+              type: 'tool-request',
+              callId: 'call-1',
+              name: 'search_repo',
+              stage: 'running',
+            },
+          ],
+          startedAt: '2025-01-01T00:00:00.000Z',
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]).toEqual(
+        expect.objectContaining({
+          content: 'Hydrated reply',
+          think: 'Hydrated reasoning',
+          tools: [
+            expect.objectContaining({
+              id: 'call-1',
+              status: 'requesting',
+            }),
+          ],
+          streamStatus: 'processing',
+          createdAt: '2025-01-01T00:00:00.000Z',
+        }),
+      );
+    });
+  });
+
+  it('ignores stale inflight snapshots for an older inflight', async () => {
+    const conversationId = 'flow-conversation-snapshot-stale';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        delta: 'First reply',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 3,
+        inflightId: 'i2',
+        content: 'Step 2 prompt',
+        createdAt: '2025-01-01T00:00:10.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 4,
+        inflightId: 'i2',
+        delta: 'Second reply',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'inflight_snapshot',
+        conversationId,
+        seq: 5,
+        inflight: {
+          inflightId: 'i1',
+          assistantText: 'stale overwrite',
+          assistantThink: 'stale overwrite',
+          toolEvents: [],
+          startedAt: '2025-01-01T00:00:00.000Z',
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(2);
+      expect(assistantMessages[0]?.content).toBe('First reply');
+      expect(assistantMessages[1]?.content).toBe('Second reply');
+      expect(assistantMessages[1]?.think).toBeUndefined();
     });
   });
 });

@@ -3741,6 +3741,8 @@ Assistant bubble binding invariant (Task 30):
 - The client binds each assistant bubble to a specific `inflightId` (so late-arriving events cannot overwrite a newer run).
 - Non-final `assistant_delta` events follow strict inflight ownership even while Flow is `idle`: if the event `inflightId` does not match the active inflight, the hook ignores the delta, leaves the active refs untouched, and emits `chat.ws.client_assistant_delta_ignored`.
 - `user_turn` ownership follows the same inflight rule: if a replay arrives for an already-mapped older inflight while a newer inflight is active, the hook ignores that replay, keeps the current assistant pointer bound to the newer inflight, and emits `chat.ws.client_user_turn_ignored`.
+- `analysis_delta`, `tool_event`, and `stream_warning` follow the same stale-inflight rule: if they arrive for an older inflight while a newer one is active, the hook ignores the event before mutating reasoning text, tool state, or warning refs and emits `chat.ws.client_non_final_ignored` with the relevant `eventType`.
+- `inflight_snapshot` uses the same ownership marker with one extra rule: a snapshot for an unseen next inflight is still allowed to create the next assistant bubble, but a replay for an already-mapped older inflight is ignored and logged with `chat.ws.client_non_final_ignored`.
 - The `send()` path forces creation of a new assistant bubble even when the previous assistant bubble is still `processing` (for example after pressing **Stop**).
 - When a `turn_final` arrives for a non-current `inflightId` while a new run is `sending`, the UI updates only that older bubble’s status (no global streaming state changes and no content overwrite).
 
@@ -3756,6 +3758,12 @@ sequenceDiagram
   Hook->>Bubble1: append "First reply"
   WS->>Hook: user_turn(i2)
   Hook->>Bubble2: create next assistant bubble
+  WS->>Hook: analysis_delta(i2, "Second reasoning")
+  Hook->>Bubble2: append reasoning
+  WS->>Hook: tool_event(i2, request)
+  Hook->>Bubble2: update tool state
+  WS->>Hook: stream_warning(i2, "Transient reconnect")
+  Hook->>Bubble2: keep one warning entry
   WS->>Hook: user_turn(i1) replay
   Hook-->>Hook: mapped older inflight -> ignore replay
   Hook-->>WS: log chat.ws.client_user_turn_ignored
@@ -3763,6 +3771,12 @@ sequenceDiagram
   WS->>Hook: assistant_delta(i1, " late tail")
   Hook-->>Hook: inflight mismatch -> ignore delta
   Hook-->>WS: log chat.ws.client_assistant_delta_ignored
+  WS->>Hook: analysis_delta(i1, " late tail")
+  Hook-->>Hook: stale non-final -> ignore event
+  Hook-->>WS: log chat.ws.client_non_final_ignored
+  WS->>Hook: inflight_snapshot(i1 replay)
+  Hook-->>Hook: mapped older inflight -> ignore snapshot
+  Hook-->>WS: log chat.ws.client_non_final_ignored
   Hook->>Bubble1: keep existing text
   Hook->>Bubble2: keep active inflight ownership
 ```
@@ -3775,6 +3789,12 @@ sequenceDiagram
   - `reason: 'stale_inflight'`
 - Manual verification for stale `user_turn` replays uses `chat.ws.client_user_turn_ignored` with:
   - `conversationId`
+  - `ignoredInflightId`
+  - `activeInflightId`
+  - `reason: 'stale_inflight'`
+- Manual verification for stale non-final events beyond `assistant_delta` uses `chat.ws.client_non_final_ignored` with:
+  - `conversationId`
+  - `eventType`
   - `ignoredInflightId`
   - `activeInflightId`
   - `reason: 'stale_inflight'`

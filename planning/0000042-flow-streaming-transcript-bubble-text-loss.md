@@ -410,7 +410,25 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
      - reuse the existing assistant-message targeting and sync helpers instead of creating parallel bubble-management logic
    - When this subtask is complete:
      - a mismatched stale `assistant_delta` no longer mutates the active refs or visible active bubble
-3. [ ] Update the stale `assistant_delta` regression test.
+3. [ ] Add or update a structured client log line for the stale `assistant_delta` ignore path.
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+   - Start here in code:
+     - the `assistant_delta` branch inside `handleWsEvent`
+     - reuse `logWithChannel(...)` rather than adding direct `console.*` calls
+   - Required log line:
+     - `chat.ws.client_assistant_delta_ignored`
+   - Required payload:
+     - `conversationId`
+     - `ignoredInflightId`
+     - `activeInflightId`
+     - `assistantMessageId`
+     - `reason: 'stale_inflight'`
+   - Purpose:
+     - give the Manual Playwright-MCP check a stable console marker proving the stale delta was rejected instead of mutating UI state
+   - When this subtask is complete:
+     - a stale older-inflight delta emits `chat.ws.client_assistant_delta_ignored` exactly when the event is ignored
+4. [ ] Update the stale `assistant_delta` regression test.
    - Test type:
      - hook regression test
    - Location:
@@ -422,7 +440,7 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-4. [ ] Add a matching-inflight `assistant_delta` happy-path regression.
+5. [ ] Add a matching-inflight `assistant_delta` happy-path regression.
    - Test type:
      - hook regression test
    - Location:
@@ -434,7 +452,7 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-5. [ ] Update `design.md` with the `assistant_delta` ownership rule and any affected shared-stream mermaid diagram.
+6. [ ] Update `design.md` with the `assistant_delta` ownership rule and any affected shared-stream mermaid diagram.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -442,10 +460,10 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
    - Required content:
      - document that stale `assistant_delta` events must not mutate the active inflight
      - update any stream-state or websocket-flow mermaid diagram affected by the new rule
-6. [ ] Update this story file’s Implementation notes for Task 1 once the code and tests are complete.
+7. [ ] Update this story file’s Implementation notes for Task 1 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -453,6 +471,10 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the debug console contains `chat.ws.client_assistant_delta_ignored` with `reason: 'stale_inflight'` when the stale earlier-step delta arrives, and confirm the earlier assistant bubble text stays visible with no unexpected console errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -513,7 +535,24 @@ Handle the `user_turn` branch separately from later transcript events. This task
      - reuse existing reset and assistant-targeting helpers instead of introducing new refs or duplicate state containers
    - When this subtask is complete:
      - stale `user_turn` for an old inflight becomes a no-op for active bubble targeting, but valid next-step `user_turn` still advances the transcript
-3. [ ] Add a stale `user_turn` regression test.
+3. [ ] Add or update a structured client log line for the stale `user_turn` ignore path.
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+   - Start here in code:
+     - the `user_turn` branch inside `handleWsEvent`
+     - reuse `logWithChannel(...)` rather than adding direct `console.*` calls
+   - Required log line:
+     - `chat.ws.client_user_turn_ignored`
+   - Required payload:
+     - `conversationId`
+     - `ignoredInflightId`
+     - `activeInflightId`
+     - `reason: 'stale_inflight'`
+   - Purpose:
+     - give the Manual Playwright-MCP check a stable console marker proving a stale `user_turn` replay was ignored
+   - When this subtask is complete:
+     - a stale older-inflight `user_turn` emits `chat.ws.client_user_turn_ignored` instead of rebinding the active bubble
+4. [ ] Add a stale `user_turn` regression test.
    - Test type:
      - hook regression test
    - Location:
@@ -525,7 +564,7 @@ Handle the `user_turn` branch separately from later transcript events. This task
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-4. [ ] Add a same-inflight `user_turn` replay no-op test.
+5. [ ] Add a same-inflight `user_turn` replay no-op test.
    - Test type:
      - hook regression test
    - Location:
@@ -537,11 +576,11 @@ Handle the `user_turn` branch separately from later transcript events. This task
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-5. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the `user_turn` filtering does not break them.
+6. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the `user_turn` filtering does not break them.
    - Files to read/edit only if failures require updates:
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/agentsPage.streaming.test.tsx`
-6. [ ] Update `design.md` with the `user_turn` ownership rule and any affected mermaid diagram for inflight transitions.
+7. [ ] Update `design.md` with the `user_turn` ownership rule and any affected mermaid diagram for inflight transitions.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -549,10 +588,10 @@ Handle the `user_turn` branch separately from later transcript events. This task
    - Required content:
      - document that stale `user_turn` must not rebind active inflight ownership
      - update any transcript or inflight-transition mermaid diagram affected by this rule
-7. [ ] Update this story file’s Implementation notes for Task 2 once the code and tests are complete.
+8. [ ] Update this story file’s Implementation notes for Task 2 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -560,6 +599,10 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the debug console contains `chat.ws.client_user_turn_ignored` with `reason: 'stale_inflight'` when a stale earlier-step `user_turn` replays, and confirm the active assistant bubble is not reset and there are no unexpected console errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -623,7 +666,25 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
      - matching inflight events still update normally
      - stale earlier inflight events do not overwrite reasoning text, warnings, tool state, or snapshot-driven visible state
      - reuse existing reset and assistant-targeting helpers instead of introducing new refs or duplicate state containers
-3. [ ] Add a matching-inflight `analysis_delta` happy-path test.
+3. [ ] Add or update a structured client log line for stale non-final event ignore paths.
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+   - Start here in code:
+     - the `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot` branches inside `handleWsEvent`
+     - reuse `logWithChannel(...)` rather than adding direct `console.*` calls
+   - Required log line:
+     - `chat.ws.client_non_final_ignored`
+   - Required payload:
+     - `conversationId`
+     - `eventType`
+     - `ignoredInflightId`
+     - `activeInflightId`
+     - `reason: 'stale_inflight'`
+   - Purpose:
+     - give the Manual Playwright-MCP check one stable marker for all non-final event types this task hardens
+   - When this subtask is complete:
+     - each ignored `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot` emits `chat.ws.client_non_final_ignored` with the correct `eventType`
+4. [ ] Add a matching-inflight `analysis_delta` happy-path test.
    - Test type:
      - hook regression test
    - Location:
@@ -635,7 +696,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-4. [ ] Add a stale `analysis_delta` regression test.
+5. [ ] Add a stale `analysis_delta` regression test.
    - Test type:
      - hook regression test
    - Location:
@@ -647,7 +708,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-5. [ ] Add a matching-inflight `tool_event` happy-path test.
+6. [ ] Add a matching-inflight `tool_event` happy-path test.
    - Test type:
      - hook regression test
    - Location:
@@ -659,7 +720,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-6. [ ] Add a stale `tool_event` regression test.
+7. [ ] Add a stale `tool_event` regression test.
    - Test type:
      - hook regression test
    - Location:
@@ -671,7 +732,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-7. [ ] Add a matching-inflight `stream_warning` happy-path test.
+8. [ ] Add a matching-inflight `stream_warning` happy-path test.
    - Test type:
      - hook regression test
    - Location:
@@ -683,7 +744,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-8. [ ] Add a stale `stream_warning` regression test.
+9. [ ] Add a stale `stream_warning` regression test.
    - Test type:
      - hook regression test
    - Location:
@@ -695,7 +756,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-9. [ ] Add a duplicate `stream_warning` dedupe test.
+10. [ ] Add a duplicate `stream_warning` dedupe test.
    - Test type:
      - hook regression test
    - Location:
@@ -707,7 +768,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-10. [ ] Add a matching-inflight `inflight_snapshot` happy-path test.
+11. [ ] Add a matching-inflight `inflight_snapshot` happy-path test.
    - Test type:
      - hook regression test
    - Location:
@@ -719,7 +780,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-11. [ ] Add a stale `inflight_snapshot` regression test.
+12. [ ] Add a stale `inflight_snapshot` regression test.
    - Test type:
      - hook regression test
    - Location:
@@ -731,11 +792,11 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-12. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the broader mismatch filtering does not break them.
+13. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the broader mismatch filtering does not break them.
    - Files to read/edit only if failures require updates:
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/agentsPage.streaming.test.tsx`
-13. [ ] Update `design.md` with the non-final event filtering rules and any affected mermaid diagram.
+14. [ ] Update `design.md` with the non-final event filtering rules and any affected mermaid diagram.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -743,10 +804,10 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Required content:
      - document how `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot` now follow the same inflight-ownership rule
      - update any stream-event mermaid diagram affected by those rules
-14. [ ] Update this story file’s Implementation notes for Task 3 once the code and tests are complete.
+15. [ ] Update this story file’s Implementation notes for Task 3 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -754,6 +815,10 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the debug console contains `chat.ws.client_non_final_ignored` with `eventType` values for the stale non-final events exercised in this task, and confirm visible reasoning/tool/warning/snapshot state stays correct with no unexpected console errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -807,7 +872,24 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
      - valid finalization data for the matching inflight must still be applied correctly
    - When this subtask is complete:
      - older finals update only their own completed bubble metadata and do not clear or overwrite the newer inflight
-3. [ ] Add a Chat page late-`turn_final` regression test.
+3. [ ] Add or update a structured client log line for preserved late `turn_final` handling.
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+   - Start here in code:
+     - the `turn_final` branch inside `handleWsEvent`
+     - reuse `logWithChannel(...)` rather than adding direct `console.*` calls
+   - Required log line:
+     - `chat.ws.client_turn_final_preserved`
+   - Required payload:
+     - `conversationId`
+     - `finalInflightId`
+     - `activeInflightId`
+     - `reason: 'late_final_non_destructive'`
+   - Purpose:
+     - give the Manual Playwright-MCP check a stable marker proving a late final was handled without damaging the newer inflight
+   - When this subtask is complete:
+     - a late older-inflight final emits `chat.ws.client_turn_final_preserved` when the current inflight is intentionally left intact
+4. [ ] Add a Chat page late-`turn_final` regression test.
    - Test type:
      - page integration regression test
    - Location:
@@ -828,7 +910,7 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
      - reuse the websocket emit helpers from `client/src/test/support/mockChatWs.ts`
    - When this subtask is complete:
      - the test proves an older inflight can finalize without changing the visible newer chat bubble
-4. [ ] Add an Agents page late-`turn_final` regression test.
+5. [ ] Add an Agents page late-`turn_final` regression test.
    - Test type:
      - page integration regression test
    - Location:
@@ -849,7 +931,7 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
      - reuse the websocket emit helpers from `client/src/test/support/mockChatWs.ts`
    - When this subtask is complete:
      - the test proves an older inflight final cannot overwrite or clear the visible newer agent run
-5. [ ] Add a matching-inflight `turn_final` happy-path regression test.
+6. [ ] Add a matching-inflight `turn_final` happy-path regression test.
    - Test type:
      - page integration regression test
    - Location:
@@ -870,7 +952,7 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
      - reuse the same chat harness setup and websocket emit helpers as the late-final tests above
    - When this subtask is complete:
      - the test proves a matching inflight still finishes normally after the stale-event protections were added
-6. [ ] Re-run shared consumer regression checks after the late-final changes.
+7. [ ] Re-run shared consumer regression checks after the late-final changes.
    - Files to read/edit only if failures require updates:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
      - `client/src/test/chatPage.stream.test.tsx`
@@ -880,7 +962,7 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
    - Use the commands in this task's `Testing` section after all Task 4 code and test-writing subtasks are complete.
    - When this subtask is complete:
      - the late-final regressions pass in chat and agents, and no shared-hook mismatch test regressed
-7. [ ] Update `design.md` with the preserved late-final rule and any affected mermaid diagram.
+8. [ ] Update `design.md` with the preserved late-final rule and any affected mermaid diagram.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -888,10 +970,10 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
    - Required content:
      - document why `turn_final` remains special compared with non-final event filtering
      - update any completion/finalization mermaid diagram affected by this behavior
-8. [ ] Update this story file’s Implementation notes for Task 4 once the code and tests are complete.
+9. [ ] Update this story file’s Implementation notes for Task 4 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -899,6 +981,10 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the debug console contains `chat.ws.client_turn_final_preserved` with `reason: 'late_final_non_destructive'` when a late older final arrives, and confirm the newer visible bubble remains intact with no unexpected console errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -959,7 +1045,24 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
    - Concrete example for this subtask:
      - if inflight `i2` already accepted `seq: 7`, a later event for the same `(conversationId, i2)` with `seq: 6` must be dropped
      - if the next inflight is `i3`, its first event with `seq: 1` must still be accepted because the inflight key changed
-3. [ ] Add a websocket stale-packet regression for lower-sequence same-inflight events.
+3. [ ] Confirm and, if needed, extend the websocket stale-event log line so seq-filtered packets are visible in the browser console.
+   - Files to read/edit only if required:
+     - `client/src/hooks/useChatWs.ts`
+   - Start here in code:
+     - the existing `chat.ws.client_stale_event_ignored` log call in `useChatWs`
+   - Required log line:
+     - `chat.ws.client_stale_event_ignored`
+   - Required payload:
+     - `reason: 'seq_regression'`
+     - `eventType`
+     - `inflightId`
+     - `seq`
+     - `lastSeq`
+   - Purpose:
+     - give the Manual Playwright-MCP check a stable marker proving lower-sequence same-inflight packets were blocked before reaching the shared hook
+   - When this subtask is complete:
+     - seq-filtered websocket packets emit `chat.ws.client_stale_event_ignored` with enough payload to distinguish them from other ignored events
+4. [ ] Add a websocket stale-packet regression for lower-sequence same-inflight events.
    - Test type:
      - websocket hook regression test
    - Location:
@@ -979,7 +1082,7 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
      - inspect `lastSeqByKeyRef` and `inflightKey(...)` in `client/src/hooks/useChatWs.ts`
    - When this subtask is complete:
      - the test fails if a lower-sequence event reaches `onEvent`
-4. [ ] Add a sequence-boundary regression for new inflight resets versus stale prior inflight packets.
+5. [ ] Add a sequence-boundary regression for new inflight resets versus stale prior inflight packets.
    - Test type:
      - websocket hook regression test
    - Location:
@@ -999,7 +1102,7 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
      - make the inflight key change explicit in the test input so the expected `seq: 1` accept path is obvious
    - When this subtask is complete:
      - the test proves a new inflight starts fresh while stale packets from the old inflight remain blocked
-5. [ ] Add a downstream chat-path regression that confirms websocket filtering still supports the visible happy path.
+6. [ ] Add a downstream chat-path regression that confirms websocket filtering still supports the visible happy path.
    - Test type:
      - page integration regression test
    - Location:
@@ -1020,7 +1123,7 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
      - keep the assertions user-visible: accepted packets should still change rendered chat content
    - When this subtask is complete:
      - the test proves the websocket filter blocks stale traffic without suppressing valid visible chat updates
-6. [ ] Re-run shared consumer regression checks after the websocket sequence changes.
+7. [ ] Re-run shared consumer regression checks after the websocket sequence changes.
    - Files to read/edit only if failures require updates:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
      - `client/src/test/useChatWs.test.ts`
@@ -1030,7 +1133,7 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
    - Use the commands in this task's `Testing` section after all Task 5 code and test-writing subtasks are complete.
    - When this subtask is complete:
      - the transport-layer tests and downstream consumer tests all pass together
-7. [ ] Update `design.md` with the websocket sequence-filtering rule and any affected mermaid diagram.
+8. [ ] Update `design.md` with the websocket sequence-filtering rule and any affected mermaid diagram.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -1038,10 +1141,10 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
    - Required content:
      - document how lower-sequence same-inflight packets are blocked and how new inflight sequence resets are accepted
      - update any websocket event-flow mermaid diagram affected by this transport rule
-8. [ ] Update this story file’s Implementation notes for Task 5 once the code and tests are complete.
+9. [ ] Update this story file’s Implementation notes for Task 5 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1049,6 +1152,10 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the debug console contains `chat.ws.client_stale_event_ignored` with `reason: 'seq_regression'` for lower-sequence same-inflight packets, and confirm valid newer packets still update the UI with no unexpected console errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1141,7 +1248,23 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
      - keep this test separate from the stale-event regression so the happy path remains obvious
    - When this subtask is complete:
      - the test proves the second Flow step continues to render live text while the first bubble remains visible
-4. [ ] Re-run the Flow regressions and nearby Flow tests after the new page tests are added.
+4. [ ] Add or update a structured Flow-page log line for retained live transcript visibility.
+   - Files to edit:
+     - `client/src/pages/FlowsPage.tsx`
+   - Start here in code:
+     - reuse the existing `createLogger('client-flows')` logger in `FlowsPage.tsx`
+   - Required log line:
+     - `flows.page.live_transcript_retained`
+   - Required payload:
+     - `conversationId`
+     - `previousInflightId`
+     - `currentInflightId`
+     - `reason: 'next_step_started'`
+   - Purpose:
+     - give the Manual Playwright-MCP check a stable page-level marker proving the earlier bubble stayed visible when the next step began
+   - When this subtask is complete:
+     - the Flow page emits `flows.page.live_transcript_retained` when the second step starts and the first bubble remains visible
+5. [ ] Re-run the Flow regressions and nearby Flow tests after the new page tests are added.
    - Files to read/edit only if failures require updates:
      - `client/src/test/flowsPage.test.tsx`
      - `client/src/test/flowsPage.run.test.tsx`
@@ -1150,7 +1273,7 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
    - Use the commands in this task's `Testing` section after all Task 6 code and test-writing subtasks are complete.
    - When this subtask is complete:
      - the new Flow websocket regressions pass and no nearby Flow page tests regress
-5. [ ] Update `design.md` with the Flow live transcript behavior and any affected Flow mermaid diagram.
+6. [ ] Update `design.md` with the Flow live transcript behavior and any affected Flow mermaid diagram.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -1158,10 +1281,10 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
    - Required content:
      - document the intended Flow live-stream retention behavior once step N+1 starts
      - update any Flow transcript mermaid diagram affected by this regression coverage
-6. [ ] Update this story file’s Implementation notes for Task 6 once the code and tests are complete.
+7. [ ] Update this story file’s Implementation notes for Task 6 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1171,7 +1294,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check to confirm the Flow transcript behavior covered by this task and verify there are no logged errors in the debug console. Use http://host.docker.internal:5001 via the Playwright MCP tools.
+5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the debug console contains `flows.page.live_transcript_retained` with `reason: 'next_step_started'`, confirm the earlier bubble remains visible while the later step streams, and confirm there are no unexpected console errors.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1238,7 +1361,22 @@ Apply the smallest Flow-page-only fix only if the automated live Flow regression
      - keep `handleWsEvent` wiring untouched unless the failing Task 6 regression proves that wiring is still incorrect
    - When this subtask is complete:
      - the Flow page stops clearing visible transcript state during the proven visibility-churn path without introducing new page-specific stream ownership logic
-3. [ ] Add a Flow-page visibility-churn regression for the Task 7 hardening only if Task 7 edits `FlowsPage.tsx`.
+3. [ ] Add or update a structured Flow-page log line for the visibility-reset safeguard.
+   - Files to edit only if required:
+     - `client/src/pages/FlowsPage.tsx`
+   - Start here in code:
+     - reuse the existing `createLogger('client-flows')` logger in `FlowsPage.tsx`
+   - Required log line:
+     - `flows.page.visibility_reset_guarded`
+   - Required payload:
+     - `conversationId`
+     - `reason: 'active_conversation_temporarily_hidden'`
+     - `action: 'retain_transcript'`
+   - Purpose:
+     - give the Manual Playwright-MCP check a stable page-level marker proving the page-local safeguard retained the transcript instead of clearing it
+   - When this subtask is complete:
+     - the guarded visibility-reset path emits `flows.page.visibility_reset_guarded` whenever it keeps the active transcript visible
+4. [ ] Add a Flow-page visibility-churn regression for the Task 7 hardening only if Task 7 edits `FlowsPage.tsx`.
    - Test type:
      - page integration regression test
    - Location:
@@ -1259,7 +1397,7 @@ Apply the smallest Flow-page-only fix only if the automated live Flow regression
      - make the temporary removal of the active conversation explicit in test data so the guard being exercised is obvious
    - When this subtask is complete:
      - the test proves the transcript remains visible through the page-local visibility-churn condition
-4. [ ] Add a remount/revisit regression only if the page hardening changes behavior around Flow transcript persistence across navigation.
+5. [ ] Add a remount/revisit regression only if the page hardening changes behavior around Flow transcript persistence across navigation.
    - Files to edit only if required:
      - `client/src/test/flowsPage.run.test.tsx`
    - Files to read before editing:
@@ -1276,7 +1414,7 @@ Apply the smallest Flow-page-only fix only if the automated live Flow regression
      - reuse the same Flow run page test setup as the visibility-churn regression above
    - When this subtask is complete:
      - the page-level safeguard still preserves the same transcript before and after remount/navigation
-5. [ ] Re-run the Flow regressions and nearby Flow tests after any page-level change.
+6. [ ] Re-run the Flow regressions and nearby Flow tests after any page-level change.
    - Files to read/edit only if failures require updates:
      - `client/src/test/flowsPage.run.test.tsx`
      - `client/src/test/flowsPage.test.tsx`
@@ -1285,7 +1423,7 @@ Apply the smallest Flow-page-only fix only if the automated live Flow regression
    - Use the commands in this task's `Testing` section after all Task 7 code and test-writing subtasks are complete.
    - When this subtask is complete:
      - the page-hardening regression passes and the surrounding Flow suites still pass
-6. [ ] Update `design.md` if the Flow page hardening changed the architecture or Flow behavior, including any affected mermaid diagram.
+7. [ ] Update `design.md` if the Flow page hardening changed the architecture or Flow behavior, including any affected mermaid diagram.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -1293,10 +1431,10 @@ Apply the smallest Flow-page-only fix only if the automated live Flow regression
    - Required content:
      - document the Flow-only safeguard only if Task 7 made a real page-level behavior change
      - update any affected Flow mermaid diagram so it matches the final implementation
-7. [ ] Update this story file’s Implementation notes for Task 7 once the code and tests are complete.
+8. [ ] Update this story file’s Implementation notes for Task 7 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1306,7 +1444,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check to confirm the Flow transcript behavior covered by this task and verify there are no logged errors in the debug console. Use http://host.docker.internal:5001 via the Playwright MCP tools.
+5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the debug console contains `flows.page.visibility_reset_guarded` with `action: 'retain_transcript'` when the active conversation temporarily disappears from `flowConversations`, and confirm the visible transcript is retained with no unexpected console errors.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1353,6 +1491,7 @@ Update the repo documentation so future developers can understand the root cause
    - the source-level `useChatStream` inflight filtering rule
    - why `turn_final` stays special
    - why Flow-page hardening is secondary rather than primary
+   - the manual verification log lines introduced by Tasks 1–7 and what each one proves
    - Document name:
      - `design.md`
    - Location:
@@ -1370,6 +1509,14 @@ Update the repo documentation so future developers can understand the root cause
    - Documentation for this subtask:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
+   - Required log lines to document:
+     - `chat.ws.client_assistant_delta_ignored`
+     - `chat.ws.client_user_turn_ignored`
+     - `chat.ws.client_non_final_ignored`
+     - `chat.ws.client_turn_final_preserved`
+     - `chat.ws.client_stale_event_ignored`
+     - `flows.page.live_transcript_retained`
+     - `flows.page.visibility_reset_guarded`
 3. [ ] Update `projectStructure.md` for any new or renamed tests/files created by this story.
    - Document name:
      - `projectStructure.md`
@@ -1407,7 +1554,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 1. [ ] `npm run test:summary:client` - Use because this task updates documentation for client-facing behavior and file paths already validated by the story. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 2. [ ] `npm run compose:build:summary` - Use because this documentation task still references front-end-testable behavior. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 3. [ ] `npm run compose:up`
-4. [ ] Manual Playwright-MCP check to confirm the documented Flow behavior, verify any referenced paths in `projectStructure.md`, and confirm there are no logged errors in the debug console. Use http://host.docker.internal:5001 via the Playwright MCP tools.
+4. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the documented Flow behavior, verify any referenced paths in `projectStructure.md`, and confirm the debug console shows the log markers documented in `design.md` when their corresponding events are triggered, with no unexpected console errors.
 5. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1520,6 +1667,18 @@ Perform the final acceptance pass for the story. This task must confirm the shar
      - the currently active later step also shows its own streaming text
    - Documentation for this subtask:
      - Playwright docs: https://playwright.dev/docs/intro
+   - Required console log checks:
+     - `chat.ws.client_assistant_delta_ignored` appears when a stale earlier-step assistant delta is ignored
+     - `chat.ws.client_user_turn_ignored` appears when a stale earlier-step `user_turn` replay is ignored
+     - `chat.ws.client_non_final_ignored` appears for the stale non-final event types exercised during the run
+     - `chat.ws.client_turn_final_preserved` appears if a late older final arrives while a newer inflight is active
+     - `chat.ws.client_stale_event_ignored` appears if a lower-sequence same-inflight packet is blocked at websocket level
+     - `flows.page.live_transcript_retained` appears when the next Flow step starts and the earlier bubble remains visible
+     - `flows.page.visibility_reset_guarded` appears only if Task 7 was implemented and the page-level safeguard is exercised
+   - Expected console outcome:
+     - each log line appears only for the event it is meant to confirm
+     - the payload values identify the conversation and inflight involved
+     - no unexpected `error`-level console entries appear during the run
 8. [ ] Write a pull request summary comment covering:
    - root cause
    - files changed
@@ -1546,7 +1705,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 3. [ ] `npm run test:summary:e2e` - Allow up to 7 minutes; if `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:e2e`.
 4. [ ] `npm run compose:build:summary` - Use because this final regression check is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP check to confirm the story acceptance behavior, verify there are no logged errors in the debug console, and save the required screenshots. Use http://host.docker.internal:5001 via the Playwright MCP tools.
+6. [ ] Manual Playwright-MCP check to confirm the story acceptance behavior, save the required screenshots, and verify the debug console shows the expected log lines from Tasks 1–7 with no unexpected `error`-level entries. Use http://host.docker.internal:5001 via the Playwright MCP tools.
 7. [ ] `npm run compose:down`
 
 #### Implementation notes

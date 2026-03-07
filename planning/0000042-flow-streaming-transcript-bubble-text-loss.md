@@ -859,10 +859,22 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-5. [ ] Re-run shared consumer regression checks after the late-final changes.
+5. [ ] Add a matching-inflight `turn_final` happy-path regression test.
+   - Test type:
+     - page integration regression test
+   - Location:
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Description:
+     - add or update a test that delivers `turn_final` for the currently active inflight and asserts the completed bubble keeps its text and finishes normally
+   - Purpose:
+     - prove valid finalization still works while older late finals stay non-destructive
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+6. [ ] Re-run shared consumer regression checks after the late-final changes.
    - Files to read/edit only if failures require updates:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
-6. [ ] Update `design.md` with the preserved late-final rule and any affected mermaid diagram.
+7. [ ] Update `design.md` with the preserved late-final rule and any affected mermaid diagram.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -870,10 +882,10 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
    - Required content:
      - document why `turn_final` remains special compared with non-final event filtering
      - update any completion/finalization mermaid diagram affected by this behavior
-7. [ ] Update this story file’s Implementation notes for Task 4 once the code and tests are complete.
+8. [ ] Update this story file’s Implementation notes for Task 4 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-8. [ ] Repo-wide lint + format gate for this task.
+9. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1083,10 +1095,22 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
      - a stale earlier-step `user_turn` replay does not reset the active transcript or retarget the current assistant bubble
    - Constraint:
      - extend the existing websocket harness and emit helpers rather than creating page-specific websocket mocks
-3. [ ] Re-run the Flow regressions and nearby Flow tests after the new page tests are added.
+3. [ ] Add a Flow-page happy-path regression that proves the current later-step bubble still streams normally while the earlier bubble stays visible.
+   - Test type:
+     - page integration regression test
+   - Location:
+     - `client/src/test/flowsPage.run.test.tsx`
+   - Description:
+     - add or update a test that drives two sequential Flow step inflights and asserts the second step still renders its own live text while the first step keeps its already-rendered content
+   - Purpose:
+     - prove the fix preserves the visible happy path for the active Flow step, not just the stale-event guard for the earlier bubble
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+4. [ ] Re-run the Flow regressions and nearby Flow tests after the new page tests are added.
    - Files to read/edit only if failures require updates:
      - `client/src/test/flowsPage.test.tsx`
-4. [ ] Update `design.md` with the Flow live transcript behavior and any affected Flow mermaid diagram.
+5. [ ] Update `design.md` with the Flow live transcript behavior and any affected Flow mermaid diagram.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -1094,10 +1118,10 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
    - Required content:
      - document the intended Flow live-stream retention behavior once step N+1 starts
      - update any Flow transcript mermaid diagram affected by this regression coverage
-5. [ ] Update this story file’s Implementation notes for Task 6 once the code and tests are complete.
+6. [ ] Update this story file’s Implementation notes for Task 6 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-6. [ ] Repo-wide lint + format gate for this task.
+7. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1170,18 +1194,30 @@ Apply the smallest Flow-page-only fix only if the automated live Flow regression
      - do not add Flow-only fake `sending` state
      - do not widen scope into unrelated sidebar/filter work
      - reuse the existing MUI 6.x component structure already in `FlowsPage.tsx` instead of introducing new UI component patterns unless the failing regression proves it is necessary
-3. [ ] Add a remount/revisit regression only if the page hardening changes behavior around Flow transcript persistence across navigation.
+3. [ ] Add a Flow-page visibility-churn regression for the Task 7 hardening only if Task 7 edits `FlowsPage.tsx`.
+   - Test type:
+     - page integration regression test
+   - Location:
+     - `client/src/test/flowsPage.run.test.tsx`
+   - Description:
+     - add or update a test that temporarily removes the active Flow conversation from the `flowConversations` view during a live stream and asserts the visible transcript is not cleared by the page-level safeguard
+   - Purpose:
+     - prove the Task 7 hardening fixes the specific `flowConversations` reset path without widening behavior beyond the intended page-level guard
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+4. [ ] Add a remount/revisit regression only if the page hardening changes behavior around Flow transcript persistence across navigation.
    - Files to edit only if required:
      - `client/src/test/flowsPage.run.test.tsx`
    - Required assertions:
      - the earlier bubble text is still present immediately before remount/navigation
      - the same text is still present after remount/navigation
      - the regression proves the page-level hardening does not reintroduce a live-versus-remount mismatch
-4. [ ] Re-run the Flow regressions and nearby Flow tests after any page-level change.
+5. [ ] Re-run the Flow regressions and nearby Flow tests after any page-level change.
    - Files to read/edit only if failures require updates:
      - `client/src/test/flowsPage.run.test.tsx`
      - `client/src/test/flowsPage.test.tsx`
-5. [ ] Update `design.md` if the Flow page hardening changed the architecture or Flow behavior, including any affected mermaid diagram.
+6. [ ] Update `design.md` if the Flow page hardening changed the architecture or Flow behavior, including any affected mermaid diagram.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -1189,10 +1225,10 @@ Apply the smallest Flow-page-only fix only if the automated live Flow regression
    - Required content:
      - document the Flow-only safeguard only if Task 7 made a real page-level behavior change
      - update any affected Flow mermaid diagram so it matches the final implementation
-6. [ ] Update this story file’s Implementation notes for Task 7 once the code and tests are complete.
+7. [ ] Update this story file’s Implementation notes for Task 7 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-7. [ ] Repo-wide lint + format gate for this task.
+8. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

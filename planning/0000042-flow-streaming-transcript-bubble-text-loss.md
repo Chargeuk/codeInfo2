@@ -1536,9 +1536,9 @@ Apply the smallest Flow-page-only fix only if the automated live Flow regression
 
 Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+1. [x] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [x] `npm run compose:up`
 5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task7-visibility-guarded.png`, review that screenshot to confirm the visible transcript is retained when the active conversation temporarily disappears from `flowConversations`, and confirm the debug console contains `flows.page.visibility_reset_guarded` with `action: 'retain_transcript'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
 6. [ ] `npm run compose:down`
@@ -1888,7 +1888,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 10. Shared hook safeguard: finalized-inflight `user_turn` replays must stay ignored after `turn_final`
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1914,7 +1914,7 @@ Close the stale-replay gap identified in review: `user_turn` replay detection cu
 
 #### Subtasks
 
-1. [ ] Read the existing `user_turn` stale-replay guard and the `turn_final` cleanup path before changing code.
+1. [x] Read the existing `user_turn` stale-replay guard and the `turn_final` cleanup path before changing code.
    - Files to read:
      - `client/src/hooks/useChatStream.ts`
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
@@ -1923,7 +1923,7 @@ Close the stale-replay gap identified in review: `user_turn` replay detection cu
      - the `assistantMessageIdByInflightIdRef.current.delete(event.inflightId)` line in the `turn_final` branch
    - Goal:
      - identify exactly why a finalized older inflight can lose its stale-replay marker before a later replayed `user_turn` arrives
-2. [ ] Update `client/src/hooks/useChatStream.ts` so stale older-inflight `user_turn` replays stay ignored even after `turn_final` has cleaned up assistant-message mappings.
+2. [x] Update `client/src/hooks/useChatStream.ts` so stale older-inflight `user_turn` replays stay ignored even after `turn_final` has cleaned up assistant-message mappings.
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
    - Start here in code:
@@ -1934,13 +1934,13 @@ Close the stale-replay gap identified in review: `user_turn` replay detection cu
      - a legitimate unseen next inflight must still be allowed to create the next assistant bubble after the previous inflight finalizes
      - do not move sequence filtering out of `useChatWs`
      - do not add page-specific fallback logic for this hook-level concern
-3. [ ] Keep the existing `chat.ws.client_user_turn_ignored` logging behavior intact for finalized older-inflight replays.
+3. [x] Keep the existing `chat.ws.client_user_turn_ignored` logging behavior intact for finalized older-inflight replays.
    - Files to edit only if required:
      - `client/src/hooks/useChatStream.ts`
    - Required outcome:
      - a finalized older-inflight replay still emits `chat.ws.client_user_turn_ignored` with `reason: 'stale_inflight'`
      - no new log name should be introduced for this fix
-4. [ ] Add a hook regression test that replays `user_turn` for an older inflight after that older inflight already received `turn_final`, then asserts the newer active bubble stays intact.
+4. [x] Add a hook regression test that replays `user_turn` for an older inflight after that older inflight already received `turn_final`, then asserts the newer active bubble stays intact.
    - Test type:
      - hook regression test
    - Location:
@@ -1949,7 +1949,7 @@ Close the stale-replay gap identified in review: `user_turn` replay detection cu
      - the older finalized bubble keeps its existing text/status
      - the newer active inflight remains the active target
      - no duplicate assistant bubble is created for the replayed older inflight
-5. [ ] Add a separate hook regression test that proves a legitimate unseen next inflight still advances normally after a previous inflight finalizes.
+5. [x] Add a separate hook regression test that proves a legitimate unseen next inflight still advances normally after a previous inflight finalizes.
    - Test type:
      - hook regression test
    - Location:
@@ -1957,20 +1957,20 @@ Close the stale-replay gap identified in review: `user_turn` replay detection cu
    - Required assertions:
      - after the first inflight finalizes, a brand-new inflight can still create the next assistant bubble
      - the new bubble still accepts matching deltas and finalization normally
-6. [ ] Re-run nearby shared-consumer regressions that exercise late finals and streaming ownership.
+6. [x] Re-run nearby shared-consumer regressions that exercise late finals and streaming ownership.
    - Files to read/edit only if failures require updates:
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/agentsPage.streaming.test.tsx`
      - `client/src/test/flowsPage.run.test.tsx`
-7. [ ] Update `design.md` with the finalized-inflight replay rule if the implementation changes how the story describes stale `user_turn` ownership after `turn_final`.
+7. [x] Update `design.md` with the finalized-inflight replay rule if the implementation changes how the story describes stale `user_turn` ownership after `turn_final`.
    - Files to edit:
      - `design.md`
    - Required content:
      - document that stale `user_turn` replay detection survives `turn_final` cleanup for the current conversation
-8. [ ] Update this story file’s Implementation notes for Task 10 once the code and tests are complete.
+8. [x] Update this story file’s Implementation notes for Task 10 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1979,13 +1979,27 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task10-finalized-user-turn-replay-ignored.png`, review that screenshot to confirm a finalized older-step replay does not steal the active bubble, and confirm the debug console contains `chat.ws.client_user_turn_ignored` with `reason: 'stale_inflight'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
-6. [ ] `npm run compose:down`
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task10-finalized-user-turn-replay-ignored.png`, review that screenshot to confirm a finalized older-step replay does not steal the active bubble, and confirm the debug console contains `chat.ws.client_user_turn_ignored` with `reason: 'stale_inflight'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Subtask 1: Re-read the `user_turn` stale-replay guard and `turn_final` cleanup path in `useChatStream`; confirmed the current replay detection depends on `assistantMessageIdByInflightIdRef`, so deleting that mapping on finalization removes the stale marker for an older inflight.
+- Subtask 2: Added a minimal per-conversation seen-inflight ref in `useChatStream` so finalized older inflights stay marked as seen even after `turn_final` removes their assistant-message mapping; the ref is cleared only on conversation resets and conversation changes.
+- Subtask 3: Kept the existing `chat.ws.client_user_turn_ignored` log path and payload intact; the finalized older-inflight replay fix reuses the same marker instead of introducing a new log name.
+- Subtask 4: Added a hook regression that finalizes the first inflight, starts a second inflight, then replays the first inflight’s `user_turn` and proves the newer active bubble stays intact with no duplicate assistant bubble.
+- Subtask 5: Added a separate hook regression proving a legitimate unseen next inflight still creates, streams, and finalizes its own assistant bubble after the previous inflight completes.
+- Subtask 6: Re-ran the nearby Chat, Agents, and Flows shared-consumer regressions with targeted client wrappers; all three suites stayed green after the finalized-replay safeguard was added.
+- Subtask 7: Updated `design.md` so the user-turn ownership rule now states that seen-inflight replay detection survives `turn_final` cleanup and still ignores finalized older-inflight replays.
+- Subtask 8: Recorded the Task 10 implementation and validation trail here after the focused hook fix, consumer regressions, wrapper pass, and manual browser replay completed.
+- Subtask 9: `npm run lint --workspaces` completed with the same existing server import-order warnings and no Task 10 errors; `npm run format:check --workspaces` passed cleanly.
+- Testing 1: `npm run build:summary:client` passed; inspected `logs/test-summaries/build-client-latest.log` and the only warning remained the existing Vite chunk-size warning rather than a Task 10 regression.
+- Testing 2: `npm run test:summary:client` passed with 486/486 tests green; the final full wrapper log was `test-results/client-tests-2026-03-07T19-39-18-793Z.log`.
+- Testing 3: `npm run compose:build:summary` passed with both compose build items green; no compose build follow-up was needed.
+- Testing 4: `npm run compose:up` started the stack successfully; the server reached healthy state and the client started for the required manual verification.
+- Testing 5: Manual browser validation targeted `http://host.docker.internal:5001/chat`, saved `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task10-finalized-user-turn-replay-ignored.png`, showed the newer `Second reply` bubble staying active during the finalized older-inflight replay, and captured one `chat.ws.client_user_turn_ignored` marker with no console errors.
+- Testing 6: `npm run compose:down` stopped the stack cleanly after the Task 10 manual verification pass.
 
 ---
 

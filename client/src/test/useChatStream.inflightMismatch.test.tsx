@@ -292,6 +292,194 @@ describe('useChatStream inflight mismatch handling', () => {
     });
   });
 
+  it('ignores a finalized older-inflight user_turn replay after a newer inflight becomes active', async () => {
+    const conversationId = 'flow-conversation-user-turn-finalized-replay';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        delta: 'First reply',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 3,
+        inflightId: 'i1',
+        status: 'completed',
+        turnId: 'turn-1',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 4,
+        inflightId: 'i2',
+        content: 'Step 2 prompt',
+        createdAt: '2025-01-01T00:00:10.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 5,
+        inflightId: 'i2',
+        delta: 'Second reply',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(2);
+      expect(assistantMessages[0]?.content).toBe('First reply');
+      expect(assistantMessages[0]?.streamStatus).toBe('complete');
+      expect(assistantMessages[0]?.segments?.[0]?.content).toBe('First reply');
+      expect(assistantMessages[1]?.content).toBe('Second reply');
+      expect(assistantMessages[1]?.streamStatus).toBe('processing');
+      expect(assistantMessages[1]?.segments?.[0]?.content).toBe('Second reply');
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 6,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      const userMessages = result.current.messages.filter(
+        (message) => message.role === 'user',
+      );
+      expect(userMessages).toHaveLength(2);
+      expect(assistantMessages).toHaveLength(2);
+      expect(assistantMessages[0]?.content).toBe('First reply');
+      expect(assistantMessages[0]?.streamStatus).toBe('complete');
+      expect(assistantMessages[0]?.segments?.[0]?.content).toBe('First reply');
+      expect(assistantMessages[1]?.content).toBe('Second reply');
+      expect(assistantMessages[1]?.streamStatus).toBe('processing');
+      expect(assistantMessages[1]?.segments?.[0]?.content).toBe('Second reply');
+    });
+  });
+
+  it('allows a legitimate new inflight to advance normally after the previous inflight finalizes', async () => {
+    const conversationId = 'flow-conversation-user-turn-next-after-final';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        delta: 'First reply',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 3,
+        inflightId: 'i1',
+        status: 'completed',
+        turnId: 'turn-1',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 4,
+        inflightId: 'i2',
+        content: 'Step 2 prompt',
+        createdAt: '2025-01-01T00:00:10.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 5,
+        inflightId: 'i2',
+        delta: 'Second reply',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 6,
+        inflightId: 'i2',
+        status: 'completed',
+        turnId: 'turn-2',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(2);
+      expect(assistantMessages[0]?.content).toBe('First reply');
+      expect(assistantMessages[0]?.streamStatus).toBe('complete');
+      expect(assistantMessages[0]?.segments?.[0]?.content).toBe('First reply');
+      expect(assistantMessages[1]?.content).toBe('Second reply');
+      expect(assistantMessages[1]?.streamStatus).toBe('complete');
+      expect(assistantMessages[1]?.segments?.[0]?.content).toBe('Second reply');
+    });
+  });
+
   it('applies analysis deltas to the active inflight reasoning state', async () => {
     const conversationId = 'flow-conversation-analysis-happy-path';
 

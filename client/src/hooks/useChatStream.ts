@@ -280,6 +280,7 @@ export function useChatStream(
   const assistantMessageIdByInflightIdRef = useRef<Map<string, string>>(
     new Map(),
   );
+  const seenInflightIdsRef = useRef<Set<string>>(new Set());
   const toolCallsRef = useRef<Map<string, ToolCall>>(new Map());
   const segmentsRef = useRef<ChatSegment[]>([]);
   const assistantTextRef = useRef('');
@@ -295,6 +296,7 @@ export function useChatStream(
 
   useEffect(() => {
     assistantMessageIdByInflightIdRef.current.clear();
+    seenInflightIdsRef.current.clear();
   }, [conversationId]);
 
   useEffect(() => {
@@ -317,6 +319,11 @@ export function useChatStream(
       clearTimeout(thinkingTimerRef.current);
       thinkingTimerRef.current = null;
     }
+  }, []);
+
+  const rememberSeenInflightId = useCallback((inflightId: string | null) => {
+    if (!inflightId) return;
+    seenInflightIdsRef.current.add(inflightId);
   }, []);
 
   const markAssistantThinking = useCallback(
@@ -717,6 +724,8 @@ export function useChatStream(
     resetInflightState();
     setThreadId(null);
     threadIdRef.current = null;
+    assistantMessageIdByInflightIdRef.current.clear();
+    seenInflightIdsRef.current.clear();
     const nextConversationId = makeId();
     setConversationId(nextConversationId);
     conversationIdRef.current = nextConversationId;
@@ -732,6 +741,8 @@ export function useChatStream(
       }
       setThreadId(null);
       threadIdRef.current = null;
+      assistantMessageIdByInflightIdRef.current.clear();
+      seenInflightIdsRef.current.clear();
       setConversationId(nextConversationId);
       conversationIdRef.current = nextConversationId;
     },
@@ -744,6 +755,8 @@ export function useChatStream(
       history: ChatMessage[],
       mode: 'replace' | 'prepend' = 'replace',
     ) => {
+      assistantMessageIdByInflightIdRef.current.clear();
+      seenInflightIdsRef.current.clear();
       conversationIdRef.current = historyConversationId;
       setConversationId(historyConversationId);
 
@@ -857,8 +870,11 @@ export function useChatStream(
       }
 
       inflightSeqRef.current = inflight.seq;
+      assistantMessageIdByInflightIdRef.current.clear();
+      seenInflightIdsRef.current.clear();
       conversationIdRef.current = historyConversationId;
       setConversationId(historyConversationId);
+      rememberSeenInflightId(inflight.inflightId);
 
       const assistantId = ensureAssistantMessage({
         inflightId: inflight.inflightId,
@@ -902,6 +918,7 @@ export function useChatStream(
       applyToolEvent,
       ensureAssistantMessage,
       logFlowCommand,
+      rememberSeenInflightId,
       syncAssistantMessage,
     ],
   );
@@ -960,6 +977,7 @@ export function useChatStream(
       const nextInflightId = makeId();
       inflightIdRef.current = nextInflightId;
       setInflightId(nextInflightId);
+      rememberSeenInflightId(nextInflightId);
 
       setStatus('sending');
       setIsStreaming(true);
@@ -1206,6 +1224,8 @@ export function useChatStream(
           payload.conversationId &&
           payload.conversationId !== conversationId
         ) {
+          assistantMessageIdByInflightIdRef.current.clear();
+          seenInflightIdsRef.current.clear();
           setConversationId(payload.conversationId);
           conversationIdRef.current = payload.conversationId;
         }
@@ -1238,6 +1258,7 @@ export function useChatStream(
       provider,
       resetInflightState,
       scheduleThinkingTimer,
+      rememberSeenInflightId,
       status,
       isStreaming,
       stop,
@@ -1274,7 +1295,7 @@ export function useChatStream(
           nextInflightId !== null &&
           prevInflightId !== null &&
           nextInflightId !== prevInflightId &&
-          assistantMessageIdByInflightIdRef.current.has(nextInflightId);
+          seenInflightIdsRef.current.has(nextInflightId);
 
         if (staleInflightReplay) {
           logWithChannel('info', 'chat.ws.client_user_turn_ignored', {
@@ -1303,6 +1324,7 @@ export function useChatStream(
         }
 
         if (nextInflightId) {
+          rememberSeenInflightId(nextInflightId);
           inflightIdRef.current = nextInflightId;
           setInflightId(nextInflightId);
         }
@@ -1418,6 +1440,7 @@ export function useChatStream(
         const assistantId = ensureAssistantMessage({
           inflightId: eventInflightId,
         });
+        rememberSeenInflightId(eventInflightId);
 
         const normalizedCommand = normalizeCommand(event.inflight.command);
         logFlowCommand(normalizedCommand);
@@ -1489,6 +1512,7 @@ export function useChatStream(
         }
 
         const assistantId = resolveAssistantId();
+        rememberSeenInflightId(eventInflightId);
         inflightIdRef.current = eventInflightId;
         setInflightId(eventInflightId);
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
@@ -1517,6 +1541,7 @@ export function useChatStream(
         }
 
         const assistantId = resolveAssistantId();
+        rememberSeenInflightId(eventInflightId);
         inflightIdRef.current = eventInflightId;
         setInflightId(eventInflightId);
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
@@ -1541,6 +1566,7 @@ export function useChatStream(
         }
 
         const assistantId = resolveAssistantId();
+        rememberSeenInflightId(eventInflightId);
         inflightIdRef.current = eventInflightId;
         setInflightId(eventInflightId);
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
@@ -1557,6 +1583,7 @@ export function useChatStream(
         }
 
         const assistantId = resolveAssistantId();
+        rememberSeenInflightId(eventInflightId);
         inflightIdRef.current = eventInflightId;
         setInflightId(eventInflightId);
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
@@ -1568,6 +1595,7 @@ export function useChatStream(
 
       if (event.type === 'turn_final') {
         const assistantId = resolveAssistantId();
+        rememberSeenInflightId(event.inflightId);
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
 
         const usage = normalizeUsage(event.usage);
@@ -1668,6 +1696,7 @@ export function useChatStream(
       ensureAssistantMessage,
       logFlowCommand,
       logWithChannel,
+      rememberSeenInflightId,
       resetAssistantPointer,
       status,
       syncAssistantMessage,

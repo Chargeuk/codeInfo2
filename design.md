@@ -3781,7 +3781,8 @@ Assistant bubble binding invariant (Task 30):
 
 - The client binds each assistant bubble to a specific `inflightId` (so late-arriving events cannot overwrite a newer run).
 - Non-final `assistant_delta` events follow strict inflight ownership even while Flow is `idle`: if the event `inflightId` does not match the active inflight, the hook ignores the delta, leaves the active refs untouched, and emits `chat.ws.client_assistant_delta_ignored`.
-- `user_turn` ownership follows the same inflight rule: if a replay arrives for an already-mapped older inflight while a newer inflight is active, the hook ignores that replay, keeps the current assistant pointer bound to the newer inflight, and emits `chat.ws.client_user_turn_ignored`.
+- `user_turn` ownership follows the same inflight rule: if a replay arrives for an already-seen older inflight while a newer inflight is active, the hook ignores that replay, keeps the current assistant pointer bound to the newer inflight, and emits `chat.ws.client_user_turn_ignored`.
+- Seen-inflight replay detection is conversation-local and survives `turn_final` cleanup, so deleting the finalized inflight's assistant-message mapping does not let a replayed older `user_turn` rebind the active bubble later.
 - `analysis_delta`, `tool_event`, and `stream_warning` follow the same stale-inflight rule: if they arrive for an older inflight while a newer one is active, the hook ignores the event before mutating reasoning text, tool state, or warning refs and emits `chat.ws.client_non_final_ignored` with the relevant `eventType`.
 - `inflight_snapshot` uses the same ownership marker with one extra rule: a snapshot for an unseen next inflight is still allowed to create the next assistant bubble, but a replay for an already-mapped older inflight is ignored and logged with `chat.ws.client_non_final_ignored`.
 - These ownership rules live in `useChatStream`, not in `FlowsPage`, because Chat, Agents, and Flows all share the same transcript merge path and Flow only made the bug easier to reproduce.
@@ -3814,7 +3815,7 @@ sequenceDiagram
   WS->>Hook: stream_warning(i2, "Transient reconnect")
   Hook->>Bubble2: keep one warning entry
   WS->>Hook: user_turn(i1) replay
-  Hook-->>Hook: mapped older inflight -> ignore replay
+  Hook-->>Hook: seen finalized older inflight -> ignore replay
   Hook-->>WS: log chat.ws.client_user_turn_ignored
   Hook->>Bubble2: keep active assistant pointer
   WS->>Hook: assistant_delta(i1, " late tail")

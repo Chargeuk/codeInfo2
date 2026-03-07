@@ -1234,8 +1234,14 @@ Update the repo documentation so future developers can understand the root cause
 #### Subtasks
 
 1. [ ] Update `README.md` with a short note describing the Flow live-stream transcript bug fix at a high level if the file already documents related Flow/chat streaming behavior.
-   - Files to edit if appropriate:
+   - Document name:
      - `README.md`
+   - Location:
+     - repo root `README.md`
+   - Description:
+     - add a short high-level note about the Flow live-stream transcript fix only if the README already discusses Flow/chat streaming behavior
+   - Purpose:
+     - keep the top-level repo guide accurate without adding deep implementation detail
    - Documentation for this subtask:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Constraint:
@@ -1244,21 +1250,39 @@ Update the repo documentation so future developers can understand the root cause
    - the source-level `useChatStream` inflight filtering rule
    - why `turn_final` stays special
    - why Flow-page hardening is secondary rather than primary
-   - Files to edit:
+   - Document name:
      - `design.md`
+   - Location:
+     - repo root `design.md`
+   - Description:
+     - update the design documentation and mermaid diagrams so they match the final stream-ownership, finalization, and Flow behavior rules implemented by this story
+   - Purpose:
+     - keep the architecture and behavioral documentation aligned with the code and regression matrix
    - Documentation for this subtask:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
 3. [ ] Update `projectStructure.md` for any new or renamed tests/files created by this story.
-   - Files to edit:
+   - Document name:
      - `projectStructure.md`
+   - Location:
+     - repo root `projectStructure.md`
+   - Description:
+     - add any newly created or renamed test files and supporting files from this story to the project structure map
+   - Purpose:
+     - keep the repo file map accurate for later developers and reviewers
    - Documentation for this subtask:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - When this subtask is complete:
      - every newly added or renamed test file from Tasks 1–7 is listed explicitly
 4. [ ] Update this story file’s Implementation notes for Task 8 once the documentation work is complete.
-   - Files to edit:
+   - Document name:
+     - `0000042-flow-streaming-transcript-bubble-text-loss.md`
+   - Location:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+   - Description:
+     - record what documentation changed, why it changed, and any problems encountered while updating the markdown files for Task 8
+   - Purpose:
+     - preserve a story-local implementation record for the documentation pass
 5. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
@@ -1317,8 +1341,14 @@ Perform the final acceptance pass for the story. This task must confirm the shar
    - Purpose for this subtask:
      - prove the client-side fix did not accidentally break the server build/test surface through shared type or contract edits
 3. [ ] Verify the story acceptance criteria one by one against the implemented behavior and note the outcome in this story file.
-   - Files to edit:
+   - Document name:
+     - `0000042-flow-streaming-transcript-bubble-text-loss.md`
+   - Location:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+   - Description:
+     - add a short pass/fail note for each acceptance criterion and link it back to the test or task that proved it
+   - Purpose:
+     - leave a clear acceptance audit trail inside the story plan
    - Documentation for this subtask:
      - reread the `Acceptance Criteria` section in this story before marking any item complete
    - When this subtask is complete:
@@ -1331,24 +1361,38 @@ Perform the final acceptance pass for the story. This task must confirm the shar
    - Required outcome:
      - confirm the fix stayed in client-side stream handling and tests unless an unavoidable shape change was explicitly documented and justified
      - record the result in this story file’s Implementation notes
-5. [ ] Update `design.md` and `projectStructure.md` again if the final implementation introduced any last-minute file or behavior changes not yet documented.
-   - Files to edit if needed:
+5. [ ] Update `design.md` again if the final implementation introduced any last-minute architecture or behavior changes not yet documented.
+   - Document name:
      - `design.md`
+   - Location:
+     - repo root `design.md`
+   - Description:
+     - add any final architecture or behavior notes that were introduced after the earlier design-update tasks completed
+   - Purpose:
+     - ensure the final design documentation matches the shipped implementation and diagrams
+6. [ ] Update `projectStructure.md` again if the final implementation introduced any last-minute file changes not yet documented.
+   - Document name:
      - `projectStructure.md`
-6. [ ] Start the compose stack and perform a manual Playwright MCP check of a known multi-step Flow such as `flows/implement_next_plan.json`.
+   - Location:
+     - repo root `projectStructure.md`
+   - Description:
+     - add any final file, rename, or structure changes introduced after the earlier project-structure update task completed
+   - Purpose:
+     - ensure the repo file map reflects the final merged state of the story
+7. [ ] Start the compose stack and perform a manual Playwright MCP check of a known multi-step Flow such as `flows/implement_next_plan.json`.
    - Required screenshots:
      - `test-results/screenshots/0000042-09-flow-before-fix-validation.png`
      - `test-results/screenshots/0000042-09-flow-during-second-step.png`
      - `test-results/screenshots/0000042-09-flow-after-completion.png`
    - Required visual checks:
      - earlier assistant bubble text remains visible while the next step streams
-7. [ ] Write a pull request summary comment covering:
+8. [ ] Write a pull request summary comment covering:
    - root cause
    - files changed
    - tests run
    - residual risks if any
    - Files to edit/create as agreed by the repo workflow
-8. [ ] Repo-wide lint + format gate as the final subtask.
+9. [ ] Repo-wide lint + format gate as the final subtask.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

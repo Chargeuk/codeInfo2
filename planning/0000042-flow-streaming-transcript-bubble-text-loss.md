@@ -840,6 +840,10 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
      - page integration regression test
    - Location:
      - `client/src/test/chatPage.stream.test.tsx`
+   - Files to read before editing:
+     - `client/src/test/chatPage.stream.test.tsx`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/test/support/mockChatWs.ts`
    - Description:
      - add or update a test that delivers a late final for an older inflight after a newer chat run has started and asserts the newer run stays intact
    - Purpose:
@@ -847,11 +851,20 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Start here in code:
+     - reuse the existing late-stream chat tests in `client/src/test/chatPage.stream.test.tsx`
+     - reuse the websocket emit helpers from `client/src/test/support/mockChatWs.ts`
+   - When this subtask is complete:
+     - the test proves an older inflight can finalize without changing the visible newer chat bubble
 4. [ ] Add an Agents page late-`turn_final` regression test.
    - Test type:
      - page integration regression test
    - Location:
      - `client/src/test/agentsPage.streaming.test.tsx`
+   - Files to read before editing:
+     - `client/src/test/agentsPage.streaming.test.tsx`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/test/support/mockChatWs.ts`
    - Description:
      - add or update a test that delivers a late final for an older inflight after a newer agent run has started and asserts the newer run stays intact
    - Purpose:
@@ -859,11 +872,20 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Start here in code:
+     - reuse the existing streaming regression structure in `client/src/test/agentsPage.streaming.test.tsx`
+     - reuse the websocket emit helpers from `client/src/test/support/mockChatWs.ts`
+   - When this subtask is complete:
+     - the test proves an older inflight final cannot overwrite or clear the visible newer agent run
 5. [ ] Add a matching-inflight `turn_final` happy-path regression test.
    - Test type:
      - page integration regression test
    - Location:
      - `client/src/test/chatPage.stream.test.tsx`
+   - Files to read before editing:
+     - `client/src/test/chatPage.stream.test.tsx`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/test/support/mockChatWs.ts`
    - Description:
      - add or update a test that delivers `turn_final` for the currently active inflight and asserts the completed bubble keeps its text and finishes normally
    - Purpose:
@@ -871,9 +893,24 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Start here in code:
+     - place this test next to the other chat streaming websocket regressions
+     - reuse the same chat harness setup and websocket emit helpers as the late-final tests above
+   - When this subtask is complete:
+     - the test proves a matching inflight still finishes normally after the stale-event protections were added
 6. [ ] Re-run shared consumer regression checks after the late-final changes.
    - Files to read/edit only if failures require updates:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+     - `client/src/test/chatPage.stream.test.tsx`
+     - `client/src/test/agentsPage.streaming.test.tsx`
+   - Run for this subtask:
+     - `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx`
+     - `npm run test:summary:client -- --file client/src/test/agentsPage.streaming.test.tsx`
+     - `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+   - When this subtask is complete:
+     - the late-final regressions pass in chat and agents, and no shared-hook mismatch test regressed
 7. [ ] Update `design.md` with the preserved late-final rule and any affected mermaid diagram.
    - Files to edit:
      - `design.md`
@@ -968,6 +1005,9 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
      - websocket hook regression test
    - Location:
      - `client/src/test/useChatWs.test.ts`
+   - Files to read before editing:
+     - `client/src/test/useChatWs.test.ts`
+     - `client/src/hooks/useChatWs.ts`
    - Description:
      - add or update a test that sends a lower-sequence packet for the current inflight and asserts it is dropped before reaching downstream consumers
    - Purpose:
@@ -975,11 +1015,19 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - WebSocket message events: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
+   - Start here in code:
+     - reuse the existing websocket hook harness and stale-packet tests in `client/src/test/useChatWs.test.ts`
+     - inspect `lastSeqByKeyRef` and `inflightKey(...)` in `client/src/hooks/useChatWs.ts`
+   - When this subtask is complete:
+     - the test fails if a lower-sequence event reaches `onEvent`
 4. [ ] Add a sequence-boundary regression for new inflight resets versus stale prior inflight packets.
    - Test type:
      - websocket hook regression test
    - Location:
      - `client/src/test/useChatWs.test.ts`
+   - Files to read before editing:
+     - `client/src/test/useChatWs.test.ts`
+     - `client/src/hooks/useChatWs.ts`
    - Description:
      - add a test that accepts a new inflight starting at `seq: 1` and then proves later packets from the old inflight with lower or equal sequence do not leak through
    - Purpose:
@@ -987,11 +1035,20 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - WebSocket message events: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
+   - Start here in code:
+     - reuse the same websocket harness as the stale-packet regression above
+     - make the inflight key change explicit in the test input so the expected `seq: 1` accept path is obvious
+   - When this subtask is complete:
+     - the test proves a new inflight starts fresh while stale packets from the old inflight remain blocked
 5. [ ] Add a downstream chat-path regression that confirms websocket filtering still supports the visible happy path.
    - Test type:
      - page integration regression test
    - Location:
      - `client/src/test/chatPage.stream.test.tsx`
+   - Files to read before editing:
+     - `client/src/test/chatPage.stream.test.tsx`
+     - `client/src/test/useChatWs.test.ts`
+     - `client/src/test/support/mockChatWs.ts`
    - Description:
      - add or update a test that proves accepted websocket packets still reach the chat page correctly while stale packets remain blocked
    - Purpose:
@@ -999,9 +1056,24 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Start here in code:
+     - reuse the existing chat streaming test setup and websocket emit helpers
+     - keep the assertions user-visible: accepted packets should still change rendered chat content
+   - When this subtask is complete:
+     - the test proves the websocket filter blocks stale traffic without suppressing valid visible chat updates
 6. [ ] Re-run shared consumer regression checks after the websocket sequence changes.
    - Files to read/edit only if failures require updates:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+     - `client/src/test/useChatWs.test.ts`
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Run for this subtask:
+     - `npm run test:summary:client -- --file client/src/test/useChatWs.test.ts`
+     - `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx`
+     - `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+   - When this subtask is complete:
+     - the transport-layer tests and downstream consumer tests all pass together
 7. [ ] Update `design.md` with the websocket sequence-filtering rule and any affected mermaid diagram.
    - Files to edit:
      - `design.md`
@@ -1084,9 +1156,14 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
 2. [ ] Add a Flow-page regression test that simulates two sequential Flow step inflights and asserts the earlier assistant bubble text remains visible while the later step streams.
    - Files to edit:
      - `client/src/test/flowsPage.run.test.tsx`
+   - Files to read before editing:
+     - `client/src/test/flowsPage.run.test.tsx`
+     - `client/src/pages/FlowsPage.tsx`
+     - `client/src/test/support/mockChatWs.ts`
    - Start here in code:
      - add the new case next to the existing Flow run websocket tests; do not create a new Flow test file for this story
    - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - MUI 6.x reference: MUI MCP `@mui/material@6.4.12`
    - Required assertions:
@@ -1095,11 +1172,17 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
      - a stale earlier-step `user_turn` replay does not reset the active transcript or retarget the current assistant bubble
    - Constraint:
      - extend the existing websocket harness and emit helpers rather than creating page-specific websocket mocks
+   - When this subtask is complete:
+     - the regression fails on the old bug and passes once the shared fix is applied
 3. [ ] Add a Flow-page happy-path regression that proves the current later-step bubble still streams normally while the earlier bubble stays visible.
    - Test type:
      - page integration regression test
    - Location:
      - `client/src/test/flowsPage.run.test.tsx`
+   - Files to read before editing:
+     - `client/src/test/flowsPage.run.test.tsx`
+     - `client/src/pages/FlowsPage.tsx`
+     - `client/src/test/support/mockChatWs.ts`
    - Description:
      - add or update a test that drives two sequential Flow step inflights and asserts the second step still renders its own live text while the first step keeps its already-rendered content
    - Purpose:
@@ -1107,9 +1190,22 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Start here in code:
+     - reuse `setupChatWsHarness` and the existing Flow run websocket test setup
+     - keep this test separate from the stale-event regression so the happy path remains obvious
+   - When this subtask is complete:
+     - the test proves the second Flow step continues to render live text while the first bubble remains visible
 4. [ ] Re-run the Flow regressions and nearby Flow tests after the new page tests are added.
    - Files to read/edit only if failures require updates:
      - `client/src/test/flowsPage.test.tsx`
+     - `client/src/test/flowsPage.run.test.tsx`
+   - Run for this subtask:
+     - `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
+     - `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+   - When this subtask is complete:
+     - the new Flow websocket regressions pass and no nearby Flow page tests regress
 5. [ ] Update `design.md` with the Flow live transcript behavior and any affected Flow mermaid diagram.
    - Files to edit:
      - `design.md`
@@ -1186,6 +1282,10 @@ Apply the smallest Flow-page-only fix only if the automated live Flow regression
 2. [ ] Apply the smallest `FlowsPage` hardening needed around active conversation visibility/reset behavior.
    - Files to edit only if required:
      - `client/src/pages/FlowsPage.tsx`
+   - Files to read before editing:
+     - `client/src/pages/FlowsPage.tsx`
+     - `client/src/test/flowsPage.run.test.tsx`
+     - `client/src/test/support/mockChatWs.ts`
    - Documentation for this subtask:
      - React Router 7: https://reactrouter.com/home
      - MUI 6.x reference: MUI MCP `@mui/material@6.4.12`
@@ -1194,11 +1294,20 @@ Apply the smallest Flow-page-only fix only if the automated live Flow regression
      - do not add Flow-only fake `sending` state
      - do not widen scope into unrelated sidebar/filter work
      - reuse the existing MUI 6.x component structure already in `FlowsPage.tsx` instead of introducing new UI component patterns unless the failing regression proves it is necessary
+   - Start here in code:
+     - inspect the active-conversation visibility/reset effect before editing
+     - keep `handleWsEvent` wiring untouched unless the failing Task 6 regression proves that wiring is still incorrect
+   - When this subtask is complete:
+     - the Flow page stops clearing visible transcript state during the proven visibility-churn path without introducing new page-specific stream ownership logic
 3. [ ] Add a Flow-page visibility-churn regression for the Task 7 hardening only if Task 7 edits `FlowsPage.tsx`.
    - Test type:
      - page integration regression test
    - Location:
      - `client/src/test/flowsPage.run.test.tsx`
+   - Files to read before editing:
+     - `client/src/test/flowsPage.run.test.tsx`
+     - `client/src/pages/FlowsPage.tsx`
+     - `client/src/test/support/mockChatWs.ts`
    - Description:
      - add or update a test that temporarily removes the active Flow conversation from the `flowConversations` view during a live stream and asserts the visible transcript is not cleared by the page-level safeguard
    - Purpose:
@@ -1206,17 +1315,39 @@ Apply the smallest Flow-page-only fix only if the automated live Flow regression
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Start here in code:
+     - reuse the existing Flow run page test setup and websocket harness
+     - make the temporary removal of the active conversation explicit in test data so the guard being exercised is obvious
+   - When this subtask is complete:
+     - the test proves the transcript remains visible through the page-local visibility-churn condition
 4. [ ] Add a remount/revisit regression only if the page hardening changes behavior around Flow transcript persistence across navigation.
    - Files to edit only if required:
      - `client/src/test/flowsPage.run.test.tsx`
+   - Files to read before editing:
+     - `client/src/test/flowsPage.run.test.tsx`
+     - `client/src/pages/FlowsPage.tsx`
    - Required assertions:
      - the earlier bubble text is still present immediately before remount/navigation
      - the same text is still present after remount/navigation
      - the regression proves the page-level hardening does not reintroduce a live-versus-remount mismatch
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Start here in code:
+     - reuse the same Flow run page test setup as the visibility-churn regression above
+   - When this subtask is complete:
+     - the page-level safeguard still preserves the same transcript before and after remount/navigation
 5. [ ] Re-run the Flow regressions and nearby Flow tests after any page-level change.
    - Files to read/edit only if failures require updates:
      - `client/src/test/flowsPage.run.test.tsx`
      - `client/src/test/flowsPage.test.tsx`
+   - Run for this subtask:
+     - `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
+     - `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+   - When this subtask is complete:
+     - the page-hardening regression passes and the surrounding Flow suites still pass
 6. [ ] Update `design.md` if the Flow page hardening changed the architecture or Flow behavior, including any affected mermaid diagram.
    - Files to edit:
      - `design.md`
@@ -1275,6 +1406,9 @@ Update the repo documentation so future developers can understand the root cause
      - `README.md`
    - Location:
      - repo root `README.md`
+   - Files to read before editing:
+     - `README.md`
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
    - Description:
      - add a short high-level note about the Flow live-stream transcript fix only if the README already discusses Flow/chat streaming behavior
    - Purpose:
@@ -1291,6 +1425,12 @@ Update the repo documentation so future developers can understand the root cause
      - `design.md`
    - Location:
      - repo root `design.md`
+   - Files to read before editing:
+     - `design.md`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/pages/FlowsPage.tsx`
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
    - Description:
      - update the design documentation and mermaid diagrams so they match the final stream-ownership, finalization, and Flow behavior rules implemented by this story
    - Purpose:
@@ -1303,6 +1443,9 @@ Update the repo documentation so future developers can understand the root cause
      - `projectStructure.md`
    - Location:
      - repo root `projectStructure.md`
+   - Files to read before editing:
+     - `projectStructure.md`
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
    - Description:
      - add any newly created or renamed test files and supporting files from this story to the project structure map
    - Purpose:
@@ -1311,6 +1454,7 @@ Update the repo documentation so future developers can understand the root cause
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - When this subtask is complete:
      - every newly added or renamed test file from Tasks 1–7 is listed explicitly
+     - every file that was removed or renamed during the story is also recorded explicitly
 4. [ ] Update this story file’s Implementation notes for Task 8 once the documentation work is complete.
    - Document name:
      - `0000042-flow-streaming-transcript-bubble-text-loss.md`
@@ -1320,6 +1464,8 @@ Update the repo documentation so future developers can understand the root cause
      - record what documentation changed, why it changed, and any problems encountered while updating the markdown files for Task 8
    - Purpose:
      - preserve a story-local implementation record for the documentation pass
+   - Documentation for this subtask:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
 5. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
@@ -1370,13 +1516,23 @@ Perform the final acceptance pass for the story. This task must confirm the shar
 1. [ ] Run the full relevant client regression wrappers without file filters.
    - Run:
      - `npm run test:summary:client`
+   - Review after running:
+     - the wrapper summary in the terminal
+     - the generated client log under `test-results/`
    - Purpose for this subtask:
      - this is the final automated proof that Chat, Agents, Flows, and shared hook tests still pass together after the targeted task-level work
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
 2. [ ] Run the server regression wrapper needed for this story’s unaffected backend surface.
    - Run:
      - `npm run test:summary:server:unit`
+   - Review after running:
+     - the wrapper summary in the terminal
+     - the generated server log under `test-results/`
    - Purpose for this subtask:
      - prove the client-side fix did not accidentally break the server build/test surface through shared type or contract edits
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
 3. [ ] Verify the story acceptance criteria one by one against the implemented behavior and note the outcome in this story file.
    - Document name:
      - `0000042-flow-streaming-transcript-bubble-text-loss.md`
@@ -1388,16 +1544,21 @@ Perform the final acceptance pass for the story. This task must confirm the shar
      - leave a clear acceptance audit trail inside the story plan
    - Documentation for this subtask:
      - reread the `Acceptance Criteria` section in this story before marking any item complete
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - When this subtask is complete:
      - each acceptance criterion has a short pass/fail note mapped to the task or test that proved it
 4. [ ] Verify that websocket message shapes, REST payload shapes, and persistence storage shapes were not changed by this story.
    - Files to inspect:
+     - `server/src/ws/types.ts`
      - `server/src/ws/sidebar.ts`
      - `server/src/mongo/repo.ts`
      - any shared websocket or conversation type files touched during implementation
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
    - Required outcome:
      - confirm the fix stayed in client-side stream handling and tests unless an unavoidable shape change was explicitly documented and justified
      - record the result in this story file’s Implementation notes
+   - Documentation for this subtask:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
 5. [ ] Update `design.md` again if the final implementation introduced any last-minute architecture or behavior changes not yet documented.
    - Document name:
      - `design.md`
@@ -1407,6 +1568,9 @@ Perform the final acceptance pass for the story. This task must confirm the shar
      - add any final architecture or behavior notes that were introduced after the earlier design-update tasks completed
    - Purpose:
      - ensure the final design documentation matches the shipped implementation and diagrams
+   - Documentation for this subtask:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid syntax: Context7 `/mermaid-js/mermaid`
 6. [ ] Update `projectStructure.md` again if the final implementation introduced any last-minute file changes not yet documented.
    - Document name:
      - `projectStructure.md`
@@ -1416,19 +1580,36 @@ Perform the final acceptance pass for the story. This task must confirm the shar
      - add any final file, rename, or structure changes introduced after the earlier project-structure update task completed
    - Purpose:
      - ensure the repo file map reflects the final merged state of the story
+   - Documentation for this subtask:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
 7. [ ] Start the compose stack and perform a manual Playwright MCP check of a known multi-step Flow such as `flows/implement_next_plan.json`.
+   - Files and paths to read before running:
+     - `flows/implement_next_plan.json`
+     - `test-results/screenshots/`
    - Required screenshots:
      - `test-results/screenshots/0000042-09-flow-before-fix-validation.png`
      - `test-results/screenshots/0000042-09-flow-during-second-step.png`
      - `test-results/screenshots/0000042-09-flow-after-completion.png`
    - Required visual checks:
      - earlier assistant bubble text remains visible while the next step streams
+     - the currently active later step also shows its own streaming text
+   - Documentation for this subtask:
+     - Playwright docs: https://playwright.dev/docs/intro
 8. [ ] Write a pull request summary comment covering:
    - root cause
    - files changed
    - tests run
    - residual risks if any
    - Files to edit/create as agreed by the repo workflow
+   - Source material to read before writing:
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+     - `design.md`
+     - `projectStructure.md`
+     - the final git diff for the story
+   - Documentation for this subtask:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - When this subtask is complete:
+     - the summary mentions the root cause, the shared-hook-first fix, any Flow-page fallback work, and the exact validation that was run
 9. [ ] Repo-wide lint + format gate as the final subtask.
    - Run:
      - `npm run lint --workspaces`

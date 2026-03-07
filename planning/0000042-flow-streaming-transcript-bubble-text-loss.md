@@ -86,8 +86,6 @@ This story does not require new transport contracts or persistence shapes for th
 
 ### Questions
 
-- None. The initial investigation questions have been answered and converted into implementation guidance below.
-
 ## Research Notes
 
 - Scope verdict:
@@ -227,13 +225,14 @@ This story does not require new transport contracts or persistence shapes for th
     - Flow page integration scenario asserting previous bubble text is retained when next flow step starts streaming.
     - Explicit regression check that the hook fix does not break existing Chat or Agents late-event behavior.
 
-- Candidate implementation directions for follow-up tasking:
-  - Option A (preferred first pass):
+- Implementation paths considered:
+  - Primary fix for this story:
     - In `useChatStream`, always isolate or ignore mismatched inflight deltas and tool/reasoning events independent of `status`.
     - Keep `turn_final` out-of-band completion behavior explicit and non-destructive.
-  - Option B:
+  - Larger refactor deliberately not chosen as first pass:
     - Track stream state per inflight ID instead of shared refs to remove cross-inflight mutation risk.
-  - Option C (defense-in-depth):
+    - This remains a fallback only if the smaller source-level fix proves insufficient.
+  - Secondary safeguard only if still needed after the primary fix:
     - In Flow page, avoid hard transcript clear on temporary filtered-list absence; debounce/confirm before reset.
 
   - Suggested verification approach for implementation story:

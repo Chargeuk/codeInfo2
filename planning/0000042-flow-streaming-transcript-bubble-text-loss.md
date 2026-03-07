@@ -374,20 +374,41 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
    - Files to read:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
      - `client/src/hooks/useChatStream.ts`
+   - Start here in code:
+     - the existing failing proof test `keeps the previous assistant bubble content when a stale delta arrives after the next Flow-style user_turn`
+     - the `assistant_delta` branch inside `handleWsEvent` in `client/src/hooks/useChatStream.ts`
+   - Documentation for this subtask:
+     - React 19.2 `useRef`: https://react.dev/reference/react/useRef
+     - React 19.2 state snapshots: https://react.dev/learn/state-as-a-snapshot
    - Goal:
      - understand exactly how a stale `assistant_delta` for an older inflight currently mutates the active shared refs
      - identify where to reuse `ensureAssistantMessage`, `syncAssistantMessage`, `resetInflightState`, and `resetAssistantPointer` instead of adding new helper functions
+   - When this subtask is complete:
+     - you can point to the exact lines where `assistant_delta` still accepts a mismatched inflight while `status !== 'sending'`
 2. [ ] Update `client/src/hooks/useChatStream.ts` so stale mismatched `assistant_delta` events are rejected by inflight identity even when `status !== 'sending'`.
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
+   - Start here in code:
+     - the `assistant_delta` branch in `handleWsEvent`
+     - reuse `ensureAssistantMessage` and `syncAssistantMessage`; do not create a new bubble-tracking helper
+   - Documentation for this subtask:
+     - React 19.2 `useRef`: https://react.dev/reference/react/useRef
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Required behavior:
      - keep the current matching-inflight happy path working
      - do not introduce synthetic Flow-only `sending` state
      - do not change websocket contracts or page-level event shapes
      - reuse the existing assistant-message targeting and sync helpers instead of creating parallel bubble-management logic
+   - When this subtask is complete:
+     - a mismatched stale `assistant_delta` no longer mutates the active refs or visible active bubble
 3. [ ] Update the existing proof test so it becomes a passing regression.
    - Files to edit:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Start here in code:
+     - keep the existing test name and expand only the assertions needed for the fixed behavior
+   - Documentation for this subtask:
+     - Jest 30: Context7 `/websites/jestjs_io_30_0`
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
    - Required assertions:
      - first assistant bubble text remains visible after a stale `assistant_delta` for an earlier inflight arrives
      - the newer inflight still updates normally
@@ -442,18 +463,34 @@ Handle the `user_turn` branch separately from later transcript events. This task
 1. [ ] Read the `user_turn` branch in the shared hook and list which refs/state it mutates before changing code.
    - Files to read:
      - `client/src/hooks/useChatStream.ts`
+   - Start here in code:
+     - the `if (event.type === 'user_turn')` branch inside `handleWsEvent`
+     - focus on `resetAssistantPointer`, `inflightIdRef.current`, and `ensureAssistantMessage`
+   - Documentation for this subtask:
+     - React 19.2 `useRef`: https://react.dev/reference/react/useRef
+     - React 19.2 effect synchronization: https://react.dev/learn/synchronizing-with-effects
    - Reuse target:
      - extend the existing `handleWsEvent` branch and shared refs/helpers in `useChatStream` rather than introducing a second websocket event dispatcher
 2. [ ] Update `client/src/hooks/useChatStream.ts` so stale mismatched `user_turn` events are ignored consistently during Flow-style idle streaming.
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
+   - Start here in code:
+     - the `shouldResetAssistantPointer` calculation and the `if (nextInflightId) { ... }` assignment block inside the `user_turn` branch
+   - Documentation for this subtask:
+     - React 19.2 `useRef`: https://react.dev/reference/react/useRef
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Required behavior:
      - a stale earlier-inflight `user_turn` must not reset the assistant pointer, change `inflightIdRef`, or rebind the active assistant bubble
      - a legitimate next-step `user_turn` for a new inflight must still create or target the correct next assistant bubble
      - reuse existing reset and assistant-targeting helpers instead of introducing new refs or duplicate state containers
+   - When this subtask is complete:
+     - stale `user_turn` for an old inflight becomes a no-op for active bubble targeting, but valid next-step `user_turn` still advances the transcript
 3. [ ] Add hook-level regression coverage for stale `user_turn` under a Flow-style idle lifecycle.
    - Files to edit:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Documentation for this subtask:
+     - Jest 30: Context7 `/websites/jestjs_io_30_0`
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
    - Required assertions:
      - stale `user_turn` is ignored when it arrives after a newer inflight has already become active
 4. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the `user_turn` filtering does not break them.
@@ -511,6 +548,11 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Files to read:
      - `client/src/hooks/useChatStream.ts`
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Start here in code:
+     - the `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot` branches inside `handleWsEvent`
+   - Documentation for this subtask:
+     - React 19.2 `useRef`: https://react.dev/reference/react/useRef
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Event branches to inspect:
      - `analysis_delta`
      - `tool_event`
@@ -521,6 +563,11 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
 2. [ ] Update `client/src/hooks/useChatStream.ts` so stale mismatched non-final events are ignored consistently during Flow-style idle streaming.
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
+   - Start here in code:
+     - keep each change inside the existing event branch; do not move these events into a new shared abstraction for this story
+   - Documentation for this subtask:
+     - React 19.2 effect synchronization: https://react.dev/learn/synchronizing-with-effects
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Required behavior:
      - matching inflight events still update normally
      - stale earlier inflight events do not overwrite reasoning text, warnings, tool state, or snapshot-driven visible state
@@ -528,6 +575,9 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
 3. [ ] Add hook-level regression coverage for the remaining non-final event types under a Flow-style idle lifecycle.
    - Files to edit:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Documentation for this subtask:
+     - Jest 30: Context7 `/websites/jestjs_io_30_0`
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
    - Required assertions:
      - stale `analysis_delta` is ignored
      - stale `tool_event` is ignored
@@ -587,12 +637,23 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
      - `client/src/hooks/useChatStream.ts`
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/agentsPage.streaming.test.tsx`
+   - Start here in code:
+     - the `if (event.type === 'turn_final')` branch inside `handleWsEvent`
+     - the existing late-final regression tests in chat and agents streaming tests
+   - Documentation for this subtask:
+     - React 19.2 effect synchronization: https://react.dev/learn/synchronizing-with-effects
+     - WebSocket message events: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
 2. [ ] Update `client/src/hooks/useChatStream.ts` only as needed to preserve non-destructive late-final behavior while the stricter mismatch filtering is in place.
    - Files to edit only if needed:
      - `client/src/hooks/useChatStream.ts`
+   - Documentation for this subtask:
+     - React 19.2 effect synchronization: https://react.dev/learn/synchronizing-with-effects
+     - WebSocket message events: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
    - Required behavior:
      - a late `turn_final` for an older inflight must not damage the currently active inflight
      - valid finalization data for the matching inflight must still be applied correctly
+   - When this subtask is complete:
+     - older finals update only their own completed bubble metadata and do not clear or overwrite the newer inflight
 3. [ ] Add or update regression coverage for late `turn_final` behavior.
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
@@ -654,15 +715,28 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. This task is i
      - `client/src/hooks/useChatWs.ts`
      - `client/src/test/useChatWs.test.ts`
      - `client/src/test/chatPage.stream.test.tsx`
+   - Start here in code:
+     - `lastSeqByKeyRef.current`
+     - `inflightKey(...)`
+     - the branch that drops packets when `seq <= last`
+   - Documentation for this subtask:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - WebSocket message events: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
    - Reuse target:
      - preserve the existing `useChatWs` per-`(conversationId, inflightId)` sequence filter instead of adding a second stale-packet filter in a different layer
 2. [ ] Update `client/src/hooks/useChatWs.ts` only as needed to preserve lower-sequence same-inflight filtering and sequence reset acceptance for new inflights.
    - Files to edit only if needed:
      - `client/src/hooks/useChatWs.ts`
+   - Documentation for this subtask:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - WebSocket message events: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
    - Required behavior:
      - lower-sequence same-inflight websocket transcript events must continue to be ignored before they reach `handleWsEvent`
      - sequence resets for a new inflight must still be accepted
      - reuse the existing `inflightKey` and `lastSeqByKeyRef` logic instead of creating a new sequence-tracking structure
+   - Concrete example for this subtask:
+     - if inflight `i2` already accepted `seq: 7`, a later event for the same `(conversationId, i2)` with `seq: 6` must be dropped
+     - if the next inflight is `i3`, its first event with `seq: 1` must still be accepted because the inflight key changed
 3. [ ] Add or update websocket-layer regression coverage for lower-sequence same-inflight transcript events.
    - Files to edit:
      - `client/src/test/useChatWs.test.ts`
@@ -728,11 +802,22 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
      - `client/src/test/flowsPage.test.tsx`
      - `client/src/test/flowsPage.run.test.tsx`
      - `client/src/test/support/mockChatWs.ts`
+   - Start here in code:
+     - the Flow page websocket event forwarding into `handleWsEvent`
+     - `setupChatWsHarness`, especially `emitUserTurn`, `emitAssistantDelta`, and `emitInflightSnapshot`
+   - Documentation for this subtask:
+     - React Router 7: https://reactrouter.com/home
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
    - Reuse target:
      - use the existing `setupChatWsHarness` helper and emitters from `mockChatWs.ts` for Flow transcript event simulation
 2. [ ] Add a Flow-page regression test that simulates two sequential Flow step inflights and asserts the earlier assistant bubble text remains visible while the later step streams.
    - Files to edit:
      - `client/src/test/flowsPage.run.test.tsx`
+   - Start here in code:
+     - add the new case next to the existing Flow run websocket tests; do not create a new Flow test file for this story
+   - Documentation for this subtask:
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - MUI 6.x reference: MUI MCP `@mui/material@6.4.12`
    - Required assertions:
      - first bubble text remains visible after the next step starts
      - stale earlier-step events do not remove that text from the live UI
@@ -795,9 +880,17 @@ Apply the smallest Flow-page-only fix only if the new live Flow regression from 
    - Files to read:
      - `client/src/test/flowsPage.run.test.tsx`
      - `client/src/test/flowsPage.test.tsx`
+   - Documentation for this subtask:
+     - React Router 7: https://reactrouter.com/home
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - When this subtask is complete:
+     - either you have a failing Flow-only case that still needs page hardening, or you write `N/A - Task 6 regressions passed and no residual Flow-only issue remained` in this task’s Implementation notes and do not edit `FlowsPage.tsx`
 2. [ ] Apply the smallest `FlowsPage` hardening needed around active conversation visibility/reset behavior.
    - Files to edit only if required:
      - `client/src/pages/FlowsPage.tsx`
+   - Documentation for this subtask:
+     - React Router 7: https://reactrouter.com/home
+     - MUI 6.x reference: MUI MCP `@mui/material@6.4.12`
    - Constraint:
      - do not add Flow-only fake `sending` state
      - do not widen scope into unrelated sidebar/filter work
@@ -859,6 +952,8 @@ Update the repo documentation so future developers can understand the root cause
 1. [ ] Update `README.md` with a short note describing the Flow live-stream transcript bug fix at a high level if the file already documents related Flow/chat streaming behavior.
    - Files to edit if appropriate:
      - `README.md`
+   - Documentation for this subtask:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Constraint:
      - keep the note short and only add it if it improves user/developer understanding of shared streaming behavior
 2. [ ] Update `design.md` to document:
@@ -867,9 +962,16 @@ Update the repo documentation so future developers can understand the root cause
    - why Flow-page hardening is secondary rather than primary
    - Files to edit:
      - `design.md`
+   - Documentation for this subtask:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid syntax: Context7 `/mermaid-js/mermaid`
 3. [ ] Update `projectStructure.md` for any new or renamed tests/files created by this story.
    - Files to edit:
      - `projectStructure.md`
+   - Documentation for this subtask:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - When this subtask is complete:
+     - every newly added or renamed test file from Tasks 1–7 is listed explicitly
 4. [ ] Update this story file’s Implementation notes for Task 8 once the documentation work is complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
@@ -917,12 +1019,20 @@ Perform the final acceptance pass for the story. This task must confirm the shar
 1. [ ] Run the full relevant client regression wrappers without file filters.
    - Run:
      - `npm run test:summary:client`
+   - Purpose for this subtask:
+     - this is the final automated proof that Chat, Agents, Flows, and shared hook tests still pass together after the targeted task-level work
 2. [ ] Run the server regression wrapper needed for this story’s unaffected backend surface.
    - Run:
      - `npm run test:summary:server:unit`
+   - Purpose for this subtask:
+     - prove the client-side fix did not accidentally break the server build/test surface through shared type or contract edits
 3. [ ] Verify the story acceptance criteria one by one against the implemented behavior and note the outcome in this story file.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+   - Documentation for this subtask:
+     - reread the `Acceptance Criteria` section in this story before marking any item complete
+   - When this subtask is complete:
+     - each acceptance criterion has a short pass/fail note mapped to the task or test that proved it
 4. [ ] Verify that websocket message shapes, REST payload shapes, and persistence storage shapes were not changed by this story.
    - Files to inspect:
      - `server/src/ws/sidebar.ts`

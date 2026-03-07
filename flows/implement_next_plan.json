@@ -3,6 +3,20 @@
   "steps": [
     {
       "type": "llm",
+      "label": "Planner Select Next Plan",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Please read Agents.md and follow it's instructions. Please tell me the next plan that has not yet been fully executed - this can be determined by looking for plans that include tasks that are not yet moved to the status of completed/complete. The lowest indexed story that meets one of these two criteria will be the story we will be working on. Confirm to me what story that is, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
+          ]
+        }
+      ]
+    },
+    {
+      "type": "llm",
       "label": "Explain Next Coding Work",
       "agentType": "coding_agent",
       "identifier": "coder",
@@ -10,7 +24,7 @@
         {
           "role": "user",
           "content": [
-            "Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved."
+            "Please read Agents.md and follow it's instructions. Please tell me the next plan that has not yet been fully executed - this can be determined by looking for plans that include tasks that are not yet moved to the status of completed/complete. The lowest indexed story that meets one of these two criteria will be the story we will be working on. Confirm to me what story that is, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
           ]
         }
       ]

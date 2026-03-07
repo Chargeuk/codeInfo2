@@ -1824,21 +1824,21 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 #### Acceptance audit
 
 - `PASS` Previously rendered Flow bubble text stays visible when later steps begin streaming.
-  Proven by Task 6 Flow regression coverage, plus the final screenshots `0000042-09-flow-before-fix-validation.png` and `0000042-09-flow-during-second-step.png`.
+  Proven by Task 6 Flow regression coverage, plus the renewed Task 11 screenshots `0000042-11-flow-before-revalidation.png` and `0000042-11-flow-during-revalidation.png`.
 - `PASS` The fix applies to the shared client streaming path first, with `FlowsPage` limited to a secondary safeguard only if needed.
   Proven by Tasks 1-5 landing in `useChatStream`/`useChatWs`, and Task 7 closing N/A without a Flow-page hardening change.
 - `PASS` Stale or mismatched non-final websocket events do not mutate the active assistant bubble for a different inflight.
-  Proven by Tasks 1-3 and the final manual `/logs` markers `chat.ws.client_assistant_delta_ignored` and `chat.ws.client_non_final_ignored`.
+  Proven by Tasks 1-3 and the renewed Task 11 manual markers `chat.ws.client_assistant_delta_ignored`, `chat.ws.client_non_final_ignored`, and `chat.ws.client_stale_event_ignored`.
 - `PASS` Stale or mismatched `user_turn` websocket events do not reset or rebind the active assistant bubble during Flow-style idle streaming.
-  Proven by Task 2 regressions and the final manual `/logs` marker `chat.ws.client_user_turn_ignored`.
+  Proven by Task 2 regressions, Task 10's finalized-replay regressions, and the renewed Task 11 manual marker `chat.ws.client_user_turn_ignored`.
 - `PASS` Existing late/out-of-band `turn_final` handling remains non-destructive.
-  Proven by Task 4 regressions and the final manual `/logs` marker `chat.ws.client_turn_final_preserved`.
+  Proven by Task 4 regressions and the renewed Task 11 manual marker `chat.ws.client_turn_final_preserved`.
 - `PASS` Chat and Agents streaming behavior does not regress.
-  Proven by Task 2 and Task 4 Chat/Agents regressions, plus the final full client wrapper run (`484/484` passed).
+  Proven by Task 2 and Task 4 Chat/Agents regressions, plus the renewed full client wrapper run (`486/486` passed in `test-results/client-tests-2026-03-07T19-56-40-723Z.log`).
 - `PASS` Regression coverage was added for the exact failure class listed in the story.
   Proven by Tasks 1-6 across `useChatStream.inflightMismatch.test.tsx`, `useChatWs.test.ts`, `chatPage.stream.test.tsx`, `agentsPage.streaming.test.tsx`, and `flowsPage.run.test.tsx`.
 - `PASS` API contracts, websocket schema, and persistence/Mongo shapes remain unchanged.
-  Proven by the final story diff audit and the unchanged server shape files checked in Task 9 subtask 4.
+  Proven by the renewed Task 11 inspection of `server/src/ws/types.ts`, `server/src/ws/sidebar.ts`, and `server/src/mongo/repo.ts`, plus the clean server unit wrapper rerun (`979/979` passed in `test-results/server-unit-tests-2026-03-07T19-46-35-462Z.log`).
 - `PASS` The plan documents the root cause, likely files, minimum regressions, and the primary-vs-secondary fix split clearly enough for follow-on work.
   Proven by the updated story file itself, `design.md`, `README.md`, and `projectStructure.md` after Task 8 and the final Task 9 audit.
 
@@ -2008,7 +2008,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 11. Final re-validation and acceptance re-check
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -2030,26 +2030,26 @@ Re-run the full story acceptance pass after Task 10 so the branch proves the fin
 
 #### Subtasks
 
-1. [ ] Re-run the full relevant client regression wrappers without file filters.
+1. [x] Re-run the full relevant client regression wrappers without file filters.
    - Use `Testing` step 6 for this subtask.
    - Purpose:
      - prove the finalized-inflight replay fix did not regress Chat, Agents, Flows, or the shared hook/websocket protections
-2. [ ] Re-check the story acceptance criteria one by one and update the `Acceptance audit` section in this story file with any new evidence needed from Task 10.
+2. [x] Re-check the story acceptance criteria one by one and update the `Acceptance audit` section in this story file with any new evidence needed from Task 10.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
    - Required outcome:
      - each acceptance criterion still has a clear pass note tied to current evidence after Task 10
-3. [ ] Re-confirm that websocket message shapes, REST payload shapes, and persistence storage shapes remain unchanged after Task 10.
+3. [x] Re-confirm that websocket message shapes, REST payload shapes, and persistence storage shapes remain unchanged after Task 10.
    - Files to inspect:
      - `server/src/ws/types.ts`
      - `server/src/ws/sidebar.ts`
      - `server/src/mongo/repo.ts`
      - any shared websocket or conversation type files touched by Task 10
-4. [ ] Update `design.md` and `projectStructure.md` again if Task 10 introduced any last-minute architecture or file-map changes not yet documented.
+4. [x] Update `design.md` and `projectStructure.md` again if Task 10 introduced any last-minute architecture or file-map changes not yet documented.
    - Files to edit only if required:
      - `design.md`
      - `projectStructure.md`
-5. [ ] Start the compose stack and perform a fresh manual Playwright MCP check of a known multi-step Flow such as `flows/implement_next_plan.json`.
+5. [x] Start the compose stack and perform a fresh manual Playwright MCP check of a known multi-step Flow such as `flows/implement_next_plan.json`.
    - Required screenshots:
      - `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-11-flow-before-revalidation.png`
      - `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-11-flow-during-revalidation.png`
@@ -2058,24 +2058,40 @@ Re-run the full story acceptance pass after Task 10 so the branch proves the fin
      - earlier assistant bubble text remains visible while the next step streams
      - finalized older-step `user_turn` replays do not steal the active bubble
      - expected Story 42 log markers still appear with no unexpected `error`-level console entries
-6. [ ] Update `test-results/pr-comments/0000042-summary.md` so it includes the Task 10 fix, the renewed validation run, and any updated residual risk statement.
-7. [ ] Update this story file’s Implementation notes for Task 11 once the full re-validation is complete.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Update `test-results/pr-comments/0000042-summary.md` so it includes the Task 10 fix, the renewed validation run, and any updated residual risk statement.
+7. [x] Update this story file’s Implementation notes for Task 11 once the full re-validation is complete.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Run first so the re-validation follows the repo tasking convention and proves the server still builds cleanly.
-2. [ ] `npm run build:summary:client` - Mandatory because client behavior changes in Task 10.
-3. [ ] `npm run compose:build:summary` - Required clean compose build check.
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit` - Re-run even though server contracts are still expected to remain unchanged.
-6. [ ] `npm run test:summary:client` - Mandatory because Task 10 changes client behavior.
-7. [ ] `npm run test:summary:e2e` - Run the full browser-level wrapper suite again for the renewed handoff.
-8. [ ] Manual Playwright-MCP check to confirm the story acceptance behavior, save the required screenshots into `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/`, inspect those screenshots to confirm the GUI matches the acceptance criteria, and verify the debug console shows the expected log lines from Tasks 1–10 with no unexpected `error`-level entries. Use http://host.docker.internal:5001 via the Playwright MCP tools.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server` - Run first so the re-validation follows the repo tasking convention and proves the server still builds cleanly.
+2. [x] `npm run build:summary:client` - Mandatory because client behavior changes in Task 10.
+3. [x] `npm run compose:build:summary` - Required clean compose build check.
+4. [x] `npm run compose:up`
+5. [x] `npm run test:summary:server:unit` - Re-run even though server contracts are still expected to remain unchanged.
+6. [x] `npm run test:summary:client` - Mandatory because Task 10 changes client behavior.
+7. [x] `npm run test:summary:e2e` - Run the full browser-level wrapper suite again for the renewed handoff.
+8. [x] Manual Playwright-MCP check to confirm the story acceptance behavior, save the required screenshots into `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/`, inspect those screenshots to confirm the GUI matches the acceptance criteria, and verify the debug console shows the expected log lines from Tasks 1–10 with no unexpected `error`-level entries. Use http://host.docker.internal:5001 via the Playwright MCP tools.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Subtask 1: Re-ran the full unfiltered client wrapper after Task 10; Chat, Agents, Flows, and the shared hook/websocket regression set all stayed green together.
+- Subtask 3: Re-checked `server/src/ws/types.ts`, `server/src/ws/sidebar.ts`, and `server/src/mongo/repo.ts` against the post-Task-10 diff; websocket message shapes, REST/sidebar payloads, and persistence storage shapes remain unchanged.
+- Subtask 4: Re-audited `design.md` and `projectStructure.md` after Task 10; no additional architecture or file-map edits were needed beyond the Task 10 design note that was already committed.
+- Subtask 2: Refreshed the story Acceptance audit with the post-Task-10 evidence trail so each acceptance criterion now points at the renewed Task 11 wrappers, manual screenshots, or finalized-replay regression coverage instead of the superseded Task 9 handoff.
+- Subtask 5: Replayed a controlled two-step Flow session on `http://host.docker.internal:5001/flows`, saved the three Task 11 screenshots, and verified that the first assistant bubble stayed visible while the second step streamed and while a finalized older-step replay was ignored.
+- Subtask 6: Recreated `test-results/pr-comments/0000042-summary.md` with the Task 10 finalized-replay fix, the renewed Task 11 wrapper/manual validation run, and the residual-risk note that Task 7 still intentionally remains N/A.
+- Subtask 7: Recorded the final Task 11 evidence here after the renewed acceptance audit, manual Flow replay, wrapper shutdown, and repo hygiene checks completed.
+- Subtask 8: `npm run lint --workspaces` repeated the same existing server import-order warnings and no new Task 11 issues; `npm run format:check --workspaces` passed cleanly across all workspaces.
+- Testing 1: `npm run build:summary:server` passed with zero warnings; `logs/test-summaries/build-server-latest.log` did not require follow-up.
+- Testing 2: `npm run build:summary:client` passed; inspected `logs/test-summaries/build-client-latest.log` and the only warning remained the existing Vite chunk-size warning rather than a Task 11 regression.
+- Testing 3: `npm run compose:build:summary` passed with both compose build items green; no compose build diagnosis was needed.
+- Testing 4: `npm run compose:up` started the stack successfully; the server reached healthy state and the client started for the renewed validation pass.
+- Testing 5: `npm run test:summary:server:unit` passed with 979/979 tests green; the full wrapper log was `test-results/server-unit-tests-2026-03-07T19-46-35-462Z.log`.
+- Testing 6: `npm run test:summary:client` passed with 486/486 tests green; the full wrapper log was `test-results/client-tests-2026-03-07T19-56-40-723Z.log`.
+- Testing 7: `npm run test:summary:e2e` passed with 39/39 tests green; the wrapper log was `logs/test-summaries/e2e-tests-latest.log`.
+- Testing 8: The renewed manual Flow replay saved `0000042-11-flow-before-revalidation.png`, `0000042-11-flow-during-revalidation.png`, and `0000042-11-flow-after-revalidation.png`; the page retained the first assistant transcript while the second step streamed, ignored the finalized older-step replay, emitted all required Story 42 markers, and produced no console/page errors.
+- Testing 9: `npm run compose:down` stopped the validation stack cleanly after the final screenshots and marker checks were complete.

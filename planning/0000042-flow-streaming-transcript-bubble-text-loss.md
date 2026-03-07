@@ -707,7 +707,7 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. This task is i
 
 #### Overview
 
-Prove the user-visible Flow behavior is fixed in the actual page. This task is only about adding the Flow regressions that demonstrate the shared fixes work in the real Flow screen.
+Prove the user-visible Flow behavior is fixed in the actual page during the live streaming scenario that caused the defect. This task stays focused on the required live Flow regression rather than adding extra remount-specific coverage up front.
 
 #### Documentation Locations
 
@@ -739,20 +739,13 @@ Prove the user-visible Flow behavior is fixed in the actual page. This task is o
      - a stale earlier-step `user_turn` replay does not reset the active transcript or retarget the current assistant bubble
    - Constraint:
      - extend the existing websocket harness and emit helpers rather than creating page-specific websocket mocks
-3. [ ] Add a Flow-page regression that remounts or revisits the Flow transcript after the live run scenario and proves the same bubble text remains visible without relying on reload to recover missing content.
-   - Files to edit:
-     - `client/src/test/flowsPage.run.test.tsx`
-   - Required assertions:
-     - the earlier bubble text is still present immediately before remount/navigation
-     - the same text is still present after remount/navigation
-     - the test proves reload/remount parity rather than masking a live-loss defect
-4. [ ] Re-run the Flow regressions and nearby Flow tests after the new page tests are added.
+3. [ ] Re-run the Flow regressions and nearby Flow tests after the new page tests are added.
    - Files to read/edit only if failures require updates:
      - `client/src/test/flowsPage.test.tsx`
-5. [ ] Update this story file’s Implementation notes for Task 6 once the code and tests are complete.
+4. [ ] Update this story file’s Implementation notes for Task 6 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-6. [ ] Repo-wide lint + format gate for this task.
+5. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -783,7 +776,7 @@ Prove the user-visible Flow behavior is fixed in the actual page. This task is o
 
 #### Overview
 
-Apply the smallest Flow-page-only fix only if the new regressions from Task 6 still fail after the shared stream changes are complete. Keeping this separate prevents speculative UI changes from getting mixed into the proof that the shared fix works.
+Apply the smallest Flow-page-only fix only if the new live Flow regression from Task 6 still fails after the shared stream changes are complete, or if manual validation shows a remaining Flow-only live-versus-remount mismatch. Keeping this separate prevents speculative UI changes from getting mixed into the proof that the shared fix works.
 
 #### Documentation Locations
 
@@ -798,7 +791,7 @@ Apply the smallest Flow-page-only fix only if the new regressions from Task 6 st
 
 #### Subtasks
 
-1. [ ] Confirm the Task 6 Flow regressions still fail after Tasks 1–6 before touching `FlowsPage.tsx`.
+1. [ ] Confirm the Task 6 live Flow regression still fails after Tasks 1–6, or that manual validation shows a remaining Flow-only remount mismatch, before touching `FlowsPage.tsx`.
    - Files to read:
      - `client/src/test/flowsPage.run.test.tsx`
      - `client/src/test/flowsPage.test.tsx`
@@ -809,14 +802,21 @@ Apply the smallest Flow-page-only fix only if the new regressions from Task 6 st
      - do not add Flow-only fake `sending` state
      - do not widen scope into unrelated sidebar/filter work
      - reuse the existing MUI 6.x component structure already in `FlowsPage.tsx` instead of introducing new UI component patterns unless the failing regression proves it is necessary
-3. [ ] Re-run the Flow regressions and nearby Flow tests after any page-level change.
+3. [ ] Add a remount/revisit regression only if the page hardening changes behavior around Flow transcript persistence across navigation.
+   - Files to edit only if required:
+     - `client/src/test/flowsPage.run.test.tsx`
+   - Required assertions:
+     - the earlier bubble text is still present immediately before remount/navigation
+     - the same text is still present after remount/navigation
+     - the regression proves the page-level hardening does not reintroduce a live-versus-remount mismatch
+4. [ ] Re-run the Flow regressions and nearby Flow tests after any page-level change.
    - Files to read/edit only if failures require updates:
      - `client/src/test/flowsPage.run.test.tsx`
      - `client/src/test/flowsPage.test.tsx`
-4. [ ] Update this story file’s Implementation notes for Task 7 once the code and tests are complete.
+5. [ ] Update this story file’s Implementation notes for Task 7 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-5. [ ] Repo-wide lint + format gate for this task.
+6. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -942,7 +942,6 @@ Perform the final acceptance pass for the story. This task must confirm the shar
      - `test-results/screenshots/0000042-09-flow-after-completion.png`
    - Required visual checks:
      - earlier assistant bubble text remains visible while the next step streams
-     - no obvious Chat or Agents streaming regression
 7. [ ] Write a pull request summary comment covering:
    - root cause
    - files changed

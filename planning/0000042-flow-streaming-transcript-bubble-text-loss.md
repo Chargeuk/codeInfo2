@@ -26,7 +26,7 @@ This story does not assume the server or persistence layer is broken. The curren
 ### Acceptance Criteria
 
 - During a live Flow run, previously rendered assistant bubble text stays visible when later Flow steps begin streaming.
-- The fix applies to the shared client streaming path, not just a one-off visual workaround in the Flow page, unless later investigation proves the root cause is page-local.
+- The fix applies to the shared client streaming path first; `FlowsPage` changes are allowed only as a secondary safeguard if the required Flow regression still fails after the shared fix lands.
 - The implementation prevents stale or mismatched non-final websocket events from mutating the active assistant bubble state for a different inflight run.
 - The implementation prevents stale or mismatched `user_turn` websocket events from resetting or rebinding the active assistant bubble state for a different inflight run during Flow-style idle streaming.
 - Existing late/out-of-band `turn_final` handling remains non-destructive. The fix must not reintroduce the older race where valid finalization for an earlier inflight damages a newer one.
@@ -76,7 +76,7 @@ This story does not require new transport contracts or persistence shapes for th
 
 - Explicit boundary:
   - If the primary `useChatStream` fix succeeds, this story should ship without contract or schema changes.
-  - Contract or storage work should only be reconsidered if later evidence proves the bug cannot be fixed by client-side inflight filtering and shared stream-state isolation alone.
+- Contract or storage work is not part of this story. The current websocket contract and persistence layer already expose the fields required for the client-side fix.
 
 ### Out Of Scope
 
@@ -114,9 +114,9 @@ This story does not require new transport contracts or persistence shapes for th
   - External guidance:
     - React docs for `useRef` note that refs are mutable, do not trigger re-render, and are not appropriate for values that drive rendered output if those values can become stale or inconsistent.
 
-- Remaining known uncertainty:
-  - `FlowsPage` has a separate conversation-visibility reset path tied to `flowConversations`. That logic may still cause additional transient UI loss even after the primary hook fix lands.
-  - Based on current evidence, this should stay a secondary safeguard within the same story only if residual text disappearance remains after the `useChatStream` fix and regression tests.
+- Confirmed secondary risk:
+  - `FlowsPage` has a separate conversation-visibility reset path tied to `flowConversations`. That logic can still cause additional transient UI loss even after the primary hook fix lands.
+  - This is not an open investigation. Execute the `FlowsPage` safeguard task only if the automated Flow regression introduced in this story still fails after the shared-hook tasks are complete.
 
 - Tool availability note:
   - DeepWiki MCP is not currently usable for this repository because the repo is not indexed there.
@@ -143,8 +143,8 @@ This story does not require new transport contracts or persistence shapes for th
   - expected result: they keep their current behavior and do not regress just because Flow needed stricter inflight matching
 
 - `FlowsPage` temporarily loses the active conversation from `flowConversations` during sidebar/filter churn:
-  - expected result: this may still require a small secondary safeguard, but it must not be confused with the primary stale-event corruption fix in `useChatStream`
-  - if the active conversation is reset during a live stream, the plan should verify whether the shared hook now drops subsequent events due to conversation mismatch filtering and whether a small Flow-page hardening step is still needed after the hook fix
+  - expected result: the shared-hook fix remains the primary correction, and the page must stay unchanged unless the automated Flow regression still fails after Tasks 1-6
+  - if the active conversation is reset during a live stream and Task 6 still fails, Task 7 must harden only the `flowConversations` visibility/reset path without widening scope into unrelated sidebar behavior
 
 - Reload/rehydration after the bug:
   - expected result: persisted turns should continue to show the correct content after reload, and the live fix should make that same content remain visible without requiring navigation away and back
@@ -294,13 +294,13 @@ This story does not require new transport contracts or persistence shapes for th
       - It prevents future pages or reconnect flows from depending on accidental UI state to remain correct.
 
   - Decision 4:
-    - Flow conversation visibility reset logic should be hardened as a secondary safeguard, but it should not be treated as the primary fix for this story.
+    - Flow conversation visibility reset logic is a confirmed secondary risk, but it must only be changed if the automated Flow regression still fails after the shared-hook tasks are complete.
     - Why this is needed:
       - Flow still has a separate transcript-clearing path when the active conversation falls out of the filtered list.
       - That behavior can amplify confusion during websocket/sidebar churn even if the core inflight bug is fixed.
     - Why this is the best option:
       - It reduces additional transient UI loss without distracting from the primary corruption fix.
-      - It keeps the implementation layered: first stop wrong-stream writes, then reduce unnecessary resets.
+      - It keeps the implementation layered: first stop wrong-stream writes, then change `FlowsPage` only if the required regression still proves a page-local gap.
 
   - Decision 5:
     - The minimum regression matrix should include:
@@ -334,10 +334,10 @@ This story does not require new transport contracts or persistence shapes for th
     - Why third:
       - It verifies the source-level fix without mixing in unrelated UI changes.
   - Step 4:
-    - Reassess Flow page reset hardening only after the source-level fix lands.
+    - Run Task 6 after the source-level fix lands, and execute Task 7 only if that automated Flow regression still fails.
     - Why fourth:
       - The product should avoid papering over corrupted upstream state with downstream workarounds.
-      - If residual Flow-only transcript clearing remains after the hook fix, it can be handled as a secondary safeguard with clearer signal.
+      - A failing Task 6 regression provides the concrete signal needed to justify a narrow `FlowsPage` safeguard.
 
 - Explicit recommendation:
   - Use a KISS-but-correct approach:
@@ -898,14 +898,14 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
 
 ---
 
-### 5. Websocket sequence filtering: lower-sequence same-inflight events must stay blocked
+### 5. Websocket sequence filtering: keep lower-sequence same-inflight events blocked
 
 - Task Status: `__to_do__`
 - Git Commits:
 
 #### Overview
 
-Keep same-inflight lower-sequence filtering owned by `useChatWs`. This task is intentionally separate from late-final handling so the websocket transport rule can be changed and tested on its own.
+Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current websocket layer already has this rule, so this task is primarily about preserving that behavior and proving it with explicit regressions rather than inventing a second sequence filter elsewhere.
 
 #### Documentation Locations
 
@@ -1121,19 +1121,19 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
 
 ---
 
-### 7. Flow page secondary hardening if the new regressions still fail
+### 7. Flow page secondary hardening if Task 6 still fails
 
 - Task Status: `__to_do__`
 - Git Commits:
 
 #### Overview
 
-Apply the smallest Flow-page-only fix only if the new live Flow regression from Task 6 still fails after the shared stream changes are complete, or if manual validation shows a remaining Flow-only live-versus-remount mismatch. Keeping this separate prevents speculative UI changes from getting mixed into the proof that the shared fix works.
+Apply the smallest Flow-page-only fix only if the automated live Flow regression from Task 6 still fails after Tasks 1-6 are complete. This task is not an investigation step: if Task 6 passes, mark Task 7 as `N/A` in the Implementation notes and do not edit `FlowsPage.tsx`.
 
 #### Documentation Locations
 
 - React Router 7 docs (`react-router-dom` 7.9.6 in this repo): https://reactrouter.com/home
-  - use this for the page routing context that still wraps `FlowsPage` during tests and manual validation
+  - use this for the page routing context that still wraps `FlowsPage` during the required automated regressions
 - Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
   - use this for the current Jest 30 API surface in the repo when writing or updating tests
 - Jest 30 getting started: https://jestjs.io/docs/getting-started
@@ -1150,7 +1150,7 @@ Apply the smallest Flow-page-only fix only if the new live Flow regression from 
 
 #### Subtasks
 
-1. [ ] Confirm the Task 6 live Flow regression still fails after Tasks 1–6, or that manual validation shows a remaining Flow-only remount mismatch, before touching `FlowsPage.tsx`.
+1. [ ] Confirm the Task 6 live Flow regression still fails after Tasks 1–6 before touching `FlowsPage.tsx`.
    - Files to read:
      - `client/src/test/flowsPage.run.test.tsx`
      - `client/src/test/flowsPage.test.tsx`
@@ -1158,7 +1158,7 @@ Apply the smallest Flow-page-only fix only if the new live Flow regression from 
      - React Router 7: https://reactrouter.com/home
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
    - When this subtask is complete:
-     - either you have a failing Flow-only case that still needs page hardening, or you write `N/A - Task 6 regressions passed and no residual Flow-only issue remained` in this task’s Implementation notes and do not edit `FlowsPage.tsx`
+     - either the Task 6 automated regression is still failing and justifies page hardening, or you write `N/A - Task 6 automated regression passed after Tasks 1-6, so no Flow-page change was required` in this task’s Implementation notes and do not edit `FlowsPage.tsx`
 2. [ ] Apply the smallest `FlowsPage` hardening needed around active conversation visibility/reset behavior.
    - Files to edit only if required:
      - `client/src/pages/FlowsPage.tsx`
@@ -1166,6 +1166,7 @@ Apply the smallest Flow-page-only fix only if the new live Flow regression from 
      - React Router 7: https://reactrouter.com/home
      - MUI 6.x reference: MUI MCP `@mui/material@6.4.12`
    - Constraint:
+     - limit this task to the existing `flowConversations` visibility/reset path around the active conversation transcript clear
      - do not add Flow-only fake `sending` state
      - do not widen scope into unrelated sidebar/filter work
      - reuse the existing MUI 6.x component structure already in `FlowsPage.tsx` instead of introducing new UI component patterns unless the failing regression proves it is necessary

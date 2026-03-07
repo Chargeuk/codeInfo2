@@ -120,6 +120,26 @@ This story does not require new transport contracts or persistence shapes for th
   - DeepWiki MCP is not currently usable for this repository because the repo is not indexed there.
   - Context7 was attempted for React/Codex reference material, but the configured Context7 access failed during this pass, so primary web sources and direct code inspection were used instead.
 
+## Edge Cases and Failure Modes
+
+- Two sequential Flow steps use different inflight ids, and a late non-final event from the earlier step arrives while the later step is active:
+  - expected result: the stale earlier event is ignored and must not change the later step's live state or remove already-rendered text from the earlier bubble
+
+- A late `turn_final` for an earlier inflight arrives after a newer inflight has already started:
+  - expected result: the finalization remains non-destructive and must not overwrite or clear the newer inflight's visible content
+
+- Flow stays in `status='idle'` for websocket-driven streaming:
+  - expected result: stale-event protection still works even though the page did not use the normal `send()` path
+
+- Chat and Agents continue to use the shared hook after the fix:
+  - expected result: they keep their current behavior and do not regress just because Flow needed stricter inflight matching
+
+- `FlowsPage` temporarily loses the active conversation from `flowConversations` during sidebar/filter churn:
+  - expected result: this may still require a small secondary safeguard, but it must not be confused with the primary stale-event corruption fix in `useChatStream`
+
+- Reload/rehydration after the bug:
+  - expected result: persisted turns should continue to show the correct content after reload, and the live fix should make that same content remain visible without requiring navigation away and back
+
 ## Implementation Ideas
 
 - Recommended implementation outline:

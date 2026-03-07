@@ -355,7 +355,6 @@ This story does not require new transport contracts or persistence shapes for th
 
 - Task Status: `__completed__`
 - Git Commits:
-  - `4d5042fb` - `DEV-[0000042] - Guard stale non-final transcript events in shared streaming`
   - `cd3c9877` - `DEV-[0000042] - Guard stale assistant deltas in shared flow streaming`
 
 #### Overview
@@ -644,6 +643,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 - Task Status: `__completed__`
 - Git Commits:
+  - `4d5042fb` - `DEV-[0000042] - Guard stale non-final transcript events in shared streaming`
 
 #### Overview
 

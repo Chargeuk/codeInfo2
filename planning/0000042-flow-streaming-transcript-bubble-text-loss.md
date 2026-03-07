@@ -1891,6 +1891,8 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 - Task Status: `__done__`
 - Git Commits:
+  - `ee878917` - `DEV-[0000042] - Keep finalized stale user_turn replays ignored`
+  - `92732ae7` - `DEV-[0000042] - Record Task 10 implementation commit`
 
 #### Overview
 
@@ -1977,9 +1979,9 @@ Close the stale-replay gap identified in review: `user_turn` replay detection cu
 
 Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+1. [x] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [x] `npm run compose:up`
 5. [x] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task10-finalized-user-turn-replay-ignored.png`, review that screenshot to confirm a finalized older-step replay does not steal the active bubble, and confirm the debug console contains `chat.ws.client_user_turn_ignored` with `reason: 'stale_inflight'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
 6. [x] `npm run compose:down`

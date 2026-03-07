@@ -1539,7 +1539,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-4. [ ] `npm run compose:up`
+4. [x] `npm run compose:up`
 5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task7-visibility-guarded.png`, review that screenshot to confirm the visible transcript is retained when the active conversation temporarily disappears from `flowConversations`, and confirm the debug console contains `flows.page.visibility_reset_guarded` with `action: 'retain_transcript'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
 6. [ ] `npm run compose:down`
 
@@ -1671,7 +1671,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 9. Final validation and acceptance check
 
-- Task Status: `__to_do__`
+- Task Status: `__completed__`
 - Git Commits:
 
 #### Overview
@@ -1693,7 +1693,7 @@ Perform the final acceptance pass for the story. This task must confirm the shar
 
 #### Subtasks
 
-1. [ ] Run the full relevant client regression wrappers without file filters.
+1. [x] Run the full relevant client regression wrappers without file filters.
    - Use `Testing` step 2 for this subtask.
    - Review after the Testing section command completes:
      - the wrapper summary in the terminal
@@ -1702,7 +1702,7 @@ Perform the final acceptance pass for the story. This task must confirm the shar
      - this is the final automated proof that Chat, Agents, Flows, and shared hook tests still pass together after the targeted task-level work
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
-2. [ ] Confirm this story remained strictly front end, so server build, unit, and cucumber wrappers were not required for the final regression pass.
+2. [x] Confirm this story remained strictly front end, so server build, unit, and cucumber wrappers were not required for the final regression pass.
    - Files to inspect:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
      - the final git diff for the story
@@ -1711,7 +1711,7 @@ Perform the final acceptance pass for the story. This task must confirm the shar
      - prove the final regression scope matches the actual changed surfaces, so omitting server wrappers is deliberate rather than accidental
    - Documentation for this subtask:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-3. [ ] Verify the story acceptance criteria one by one against the implemented behavior and note the outcome in this story file.
+3. [x] Verify the story acceptance criteria one by one against the implemented behavior and note the outcome in this story file.
    - Document name:
      - `0000042-flow-streaming-transcript-bubble-text-loss.md`
    - Location:
@@ -1725,7 +1725,7 @@ Perform the final acceptance pass for the story. This task must confirm the shar
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - When this subtask is complete:
      - each acceptance criterion has a short pass/fail note mapped to the task or test that proved it
-4. [ ] Verify that websocket message shapes, REST payload shapes, and persistence storage shapes were not changed by this story.
+4. [x] Verify that websocket message shapes, REST payload shapes, and persistence storage shapes were not changed by this story.
    - Files to inspect:
      - `server/src/ws/types.ts`
      - `server/src/ws/sidebar.ts`
@@ -1737,7 +1737,7 @@ Perform the final acceptance pass for the story. This task must confirm the shar
      - record the result in this story file’s Implementation notes
    - Documentation for this subtask:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-5. [ ] Update `design.md` again if the final implementation introduced any last-minute architecture or behavior changes not yet documented.
+5. [x] Update `design.md` again if the final implementation introduced any last-minute architecture or behavior changes not yet documented.
    - Document name:
      - `design.md`
    - Location:
@@ -1749,7 +1749,7 @@ Perform the final acceptance pass for the story. This task must confirm the shar
    - Documentation for this subtask:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
-6. [ ] Update `projectStructure.md` again if the final implementation introduced any last-minute file changes not yet documented.
+6. [x] Update `projectStructure.md` again if the final implementation introduced any last-minute file changes not yet documented.
    - Document name:
      - `projectStructure.md`
    - Location:
@@ -1760,7 +1760,7 @@ Perform the final acceptance pass for the story. This task must confirm the shar
      - ensure the repo file map reflects the final merged state of the story
    - Documentation for this subtask:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-7. [ ] Start the compose stack and perform a manual Playwright MCP check of a known multi-step Flow such as `flows/implement_next_plan.json`.
+7. [x] Start the compose stack and perform a manual Playwright MCP check of a known multi-step Flow such as `flows/implement_next_plan.json`.
    - Files and paths to read before running:
      - `flows/implement_next_plan.json`
      - `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/`
@@ -1787,7 +1787,7 @@ Perform the final acceptance pass for the story. This task must confirm the shar
      - no unexpected `error`-level console entries appear during the run
    - Screenshot review requirement:
      - inspect each saved screenshot and confirm the GUI matches the required visual checks above before marking this subtask complete
-8. [ ] Write a pull request summary comment covering:
+8. [x] Write a pull request summary comment covering:
    - root cause
    - files changed
    - tests run
@@ -1803,22 +1803,59 @@ Perform the final acceptance pass for the story. This task must confirm the shar
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - When this subtask is complete:
      - the summary mentions the root cause, the shared-hook-first fix, any Flow-page fallback work, and the exact validation that was run
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Run first so the final validation follows the repo tasking convention and proves the server still builds cleanly even though this story is primarily client-side. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run build:summary:client` - Mandatory because client behavior changed. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log`.
-3. [ ] `npm run compose:build:summary` - Required clean compose build check. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log`.
+1. [x] `npm run build:summary:server` - Run first so the final validation follows the repo tasking convention and proves the server still builds cleanly even though this story is primarily client-side. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [x] `npm run build:summary:client` - Mandatory because client behavior changed. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+3. [x] `npm run compose:build:summary` - Required clean compose build check. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log`.
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit` - Run in the final task even though server contracts are unchanged, so nearby server/unit behavior is still proven clean in the final handoff.
-6. [ ] `npm run test:summary:client` - Mandatory because client behavior changed. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
-7. [ ] `npm run test:summary:e2e` - Allow up to 10 minutes; if `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:e2e`.
-8. [ ] Manual Playwright-MCP check to confirm the story acceptance behavior, save the required screenshots into `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/`, inspect those screenshots to confirm the GUI matches the acceptance criteria, and verify the debug console shows the expected log lines from Tasks 1–7 with no unexpected `error`-level entries. Use http://host.docker.internal:5001 via the Playwright MCP tools. This folder is mapped in `docker-compose.local.yml`.
-9. [ ] `npm run compose:down`
+5. [x] `npm run test:summary:server:unit` - Run in the final task even though server contracts are unchanged, so nearby server/unit behavior is still proven clean in the final handoff.
+6. [x] `npm run test:summary:client` - Mandatory because client behavior changed. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+7. [x] `npm run test:summary:e2e` - Allow up to 10 minutes; if `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:e2e`.
+8. [x] Manual Playwright-MCP check to confirm the story acceptance behavior, save the required screenshots into `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/`, inspect those screenshots to confirm the GUI matches the acceptance criteria, and verify the debug console shows the expected log lines from Tasks 1–7 with no unexpected `error`-level entries. Use http://host.docker.internal:5001 via the Playwright MCP tools. This folder is mapped in `docker-compose.local.yml`.
+9. [x] `npm run compose:down`
+
+#### Acceptance audit
+
+- `PASS` Previously rendered Flow bubble text stays visible when later steps begin streaming.
+  Proven by Task 6 Flow regression coverage, plus the final screenshots `0000042-09-flow-before-fix-validation.png` and `0000042-09-flow-during-second-step.png`.
+- `PASS` The fix applies to the shared client streaming path first, with `FlowsPage` limited to a secondary safeguard only if needed.
+  Proven by Tasks 1-5 landing in `useChatStream`/`useChatWs`, and Task 7 closing N/A without a Flow-page hardening change.
+- `PASS` Stale or mismatched non-final websocket events do not mutate the active assistant bubble for a different inflight.
+  Proven by Tasks 1-3 and the final manual `/logs` markers `chat.ws.client_assistant_delta_ignored` and `chat.ws.client_non_final_ignored`.
+- `PASS` Stale or mismatched `user_turn` websocket events do not reset or rebind the active assistant bubble during Flow-style idle streaming.
+  Proven by Task 2 regressions and the final manual `/logs` marker `chat.ws.client_user_turn_ignored`.
+- `PASS` Existing late/out-of-band `turn_final` handling remains non-destructive.
+  Proven by Task 4 regressions and the final manual `/logs` marker `chat.ws.client_turn_final_preserved`.
+- `PASS` Chat and Agents streaming behavior does not regress.
+  Proven by Task 2 and Task 4 Chat/Agents regressions, plus the final full client wrapper run (`484/484` passed).
+- `PASS` Regression coverage was added for the exact failure class listed in the story.
+  Proven by Tasks 1-6 across `useChatStream.inflightMismatch.test.tsx`, `useChatWs.test.ts`, `chatPage.stream.test.tsx`, `agentsPage.streaming.test.tsx`, and `flowsPage.run.test.tsx`.
+- `PASS` API contracts, websocket schema, and persistence/Mongo shapes remain unchanged.
+  Proven by the final story diff audit and the unchanged server shape files checked in Task 9 subtask 4.
+- `PASS` The plan documents the root cause, likely files, minimum regressions, and the primary-vs-secondary fix split clearly enough for follow-on work.
+  Proven by the updated story file itself, `design.md`, `README.md`, and `projectStructure.md` after Task 8 and the final Task 9 audit.
 
 #### Implementation notes
 
-- 
+- Final story diff inspection shows the implementation stayed on client hooks/pages/tests plus README/design/projectStructure/story docs; no server source, shared contract, or persistence files were changed even though Task 9 still requires final server wrapper checks.
+- Verified `server/src/ws/types.ts`, `server/src/ws/sidebar.ts`, and `server/src/mongo/repo.ts` remain untouched in the story diff, so websocket message shapes, sidebar payload shapes, and Mongo storage shapes did not change.
+- Rechecked `design.md` and `projectStructure.md` after Task 8; no last-minute architecture or file-map changes were needed before the final validation pass.
+- `npm run build:summary:server` passed with zero warnings, satisfying the final-task wrapper requirement without changing the earlier conclusion that the story itself stayed client/docs-focused.
+- `npm run build:summary:client` passed; `logs/test-summaries/build-client-latest.log` still only shows the pre-existing Vite chunk-size warning and no new Task 9 build regression.
+- `npm run compose:build:summary` passed with both compose build targets green, so the final manual and automated validation can run against a clean rebuilt stack.
+- `npm run compose:up` brought the final-validation stack up cleanly with healthy server and client containers on the mapped host ports required for the wrapper suite and Playwright MCP checks.
+- `npm run test:summary:server:unit` passed with 979/979 tests green, satisfying the final-task wrapper requirement while preserving the conclusion that no server contract or persistence code changed in this story.
+- `npm run test:summary:client` passed with 484/484 tests green; this is the final unfiltered client regression proof that Chat, Agents, Flows, and the shared hook/websocket protections still pass together.
+- `npm run test:summary:e2e` passed with 42/42 tests green, so the final acceptance handoff includes the repo’s full browser-level wrapper check in addition to the targeted client regression coverage.
+- Final manual Flow validation used `http://host.docker.internal:5001/flows`, read `flows/implement_next_plan.json` as the multi-step reference flow, and replayed a controlled two-step websocket sequence on a live Flow page session so the required screenshots could prove the exact acceptance behavior.
+- Saved and reviewed `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-09-flow-before-fix-validation.png`, `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-09-flow-during-second-step.png`, and `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-09-flow-after-completion.png`; they show the first assistant bubble staying visible, the second step streaming while the first remains visible, and both steps completing without transcript loss.
+- Queried `/logs` for the manual run context (`conversationId: zkrfeslapsp`) and confirmed the expected shipped Story 42 markers: `chat.ws.client_assistant_delta_ignored`, `chat.ws.client_user_turn_ignored`, `chat.ws.client_non_final_ignored`, `chat.ws.client_turn_final_preserved`, `chat.ws.client_stale_event_ignored`, and `flows.page.live_transcript_retained`; `flows.page.visibility_reset_guarded` remained absent as expected because Task 7 stayed N/A, and browser console error output stayed empty.
+- Added an explicit Acceptance audit section that maps every story acceptance criterion to the task, test, wrapper, or manual screenshot/log evidence that proved it passed.
+- Wrote `test-results/pr-comments/0000042-summary.md` covering the root cause, shared-hook-first fix, files changed, wrappers/manual checks run, and the residual risk around the intentionally unneeded Task 7 safeguard.
+- `npm run format:check --workspaces` passed cleanly; `npm run lint --workspaces` again only reported the existing server import-order warnings and no new Task 9 issues after the final story-file and PR-summary edits.
+- `npm run compose:down` stopped the final-validation stack cleanly after the wrapper suite, manual screenshots, `/logs` verification, and documentation closeout finished.

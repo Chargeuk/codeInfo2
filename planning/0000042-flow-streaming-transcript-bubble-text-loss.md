@@ -103,6 +103,15 @@ This story captures investigation findings and implementation direction so the f
 - Existing tests and gaps:
   - Existing coverage for late `turn_final` race exists:
     - `client/src/test/chatPage.stream.test.tsx:369`
+  - Added proof-of-failure regression on this branch:
+    - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+    - Wrapper command: `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
+    - Result observed on 2026-03-07: failing as expected.
+    - Failure evidence:
+      - Summary log: `test-results/client-tests-2026-03-07T10-22-03-153Z.log`
+      - Key assertion: expected first assistant bubble content to remain `First reply`, received ` late tail` after a stale mismatched `assistant_delta` arrived for the prior inflight.
+    - Scope of proof:
+      - This is a deterministic hook-level proof that current `useChatStream` logic permits cross-inflight assistant bubble corruption in a Flow-style websocket lifecycle without using `send()`.
   - Missing targeted coverage:
     - Late/out-of-band `assistant_delta` while `status='idle'` and inflight mismatch (Flow-like lifecycle).
     - Late/out-of-band `analysis_delta` and `tool_event` under same conditions.
@@ -122,4 +131,3 @@ This story captures investigation findings and implementation direction so the f
   - Add Flow page regression test that simulates two sequential flow-step inflights and asserts prior bubble text remains visible in live UI.
   - Keep existing late `turn_final` regression tests passing.
   - Manual validation in Flows with a known multi-step flow (`flows/implement_next_plan.json`) and screenshot before/after fix.
-

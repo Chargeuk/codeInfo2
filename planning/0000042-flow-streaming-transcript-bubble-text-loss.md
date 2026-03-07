@@ -445,13 +445,7 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
 6. [ ] Update this story file’s Implementation notes for Task 1 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-7. [ ] Repo-wide lint + format gate for this task.
-   - Run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed:
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -560,13 +554,7 @@ Handle the `user_turn` branch separately from later transcript events. This task
 7. [ ] Update this story file’s Implementation notes for Task 2 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-8. [ ] Repo-wide lint + format gate for this task.
-   - Run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed:
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -764,13 +752,7 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
 14. [ ] Update this story file’s Implementation notes for Task 3 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-15. [ ] Repo-wide lint + format gate for this task.
-   - Run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed:
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -919,13 +901,7 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
 8. [ ] Update this story file’s Implementation notes for Task 4 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-9. [ ] Repo-wide lint + format gate for this task.
-   - Run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed:
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1079,13 +1055,7 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
 8. [ ] Update this story file’s Implementation notes for Task 5 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-9. [ ] Repo-wide lint + format gate for this task.
-   - Run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed:
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1209,13 +1179,7 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
 6. [ ] Update this story file’s Implementation notes for Task 6 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-7. [ ] Repo-wide lint + format gate for this task.
-   - Run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed:
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1349,13 +1313,7 @@ Apply the smallest Flow-page-only fix only if the automated live Flow regression
 7. [ ] Update this story file’s Implementation notes for Task 7 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-8. [ ] Repo-wide lint + format gate for this task.
-   - Run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed:
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1456,13 +1414,7 @@ Update the repo documentation so future developers can understand the root cause
      - preserve a story-local implementation record for the documentation pass
    - Documentation for this subtask:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-5. [ ] Repo-wide lint + format gate for this task.
-   - Run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed:
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1598,13 +1550,7 @@ Perform the final acceptance pass for the story. This task must confirm the shar
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - When this subtask is complete:
      - the summary mentions the root cause, the shared-hook-first fix, any Flow-page fallback work, and the exact validation that was run
-9. [ ] Repo-wide lint + format gate as the final subtask.
-   - Run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed:
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 

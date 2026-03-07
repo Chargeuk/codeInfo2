@@ -1861,6 +1861,29 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 - `npm run format:check --workspaces` passed cleanly; `npm run lint --workspaces` again only reported the existing server import-order warnings and no new Task 9 issues after the final story-file and PR-summary edits.
 - `npm run compose:down` stopped the final-validation stack cleanly after the wrapper suite, manual screenshots, `/logs` verification, and documentation closeout finished.
 
+## Post-Implementation Review
+
+- Review baseline:
+  - Compared this branch against `main` using `git diff main...HEAD`, `git diff --stat main...HEAD`, and `git log --oneline main..HEAD` to confirm the changed surfaces before reviewing code and plan evidence.
+- High-risk code paths reviewed:
+  - `client/src/hooks/useChatStream.ts`
+  - `client/src/hooks/useChatWs.ts`
+  - `client/src/pages/FlowsPage.tsx`
+  - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+  - `client/src/test/useChatWs.test.ts`
+  - `client/src/test/chatPage.stream.test.tsx`
+  - `client/src/test/agentsPage.streaming.test.tsx`
+  - `client/src/test/flowsPage.run.test.tsx`
+- Acceptance checks reviewed:
+  - verified the shared-hook-first fix split remained intact and that Task 7 correctly stayed N/A
+  - verified the plan’s final Acceptance audit maps each acceptance criterion to explicit automated or manual evidence
+  - verified the final screenshots and PR summary file referenced by Task 9 exist in the branch
+  - verified the final task recorded clean wrapper outcomes for server build, client build, compose build, server unit tests, client tests, and e2e
+  - verified the story’s own final diff audit still shows no intended websocket contract, REST payload, or persistence-shape changes for this story
+- Review outcome:
+  - one follow-up code-review finding was identified: finalized older-inflight `user_turn` replays can bypass the stale-replay guard after `turn_final` deletes the assistant-message mapping used by the current detection
+  - Tasks 10 and 11 were added to fix that gap and force a fresh full acceptance pass before this story is treated as complete again
+
 ---
 
 ### 10. Shared hook safeguard: finalized-inflight `user_turn` replays must stay ignored after `turn_final`
@@ -2012,8 +2035,8 @@ Re-run the full story acceptance pass after Task 10 so the branch proves the fin
 5. [ ] Start the compose stack and perform a fresh manual Playwright MCP check of a known multi-step Flow such as `flows/implement_next_plan.json`.
    - Required screenshots:
      - `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-11-flow-before-revalidation.png`
-    - `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-11-flow-during-revalidation.png`
-    - `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-11-flow-after-revalidation.png`
+     - `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-11-flow-during-revalidation.png`
+     - `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-11-flow-after-revalidation.png`
    - Required checks:
      - earlier assistant bubble text remains visible while the next step streams
      - finalized older-step `user_turn` replays do not steal the active bubble
@@ -2039,26 +2062,3 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 #### Implementation notes
 
 - 
-
-## Post-Implementation Review
-
-- Review baseline:
-  - Compared this branch against `main` using `git diff main...HEAD`, `git diff --stat main...HEAD`, and `git log --oneline main..HEAD` to confirm the changed surfaces before reviewing code and plan evidence.
-- High-risk code paths reviewed:
-  - `client/src/hooks/useChatStream.ts`
-  - `client/src/hooks/useChatWs.ts`
-  - `client/src/pages/FlowsPage.tsx`
-  - `client/src/test/useChatStream.inflightMismatch.test.tsx`
-  - `client/src/test/useChatWs.test.ts`
-  - `client/src/test/chatPage.stream.test.tsx`
-  - `client/src/test/agentsPage.streaming.test.tsx`
-  - `client/src/test/flowsPage.run.test.tsx`
-- Acceptance checks reviewed:
-  - verified the shared-hook-first fix split remained intact and that Task 7 correctly stayed N/A
-  - verified the plan’s final Acceptance audit maps each acceptance criterion to explicit automated or manual evidence
-  - verified the final screenshots and PR summary file referenced by Task 9 exist in the branch
-  - verified the final task recorded clean wrapper outcomes for server build, client build, compose build, server unit tests, client tests, and e2e
-  - verified the story’s own final diff audit still shows no intended websocket contract, REST payload, or persistence-shape changes for this story
-- Review outcome:
-  - one follow-up code-review finding was identified: finalized older-inflight `user_turn` replays can bypass the stale-replay guard after `turn_final` deletes the assistant-message mapping used by the current detection
-  - Tasks 10 and 11 were added to fix that gap and force a fresh full acceptance pass before this story is treated as complete again

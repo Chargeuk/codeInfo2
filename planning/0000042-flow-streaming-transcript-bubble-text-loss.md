@@ -449,12 +449,10 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
-6. [ ] `npm run compose:down`
+Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
@@ -558,14 +556,10 @@ Handle the `user_turn` branch separately from later transcript events. This task
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx`
-7. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.streaming.test.tsx`
-8. [ ] `npm run compose:down`
+Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
@@ -756,14 +750,10 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx`
-7. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.streaming.test.tsx`
-8. [ ] `npm run compose:down`
+Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
@@ -905,14 +895,10 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.streaming.test.tsx`
-7. [ ] `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
-8. [ ] `npm run compose:down`
+Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
@@ -1059,14 +1045,10 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/useChatWs.test.ts`
-6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx`
-7. [ ] `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
-8. [ ] `npm run compose:down`
+Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
@@ -1183,13 +1165,14 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
+Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
-7. [ ] `npm run compose:down`
+5. [ ] Manual Playwright-MCP check to confirm the Flow transcript behavior covered by this task and verify there are no logged errors in the debug console. Use http://host.docker.internal:5001 via the Playwright MCP tools.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1317,13 +1300,14 @@ Apply the smallest Flow-page-only fix only if the automated live Flow regression
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
+Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
-7. [ ] `npm run compose:down`
+5. [ ] Manual Playwright-MCP check to confirm the Flow transcript behavior covered by this task and verify there are no logged errors in the debug console. Use http://host.docker.internal:5001 via the Playwright MCP tools.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1418,12 +1402,13 @@ Update the repo documentation so future developers can understand the root cause
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] Smoke-check the updated docs references and any new test paths mentioned in `projectStructure.md`
-6. [ ] `npm run compose:down`
+Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run test:summary:client` - Use because this task updates documentation for client-facing behavior and file paths already validated by the story. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+2. [ ] `npm run compose:build:summary` - Use because this documentation task still references front-end-testable behavior. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+3. [ ] `npm run compose:up`
+4. [ ] Manual Playwright-MCP check to confirm the documented Flow behavior, verify any referenced paths in `projectStructure.md`, and confirm there are no logged errors in the debug console. Use http://host.docker.internal:5001 via the Playwright MCP tools.
+5. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1456,7 +1441,7 @@ Perform the final acceptance pass for the story. This task must confirm the shar
 #### Subtasks
 
 1. [ ] Run the full relevant client regression wrappers without file filters.
-   - Use `Testing` step 6 for this subtask.
+   - Use `Testing` step 2 for this subtask.
    - Review after the Testing section command completes:
      - the wrapper summary in the terminal
      - the generated client log under `test-results/`
@@ -1464,15 +1449,15 @@ Perform the final acceptance pass for the story. This task must confirm the shar
      - this is the final automated proof that Chat, Agents, Flows, and shared hook tests still pass together after the targeted task-level work
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
-2. [ ] Run the server regression wrapper needed for this story’s unaffected backend surface.
-   - Use `Testing` step 5 for this subtask.
-   - Review after the Testing section command completes:
-     - the wrapper summary in the terminal
-     - the generated server log under `test-results/`
+2. [ ] Confirm this story remained strictly front end, so server build, unit, and cucumber wrappers were not required for the final regression pass.
+   - Files to inspect:
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+     - the final git diff for the story
+     - any changed files under `client/`, `design.md`, `projectStructure.md`, and `README.md`
    - Purpose for this subtask:
-     - prove the client-side fix did not accidentally break the server build/test surface through shared type or contract edits
+     - prove the final regression scope matches the actual changed surfaces, so omitting server wrappers is deliberate rather than accidental
    - Documentation for this subtask:
-     - Jest 30: https://jestjs.io/docs/getting-started
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
 3. [ ] Verify the story acceptance criteria one by one against the implemented behavior and note the outcome in this story file.
    - Document name:
      - `0000042-flow-streaming-transcript-bubble-text-loss.md`
@@ -1554,15 +1539,15 @@ Perform the final acceptance pass for the story. This task must confirm the shar
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit`
-6. [ ] `npm run test:summary:client`
-7. [ ] `npm run test:summary:e2e`
-8. [ ] Manual Playwright MCP validation with screenshots saved under `test-results/screenshots/`
-9. [ ] `npm run compose:down`
+Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Mandatory for this final regression check because the story is front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Mandatory for this final regression check because client behavior changed. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run test:summary:e2e` - Allow up to 7 minutes; if `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:e2e`.
+4. [ ] `npm run compose:build:summary` - Use because this final regression check is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP check to confirm the story acceptance behavior, verify there are no logged errors in the debug console, and save the required screenshots. Use http://host.docker.internal:5001 via the Playwright MCP tools.
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 

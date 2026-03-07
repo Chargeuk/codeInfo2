@@ -355,7 +355,6 @@ This story does not require new transport contracts or persistence shapes for th
 
 - Task Status: `__completed__`
 - Git Commits:
-  - `b6d992ac` - `DEV-[0000042] - Add Flow live transcript retention coverage`
   - `cd3c9877` - `DEV-[0000042] - Guard stale assistant deltas in shared flow streaming`
 
 #### Overview
@@ -1250,6 +1249,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 - Task Status: `__completed__`
 - Git Commits:
+  - `b6d992ac` - `DEV-[0000042] - Add Flow live transcript retention coverage`
 
 #### Overview
 
@@ -1401,7 +1401,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 7. Flow page secondary hardening if Task 6 still fails
 
-- Task Status: `__to_do__`
+- Task Status: `__completed__`
 - Git Commits:
 
 #### Overview
@@ -1545,7 +1545,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 #### Implementation notes
 
-- 
+- N/A - Task 6 automated regression passed after Tasks 1-6, so no Flow-page change was required. `FlowsPage.tsx` did not need the conditional visibility-reset hardening and this task closes as not applicable.
 
 ---
 

@@ -355,7 +355,6 @@ This story does not require new transport contracts or persistence shapes for th
 
 - Task Status: `__completed__`
 - Git Commits:
-  - `a181013b` - `DEV-[0000042] - Finalize streaming transcript acceptance handoff`
   - `cd3c9877` - `DEV-[0000042] - Guard stale assistant deltas in shared flow streaming`
 
 #### Overview
@@ -1674,6 +1673,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 - Task Status: `__completed__`
 - Git Commits:
+  - `a181013b` - `DEV-[0000042] - Finalize streaming transcript acceptance handoff`
 
 #### Overview
 
@@ -1813,7 +1813,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 1. [x] `npm run build:summary:server` - Run first so the final validation follows the repo tasking convention and proves the server still builds cleanly even though this story is primarily client-side. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
 2. [x] `npm run build:summary:client` - Mandatory because client behavior changed. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log`.
 3. [x] `npm run compose:build:summary` - Required clean compose build check. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log`.
-4. [ ] `npm run compose:up`
+4. [x] `npm run compose:up`
 5. [x] `npm run test:summary:server:unit` - Run in the final task even though server contracts are unchanged, so nearby server/unit behavior is still proven clean in the final handoff.
 6. [x] `npm run test:summary:client` - Mandatory because client behavior changed. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 7. [x] `npm run test:summary:e2e` - Allow up to 10 minutes; if `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:e2e`.

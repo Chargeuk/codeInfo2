@@ -41,6 +41,39 @@ This story does not assume the server or persistence layer is broken. The curren
   - the minimum regression tests that must be added
   - the difference between the primary fix and any secondary Flow-page hardening
 
+## Message Contracts & Storage Shapes
+
+This story does not require new transport contracts or persistence shapes for the likely first-pass fix.
+
+- Websocket event contracts:
+  - Keep the existing event types and payloads unchanged:
+    - `inflight_snapshot`
+    - `assistant_delta`
+    - `analysis_delta`
+    - `tool_event`
+    - `stream_warning`
+    - `turn_final`
+  - Rationale:
+    - server websocket events already include `inflightId`
+    - Flow execution already emits step-level inflight ids
+    - the client already receives enough identity information to ignore stale non-final events without changing the wire format
+
+- REST contracts:
+  - Keep existing Flow run and conversation/turn endpoints unchanged.
+  - No new request fields or response fields are required for the primary fix.
+
+- Persistence/storage shapes:
+  - Keep conversation, turn, and inflight snapshot storage shapes unchanged.
+  - The current behavior where missing live text reappears after reload is evidence that persistence is already retaining the data this story needs.
+
+- Shared type scope:
+  - No new shared client/server type definitions are required to fix the bug.
+  - Optional future cleanup such as deduplicating websocket event typings across client/server is out of scope unless needed by a later refactor.
+
+- Explicit boundary:
+  - If the primary `useChatStream` fix succeeds, this story should ship without contract or schema changes.
+  - Contract or storage work should only be reconsidered if later evidence proves the bug cannot be fixed by client-side inflight filtering and shared stream-state isolation alone.
+
 ### Out Of Scope
 
 - Changing server API shapes, websocket event names, or Mongo persistence schema as part of the first-pass fix.

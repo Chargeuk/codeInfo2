@@ -1430,7 +1430,7 @@ export function useChatStream(
         const staleInflightSnapshot =
           currentInflightId !== null &&
           eventInflightId !== currentInflightId &&
-          assistantMessageIdByInflightIdRef.current.has(eventInflightId);
+          seenInflightIdsRef.current.has(eventInflightId);
 
         if (staleInflightSnapshot) {
           logIgnoredNonFinalEvent('inflight_snapshot', eventInflightId);

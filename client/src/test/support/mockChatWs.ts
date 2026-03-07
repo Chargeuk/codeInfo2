@@ -11,6 +11,8 @@ type WsMockRegistry = {
   instances?: WsMock[];
 };
 
+type MockFetchReturn = Response | Promise<Response>;
+
 function wsRegistry(): WsMockRegistry {
   return (globalThis as unknown as { __wsMock?: WsMockRegistry }).__wsMock!;
 }
@@ -36,7 +38,7 @@ const defaultModels = {
 export function setupChatWsHarness(params: {
   mockFetch: {
     mockImplementation: (
-      fn: (url: RequestInfo | URL, opts?: RequestInit) => unknown,
+      fn: (url: RequestInfo | URL, opts?: RequestInit) => MockFetchReturn,
     ) => void;
   };
   providers?: unknown;
@@ -44,7 +46,10 @@ export function setupChatWsHarness(params: {
   health?: unknown;
   conversations?: unknown;
   turns?: unknown;
-  fallbackFetch?: (url: RequestInfo | URL, opts?: RequestInit) => unknown;
+  fallbackFetch?: (
+    url: RequestInfo | URL,
+    opts?: RequestInit,
+  ) => MockFetchReturn;
 }) {
   const chatBodies: Record<string, unknown>[] = [];
   let lastConversationId: string | null = null;
@@ -132,7 +137,7 @@ export function setupChatWsHarness(params: {
       }
 
       if (params.fallbackFetch) {
-        return params.fallbackFetch(url, opts);
+        return Promise.resolve(params.fallbackFetch(url, opts));
       }
 
       return Promise.resolve({

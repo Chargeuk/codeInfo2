@@ -2115,3 +2115,18 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 - Review outcome:
   - no additional follow-up defects were identified that required reopening the story
   - no extra remediation tasks were added
+
+## Review Comment Follow-up
+
+- Follow-up date: 2026-03-07
+- Scope:
+  - tightened the stale `inflight_snapshot` guard in `client/src/hooks/useChatStream.ts` so finalized older-inflight snapshot replays are ignored based on conversation-local seen inflight ids rather than the assistant-message mapping that `turn_final` clears
+  - tightened the `fallbackFetch` typing in `client/src/test/support/mockChatWs.ts` to require `Response | Promise<Response>` and normalized fallback returns with `Promise.resolve(...)`
+- Added regression coverage in `client/src/test/useChatStream.inflightMismatch.test.tsx` for:
+  - replayed `inflight_snapshot` after `turn_final` on an older inflight while a newer inflight is active
+  - current-inflight snapshot hydration still working after a previous inflight finalized
+- Validation rerun:
+  - `npm run build:summary:client` passed with the existing Vite chunk-size warning only
+  - `npm run test:summary:client` passed with 488/488 tests green in `test-results/client-tests-2026-03-07T21-12-25-423Z.log`
+  - `npm run lint --workspaces` completed with the same pre-existing server import-order warnings and no new errors
+  - `npm run format:check --workspaces` passed after formatting `client/src/test/support/mockChatWs.ts`

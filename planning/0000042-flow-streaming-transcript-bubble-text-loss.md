@@ -36,11 +36,7 @@ This story captures investigation findings and implementation direction so the f
 
 ### Questions
 
-- Should mismatched `assistant_delta`/`analysis_delta`/`tool_event` updates always be ignored for non-active inflight IDs, or merged using an isolated per-inflight state map?
-- Is the current `status === 'sending'` guard still required for any chat-send edge case, or can it be replaced with strict inflight matching without regressions?
-- Should Flow explicitly mark `useChatStream` as a sending state while a run is active, or should stream safety be fully decoupled from `status`?
-- Do we also need to harden Flow conversation visibility reset logic to avoid transcript clearing during transient sidebar/filter churn?
-- What is the minimal deterministic regression test matrix across Flow, Chat, and Agents for late/out-of-order websocket events?
+- None. The initial investigation questions have been answered and converted into implementation guidance below.
 
 ## Implementation Ideas
 
@@ -126,8 +122,57 @@ This story captures investigation findings and implementation direction so the f
   - Option C (defense-in-depth):
     - In Flow page, avoid hard transcript clear on temporary filtered-list absence; debounce/confirm before reset.
 
-- Suggested verification approach for implementation story:
+  - Suggested verification approach for implementation story:
   - Add hook-level tests reproducing mismatched delta events while `status='idle'`.
   - Add Flow page regression test that simulates two sequential flow-step inflights and asserts prior bubble text remains visible in live UI.
   - Keep existing late `turn_final` regression tests passing.
   - Manual validation in Flows with a known multi-step flow (`flows/implement_next_plan.json`) and screenshot before/after fix.
+
+- Resolved implementation decisions and rationale:
+  - Decision 1:
+    - Mismatched `assistant_delta`, `analysis_delta`, and `tool_event` updates should be ignored for the currently active shared refs unless the event is explicitly tied to a separately isolated inflight state.
+    - Why this is needed:
+      - The current hook keeps assistant text, reasoning text, segments, warnings, and tool calls in shared mutable refs. Allowing a stale inflight to write into those refs is the corruption mechanism proven by the added regression test.
+    - Why this is the best option:
+      - It is the smallest safe correction to the proven bug.
+      - It aligns stream safety with inflight identity instead of an unrelated UI status flag.
+      - It avoids introducing a larger refactor unless a later change shows isolated per-inflight state is required.
+
+  - Decision 2:
+    - The `status === 'sending'` guard should not be the authority for websocket inflight safety. Strict inflight matching should govern whether streamed updates are allowed to mutate active shared refs.
+    - Why this is needed:
+      - `status` describes whether `send()` was used, not whether websocket events belong to the currently active inflight.
+      - Flow runs do not use `send()`, so relying on `status` leaves the exact proven bug path open.
+    - Why this is the best option:
+      - It fixes the actual identity problem instead of masking it for one page mode.
+      - It keeps Chat, Agents, and Flows on one coherent rule: only the matching inflight may mutate active shared streaming state.
+
+  - Decision 3:
+    - Flow should not rely on setting `useChatStream` into a synthetic sending state to stay correct. Stream safety should be decoupled from `status`.
+    - Why this is needed:
+      - Forcing Flow into `sending` would be a workaround rather than a real fix.
+      - It would preserve the mismatch bug in any other lifecycle that is websocket-driven but not created through `send()`.
+    - Why this is the best option:
+      - It keeps `status` semantics honest and narrow.
+      - It prevents future pages or reconnect flows from depending on accidental UI state to remain correct.
+
+  - Decision 4:
+    - Flow conversation visibility reset logic should be hardened as a secondary safeguard, but it should not be treated as the primary fix for this story.
+    - Why this is needed:
+      - Flow still has a separate transcript-clearing path when the active conversation falls out of the filtered list.
+      - That behavior can amplify confusion during websocket/sidebar churn even if the core inflight bug is fixed.
+    - Why this is the best option:
+      - It reduces additional transient UI loss without distracting from the primary corruption fix.
+      - It keeps the implementation layered: first stop wrong-stream writes, then reduce unnecessary resets.
+
+  - Decision 5:
+    - The minimum regression matrix should include:
+      - a hook-level stale mismatched `assistant_delta` case while `status='idle'`,
+      - equivalent hook-level stale `analysis_delta` and `tool_event` cases,
+      - a Flow page integration test covering two sequential step inflights with prior bubble retention,
+      - preservation of existing Chat and Agents late-`turn_final` protections.
+    - Why this is needed:
+      - The defect is in shared hook behavior but becomes most visible in Flow lifecycle.
+      - A single page test is too broad for root-cause diagnosis, and a single hook test is too narrow for UI regression confidence.
+    - Why this is the best option:
+      - It gives one fast root-cause test, one user-visible integration test, and coverage that prevents regressions across all consumers of `useChatStream`.

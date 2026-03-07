@@ -2369,3 +2369,32 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 - Subtask 15: Recorded the full Task 12 code, validation, documentation, and bookkeeping trail here incrementally so the final closeout state matches the actual execution order instead of a reconstructed summary.
 - Subtask 16: `npm run lint --workspaces` completed with the same existing server import-order warnings and no new Task 12 errors; `npm run format:check --workspaces` passed cleanly across all workspaces.
 - Testing 10: `npm run compose:down` stopped the local validation stack cleanly after the wrapper matrix and manual Playwright checks completed.
+
+## Branch Review Against `main` (2026-03-07)
+
+- Review scope:
+  - compared `main...feature/0000042-flow-streaming-transcript-loss` with `git diff --stat`, `git diff --name-only`, and `git log --oneline main..HEAD`
+  - re-reviewed the highest-risk code paths introduced on this branch, including shared streaming state, Flow retention logging, agent command step-start wiring, flow command resolution, runtime default resolution, and the related regression suites
+- Files and areas re-checked:
+  - `client/src/hooks/useChatStream.ts`
+  - `client/src/hooks/useChatWs.ts`
+  - `client/src/pages/FlowsPage.tsx`
+  - `client/src/pages/AgentsPage.tsx`
+  - `client/src/api/agents.ts`
+  - `server/src/routes/agentsCommands.ts`
+  - `server/src/agents/commandsRunner.ts`
+  - `server/src/agents/service.ts`
+  - `server/src/flows/service.ts`
+  - `server/src/config/chatDefaults.ts`
+  - `server/src/config/runtimeConfig.ts`
+  - `server/src/mcp2/tools/codebaseQuestion.ts`
+  - the Story 42 acceptance audit and final wrapper/manual evidence in this plan
+- Checks performed:
+  - confirmed the final Story 42 acceptance criteria still map to explicit automated or manual evidence and remain marked `PASS`
+  - confirmed the branch keeps the shared-hook-first fix boundary for transcript retention and does not widen the Flow-only fallback path beyond marker proof timing
+  - confirmed the agent-command step-start work validates inputs at the route/service/runner layers and is covered by updated client/server tests
+  - confirmed the flow command source-resolution changes preserve fail-fast behavior for invalid command files and include deterministic candidate ordering plus test coverage
+  - confirmed the runtime/default-resolution and MCP codebase-question updates remain covered by unit and integration tests without widening API or persistence contracts
+- Review outcome:
+  - no additional blocking issues were identified in the branch diff against `main`
+  - no new follow-up tasks were added because the implemented changes, regression coverage, and acceptance evidence are consistent with the story requirements

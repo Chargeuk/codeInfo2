@@ -534,8 +534,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |  â””â”€ systemContext.ts — holds optional system prompt prepended to chat payloads when non-empty
 |     |- hooks/
 |     |  |- useChatModel.ts ? fetches /chat/models, tracks selected model state
-|     |  |- useChatWs.ts — WebSocket client hook (connect/reconnect, subscribe/unsubscribe, JSON codec, client log forwarding)
-|     |  |- useChatStream.ts — chat run hook (POST /chat start-run 202 + merges WS transcript events into ChatMessage state, preserving raw non-whitespace outbound input and blocking whitespace-only sends)
+|     |  |- useChatWs.ts — WebSocket client hook (connect/reconnect, subscribe/unsubscribe, per-inflight seq gating, JSON codec, client log forwarding)
+|     |  |- useChatStream.ts — chat run hook (POST /chat start-run 202 + merges WS transcript events into ChatMessage state, preserving raw non-whitespace outbound input, blocking whitespace-only sends, ignoring stale older-inflight non-final events, and preserving late older `turn_final` updates non-destructively)
 |     |  |- useLmStudioStatus.ts ? LM Studio status/models data hook
 |     |  |- useConversations.ts ? conversation list infinite scroll + archive/restore helpers
 |     |  |- useConversationTurns.ts ? lazy turn loading with load-older cursor handling
@@ -556,7 +556,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |- pages/
 |     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, rounded 14px bubbles, tool blocks, citations accordion (closed by default), stream status/thinking UI (1s idle guard, ignores tool-only waits), and raw-input send guards/logging
 |     |  |- AgentsPage.tsx ? agents UI with selector/stop/new-conversation controls, command `Start step` selector (`Step 1..N`), persisted conversation continuation, raw-instruction send guards, and shared user-markdown rendering/logging
-|     |  |- FlowsPage.tsx ? flows UI with selector/run/resume/stop controls, flow-filtered sidebar, and step metadata transcript
+|     |  |- FlowsPage.tsx ? flows UI with selector/run/resume/stop controls, flow-filtered sidebar, step metadata transcript, and `flows.page.live_transcript_retained` logging when the next step starts without clearing the earlier bubble
 |     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
 |     |  |- HomePage.tsx ? version card page
 |     |  |- LmStudioPage.tsx ? LM Studio config/status/models UI
@@ -600,7 +600,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- agentsPage.run.instructionError.test.tsx ? Agents page shows error banner when instruction start fails
 |     |     |- agentsPage.workingFolderPicker.test.tsx ? Agents working-folder picker dialog open/pick/cancel/error coverage
 |     |     |- flowsPage.test.tsx ? Flows page renders flow list and step metadata
-|     |     |- flowsPage.run.test.tsx ? Flows page run/resume controls send expected payloads
+|     |     |- flowsPage.run.test.tsx ? Flows page run/resume controls plus two-step live transcript retention coverage while stale earlier-step replays are ignored
 |     |     |- flowsPage.stop.test.tsx ? Flows page stop button sends cancel_inflight
 |     |     |- agentsPage.run.commandError.test.tsx ? Agents page shows command start errors, including unchanged `INVALID_START_STEP` range text
 |     |     |- agentsPage.navigateAway.keepsRun.test.tsx ? navigating away does not cancel run; transcript resumes via WS
@@ -1137,7 +1137,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - client/src/test/agentsPage.toolsUi.test.tsx — Agents transcript renders Parameters/Result accordions for tool events
 - client/src/test/agentsPage.statusChip.test.tsx — Agents transcript status chip shows Failed when turn_final status is failed
 - client/src/test/chatSidebar.test.tsx — Chat sidebar bulk-selection coverage (filter reset, reorder stability, delete confirm, persistence gating) + ChatPage agent upsert ignore
-- client/src/test/useChatWs.test.ts — hook-level coverage for chat WebSocket connect/reconnect/seq gating and disabled realtime mode
+- client/src/test/useChatStream.inflightMismatch.test.tsx — hook-level coverage for stale older-inflight transcript events versus active inflight ownership across Chat/Agents/Flows consumers
+- client/src/test/useChatWs.test.ts — hook-level coverage for chat WebSocket connect/reconnect, per-inflight seq gating, new-inflight seq resets, and disabled realtime mode
+- client/src/test/support/mockChatWs.ts — shared websocket harness for Chat/Agents/Flows page tests with inflight emit helpers used by stream-retention regressions
 - client/src/test/support/mockWebSocket.ts — shared deterministic JSDOM WebSocket mock used by WS-driven client tests
 - client/src/test/useConversationTurns.refresh.test.ts — unit coverage for `useConversationTurns.refresh()` replace-only snapshots + error case retains prior turns
 - client/src/test/useConversationTurns.commandMetadata.test.ts — unit coverage that turns preserve optional `command` metadata for UI rendering
@@ -1436,3 +1438,28 @@ Modified files (story-wide traceability):
 Task notes:
 
 - Task 10 closeout check confirmed every story-touched tracked file from `git diff --name-only 3401898d..HEAD` has a matching purpose entry in this document.
+
+## Story 0000042 Task 8 structural verification ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md` — top-level Flow feature note now states the live transcript bug fix at a user-visible level.
+- `design.md` — documents the final shared stream-ownership rules, non-destructive late-final behavior, Flow transcript retention rule, and Story 42 manual verification log matrix.
+- `projectStructure.md` — synchronized client hook/page/test descriptions with the final Story 42 regression surface.
+- `planning/0000042-flow-streaming-transcript-bubble-text-loss.md` — task-by-task implementation and verification evidence for the streaming transcript retention fix.
+
+Task notes:
+
+- Story 0000042 added no new tracked files through Tasks 1-7; Task 8 updates the structure map to reflect the final behavior of existing hooks, pages, and regression files instead of recording path additions or renames.

@@ -1551,7 +1551,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 8. Documentation and project structure updates
 
-- Task Status: `__to_do__`
+- Task Status: `__completed__`
 - Git Commits:
 
 #### Overview
@@ -1567,7 +1567,7 @@ Update the repo documentation so future developers can understand the root cause
 
 #### Subtasks
 
-1. [ ] Update `README.md` with a short note describing the Flow live-stream transcript bug fix at a high level.
+1. [x] Update `README.md` with a short note describing the Flow live-stream transcript bug fix at a high level.
    - Document name:
      - `README.md`
    - Location:
@@ -1583,7 +1583,7 @@ Update the repo documentation so future developers can understand the root cause
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Constraint:
      - keep the note short and user/developer focused; do not duplicate the low-level hook internals from `design.md`
-2. [ ] Update `design.md` to document:
+2. [x] Update `design.md` to document:
    - the source-level `useChatStream` inflight filtering rule
    - why `turn_final` stays special
    - why Flow-page hardening is secondary rather than primary
@@ -1613,7 +1613,7 @@ Update the repo documentation so future developers can understand the root cause
      - `chat.ws.client_stale_event_ignored`
      - `flows.page.live_transcript_retained`
      - `flows.page.visibility_reset_guarded`
-3. [ ] Update `projectStructure.md` for any new or renamed tests/files created by this story.
+3. [x] Update `projectStructure.md` for any new or renamed tests/files created by this story.
    - Document name:
      - `projectStructure.md`
    - Location:
@@ -1630,7 +1630,7 @@ Update the repo documentation so future developers can understand the root cause
    - When this subtask is complete:
      - every newly added or renamed test file from Tasks 1–7 is listed explicitly
      - every file that was removed or renamed during the story is also recorded explicitly
-4. [ ] Update this story file’s Implementation notes for Task 8 once the documentation work is complete.
+4. [x] Update this story file’s Implementation notes for Task 8 once the documentation work is complete.
    - Document name:
      - `0000042-flow-streaming-transcript-bubble-text-loss.md`
    - Location:
@@ -1641,21 +1641,30 @@ Update the repo documentation so future developers can understand the root cause
      - preserve a story-local implementation record for the documentation pass
    - Documentation for this subtask:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run test:summary:client` - Use because this task updates documentation for client-facing behavior and file paths already validated by the story. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
-2. [ ] `npm run compose:build:summary` - Use because this documentation task still references front-end-testable behavior. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-3. [ ] `npm run compose:up`
-4. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task8-docs-smoke-check.png`, review that screenshot to confirm the documented Flow behavior still matches the GUI, verify any referenced paths in `projectStructure.md`, and confirm the debug console shows the log markers documented in `design.md` when their corresponding events are triggered, with no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
-5. [ ] `npm run compose:down`
+1. [x] `npm run test:summary:client` - Use because this task updates documentation for client-facing behavior and file paths already validated by the story. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+2. [x] `npm run compose:build:summary` - Use because this documentation task still references front-end-testable behavior. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+3. [x] `npm run compose:up`
+4. [x] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task8-docs-smoke-check.png`, review that screenshot to confirm the documented Flow behavior still matches the GUI, verify any referenced paths in `projectStructure.md`, and confirm the debug console shows the log markers documented in `design.md` when their corresponding events are triggered, with no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
+5. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Added a short README note under the Flows feature summary explaining the user-visible fix: earlier Flow bubbles stay visible while later steps stream because stale earlier-step transcript events are ignored rather than rebound.
+- Updated `design.md` to describe the final shared `useChatStream` ownership rules, keep `turn_final` explicitly non-destructive, explain that Flow-page hardening stayed secondary/N/A, and add a Story 42 log-marker matrix that distinguishes shipped markers from the conditional Task 7 marker.
+- Updated `projectStructure.md` to reflect the final Story 42 regression surface in existing hook/page/test entries and added a Task 8 ledger noting that Tasks 1-7 changed existing tracked files in place without adding or renaming tracked paths.
+- Recorded the Task 8 documentation pass directly in this story file while working so the doc sync trail stays current rather than being reconstructed after validation.
+- `npm run format:check --workspaces` passed cleanly; `npm run lint --workspaces` passed with the same existing server import-order warnings seen in prior tasks and no new Task 8 errors.
+- `npm run test:summary:client` passed with 484/484 tests green, confirming the documentation-only changes did not disturb the previously completed Story 42 client regression matrix.
+- `npm run compose:build:summary` passed with both compose build targets green, so the docs smoke check can run against the same front-end stack the story used for the earlier manual validations.
+- `npm run compose:up` started the local stack cleanly with healthy server and client containers, making the required browser documentation smoke check available on the mapped host port.
+- Manual docs smoke on `http://host.docker.internal:5001/flows` saved `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task8-docs-smoke-check.png`, confirmed the Flow GUI still shows a retained earlier transcript while a later step is active, verified the `projectStructure.md` paths referenced by Task 8 exist, and replayed browser-side WS events that emitted the shipped Story 42 markers (`chat.ws.client_assistant_delta_ignored`, `chat.ws.client_user_turn_ignored`, `chat.ws.client_non_final_ignored`, `chat.ws.client_turn_final_preserved`, `chat.ws.client_stale_event_ignored`, `flows.page.live_transcript_retained`) with no console errors; `flows.page.visibility_reset_guarded` remained intentionally absent because Task 7 stayed N/A.
+- `npm run compose:down` stopped the local stack cleanly after the documentation smoke check and screenshot review were complete.
 
 ---
 

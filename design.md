@@ -1625,6 +1625,7 @@ sequenceDiagram
 - Flow transcript simulation in page tests should reuse the shared `setupChatWsHarness` websocket emitters so page coverage still exercises the same `useChatWs` and `useChatStream` path as Chat and Agents.
 - A stale earlier-step `user_turn` or `assistant_delta` replay must not clear the visible transcript or retarget the active assistant bubble for the newer step.
 - When a new inflight starts and the previous assistant bubble is still visible, the page emits `flows.page.live_transcript_retained` with `{ conversationId, previousInflightId, currentInflightId, reason: 'next_step_started' }` for manual verification.
+- Flow-page hardening around temporary `flowConversations` visibility churn stayed secondary in this story: Task 7 closed as N/A because Tasks 1-6 fixed the user-visible bug without needing a page-local transcript-retention guard.
 
 ```mermaid
 sequenceDiagram
@@ -1642,6 +1643,16 @@ sequenceDiagram
   Bubble1-->>Bubble1: remains visible
   Bubble2-->>Bubble2: continues streaming
 ```
+
+### Story 0000042 manual verification log matrix
+
+- `chat.ws.client_assistant_delta_ignored`: proves a stale older-inflight `assistant_delta` was ignored before it could overwrite the active assistant bubble.
+- `chat.ws.client_user_turn_ignored`: proves a stale older-inflight `user_turn` replay was ignored before it could reset the assistant pointer or retarget the current bubble.
+- `chat.ws.client_non_final_ignored`: proves a stale older-inflight non-final event (`analysis_delta`, `tool_event`, `stream_warning`, or replayed older `inflight_snapshot`) was ignored before mutating active transcript state.
+- `chat.ws.client_turn_final_preserved`: proves a late older-inflight `turn_final` completed only its own older bubble and left the newer active inflight untouched.
+- `chat.ws.client_stale_event_ignored`: proves `useChatWs` dropped a lower-sequence same-inflight packet at the transport layer before it reached `useChatStream`.
+- `flows.page.live_transcript_retained`: proves the Flow page still showed the earlier step bubble when the next step started streaming.
+- `flows.page.visibility_reset_guarded`: reserved for the conditional Flow page safeguard only; Task 7 closed as not applicable, so the final implementation does not rely on this marker during normal verification.
 
 ## Server testing & Docker
 
@@ -3773,6 +3784,7 @@ Assistant bubble binding invariant (Task 30):
 - `user_turn` ownership follows the same inflight rule: if a replay arrives for an already-mapped older inflight while a newer inflight is active, the hook ignores that replay, keeps the current assistant pointer bound to the newer inflight, and emits `chat.ws.client_user_turn_ignored`.
 - `analysis_delta`, `tool_event`, and `stream_warning` follow the same stale-inflight rule: if they arrive for an older inflight while a newer one is active, the hook ignores the event before mutating reasoning text, tool state, or warning refs and emits `chat.ws.client_non_final_ignored` with the relevant `eventType`.
 - `inflight_snapshot` uses the same ownership marker with one extra rule: a snapshot for an unseen next inflight is still allowed to create the next assistant bubble, but a replay for an already-mapped older inflight is ignored and logged with `chat.ws.client_non_final_ignored`.
+- These ownership rules live in `useChatStream`, not in `FlowsPage`, because Chat, Agents, and Flows all share the same transcript merge path and Flow only made the bug easier to reproduce.
 - The `send()` path forces creation of a new assistant bubble even when the previous assistant bubble is still `processing` (for example after pressing **Stop**).
 - `turn_final` remains intentionally different from non-final events: when a late final arrives for an older inflight, the hook updates only that older bubble’s completion state and metadata, leaves the newer active inflight and shared `threadId` intact, and emits `chat.ws.client_turn_final_preserved`.
 - When a `turn_final` arrives for the matching inflight, the active bubble still completes normally and retains its text, metadata, and status transition.

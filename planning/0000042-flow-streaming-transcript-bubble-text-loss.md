@@ -1861,6 +1861,185 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 - `npm run format:check --workspaces` passed cleanly; `npm run lint --workspaces` again only reported the existing server import-order warnings and no new Task 9 issues after the final story-file and PR-summary edits.
 - `npm run compose:down` stopped the final-validation stack cleanly after the wrapper suite, manual screenshots, `/logs` verification, and documentation closeout finished.
 
+---
+
+### 10. Shared hook safeguard: finalized-inflight `user_turn` replays must stay ignored after `turn_final`
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Close the stale-replay gap identified in review: `user_turn` replay detection currently depends on `assistantMessageIdByInflightIdRef`, but the `turn_final` path deletes that mapping for the finalized inflight. This task must preserve the existing stale-replay behavior even after an older inflight has already finalized, without widening scope into new transport logic or page-specific workarounds.
+
+#### Documentation Locations
+
+- React 19.2 `useRef`: https://react.dev/reference/react/useRef
+  - use this for the long-lived per-conversation mutable state needed to remember seen inflight IDs without forcing extra renders
+- React 19.2 state snapshots: https://react.dev/learn/state-as-a-snapshot
+  - use this for reasoning about why the stale-replay guard must rely on explicit refs rather than transient render state
+- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
+  - use this for the current Jest 30 API surface when extending the hook regression suite
+- Jest 30 getting started: https://jestjs.io/docs/getting-started
+  - use this for the current client test runner structure and assertion model
+- React Testing Library (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
+  - use this for `renderHook`, `act`, and `waitFor` patterns used by the shared-hook regressions
+- WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+  - use this for reasoning about why the hook must still defend against stale transcript events that reach it after transport-level filtering
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
+  - use this when updating `design.md` if the inflight-lifecycle diagrams need to describe the finalized-inflight replay rule
+
+#### Subtasks
+
+1. [ ] Read the existing `user_turn` stale-replay guard and the `turn_final` cleanup path before changing code.
+   - Files to read:
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Start here in code:
+     - the `staleInflightReplay` calculation in the `user_turn` branch
+     - the `assistantMessageIdByInflightIdRef.current.delete(event.inflightId)` line in the `turn_final` branch
+   - Goal:
+     - identify exactly why a finalized older inflight can lose its stale-replay marker before a later replayed `user_turn` arrives
+2. [ ] Update `client/src/hooks/useChatStream.ts` so stale older-inflight `user_turn` replays stay ignored even after `turn_final` has cleaned up assistant-message mappings.
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+   - Start here in code:
+     - add the smallest possible shared-hook state needed to remember that an inflight has already been seen for the current conversation
+     - clear or reset that state only where conversation-local streaming state is intentionally reset (for example conversation changes or full reset paths)
+   - Required behavior:
+     - a stale `user_turn` replay for an older inflight must still emit the existing ignore log and return without resetting the assistant pointer, even if that older inflight has already finalized
+     - a legitimate unseen next inflight must still be allowed to create the next assistant bubble after the previous inflight finalizes
+     - do not move sequence filtering out of `useChatWs`
+     - do not add page-specific fallback logic for this hook-level concern
+3. [ ] Keep the existing `chat.ws.client_user_turn_ignored` logging behavior intact for finalized older-inflight replays.
+   - Files to edit only if required:
+     - `client/src/hooks/useChatStream.ts`
+   - Required outcome:
+     - a finalized older-inflight replay still emits `chat.ws.client_user_turn_ignored` with `reason: 'stale_inflight'`
+     - no new log name should be introduced for this fix
+4. [ ] Add a hook regression test that replays `user_turn` for an older inflight after that older inflight already received `turn_final`, then asserts the newer active bubble stays intact.
+   - Test type:
+     - hook regression test
+   - Location:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Required assertions:
+     - the older finalized bubble keeps its existing text/status
+     - the newer active inflight remains the active target
+     - no duplicate assistant bubble is created for the replayed older inflight
+5. [ ] Add a separate hook regression test that proves a legitimate unseen next inflight still advances normally after a previous inflight finalizes.
+   - Test type:
+     - hook regression test
+   - Location:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Required assertions:
+     - after the first inflight finalizes, a brand-new inflight can still create the next assistant bubble
+     - the new bubble still accepts matching deltas and finalization normally
+6. [ ] Re-run nearby shared-consumer regressions that exercise late finals and streaming ownership.
+   - Files to read/edit only if failures require updates:
+     - `client/src/test/chatPage.stream.test.tsx`
+     - `client/src/test/agentsPage.streaming.test.tsx`
+     - `client/src/test/flowsPage.run.test.tsx`
+7. [ ] Update `design.md` with the finalized-inflight replay rule if the implementation changes how the story describes stale `user_turn` ownership after `turn_final`.
+   - Files to edit:
+     - `design.md`
+   - Required content:
+     - document that stale `user_turn` replay detection survives `turn_final` cleanup for the current conversation
+8. [ ] Update this story file’s Implementation notes for Task 10 once the code and tests are complete.
+   - Files to edit:
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task10-finalized-user-turn-replay-ignored.png`, review that screenshot to confirm a finalized older-step replay does not steal the active bubble, and confirm the debug console contains `chat.ws.client_user_turn_ignored` with `reason: 'stale_inflight'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 11. Final re-validation and acceptance re-check
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Re-run the full story acceptance pass after Task 10 so the branch proves the finalized-inflight replay fix did not introduce regressions elsewhere. This task is a fresh final handoff and should treat the story as needing full acceptance evidence again, not as a partial smoke check.
+
+#### Documentation Locations
+
+- Docker docs: https://docs.docker.com/
+  - use this for the compose lifecycle and container validation steps in the final re-check
+- Playwright docs: https://playwright.dev/docs/intro
+  - use this for the manual validation workflow and screenshot capture expectations
+- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
+  - use this for interpreting the final automated client test run
+- Jest 30 getting started: https://jestjs.io/docs/getting-started
+  - use this for interpreting the final automated regression results
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/
+  - use this for updating the acceptance audit and PR summary comment
+
+#### Subtasks
+
+1. [ ] Re-run the full relevant client regression wrappers without file filters.
+   - Use `Testing` step 6 for this subtask.
+   - Purpose:
+     - prove the finalized-inflight replay fix did not regress Chat, Agents, Flows, or the shared hook/websocket protections
+2. [ ] Re-check the story acceptance criteria one by one and update the `Acceptance audit` section in this story file with any new evidence needed from Task 10.
+   - Files to edit:
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+   - Required outcome:
+     - each acceptance criterion still has a clear pass note tied to current evidence after Task 10
+3. [ ] Re-confirm that websocket message shapes, REST payload shapes, and persistence storage shapes remain unchanged after Task 10.
+   - Files to inspect:
+     - `server/src/ws/types.ts`
+     - `server/src/ws/sidebar.ts`
+     - `server/src/mongo/repo.ts`
+     - any shared websocket or conversation type files touched by Task 10
+4. [ ] Update `design.md` and `projectStructure.md` again if Task 10 introduced any last-minute architecture or file-map changes not yet documented.
+   - Files to edit only if required:
+     - `design.md`
+     - `projectStructure.md`
+5. [ ] Start the compose stack and perform a fresh manual Playwright MCP check of a known multi-step Flow such as `flows/implement_next_plan.json`.
+   - Required screenshots:
+     - `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-11-flow-before-revalidation.png`
+    - `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-11-flow-during-revalidation.png`
+    - `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-11-flow-after-revalidation.png`
+   - Required checks:
+     - earlier assistant bubble text remains visible while the next step streams
+     - finalized older-step `user_turn` replays do not steal the active bubble
+     - expected Story 42 log markers still appear with no unexpected `error`-level console entries
+6. [ ] Update `test-results/pr-comments/0000042-summary.md` so it includes the Task 10 fix, the renewed validation run, and any updated residual risk statement.
+7. [ ] Update this story file’s Implementation notes for Task 11 once the full re-validation is complete.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Run first so the re-validation follows the repo tasking convention and proves the server still builds cleanly.
+2. [ ] `npm run build:summary:client` - Mandatory because client behavior changes in Task 10.
+3. [ ] `npm run compose:build:summary` - Required clean compose build check.
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit` - Re-run even though server contracts are still expected to remain unchanged.
+6. [ ] `npm run test:summary:client` - Mandatory because Task 10 changes client behavior.
+7. [ ] `npm run test:summary:e2e` - Run the full browser-level wrapper suite again for the renewed handoff.
+8. [ ] Manual Playwright-MCP check to confirm the story acceptance behavior, save the required screenshots into `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/`, inspect those screenshots to confirm the GUI matches the acceptance criteria, and verify the debug console shows the expected log lines from Tasks 1–10 with no unexpected `error`-level entries. Use http://host.docker.internal:5001 via the Playwright MCP tools.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
 ## Post-Implementation Review
 
 - Review baseline:
@@ -1881,5 +2060,5 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
   - verified the final task recorded clean wrapper outcomes for server build, client build, compose build, server unit tests, client tests, and e2e
   - verified the story’s own final diff audit still shows no intended websocket contract, REST payload, or persistence-shape changes for this story
 - Review outcome:
-  - no additional code-review findings were identified that require follow-up tasks in this story
-  - no acceptance-criteria gap was found in the implemented Story 0000042 surfaces reviewed above
+  - one follow-up code-review finding was identified: finalized older-inflight `user_turn` replays can bypass the stale-replay guard after `turn_final` deletes the assistant-message mapping used by the current detection
+  - Tasks 10 and 11 were added to fix that gap and force a fresh full acceptance pass before this story is treated as complete again

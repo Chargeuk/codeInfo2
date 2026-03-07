@@ -5,7 +5,7 @@
       "type": "message",
       "role": "user",
       "content": [
-        "Does the next story to work on contain tasks? If not, please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked separately and prior to the front end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail and structure of the tasks on `planning/plan_format.md`. If it is already tasked up, then just state this, and give an overview of the tasks. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+        "Does the next story to work on contain tasks? If not, please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked separately and prior to the front-end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail, and structure of the tasks on `planning/plan_format.md`. If it is already tasked up, then just state this and give an overview of the tasks. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
@@ -19,63 +19,63 @@
       "type": "message",
       "role": "user",
       "content": [
-        "Check if all the changes needed to implement this new logic are correctly documented within the story. For example, do any of the tasks make assumptions that are incorrect, or have reliance on logic that isn't there? Will the interfaces into the system be able to actually do what we want them to do because the server has exposed the correct information and input logic? Will existing functionality break because we have planned changes that have consequences we didn't consider? Do we have open questions represented by investigation subtasks, because if so those investigations should be performed now so the story becomes a concrete set of tasks. Use the code_info mcp tools to search the repository multiple times, remembering to provide the name of the repository when you ask the question and the conversationId returned for follow-ups, as well as performing manual searches. Update the plan and tasks based on what you find. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+        "Check if all the changes needed to implement this new logic are correctly documented within the story. For example, do any of the tasks make assumptions that are incorrect, or rely on logic that isn't there? Will the interfaces into the system be able to do what we want because the server has exposed the correct information and input logic? Will existing functionality break because we have planned changes that have consequences we didn't consider? Do we have open questions represented by investigation subtasks, because if so, those investigations should be performed now so the story becomes a concrete set of tasks. Use the code_info MCP tool to search the repository multiple times, remembering to provide the name of the repository when you ask the question and the `conversationId` returned for follow-ups, as well as performing manual searches. Update the plan and tasks based on what you find. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
       "type": "message",
       "role": "user",
       "content": [
-        "Use the code_info MCP tool to check if any of the logic planned to be implemented already exists in the codebase, either as reusable functions, components, or similar implementations. Ask multiple questions to the code_info MCP tool to confirm, remembering state the path of the repository and to use the conversationId where appropriate for follow-up questions. If you find any, update the plan and tasks to re-use existing code rather than creating new code where possible. When calling the tool, remember to provide the name of the repository, and to continue conversations using the conversationId seen in previous responses, but not to provide the conversationId for your first question. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+        "Use the code_info MCP tool to check if any of the logic planned to be implemented already exists in the codebase, either as reusable functions, components, or similar implementations. Ask multiple questions to the code_info MCP tool to confirm, remembering to state the path of the repository and to use the `conversationId` where appropriate for follow-up questions. If you find any, update the plan and tasks to reuse existing code rather than creating new code where possible. When calling the tool, remember to provide the name of the repository, and to continue conversations using the `conversationId` seen in previous responses, but not to provide the `conversationId` for your first question. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
       "type": "message",
       "role": "user",
       "content": [
-        "Use the code_info, Context7, deepwiki & mui MCP servers, as well as internet searches to check that any assumptions made about library usage, interfaces, components, etc... are valid and up-to-date based on the version of the libraries being used. Note that if the library is available in code_info, then it is likely to be the correct version of the library and information from there should superseede other MCP servers. You MUST use the tools, never make assumptions, even for things like React, Typescript, Mongo, Mongoose, etc... remembering to provide the name of the repository when you ask the question to code_info. Update the plan and tasks based on what you find. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+        "Use the code_info, Context7, DeepWiki, and MUI MCP servers, as well as internet searches, to check that any assumptions made about library usage, interfaces, components, etc. are valid and up to date based on the version of the libraries being used. Note that if the library is available in code_info, then it is likely to be the correct version of the library, and information from there should supersede other MCP servers. You MUST use the tools and never make assumptions, even for things like React, TypeScript, Mongo, and Mongoose, remembering to provide the name of the repository when you ask the question to code_info. Update the plan and tasks based on what you find. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
       "type": "message",
       "role": "user",
       "content": [
-        "Some of the tasks look quite big, could they be split up without loosing any information? - Please split up any large tasks into smaller, more manageable subtasks where possible, especially if they have a title with the word 'and' in it, but only break up tasks if it doesn't make the work more complex or untestable. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+        "Some of the tasks look quite big; could they be split up without losing any information? Please split up any large tasks into smaller, more manageable subtasks where possible, especially if they have a title with the word 'and' in it, but only break up tasks if it doesn't make the work more complex or untestable. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
       "type": "message",
       "role": "user",
       "content": [
-        "Are there any complex or risky items that we could consider simplifying to de-risk? - Please simplify the instructions where possible to reduce complexity and risk focusing on nice-to-have things that are risky and complex to implement, but don't simplify for the sake of it if there are no changes that would help. Also, we must ensure we still meet all the acceptance criteria of the story plan. Do NOT remove testing steps as part of this change. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+        "Are there any complex or risky items that we could consider simplifying to de-risk? Please simplify the instructions where possible to reduce complexity and risk, focusing on nice-to-have things that are risky and complex to implement, but don't simplify for the sake of it if there are no changes that would help. Also, we must ensure we still meet all the acceptance criteria of the story plan. Do NOT remove testing steps as part of this change. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
       "type": "message",
       "role": "user",
       "content": [
-        "Do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask. Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links. If not, please improve the instructions to be more detailed and explicit. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+        "Do you feel this story's task instructions are detailed enough for an inexperienced junior developer who has never seen our codebase before, especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask? Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links. If not, please improve the instructions to be more detailed and explicit. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
       "type": "message",
       "role": "user",
       "content": [
-        "Some tasks have Document Locations that reference the existing codebase. This is incorrect. The Document Locations sections should reference external locations, such as website documentation or context7 and deepwiki mcp tool documentation for libraries that are required for the task's implementation to ensure the correct calls are used. The subtask itself should state which files are required to be read or edited to complete the subtask. Please correct this & commit after making any changes. Do not provide options, just make the best changes you feel would be best."
+        "Some tasks have Document Locations that reference the existing codebase. This is incorrect. The Document Locations sections should reference external locations, such as website documentation or Context7 and DeepWiki MCP tool documentation for libraries that are required for the task's implementation to ensure the correct calls are used. The subtask itself should state which files are required to be read or edited to complete the subtask. Please correct this and commit after making any changes. Do not provide options, just make the best changes you feel would be best."
       ]
     },
     {
       "type": "message",
       "role": "user",
       "content": [
-        "It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool such as context7 and DeepWiki or an explicit web address (the best option for cucumber is a subpath of https://cucumber.io/docs/guides/). You MUST check the documentation yourself before adding it so you can explain the reason for using it and provide detailed information. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+        "It looks like we are referencing libraries in the tasks without explicitly stating where the documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an MCP tool such as Context7 and DeepWiki or an explicit web address. The best option for cucumber is a subpath of https://cucumber.io/docs/guides/. You MUST check the documentation yourself before adding it so you can explain the reason for using it and provide detailed information. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
       "type": "message",
       "role": "user",
       "content": [
-        "Does all the functionality, including happy path, error cases, corner cases etc... have corresponding tests planned to be implemented? If not, please add them as new tasks or subtasks as required. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+        "Does all the functionality, including the happy path, error cases, and corner cases, have corresponding tests planned to be implemented? If not, please add them as new tasks or subtasks as required. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
@@ -89,7 +89,7 @@
       "type": "message",
       "role": "user",
       "content": [
-        "Please ensure any task writing jest tests includes references to context7 tool jest documentation and any task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevant task. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+        "Please ensure any task writing Jest tests includes references to Context7 tool Jest documentation, and any task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevant task. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
@@ -117,21 +117,21 @@
       "type": "message",
       "role": "user",
       "content": [
-        "Check if all the changes needed to implement this new logic are correctly documented within the story. For example, do any of the tasks make assumptions that are incorrect, or have reliance on logic that isn't there? Will the interfaces into the system be able to actually do what we want them to do because the server has exposed the correct information and input logic? Will existing functionality break because we have planned changes that have consequences we didn't consider? Do we have open questions represented by investigation subtasks, because if so those investigations should be performed now so the story becomes a concrete set of tasks. Use the code_info mcp tools to search the repository multiple times, remembering to provide the name of the repository when you ask the question and the conversationId returned for follow-ups, as well as performing manual searches. Update the plan and tasks based on what you find. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+        "Check if all the changes needed to implement this new logic are correctly documented within the story. For example, do any of the tasks make assumptions that are incorrect, or rely on logic that isn't there? Will the interfaces into the system be able to do what we want because the server has exposed the correct information and input logic? Will existing functionality break because we have planned changes that have consequences we didn't consider? Do we have open questions represented by investigation subtasks, because if so, those investigations should be performed now so the story becomes a concrete set of tasks. Use the code_info MCP tool to search the repository multiple times, remembering to provide the name of the repository when you ask the question and the `conversationId` returned for follow-ups, as well as performing manual searches. Update the plan and tasks based on what you find. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
       "type": "message",
       "role": "user",
       "content": [
-        "Does all the functionality, including happy path, error cases, corner cases etc... have corresponding tests planned to be implemented? If not, please add them as new tasks or subtasks as required. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+        "Does all the functionality, including the happy path, error cases, and corner cases, have corresponding tests planned to be implemented? If not, please add them as new tasks or subtasks as required. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
       "type": "message",
       "role": "user",
       "content": [
-        "Please ensure every task writing jest tests includes references to context7 tool jest documentation and every task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevant task. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+        "Please ensure every task writing Jest tests includes references to Context7 tool Jest documentation, and every task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevant task. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
@@ -145,7 +145,7 @@
       "type": "message",
       "role": "user",
       "content": [
-        "Do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask. Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links. If not, please improve the instructions to be more detailed and explicit. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+        "Do you feel this story's task instructions are detailed enough for an inexperienced junior developer who has never seen our codebase before, especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask? Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links. If not, please improve the instructions to be more detailed and explicit. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
@@ -167,16 +167,16 @@
       "role": "user",
       "content": [
         "The testing steps for each task should contain all, or a subset, of the following items based on what changed. Do not add testing steps for specific tests; always run full app-level suites via the summary wrappers to avoid unnecessary token usage. Ensure the testing instructions state to not attempt to run tests without using the wrapper. The testing step numbers should be updated based on the steps actually used within the plan:",
-        "1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.",
-        "2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.",
+        "1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.",
+        "2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.",
         "3. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name \"<pattern>\"`. After fixes, rerun full `npm run test:summary:server:unit`.",
         "4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags \"<expr>\"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario \"<pattern>\"`. After fixes, rerun full `npm run test:summary:server:cucumber`.",
         "5. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset \"<pattern>\"`, and/or `npm run test:summary:client -- --test-name \"<pattern>\"`. After fixes, rerun full `npm run test:summary:client`.",
-        "6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep \"<pattern>\"`. After fixes, rerun full `npm run test:summary:e2e`.",
-        "Note that the following items (7 to 10) are only needed if changes are testable from the front end OR if this task is the final regression check.",
+        "6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep \"<pattern>\"`. After fixes, rerun full `npm run test:summary:e2e`.",
+        "Note that the following items (7 to 10) are only needed if changes are testable from the front end or if this task is the final regression check.",
         "7. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).",
         "8. [ ] `npm run compose:up`",
-        "9. [ ] Manual Playwright-MCP check to manually confirm items within the story and general regressions checks that should be detailed based on the task being tested. This should include a check to ensure that there are no logged errors withing the debug console. The front end is accessible at http://host.docker.internal:5001 via the playwright MCP tools",
+        "9. [ ] Manual Playwright-MCP check to manually confirm items within the story and general regression checks that should be detailed based on the task being tested. This should include a check to ensure that there are no logged errors within the debug console. The front end is accessible at http://host.docker.internal:5001 via the Playwright MCP tools.",
         "10. [ ] `npm run compose:down`",
         "Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts. This preserves tokens while keeping full diagnostics available."
       ]
@@ -192,7 +192,7 @@
       "type": "message",
       "role": "user",
       "content": [
-        "Ensure any task that updates the front end has detail within the Manual Playwright-MCP check to take a screenshot that is to be checked by the agent to ensure the gui meets the expectations set within the task. This is especially important for the last overall story check task as all acceptance that can be confirmed in the gui needs to be checked with screenshots as well as any other appropriate techniques. Ensure that there is detail in the Manual Playwright-MCP check step detailing that the screenshots will be stored within the /Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local folder as it is mapped within docker-compose.local.yml. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+        "Ensure any task that updates the front end has detail within the Manual Playwright-MCP check to take a screenshot that is to be checked by the agent to ensure the GUI meets the expectations set within the task. This is especially important for the last overall story check task, as all acceptance that can be confirmed in the GUI needs to be checked with screenshots as well as any other appropriate techniques. Ensure that there is detail in the Manual Playwright-MCP check step stating that the screenshots will be stored within the /Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local folder, as it is mapped within docker-compose.local.yml. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
       ]
     }
   ]

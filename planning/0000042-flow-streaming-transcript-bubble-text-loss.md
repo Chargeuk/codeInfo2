@@ -366,6 +366,8 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
   - use this for the current ref semantics the hook relies on when storing inflight IDs, message IDs, and streamed text outside render state
 - React 19.2 state snapshots: https://react.dev/learn/state-as-a-snapshot
   - use this for reasoning about why ref mutations do not re-render and why visible bubble updates must still flow through state sync helpers
+- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
+  - use this for the current Jest 30 API surface in the repo when writing or updating tests
 - Jest 30 getting started: https://jestjs.io/docs/getting-started
   - use this for the current test runner, assertions, and mocking model used by the client test suite
 - React Testing Library (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
@@ -469,6 +471,8 @@ Handle the `user_turn` branch separately from later transcript events. This task
 
 - React 19.2 `useRef`: https://react.dev/reference/react/useRef
   - use this for the ref ownership rules that apply to `inflightIdRef`, assistant pointers, and other mutable values inside `useChatStream`
+- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
+  - use this for the current Jest 30 API surface in the repo when writing or updating tests
 - Jest 30 getting started: https://jestjs.io/docs/getting-started
   - use this for the client-side regression test structure and current mocking/assertion behavior
 - React Testing Library (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
@@ -574,6 +578,8 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
 
 - React 19.2 `useRef`: https://react.dev/reference/react/useRef
   - use this for the shared mutable refs that collect reasoning, warnings, tool state, and snapshot text between renders
+- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
+  - use this for the current Jest 30 API surface in the repo when writing or updating tests
 - Jest 30 getting started: https://jestjs.io/docs/getting-started
   - use this for the regression test structure used in the hook and page suites
 - React Testing Library (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
@@ -766,6 +772,8 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
 
 - React 19.2 effect synchronization: https://react.dev/learn/synchronizing-with-effects
   - use this for understanding how late async completion should update state without corrupting newer rendered work
+- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
+  - use this for the current Jest 30 API surface in the repo when writing or updating tests
 - Jest 30 getting started: https://jestjs.io/docs/getting-started
   - use this for updating the existing late-final regression tests
 - WebSocket message event: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
@@ -861,6 +869,8 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. This task is i
 
 #### Documentation Locations
 
+- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
+  - use this for the current Jest 30 API surface in the repo when writing or updating tests
 - Jest 30 getting started: https://jestjs.io/docs/getting-started
   - use this for the websocket-layer regression tests in `useChatWs.test.ts`
 - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
@@ -979,6 +989,8 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
 
 - React Router 7 docs (`react-router-dom` 7.9.6 in this repo): https://reactrouter.com/home
   - use this for the router/provider APIs used by the Flow page test setup
+- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
+  - use this for the current Jest 30 API surface in the repo when writing or updating tests
 - Jest 30 getting started: https://jestjs.io/docs/getting-started
   - use this for the test runner and mocking behavior used in the Flow page suite
 - React Testing Library (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
@@ -1062,6 +1074,8 @@ Apply the smallest Flow-page-only fix only if the new live Flow regression from 
 
 - React Router 7 docs (`react-router-dom` 7.9.6 in this repo): https://reactrouter.com/home
   - use this for the page routing context that still wraps `FlowsPage` during tests and manual validation
+- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
+  - use this for the current Jest 30 API surface in the repo when writing or updating tests
 - Jest 30 getting started: https://jestjs.io/docs/getting-started
   - use this for the conditional page-level regression and mocking workflow
 - React Testing Library (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
@@ -1213,6 +1227,8 @@ Perform the final acceptance pass for the story. This task must confirm the shar
   - use this for the compose lifecycle and container validation steps in the final acceptance pass
 - Playwright docs: https://playwright.dev/docs/intro
   - use this for the manual validation workflow and screenshot capture expectations in the final task
+- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
+  - use this for the current Jest 30 API surface in the repo when interpreting the final automated client test run
 - Jest 30 getting started: https://jestjs.io/docs/getting-started
   - use this for interpreting the final automated client regression run results
 - Markdown basic syntax: https://www.markdownguide.org/basic-syntax/

@@ -3739,8 +3739,35 @@ Required log names and key fields:
 Assistant bubble binding invariant (Task 30):
 
 - The client binds each assistant bubble to a specific `inflightId` (so late-arriving events cannot overwrite a newer run).
+- Non-final `assistant_delta` events follow strict inflight ownership even while Flow is `idle`: if the event `inflightId` does not match the active inflight, the hook ignores the delta, leaves the active refs untouched, and emits `chat.ws.client_assistant_delta_ignored`.
 - The `send()` path forces creation of a new assistant bubble even when the previous assistant bubble is still `processing` (for example after pressing **Stop**).
 - When a `turn_final` arrives for a non-current `inflightId` while a new run is `sending`, the UI updates only that older bubble’s status (no global streaming state changes and no content overwrite).
+
+```mermaid
+sequenceDiagram
+  participant WS as WebSocket stream
+  participant Hook as useChatStream
+  participant Bubble1 as Assistant bubble i1
+  participant Bubble2 as Assistant bubble i2
+
+  WS->>Hook: user_turn(i1)
+  WS->>Hook: assistant_delta(i1, "First reply")
+  Hook->>Bubble1: append "First reply"
+  WS->>Hook: user_turn(i2)
+  Hook->>Bubble2: create next assistant bubble
+  WS->>Hook: assistant_delta(i1, " late tail")
+  Hook-->>Hook: inflight mismatch -> ignore delta
+  Hook-->>WS: log chat.ws.client_assistant_delta_ignored
+  Hook->>Bubble1: keep existing text
+  Hook->>Bubble2: keep active inflight ownership
+```
+
+- Manual verification for this rule uses `chat.ws.client_assistant_delta_ignored` with:
+  - `conversationId`
+  - `ignoredInflightId`
+  - `activeInflightId`
+  - `assistantMessageId`
+  - `reason: 'stale_inflight'`
 
 ```mermaid
 sequenceDiagram

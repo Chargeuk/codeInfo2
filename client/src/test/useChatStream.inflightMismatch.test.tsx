@@ -83,4 +83,54 @@ describe('useChatStream inflight mismatch handling', () => {
       expect(assistantMessages[1]?.content).toBe('');
     });
   });
+
+  it('appends assistant deltas to the active assistant bubble for the matching inflight', async () => {
+    const conversationId = 'flow-conversation-happy-path';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    const stepOneUserTurn: ChatWsTranscriptEvent = {
+      protocolVersion: 'v1',
+      type: 'user_turn',
+      conversationId,
+      seq: 1,
+      inflightId: 'i1',
+      content: 'Step 1 prompt',
+      createdAt: '2025-01-01T00:00:00.000Z',
+    };
+
+    const firstDelta: ChatWsTranscriptEvent = {
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      conversationId,
+      seq: 2,
+      inflightId: 'i1',
+      delta: 'First reply',
+    };
+
+    const secondDelta: ChatWsTranscriptEvent = {
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      conversationId,
+      seq: 3,
+      inflightId: 'i1',
+      delta: ' continues',
+    };
+
+    act(() => result.current.handleWsEvent(stepOneUserTurn));
+    act(() => result.current.handleWsEvent(firstDelta));
+    act(() => result.current.handleWsEvent(secondDelta));
+
+    await waitFor(() => {
+      const assistantMessages = result.current.messages.filter(
+        (message) => message.role === 'assistant',
+      );
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.content).toBe('First reply continues');
+    });
+  });
 });

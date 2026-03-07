@@ -1434,24 +1434,31 @@ export function useChatStream(
       const eventInflightId = event.inflightId;
       const preMappedAssistantId =
         assistantMessageIdByInflightIdRef.current.get(eventInflightId) ?? null;
-      const assistantId = ensureAssistantMessage({
-        inflightId: eventInflightId,
-      });
+      let assistantId = preMappedAssistantId;
+      const resolveAssistantId = () => {
+        if (assistantId === null) {
+          assistantId = ensureAssistantMessage({
+            inflightId: eventInflightId,
+          });
+        }
+        return assistantId;
+      };
       const inflightMismatch =
         currentInflightId !== null && eventInflightId !== currentInflightId;
 
       if (event.type === 'assistant_delta') {
-        if (inflightMismatch && status === 'sending') {
-          updateMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantId
-                ? { ...msg, content: (msg.content ?? '') + event.delta }
-                : msg,
-            ),
-          );
+        if (inflightMismatch) {
+          logWithChannel('info', 'chat.ws.client_assistant_delta_ignored', {
+            conversationId: event.conversationId,
+            ignoredInflightId: eventInflightId,
+            activeInflightId: currentInflightId,
+            assistantMessageId: preMappedAssistantId,
+            reason: 'stale_inflight',
+          });
           return;
         }
 
+        const assistantId = resolveAssistantId();
         inflightIdRef.current = eventInflightId;
         setInflightId(eventInflightId);
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
@@ -1474,6 +1481,7 @@ export function useChatStream(
       }
 
       if (event.type === 'stream_warning') {
+        const assistantId = resolveAssistantId();
         if (inflightMismatch && status === 'sending') {
           return;
         }
@@ -1496,6 +1504,7 @@ export function useChatStream(
       }
 
       if (event.type === 'analysis_delta') {
+        const assistantId = resolveAssistantId();
         if (inflightMismatch && status === 'sending') {
           return;
         }
@@ -1510,6 +1519,7 @@ export function useChatStream(
       }
 
       if (event.type === 'tool_event') {
+        const assistantId = resolveAssistantId();
         if (inflightMismatch && status === 'sending') {
           return;
         }
@@ -1524,6 +1534,7 @@ export function useChatStream(
       }
 
       if (event.type === 'turn_final') {
+        const assistantId = resolveAssistantId();
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
         if (event.threadId !== undefined) {
           setThreadId(event.threadId ?? null);

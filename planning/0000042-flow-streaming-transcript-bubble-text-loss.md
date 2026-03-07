@@ -353,7 +353,7 @@ This story does not require new transport contracts or persistence shapes for th
 
 ### 1. Shared hook fix: stale `assistant_delta` must not corrupt later inflights
 
-- Task Status: `__to_do__`
+- Task Status: `__completed__`
 - Git Commits:
 
 #### Overview
@@ -379,7 +379,7 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
 
 #### Subtasks
 
-1. [ ] Read the current proof test and the shared stream hook before changing code.
+1. [x] Read the current proof test and the shared stream hook before changing code.
    - Files to read:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
      - `client/src/hooks/useChatStream.ts`
@@ -394,7 +394,7 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
      - identify where to reuse `ensureAssistantMessage`, `syncAssistantMessage`, `resetInflightState`, and `resetAssistantPointer` instead of adding new helper functions
    - When this subtask is complete:
      - you can point to the exact lines where `assistant_delta` still accepts a mismatched inflight while `status !== 'sending'`
-2. [ ] Update `client/src/hooks/useChatStream.ts` so stale mismatched `assistant_delta` events are rejected by inflight identity even when `status !== 'sending'`.
+2. [x] Update `client/src/hooks/useChatStream.ts` so stale mismatched `assistant_delta` events are rejected by inflight identity even when `status !== 'sending'`.
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
    - Start here in code:
@@ -410,7 +410,7 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
      - reuse the existing assistant-message targeting and sync helpers instead of creating parallel bubble-management logic
    - When this subtask is complete:
      - a mismatched stale `assistant_delta` no longer mutates the active refs or visible active bubble
-3. [ ] Add or update a structured client log line for the stale `assistant_delta` ignore path.
+3. [x] Add or update a structured client log line for the stale `assistant_delta` ignore path.
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
    - Start here in code:
@@ -428,7 +428,7 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
      - give the Manual Playwright-MCP check a stable console marker proving the stale delta was rejected instead of mutating UI state
    - When this subtask is complete:
      - a stale older-inflight delta emits `chat.ws.client_assistant_delta_ignored` exactly when the event is ignored
-4. [ ] Update the stale `assistant_delta` regression test.
+4. [x] Update the stale `assistant_delta` regression test.
    - Test type:
      - hook regression test
    - Location:
@@ -440,7 +440,7 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-5. [ ] Add a matching-inflight `assistant_delta` happy-path regression.
+5. [x] Add a matching-inflight `assistant_delta` happy-path regression.
    - Test type:
      - hook regression test
    - Location:
@@ -452,7 +452,7 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-6. [ ] Update `design.md` with the `assistant_delta` ownership rule and any affected shared-stream mermaid diagram.
+6. [x] Update `design.md` with the `assistant_delta` ownership rule and any affected shared-stream mermaid diagram.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -460,25 +460,38 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
    - Required content:
      - document that stale `assistant_delta` events must not mutate the active inflight
      - update any stream-state or websocket-flow mermaid diagram affected by the new rule
-7. [ ] Update this story file’s Implementation notes for Task 1 once the code and tests are complete.
+7. [x] Update this story file’s Implementation notes for Task 1 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task1-assistant-delta-retained.png`, review that screenshot to confirm the earlier assistant bubble text stays visible after the stale delta arrives, and confirm the debug console contains `chat.ws.client_assistant_delta_ignored` with `reason: 'stale_inflight'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task1-assistant-delta-retained.png`, review that screenshot to confirm the earlier assistant bubble text stays visible after the stale delta arrives, and confirm the debug console contains `chat.ws.client_assistant_delta_ignored` with `reason: 'stale_inflight'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Subtask 1: Read `client/src/test/useChatStream.inflightMismatch.test.tsx` and the `assistant_delta` branch in `client/src/hooks/useChatStream.ts`; confirmed mismatched deltas still fall through whenever `status !== 'sending'`, which is the Flow idle-streaming bug path.
+- Subtask 2: Updated `useChatStream` so mismatched `assistant_delta` events return before mutating active refs; the fix keeps assistant bubble ownership tied to inflight identity instead of `status`.
+- Subtask 3: Added `chat.ws.client_assistant_delta_ignored` with the required stale-inflight payload so the manual browser check has a stable proof point.
+- Subtask 4: Kept the original stale-delta regression and flipped it to the passing expectation that the first bubble stays visible after the stale event.
+- Subtask 5: Added a matching-inflight happy-path regression to prove valid assistant deltas still append to the active bubble.
+- Subtask 6: Updated `design.md` with the assistant-delta ownership rule and a mermaid sequence showing stale older-inflight deltas being ignored.
+- Subtask 7: Recorded the Task 1 code and validation outcomes here after the full wrapper pass and manual browser check completed.
+- Subtask 8: `npm run lint --workspaces` completed with existing server import-order warnings but no errors; `npm run format:check --workspaces` passed without changes.
+- Testing 1: `npm run build:summary:client` passed; inspected `logs/test-summaries/build-client-latest.log` and the only warning was the existing Vite chunk-size warning rather than a Task 1 regression.
+- Testing 2: `npm run test:summary:client` passed with 469/469 tests green; the full wrapper log was `test-results/client-tests-2026-03-07T15-52-38-144Z.log`.
+- Testing 3: `npm run compose:build:summary` passed with both compose build items green; no compose build diagnosis was needed.
+- Testing 4: `npm run compose:up` started the stack successfully; server and client containers reached started/healthy state for manual verification.
+- Testing 5: Manual Playwright validation used `http://host.docker.internal:5001`, saved `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task1-assistant-delta-retained.png`, showed the existing assistant bubble staying visible while a synthetic next-step prompt was active, and `/logs` confirmed `chat.ws.client_assistant_delta_ignored` with `reason: 'stale_inflight'`; browser console error output stayed empty.
+- Testing 6: `npm run compose:down` stopped the stack cleanly after the manual verification pass.
 
 ---
 

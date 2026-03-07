@@ -355,6 +355,7 @@ This story does not require new transport contracts or persistence shapes for th
 
 - Task Status: `__completed__`
 - Git Commits:
+  - `a181013b` - `DEV-[0000042] - Finalize streaming transcript acceptance handoff`
   - `cd3c9877` - `DEV-[0000042] - Guard stale assistant deltas in shared flow streaming`
 
 #### Overview

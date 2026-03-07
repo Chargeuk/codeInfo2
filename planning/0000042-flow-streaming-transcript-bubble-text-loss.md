@@ -89,6 +89,14 @@ This story does not assume the server or persistence layer is broken. The curren
 
 ## Implementation Ideas
 
+- Recommended implementation outline:
+  - Start in `client/src/hooks/useChatStream.ts`, because the proven corruption occurs where shared websocket transcript events mutate shared assistant refs/state.
+  - Replace the current `status === 'sending'` mismatch protection for non-final events with strict inflight-identity protection. The hook should ignore stale mismatched `assistant_delta`, `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot` updates before they can mutate the active bubble state.
+  - Keep `turn_final` handling explicit and separate. Older finals may still arrive late, so finalization logic should remain non-destructive even while non-final stale events are ignored.
+  - Do not introduce synthetic Flow-only `sending` state. `status` should remain a UI/send-path concept, not the authority for websocket event ownership.
+  - Treat `client/src/pages/FlowsPage.tsx` as secondary hardening only. If the hook fix removes the text-loss bug, leave Flow page behavior alone unless the existing `flowConversations` visibility/reset path still causes separate transient transcript clearing.
+  - Regression-check all `useChatStream` consumers after the hook change: `ChatPage`, `AgentsPage`, and `FlowsPage`.
+
 - Investigation timestamp context:
   - Initial report and investigation date: 2026-03-04.
   - User-provided visual evidence:
@@ -148,6 +156,9 @@ This story does not assume the server or persistence layer is broken. The curren
 - Existing tests and gaps:
   - Existing coverage for late `turn_final` race exists:
     - `client/src/test/chatPage.stream.test.tsx:369`
+  - Existing shared-consumer regression surface to re-run after the hook fix:
+    - `client/src/test/chatPage.stream.test.tsx`
+    - `client/src/test/agentsPage.streaming.test.tsx`
   - Added proof-of-failure regression on this branch:
     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
     - Wrapper command: `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
@@ -161,6 +172,7 @@ This story does not assume the server or persistence layer is broken. The curren
     - Late/out-of-band `assistant_delta` while `status='idle'` and inflight mismatch (Flow-like lifecycle).
     - Late/out-of-band `analysis_delta` and `tool_event` under same conditions.
     - Flow page integration scenario asserting previous bubble text is retained when next flow step starts streaming.
+    - Explicit regression check that the hook fix does not break existing Chat or Agents late-event behavior.
 
 - Candidate implementation directions for follow-up tasking:
   - Option A (preferred first pass):

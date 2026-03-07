@@ -2154,7 +2154,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 12. Finalized-inflight replay hardening, Flow validation marker proof, and Task 7 bookkeeping cleanup
 
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits:
   - `fdbed4e4` - `DEV-[0000042] - Harden post-final transcript replays`
 

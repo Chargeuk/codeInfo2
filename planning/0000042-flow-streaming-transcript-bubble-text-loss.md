@@ -28,11 +28,13 @@ This story does not assume the server or persistence layer is broken. The curren
 - During a live Flow run, previously rendered assistant bubble text stays visible when later Flow steps begin streaming.
 - The fix applies to the shared client streaming path, not just a one-off visual workaround in the Flow page, unless later investigation proves the root cause is page-local.
 - The implementation prevents stale or mismatched non-final websocket events from mutating the active assistant bubble state for a different inflight run.
+- The implementation prevents stale or mismatched `user_turn` websocket events from resetting or rebinding the active assistant bubble state for a different inflight run during Flow-style idle streaming.
 - Existing late/out-of-band `turn_final` handling remains non-destructive. The fix must not reintroduce the older race where valid finalization for an earlier inflight damages a newer one.
 - Chat and Agents streaming behavior does not regress. If the shared hook is changed, existing Chat/Agents protections must keep passing.
 - The story adds regression coverage for the exact failure class:
   - hook-level stale `assistant_delta` while Flow-style lifecycle is `idle`
-  - hook-level stale `analysis_delta` and `tool_event` for the same mismatch pattern
+  - hook-level stale `user_turn`, `analysis_delta`, and `tool_event` for the same mismatch pattern
+  - websocket-layer lower-sequence same-inflight transcript events are ignored before they reach shared hook state
   - a Flow page integration test showing that earlier bubble text remains visible while the next step streams
 - API contracts, websocket event schema, and persistence/Mongo document shapes remain unchanged in this story.
 - The plan documents enough implementation guidance that a junior developer can identify:
@@ -47,6 +49,7 @@ This story does not require new transport contracts or persistence shapes for th
 
 - Websocket event contracts:
   - Keep the existing event types and payloads unchanged:
+    - `user_turn`
     - `inflight_snapshot`
     - `assistant_delta`
     - `analysis_delta`
@@ -55,6 +58,7 @@ This story does not require new transport contracts or persistence shapes for th
     - `turn_final`
   - Rationale:
     - server websocket events already include `inflightId`
+    - `user_turn` and transcript events already include `seq`
     - Flow execution already emits step-level inflight ids
     - the client already receives enough identity information to ignore stale non-final events without changing the wire format
 
@@ -130,7 +134,7 @@ This story does not require new transport contracts or persistence shapes for th
   - expected result: the finalization remains non-destructive and must not overwrite or clear the newer inflight's visible content
 
 - A lower-sequence non-final event for the same inflight arrives after a higher-sequence event or after the bubble is effectively finalized:
-  - expected result: older same-inflight events must not re-mutate the visible bubble content after newer state has already been applied
+- expected result: older same-inflight websocket events must be ignored before they can reach shared hook state, and stale cross-inflight events that do reach the hook must not re-mutate the visible bubble content
 
 - Flow stays in `status='idle'` for websocket-driven streaming:
   - expected result: stale-event protection still works even though the page did not use the normal `send()` path
@@ -404,14 +408,14 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
 
 ---
 
-### 2. Shared hook fix: stale non-final events other than `assistant_delta`
+### 2. Shared hook fix: stale `user_turn` and other non-final events beyond `assistant_delta`
 
 - Task Status: `__to_do__`
 - Git Commits:
 
 #### Overview
 
-Extend the same inflight-safety rule to the other non-final websocket events that can mutate visible shared state: `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot`. This keeps the bug fix coherent instead of only fixing one event type while leaving the same corruption path open elsewhere.
+Extend the same inflight-safety rule to the other websocket events that can mutate visible shared state during a Flow-style idle lifecycle: `user_turn`, `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot`. This keeps the bug fix coherent instead of only fixing one event type while leaving the same corruption path open elsewhere.
 
 #### Documentation Locations
 
@@ -422,44 +426,40 @@ Extend the same inflight-safety rule to the other non-final websocket events tha
 
 #### Subtasks
 
-1. [ ] Read the non-final event branches in the shared hook and list which refs/state each event mutates before changing code.
+1. [ ] Read the `user_turn` and non-final event branches in the shared hook and list which refs/state each event mutates before changing code.
    - Files to read:
      - `client/src/hooks/useChatStream.ts`
    - Event branches to inspect:
+     - `user_turn`
      - `analysis_delta`
      - `tool_event`
      - `stream_warning`
      - `inflight_snapshot`
-2. [ ] Update `client/src/hooks/useChatStream.ts` so stale mismatched non-final events are ignored consistently for those four event types.
+2. [ ] Update `client/src/hooks/useChatStream.ts` so stale mismatched `user_turn` and other non-final events are ignored consistently during Flow-style idle streaming.
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
    - Required behavior:
+     - a stale earlier-inflight `user_turn` must not reset the assistant pointer, change `inflightIdRef`, or rebind the active assistant bubble
+     - a legitimate next-step `user_turn` for a new inflight must still create or target the correct next assistant bubble
      - matching inflight events still update normally
      - stale earlier inflight events do not overwrite reasoning text, warnings, tool state, or snapshot-driven visible state
 3. [ ] Add hook-level regression coverage for each event type under a Flow-style idle lifecycle.
    - Files to edit/create:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
    - Required assertions:
+     - stale `user_turn` is ignored when it arrives after a newer inflight has already become active
      - stale `analysis_delta` is ignored
      - stale `tool_event` is ignored
      - stale `stream_warning` is ignored
      - stale `inflight_snapshot` is ignored
-4. [ ] Add hook-level ordering coverage for non-`assistant_delta` events where an older same-inflight event arrives after newer state.
-   - Files to edit/create:
-     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
-   - Required assertions:
-     - a lower-sequence same-inflight `analysis_delta` does not replace newer visible reasoning text
-     - a lower-sequence same-inflight `tool_event` does not replace newer visible tool state
-   - Constraint:
-     - keep this test focused on the shared hook and `status='idle'` lifecycle so it proves the ordering rule at the source of truth
-5. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the broader non-final filtering does not break them.
+4. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the broader mismatch filtering does not break them.
    - Files to read/edit only if failures require updates:
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/agentsPage.streaming.test.tsx`
-6. [ ] Update this story file’s Implementation notes for Task 2 once the code and tests are complete.
+5. [ ] Update this story file’s Implementation notes for Task 2 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-7. [ ] Repo-wide lint + format gate for this task.
+6. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -484,39 +484,45 @@ Extend the same inflight-safety rule to the other non-final websocket events tha
 
 ---
 
-### 3. Shared hook safeguard: preserve late-final and same-inflight ordering behavior
+### 3. Stream ordering safeguard: preserve late-final behavior and websocket sequence filtering
 
 - Task Status: `__to_do__`
 - Git Commits:
 
 #### Overview
 
-Make sure the source-level fix does not reintroduce older stream-ordering bugs. This task is about keeping `turn_final` non-destructive and tightening any same-inflight ordering safeguards needed so older non-final events cannot re-mutate a bubble after newer state has already been applied.
+Make sure the source-level fix does not reintroduce older stream-ordering bugs. This task is about keeping `turn_final` non-destructive in `useChatStream` while proving the websocket layer continues to reject lower-sequence same-inflight transcript events before they can mutate shared hook state.
 
 #### Documentation Locations
 
 - React state/effect synchronization guidance: https://react.dev/learn/synchronizing-with-effects
 - Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
 - Node.js async behavior reference: https://nodejs.org/api/events.html
+- WebSocket hook implementation:
+  - `client/src/hooks/useChatWs.ts`
 
 #### Subtasks
 
-1. [ ] Read the existing `turn_final` handling and sequence/inflight bookkeeping before changing code.
+1. [ ] Read the existing `turn_final` handling and websocket sequence/inflight bookkeeping before changing code.
    - Files to read:
      - `client/src/hooks/useChatStream.ts`
+     - `client/src/hooks/useChatWs.ts`
      - `client/src/test/chatPage.stream.test.tsx`
-2. [ ] Update `client/src/hooks/useChatStream.ts` only as needed to preserve non-destructive late-final behavior while the stricter non-final filtering is in place.
-   - Files to edit:
+     - `client/src/test/useChatWs.test.ts`
+2. [ ] Update `client/src/hooks/useChatStream.ts` and `client/src/hooks/useChatWs.ts` only as needed to preserve non-destructive late-final behavior and keep same-inflight lower-sequence filtering owned by the websocket layer.
+   - Files to edit only if needed:
      - `client/src/hooks/useChatStream.ts`
+     - `client/src/hooks/useChatWs.ts`
    - Required behavior:
      - a late `turn_final` for an older inflight must not damage the currently active inflight
-     - out-of-order same-inflight older non-final updates must not re-apply newer-visible state
+     - lower-sequence same-inflight websocket transcript events must continue to be ignored before they reach `handleWsEvent`
+     - sequence resets for a new inflight must still be accepted
 3. [ ] Add or update regression coverage for:
    - late `turn_final` for an older inflight
-   - lower-sequence same-inflight non-final events arriving after newer state
+   - lower-sequence same-inflight websocket transcript events arriving after newer state
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
-     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+     - `client/src/test/useChatWs.test.ts`
 4. [ ] Re-run shared consumer regression checks after the ordering/finalization changes.
    - Files to read/edit only if failures require updates:
      - `client/src/test/agentsPage.streaming.test.tsx`
@@ -574,8 +580,9 @@ Prove the user-visible Flow behavior is fixed in the actual page. Only if the sh
    - Files to edit/create:
      - `client/src/test/flowsPage.run.test.tsx`
    - Required assertions:
-     - first bubble text remains visible after the next step starts
-     - stale earlier-step events do not remove that text from the live UI
+      - first bubble text remains visible after the next step starts
+      - stale earlier-step events do not remove that text from the live UI
+      - a stale earlier-step `user_turn` replay does not reset the active transcript or retarget the current assistant bubble
 3. [ ] Add a Flow-page regression that remounts or revisits the Flow transcript after the live run scenario and proves the same bubble text remains visible without relying on reload to recover missing content.
    - Files to edit/create:
      - `client/src/test/flowsPage.run.test.tsx`

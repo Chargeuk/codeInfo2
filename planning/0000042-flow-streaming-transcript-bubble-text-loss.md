@@ -334,3 +334,397 @@ This story does not require new transport contracts or persistence shapes for th
     - It aligns with product robustness and stability goals.
     - It reduces long-term maintenance cost by enforcing a correct invariant at the shared stream-state layer.
     - It keeps downstream pages simpler and avoids spreading compensating logic through Flow-specific UI code unless evidence later shows a separate UI reset bug remains.
+
+# Tasks
+
+### 1. Shared hook fix: stale `assistant_delta` must not corrupt later inflights
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta` for an older inflight can overwrite the currently active assistant bubble during a Flow-style websocket lifecycle. This task should be the first implementation step because it addresses the exact failing proof already recorded in the story.
+
+#### Documentation Locations
+
+- React refs/state guidance: https://react.dev/reference/react/useRef
+- React state updates and rendering guidance: https://react.dev/learn/state-as-a-snapshot
+- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
+- Testing Library docs: Context7 `/websites/testing-library`
+- Node.js `events` / async behavior reference: https://nodejs.org/api/events.html
+
+#### Subtasks
+
+1. [ ] Read the current proof test and the shared stream hook before changing code.
+   - Files to read:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+     - `client/src/hooks/useChatStream.ts`
+   - Goal:
+     - understand exactly how a stale `assistant_delta` for an older inflight currently mutates the active shared refs
+2. [ ] Update `client/src/hooks/useChatStream.ts` so stale mismatched `assistant_delta` events are rejected by inflight identity even when `status !== 'sending'`.
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+   - Required behavior:
+     - keep the current matching-inflight happy path working
+     - do not introduce synthetic Flow-only `sending` state
+     - do not change websocket contracts or page-level event shapes
+3. [ ] Update the existing proof test so it becomes a passing regression.
+   - Files to edit:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Required assertions:
+     - first assistant bubble text remains visible after a stale `assistant_delta` for an earlier inflight arrives
+     - the newer inflight still updates normally
+4. [ ] Add/adjust any nearby shared-hook assertions needed to prove the fix does not break the matching-inflight path.
+   - Files to edit if needed:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+5. [ ] Update this story file’s Implementation notes for Task 1 once the code and tests are complete.
+   - Files to edit:
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+6. [ ] Repo-wide lint + format gate for this task.
+   - Run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If needed:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 2. Shared hook fix: stale non-final events other than `assistant_delta`
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Extend the same inflight-safety rule to the other non-final websocket events that can mutate visible shared state: `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot`. This keeps the bug fix coherent instead of only fixing one event type while leaving the same corruption path open elsewhere.
+
+#### Documentation Locations
+
+- React refs/state guidance: https://react.dev/reference/react/useRef
+- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
+- Testing Library docs: Context7 `/websites/testing-library`
+- WebSocket/event-driven UI guidance: https://react.dev/learn/synchronizing-with-effects
+
+#### Subtasks
+
+1. [ ] Read the non-final event branches in the shared hook and list which refs/state each event mutates before changing code.
+   - Files to read:
+     - `client/src/hooks/useChatStream.ts`
+   - Event branches to inspect:
+     - `analysis_delta`
+     - `tool_event`
+     - `stream_warning`
+     - `inflight_snapshot`
+2. [ ] Update `client/src/hooks/useChatStream.ts` so stale mismatched non-final events are ignored consistently for those four event types.
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+   - Required behavior:
+     - matching inflight events still update normally
+     - stale earlier inflight events do not overwrite reasoning text, warnings, tool state, or snapshot-driven visible state
+3. [ ] Add hook-level regression coverage for each event type under a Flow-style idle lifecycle.
+   - Files to edit/create:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Required assertions:
+     - stale `analysis_delta` is ignored
+     - stale `tool_event` is ignored
+     - stale `stream_warning` is ignored
+     - stale `inflight_snapshot` is ignored
+4. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the broader non-final filtering does not break them.
+   - Files to read/edit only if failures require updates:
+     - `client/src/test/chatPage.stream.test.tsx`
+     - `client/src/test/agentsPage.streaming.test.tsx`
+5. [ ] Update this story file’s Implementation notes for Task 2 once the code and tests are complete.
+   - Files to edit:
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+6. [ ] Repo-wide lint + format gate for this task.
+   - Run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If needed:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
+6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx`
+7. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.streaming.test.tsx`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 3. Shared hook safeguard: preserve late-final and same-inflight ordering behavior
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Make sure the source-level fix does not reintroduce older stream-ordering bugs. This task is about keeping `turn_final` non-destructive and tightening any same-inflight ordering safeguards needed so older non-final events cannot re-mutate a bubble after newer state has already been applied.
+
+#### Documentation Locations
+
+- React state/effect synchronization guidance: https://react.dev/learn/synchronizing-with-effects
+- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
+- Node.js async behavior reference: https://nodejs.org/api/events.html
+
+#### Subtasks
+
+1. [ ] Read the existing `turn_final` handling and sequence/inflight bookkeeping before changing code.
+   - Files to read:
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/test/chatPage.stream.test.tsx`
+2. [ ] Update `client/src/hooks/useChatStream.ts` only as needed to preserve non-destructive late-final behavior while the stricter non-final filtering is in place.
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+   - Required behavior:
+     - a late `turn_final` for an older inflight must not damage the currently active inflight
+     - out-of-order same-inflight older non-final updates must not re-apply newer-visible state
+3. [ ] Add or update regression coverage for:
+   - late `turn_final` for an older inflight
+   - lower-sequence same-inflight non-final events arriving after newer state
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx`
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+4. [ ] Re-run shared consumer regression checks after the ordering/finalization changes.
+   - Files to read/edit only if failures require updates:
+     - `client/src/test/agentsPage.streaming.test.tsx`
+5. [ ] Update this story file’s Implementation notes for Task 3 once the code and tests are complete.
+   - Files to edit:
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+6. [ ] Repo-wide lint + format gate for this task.
+   - Run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If needed:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx`
+6. [ ] `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
+7. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.streaming.test.tsx`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 4. Flow page regression and secondary hardening if still required
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Prove the user-visible Flow behavior is fixed in the actual page. Only if the shared hook fix still leaves a separate Flow-page transcript reset issue should this task include a small `FlowsPage` hardening change. This keeps Flow-page work downstream of the shared source fix.
+
+#### Documentation Locations
+
+- React Router docs: Context7 `/remix-run/react-router`
+- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
+- Testing Library docs: Context7 `/websites/testing-library`
+
+#### Subtasks
+
+1. [ ] Read the Flow page websocket handling and active-conversation reset logic before making page-level changes.
+   - Files to read:
+     - `client/src/pages/FlowsPage.tsx`
+     - `client/src/test/flowsPage.test.tsx`
+     - `client/src/test/flowsPage.run.test.tsx`
+2. [ ] Add a Flow-page regression test that simulates two sequential Flow step inflights and asserts the earlier assistant bubble text remains visible while the later step streams.
+   - Files to edit/create:
+     - `client/src/test/flowsPage.run.test.tsx`
+   - Required assertions:
+     - first bubble text remains visible after the next step starts
+     - stale earlier-step events do not remove that text from the live UI
+3. [ ] Only if the new page regression still fails after Tasks 1–3 are complete, apply the smallest `FlowsPage` hardening needed around active conversation visibility/reset behavior.
+   - Files to edit only if required:
+     - `client/src/pages/FlowsPage.tsx`
+   - Constraint:
+     - do not add Flow-only fake `sending` state
+     - do not widen scope into unrelated sidebar/filter work
+4. [ ] Re-run the Flow regression and nearby Flow tests after any page-level change.
+   - Files to read/edit only if failures require updates:
+     - `client/src/test/flowsPage.test.tsx`
+5. [ ] Update this story file’s Implementation notes for Task 4 once the code and tests are complete.
+   - Files to edit:
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+6. [ ] Repo-wide lint + format gate for this task.
+   - Run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If needed:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
+6. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 5. Documentation and project structure updates
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Update the repo documentation so future developers can understand the root cause, the chosen fix, and the regression coverage without having to rediscover the investigation from git history or screenshots.
+
+#### Documentation Locations
+
+- Markdown syntax reference: https://www.markdownguide.org/basic-syntax/
+- Mermaid syntax: Context7 `/mermaid-js/mermaid`
+
+#### Subtasks
+
+1. [ ] Update `README.md` with a short note describing the Flow live-stream transcript bug fix at a high level if the file already documents related Flow/chat streaming behavior.
+   - Files to edit if appropriate:
+     - `README.md`
+   - Constraint:
+     - keep the note short and only add it if it improves user/developer understanding of shared streaming behavior
+2. [ ] Update `design.md` to document:
+   - the source-level `useChatStream` inflight filtering rule
+   - why `turn_final` stays special
+   - why Flow-page hardening is secondary rather than primary
+   - Files to edit:
+     - `design.md`
+3. [ ] Update `projectStructure.md` for any new or renamed tests/files created by this story.
+   - Files to edit:
+     - `projectStructure.md`
+4. [ ] Update this story file’s Implementation notes for Task 5 once the documentation work is complete.
+   - Files to edit:
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+5. [ ] Repo-wide lint + format gate for this task.
+   - Run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If needed:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] Smoke-check the updated docs references and any new test paths mentioned in `projectStructure.md`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 6. Final validation and acceptance check
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Perform the final acceptance pass for the story. This task must confirm the shared hook fix, the Flow page behavior, the non-regression coverage for Chat and Agents, and the updated documentation. It also produces the final screenshots and pull request summary comment for the completed story.
+
+#### Documentation Locations
+
+- Docker/Compose: Context7 `/docker/docs`
+- Playwright: Context7 `/microsoft/playwright`
+- Jest: Context7 `/websites/jestjs_io_30_0`
+- Markdown syntax reference: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Run the full relevant client regression wrappers without file filters.
+   - Run:
+     - `npm run test:summary:client`
+2. [ ] Run the server regression wrapper needed for this story’s unaffected backend surface.
+   - Run:
+     - `npm run test:summary:server:unit`
+3. [ ] Verify the story acceptance criteria one by one against the implemented behavior and note the outcome in this story file.
+   - Files to edit:
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+4. [ ] Update `design.md` and `projectStructure.md` again if the final implementation introduced any last-minute file or behavior changes not yet documented.
+   - Files to edit if needed:
+     - `design.md`
+     - `projectStructure.md`
+5. [ ] Start the compose stack and perform a manual Playwright MCP check of a known multi-step Flow such as `flows/implement_next_plan.json`.
+   - Required screenshots:
+     - `test-results/screenshots/0000042-06-flow-before-fix-validation.png`
+     - `test-results/screenshots/0000042-06-flow-during-second-step.png`
+     - `test-results/screenshots/0000042-06-flow-after-completion.png`
+   - Required visual checks:
+     - earlier assistant bubble text remains visible while the next step streams
+     - no obvious Chat or Agents streaming regression
+6. [ ] Write a pull request summary comment covering:
+   - root cause
+   - files changed
+   - tests run
+   - residual risks if any
+   - Files to edit/create as agreed by the repo workflow
+7. [ ] Repo-wide lint + format gate as the final subtask.
+   - Run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If needed:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit`
+6. [ ] `npm run test:summary:client`
+7. [ ] `npm run test:summary:e2e`
+8. [ ] Manual Playwright MCP validation with screenshots saved under `test-results/screenshots/`
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 

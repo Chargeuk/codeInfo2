@@ -406,20 +406,30 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
      - reuse the existing assistant-message targeting and sync helpers instead of creating parallel bubble-management logic
    - When this subtask is complete:
      - a mismatched stale `assistant_delta` no longer mutates the active refs or visible active bubble
-3. [ ] Update the existing proof test so it becomes a passing regression.
-   - Files to edit:
+3. [ ] Update the stale `assistant_delta` regression test.
+   - Test type:
+     - hook regression test
+   - Location:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
-   - Start here in code:
-     - keep the existing test name and expand only the assertions needed for the fixed behavior
+   - Description:
+     - keep the existing stale `assistant_delta` proof test and make it pass by asserting that earlier bubble text remains visible after a stale older-inflight delta arrives
+   - Purpose:
+     - prove the exact reported bug no longer reproduces in the shared hook
    - Documentation for this subtask:
-     - Jest 30: Context7 `/websites/jestjs_io_30_0`
+     - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Required assertions:
-     - first assistant bubble text remains visible after a stale `assistant_delta` for an earlier inflight arrives
-     - the newer inflight still updates normally
-4. [ ] Add/adjust any nearby shared-hook assertions needed to prove the fix does not break the matching-inflight path.
-   - Files to edit if needed:
+4. [ ] Add a matching-inflight `assistant_delta` happy-path regression.
+   - Test type:
+     - hook regression test
+   - Location:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Description:
+     - add or update a test that proves a delta for the active inflight still appends text to the correct assistant bubble after the stale-event guard is added
+   - Purpose:
+     - prove the fix does not break the normal streaming path while blocking stale events
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 5. [ ] Update this story file’s Implementation notes for Task 1 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
@@ -495,23 +505,30 @@ Handle the `user_turn` branch separately from later transcript events. This task
      - reuse existing reset and assistant-targeting helpers instead of introducing new refs or duplicate state containers
    - When this subtask is complete:
      - stale `user_turn` for an old inflight becomes a no-op for active bubble targeting, but valid next-step `user_turn` still advances the transcript
-3. [ ] Add hook-level regression coverage for stale `user_turn` under a Flow-style idle lifecycle.
-   - Files to edit:
+3. [ ] Add a stale `user_turn` regression test.
+   - Test type:
+     - hook regression test
+   - Location:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Description:
+     - add or update a test that sends a stale older-inflight `user_turn` after a newer inflight is already active and asserts the active bubble state is unchanged
+   - Purpose:
+     - prove the new guard blocks the `user_turn` corruption path
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Required assertions:
-     - stale `user_turn` is ignored when it arrives after a newer inflight has already become active
-4. [ ] Add a hook-level no-op regression for `user_turn` replay behavior.
-   - Files to edit:
+4. [ ] Add a same-inflight `user_turn` replay no-op test.
+   - Test type:
+     - hook regression test
+   - Location:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Description:
+     - add a test that replays `user_turn` for the currently active inflight and proves it does not reset the assistant pointer or create a duplicate active assistant bubble
+   - Purpose:
+     - protect the idempotent happy path while the stale-event guard is added
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Required assertions:
-     - a repeated same-inflight `user_turn` does not reset the assistant pointer or create a duplicate active assistant bubble
-     - a stale older-inflight `user_turn` replay remains a no-op after a newer inflight has already become active
 5. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the `user_turn` filtering does not break them.
    - Files to read/edit only if failures require updates:
      - `client/src/test/chatPage.stream.test.tsx`
@@ -596,38 +613,122 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
      - matching inflight events still update normally
      - stale earlier inflight events do not overwrite reasoning text, warnings, tool state, or snapshot-driven visible state
      - reuse existing reset and assistant-targeting helpers instead of introducing new refs or duplicate state containers
-3. [ ] Add hook-level regression coverage for the remaining non-final event types under a Flow-style idle lifecycle.
-   - Files to edit:
+3. [ ] Add a matching-inflight `analysis_delta` happy-path test.
+   - Test type:
+     - hook regression test
+   - Location:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Description:
+     - add a test that sends `analysis_delta` for the active inflight and asserts visible reasoning text updates normally
+   - Purpose:
+     - prove the new stale guard does not break normal reasoning updates
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Required assertions:
-     - matching-inflight `analysis_delta` still updates visible reasoning text normally
-     - matching-inflight `tool_event` still updates visible tool state normally
-     - matching-inflight `stream_warning` still adds the warning to the visible message normally
-     - matching-inflight `inflight_snapshot` still hydrates visible state normally
-     - stale `analysis_delta` is ignored
-     - stale `tool_event` is ignored
-     - stale `stream_warning` is ignored
-     - stale `inflight_snapshot` is ignored
-4. [ ] Add a corner-case regression for warning dedupe and no-op behavior.
-   - Files to edit:
+4. [ ] Add a stale `analysis_delta` regression test.
+   - Test type:
+     - hook regression test
+   - Location:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Description:
+     - add a test that sends `analysis_delta` for an older inflight after a newer inflight is active and asserts the visible reasoning state does not change
+   - Purpose:
+     - prove stale reasoning events are ignored
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Required assertions:
-     - a duplicate `stream_warning` message for the same inflight is not added twice to the visible warning list
-     - a stale duplicate warning from an older inflight remains a no-op
-5. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the broader mismatch filtering does not break them.
+5. [ ] Add a matching-inflight `tool_event` happy-path test.
+   - Test type:
+     - hook regression test
+   - Location:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Description:
+     - add a test that sends a tool event for the active inflight and asserts the visible tool state updates normally
+   - Purpose:
+     - prove the guard does not break valid tool-call rendering
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+6. [ ] Add a stale `tool_event` regression test.
+   - Test type:
+     - hook regression test
+   - Location:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Description:
+     - add a test that sends a tool event for an older inflight and asserts the active tool state does not change
+   - Purpose:
+     - prove stale tool events are ignored
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+7. [ ] Add a matching-inflight `stream_warning` happy-path test.
+   - Test type:
+     - hook regression test
+   - Location:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Description:
+     - add a test that sends a warning for the active inflight and asserts the warning becomes visible on the current message
+   - Purpose:
+     - prove valid warnings still render after the stale-event filter is added
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+8. [ ] Add a stale `stream_warning` regression test.
+   - Test type:
+     - hook regression test
+   - Location:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Description:
+     - add a test that sends a warning for an older inflight and asserts the active warning list does not change
+   - Purpose:
+     - prove stale warnings are ignored
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+9. [ ] Add a duplicate `stream_warning` dedupe test.
+   - Test type:
+     - hook regression test
+   - Location:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Description:
+     - add a test that sends the same warning twice for one inflight and asserts it appears only once
+   - Purpose:
+     - protect the no-duplicate warning corner case while warning handling changes
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+10. [ ] Add a matching-inflight `inflight_snapshot` happy-path test.
+   - Test type:
+     - hook regression test
+   - Location:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Description:
+     - add a test that sends an inflight snapshot for the active inflight and asserts the visible transcript state hydrates normally
+   - Purpose:
+     - prove valid snapshots still hydrate the active message
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+11. [ ] Add a stale `inflight_snapshot` regression test.
+   - Test type:
+     - hook regression test
+   - Location:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Description:
+     - add a test that sends an inflight snapshot for an older inflight and asserts the active message state does not get replaced
+   - Purpose:
+     - prove stale snapshots are ignored
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+12. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the broader mismatch filtering does not break them.
    - Files to read/edit only if failures require updates:
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/agentsPage.streaming.test.tsx`
-6. [ ] Update this story file’s Implementation notes for Task 3 once the code and tests are complete.
+13. [ ] Update this story file’s Implementation notes for Task 3 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-7. [ ] Repo-wide lint + format gate for this task.
+14. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -694,19 +795,37 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
      - valid finalization data for the matching inflight must still be applied correctly
    - When this subtask is complete:
      - older finals update only their own completed bubble metadata and do not clear or overwrite the newer inflight
-3. [ ] Add or update regression coverage for late `turn_final` behavior.
-   - Files to edit:
+3. [ ] Add a Chat page late-`turn_final` regression test.
+   - Test type:
+     - page integration regression test
+   - Location:
      - `client/src/test/chatPage.stream.test.tsx`
+   - Description:
+     - add or update a test that delivers a late final for an older inflight after a newer chat run has started and asserts the newer run stays intact
+   - Purpose:
+     - prove late finals do not corrupt the chat happy path
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+4. [ ] Add an Agents page late-`turn_final` regression test.
+   - Test type:
+     - page integration regression test
+   - Location:
      - `client/src/test/agentsPage.streaming.test.tsx`
-   - Reuse target:
-     - extend the existing late-final regression tests instead of creating a new finalization harness
-4. [ ] Re-run shared consumer regression checks after the late-final changes.
+   - Description:
+     - add or update a test that delivers a late final for an older inflight after a newer agent run has started and asserts the newer run stays intact
+   - Purpose:
+     - prove late finals do not corrupt the agents happy path
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+5. [ ] Re-run shared consumer regression checks after the late-final changes.
    - Files to read/edit only if failures require updates:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
-5. [ ] Update this story file’s Implementation notes for Task 4 once the code and tests are complete.
+6. [ ] Update this story file’s Implementation notes for Task 4 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-6. [ ] Repo-wide lint + format gate for this task.
+7. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -780,28 +899,49 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. This task is i
    - Concrete example for this subtask:
      - if inflight `i2` already accepted `seq: 7`, a later event for the same `(conversationId, i2)` with `seq: 6` must be dropped
      - if the next inflight is `i3`, its first event with `seq: 1` must still be accepted because the inflight key changed
-3. [ ] Add or update websocket-layer regression coverage for lower-sequence same-inflight transcript events.
-   - Files to edit:
+3. [ ] Add a websocket stale-packet regression for lower-sequence same-inflight events.
+   - Test type:
+     - websocket hook regression test
+   - Location:
      - `client/src/test/useChatWs.test.ts`
-     - `client/src/test/chatPage.stream.test.tsx`
-   - Reuse target:
-     - extend the existing websocket regression suites and helper assertions instead of creating a separate ordering-only test harness
-4. [ ] Add an explicit sequence-boundary regression for new inflight resets versus stale prior inflight packets.
-   - Files to edit:
-     - `client/src/test/useChatWs.test.ts`
+   - Description:
+     - add or update a test that sends a lower-sequence packet for the current inflight and asserts it is dropped before reaching downstream consumers
+   - Purpose:
+     - prove the transport layer still blocks stale same-inflight packets
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - WebSocket message events: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
-   - Required assertions:
-     - a new `inflightId` with reset `seq: 1` is accepted as a new stream
-     - a later packet from the old inflight with lower or equal `seq` does not leak through after the new inflight becomes active
-5. [ ] Re-run shared consumer regression checks after the websocket sequence changes.
+4. [ ] Add a sequence-boundary regression for new inflight resets versus stale prior inflight packets.
+   - Test type:
+     - websocket hook regression test
+   - Location:
+     - `client/src/test/useChatWs.test.ts`
+   - Description:
+     - add a test that accepts a new inflight starting at `seq: 1` and then proves later packets from the old inflight with lower or equal sequence do not leak through
+   - Purpose:
+     - protect the corner case where inflight identity changes and sequence numbers restart
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - WebSocket message events: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
+5. [ ] Add a downstream chat-path regression that confirms websocket filtering still supports the visible happy path.
+   - Test type:
+     - page integration regression test
+   - Location:
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Description:
+     - add or update a test that proves accepted websocket packets still reach the chat page correctly while stale packets remain blocked
+   - Purpose:
+     - prove the websocket-layer guard does not break the normal consumer path
+   - Documentation for this subtask:
+     - Jest 30: https://jestjs.io/docs/getting-started
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+6. [ ] Re-run shared consumer regression checks after the websocket sequence changes.
    - Files to read/edit only if failures require updates:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
-6. [ ] Update this story file’s Implementation notes for Task 5 once the code and tests are complete.
+7. [ ] Update this story file’s Implementation notes for Task 5 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-7. [ ] Repo-wide lint + format gate for this task.
+8. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

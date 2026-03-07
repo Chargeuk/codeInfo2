@@ -2096,3 +2096,22 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 - Testing 7: `npm run test:summary:e2e` passed with 39/39 tests green; the wrapper log was `logs/test-summaries/e2e-tests-latest.log`.
 - Testing 8: The renewed manual Flow replay saved `0000042-11-flow-before-revalidation.png`, `0000042-11-flow-during-revalidation.png`, and `0000042-11-flow-after-revalidation.png`; the page retained the first assistant transcript while the second step streamed, ignored the finalized older-step replay, emitted all required Story 42 markers, and produced no console/page errors.
 - Testing 9: `npm run compose:down` stopped the validation stack cleanly after the final screenshots and marker checks were complete.
+
+## Post-Implementation Review
+
+- Review date: 2026-03-07
+- Review scope: compared `feature/0000042-flow-streaming-transcript-loss` against `main`, with focused inspection of the Story 42 implementation surface in `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`, `client/src/pages/FlowsPage.tsx`, related client regression tests, `design.md`, `projectStructure.md`, and this story plan.
+- Branch comparison checked:
+  - `git diff --stat main...HEAD`
+  - `git diff --name-only main...HEAD`
+  - targeted diffs for the shared streaming hook, websocket filtering hook, Flow page, and Story 42 regression suites
+- Acceptance review checked:
+  - previously rendered assistant text stays visible while later Flow steps stream
+  - stale or mismatched `assistant_delta`, `analysis_delta`, `tool_event`, `stream_warning`, and `user_turn` events are ignored before mutating the active inflight
+  - lower-sequence same-inflight websocket packets are blocked in `useChatWs`
+  - late `turn_final` handling remains non-destructive
+  - Chat and Agents coverage still exercises the shared hook behavior after the Flow fix
+  - websocket contracts, REST payloads, and persistence shapes remained unchanged for the story
+- Review outcome:
+  - no additional follow-up defects were identified that required reopening the story
+  - no extra remediation tasks were added

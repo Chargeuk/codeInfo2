@@ -13,25 +13,42 @@ Users running Flows (example: `flows/implement_next_plan.json`) can see assistan
 
 If the user navigates away and then returns, all previously missing text appears again (example in `tmp/visible_text.png`), which indicates persistence and snapshot hydration are likely correct and the defect is in live streaming state handling or live render-state transitions.
 
-The issue appears to be Flow-specific. Chat and Agents pages do not show the same user-visible failure pattern under normal use, suggesting a Flow run lifecycle difference or a Flow-only state transition that amplifies a shared streaming bug.
+The issue appears to be Flow-specific from a user point of view. Chat and Agents pages do not show the same user-visible failure pattern under normal use, which suggests Flow’s websocket-driven lifecycle exposes a bug in shared streaming state management more reliably than the other pages.
 
-This story captures investigation findings and implementation direction so the fix can be resumed later without rediscovery.
+The expected outcome of this story is simple and user-visible:
+
+- While a Flow run is live, once an assistant bubble has rendered text, later bubbles must not cause that earlier bubble to lose visible text.
+- If two Flow steps stream one after another, the first completed or partially completed assistant bubble must keep its already-rendered content on screen while the next step streams.
+- Reloading the page should show the same content that remained visible during the live run; the fix should remove the transient loss rather than relying on rehydration to restore it later.
+
+This story does not assume the server or persistence layer is broken. The current evidence points to a client-side live streaming defect, and the plan should remain focused on fixing that source of corruption first.
 
 ### Acceptance Criteria
 
-- The plan clearly documents reproduction behavior, observed/expected behavior, and why the bug appears transient.
-- The plan identifies the most likely root cause with exact file/function evidence and line references.
-- The plan documents at least one secondary contributing factor and explains why it is likely not the primary root cause.
-- The plan explains why Chat and Agents are less likely to reproduce the issue.
-- The plan captures existing test coverage and explicitly identifies missing coverage needed to prevent regressions.
-- The plan provides implementation ideas detailed enough for a follow-up tasking phase to start immediately.
-- The plan keeps API/WS/storage contract scope unchanged unless a later implementation task explicitly proposes otherwise.
+- During a live Flow run, previously rendered assistant bubble text stays visible when later Flow steps begin streaming.
+- The fix applies to the shared client streaming path, not just a one-off visual workaround in the Flow page, unless later investigation proves the root cause is page-local.
+- The implementation prevents stale or mismatched non-final websocket events from mutating the active assistant bubble state for a different inflight run.
+- Existing late/out-of-band `turn_final` handling remains non-destructive. The fix must not reintroduce the older race where valid finalization for an earlier inflight damages a newer one.
+- Chat and Agents streaming behavior does not regress. If the shared hook is changed, existing Chat/Agents protections must keep passing.
+- The story adds regression coverage for the exact failure class:
+  - hook-level stale `assistant_delta` while Flow-style lifecycle is `idle`
+  - hook-level stale `analysis_delta` and `tool_event` for the same mismatch pattern
+  - a Flow page integration test showing that earlier bubble text remains visible while the next step streams
+- API contracts, websocket event schema, and persistence/Mongo document shapes remain unchanged in this story.
+- The plan documents enough implementation guidance that a junior developer can identify:
+  - the most likely root cause
+  - the files most likely to change
+  - the minimum regression tests that must be added
+  - the difference between the primary fix and any secondary Flow-page hardening
 
 ### Out Of Scope
 
+- Changing server API shapes, websocket event names, or Mongo persistence schema as part of the first-pass fix.
+- Rewriting Flow transcript rendering or redesigning bubble layout/styling.
+- Solving unrelated Flow sidebar/filtering issues unless they are still needed as a small secondary safeguard after the primary `useChatStream` fix lands.
+- Adding synthetic Flow-only `sending` state just to activate existing guards. The plan’s current recommendation is to fix inflight safety directly instead.
 - Implementing code fixes in this planning story.
 - Running wrapper tests/builds/system commands for validation in this planning story.
-- Changing server API contract shapes, WS event schema, or Mongo persistence schema.
 - UX redesign of bubble layout/styling unrelated to this streaming state defect.
 
 ### Questions

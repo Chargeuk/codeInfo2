@@ -362,11 +362,11 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
 
 #### Documentation Locations
 
-- React refs/state guidance: https://react.dev/reference/react/useRef
-- React state updates and rendering guidance: https://react.dev/learn/state-as-a-snapshot
+- React 19.2 refs guidance: https://react.dev/reference/react/useRef
+- React 19.2 state updates and rendering guidance: https://react.dev/learn/state-as-a-snapshot
 - Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
-- Testing Library docs: Context7 `/websites/testing-library`
-- Node.js `events` / async behavior reference: https://nodejs.org/api/events.html
+- React Testing Library docs (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
+- WebSocket browser API reference: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
 #### Subtasks
 
@@ -431,10 +431,11 @@ Extend the same inflight-safety rule to the other websocket events that can muta
 
 #### Documentation Locations
 
-- React refs/state guidance: https://react.dev/reference/react/useRef
+- React 19.2 refs guidance: https://react.dev/reference/react/useRef
 - Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
-- Testing Library docs: Context7 `/websites/testing-library`
-- WebSocket/event-driven UI guidance: https://react.dev/learn/synchronizing-with-effects
+- React Testing Library docs (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
+- React 19.2 effect synchronization guidance: https://react.dev/learn/synchronizing-with-effects
+- WebSocket browser API reference: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
 #### Subtasks
 
@@ -510,9 +511,10 @@ Make sure the source-level fix does not reintroduce older stream-ordering bugs. 
 
 #### Documentation Locations
 
-- React state/effect synchronization guidance: https://react.dev/learn/synchronizing-with-effects
+- React 19.2 effect synchronization guidance: https://react.dev/learn/synchronizing-with-effects
 - Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
-- Node.js async behavior reference: https://nodejs.org/api/events.html
+- WebSocket browser API reference: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- WebSocket message event reference: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
 - WebSocket hook implementation:
   - `client/src/hooks/useChatWs.ts`
 
@@ -585,9 +587,14 @@ Prove the user-visible Flow behavior is fixed in the actual page. Only if the sh
 
 #### Documentation Locations
 
-- React Router docs: Context7 `/remix-run/react-router`
+- React Router 7 docs (`react-router-dom` 7.9.6 in this repo): https://reactrouter.com/home
+- Existing router usage patterns in repo tests:
+  - `client/src/test/chatPage.stream.test.tsx`
+  - `client/src/test/agentsPage.streaming.test.tsx`
 - Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
-- Testing Library docs: Context7 `/websites/testing-library`
+- React Testing Library docs (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
+- MUI 6.x docs reference for current `FlowsPage` component patterns:
+  - MUI MCP `@mui/material@6.4.12`
 
 #### Subtasks
 
@@ -619,8 +626,9 @@ Prove the user-visible Flow behavior is fixed in the actual page. Only if the sh
    - Files to edit only if required:
      - `client/src/pages/FlowsPage.tsx`
    - Constraint:
-     - do not add Flow-only fake `sending` state
-     - do not widen scope into unrelated sidebar/filter work
+      - do not add Flow-only fake `sending` state
+      - do not widen scope into unrelated sidebar/filter work
+      - reuse the existing MUI 6.x component structure already in `FlowsPage.tsx` instead of introducing new UI component patterns unless the failing regression proves it is necessary
 5. [ ] Re-run the Flow regressions and nearby Flow tests after any page-level change.
    - Files to read/edit only if failures require updates:
      - `client/src/test/flowsPage.test.tsx`

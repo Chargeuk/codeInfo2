@@ -374,6 +374,8 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
   - use this for `renderHook`, `act`, `screen`, and `waitFor` patterns used in the hook regressions
 - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
   - use this for the event-driven transport model the client hook is reacting to
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
+  - use this when updating `design.md` diagrams for the shared stream-state architecture
 
 #### Subtasks
 
@@ -432,10 +434,18 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-5. [ ] Update this story file’s Implementation notes for Task 1 once the code and tests are complete.
+5. [ ] Update `design.md` with the `assistant_delta` ownership rule and any affected shared-stream mermaid diagram.
+   - Files to edit:
+     - `design.md`
+   - Documentation for this subtask:
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
+   - Required content:
+     - document that stale `assistant_delta` events must not mutate the active inflight
+     - update any stream-state or websocket-flow mermaid diagram affected by the new rule
+6. [ ] Update this story file’s Implementation notes for Task 1 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-6. [ ] Repo-wide lint + format gate for this task.
+7. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -481,6 +491,8 @@ Handle the `user_turn` branch separately from later transcript events. This task
   - use this for understanding how websocket-driven updates should synchronize with rendered state
 - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
   - use this for the event ownership model the `user_turn` path participates in
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
+  - use this when updating `design.md` diagrams for inflight ownership and `user_turn` transitions
 
 #### Subtasks
 
@@ -537,10 +549,18 @@ Handle the `user_turn` branch separately from later transcript events. This task
    - Files to read/edit only if failures require updates:
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/agentsPage.streaming.test.tsx`
-6. [ ] Update this story file’s Implementation notes for Task 2 once the code and tests are complete.
+6. [ ] Update `design.md` with the `user_turn` ownership rule and any affected mermaid diagram for inflight transitions.
+   - Files to edit:
+     - `design.md`
+   - Documentation for this subtask:
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
+   - Required content:
+     - document that stale `user_turn` must not rebind active inflight ownership
+     - update any transcript or inflight-transition mermaid diagram affected by this rule
+7. [ ] Update this story file’s Implementation notes for Task 2 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-7. [ ] Repo-wide lint + format gate for this task.
+8. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -588,6 +608,8 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
   - use this for reasoning about non-final event updates reaching the rendered transcript
 - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
   - use this for the non-final event delivery model being filtered in this task
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
+  - use this when updating `design.md` diagrams for non-final event handling in the shared stream path
 
 #### Subtasks
 
@@ -731,10 +753,18 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
    - Files to read/edit only if failures require updates:
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/agentsPage.streaming.test.tsx`
-13. [ ] Update this story file’s Implementation notes for Task 3 once the code and tests are complete.
+13. [ ] Update `design.md` with the non-final event filtering rules and any affected mermaid diagram.
+   - Files to edit:
+     - `design.md`
+   - Documentation for this subtask:
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
+   - Required content:
+     - document how `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot` now follow the same inflight-ownership rule
+     - update any stream-event mermaid diagram affected by those rules
+14. [ ] Update this story file’s Implementation notes for Task 3 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-14. [ ] Repo-wide lint + format gate for this task.
+15. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -778,6 +808,8 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
   - use this for updating the existing late-final regression tests
 - WebSocket message event: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
   - use this for the final event lifecycle that delivers `turn_final` into the client
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
+  - use this when updating `design.md` diagrams for finalization behavior in the shared stream path
 
 #### Subtasks
 
@@ -830,10 +862,18 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
 5. [ ] Re-run shared consumer regression checks after the late-final changes.
    - Files to read/edit only if failures require updates:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
-6. [ ] Update this story file’s Implementation notes for Task 4 once the code and tests are complete.
+6. [ ] Update `design.md` with the preserved late-final rule and any affected mermaid diagram.
+   - Files to edit:
+     - `design.md`
+   - Documentation for this subtask:
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
+   - Required content:
+     - document why `turn_final` remains special compared with non-final event filtering
+     - update any completion/finalization mermaid diagram affected by this behavior
+7. [ ] Update this story file’s Implementation notes for Task 4 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-7. [ ] Repo-wide lint + format gate for this task.
+8. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -879,6 +919,8 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. This task is i
   - use this for the stale-packet filtering path that receives transcript events
 - React 19.2 effect synchronization: https://react.dev/learn/synchronizing-with-effects
   - use this for how filtered transport events should affect downstream rendered state
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
+  - use this when updating `design.md` diagrams for websocket sequencing and inflight-key ownership
 
 #### Subtasks
 
@@ -948,10 +990,18 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. This task is i
 6. [ ] Re-run shared consumer regression checks after the websocket sequence changes.
    - Files to read/edit only if failures require updates:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
-7. [ ] Update this story file’s Implementation notes for Task 5 once the code and tests are complete.
+7. [ ] Update `design.md` with the websocket sequence-filtering rule and any affected mermaid diagram.
+   - Files to edit:
+     - `design.md`
+   - Documentation for this subtask:
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
+   - Required content:
+     - document how lower-sequence same-inflight packets are blocked and how new inflight sequence resets are accepted
+     - update any websocket event-flow mermaid diagram affected by this transport rule
+8. [ ] Update this story file’s Implementation notes for Task 5 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-8. [ ] Repo-wide lint + format gate for this task.
+9. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1000,6 +1050,8 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
 - MUI 6.x docs reference for current `FlowsPage` component patterns:
   - MUI MCP `@mui/material@6.4.12`
   - use this because `FlowsPage.tsx` is built from MUI components and page-level changes should keep to the current MUI 6.x patterns already in the app
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
+  - use this when updating `design.md` diagrams for Flow transcript behavior
 
 #### Subtasks
 
@@ -1034,10 +1086,18 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
 3. [ ] Re-run the Flow regressions and nearby Flow tests after the new page tests are added.
    - Files to read/edit only if failures require updates:
      - `client/src/test/flowsPage.test.tsx`
-4. [ ] Update this story file’s Implementation notes for Task 6 once the code and tests are complete.
+4. [ ] Update `design.md` with the Flow live transcript behavior and any affected Flow mermaid diagram.
+   - Files to edit:
+     - `design.md`
+   - Documentation for this subtask:
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
+   - Required content:
+     - document the intended Flow live-stream retention behavior once step N+1 starts
+     - update any Flow transcript mermaid diagram affected by this regression coverage
+5. [ ] Update this story file’s Implementation notes for Task 6 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-5. [ ] Repo-wide lint + format gate for this task.
+6. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1085,6 +1145,8 @@ Apply the smallest Flow-page-only fix only if the new live Flow regression from 
 - MUI 6.x docs reference for current `FlowsPage` component patterns:
   - MUI MCP `@mui/material@6.4.12`
   - use this because any page-level hardening must preserve the existing MUI 6.x component APIs and layout patterns
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
+  - use this when updating `design.md` diagrams for any Flow-specific hardening that changes the page behavior
 
 #### Subtasks
 
@@ -1118,10 +1180,18 @@ Apply the smallest Flow-page-only fix only if the new live Flow regression from 
    - Files to read/edit only if failures require updates:
      - `client/src/test/flowsPage.run.test.tsx`
      - `client/src/test/flowsPage.test.tsx`
-5. [ ] Update this story file’s Implementation notes for Task 7 once the code and tests are complete.
+5. [ ] Update `design.md` if the Flow page hardening changed the architecture or Flow behavior, including any affected mermaid diagram.
+   - Files to edit:
+     - `design.md`
+   - Documentation for this subtask:
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
+   - Required content:
+     - document the Flow-only safeguard only if Task 7 made a real page-level behavior change
+     - update any affected Flow mermaid diagram so it matches the final implementation
+6. [ ] Update this story file’s Implementation notes for Task 7 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-6. [ ] Repo-wide lint + format gate for this task.
+7. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

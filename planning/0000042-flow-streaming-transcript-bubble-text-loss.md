@@ -903,12 +903,9 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/agentsPage.streaming.test.tsx`
-   - Run for this subtask:
-     - `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx`
-     - `npm run test:summary:client -- --file client/src/test/agentsPage.streaming.test.tsx`
-     - `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
+   - Use the commands in this task's `Testing` section after all Task 4 code and test-writing subtasks are complete.
    - When this subtask is complete:
      - the late-final regressions pass in chat and agents, and no shared-hook mismatch test regressed
 7. [ ] Update `design.md` with the preserved late-final rule and any affected mermaid diagram.
@@ -1066,12 +1063,9 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
      - `client/src/test/useChatWs.test.ts`
      - `client/src/test/chatPage.stream.test.tsx`
-   - Run for this subtask:
-     - `npm run test:summary:client -- --file client/src/test/useChatWs.test.ts`
-     - `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx`
-     - `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
+   - Use the commands in this task's `Testing` section after all Task 5 code and test-writing subtasks are complete.
    - When this subtask is complete:
      - the transport-layer tests and downstream consumer tests all pass together
 7. [ ] Update `design.md` with the websocket sequence-filtering rule and any affected mermaid diagram.
@@ -1199,11 +1193,9 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
    - Files to read/edit only if failures require updates:
      - `client/src/test/flowsPage.test.tsx`
      - `client/src/test/flowsPage.run.test.tsx`
-   - Run for this subtask:
-     - `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
-     - `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
+   - Use the commands in this task's `Testing` section after all Task 6 code and test-writing subtasks are complete.
    - When this subtask is complete:
      - the new Flow websocket regressions pass and no nearby Flow page tests regress
 5. [ ] Update `design.md` with the Flow live transcript behavior and any affected Flow mermaid diagram.
@@ -1341,11 +1333,9 @@ Apply the smallest Flow-page-only fix only if the automated live Flow regression
    - Files to read/edit only if failures require updates:
      - `client/src/test/flowsPage.run.test.tsx`
      - `client/src/test/flowsPage.test.tsx`
-   - Run for this subtask:
-     - `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
-     - `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
+   - Use the commands in this task's `Testing` section after all Task 7 code and test-writing subtasks are complete.
    - When this subtask is complete:
      - the page-hardening regression passes and the surrounding Flow suites still pass
 6. [ ] Update `design.md` if the Flow page hardening changed the architecture or Flow behavior, including any affected mermaid diagram.
@@ -1514,9 +1504,8 @@ Perform the final acceptance pass for the story. This task must confirm the shar
 #### Subtasks
 
 1. [ ] Run the full relevant client regression wrappers without file filters.
-   - Run:
-     - `npm run test:summary:client`
-   - Review after running:
+   - Use `Testing` step 6 for this subtask.
+   - Review after the Testing section command completes:
      - the wrapper summary in the terminal
      - the generated client log under `test-results/`
    - Purpose for this subtask:
@@ -1524,9 +1513,8 @@ Perform the final acceptance pass for the story. This task must confirm the shar
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
 2. [ ] Run the server regression wrapper needed for this story’s unaffected backend surface.
-   - Run:
-     - `npm run test:summary:server:unit`
-   - Review after running:
+   - Use `Testing` step 5 for this subtask.
+   - Review after the Testing section command completes:
      - the wrapper summary in the terminal
      - the generated server log under `test-results/`
    - Purpose for this subtask:

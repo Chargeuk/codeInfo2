@@ -1270,6 +1270,21 @@ export function useChatStream(
 
         const prevInflightId = inflightIdRef.current;
         const assistantMessageIdBefore = activeAssistantMessageIdRef.current;
+        const staleInflightReplay =
+          nextInflightId !== null &&
+          prevInflightId !== null &&
+          nextInflightId !== prevInflightId &&
+          assistantMessageIdByInflightIdRef.current.has(nextInflightId);
+
+        if (staleInflightReplay) {
+          logWithChannel('info', 'chat.ws.client_user_turn_ignored', {
+            conversationId: event.conversationId,
+            ignoredInflightId: nextInflightId,
+            activeInflightId: prevInflightId,
+            reason: 'stale_inflight',
+          });
+          return;
+        }
 
         const shouldResetAssistantPointer =
           nextInflightId !== null &&

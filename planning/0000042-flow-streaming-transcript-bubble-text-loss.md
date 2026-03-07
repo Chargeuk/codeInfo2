@@ -498,7 +498,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 2. Shared hook fix: stale `user_turn` must not rebind the active inflight
 
-- Task Status: `__to_do__`
+- Task Status: `__completed__`
 - Git Commits:
 
 #### Overview
@@ -524,7 +524,7 @@ Handle the `user_turn` branch separately from later transcript events. This task
 
 #### Subtasks
 
-1. [ ] Read the `user_turn` branch in the shared hook and list which refs/state it mutates before changing code.
+1. [x] Read the `user_turn` branch in the shared hook and list which refs/state it mutates before changing code.
    - Files to read:
      - `client/src/hooks/useChatStream.ts`
    - Start here in code:
@@ -535,7 +535,7 @@ Handle the `user_turn` branch separately from later transcript events. This task
      - React 19.2 effect synchronization: https://react.dev/learn/synchronizing-with-effects
    - Reuse target:
      - extend the existing `handleWsEvent` branch and shared refs/helpers in `useChatStream` rather than introducing a second websocket event dispatcher
-2. [ ] Update `client/src/hooks/useChatStream.ts` so stale mismatched `user_turn` events are ignored consistently during Flow-style idle streaming.
+2. [x] Update `client/src/hooks/useChatStream.ts` so stale mismatched `user_turn` events are ignored consistently during Flow-style idle streaming.
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
    - Start here in code:
@@ -549,7 +549,7 @@ Handle the `user_turn` branch separately from later transcript events. This task
      - reuse existing reset and assistant-targeting helpers instead of introducing new refs or duplicate state containers
    - When this subtask is complete:
      - stale `user_turn` for an old inflight becomes a no-op for active bubble targeting, but valid next-step `user_turn` still advances the transcript
-3. [ ] Add or update a structured client log line for the stale `user_turn` ignore path.
+3. [x] Add or update a structured client log line for the stale `user_turn` ignore path.
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
    - Start here in code:
@@ -566,7 +566,7 @@ Handle the `user_turn` branch separately from later transcript events. This task
      - give the Manual Playwright-MCP check a stable console marker proving a stale `user_turn` replay was ignored
    - When this subtask is complete:
      - a stale older-inflight `user_turn` emits `chat.ws.client_user_turn_ignored` instead of rebinding the active bubble
-4. [ ] Add a stale `user_turn` regression test.
+4. [x] Add a stale `user_turn` regression test.
    - Test type:
      - hook regression test
    - Location:
@@ -578,7 +578,7 @@ Handle the `user_turn` branch separately from later transcript events. This task
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-5. [ ] Add a same-inflight `user_turn` replay no-op test.
+5. [x] Add a same-inflight `user_turn` replay no-op test.
    - Test type:
      - hook regression test
    - Location:
@@ -590,11 +590,11 @@ Handle the `user_turn` branch separately from later transcript events. This task
    - Documentation for this subtask:
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-6. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the `user_turn` filtering does not break them.
+6. [x] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the `user_turn` filtering does not break them.
    - Files to read/edit only if failures require updates:
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/agentsPage.streaming.test.tsx`
-7. [ ] Update `design.md` with the `user_turn` ownership rule and any affected mermaid diagram for inflight transitions.
+7. [x] Update `design.md` with the `user_turn` ownership rule and any affected mermaid diagram for inflight transitions.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -602,25 +602,39 @@ Handle the `user_turn` branch separately from later transcript events. This task
    - Required content:
      - document that stale `user_turn` must not rebind active inflight ownership
      - update any transcript or inflight-transition mermaid diagram affected by this rule
-8. [ ] Update this story file’s Implementation notes for Task 2 once the code and tests are complete.
+8. [x] Update this story file’s Implementation notes for Task 2 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task2-user-turn-retained.png`, review that screenshot to confirm the active assistant bubble is not reset when the stale `user_turn` replays, and confirm the debug console contains `chat.ws.client_user_turn_ignored` with `reason: 'stale_inflight'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task2-user-turn-retained.png`, review that screenshot to confirm the active assistant bubble is not reset when the stale `user_turn` replays, and confirm the debug console contains `chat.ws.client_user_turn_ignored` with `reason: 'stale_inflight'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Subtask 1: Read the `user_turn` branch in `client/src/hooks/useChatStream.ts`; confirmed it can currently reset the assistant pointer, set `inflightIdRef`, create/retarget the assistant bubble via `ensureAssistantMessage`, and then update visible user messages even when an older inflight replays late.
+- Subtask 2: Added an older-inflight replay guard in the `user_turn` branch so already-mapped stale inflights return before resetting assistant ownership or rewriting `inflightIdRef`.
+- Subtask 3: Added `chat.ws.client_user_turn_ignored` with the required stale-inflight payload for manual and log-based verification.
+- Subtask 4: Added a hook regression proving a stale older-inflight `user_turn` replay no longer steals the active assistant bubble from the newer inflight.
+- Subtask 5: Added a same-inflight replay regression proving duplicate `user_turn` for the active inflight stays idempotent and does not create a second assistant bubble.
+- Subtask 6: Re-ran nearby shared-consumer regressions with targeted wrapper runs for `chatPage.stream.test.tsx` and `agentsPage.streaming.test.tsx`; both stayed green after the shared-hook change.
+- Subtask 7: Updated `design.md` so the assistant-bubble ownership section now covers stale `user_turn` replay handling and the related manual log marker.
+- Subtask 8: Recorded the Task 2 code and validation outcomes here after the wrapper pass and manual stale-`user_turn` browser replay completed.
+- Subtask 9: `npm run lint --workspaces` completed with the same existing server import-order warnings and no errors; `npm run format:check --workspaces` passed cleanly.
+- Testing 1: `npm run build:summary:client` passed; inspected `logs/test-summaries/build-client-latest.log` and the only warning remained the existing Vite chunk-size warning.
+- Testing 2: `npm run test:summary:client` passed with 471/471 tests green; the full wrapper log was `test-results/client-tests-2026-03-07T16-12-24-963Z.log`.
+- Testing 3: `npm run compose:build:summary` passed with both compose build items green; no compose build follow-up was needed.
+- Testing 4: `npm run compose:up` started the stack successfully; the server reached healthy state and the client started for manual verification.
+- Testing 5: Manual Playwright validation used `http://host.docker.internal:5001`, saved `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task2-user-turn-retained.png`, showed the active processing bubble remaining on the newer step while the stale older-inflight replay was ignored, and `/logs` confirmed `chat.ws.client_user_turn_ignored` with `reason: 'stale_inflight'`; browser console error output stayed empty.
+- Testing 6: `npm run compose:down` stopped the stack cleanly after the Task 2 manual verification pass.
 
 ---
 

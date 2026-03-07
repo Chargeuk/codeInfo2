@@ -2156,6 +2156,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 - Task Status: `__completed__`
 - Git Commits:
+  - `fdbed4e4` - `DEV-[0000042] - Harden post-final transcript replays`
 
 #### Overview
 

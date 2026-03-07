@@ -355,7 +355,6 @@ This story does not require new transport contracts or persistence shapes for th
 
 - Task Status: `__completed__`
 - Git Commits:
-  - `806e9060` - `DEV-[0000042] - Sync streaming retention documentation`
   - `cd3c9877` - `DEV-[0000042] - Guard stale assistant deltas in shared flow streaming`
 
 #### Overview
@@ -1554,6 +1553,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 - Task Status: `__completed__`
 - Git Commits:
+  - `806e9060` - `DEV-[0000042] - Sync streaming retention documentation`
 
 #### Overview
 

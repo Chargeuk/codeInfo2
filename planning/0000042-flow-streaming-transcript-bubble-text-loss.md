@@ -355,7 +355,6 @@ This story does not require new transport contracts or persistence shapes for th
 
 - Task Status: `__completed__`
 - Git Commits:
-  - `91fd85c6` - `DEV-[0000042] - Ignore stale user_turn replays in shared streaming`
   - `cd3c9877` - `DEV-[0000042] - Guard stale assistant deltas in shared flow streaming`
 
 #### Overview
@@ -501,6 +500,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 - Task Status: `__completed__`
 - Git Commits:
+  - `91fd85c6` - `DEV-[0000042] - Ignore stale user_turn replays in shared streaming`
 
 #### Overview
 

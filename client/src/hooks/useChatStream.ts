@@ -755,8 +755,22 @@ export function useChatStream(
       history: ChatMessage[],
       mode: 'replace' | 'prepend' = 'replace',
     ) => {
-      assistantMessageIdByInflightIdRef.current.clear();
-      seenInflightIdsRef.current.clear();
+      const sameConversation =
+        conversationIdRef.current === historyConversationId;
+      const hasActiveInflight =
+        inflightIdRef.current !== null ||
+        isStreaming ||
+        status === 'sending' ||
+        messagesRef.current.some(
+          (message) => message.streamStatus === 'processing',
+        );
+
+      if (!sameConversation) {
+        assistantMessageIdByInflightIdRef.current.clear();
+        seenInflightIdsRef.current.clear();
+      } else if (!hasActiveInflight) {
+        assistantMessageIdByInflightIdRef.current.clear();
+      }
       conversationIdRef.current = historyConversationId;
       setConversationId(historyConversationId);
 
@@ -865,13 +879,32 @@ export function useChatStream(
     (historyConversationId: string, inflight: InflightSnapshot | null) => {
       if (!inflight) return;
 
-      if (inflight.seq < inflightSeqRef.current) {
+      const sameConversation =
+        conversationIdRef.current === historyConversationId;
+      const activeInflightId = inflightIdRef.current;
+      const seenInflightId = seenInflightIdsRef.current.has(
+        inflight.inflightId,
+      );
+      const sameInflight = activeInflightId === inflight.inflightId;
+      const staleOlderInflightReplay =
+        sameConversation &&
+        activeInflightId !== null &&
+        !sameInflight &&
+        seenInflightId;
+      const duplicateActiveSnapshot =
+        sameConversation &&
+        sameInflight &&
+        inflight.seq <= inflightSeqRef.current;
+
+      if (staleOlderInflightReplay || duplicateActiveSnapshot) {
         return;
       }
 
       inflightSeqRef.current = inflight.seq;
-      assistantMessageIdByInflightIdRef.current.clear();
-      seenInflightIdsRef.current.clear();
+      if (!sameConversation) {
+        assistantMessageIdByInflightIdRef.current.clear();
+        seenInflightIdsRef.current.clear();
+      }
       conversationIdRef.current = historyConversationId;
       setConversationId(historyConversationId);
       rememberSeenInflightId(inflight.inflightId);

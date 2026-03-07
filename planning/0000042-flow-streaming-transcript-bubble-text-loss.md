@@ -2130,3 +2130,22 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
   - `npm run test:summary:client` passed with 488/488 tests green in `test-results/client-tests-2026-03-07T21-12-25-423Z.log`
   - `npm run lint --workspaces` completed with the same pre-existing server import-order warnings and no new errors
   - `npm run format:check --workspaces` passed after formatting `client/src/test/support/mockChatWs.ts`
+
+## Review Comment Follow-up 2
+
+- Follow-up date: 2026-03-07
+- Scope:
+  - preserved inflight ownership state during same-conversation `hydrateHistory(...)` refreshes so active processing bubbles keep their assistant-message mapping and seen-inflight memory
+  - prevented duplicate same-inflight `hydrateInflightSnapshot(...)` replays from creating extra assistant bubbles, while still allowing legitimate current inflight snapshot hydration
+  - stopped `FlowsPage` live-transcript marker bookkeeping from moving `lastFlowInflightIdRef` backward on stale replays so later step-transition logs keep the correct previous inflight
+- Added regression coverage in:
+  - `client/src/test/useChatStream.inflightMismatch.test.tsx` for duplicate snapshot hydration and same-conversation history refresh during an active inflight
+  - `client/src/test/flowsPage.run.test.tsx` for stale replay logging not corrupting the next real flow-step transition marker
+- Validation rerun:
+  - `npm run build:summary:client` passed with the same existing Vite chunk-size warning only
+  - `npm run test:summary:client` passed with 491/491 tests green in `test-results/client-tests-2026-03-07T21-44-50-466Z.log`
+  - `npm run test:summary:server:unit` passed with 979/979 tests green in `test-results/server-unit-tests-2026-03-07T21-40-09-548Z.log`
+  - `npm run test:summary:server:cucumber` passed with 68/68 tests green in `test-results/server-cucumber-tests-2026-03-07T21-40-09-541Z.log`
+  - `npm run test:summary:e2e` passed with 42/42 tests green in `logs/test-summaries/e2e-tests-latest.log`
+  - `npm run lint --workspaces` completed with the same pre-existing server import-order warnings and no new errors
+  - `npm run format:check --workspaces` passed cleanly

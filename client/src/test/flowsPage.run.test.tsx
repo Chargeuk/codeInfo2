@@ -572,6 +572,81 @@ describe('Flows page run/resume controls', () => {
     expect(screen.getByText('First step answer')).toBeInTheDocument();
   });
 
+  it('logs the latest real flow step transition even if an older step replay arrives in between', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const harness = setupFlowsRunHarness();
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+      render(<RouterProvider router={router} />);
+
+      await screen.findByText('Flow: daily');
+      await waitFor(() =>
+        expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
+      );
+
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        content: 'Run step one',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        delta: 'First step answer',
+      });
+      expect(await screen.findByText('First step answer')).toBeInTheDocument();
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        content: 'Run step two',
+      });
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        content: 'Run step one replay',
+      });
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-3',
+        content: 'Run step three',
+      });
+
+      await waitFor(() => {
+        const retainedLogs = logSpy.mock.calls
+          .map(([entry]) => entry)
+          .filter((entry) => {
+            if (!entry || typeof entry !== 'object') return false;
+            return (
+              (entry as { message?: string }).message ===
+              'flows.page.live_transcript_retained'
+            );
+          }) as Array<{ context?: Record<string, unknown>; message?: string }>;
+
+        expect(retainedLogs).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              message: 'flows.page.live_transcript_retained',
+              context: expect.objectContaining({
+                previousInflightId: 'flow-step-1',
+                currentInflightId: 'flow-step-2',
+              }),
+            }),
+            expect.objectContaining({
+              message: 'flows.page.live_transcript_retained',
+              context: expect.objectContaining({
+                previousInflightId: 'flow-step-2',
+                currentInflightId: 'flow-step-3',
+              }),
+            }),
+          ]),
+        );
+      });
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
   it('clears transcript and active conversation on New Flow', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();

@@ -1216,4 +1216,118 @@ describe('useChatStream inflight mismatch handling', () => {
       );
     });
   });
+
+  it('does not create a duplicate assistant bubble when hydrating the same inflight snapshot twice', async () => {
+    const conversationId = 'flow-conversation-snapshot-dedupe';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+
+    act(() =>
+      result.current.hydrateInflightSnapshot(conversationId, {
+        inflightId: 'i1',
+        assistantText: 'Hydrated reply',
+        assistantThink: 'Hydrated reasoning',
+        toolEvents: [],
+        startedAt: '2025-01-01T00:00:00.000Z',
+        seq: 5,
+      }),
+    );
+
+    act(() =>
+      result.current.hydrateInflightSnapshot(conversationId, {
+        inflightId: 'i1',
+        assistantText: 'Hydrated reply',
+        assistantThink: 'Hydrated reasoning',
+        toolEvents: [],
+        startedAt: '2025-01-01T00:00:00.000Z',
+        seq: 5,
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]).toEqual(
+        expect.objectContaining({
+          content: 'Hydrated reply',
+          think: 'Hydrated reasoning',
+          streamStatus: 'processing',
+        }),
+      );
+    });
+  });
+
+  it('preserves the active inflight assistant mapping during same-conversation history hydration', async () => {
+    const conversationId = 'flow-conversation-history-active-refresh';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Step 1 prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        delta: 'First reply',
+      }),
+    );
+
+    act(() => {
+      result.current.hydrateHistory(
+        conversationId,
+        result.current.messages.map((message) => ({ ...message })),
+        'replace',
+      );
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 3,
+        inflightId: 'i1',
+        delta: ' continues',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.content).toBe('First reply continues');
+      expect(assistantMessages[0]?.streamStatus).toBe('processing');
+    });
+  });
 });

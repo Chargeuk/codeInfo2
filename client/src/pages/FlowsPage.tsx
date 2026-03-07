@@ -356,8 +356,16 @@ export default function FlowsPage() {
         });
       }
 
-      seenInflights.add(currentInflightId);
-      lastFlowInflightIdRef.current = currentInflightId;
+      const isNewInflight = !seenInflights.has(currentInflightId);
+      if (isNewInflight) {
+        seenInflights.add(currentInflightId);
+        lastFlowInflightIdRef.current = currentInflightId;
+        return;
+      }
+
+      if (activeInflightId === currentInflightId) {
+        lastFlowInflightIdRef.current = currentInflightId;
+      }
     },
     [getInflightId, log],
   );

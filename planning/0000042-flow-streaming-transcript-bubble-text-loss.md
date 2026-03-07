@@ -473,7 +473,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the debug console contains `chat.ws.client_assistant_delta_ignored` with `reason: 'stale_inflight'` when the stale earlier-step delta arrives, and confirm the earlier assistant bubble text stays visible with no unexpected console errors.
+5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task1-assistant-delta-retained.png`, review that screenshot to confirm the earlier assistant bubble text stays visible after the stale delta arrives, and confirm the debug console contains `chat.ws.client_assistant_delta_ignored` with `reason: 'stale_inflight'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -601,7 +601,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the debug console contains `chat.ws.client_user_turn_ignored` with `reason: 'stale_inflight'` when a stale earlier-step `user_turn` replays, and confirm the active assistant bubble is not reset and there are no unexpected console errors.
+5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task2-user-turn-retained.png`, review that screenshot to confirm the active assistant bubble is not reset when the stale `user_turn` replays, and confirm the debug console contains `chat.ws.client_user_turn_ignored` with `reason: 'stale_inflight'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -817,7 +817,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the debug console contains `chat.ws.client_non_final_ignored` with `eventType` values for the stale non-final events exercised in this task, and confirm visible reasoning/tool/warning/snapshot state stays correct with no unexpected console errors.
+5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task3-non-final-state-retained.png`, review that screenshot to confirm the visible reasoning/tool/warning/snapshot state stays correct while stale non-final events are ignored, and confirm the debug console contains `chat.ws.client_non_final_ignored` with the expected `eventType` values and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -983,7 +983,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the debug console contains `chat.ws.client_turn_final_preserved` with `reason: 'late_final_non_destructive'` when a late older final arrives, and confirm the newer visible bubble remains intact with no unexpected console errors.
+5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task4-late-final-preserved.png`, review that screenshot to confirm the newer visible bubble remains intact when a late older final arrives, and confirm the debug console contains `chat.ws.client_turn_final_preserved` with `reason: 'late_final_non_destructive'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1154,7 +1154,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the debug console contains `chat.ws.client_stale_event_ignored` with `reason: 'seq_regression'` for lower-sequence same-inflight packets, and confirm valid newer packets still update the UI with no unexpected console errors.
+5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task5-seq-filter-retained.png`, review that screenshot to confirm valid newer packets still update the UI while lower-sequence same-inflight packets are blocked, and confirm the debug console contains `chat.ws.client_stale_event_ignored` with `reason: 'seq_regression'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1294,7 +1294,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the debug console contains `flows.page.live_transcript_retained` with `reason: 'next_step_started'`, confirm the earlier bubble remains visible while the later step streams, and confirm there are no unexpected console errors.
+5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task6-live-transcript-retained.png`, review that screenshot to confirm the earlier bubble remains visible while the later step streams, and confirm the debug console contains `flows.page.live_transcript_retained` with `reason: 'next_step_started'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1444,7 +1444,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the debug console contains `flows.page.visibility_reset_guarded` with `action: 'retain_transcript'` when the active conversation temporarily disappears from `flowConversations`, and confirm the visible transcript is retained with no unexpected console errors.
+5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task7-visibility-guarded.png`, review that screenshot to confirm the visible transcript is retained when the active conversation temporarily disappears from `flowConversations`, and confirm the debug console contains `flows.page.visibility_reset_guarded` with `action: 'retain_transcript'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1554,7 +1554,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 1. [ ] `npm run test:summary:client` - Use because this task updates documentation for client-facing behavior and file paths already validated by the story. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
 2. [ ] `npm run compose:build:summary` - Use because this documentation task still references front-end-testable behavior. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 3. [ ] `npm run compose:up`
-4. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Confirm the documented Flow behavior, verify any referenced paths in `projectStructure.md`, and confirm the debug console shows the log markers documented in `design.md` when their corresponding events are triggered, with no unexpected console errors.
+4. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task8-docs-smoke-check.png`, review that screenshot to confirm the documented Flow behavior still matches the GUI, verify any referenced paths in `projectStructure.md`, and confirm the debug console shows the log markers documented in `design.md` when their corresponding events are triggered, with no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
 5. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1657,11 +1657,11 @@ Perform the final acceptance pass for the story. This task must confirm the shar
 7. [ ] Start the compose stack and perform a manual Playwright MCP check of a known multi-step Flow such as `flows/implement_next_plan.json`.
    - Files and paths to read before running:
      - `flows/implement_next_plan.json`
-     - `test-results/screenshots/`
+     - `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/`
    - Required screenshots:
-     - `test-results/screenshots/0000042-09-flow-before-fix-validation.png`
-     - `test-results/screenshots/0000042-09-flow-during-second-step.png`
-     - `test-results/screenshots/0000042-09-flow-after-completion.png`
+     - `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-09-flow-before-fix-validation.png`
+     - `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-09-flow-during-second-step.png`
+     - `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-09-flow-after-completion.png`
    - Required visual checks:
      - earlier assistant bubble text remains visible while the next step streams
      - the currently active later step also shows its own streaming text
@@ -1679,6 +1679,8 @@ Perform the final acceptance pass for the story. This task must confirm the shar
      - each log line appears only for the event it is meant to confirm
      - the payload values identify the conversation and inflight involved
      - no unexpected `error`-level console entries appear during the run
+   - Screenshot review requirement:
+     - inspect each saved screenshot and confirm the GUI matches the required visual checks above before marking this subtask complete
 8. [ ] Write a pull request summary comment covering:
    - root cause
    - files changed
@@ -1705,7 +1707,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 3. [ ] `npm run test:summary:e2e` - Allow up to 7 minutes; if `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:e2e`.
 4. [ ] `npm run compose:build:summary` - Use because this final regression check is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP check to confirm the story acceptance behavior, save the required screenshots, and verify the debug console shows the expected log lines from Tasks 1–7 with no unexpected `error`-level entries. Use http://host.docker.internal:5001 via the Playwright MCP tools.
+6. [ ] Manual Playwright-MCP check to confirm the story acceptance behavior, save the required screenshots into `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/`, inspect those screenshots to confirm the GUI matches the acceptance criteria, and verify the debug console shows the expected log lines from Tasks 1–7 with no unexpected `error`-level entries. Use http://host.docker.internal:5001 via the Playwright MCP tools. This folder is mapped in `docker-compose.local.yml`.
 7. [ ] `npm run compose:down`
 
 #### Implementation notes

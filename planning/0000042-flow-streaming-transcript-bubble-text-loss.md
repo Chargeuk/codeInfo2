@@ -123,8 +123,14 @@ This story does not require new transport contracts or persistence shapes for th
 - Two sequential Flow steps use different inflight ids, and a late non-final event from the earlier step arrives while the later step is active:
   - expected result: the stale earlier event is ignored and must not change the later step's live state or remove already-rendered text from the earlier bubble
 
+- A stale `stream_warning` or `inflight_snapshot` arrives for an earlier inflight while a newer inflight is active:
+  - expected result: the stale event is ignored and must not overwrite assistant text, reasoning text, tool state, warnings, or other refs that now belong to the newer inflight
+
 - A late `turn_final` for an earlier inflight arrives after a newer inflight has already started:
   - expected result: the finalization remains non-destructive and must not overwrite or clear the newer inflight's visible content
+
+- A lower-sequence non-final event for the same inflight arrives after a higher-sequence event or after the bubble is effectively finalized:
+  - expected result: older same-inflight events must not re-mutate the visible bubble content after newer state has already been applied
 
 - Flow stays in `status='idle'` for websocket-driven streaming:
   - expected result: stale-event protection still works even though the page did not use the normal `send()` path
@@ -134,9 +140,13 @@ This story does not require new transport contracts or persistence shapes for th
 
 - `FlowsPage` temporarily loses the active conversation from `flowConversations` during sidebar/filter churn:
   - expected result: this may still require a small secondary safeguard, but it must not be confused with the primary stale-event corruption fix in `useChatStream`
+  - if the active conversation is reset during a live stream, the plan should verify whether the shared hook now drops subsequent events due to conversation mismatch filtering and whether a small Flow-page hardening step is still needed after the hook fix
 
 - Reload/rehydration after the bug:
   - expected result: persisted turns should continue to show the correct content after reload, and the live fix should make that same content remain visible without requiring navigation away and back
+
+- Shared-consumer regression matrix:
+  - expected result: after the `useChatStream` fix, `ChatPage`, `AgentsPage`, and `FlowsPage` all continue to behave correctly because they all forward transcript websocket events through the same shared hook
 
 ## Implementation Ideas
 

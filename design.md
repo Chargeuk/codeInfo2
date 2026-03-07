@@ -1619,6 +1619,30 @@ sequenceDiagram
   UI->>WS: cancel_inflight (optional stop)
 ```
 
+### Flows live transcript retention (Story 0000042 Task 6)
+
+- The Flow page must keep step N's already-rendered assistant bubble visible when step N+1 starts streaming in the same conversation.
+- Flow transcript simulation in page tests should reuse the shared `setupChatWsHarness` websocket emitters so page coverage still exercises the same `useChatWs` and `useChatStream` path as Chat and Agents.
+- A stale earlier-step `user_turn` or `assistant_delta` replay must not clear the visible transcript or retarget the active assistant bubble for the newer step.
+- When a new inflight starts and the previous assistant bubble is still visible, the page emits `flows.page.live_transcript_retained` with `{ conversationId, previousInflightId, currentInflightId, reason: 'next_step_started' }` for manual verification.
+
+```mermaid
+sequenceDiagram
+  participant Page as FlowsPage
+  participant Stream as useChatStream
+  participant Bubble1 as Step N bubble
+  participant Bubble2 as Step N+1 bubble
+
+  Stream->>Bubble1: render step N assistant text
+  Stream-->>Page: user_turn(step N+1)
+  Page-->>Page: log flows.page.live_transcript_retained
+  Stream->>Bubble2: stream step N+1 text
+  Stream-->>Page: stale user_turn/assistant_delta(step N replay)
+  Page-->>Stream: ignore replayed older-step ownership change
+  Bubble1-->>Bubble1: remains visible
+  Bubble2-->>Bubble2: continues streaming
+```
+
 ## Server testing & Docker
 
 - Cucumber test under `server/src/test` validates `/health` (run with server running on 5010): `npm run test --workspace server`.

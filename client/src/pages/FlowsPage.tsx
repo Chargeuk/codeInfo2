@@ -186,6 +186,9 @@ export default function FlowsPage() {
   const [flowModelId, setFlowModelId] = useState('unknown');
 
   const log = useMemo(() => createLogger('client-flows'), []);
+  const assistantTranscriptVisibleRef = useRef(false);
+  const seenFlowInflightIdsRef = useRef<Set<string>>(new Set());
+  const lastFlowInflightIdRef = useRef<string | null>(null);
 
   const flowOptions = useMemo<FlowOption[]>(() => {
     const options = flows.map((flow) => ({
@@ -306,6 +309,59 @@ export default function FlowsPage() {
     turnsConversationId,
   ]);
 
+  useEffect(() => {
+    assistantTranscriptVisibleRef.current = messages.some((message) => {
+      if (message.role !== 'assistant') return false;
+      if (message.kind === 'error' || message.kind === 'status') return false;
+      if (message.content.trim().length > 0) return true;
+      if (message.think?.trim().length) return true;
+      if ((message.tools?.length ?? 0) > 0) return true;
+      return false;
+    });
+  }, [messages]);
+
+  useEffect(() => {
+    seenFlowInflightIdsRef.current.clear();
+    lastFlowInflightIdRef.current = null;
+  }, [activeConversationId]);
+
+  const maybeLogLiveTranscriptRetained = useCallback(
+    (event: ChatWsServerEvent) => {
+      if (event.type !== 'user_turn' && event.type !== 'inflight_snapshot') {
+        return;
+      }
+
+      const currentInflightId =
+        event.type === 'inflight_snapshot'
+          ? event.inflight.inflightId
+          : event.inflightId;
+      if (!currentInflightId) return;
+
+      const seenInflights = seenFlowInflightIdsRef.current;
+      const activeInflightId = getInflightId();
+      const previousInflightId =
+        lastFlowInflightIdRef.current ?? activeInflightId ?? null;
+
+      if (
+        !seenInflights.has(currentInflightId) &&
+        previousInflightId &&
+        previousInflightId !== currentInflightId &&
+        assistantTranscriptVisibleRef.current
+      ) {
+        log('info', 'flows.page.live_transcript_retained', {
+          conversationId: event.conversationId,
+          previousInflightId,
+          currentInflightId,
+          reason: 'next_step_started',
+        });
+      }
+
+      seenInflights.add(currentInflightId);
+      lastFlowInflightIdRef.current = currentInflightId;
+    },
+    [getInflightId, log],
+  );
+
   const {
     connectionState: wsConnectionState,
     subscribeSidebar,
@@ -351,6 +407,7 @@ export default function FlowsPage() {
         case 'analysis_delta':
         case 'tool_event':
         case 'turn_final':
+          maybeLogLiveTranscriptRetained(event);
           handleWsEvent(event);
           return;
         default:

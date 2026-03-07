@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { setupChatWsHarness } from './support/mockChatWs';
 
 const mockFetch = jest.fn();
 
@@ -113,6 +114,62 @@ function emitWsEvent(event: Record<string, unknown>) {
   if (!ws) throw new Error('No WebSocket instance; did FlowsPage mount?');
   act(() => {
     ws._receive(event);
+  });
+}
+
+function setupFlowsRunHarness(options?: {
+  conversations?: unknown;
+  turns?: unknown;
+  flows?: unknown;
+  runResponse?: unknown;
+}) {
+  const now = new Date('2025-01-01T00:00:00.000Z').toISOString();
+  const conversations = options?.conversations ?? {
+    items: [
+      {
+        conversationId: 'flow-1',
+        title: 'Flow: daily',
+        provider: 'codex',
+        model: 'gpt-5',
+        source: 'REST',
+        lastMessageAt: now,
+        archived: false,
+        flowName: 'daily',
+        flags: {},
+      },
+    ],
+    nextCursor: null,
+  };
+
+  return setupChatWsHarness({
+    mockFetch,
+    conversations,
+    turns: options?.turns ?? { items: [], nextCursor: null },
+    fallbackFetch: (url) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: options?.flows ?? [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        return mockJsonResponse(
+          options?.runResponse ?? {
+            status: 'started',
+            flowName: 'daily',
+            conversationId: 'flow-1',
+            inflightId: 'i1',
+            modelId: 'gpt-5',
+          },
+        );
+      }
+
+      return mockJsonResponse({});
+    },
   });
 }
 
@@ -393,6 +450,126 @@ describe('Flows page run/resume controls', () => {
       const body = JSON.parse(init.body as string) as Record<string, unknown>;
       expect(body.customTitle).toBe('Daily recap');
     });
+  });
+
+  it('keeps the earlier assistant bubble visible while the next flow step streams and stale earlier-step replays arrive', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const harness = setupFlowsRunHarness();
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+      render(<RouterProvider router={router} />);
+
+      await screen.findByText('Flow: daily');
+      await waitFor(() =>
+        expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
+      );
+
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        content: 'Run step one',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        delta: 'First step answer',
+      });
+
+      expect(await screen.findByText('First step answer')).toBeInTheDocument();
+
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        content: 'Run step two',
+      });
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        content: 'Run step one replay',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        delta: ' hidden',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        delta: 'Second step live',
+      });
+
+      expect(await screen.findByText('Second step live')).toBeInTheDocument();
+      expect(screen.getByText('First step answer')).toBeInTheDocument();
+      expect(screen.queryByText('Run step one replay')).not.toBeInTheDocument();
+      expect(screen.queryByText('First step answer hidden')).toBeNull();
+
+      const retainedLog = logSpy.mock.calls.find(([entry]) => {
+        if (!entry || typeof entry !== 'object') return false;
+        const record = entry as {
+          message?: string;
+          context?: Record<string, unknown>;
+        };
+        return record.message === 'flows.page.live_transcript_retained';
+      });
+
+      expect(retainedLog?.[0]).toMatchObject({
+        message: 'flows.page.live_transcript_retained',
+        context: expect.objectContaining({
+          conversationId: 'flow-1',
+          previousInflightId: 'flow-step-1',
+          currentInflightId: 'flow-step-2',
+          reason: 'next_step_started',
+        }),
+      });
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('keeps the earlier flow bubble visible while the later step continues streaming its own text', async () => {
+    const harness = setupFlowsRunHarness();
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Flow: daily');
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
+    );
+
+    harness.emitUserTurn({
+      conversationId: 'flow-1',
+      inflightId: 'flow-step-1',
+      content: 'Run step one',
+    });
+    harness.emitAssistantDelta({
+      conversationId: 'flow-1',
+      inflightId: 'flow-step-1',
+      delta: 'First step answer',
+    });
+
+    expect(await screen.findByText('First step answer')).toBeInTheDocument();
+
+    harness.emitUserTurn({
+      conversationId: 'flow-1',
+      inflightId: 'flow-step-2',
+      content: 'Run step two',
+    });
+    harness.emitAssistantDelta({
+      conversationId: 'flow-1',
+      inflightId: 'flow-step-2',
+      delta: 'Second step',
+    });
+    harness.emitAssistantDelta({
+      conversationId: 'flow-1',
+      inflightId: 'flow-step-2',
+      delta: ' still streaming',
+    });
+
+    expect(
+      await screen.findByText('Second step still streaming'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('First step answer')).toBeInTheDocument();
   });
 
   it('clears transcript and active conversation on New Flow', async () => {

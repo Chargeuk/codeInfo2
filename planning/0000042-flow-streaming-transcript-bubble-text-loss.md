@@ -1247,7 +1247,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 6. Flow page regression coverage for live transcript retention
 
-- Task Status: `__to_do__`
+- Task Status: `__completed__`
 - Git Commits:
 
 #### Overview
@@ -1274,7 +1274,7 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
 
 #### Subtasks
 
-1. [ ] Read the Flow page websocket handling and active-conversation reset logic before adding page-level regressions.
+1. [x] Read the Flow page websocket handling and active-conversation reset logic before adding page-level regressions.
    - Files to read:
      - `client/src/pages/FlowsPage.tsx`
      - `client/src/test/flowsPage.test.tsx`
@@ -1288,7 +1288,7 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
    - Reuse target:
      - use the existing `setupChatWsHarness` helper and emitters from `mockChatWs.ts` for Flow transcript event simulation
-2. [ ] Add a Flow-page regression test that simulates two sequential Flow step inflights and asserts the earlier assistant bubble text remains visible while the later step streams.
+2. [x] Add a Flow-page regression test that simulates two sequential Flow step inflights and asserts the earlier assistant bubble text remains visible while the later step streams.
    - Files to edit:
      - `client/src/test/flowsPage.run.test.tsx`
    - Files to read before editing:
@@ -1309,7 +1309,7 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
      - extend the existing websocket harness and emit helpers rather than creating page-specific websocket mocks
    - When this subtask is complete:
      - the regression fails on the old bug and passes once the shared fix is applied
-3. [ ] Add a Flow-page happy-path regression that proves the current later-step bubble still streams normally while the earlier bubble stays visible.
+3. [x] Add a Flow-page happy-path regression that proves the current later-step bubble still streams normally while the earlier bubble stays visible.
    - Test type:
      - page integration regression test
    - Location:
@@ -1330,7 +1330,7 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
      - keep this test separate from the stale-event regression so the happy path remains obvious
    - When this subtask is complete:
      - the test proves the second Flow step continues to render live text while the first bubble remains visible
-4. [ ] Add or update a structured Flow-page log line for retained live transcript visibility.
+4. [x] Add or update a structured Flow-page log line for retained live transcript visibility.
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Start here in code:
@@ -1346,7 +1346,7 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
      - give the Manual Playwright-MCP check a stable page-level marker proving the earlier bubble stayed visible when the next step began
    - When this subtask is complete:
      - the Flow page emits `flows.page.live_transcript_retained` when the second step starts and the first bubble remains visible
-5. [ ] Re-run the Flow regressions and nearby Flow tests after the new page tests are added.
+5. [x] Re-run the Flow regressions and nearby Flow tests after the new page tests are added.
    - Files to read/edit only if failures require updates:
      - `client/src/test/flowsPage.test.tsx`
      - `client/src/test/flowsPage.run.test.tsx`
@@ -1355,7 +1355,7 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
    - Use the commands in this task's `Testing` section after all Task 6 code and test-writing subtasks are complete.
    - When this subtask is complete:
      - the new Flow websocket regressions pass and no nearby Flow page tests regress
-6. [ ] Update `design.md` with the Flow live transcript behavior and any affected Flow mermaid diagram.
+6. [x] Update `design.md` with the Flow live transcript behavior and any affected Flow mermaid diagram.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -1363,25 +1363,38 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
    - Required content:
      - document the intended Flow live-stream retention behavior once step N+1 starts
      - update any Flow transcript mermaid diagram affected by this regression coverage
-7. [ ] Update this story file’s Implementation notes for Task 6 once the code and tests are complete.
+7. [x] Update this story file’s Implementation notes for Task 6 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task6-live-transcript-retained.png`, review that screenshot to confirm the earlier bubble remains visible while the later step streams, and confirm the debug console contains `flows.page.live_transcript_retained` with `reason: 'next_step_started'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task6-live-transcript-retained.png`, review that screenshot to confirm the earlier bubble remains visible while the later step streams, and confirm the debug console contains `flows.page.live_transcript_retained` with `reason: 'next_step_started'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Reviewed the Flow websocket forwarding, active-conversation visibility reset effect, and existing run-test harness; Task 6 can stay regression-first because Tasks 1-5 already fixed the shared stream ownership rules, but the page still has a later Task 7 reset path to avoid touching unless the new regression proves it is needed.
+- Added a Flow run regression in `flowsPage.run.test.tsx` that drives two sequential step inflights, proves the first assistant bubble stays visible, and proves stale earlier-step `user_turn`/`assistant_delta` replays do not retarget or erase the live transcript.
+- Added a separate Flow run happy-path regression proving the later step still streams its own text while the earlier assistant bubble remains visible.
+- Added `flows.page.live_transcript_retained` in `FlowsPage.tsx` using the existing `client-flows` logger and the shared websocket event path, with a seen-inflight guard so stale earlier-step replays do not emit false page-retention markers.
+- Re-ran the focused Flow run and nearby Flow page suites with the new websocket harness coverage; both `flowsPage.run.test.tsx` and `flowsPage.test.tsx` stayed green without needing Flow-page reset-path changes.
+- Updated `design.md` with a Flow-specific live-transcript-retention note and mermaid sequence so the page-level evidence for step N staying visible during step N+1 is documented separately from the shared hook ownership rules.
+- Ran repo lint and format checks; the new Flow run test initially needed a small unused-arg cleanup plus a client-format pass, and the follow-up checks passed with only the existing server import-order warnings remaining.
+- `npm run build:summary:client` passed; `logs/test-summaries/build-client-latest.log` only showed the existing Vite chunk-size warning, with no Task 6 build regression.
+- `npm run test:summary:client` passed with 484/484 tests green after the Flow live-transcript regressions and page-level retention marker were added.
+- `npm run compose:build:summary` passed cleanly with both compose build targets green, so the manual Flow replay can run against the updated stack image set.
+- `npm run compose:up` brought the local stack up cleanly with healthy server and client containers for the required Flow browser validation.
+- Manual Playwright validation on `http://host.docker.internal:5001/flows` replayed a two-step Flow transcript through the real `useChatWs` page path, saved `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task6-live-transcript-retained.png`, confirmed the earlier `First step answer` bubble stayed visible while `Second step live` streamed, and verified `flows.page.live_transcript_retained` with `reason: 'next_step_started'` and `{ previousInflightId: 'task6-step-1', currentInflightId: 'task6-step-2' }` while browser console error output stayed empty.
+- Recorded the completed Task 6 implementation and validation trail here after the focused Flow suites, wrapper pass, clean browser replay, and persisted screenshot all finished.
+- `npm run compose:down` stopped the local stack cleanly after the Flow browser validation.
 
 ---
 

@@ -176,3 +176,38 @@ This story captures investigation findings and implementation direction so the f
       - A single page test is too broad for root-cause diagnosis, and a single hook test is too narrow for UI regression confidence.
     - Why this is the best option:
       - It gives one fast root-cause test, one user-visible integration test, and coverage that prevents regressions across all consumers of `useChatStream`.
+
+- Recommended implementation order:
+  - Step 1:
+    - Apply the primary fix in `client/src/hooks/useChatStream.ts`.
+    - Replace the current `status === 'sending'` mismatch safety rule for non-final websocket stream events with strict inflight identity checks so stale non-final events cannot mutate the active shared assistant refs.
+    - Why first:
+      - This is the source of the proven corruption.
+      - It fixes the upstream data/state mutation point shared by Flow, Chat, and Agents.
+  - Step 2:
+    - Preserve and review the existing out-of-band `turn_final` behavior separately.
+    - Keep finalization non-destructive for older inflights because completion metadata can still arrive late and should not damage a newer run.
+    - Why second:
+      - `turn_final` is already treated differently from token/reasoning/tool deltas and should remain explicit.
+  - Step 3:
+    - Expand the regression set after the hook fix:
+      - flip the proof test to passing,
+      - add stale `analysis_delta` and `tool_event` hook tests,
+      - run nearby Chat and Agents streaming regressions.
+    - Why third:
+      - It verifies the source-level fix without mixing in unrelated UI changes.
+  - Step 4:
+    - Reassess Flow page reset hardening only after the source-level fix lands.
+    - Why fourth:
+      - The product should avoid papering over corrupted upstream state with downstream workarounds.
+      - If residual Flow-only transcript clearing remains after the hook fix, it can be handled as a secondary safeguard with clearer signal.
+
+- Explicit recommendation:
+  - Use a KISS-but-correct approach:
+    - fix the source defect in `useChatStream`,
+    - avoid synthetic Flow-only state tricks such as forcing a fake `sending` state,
+    - avoid starting with component-level defensive patches for data that should never have been corrupted upstream.
+  - Why this is the recommended approach:
+    - It aligns with product robustness and stability goals.
+    - It reduces long-term maintenance cost by enforcing a correct invariant at the shared stream-state layer.
+    - It keeps downstream pages simpler and avoids spreading compensating logic through Flow-specific UI code unless evidence later shows a separate UI reset bug remains.

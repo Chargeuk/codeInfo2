@@ -355,6 +355,7 @@ This story does not require new transport contracts or persistence shapes for th
 
 - Task Status: `__done__`
 - Git Commits:
+  - `ee878917` - `DEV-[0000042] - Keep finalized stale user_turn replays ignored`
   - `cd3c9877` - `DEV-[0000042] - Guard stale assistant deltas in shared flow streaming`
 
 #### Overview

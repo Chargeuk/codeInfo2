@@ -1061,7 +1061,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 5. Websocket sequence filtering: keep lower-sequence same-inflight events blocked
 
-- Task Status: `__to_do__`
+- Task Status: `__completed__`
 - Git Commits:
 
 #### Overview
@@ -1085,7 +1085,7 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
 
 #### Subtasks
 
-1. [ ] Read the websocket sequence bookkeeping and existing stale-packet tests before changing code.
+1. [x] Read the websocket sequence bookkeeping and existing stale-packet tests before changing code.
    - Files to read:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/test/useChatWs.test.ts`
@@ -1099,7 +1099,7 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
      - WebSocket message events: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
    - Reuse target:
      - preserve the existing `useChatWs` per-`(conversationId, inflightId)` sequence filter instead of adding a second stale-packet filter in a different layer
-2. [ ] Update `client/src/hooks/useChatWs.ts` only as needed to preserve lower-sequence same-inflight filtering and sequence reset acceptance for new inflights.
+2. [x] Update `client/src/hooks/useChatWs.ts` only as needed to preserve lower-sequence same-inflight filtering and sequence reset acceptance for new inflights.
    - Files to edit only if needed:
      - `client/src/hooks/useChatWs.ts`
    - Documentation for this subtask:
@@ -1112,7 +1112,7 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
    - Concrete example for this subtask:
      - if inflight `i2` already accepted `seq: 7`, a later event for the same `(conversationId, i2)` with `seq: 6` must be dropped
      - if the next inflight is `i3`, its first event with `seq: 1` must still be accepted because the inflight key changed
-3. [ ] Confirm and, if needed, extend the websocket stale-event log line so seq-filtered packets are visible in the browser console.
+3. [x] Confirm and, if needed, extend the websocket stale-event log line so seq-filtered packets are visible in the browser console.
    - Files to read/edit only if required:
      - `client/src/hooks/useChatWs.ts`
    - Start here in code:
@@ -1129,7 +1129,7 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
      - give the Manual Playwright-MCP check a stable marker proving lower-sequence same-inflight packets were blocked before reaching the shared hook
    - When this subtask is complete:
      - seq-filtered websocket packets emit `chat.ws.client_stale_event_ignored` with enough payload to distinguish them from other ignored events
-4. [ ] Add a websocket stale-packet regression for lower-sequence same-inflight events.
+4. [x] Add a websocket stale-packet regression for lower-sequence same-inflight events.
    - Test type:
      - websocket hook regression test
    - Location:
@@ -1149,7 +1149,7 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
      - inspect `lastSeqByKeyRef` and `inflightKey(...)` in `client/src/hooks/useChatWs.ts`
    - When this subtask is complete:
      - the test fails if a lower-sequence event reaches `onEvent`
-5. [ ] Add a sequence-boundary regression for new inflight resets versus stale prior inflight packets.
+5. [x] Add a sequence-boundary regression for new inflight resets versus stale prior inflight packets.
    - Test type:
      - websocket hook regression test
    - Location:
@@ -1169,7 +1169,7 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
      - make the inflight key change explicit in the test input so the expected `seq: 1` accept path is obvious
    - When this subtask is complete:
      - the test proves a new inflight starts fresh while stale packets from the old inflight remain blocked
-6. [ ] Add a downstream chat-path regression that confirms websocket filtering still supports the visible happy path.
+6. [x] Add a downstream chat-path regression that confirms websocket filtering still supports the visible happy path.
    - Test type:
      - page integration regression test
    - Location:
@@ -1190,7 +1190,7 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
      - keep the assertions user-visible: accepted packets should still change rendered chat content
    - When this subtask is complete:
      - the test proves the websocket filter blocks stale traffic without suppressing valid visible chat updates
-7. [ ] Re-run shared consumer regression checks after the websocket sequence changes.
+7. [x] Re-run shared consumer regression checks after the websocket sequence changes.
    - Files to read/edit only if failures require updates:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
      - `client/src/test/useChatWs.test.ts`
@@ -1200,7 +1200,7 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
    - Use the commands in this task's `Testing` section after all Task 5 code and test-writing subtasks are complete.
    - When this subtask is complete:
      - the transport-layer tests and downstream consumer tests all pass together
-8. [ ] Update `design.md` with the websocket sequence-filtering rule and any affected mermaid diagram.
+8. [x] Update `design.md` with the websocket sequence-filtering rule and any affected mermaid diagram.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -1208,25 +1208,39 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. The current we
    - Required content:
      - document how lower-sequence same-inflight packets are blocked and how new inflight sequence resets are accepted
      - update any websocket event-flow mermaid diagram affected by this transport rule
-9. [ ] Update this story file’s Implementation notes for Task 5 once the code and tests are complete.
+9. [x] Update this story file’s Implementation notes for Task 5 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task5-seq-filter-retained.png`, review that screenshot to confirm valid newer packets still update the UI while lower-sequence same-inflight packets are blocked, and confirm the debug console contains `chat.ws.client_stale_event_ignored` with `reason: 'seq_regression'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task5-seq-filter-retained.png`, review that screenshot to confirm valid newer packets still update the UI while lower-sequence same-inflight packets are blocked, and confirm the debug console contains `chat.ws.client_stale_event_ignored` with `reason: 'seq_regression'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Reviewed `lastSeqByKeyRef`, `inflightKey(...)`, and the existing stale-seq coverage in `useChatWs`; the per-inflight filter already exists and logs stale packets, but the task-specific regressions still need to pin down same-inflight seq rollback versus new-inflight seq reset behavior.
+- Kept the transport filter in `useChatWs` and only tightened the existing stale-packet log payload so seq drops remain visible without adding a second sequence tracker downstream.
+- Extended `chat.ws.client_stale_event_ignored` so seq-filtered packets now include the task-required `reason: 'seq_regression'` and `eventType` context.
+- Updated the websocket hook regression to prove a lower-sequence same-inflight packet is dropped before `onEvent` and emits the expected stale-packet log payload.
+- Added a websocket boundary regression proving a new inflight can restart at `seq: 1` while later lower-or-equal sequence packets from the old inflight stay blocked.
+- Updated the downstream Chat regression so a valid new-inflight reset still renders visible text while a lower-sequence same-inflight packet is blocked and logged.
+- Re-ran the shared hook mismatch suite alongside the websocket and Chat regressions; the transport-layer sequence checks stayed green without regressing the downstream shared-hook protections from Tasks 1 to 4.
+- Updated `design.md` to document the per-`(conversationId, inflightId)` sequence invariant, the accepted new-inflight reset behavior, and the `chat.ws.client_stale_event_ignored` transport marker.
+- `npm run build:summary:client` passed; `logs/test-summaries/build-client-latest.log` only showed the existing Vite chunk-size warning, with no Task 5 build regression.
+- `npm run test:summary:client` passed with 482/482 tests green, keeping the websocket-layer and downstream chat regressions green together in the full client suite.
+- `npm run compose:build:summary` passed cleanly with both compose build targets green, so the browser verification can use the updated images without extra container fixes.
+- `npm run compose:up` brought the local stack up cleanly with healthy server and client containers for the websocket sequence browser replay.
+- Manual Playwright validation on `http://host.docker.internal:5001/chat` injected a two-inflight websocket sequence through the real `useChatWs` message path, saved `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task5-seq-filter-retained.png`, confirmed the UI showed `Second reply` without the stale `Second stale` text, and verified `chat.ws.client_stale_event_ignored` with `reason: 'seq_regression'`, `eventType: 'assistant_delta'`, `inflightId: 'task5-i2'`, `seq: 2`, and `lastSeq: 2`; browser console error output stayed empty.
+- Recorded the completed Task 5 implementation and validation trail here after the wrapper pass, browser replay, persisted screenshot, and exact stale-log verification finished.
+- `npm run compose:down` stopped the local stack cleanly after the websocket sequence browser validation.
 
 ---
 

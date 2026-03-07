@@ -551,7 +551,7 @@ describe('Chat WS streaming UI', () => {
     expect(cancel).toBe(false);
   });
 
-  it('accepts new inflight runs when sequence numbers reset', async () => {
+  it('accepts new inflight runs when sequence numbers reset and blocks stale same-inflight packets', async () => {
     const previousFlag = (
       globalThis as unknown as { __CODEINFO_TEST__?: boolean }
     ).__CODEINFO_TEST__;
@@ -628,13 +628,26 @@ describe('Chat WS streaming UI', () => {
         inflightId: inflightId2,
         delta: 'Second',
       });
+      harness.setSeq(1);
+      harness.emitAssistantDelta({
+        conversationId: conversationId!,
+        inflightId: inflightId2,
+        delta: ' stale',
+      });
+      harness.setSeq(2);
+      harness.emitAssistantDelta({
+        conversationId: conversationId!,
+        inflightId: inflightId2,
+        delta: ' reply',
+      });
       harness.emitFinal({
         conversationId: conversationId!,
         inflightId: inflightId2,
         status: 'ok',
       });
 
-      expect(await screen.findByText('Second')).toBeInTheDocument();
+      expect(await screen.findByText('Second reply')).toBeInTheDocument();
+      expect(screen.queryByText('Second stale')).toBeNull();
 
       const staleLog = logSpy.mock.calls.find(([entry]) => {
         if (!entry || typeof entry !== 'object') return false;
@@ -644,7 +657,15 @@ describe('Chat WS streaming UI', () => {
         const context = record.context as { inflightId?: string } | undefined;
         return context?.inflightId === inflightId2;
       });
-      expect(staleLog).toBeUndefined();
+      expect(staleLog?.[0]).toMatchObject({
+        message: 'chat.ws.client_stale_event_ignored',
+        context: expect.objectContaining({
+          reason: 'seq_regression',
+          eventType: 'assistant_delta',
+          inflightId: inflightId2,
+          seq: 2,
+        }),
+      });
     } finally {
       logSpy.mockRestore();
       (

@@ -3736,6 +3736,12 @@ Required log names and key fields:
     - `chat.ws.server_publish_turn_final` (`conversationId`, `inflightId`, `seq`, `status`, `errorCode?`)
     - `DEV-0000024:T6:turn_final_usage` (`conversationId`, `inflightId`, `seq`, `status`, `usage?`, `timing?`)
 
+WebSocket sequence invariant:
+
+- The transport layer in `useChatWs` owns lower-sequence stale-packet filtering before transcript events reach `useChatStream`.
+- Sequence tracking is scoped per `(conversationId, inflightId)` via `inflightKey(...)`, so a new inflight may restart at `seq: 1` without being blocked by the previous inflight's last accepted sequence.
+- When a same-inflight packet arrives with `seq <= lastSeq`, the websocket hook drops it, does not forward it to downstream consumers, and emits `chat.ws.client_stale_event_ignored` with `reason: 'seq_regression'`.
+
 Assistant bubble binding invariant (Task 30):
 
 - The client binds each assistant bubble to a specific `inflightId` (so late-arriving events cannot overwrite a newer run).
@@ -3749,11 +3755,17 @@ Assistant bubble binding invariant (Task 30):
 
 ```mermaid
 sequenceDiagram
+  participant WSClient as useChatWs
   participant WS as WebSocket stream
   participant Hook as useChatStream
   participant Bubble1 as Assistant bubble i1
   participant Bubble2 as Assistant bubble i2
 
+  WS->>WSClient: assistant_delta(i1, seq 7)
+  WSClient->>Hook: forward i1 seq 7
+  WS->>WSClient: assistant_delta(i1, seq 6)
+  WSClient-->>WS: log chat.ws.client_stale_event_ignored
+  WSClient-->>Hook: drop stale same-inflight packet
   WS->>Hook: user_turn(i1)
   WS->>Hook: assistant_delta(i1, "First reply")
   Hook->>Bubble1: append "First reply"

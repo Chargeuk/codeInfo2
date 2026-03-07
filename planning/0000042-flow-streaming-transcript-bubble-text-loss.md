@@ -353,7 +353,7 @@ This story does not require new transport contracts or persistence shapes for th
 
 ### 1. Shared hook fix: stale `assistant_delta` must not corrupt later inflights
 
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits:
   - `cd3c9877` - `DEV-[0000042] - Guard stale assistant deltas in shared flow streaming`
 
@@ -498,7 +498,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 2. Shared hook fix: stale `user_turn` must not rebind the active inflight
 
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits:
   - `91fd85c6` - `DEV-[0000042] - Ignore stale user_turn replays in shared streaming`
 
@@ -641,7 +641,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 3. Shared hook fix: stale non-final events beyond `assistant_delta` and `user_turn`
 
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits:
   - `4d5042fb` - `DEV-[0000042] - Guard stale non-final transcript events in shared streaming`
 
@@ -879,7 +879,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 4. Shared hook safeguard: late `turn_final` must remain non-destructive
 
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits:
   - `4637aa4b` - `DEV-[0000042] - Preserve late turn_final handling in shared streaming`
 
@@ -1061,7 +1061,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 5. Websocket sequence filtering: keep lower-sequence same-inflight events blocked
 
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits:
   - `94f754a2` - `DEV-[0000042] - Preserve websocket seq filtering for chat streaming`
 
@@ -1247,7 +1247,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 6. Flow page regression coverage for live transcript retention
 
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits:
   - `b6d992ac` - `DEV-[0000042] - Add Flow live transcript retention coverage`
 
@@ -1401,7 +1401,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 7. Flow page secondary hardening if Task 6 still fails
 
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1551,7 +1551,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 8. Documentation and project structure updates
 
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits:
   - `806e9060` - `DEV-[0000042] - Sync streaming retention documentation`
 
@@ -1671,7 +1671,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 9. Final validation and acceptance check
 
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits:
   - `a181013b` - `DEV-[0000042] - Finalize streaming transcript acceptance handoff`
 

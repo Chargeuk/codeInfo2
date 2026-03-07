@@ -1471,7 +1471,7 @@ Update the repo documentation so future developers can understand the root cause
 
 #### Subtasks
 
-1. [ ] Update `README.md` with a short note describing the Flow live-stream transcript bug fix at a high level if the file already documents related Flow/chat streaming behavior.
+1. [ ] Update `README.md` with a short note describing the Flow live-stream transcript bug fix at a high level.
    - Document name:
      - `README.md`
    - Location:
@@ -1480,13 +1480,13 @@ Update the repo documentation so future developers can understand the root cause
      - `README.md`
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
    - Description:
-     - add a short high-level note about the Flow live-stream transcript fix only if the README already discusses Flow/chat streaming behavior
+     - add a short high-level note in the existing Flows or streaming-related section explaining that previously rendered Flow bubbles now stay visible while later steps stream because stale earlier-step websocket events are ignored
    - Purpose:
      - keep the top-level repo guide accurate without adding deep implementation detail
    - Documentation for this subtask:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Constraint:
-     - keep the note short and only add it if it improves user/developer understanding of shared streaming behavior
+     - keep the note short and user/developer focused; do not duplicate the low-level hook internals from `design.md`
 2. [ ] Update `design.md` to document:
    - the source-level `useChatStream` inflight filtering rule
    - why `turn_final` stays special
@@ -1686,7 +1686,8 @@ Perform the final acceptance pass for the story. This task must confirm the shar
    - files changed
    - tests run
    - residual risks if any
-   - Files to edit/create as agreed by the repo workflow
+   - File to create/update:
+     - `test-results/pr-comments/0000042-summary.md`
    - Source material to read before writing:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
      - `design.md`
@@ -1702,13 +1703,15 @@ Perform the final acceptance pass for the story. This task must confirm the shar
 
 Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:client` - Mandatory for this final regression check because the story is front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Mandatory for this final regression check because client behavior changed. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run test:summary:e2e` - Allow up to 7 minutes; if `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:e2e`.
-4. [ ] `npm run compose:build:summary` - Use because this final regression check is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP check to confirm the story acceptance behavior, save the required screenshots into `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/`, inspect those screenshots to confirm the GUI matches the acceptance criteria, and verify the debug console shows the expected log lines from Tasks 1–7 with no unexpected `error`-level entries. Use http://host.docker.internal:5001 via the Playwright MCP tools. This folder is mapped in `docker-compose.local.yml`.
-7. [ ] `npm run compose:down`
+1. [ ] `npm run build:summary:server` - Run first so the final validation follows the repo tasking convention and proves the server still builds cleanly even though this story is primarily client-side. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run build:summary:client` - Mandatory because client behavior changed. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+3. [ ] `npm run compose:build:summary` - Required clean compose build check. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log`.
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit` - Run in the final task even though server contracts are unchanged, so nearby server/unit behavior is still proven clean in the final handoff.
+6. [ ] `npm run test:summary:client` - Mandatory because client behavior changed. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+7. [ ] `npm run test:summary:e2e` - Allow up to 10 minutes; if `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:e2e`.
+8. [ ] Manual Playwright-MCP check to confirm the story acceptance behavior, save the required screenshots into `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/`, inspect those screenshots to confirm the GUI matches the acceptance criteria, and verify the debug console shows the expected log lines from Tasks 1–7 with no unexpected `error`-level entries. Use http://host.docker.internal:5001 via the Playwright MCP tools. This folder is mapped in `docker-compose.local.yml`.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

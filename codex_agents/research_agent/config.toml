@@ -1,0 +1,51 @@
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+approval_policy = "never"
+sandbox_mode    = "danger-full-access"
+
+[features]
+web_search_request = true
+view_image_tool = true
+
+[mcp_servers]
+[mcp_servers.context7]
+args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY']
+command = 'npx'
+startup_timeout_sec = 20.0
+
+[mcp_servers.mui]
+args = ['-y', '@mui/mcp@latest']
+command = 'npx'
+
+[mcp_servers.deepwiki]
+url = "https://mcp.deepwiki.com/mcp"
+startup_timeout_sec = 20.0
+
+[mcp_servers.code_info]
+command = "npx"
+args    = ["-y", "mcp-remote", "http://localhost:5011/mcp"]
+startup_timeout_sec = 60
+tool_timeout_sec = 1800
+
+[mcp_servers.playwright]
+command = "npx"
+args    = ["-y", "mcp-remote", "http://playwright-mcp:8931/mcp", "--allow-http"]
+startup_timeout_sec = 60
+tool_timeout_sec = 180
+
+[mcp_servers."chrome-devtools"]
+command = "npx"
+args = [
+"-y",
+"chrome-devtools-mcp@latest",
+"--browser-url=http://localhost:9222"
+]
+startup_timeout_sec = 20
+
+[projects]
+[projects."/data"]
+trust_level = "trusted"
+
+[projects."/app/server"]
+trust_level = "trusted"
+cli_auth_credentials_store = "file"

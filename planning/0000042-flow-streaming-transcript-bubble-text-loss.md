@@ -362,11 +362,16 @@ Fix the proven root-cause path in `useChatStream` where a stale `assistant_delta
 
 #### Documentation Locations
 
-- React 19.2 refs guidance: https://react.dev/reference/react/useRef
-- React 19.2 state updates and rendering guidance: https://react.dev/learn/state-as-a-snapshot
-- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
-- React Testing Library docs (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
-- WebSocket browser API reference: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- React 19.2 `useRef`: https://react.dev/reference/react/useRef
+  - use this for the current ref semantics the hook relies on when storing inflight IDs, message IDs, and streamed text outside render state
+- React 19.2 state snapshots: https://react.dev/learn/state-as-a-snapshot
+  - use this for reasoning about why ref mutations do not re-render and why visible bubble updates must still flow through state sync helpers
+- Jest 30 getting started: https://jestjs.io/docs/getting-started
+  - use this for the current test runner, assertions, and mocking model used by the client test suite
+- React Testing Library (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
+  - use this for `renderHook`, `act`, `screen`, and `waitFor` patterns used in the hook regressions
+- WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+  - use this for the event-driven transport model the client hook is reacting to
 
 #### Subtasks
 
@@ -452,11 +457,16 @@ Handle the `user_turn` branch separately from later transcript events. This task
 
 #### Documentation Locations
 
-- React 19.2 refs guidance: https://react.dev/reference/react/useRef
-- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
-- React Testing Library docs (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
-- React 19.2 effect synchronization guidance: https://react.dev/learn/synchronizing-with-effects
-- WebSocket browser API reference: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- React 19.2 `useRef`: https://react.dev/reference/react/useRef
+  - use this for the ref ownership rules that apply to `inflightIdRef`, assistant pointers, and other mutable values inside `useChatStream`
+- Jest 30 getting started: https://jestjs.io/docs/getting-started
+  - use this for the client-side regression test structure and current mocking/assertion behavior
+- React Testing Library (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
+  - use this for hook-test APIs such as `renderHook`, `act`, and `waitFor`
+- React 19.2 effect synchronization: https://react.dev/learn/synchronizing-with-effects
+  - use this for understanding how websocket-driven updates should synchronize with rendered state
+- WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+  - use this for the event ownership model the `user_turn` path participates in
 
 #### Subtasks
 
@@ -536,11 +546,16 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
 
 #### Documentation Locations
 
-- React 19.2 refs guidance: https://react.dev/reference/react/useRef
-- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
-- React Testing Library docs (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
-- React 19.2 effect synchronization guidance: https://react.dev/learn/synchronizing-with-effects
-- WebSocket browser API reference: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- React 19.2 `useRef`: https://react.dev/reference/react/useRef
+  - use this for the shared mutable refs that collect reasoning, warnings, tool state, and snapshot text between renders
+- Jest 30 getting started: https://jestjs.io/docs/getting-started
+  - use this for the regression test structure used in the hook and page suites
+- React Testing Library (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
+  - use this for hook and component test helpers used in the current client suite
+- React 19.2 effect synchronization: https://react.dev/learn/synchronizing-with-effects
+  - use this for reasoning about non-final event updates reaching the rendered transcript
+- WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+  - use this for the non-final event delivery model being filtered in this task
 
 #### Subtasks
 
@@ -626,9 +641,12 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
 
 #### Documentation Locations
 
-- React 19.2 effect synchronization guidance: https://react.dev/learn/synchronizing-with-effects
-- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
-- WebSocket message event reference: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
+- React 19.2 effect synchronization: https://react.dev/learn/synchronizing-with-effects
+  - use this for understanding how late async completion should update state without corrupting newer rendered work
+- Jest 30 getting started: https://jestjs.io/docs/getting-started
+  - use this for updating the existing late-final regression tests
+- WebSocket message event: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
+  - use this for the final event lifecycle that delivers `turn_final` into the client
 
 #### Subtasks
 
@@ -702,10 +720,14 @@ Keep same-inflight lower-sequence filtering owned by `useChatWs`. This task is i
 
 #### Documentation Locations
 
-- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
-- WebSocket browser API reference: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- WebSocket message event reference: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
-- React 19.2 effect synchronization guidance: https://react.dev/learn/synchronizing-with-effects
+- Jest 30 getting started: https://jestjs.io/docs/getting-started
+  - use this for the websocket-layer regression tests in `useChatWs.test.ts`
+- WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+  - use this for the `send`, `close`, and connection lifecycle behavior modeled by the hook
+- WebSocket message event: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
+  - use this for the stale-packet filtering path that receives transcript events
+- React 19.2 effect synchronization: https://react.dev/learn/synchronizing-with-effects
+  - use this for how filtered transport events should affect downstream rendered state
 
 #### Subtasks
 
@@ -785,11 +807,16 @@ Prove the user-visible Flow behavior is fixed in the actual page during the live
 #### Documentation Locations
 
 - React Router 7 docs (`react-router-dom` 7.9.6 in this repo): https://reactrouter.com/home
-- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
-- React Testing Library docs (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
-- Testing Library user-event docs (`@testing-library/user-event` 14.x): https://testing-library.com/docs/user-event/intro/
+  - use this for the router/provider APIs used by the Flow page test setup
+- Jest 30 getting started: https://jestjs.io/docs/getting-started
+  - use this for the test runner and mocking behavior used in the Flow page suite
+- React Testing Library (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
+  - use this for rendering the page and asserting live transcript content
+- Testing Library user-event (`@testing-library/user-event` 14.x): https://testing-library.com/docs/user-event/intro/
+  - use this for any user-driven interactions needed to start or control Flow runs in tests
 - MUI 6.x docs reference for current `FlowsPage` component patterns:
   - MUI MCP `@mui/material@6.4.12`
+  - use this because `FlowsPage.tsx` is built from MUI components and page-level changes should keep to the current MUI 6.x patterns already in the app
 
 #### Subtasks
 
@@ -863,11 +890,16 @@ Apply the smallest Flow-page-only fix only if the new live Flow regression from 
 #### Documentation Locations
 
 - React Router 7 docs (`react-router-dom` 7.9.6 in this repo): https://reactrouter.com/home
-- Jest 30 docs: Context7 `/websites/jestjs_io_30_0`
-- React Testing Library docs (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
-- Testing Library user-event docs (`@testing-library/user-event` 14.x): https://testing-library.com/docs/user-event/intro/
+  - use this for the page routing context that still wraps `FlowsPage` during tests and manual validation
+- Jest 30 getting started: https://jestjs.io/docs/getting-started
+  - use this for the conditional page-level regression and mocking workflow
+- React Testing Library (`@testing-library/react` 16.x): https://testing-library.com/docs/react-testing-library/intro/
+  - use this for verifying the page-level hardening did not change visible transcript behavior
+- Testing Library user-event (`@testing-library/user-event` 14.x): https://testing-library.com/docs/user-event/intro/
+  - use this for any user-triggered navigation or interaction around the Flow page
 - MUI 6.x docs reference for current `FlowsPage` component patterns:
   - MUI MCP `@mui/material@6.4.12`
+  - use this because any page-level hardening must preserve the existing MUI 6.x component APIs and layout patterns
 
 #### Subtasks
 
@@ -939,8 +971,10 @@ Update the repo documentation so future developers can understand the root cause
 
 #### Documentation Locations
 
-- Markdown syntax reference: https://www.markdownguide.org/basic-syntax/
-- Mermaid syntax: Context7 `/mermaid-js/mermaid`
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/
+  - use this for updating README, design, and project structure files in the style already used by the repo
+- Mermaid docs: https://mermaid.js.org/intro/
+  - use this if the design notes need diagram updates while documenting the streaming fix
 
 #### Subtasks
 
@@ -1004,10 +1038,14 @@ Perform the final acceptance pass for the story. This task must confirm the shar
 
 #### Documentation Locations
 
-- Docker/Compose: Context7 `/docker/docs`
-- Playwright: Context7 `/microsoft/playwright`
-- Jest: Context7 `/websites/jestjs_io_30_0`
-- Markdown syntax reference: https://www.markdownguide.org/basic-syntax/
+- Docker docs: https://docs.docker.com/
+  - use this for the compose lifecycle and container validation steps in the final acceptance pass
+- Playwright docs: https://playwright.dev/docs/intro
+  - use this for the manual validation workflow and screenshot capture expectations in the final task
+- Jest 30 getting started: https://jestjs.io/docs/getting-started
+  - use this for interpreting the final automated client regression run results
+- Markdown basic syntax: https://www.markdownguide.org/basic-syntax/
+  - use this for writing the final acceptance notes and pull request summary comment
 
 #### Subtasks
 

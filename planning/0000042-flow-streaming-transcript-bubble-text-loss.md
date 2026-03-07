@@ -444,14 +444,22 @@ Extend the same inflight-safety rule to the other non-final websocket events tha
      - stale `tool_event` is ignored
      - stale `stream_warning` is ignored
      - stale `inflight_snapshot` is ignored
-4. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the broader non-final filtering does not break them.
+4. [ ] Add hook-level ordering coverage for non-`assistant_delta` events where an older same-inflight event arrives after newer state.
+   - Files to edit/create:
+     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+   - Required assertions:
+     - a lower-sequence same-inflight `analysis_delta` does not replace newer visible reasoning text
+     - a lower-sequence same-inflight `tool_event` does not replace newer visible tool state
+   - Constraint:
+     - keep this test focused on the shared hook and `status='idle'` lifecycle so it proves the ordering rule at the source of truth
+5. [ ] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the broader non-final filtering does not break them.
    - Files to read/edit only if failures require updates:
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/agentsPage.streaming.test.tsx`
-5. [ ] Update this story file’s Implementation notes for Task 2 once the code and tests are complete.
+6. [ ] Update this story file’s Implementation notes for Task 2 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-6. [ ] Repo-wide lint + format gate for this task.
+7. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -568,19 +576,26 @@ Prove the user-visible Flow behavior is fixed in the actual page. Only if the sh
    - Required assertions:
      - first bubble text remains visible after the next step starts
      - stale earlier-step events do not remove that text from the live UI
-3. [ ] Only if the new page regression still fails after Tasks 1–3 are complete, apply the smallest `FlowsPage` hardening needed around active conversation visibility/reset behavior.
+3. [ ] Add a Flow-page regression that remounts or revisits the Flow transcript after the live run scenario and proves the same bubble text remains visible without relying on reload to recover missing content.
+   - Files to edit/create:
+     - `client/src/test/flowsPage.run.test.tsx`
+   - Required assertions:
+     - the earlier bubble text is still present immediately before remount/navigation
+     - the same text is still present after remount/navigation
+     - the test proves reload/remount parity rather than masking a live-loss defect
+4. [ ] Only if the new page regressions still fail after Tasks 1–3 are complete, apply the smallest `FlowsPage` hardening needed around active conversation visibility/reset behavior.
    - Files to edit only if required:
      - `client/src/pages/FlowsPage.tsx`
    - Constraint:
      - do not add Flow-only fake `sending` state
      - do not widen scope into unrelated sidebar/filter work
-4. [ ] Re-run the Flow regression and nearby Flow tests after any page-level change.
+5. [ ] Re-run the Flow regressions and nearby Flow tests after any page-level change.
    - Files to read/edit only if failures require updates:
      - `client/src/test/flowsPage.test.tsx`
-5. [ ] Update this story file’s Implementation notes for Task 4 once the code and tests are complete.
+6. [ ] Update this story file’s Implementation notes for Task 4 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-6. [ ] Repo-wide lint + format gate for this task.
+7. [ ] Repo-wide lint + format gate for this task.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -687,11 +702,19 @@ Perform the final acceptance pass for the story. This task must confirm the shar
 3. [ ] Verify the story acceptance criteria one by one against the implemented behavior and note the outcome in this story file.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-4. [ ] Update `design.md` and `projectStructure.md` again if the final implementation introduced any last-minute file or behavior changes not yet documented.
+4. [ ] Verify that websocket message shapes, REST payload shapes, and persistence storage shapes were not changed by this story.
+   - Files to inspect:
+     - `server/src/ws/sidebar.ts`
+     - `server/src/mongo/repo.ts`
+     - any shared websocket or conversation type files touched during implementation
+   - Required outcome:
+     - confirm the fix stayed in client-side stream handling and tests unless an unavoidable shape change was explicitly documented and justified
+     - record the result in this story file’s Implementation notes
+5. [ ] Update `design.md` and `projectStructure.md` again if the final implementation introduced any last-minute file or behavior changes not yet documented.
    - Files to edit if needed:
      - `design.md`
      - `projectStructure.md`
-5. [ ] Start the compose stack and perform a manual Playwright MCP check of a known multi-step Flow such as `flows/implement_next_plan.json`.
+6. [ ] Start the compose stack and perform a manual Playwright MCP check of a known multi-step Flow such as `flows/implement_next_plan.json`.
    - Required screenshots:
      - `test-results/screenshots/0000042-06-flow-before-fix-validation.png`
      - `test-results/screenshots/0000042-06-flow-during-second-step.png`
@@ -699,13 +722,13 @@ Perform the final acceptance pass for the story. This task must confirm the shar
    - Required visual checks:
      - earlier assistant bubble text remains visible while the next step streams
      - no obvious Chat or Agents streaming regression
-6. [ ] Write a pull request summary comment covering:
+7. [ ] Write a pull request summary comment covering:
    - root cause
    - files changed
    - tests run
    - residual risks if any
    - Files to edit/create as agreed by the repo workflow
-7. [ ] Repo-wide lint + format gate as the final subtask.
+8. [ ] Repo-wide lint + format gate as the final subtask.
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

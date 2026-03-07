@@ -55,6 +55,38 @@ This story does not assume the server or persistence layer is broken. The curren
 
 - None. The initial investigation questions have been answered and converted into implementation guidance below.
 
+## Research Notes
+
+- Scope verdict:
+  - This story is well scoped as a client-side live streaming state bug fix.
+  - Current evidence does not justify widening the story into server contract, websocket schema, or persistence work.
+
+- Why the scope is considered correct:
+  - The branch already contains a deterministic failing hook regression (`client/src/test/useChatStream.inflightMismatch.test.tsx`) proving stale `assistant_delta` data for an earlier inflight can overwrite the currently active shared assistant refs during a Flow-style websocket lifecycle.
+  - `useChatStream` currently guards inflight mismatches for non-final events only when `status === 'sending'`, but Flow runs usually stay `idle` because they do not use the normal `send()` path.
+  - Server websocket events already carry `inflightId`, and Flow execution emits step-level inflight transitions, so the client has the information needed to reject stale non-final events without changing contracts.
+  - The bug is transient and rehydration restores the missing text, which is consistent with live client-state corruption rather than lost persisted data.
+
+- What was checked during research:
+  - Repo code paths:
+    - `client/src/hooks/useChatStream.ts`
+    - `client/src/pages/FlowsPage.tsx`
+    - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+    - `server/src/ws/types.ts`
+    - `server/src/flows/service.ts`
+    - `server/src/ws/sidebar.ts`
+    - `server/src/mongo/repo.ts`
+  - External guidance:
+    - React docs for `useRef` note that refs are mutable, do not trigger re-render, and are not appropriate for values that drive rendered output if those values can become stale or inconsistent.
+
+- Remaining known uncertainty:
+  - `FlowsPage` has a separate conversation-visibility reset path tied to `flowConversations`. That logic may still cause additional transient UI loss even after the primary hook fix lands.
+  - Based on current evidence, this should stay a secondary safeguard within the same story only if residual text disappearance remains after the `useChatStream` fix and regression tests.
+
+- Tool availability note:
+  - DeepWiki MCP is not currently usable for this repository because the repo is not indexed there.
+  - Context7 was attempted for React/Codex reference material, but the configured Context7 access failed during this pass, so primary web sources and direct code inspection were used instead.
+
 ## Implementation Ideas
 
 - Investigation timestamp context:

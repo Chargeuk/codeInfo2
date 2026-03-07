@@ -879,7 +879,7 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 
 ### 4. Shared hook safeguard: late `turn_final` must remain non-destructive
 
-- Task Status: `__to_do__`
+- Task Status: `__completed__`
 - Git Commits:
 
 #### Overview
@@ -901,7 +901,7 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
 
 #### Subtasks
 
-1. [ ] Read the existing `turn_final` handling before changing code.
+1. [x] Read the existing `turn_final` handling before changing code.
    - Files to read:
      - `client/src/hooks/useChatStream.ts`
      - `client/src/test/chatPage.stream.test.tsx`
@@ -912,7 +912,7 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
    - Documentation for this subtask:
      - React 19.2 effect synchronization: https://react.dev/learn/synchronizing-with-effects
      - WebSocket message events: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
-2. [ ] Update `client/src/hooks/useChatStream.ts` only as needed to preserve non-destructive late-final behavior while the stricter mismatch filtering is in place.
+2. [x] Update `client/src/hooks/useChatStream.ts` only as needed to preserve non-destructive late-final behavior while the stricter mismatch filtering is in place.
    - Files to edit only if needed:
      - `client/src/hooks/useChatStream.ts`
    - Documentation for this subtask:
@@ -923,7 +923,7 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
      - valid finalization data for the matching inflight must still be applied correctly
    - When this subtask is complete:
      - older finals update only their own completed bubble metadata and do not clear or overwrite the newer inflight
-3. [ ] Add or update a structured client log line for preserved late `turn_final` handling.
+3. [x] Add or update a structured client log line for preserved late `turn_final` handling.
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
    - Start here in code:
@@ -940,7 +940,7 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
      - give the Manual Playwright-MCP check a stable marker proving a late final was handled without damaging the newer inflight
    - When this subtask is complete:
      - a late older-inflight final emits `chat.ws.client_turn_final_preserved` when the current inflight is intentionally left intact
-4. [ ] Add a Chat page late-`turn_final` regression test.
+4. [x] Add a Chat page late-`turn_final` regression test.
    - Test type:
      - page integration regression test
    - Location:
@@ -961,7 +961,7 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
      - reuse the websocket emit helpers from `client/src/test/support/mockChatWs.ts`
    - When this subtask is complete:
      - the test proves an older inflight can finalize without changing the visible newer chat bubble
-5. [ ] Add an Agents page late-`turn_final` regression test.
+5. [x] Add an Agents page late-`turn_final` regression test.
    - Test type:
      - page integration regression test
    - Location:
@@ -982,7 +982,7 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
      - reuse the websocket emit helpers from `client/src/test/support/mockChatWs.ts`
    - When this subtask is complete:
      - the test proves an older inflight final cannot overwrite or clear the visible newer agent run
-6. [ ] Add a matching-inflight `turn_final` happy-path regression test.
+6. [x] Add a matching-inflight `turn_final` happy-path regression test.
    - Test type:
      - page integration regression test
    - Location:
@@ -1003,7 +1003,7 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
      - reuse the same chat harness setup and websocket emit helpers as the late-final tests above
    - When this subtask is complete:
      - the test proves a matching inflight still finishes normally after the stale-event protections were added
-7. [ ] Re-run shared consumer regression checks after the late-final changes.
+7. [x] Re-run shared consumer regression checks after the late-final changes.
    - Files to read/edit only if failures require updates:
      - `client/src/test/useChatStream.inflightMismatch.test.tsx`
      - `client/src/test/chatPage.stream.test.tsx`
@@ -1013,7 +1013,7 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
    - Use the commands in this task's `Testing` section after all Task 4 code and test-writing subtasks are complete.
    - When this subtask is complete:
      - the late-final regressions pass in chat and agents, and no shared-hook mismatch test regressed
-8. [ ] Update `design.md` with the preserved late-final rule and any affected mermaid diagram.
+8. [x] Update `design.md` with the preserved late-final rule and any affected mermaid diagram.
    - Files to edit:
      - `design.md`
    - Documentation for this subtask:
@@ -1021,25 +1021,40 @@ Keep `turn_final` handling safe after the earlier shared-hook changes land. This
    - Required content:
      - document why `turn_final` remains special compared with non-final event filtering
      - update any completion/finalization mermaid diagram affected by this behavior
-9. [ ] Update this story file’s Implementation notes for Task 4 once the code and tests are complete.
+9. [x] Update this story file’s Implementation notes for Task 4 once the code and tests are complete.
    - Files to edit:
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task4-late-final-preserved.png`, review that screenshot to confirm the newer visible bubble remains intact when a late older final arrives, and confirm the debug console contains `chat.ws.client_turn_final_preserved` with `reason: 'late_final_non_destructive'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use because this task changes client code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use because client behavior changes in this task. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands if needed. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check at http://host.docker.internal:5001. Save a screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task4-late-final-preserved.png`, review that screenshot to confirm the newer visible bubble remains intact when a late older final arrives, and confirm the debug console contains `chat.ws.client_turn_final_preserved` with `reason: 'late_final_non_destructive'` and no unexpected console errors. This folder is mapped in `docker-compose.local.yml`.
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Reviewed the `turn_final` branch plus the existing chat and agents late-final tests; the hook already has a non-destructive mismatch path, but it does not emit the Task 4 preservation marker yet.
+- Kept the `turn_final` branch special and only changed the late-final path as needed; the main safeguard was stopping late older finals from overwriting shared `threadId` while still leaving their own bubble metadata intact.
+- Added `chat.ws.client_turn_final_preserved` with the required late-final payload so the manual browser replay can prove the current inflight was intentionally left untouched.
+- Updated the Chat late-final regression to assert both bubbles keep their own text and completed state after the older final arrives.
+- Updated the Agents late-final regression to assert the older bubble finalizes while the newer bubble stays processing and visible.
+- Added a Chat matching-inflight `turn_final` regression proving the active bubble still completes normally with its text preserved.
+- Re-ran the shared hook mismatch suite plus the Chat and Agents streaming suites; all late-final and shared-consumer regressions stayed green after the `threadId` safeguard and preservation log were added.
+- Updated `design.md` to document why `turn_final` remains special, the preserved late-final behavior, and the `chat.ws.client_turn_final_preserved` marker used in manual validation.
+- Ran repo lint and format checks; Prettier initially flagged the Chat streaming test after the new assertions were added, so the client format script was rerun and the follow-up checks passed while the existing server import-order warnings remained unchanged.
+- `npm run build:summary:client` passed; the only warning in `logs/test-summaries/build-client-latest.log` was the existing Vite chunk-size warning rather than a Task 4 regression.
+- `npm run test:summary:client` passed with 481/481 tests green after the late-final preservation log and thread-id safeguard were added.
+- `npm run compose:build:summary` passed cleanly with both compose build targets green.
+- `npm run compose:up` brought the local stack up cleanly with healthy server and client containers for the Task 4 browser replay.
+- Manual Playwright validation on `http://host.docker.internal:5001/chat` injected a two-inflight late-final sequence into the real browser WebSocket client, saved `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000042-task4-late-final-preserved.png`, confirmed the screenshot kept the newer bubble processing while the older bubble completed, and verified `chat.ws.client_turn_final_preserved` with `reason: 'late_final_non_destructive'`; browser console error output stayed empty.
+- Recorded the completed Task 4 implementation and validation trail here after the wrapper pass, browser replay, and screenshot review finished.
+- `npm run compose:down` stopped the local stack cleanly after the manual late-final validation.
 
 ---
 

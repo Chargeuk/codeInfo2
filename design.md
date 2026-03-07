@@ -3744,7 +3744,8 @@ Assistant bubble binding invariant (Task 30):
 - `analysis_delta`, `tool_event`, and `stream_warning` follow the same stale-inflight rule: if they arrive for an older inflight while a newer one is active, the hook ignores the event before mutating reasoning text, tool state, or warning refs and emits `chat.ws.client_non_final_ignored` with the relevant `eventType`.
 - `inflight_snapshot` uses the same ownership marker with one extra rule: a snapshot for an unseen next inflight is still allowed to create the next assistant bubble, but a replay for an already-mapped older inflight is ignored and logged with `chat.ws.client_non_final_ignored`.
 - The `send()` path forces creation of a new assistant bubble even when the previous assistant bubble is still `processing` (for example after pressing **Stop**).
-- When a `turn_final` arrives for a non-current `inflightId` while a new run is `sending`, the UI updates only that older bubble’s status (no global streaming state changes and no content overwrite).
+- `turn_final` remains intentionally different from non-final events: when a late final arrives for an older inflight, the hook updates only that older bubble’s completion state and metadata, leaves the newer active inflight and shared `threadId` intact, and emits `chat.ws.client_turn_final_preserved`.
+- When a `turn_final` arrives for the matching inflight, the active bubble still completes normally and retains its text, metadata, and status transition.
 
 ```mermaid
 sequenceDiagram
@@ -3777,6 +3778,9 @@ sequenceDiagram
   WS->>Hook: inflight_snapshot(i1 replay)
   Hook-->>Hook: mapped older inflight -> ignore snapshot
   Hook-->>WS: log chat.ws.client_non_final_ignored
+  WS->>Hook: turn_final(i1 late)
+  Hook-->>WS: log chat.ws.client_turn_final_preserved
+  Hook->>Bubble1: mark only i1 complete
   Hook->>Bubble1: keep existing text
   Hook->>Bubble2: keep active inflight ownership
 ```
@@ -3798,6 +3802,11 @@ sequenceDiagram
   - `ignoredInflightId`
   - `activeInflightId`
   - `reason: 'stale_inflight'`
+- Manual verification for preserved late finals uses `chat.ws.client_turn_final_preserved` with:
+  - `conversationId`
+  - `finalInflightId`
+  - `activeInflightId`
+  - `reason: 'late_final_non_destructive'`
 
 ```mermaid
 sequenceDiagram

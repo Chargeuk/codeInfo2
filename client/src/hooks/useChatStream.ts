@@ -1569,10 +1569,6 @@ export function useChatStream(
       if (event.type === 'turn_final') {
         const assistantId = resolveAssistantId();
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
-        if (event.threadId !== undefined) {
-          setThreadId(event.threadId ?? null);
-          threadIdRef.current = event.threadId ?? null;
-        }
 
         const usage = normalizeUsage(event.usage);
         const timing = normalizeTiming(event.timing);
@@ -1606,6 +1602,17 @@ export function useChatStream(
         const isOutOfBandFinal =
           preMappedAssistantId !== null &&
           currentInflightId !== eventInflightId;
+        const preservesActiveInflight =
+          currentInflightId !== null && currentInflightId !== eventInflightId;
+
+        if (preservesActiveInflight) {
+          logWithChannel('info', 'chat.ws.client_turn_final_preserved', {
+            conversationId: event.conversationId,
+            finalInflightId: eventInflightId,
+            activeInflightId: currentInflightId,
+            reason: 'late_final_non_destructive',
+          });
+        }
 
         if (inflightMismatch || isOutOfBandFinal) {
           syncAssistantMessage(
@@ -1623,6 +1630,10 @@ export function useChatStream(
 
         inflightIdRef.current = eventInflightId;
         setInflightId(eventInflightId);
+        if (event.threadId !== undefined) {
+          setThreadId(event.threadId ?? null);
+          threadIdRef.current = event.threadId ?? null;
+        }
 
         clearThinkingTimer();
         setIsStreaming(false);

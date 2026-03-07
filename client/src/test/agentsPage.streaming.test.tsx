@@ -444,13 +444,25 @@ describe('AgentsPage live transcript (WS)', () => {
     });
 
     const bubbleB = await screen.findByText('Run B');
-    const bubbleNode = bubbleB.closest('[data-testid="chat-bubble"]');
-    if (!bubbleNode) {
+    const newerBubbleNode = bubbleB.closest('[data-testid="chat-bubble"]');
+    if (!newerBubbleNode) {
       throw new Error('Missing chat-bubble wrapper for Run B');
     }
-    expect(within(bubbleNode).getByTestId('status-chip')).toHaveTextContent(
-      'Processing',
-    );
+    const bubbleA = await screen.findByText('Run A');
+    const olderBubbleNode = bubbleA.closest('[data-testid="chat-bubble"]');
+    if (!olderBubbleNode) {
+      throw new Error('Missing chat-bubble wrapper for Run A');
+    }
+    await waitFor(() => {
+      expect(
+        within(newerBubbleNode).getByTestId('status-chip'),
+      ).toHaveTextContent('Processing');
+      expect(
+        within(olderBubbleNode).getByTestId('status-chip'),
+      ).toHaveTextContent('Complete');
+      expect(within(newerBubbleNode).getByText('Run B')).toBeInTheDocument();
+      expect(within(olderBubbleNode).getByText('Run A')).toBeInTheDocument();
+    });
   });
 
   it('multiple inflight snapshots in one command run create separate assistant bubbles', async () => {

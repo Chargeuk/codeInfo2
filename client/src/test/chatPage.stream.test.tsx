@@ -373,8 +373,87 @@ describe('Chat WS streaming UI', () => {
       status: 'stopped',
     });
 
-    await screen.findByText('Second reply');
-    await screen.findByText('Partial reply');
+    const newerBubble = await screen.findByText('Second reply');
+    const newerBubbleNode = newerBubble.closest('[data-testid="chat-bubble"]');
+    if (!newerBubbleNode) {
+      throw new Error('Missing chat-bubble wrapper for newer reply');
+    }
+    const olderBubble = await screen.findByText('Partial reply');
+    const olderBubbleNode = olderBubble.closest('[data-testid="chat-bubble"]');
+    if (!olderBubbleNode) {
+      throw new Error('Missing chat-bubble wrapper for older reply');
+    }
+
+    await waitFor(() => {
+      expect(
+        within(newerBubbleNode).getByTestId('status-chip'),
+      ).toHaveTextContent('Complete');
+      expect(
+        within(olderBubbleNode).getByTestId('status-chip'),
+      ).toHaveTextContent('Complete');
+      expect(
+        within(newerBubbleNode).getByText('Second reply'),
+      ).toBeInTheDocument();
+      expect(
+        within(olderBubbleNode).getByText('Partial reply'),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('keeps matching-inflight text intact when turn_final completes the active bubble', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello final' } });
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId,
+      delta: 'Completed reply',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId,
+      status: 'ok',
+    });
+
+    const completedBubble = await screen.findByText('Completed reply');
+    const completedBubbleNode = completedBubble.closest(
+      '[data-testid="chat-bubble"]',
+    );
+    if (!completedBubbleNode) {
+      throw new Error('Missing chat-bubble wrapper for completed reply');
+    }
+
+    await waitFor(() => {
+      expect(
+        within(completedBubbleNode).getByTestId('status-chip'),
+      ).toHaveTextContent('Complete');
+      expect(
+        within(completedBubbleNode).getByText('Completed reply'),
+      ).toBeInTheDocument();
+    });
   });
 
   it('treats transient reconnect notices as warnings (no failed bubble)', async () => {

@@ -1,16 +1,20 @@
 #!/usr/bin/env node
 // Purpose: reduce token usage by printing only a compact server unit summary in the terminal.
 // Use: `npm run test:summary:server:unit` from repository root.
-// Behavior: builds the server workspace, runs node:test suites, writes full output to test-results/,
-// and prints only total/passed/failed counts plus failing test names when present.
+// Behavior: builds the server workspace, runs node:test suites, streams full output to test-results/,
+// and prints the shared heartbeat/final-action protocol plus total/passed/failed counts and failing test names when present.
 // Optional targeting:
 //   --file <path>       repeatable; run only selected test files.
 //   --test-name <expr>  forwarded to node --test-name-pattern.
 
-import { spawn } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import {
+  createSummaryLogStream,
+  createSummaryWrapperProtocol,
+  runLoggedCommand,
+} from './summary-wrapper-protocol.mjs';
 
 const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -23,8 +27,6 @@ const timestamp = new Date()
   .replaceAll(':', '-')
   .replaceAll('.', '-');
 const logPath = path.join(resultsDir, `server-unit-tests-${timestamp}.log`);
-
-mkdirSync(resultsDir, { recursive: true });
 
 const args = process.argv.slice(2);
 const options = {
@@ -64,35 +66,6 @@ for (let i = 0; i < args.length; i += 1) {
   process.exit(1);
 }
 
-const run = (cmd, argsValue, cwd, env = process.env) =>
-  new Promise((resolve) => {
-    const child = spawn(cmd, argsValue, {
-      cwd,
-      env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    let output = '';
-    let settled = false;
-    const finish = (code) => {
-      if (settled) return;
-      settled = true;
-      resolve({ code: code ?? 1, output });
-    };
-    child.stdout.on('data', (chunk) => {
-      output += chunk.toString();
-    });
-    child.stderr.on('data', (chunk) => {
-      output += chunk.toString();
-    });
-    child.on('error', (err) => {
-      const message = err?.message ?? String(err);
-      output += `\nSpawn error: ${message}\n`;
-      finish(1);
-    });
-    child.on('close', (code) => finish(code));
-  });
-
 const normalizeServerPath = (value) => {
   if (path.isAbsolute(value)) return value;
   const normalized = value.replace(/\\/g, '/');
@@ -124,11 +97,25 @@ const parseFailureNames = (output) => {
   return [...names];
 };
 
-const buildResult = await run(
-  'npm',
-  ['run', 'build', '--workspace', 'server'],
-  rootDir,
-);
+const logStream = createSummaryLogStream(logPath);
+const protocol = createSummaryWrapperProtocol({
+  wrapperName: 'server:unit',
+  logPath,
+  logDisplayPath: path.relative(rootDir, logPath),
+  initialPhase: 'build',
+});
+
+protocol.startHeartbeat();
+
+const buildResult = await runLoggedCommand({
+  cmd: 'npm',
+  args: ['run', 'build', '--workspace', 'server'],
+  cwd: rootDir,
+  logStream,
+  protocol,
+  phase: 'build',
+  bannerPrefix: '',
+});
 
 const defaultFiles = [
   'src/test/unit/*.test.ts',
@@ -159,27 +146,34 @@ const unitEnv = {
     '--import ./scripts/register-ts-node-esm-loader.mjs --trace-uncaught --disable-warning=DEP0180',
 };
 
-let output = '';
-output += '$ npm run build --workspace server\n';
-output += buildResult.output;
-
 let exitCode = buildResult.code;
+let output = buildResult.output;
 if (buildResult.code === 0) {
-  const testResult = await run('node', testArgs, serverDir, unitEnv);
-  output += `\n$ node ${testArgs.join(' ')}\n`;
+  const testResult = await runLoggedCommand({
+    cmd: 'node',
+    args: testArgs,
+    cwd: serverDir,
+    env: unitEnv,
+    logStream,
+    protocol,
+    phase: 'test',
+  });
   output += testResult.output;
   exitCode = testResult.code;
 }
 
-writeFileSync(logPath, output, 'utf8');
+await new Promise((resolve) => logStream.end(resolve));
 
 if (buildResult.code !== 0) {
-  console.log(`[server:unit] log: ${path.relative(rootDir, logPath)}`);
   console.log('[server:unit] tests run: 0');
   console.log('[server:unit] passed: 0');
   console.log('[server:unit] failed: 1');
   console.log('[server:unit] failing tests:');
   console.log('- build failed');
+  protocol.emitFinal({
+    status: 'failed',
+    reason: 'build_failed',
+  });
   process.exit(buildResult.code);
 }
 
@@ -187,8 +181,9 @@ const total = sumFromMatches(output, /^# tests (\d+)$/gim);
 const passed = sumFromMatches(output, /^# pass (\d+)$/gim);
 const failed = sumFromMatches(output, /^# fail (\d+)$/gim);
 const failingNames = parseFailureNames(output);
+const status = exitCode === 0 ? 'passed' : 'failed';
+const ambiguousCounts = status === 'passed' && total === 0;
 
-console.log(`[server:unit] log: ${path.relative(rootDir, logPath)}`);
 console.log(`[server:unit] tests run: ${total}`);
 console.log(`[server:unit] passed: ${passed}`);
 console.log(`[server:unit] failed: ${failed}`);
@@ -198,5 +193,16 @@ if (failingNames.length > 0) {
     console.log(`- ${name}`);
   }
 }
+
+protocol.emitFinal({
+  status,
+  ambiguousCounts,
+  reason:
+    status === 'passed'
+      ? ambiguousCounts
+        ? 'ambiguous_counts'
+        : 'clean_success'
+      : 'test_failed',
+});
 
 process.exit(exitCode);

@@ -2,17 +2,21 @@
 // Purpose: reduce token usage by printing only a compact e2e summary in the terminal.
 // Use: `npm run test:summary:e2e` from repository root.
 // Behavior: runs compose build/up, executes Playwright e2e tests with JSON reporter, always performs teardown,
-// and prints only total/passed/failed counts plus failing test names.
+// and prints the shared heartbeat/final-action protocol plus total/passed/failed counts and failing test names.
 // Logging: writes full output to logs/test-summaries/e2e-tests-latest.log on every run (overwrites previous run).
 // Optional targeting:
 //   --file <path>  repeatable; forwarded as Playwright test file selectors.
 //   --grep <expr>  forwarded to Playwright --grep.
 // Why: this keeps routine AI-assisted runs low-noise while still preserving full logs when failures need diagnosis.
 
-import { spawn } from 'node:child_process';
-import { createWriteStream, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import {
+  createSummaryLogStream,
+  createSummaryWrapperProtocol,
+  runLoggedCommand,
+} from './summary-wrapper-protocol.mjs';
 
 const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -21,8 +25,15 @@ const rootDir = path.resolve(
 const resultsDir = path.join(rootDir, 'logs', 'test-summaries');
 const logPath = path.join(resultsDir, 'e2e-tests-latest.log');
 
-mkdirSync(resultsDir, { recursive: true });
-const logStream = createWriteStream(logPath, { flags: 'w' });
+const logStream = createSummaryLogStream(logPath);
+const protocol = createSummaryWrapperProtocol({
+  wrapperName: 'e2e',
+  logPath,
+  logDisplayPath: path.relative(rootDir, logPath),
+  initialPhase: 'compose_build',
+});
+
+protocol.startHeartbeat();
 
 const args = process.argv.slice(2);
 const options = {
@@ -61,43 +72,6 @@ for (let i = 0; i < args.length; i += 1) {
   console.error(`Unknown argument: ${arg}`);
   process.exit(1);
 }
-
-const writeLog = (text) => {
-  logStream.write(text.endsWith('\n') ? text : `${text}\n`);
-};
-
-const run = (cmd, args, { collectStdout = false } = {}) =>
-  new Promise((resolve) => {
-    const child = spawn(cmd, args, {
-      cwd: rootDir,
-      env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    let stdout = '';
-    let settled = false;
-    const finish = (code) => {
-      if (settled) return;
-      settled = true;
-      resolve({ code: code ?? 1, stdout });
-    };
-    writeLog(`\n$ ${cmd} ${args.join(' ')}`);
-
-    child.stdout.on('data', (chunk) => {
-      const text = chunk.toString();
-      if (collectStdout) stdout += text;
-      writeLog(text);
-    });
-    child.stderr.on('data', (chunk) => {
-      writeLog(chunk.toString());
-    });
-    child.on('error', (err) => {
-      const message = err?.message ?? String(err);
-      writeLog(`Spawn error: ${message}`);
-      finish(1);
-    });
-    child.on('close', (code) => finish(code));
-  });
 
 const parsePlaywrightJson = (stdout) => {
   const trimmed = stdout.trim();
@@ -205,21 +179,41 @@ let testExitCode = 1;
 let summary = { total: 0, passed: 0, failed: 0, failingNames: [] };
 let setupFailed = false;
 let teardownFailed = false;
+let parseFailed = false;
 
 try {
-  const buildResult = await run('npm', ['run', 'compose:e2e:build']);
+  const buildResult = await runLoggedCommand({
+    cmd: 'npm',
+    args: ['run', 'compose:e2e:build'],
+    cwd: rootDir,
+    logStream,
+    protocol,
+    phase: 'compose_build',
+    bannerPrefix: '',
+  });
   if (buildResult.code !== 0) {
     setupFailed = true;
   } else {
-    const upResult = await run('npm', ['run', 'e2e:up']);
+    const upResult = await runLoggedCommand({
+      cmd: 'npm',
+      args: ['run', 'e2e:up'],
+      cwd: rootDir,
+      logStream,
+      protocol,
+      phase: 'compose_up',
+    });
     if (upResult.code !== 0) {
       setupFailed = true;
     } else {
-      const testResult = await run(
-        'npm',
-        ['run', 'e2e:test', '--', '--reporter=json', ...playwrightArgs],
-        { collectStdout: true },
-      );
+      const testResult = await runLoggedCommand({
+        cmd: 'npm',
+        args: ['run', 'e2e:test', '--', '--reporter=json', ...playwrightArgs],
+        cwd: rootDir,
+        logStream,
+        protocol,
+        phase: 'test',
+        collectStdout: true,
+      });
       testExitCode = testResult.code;
       try {
         const report = parsePlaywrightJson(testResult.stdout);
@@ -227,6 +221,7 @@ try {
           throw new Error('Playwright JSON report not found in stdout');
         summary = collectSummary(report);
       } catch {
+        parseFailed = true;
         summary = {
           total: 0,
           passed: 0,
@@ -237,7 +232,14 @@ try {
     }
   }
 } finally {
-  const downResult = await run('npm', ['run', 'e2e:down']);
+  const downResult = await runLoggedCommand({
+    cmd: 'npm',
+    args: ['run', 'e2e:down'],
+    cwd: rootDir,
+    logStream,
+    protocol,
+    phase: 'teardown',
+  });
   if (downResult.code !== 0) {
     teardownFailed = true;
   }
@@ -268,6 +270,21 @@ if (summary.failingNames.length > 0) {
   }
 }
 
-console.log(`[e2e] log: ${path.relative(rootDir, logPath)}`);
+const status = exitCode === 0 ? 'passed' : 'failed';
+const ambiguousCounts =
+  parseFailed || (status === 'passed' && summary.total === 0);
+
+protocol.emitFinal({
+  status,
+  ambiguousCounts,
+  reason:
+    setupFailed || teardownFailed
+      ? 'setup_or_teardown_failed'
+      : status === 'passed'
+        ? ambiguousCounts
+          ? 'ambiguous_counts'
+          : 'clean_success'
+        : 'test_failed',
+});
 
 process.exit(exitCode);

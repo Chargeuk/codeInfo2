@@ -3139,7 +3139,7 @@ Do not add the same static gate to the client test wrapper. The test wrapper sho
 
 ### 21. Remaining wrapper heartbeat and agent-action rollout
 
-- Task Status: `__todo__`
+- Task Status: `__done__`
 - Git Commits:
   - None yet.
 
@@ -3160,29 +3160,44 @@ This task should not change what each wrapper actually runs. It should only chan
 
 #### Subtasks
 
-1. [ ] Update `scripts/build-summary-server.mjs` to use the shared heartbeat/agent-action protocol.
-2. [ ] Update `scripts/compose-build-summary.mjs` to use the shared heartbeat/agent-action protocol.
-3. [ ] Update `scripts/test-summary-server-unit.mjs` to use the shared heartbeat/agent-action protocol.
-4. [ ] Update `scripts/test-summary-server-cucumber.mjs` to use the shared heartbeat/agent-action protocol.
-5. [ ] Update `scripts/test-summary-client.mjs` to use the shared heartbeat/agent-action protocol.
-6. [ ] Update `scripts/test-summary-e2e.mjs` to use the shared heartbeat/agent-action protocol.
-7. [ ] Confirm each updated wrapper emits `agent_action: wait` while running, `agent_action: skip_log` on clean success, and `agent_action: inspect_log` on warnings/failure/ambiguous counts.
-8. [ ] Update Task 21 implementation notes continuously as each wrapper adopts the new protocol.
+1. [x] Update `scripts/build-summary-server.mjs` to use the shared heartbeat/agent-action protocol.
+2. [x] Update `scripts/compose-build-summary.mjs` to use the shared heartbeat/agent-action protocol.
+3. [x] Update `scripts/test-summary-server-unit.mjs` to use the shared heartbeat/agent-action protocol.
+4. [x] Update `scripts/test-summary-server-cucumber.mjs` to use the shared heartbeat/agent-action protocol.
+5. [x] Update `scripts/test-summary-client.mjs` to use the shared heartbeat/agent-action protocol.
+6. [x] Update `scripts/test-summary-e2e.mjs` to use the shared heartbeat/agent-action protocol.
+7. [x] Confirm each updated wrapper emits `agent_action: wait` while running, `agent_action: skip_log` on clean success, and `agent_action: inspect_log` on warnings/failure/ambiguous counts.
+8. [x] Update Task 21 implementation notes continuously as each wrapper adopts the new protocol.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run compose:build:summary`
-3. [ ] `npm run test:summary:server:unit`
-4. [ ] `npm run test:summary:server:cucumber`
-5. [ ] `npm run test:summary:client`
-6. [ ] `npm run test:summary:e2e`
-7. [ ] Confirm at least one long-running test wrapper emits a heartbeat with current log size.
-8. [ ] Confirm clean wrappers tell the agent to skip the log and failing/warning/ambiguous wrappers tell the agent to inspect it.
+1. [x] `npm run build:summary:server`
+2. [x] `npm run compose:build:summary`
+3. [x] `npm run test:summary:server:unit`
+4. [x] `npm run test:summary:server:cucumber`
+5. [x] `npm run test:summary:client`
+6. [x] `npm run test:summary:e2e`
+7. [x] Confirm at least one long-running test wrapper emits a heartbeat with current log size.
+8. [x] Confirm clean wrappers tell the agent to skip the log and failing/warning/ambiguous wrappers tell the agent to inspect it.
 
 #### Implementation notes
 
-- Pending.
+- Subtask 8: Task 21 notes are now being updated as each remaining wrapper adopts the shared heartbeat and final `agent_action` protocol so the rollout stays traceable file by file.
+- Subtask 1: Updated `scripts/build-summary-server.mjs` to stream its build output through the shared helper, emit heartbeat lines while the server build runs, and finish with the shared final-action fields instead of wrapper-local status lines.
+- Subtask 2: Updated `scripts/compose-build-summary.mjs` to adopt the shared protocol while preserving its existing pass/fail item parsing, and to treat unknown compose item counts as `ambiguous_counts` so clean-success `skip_log` is only used when the parse is actually trustworthy.
+- Subtask 3: Updated `scripts/test-summary-server-unit.mjs` to run both its build phase and `node:test` phase through the shared helper so heartbeats continue across the whole build-plus-test flow and build/test failures still stay phase-attributable.
+- Subtask 4: Updated `scripts/test-summary-server-cucumber.mjs` to use the shared helper across its build and cucumber phases while preserving scenario-count parsing and treating zero-scenario clean exits as `ambiguous_counts`.
+- Subtask 5: Updated `scripts/test-summary-client.mjs` to stream Jest output into the saved log through the shared helper, keep its existing JSON-based assertion counting, and treat parse failures or zero-test clean exits as `ambiguous_counts`.
+- Subtask 6: Updated `scripts/test-summary-e2e.mjs` to use the shared helper across compose build, compose up, Playwright test, and teardown phases while preserving the existing setup/test/teardown failure semantics and JSON-report parsing.
+- Subtask 7: Verified the rollout contract across the updated wrappers with clean-success runs, observed `wait` heartbeats during long-running compose/server/e2e flows, and a targeted failing client-test wrapper run that ended with `agent_action: inspect_log`.
+- Testing 1: `npm run build:summary:server` passed and now ends with the shared final-action fields, including `agent_action: skip_log`, `do_not_read_log: true`, and `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run compose:build:summary` passed with parsed counts `items passed: 2` and `items failed: 0`, emitted heartbeat lines with growing `log_size_bytes`, and finished with `agent_action: skip_log`.
+- Testing 3: `npm run test:summary:server:unit` passed with `tests run: 979`, `passed: 979`, `failed: 0`, and finished with the shared `agent_action: skip_log` summary for `test-results/server-unit-tests-2026-03-08T13-09-00-316Z.log`.
+- Testing 4: `npm run test:summary:server:cucumber` passed with `tests run: 68`, `passed: 68`, `failed: 0`, emitted a `test`-phase heartbeat with current log size, and finished with `agent_action: skip_log`.
+- Testing 5: `npm run test:summary:client` passed with `tests run: 497`, `passed: 497`, `failed: 0`, and finished with the shared `agent_action: skip_log` summary for `test-results/client-tests-2026-03-08T13-20-05-750Z.log`.
+- Testing 6: `npm run test:summary:e2e` passed with `tests run: 39`, `passed: 39`, `failed: 0`, and finished after the `teardown` phase with the shared `agent_action: skip_log` summary for `logs/test-summaries/e2e-tests-latest.log`.
+- Testing 7: The full `npm run test:summary:server:unit` run emitted minute heartbeats during its long-running `test` phase with increasing `log_size_bytes`, proving the shared protocol now keeps long server test wrappers visibly alive without forcing early log inspection.
+- Testing 8: A targeted failure run, `npm run test:summary:client -- --file client/src/test/__does_not_exist__.test.tsx`, exited non-zero and finished with `agent_action: inspect_log`, `do_not_read_log: false`, and the saved log path, while the clean wrapper runs in Testing 1-6 all ended with `agent_action: skip_log`.
 
 ### 22. Wrapper workflow documentation and final validation
 

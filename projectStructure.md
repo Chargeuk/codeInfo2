@@ -486,7 +486,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”œâ”€ docker-compose.e2e.yml — isolated e2e stack (client 6001, server 6010, chroma 8800, fixtures mount)
 â”œâ”€ eslint.config.js â€” root ESLint flat config
 â”œâ”€ package-lock.json â€” workspace lockfile
-â”œâ”€ package.json â€” root package/workspaces/scripts, including compact summary wrappers such as `build:summary:client` (client typecheck + build), `test:summary:client`, and `typecheck:summary:client`
+â”œâ”€ package.json â€” root package/workspaces/scripts, including compact summary wrappers such as `build:summary:client` (client typecheck + build), `test:summary:client`, and `typecheck:summary:client`; summary wrappers now emit heartbeat/final-action guidance (`agent_action`, `do_not_read_log`, `log`) so healthy runs can avoid unnecessary log reads while warned/failed/ambiguous runs still point maintainers to the saved log
 â”œâ”€ tsconfig.base.json â€” shared TS config
 â”œâ”€ tsconfig.json â€” project references entry
 â”œâ”€ client/ â€” React 19 Vite app

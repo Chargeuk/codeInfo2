@@ -3201,7 +3201,7 @@ This task should not change what each wrapper actually runs. It should only chan
 
 ### 22. Wrapper workflow documentation and final validation
 
-- Task Status: `__todo__`
+- Task Status: `__done__`
 - Git Commits:
   - None yet.
 
@@ -3218,11 +3218,11 @@ After the wrappers have a stable heartbeat/action contract, the repo workflow do
 
 #### Subtasks
 
-1. [ ] Update `AGENTS.md` so the wrapper contract explicitly tells agents not to read logs while a wrapper is still running and not to read clean-success logs unless instructed otherwise.
-2. [ ] Update `projectStructure.md` so the wrapper output contract and `agent_action` fields are documented for future maintainers.
-3. [ ] Update any root script or workflow docs that describe available summary wrappers if Task 19 through Task 21 add shared helper behavior or new wrapper expectations.
-4. [ ] Update this story file so the final follow-up tasks reflect the new wrapper protocol and the client build wrapper’s typecheck preflight behavior.
-5. [ ] Re-run the final wrapper validation matrix after all wrapper changes land.
+1. [x] Update `AGENTS.md` so the wrapper contract explicitly tells agents not to read logs while a wrapper is still running and not to read clean-success logs unless instructed otherwise.
+2. [x] Update `projectStructure.md` so the wrapper output contract and `agent_action` fields are documented for future maintainers.
+3. [x] Update any root script or workflow docs that describe available summary wrappers if Task 19 through Task 21 add shared helper behavior or new wrapper expectations.
+4. [x] Update this story file so the final follow-up tasks reflect the new wrapper protocol and the client build wrapper’s typecheck preflight behavior.
+5. [x] Re-run the final wrapper validation matrix after all wrapper changes land.
    - Required command set:
      - `npm run build:summary:server`
      - `npm run build:summary:client`
@@ -3231,18 +3231,27 @@ After the wrappers have a stable heartbeat/action contract, the repo workflow do
      - `npm run test:summary:server:cucumber`
      - `npm run test:summary:client`
      - `npm run test:summary:e2e`
-6. [ ] Update Task 22 implementation notes continuously as the documentation and final validation are completed.
+6. [x] Update Task 22 implementation notes continuously as the documentation and final validation are completed.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run test:summary:server:unit`
-5. [ ] `npm run test:summary:server:cucumber`
-6. [ ] `npm run test:summary:client`
-7. [ ] `npm run test:summary:e2e`
+1. [x] `npm run build:summary:server`
+2. [x] `npm run build:summary:client`
+3. [x] `npm run compose:build:summary`
+4. [x] `npm run test:summary:server:unit`
+5. [x] `npm run test:summary:server:cucumber`
+6. [x] `npm run test:summary:client`
+7. [x] `npm run test:summary:e2e`
 
 #### Implementation notes
 
-- Pending.
+- Subtasks 1-4: Updated `AGENTS.md`, `projectStructure.md`, and this Task 22 section so the repo now documents the shared wrapper output contract, including when `agent_action: wait` means not to read logs, when `skip_log` means a clean success can be trusted, and when `inspect_log` is required.
+- Subtask 3: No root `package.json` edit was needed because the root manifest lists wrapper entrypoints but does not contain separate human-readable workflow descriptions beyond the script names themselves.
+- Testing 1: `npm run build:summary:server` passed and ended with `agent_action: skip_log`, `do_not_read_log: true`, and `logs/test-summaries/build-server-latest.log`, matching the documented clean-success wrapper contract.
+- Testing 2: `npm run build:summary:client` passed and finished with `phase: build`, `agent_action: skip_log`, `do_not_read_log: true`, and `logs/test-summaries/build-client-latest.log`, confirming the documented typecheck-preflight-plus-build wrapper behavior.
+- Testing 3: `npm run compose:build:summary` passed with parsed counts `items passed: 2` and `items failed: 0`, and finished with `agent_action: skip_log`, `do_not_read_log: true`, and `logs/test-summaries/compose-build-latest.log`.
+- Testing 4: `npm run test:summary:server:unit` passed with `tests run: 979`, `passed: 979`, `failed: 0`, and finished with `agent_action: skip_log`, `do_not_read_log: true`, and `test-results/server-unit-tests-2026-03-08T13-35-22-486Z.log`.
+- Testing 5: `npm run test:summary:server:cucumber` passed with `tests run: 68`, `passed: 68`, `failed: 0`, emitted a `test`-phase heartbeat before completion, and finished with `agent_action: skip_log`, `do_not_read_log: true`, and `test-results/server-cucumber-tests-2026-03-08T13-45-10-307Z.log`.
+- Testing 6: `npm run test:summary:client` passed with `tests run: 497`, `passed: 497`, `failed: 0`, and finished with `agent_action: skip_log`, `do_not_read_log: true`, and `test-results/client-tests-2026-03-08T13-46-44-137Z.log`.
+- Testing 7: `npm run test:summary:e2e` passed with `tests run: 39`, `passed: 39`, `failed: 0`, stayed healthy through the expected quiet `test`-phase heartbeats, and finished with `phase: teardown`, `agent_action: skip_log`, `do_not_read_log: true`, and `logs/test-summaries/e2e-tests-latest.log`.
+- Subtask 5: Re-ran the full final wrapper matrix end-to-end; every wrapper finished with clean-success `skip_log` guidance, so the repo docs now match the actual shared heartbeat/final-action behavior.

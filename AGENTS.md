@@ -97,10 +97,17 @@ When working from a file in `./planning`, update the plan continuously as implem
 - `npm run typecheck:summary:client` runs the client workspace typecheck with compact summary output when direct TypeScript diagnosis is needed without the build phase. Full log: `logs/test-summaries/typecheck-client-latest.log`.
 - `npm run compose:build:summary` runs Docker Compose build with compact summary output. Full log: `logs/test-summaries/compose-build-latest.log`.
 
+### Summary Wrapper Output Contract
+
+- Summary wrappers emit heartbeat/final guidance fields on wrapper stdout: `timestamp`, `phase`, `status`, `log_size_bytes`, `agent_action`, `do_not_read_log`, and a final `log` path.
+- If `agent_action: wait`, the wrapper is still healthy and running. Do not read the saved log while `do_not_read_log: true`.
+- If `agent_action: skip_log`, the wrapper finished with a clean success. Do not read the saved log unless the user asks or later work specifically needs it.
+- If `agent_action: inspect_log`, the wrapper ended with warnings, failure, or ambiguous parsing. Open the saved log and diagnose from there.
+
 ### Build Failure Diagnosis
 
 1. Run the relevant wrapper.
-2. Capture the log path from the wrapper summary output.
+2. Capture the log path from the wrapper summary output if the wrapper ends with `agent_action: inspect_log` or otherwise fails unexpectedly.
 3. Open the log file and inspect the failing command output.
 4. Fix the failing dependency, config, or code.
 5. Re-run the same wrapper.
@@ -168,7 +175,7 @@ Shortcut:
 ### Test Failure Diagnosis
 
 1. Run the relevant wrapper.
-2. Capture the log path from the wrapper summary output.
+2. Capture the log path from the wrapper summary output if the wrapper ends with `agent_action: inspect_log` or otherwise fails unexpectedly.
 3. Open the full log file and locate the failing test block.
 4. Fix the failing code, config, or dependency.
 5. Re-run targeted wrappers for diagnosis as needed.

@@ -3337,10 +3337,10 @@ This task hardens the Flows page against that transient refresh miss, adds expli
 - Subtasks 2-3: Updated `client/src/pages/FlowsPage.tsx` to log `flows.page.active_conversation_temporarily_hidden` when a transient filtered refresh miss happens during visible or processing transcript state, and to keep the transcript instead of immediately calling the hard reset path in that case.
 - Subtasks 2-3: Added a complementary `flows.page.active_conversation_hidden_reset` log for the branch that still intentionally clears the transcript when the active conversation is gone and there is no visible or processing transcript state left to preserve.
 - Testing 1: The focused regression command failed before the fix and then passed after the Flows page hardening landed, confirming the investigation reproduced and closed a real remaining bug rather than only adding observational logging.
-- Testing 2: `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx` passed with `tests run: 15`, `passed: 15`, and `failed: 0`.
+- Testing 2: `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx` passed with `tests run: 16`, `passed: 16`, and `failed: 0` after the later hidden-log-deduping and stale-candidate regression additions.
 - Testing 3: `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx` passed with `tests run: 6`, `passed: 6`, and `failed: 0`.
 - Testing 4: `npm run build:summary:client` passed with `warning_count: 0` and `agent_action: skip_log`.
-- Testing 5: `npm run test:summary:client` passed with `tests run: 498`, `passed: 498`, and `failed: 0`.
+- Testing 5: `npm run test:summary:client` passed with `tests run: 499`, `passed: 499`, and `failed: 0` after the later focused follow-up regressions landed and the full client suite was rerun serially.
 - Testing 6: `npm run lint --workspace client` passed; the only output was the existing `baseline-browser-mapping` staleness notice.
 - Testing 7: `npm run format:check --workspaces` initially failed on `client/src/test/flowsPage.run.test.tsx`, the file was formatted with Prettier, and the full workspace format check then passed.
 
@@ -3354,6 +3354,23 @@ This task hardens the Flows page against that transient refresh miss, adds expli
 - Validation rerun:
   - forced a client typecheck failure with a temporary probe file and confirmed `npm run build:summary:client` now exits with code `2`, finishes in `phase: typecheck`, and ends with `reason: typecheck_failed`
   - `npm run build:summary:client` passed after the temporary probe file was removed and ended with `warning_count: 0`, `agent_action: skip_log`, and `logs/test-summaries/build-client-latest.log`
-  - `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx` passed with `tests run: 15`, `passed: 15`, and `failed: 0`
+  - `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx` passed with `tests run: 16`, `passed: 16`, and `failed: 0` after the later focused follow-up regressions landed
   - `npm run lint --workspace client` passed; the only terminal output was the existing `baseline-browser-mapping` staleness notice
   - `npm run format:check --workspaces` passed across the client, server, and common workspaces
+
+## Review Comment Follow-up 7
+
+- Follow-up date: 2026-03-08
+- Scope:
+  - deduped `flows.page.active_conversation_temporarily_hidden` / `flows.page.active_conversation_hidden_reset` logging so the Flows page now logs only once per hidden-state transition instead of on every render while the active conversation remains filtered out
+  - taught the pending live-transcript retention queue to drop stale invisible candidates once their target inflight is no longer active, so an intermediate step that never becomes visible cannot block later visible step transitions for the rest of the conversation
+  - expanded `client/src/test/flowsPage.run.test.tsx` to cover both hidden-log deduping during transient sidebar misses and stale-candidate queue draining across later visible flow steps
+- Validation rerun:
+  - `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx` passed with `tests run: 16`, `passed: 16`, and `failed: 0`
+  - `npm run build:summary:client` passed with `warning_count: 0`, `agent_action: skip_log`, and `logs/test-summaries/build-client-latest.log`
+  - `npm run lint --workspace client` passed; the only terminal output was the existing `baseline-browser-mapping` staleness notice
+  - `npm run format:check --workspaces` passed across the client, server, and common workspaces
+  - `npm run test:summary:server:unit` passed with `tests run: 979`, `passed: 979`, and `failed: 0`
+  - `npm run test:summary:server:cucumber` passed with `tests run: 68`, `passed: 68`, and `failed: 0`
+  - `npm run test:summary:client` initially failed with two timeout-style Agents markdown tests while running in parallel with the server wrappers, then passed cleanly when rerun serially with `tests run: 499`, `passed: 499`, and `failed: 0`
+  - `npm run test:summary:e2e` passed with `tests run: 42`, `passed: 42`, and `failed: 0`

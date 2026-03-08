@@ -699,18 +699,110 @@ describe('Flows page run/resume controls', () => {
         inflightId: 'flow-step-2',
         delta: 'Latest live output',
       });
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        seq: 3,
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        delta: ' still running',
+      });
 
       expect(await screen.findByText('Earlier output')).toBeInTheDocument();
-      expect(await screen.findByText('Latest live output')).toBeInTheDocument();
       expect(
-        logSpy.mock.calls.find(([entry]) => {
-          if (!entry || typeof entry !== 'object') return false;
-          return (
-            (entry as { message?: string }).message ===
-            'flows.page.active_conversation_temporarily_hidden'
-          );
-        }),
-      ).toBeDefined();
+        await screen.findByText('Latest live output still running'),
+      ).toBeInTheDocument();
+      const hiddenLogs = logSpy.mock.calls.filter(([entry]) => {
+        if (!entry || typeof entry !== 'object') return false;
+        return (
+          (entry as { message?: string }).message ===
+          'flows.page.active_conversation_temporarily_hidden'
+        );
+      });
+      expect(hiddenLogs).toHaveLength(1);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('drops stale invisible retention candidates so later visible step transitions can still be logged', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const harness = setupFlowsRunHarness();
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+      render(<RouterProvider router={router} />);
+
+      await screen.findByText('Flow: daily');
+      await waitFor(() =>
+        expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
+      );
+
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        content: 'Run step one',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        delta: 'First step answer',
+      });
+      expect(await screen.findByText('First step answer')).toBeInTheDocument();
+
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        content: 'Run silent step two',
+      });
+
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-3',
+        content: 'Run step three',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-3',
+        delta: 'Third step answer',
+      });
+      expect(await screen.findByText('Third step answer')).toBeInTheDocument();
+
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-4',
+        content: 'Run step four',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-4',
+        delta: 'Fourth step answer',
+      });
+      expect(await screen.findByText('Fourth step answer')).toBeInTheDocument();
+
+      await waitFor(() => {
+        const retainedLogs = logSpy.mock.calls
+          .map(([entry]) => entry)
+          .filter((entry) => {
+            if (!entry || typeof entry !== 'object') return false;
+            return (
+              (entry as { message?: string }).message ===
+              'flows.page.live_transcript_retained'
+            );
+          }) as Array<{ context?: Record<string, unknown>; message?: string }>;
+
+        expect(retainedLogs).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              message: 'flows.page.live_transcript_retained',
+              context: expect.objectContaining({
+                previousInflightId: 'flow-step-3',
+                currentInflightId: 'flow-step-4',
+              }),
+            }),
+          ]),
+        );
+      });
     } finally {
       logSpy.mockRestore();
     }

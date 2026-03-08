@@ -199,6 +199,7 @@ export default function FlowsPage() {
   const assistantTranscriptVisibleRef = useRef(false);
   const seenFlowInflightIdsRef = useRef<Set<string>>(new Set());
   const lastFlowInflightIdRef = useRef<string | null>(null);
+  const hiddenConversationLogKeyRef = useRef<string | null>(null);
   const pendingTranscriptRetentionRef = useRef<
     Array<{
       conversationId: string;
@@ -337,6 +338,7 @@ export default function FlowsPage() {
   useEffect(() => {
     seenFlowInflightIdsRef.current.clear();
     lastFlowInflightIdRef.current = null;
+    hiddenConversationLogKeyRef.current = null;
     pendingTranscriptRetentionRef.current = [];
   }, [activeConversationId]);
 
@@ -420,7 +422,12 @@ export default function FlowsPage() {
         continue;
       }
 
+      const activeInflightId = getInflightId();
       if (!isVisibleAssistantMessage(currentAssistantMessage)) {
+        if (activeInflightId !== nextRetention.currentInflightId) {
+          pendingTranscriptRetentionRef.current.shift();
+          continue;
+        }
         return;
       }
 
@@ -433,7 +440,13 @@ export default function FlowsPage() {
       });
       pendingTranscriptRetentionRef.current.shift();
     }
-  }, [activeConversationId, getAssistantMessageIdForInflight, log, messages]);
+  }, [
+    activeConversationId,
+    getAssistantMessageIdForInflight,
+    getInflightId,
+    log,
+    messages,
+  ]);
 
   const {
     connectionState: wsConnectionState,
@@ -621,18 +634,48 @@ export default function FlowsPage() {
     const stillVisible = flowConversations.some(
       (conversation) => conversation.conversationId === activeConversationId,
     );
-    if (stillVisible) return;
+    if (stillVisible) {
+      hiddenConversationLogKeyRef.current = null;
+      return;
+    }
     const hasVisibleAssistantTranscript = assistantTranscriptVisibleRef.current;
     const hasProcessingTranscript = messages.some(
       (message) => message.streamStatus === 'processing',
     );
+    const action =
+      hasVisibleAssistantTranscript ||
+      hasProcessingTranscript ||
+      isStreaming ||
+      status === 'sending'
+        ? 'preserve_transcript'
+        : 'clear_transcript';
+    const hiddenLogKey = `${activeConversationId}:${selectedFlowName}:${action}`;
+    const shouldLogHiddenTransition =
+      hiddenConversationLogKeyRef.current !== hiddenLogKey;
+    hiddenConversationLogKeyRef.current = hiddenLogKey;
     if (
       hasVisibleAssistantTranscript ||
       hasProcessingTranscript ||
       isStreaming ||
       status === 'sending'
     ) {
-      log('info', 'flows.page.active_conversation_temporarily_hidden', {
+      if (shouldLogHiddenTransition) {
+        log('info', 'flows.page.active_conversation_temporarily_hidden', {
+          conversationId: activeConversationId,
+          selectedFlowName,
+          flowConversationCount: flowConversations.length,
+          messageCount: messages.length,
+          hasVisibleAssistantTranscript,
+          hasProcessingTranscript,
+          isStreaming,
+          status,
+          action,
+        });
+      }
+      return;
+    }
+    if (shouldLogHiddenTransition) {
+      log('info', 'flows.page.active_conversation_hidden_reset', {
         conversationId: activeConversationId,
         selectedFlowName,
         flowConversationCount: flowConversations.length,
@@ -641,21 +684,9 @@ export default function FlowsPage() {
         hasProcessingTranscript,
         isStreaming,
         status,
-        action: 'preserve_transcript',
+        action,
       });
-      return;
     }
-    log('info', 'flows.page.active_conversation_hidden_reset', {
-      conversationId: activeConversationId,
-      selectedFlowName,
-      flowConversationCount: flowConversations.length,
-      messageCount: messages.length,
-      hasVisibleAssistantTranscript,
-      hasProcessingTranscript,
-      isStreaming,
-      status,
-      action: 'clear_transcript',
-    });
     resetTurns();
     setActiveConversationId(undefined);
     setConversation(makeClientConversationId(), { clearMessages: true });

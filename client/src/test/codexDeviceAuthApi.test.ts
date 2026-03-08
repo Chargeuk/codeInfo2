@@ -1,10 +1,11 @@
 import { jest } from '@jest/globals';
+import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = jest.fn();
+const mockFetch = getFetchMock();
 const logSpy = jest.fn();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -21,14 +22,12 @@ const { postCodexDeviceAuth } = await import('../api/codex');
 
 describe('Codex device-auth API helper', () => {
   it('serializes request body as strict empty object', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
         status: 'ok',
         rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
       }),
-    } as unknown as Response);
+    );
 
     await postCodexDeviceAuth();
 
@@ -44,14 +43,12 @@ describe('Codex device-auth API helper', () => {
   });
 
   it('parses strict 200 success shape', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
         status: 'ok',
         rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
       }),
-    } as unknown as Response);
+    );
 
     await expect(postCodexDeviceAuth()).resolves.toEqual({
       status: 'ok',
@@ -60,15 +57,15 @@ describe('Codex device-auth API helper', () => {
   });
 
   it('parses deterministic 400 invalid_request response', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 400,
-      headers: { get: () => 'application/json' },
-      json: async () => ({
-        error: 'invalid_request',
-        message: 'request body must be an empty JSON object',
-      }),
-    } as unknown as Response);
+    mockFetch.mockResolvedValue(
+      mockJsonResponse(
+        {
+          error: 'invalid_request',
+          message: 'request body must be an empty JSON object',
+        },
+        { status: 400 },
+      ),
+    );
 
     await expect(postCodexDeviceAuth()).rejects.toMatchObject({
       status: 400,
@@ -78,15 +75,15 @@ describe('Codex device-auth API helper', () => {
   });
 
   it('parses deterministic 503 codex_unavailable response', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 503,
-      headers: { get: () => 'application/json' },
-      json: async () => ({
-        error: 'codex_unavailable',
-        reason: 'codex missing',
-      }),
-    } as unknown as Response);
+    mockFetch.mockResolvedValue(
+      mockJsonResponse(
+        {
+          error: 'codex_unavailable',
+          reason: 'codex missing',
+        },
+        { status: 503 },
+      ),
+    );
 
     await expect(postCodexDeviceAuth()).rejects.toMatchObject({
       status: 503,
@@ -96,14 +93,12 @@ describe('Codex device-auth API helper', () => {
   });
 
   it('emits deterministic T14 success log for valid contract consumption', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
         status: 'ok',
         rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
       }),
-    } as unknown as Response);
+    );
 
     await postCodexDeviceAuth();
 
@@ -126,15 +121,15 @@ describe('Codex device-auth API helper', () => {
   });
 
   it('emits deterministic T14 error log for invalid_request path', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 400,
-      headers: { get: () => 'application/json' },
-      json: async () => ({
-        error: 'invalid_request',
-        message: 'request body must be an empty JSON object',
-      }),
-    } as unknown as Response);
+    mockFetch.mockResolvedValue(
+      mockJsonResponse(
+        {
+          error: 'invalid_request',
+          message: 'request body must be an empty JSON object',
+        },
+        { status: 400 },
+      ),
+    );
 
     await expect(postCodexDeviceAuth()).rejects.toBeDefined();
 

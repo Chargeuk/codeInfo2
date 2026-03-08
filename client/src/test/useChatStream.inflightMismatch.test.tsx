@@ -1,12 +1,16 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import useChatStream from '../hooks/useChatStream';
+import useChatStream, { type ChatMessage } from '../hooks/useChatStream';
 import type { ChatWsTranscriptEvent } from '../hooks/useChatWs';
 
 describe('useChatStream inflight mismatch handling', () => {
-  const getAssistantMessages = (
-    result: ReturnType<typeof renderHook<typeof useChatStream>>['result'],
-  ) =>
+  const getAssistantMessages = (result: {
+    current: { messages: ChatMessage[] };
+  }) =>
     result.current.messages.filter((message) => message.role === 'assistant');
+  const getFirstTextSegmentContent = (message?: ChatMessage) =>
+    message?.segments?.[0]?.kind === 'text'
+      ? message.segments[0].content
+      : undefined;
 
   it('keeps the previous assistant bubble content when a stale delta arrives after the next Flow-style user_turn', async () => {
     const conversationId = 'flow-conversation';
@@ -329,8 +333,7 @@ describe('useChatStream inflight mismatch handling', () => {
         conversationId,
         seq: 3,
         inflightId: 'i1',
-        status: 'completed',
-        turnId: 'turn-1',
+        status: 'ok',
       }),
     );
     act(() =>
@@ -360,10 +363,14 @@ describe('useChatStream inflight mismatch handling', () => {
       expect(assistantMessages).toHaveLength(2);
       expect(assistantMessages[0]?.content).toBe('First reply');
       expect(assistantMessages[0]?.streamStatus).toBe('complete');
-      expect(assistantMessages[0]?.segments?.[0]?.content).toBe('First reply');
+      expect(getFirstTextSegmentContent(assistantMessages[0])).toBe(
+        'First reply',
+      );
       expect(assistantMessages[1]?.content).toBe('Second reply');
       expect(assistantMessages[1]?.streamStatus).toBe('processing');
-      expect(assistantMessages[1]?.segments?.[0]?.content).toBe('Second reply');
+      expect(getFirstTextSegmentContent(assistantMessages[1])).toBe(
+        'Second reply',
+      );
     });
 
     act(() =>
@@ -387,10 +394,14 @@ describe('useChatStream inflight mismatch handling', () => {
       expect(assistantMessages).toHaveLength(2);
       expect(assistantMessages[0]?.content).toBe('First reply');
       expect(assistantMessages[0]?.streamStatus).toBe('complete');
-      expect(assistantMessages[0]?.segments?.[0]?.content).toBe('First reply');
+      expect(getFirstTextSegmentContent(assistantMessages[0])).toBe(
+        'First reply',
+      );
       expect(assistantMessages[1]?.content).toBe('Second reply');
       expect(assistantMessages[1]?.streamStatus).toBe('processing');
-      expect(assistantMessages[1]?.segments?.[0]?.content).toBe('Second reply');
+      expect(getFirstTextSegmentContent(assistantMessages[1])).toBe(
+        'Second reply',
+      );
     });
   });
 
@@ -431,8 +442,7 @@ describe('useChatStream inflight mismatch handling', () => {
         conversationId,
         seq: 3,
         inflightId: 'i1',
-        status: 'completed',
-        turnId: 'turn-1',
+        status: 'ok',
       }),
     );
     act(() =>
@@ -463,8 +473,7 @@ describe('useChatStream inflight mismatch handling', () => {
         conversationId,
         seq: 6,
         inflightId: 'i2',
-        status: 'completed',
-        turnId: 'turn-2',
+        status: 'ok',
       }),
     );
 
@@ -473,10 +482,14 @@ describe('useChatStream inflight mismatch handling', () => {
       expect(assistantMessages).toHaveLength(2);
       expect(assistantMessages[0]?.content).toBe('First reply');
       expect(assistantMessages[0]?.streamStatus).toBe('complete');
-      expect(assistantMessages[0]?.segments?.[0]?.content).toBe('First reply');
+      expect(getFirstTextSegmentContent(assistantMessages[0])).toBe(
+        'First reply',
+      );
       expect(assistantMessages[1]?.content).toBe('Second reply');
       expect(assistantMessages[1]?.streamStatus).toBe('complete');
-      expect(assistantMessages[1]?.segments?.[0]?.content).toBe('Second reply');
+      expect(getFirstTextSegmentContent(assistantMessages[1])).toBe(
+        'Second reply',
+      );
     });
   });
 
@@ -517,8 +530,7 @@ describe('useChatStream inflight mismatch handling', () => {
         conversationId,
         seq: 3,
         inflightId: 'i1',
-        status: 'completed',
-        turnId: 'turn-1',
+        status: 'ok',
       }),
     );
     act(() =>
@@ -537,7 +549,9 @@ describe('useChatStream inflight mismatch handling', () => {
       expect(assistantMessages).toHaveLength(1);
       expect(assistantMessages[0]?.content).toBe('First reply');
       expect(assistantMessages[0]?.streamStatus).toBe('complete');
-      expect(assistantMessages[0]?.segments?.[0]?.content).toBe('First reply');
+      expect(getFirstTextSegmentContent(assistantMessages[0])).toBe(
+        'First reply',
+      );
     });
   });
 
@@ -588,8 +602,7 @@ describe('useChatStream inflight mismatch handling', () => {
         conversationId,
         seq: 4,
         inflightId: 'i1',
-        status: 'completed',
-        turnId: 'turn-1',
+        status: 'ok',
       }),
     );
     act(() =>
@@ -654,8 +667,7 @@ describe('useChatStream inflight mismatch handling', () => {
         conversationId,
         seq: 3,
         inflightId: 'i1',
-        status: 'completed',
-        turnId: 'turn-1',
+        status: 'ok',
       }),
     );
     act(() =>
@@ -725,8 +737,7 @@ describe('useChatStream inflight mismatch handling', () => {
         conversationId,
         seq: 3,
         inflightId: 'i1',
-        status: 'completed',
-        turnId: 'turn-1',
+        status: 'ok',
       }),
     );
     act(() =>
@@ -810,8 +821,7 @@ describe('useChatStream inflight mismatch handling', () => {
         conversationId,
         seq: 5,
         inflightId: 'i1',
-        status: 'completed',
-        turnId: 'turn-1',
+        status: 'ok',
       }),
     );
     act(() =>
@@ -890,8 +900,7 @@ describe('useChatStream inflight mismatch handling', () => {
         conversationId,
         seq: 3,
         inflightId: 'i1',
-        status: 'completed',
-        turnId: 'turn-1',
+        status: 'ok',
         usage: { outputTokens: 1 },
       }),
     );
@@ -903,7 +912,6 @@ describe('useChatStream inflight mismatch handling', () => {
         seq: 4,
         inflightId: 'i1',
         status: 'failed',
-        turnId: 'turn-1-replay',
         usage: { outputTokens: 99 },
         error: { message: 'should be ignored' },
       }),
@@ -1510,8 +1518,7 @@ describe('useChatStream inflight mismatch handling', () => {
         conversationId,
         seq: 3,
         inflightId: 'i1',
-        status: 'completed',
-        turnId: 'turn-1',
+        status: 'ok',
       }),
     );
     act(() =>
@@ -1599,8 +1606,7 @@ describe('useChatStream inflight mismatch handling', () => {
         conversationId,
         seq: 3,
         inflightId: 'i1',
-        status: 'completed',
-        turnId: 'turn-1',
+        status: 'ok',
       }),
     );
     act(() =>

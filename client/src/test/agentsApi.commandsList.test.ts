@@ -1,9 +1,9 @@
-import { jest } from '@jest/globals';
+import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = jest.fn();
+const mockFetch = getFetchMock();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -14,11 +14,7 @@ const { listAgentCommands } = await import('../api/agents');
 
 describe('Agents API listAgentCommands', () => {
   it('calls GET /agents/:agentName/commands', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ commands: [] }),
-    } as unknown as Response);
+    mockFetch.mockResolvedValue(mockJsonResponse({ commands: [] }));
 
     await listAgentCommands('planning_agent');
 
@@ -28,10 +24,8 @@ describe('Agents API listAgentCommands', () => {
   });
 
   it('returns parsed { commands } including disabled entries', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
         commands: [
           {
             name: 'smoke',
@@ -49,7 +43,7 @@ describe('Agents API listAgentCommands', () => {
           },
         ],
       }),
-    } as unknown as Response);
+    );
 
     const result = await listAgentCommands('planning_agent');
 
@@ -74,13 +68,11 @@ describe('Agents API listAgentCommands', () => {
   });
 
   it('rejects commands payloads missing required stepCount', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
         commands: [{ name: 'smoke', description: 'Smoke', disabled: false }],
       }),
-    } as unknown as Response);
+    );
 
     await expect(listAgentCommands('planning_agent')).rejects.toThrow(
       'Invalid agent commands response',
@@ -88,10 +80,8 @@ describe('Agents API listAgentCommands', () => {
   });
 
   it('rejects commands payloads with stepCount = 0', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
         commands: [
           {
             name: 'smoke',
@@ -101,7 +91,7 @@ describe('Agents API listAgentCommands', () => {
           },
         ],
       }),
-    } as unknown as Response);
+    );
 
     await expect(listAgentCommands('planning_agent')).rejects.toThrow(
       'Invalid agent commands response',
@@ -109,10 +99,8 @@ describe('Agents API listAgentCommands', () => {
   });
 
   it('rejects commands payloads with negative stepCount', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
         commands: [
           {
             name: 'smoke',
@@ -122,7 +110,7 @@ describe('Agents API listAgentCommands', () => {
           },
         ],
       }),
-    } as unknown as Response);
+    );
 
     await expect(listAgentCommands('planning_agent')).rejects.toThrow(
       'Invalid agent commands response',
@@ -130,10 +118,8 @@ describe('Agents API listAgentCommands', () => {
   });
 
   it('rejects commands payloads with non-numeric stepCount', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
         commands: [
           {
             name: 'smoke',
@@ -143,7 +129,7 @@ describe('Agents API listAgentCommands', () => {
           },
         ],
       }),
-    } as unknown as Response);
+    );
 
     await expect(listAgentCommands('planning_agent')).rejects.toThrow(
       'Invalid agent commands response',

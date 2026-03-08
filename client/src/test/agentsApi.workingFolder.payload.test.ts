@@ -1,24 +1,25 @@
-import { jest } from '@jest/globals';
+import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = jest.fn();
+const mockFetch = getFetchMock();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
   mockFetch.mockReset();
-  mockFetch.mockResolvedValue({
-    ok: true,
-    status: 202,
-    json: async () => ({
-      status: 'started',
-      agentName: 'coding_agent',
-      conversationId: 'c1',
-      inflightId: 'i1',
-      modelId: 'gpt-5.1-codex-max',
-    }),
-  } as unknown as Response);
+  mockFetch.mockResolvedValue(
+    mockJsonResponse(
+      {
+        status: 'started',
+        agentName: 'coding_agent',
+        conversationId: 'c1',
+        inflightId: 'i1',
+        modelId: 'gpt-5.1-codex-max',
+      },
+      { status: 202 },
+    ),
+  );
 });
 
 const { runAgentInstruction } = await import('../api/agents');

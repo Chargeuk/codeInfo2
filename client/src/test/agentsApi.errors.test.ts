@@ -1,9 +1,9 @@
-import { jest } from '@jest/globals';
+import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = jest.fn();
+const mockFetch = getFetchMock();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -14,15 +14,15 @@ const { runAgentInstruction, runAgentCommand } = await import('../api/agents');
 
 describe('Agents API structured errors', () => {
   it('runAgentInstruction throws structured error for 409 RUN_IN_PROGRESS', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 409,
-      headers: { get: () => 'application/json' },
-      json: async () => ({
-        code: 'RUN_IN_PROGRESS',
-        message: 'Already running',
-      }),
-    } as unknown as Response);
+    mockFetch.mockResolvedValue(
+      mockJsonResponse(
+        {
+          code: 'RUN_IN_PROGRESS',
+          message: 'Already running',
+        },
+        { status: 409 },
+      ),
+    );
 
     await expect(
       runAgentInstruction({
@@ -36,15 +36,15 @@ describe('Agents API structured errors', () => {
   });
 
   it('runAgentCommand throws structured error for 409 RUN_IN_PROGRESS', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 409,
-      headers: { get: () => 'application/json' },
-      json: async () => ({
-        code: 'RUN_IN_PROGRESS',
-        message: 'Already running',
-      }),
-    } as unknown as Response);
+    mockFetch.mockResolvedValue(
+      mockJsonResponse(
+        {
+          code: 'RUN_IN_PROGRESS',
+          message: 'Already running',
+        },
+        { status: 409 },
+      ),
+    );
 
     await expect(
       runAgentCommand({

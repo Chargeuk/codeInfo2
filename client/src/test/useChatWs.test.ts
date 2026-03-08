@@ -214,7 +214,7 @@ describe('useChatWs', () => {
   });
 
   it('refreshes snapshots and re-subscribes on reconnect', async () => {
-    const refresh = jest.fn();
+    const refresh: () => void = jest.fn();
 
     const { result } = renderHook(() =>
       useChatWs({
@@ -398,7 +398,7 @@ describe('useChatWs', () => {
   });
 
   it('does not subscribe or reconnect when realtime is disabled', async () => {
-    const refresh = jest.fn();
+    const refresh: () => void = jest.fn();
     const { result } = renderHook(() =>
       useChatWs({
         realtimeEnabled: false,

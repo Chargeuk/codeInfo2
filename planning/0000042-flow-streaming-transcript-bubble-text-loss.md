@@ -2649,7 +2649,7 @@ This task is for production/runtime source files only. Do not widen it into the 
 
 ### 15. Client shared test infrastructure and hook/API typing cleanup
 
-- Task Status: `__todo__`
+- Task Status: `__done__`
 - Git Commits:
   - None yet.
 
@@ -2670,49 +2670,57 @@ Because Task 13 may remove some direct test edits entirely, re-freeze the residu
 
 #### Subtasks
 
-1. [ ] Re-run `npm run typecheck --workspace client` after Tasks 13 and 14, freeze the residual non-page test-file list for Task 15, and split any remaining multi-file family buckets into one checkbox per touched test file before editing.
-2. [ ] Fix `client/src/test/setupTests.ts` if it still has residual direct type errors after Task 13.
-3. [ ] Fix `client/src/test/support/mockChatWs.ts` if it still has residual direct type errors after Task 13.
-4. [ ] Fix `client/src/test/support/ensureCodexFlagsPanelExpanded.ts` if it still has residual direct type errors after Task 13.
-5. [ ] Fix the logging/unit utility test typing for:
-   - `client/src/test/clientLogging.test.ts`
-   - `client/src/test/logging/logger.test.ts`
-   - `client/src/test/logging/transport.test.ts`
-   - `client/src/test/reasoningCapabilities.normalize.test.ts`
-6. [ ] Fix the API-focused test typing for:
-   - `client/src/test/codexDeviceAuthApi.test.ts`
-   - `client/src/test/flowsApi.test.ts`
-   - `client/src/test/flowsApi.run.payload.test.ts`
-   - `client/src/test/agentsApi.commandsList.test.ts`
-   - `client/src/test/agentsApi.commandsRun.test.ts`
-   - `client/src/test/agentsApi.errors.test.ts`
-   - `client/src/test/agentsApi.promptsList.test.ts`
-   - `client/src/test/agentsApi.workingFolder.payload.test.ts`
-7. [ ] Fix `client/src/test/useChatWs.test.ts`.
-8. [ ] Fix `client/src/test/useConversationTurns.commandMetadata.test.ts`.
-9. [ ] Fix `client/src/test/useConversationTurns.refresh.test.ts`.
-10. [ ] Fix `client/src/test/useConversations.source.test.ts`.
-11. [ ] Fix `client/src/test/useChatStream.inflightMismatch.test.tsx`.
-12. [ ] Fix `client/src/test/useChatStream.reasoning.test.tsx`.
-13. [ ] Fix `client/src/test/useChatStream.toolPayloads.test.tsx`.
-14. [ ] Fix `client/src/test/useIngestModels.test.tsx`.
-15. [ ] Fix `client/src/test/useIngestRoots.test.tsx`.
-16. [ ] Fix `client/src/test/useLmStudioStatus.test.ts`.
-17. [ ] Fix `client/src/test/useLogs.test.ts`.
-18. [ ] Re-run the targeted low-level client test wrappers touched in Task 15 and confirm the residual baseline has moved primarily to page/integration test files only.
-19. [ ] Update Task 15 implementation notes continuously as each low-level test fix lands.
+1. [x] Re-run `npm run typecheck --workspace client` after Tasks 13 and 14, freeze the residual non-page test-file list for Task 15, and split any remaining multi-file family buckets into one checkbox per touched test file before editing.
+2. [x] Fix `client/src/test/setupTests.ts` if it still has residual direct type errors after Task 13.
+3. [x] Fix `client/src/test/support/mockChatWs.ts` if it still has residual direct type errors after Task 13.
+4. [x] Fix `client/src/test/support/ensureCodexFlagsPanelExpanded.ts` if it still has residual direct type errors after Task 13.
+5. [x] Fix `client/src/test/logging/transport.test.ts`.
+6. [x] Fix `client/src/test/codexDeviceAuthApi.test.ts`.
+7. [x] Fix `client/src/test/flowsApi.test.ts`.
+8. [x] Fix `client/src/test/flowsApi.run.payload.test.ts`.
+9. [x] Fix `client/src/test/agentsApi.commandsList.test.ts`.
+10. [x] Fix `client/src/test/agentsApi.commandsRun.test.ts`.
+11. [x] Fix `client/src/test/agentsApi.errors.test.ts`.
+12. [x] Fix `client/src/test/agentsApi.promptsList.test.ts`.
+13. [x] Fix `client/src/test/agentsApi.workingFolder.payload.test.ts`.
+14. [x] Fix `client/src/test/useChatWs.test.ts`.
+15. [x] Fix `client/src/test/useConversationTurns.commandMetadata.test.ts`.
+16. [x] Fix `client/src/test/useConversationTurns.refresh.test.ts`.
+17. [x] Fix `client/src/test/useConversations.source.test.ts`.
+18. [x] Fix `client/src/test/useChatStream.inflightMismatch.test.tsx`.
+19. [x] Fix `client/src/test/useChatStream.reasoning.test.tsx` if it still has residual direct type errors after the shared/helper cleanup.
+20. [x] Fix `client/src/test/useChatStream.toolPayloads.test.tsx`.
+21. [x] Fix `client/src/test/useIngestModels.test.tsx`.
+22. [x] Fix `client/src/test/useIngestRoots.test.tsx`.
+23. [x] Fix `client/src/test/useLmStudioStatus.test.ts`.
+24. [x] Fix `client/src/test/useLogs.test.ts`.
+25. [x] Re-run the targeted low-level client test wrappers touched in Task 15 and confirm the residual baseline has moved primarily to page/integration test files only.
+26. [x] Update Task 15 implementation notes continuously as each low-level test fix lands.
 
 #### Testing
 
-1. [ ] `npm run test:summary:client -- --file client/src/test/useChatWs.test.ts --file client/src/test/useConversationTurns.refresh.test.ts --file client/src/test/useChatStream.inflightMismatch.test.tsx --file client/src/test/useLogs.test.ts`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run lint --workspaces`
-4. [ ] `npm run format:check --workspaces`
-5. [ ] `npm run typecheck --workspace client`
+1. [x] `npm run test:summary:client -- --file client/src/test/useChatWs.test.ts --file client/src/test/useConversationTurns.refresh.test.ts --file client/src/test/useChatStream.inflightMismatch.test.tsx --file client/src/test/useLogs.test.ts`
+2. [x] `npm run build:summary:client`
+3. [x] `npm run lint --workspaces`
+4. [x] `npm run format:check --workspaces`
+5. [x] `npm run typecheck --workspace client`
 
 #### Implementation notes
 
-- Pending.
+- Baseline frozen on 2026-03-08 from `npm run typecheck --workspace client`; the Task 15 non-page residual set is `setupTests.ts`, `support/mockChatWs.ts`, `logging/transport.test.ts`, `codexDeviceAuthApi.test.ts`, `flowsApi.test.ts`, `flowsApi.run.payload.test.ts`, `agentsApi.commandsList.test.ts`, `agentsApi.commandsRun.test.ts`, `agentsApi.errors.test.ts`, `agentsApi.promptsList.test.ts`, `agentsApi.workingFolder.payload.test.ts`, `useChatWs.test.ts`, `useConversationTurns.commandMetadata.test.ts`, `useConversationTurns.refresh.test.ts`, `useConversations.source.test.ts`, `useChatStream.inflightMismatch.test.tsx`, `useChatStream.toolPayloads.test.tsx`, `useIngestModels.test.tsx`, `useIngestRoots.test.tsx`, `useLmStudioStatus.test.ts`, and `useLogs.test.ts`.
+- `client/src/test/support/ensureCodexFlagsPanelExpanded.ts`, `client/src/test/clientLogging.test.ts`, `client/src/test/logging/logger.test.ts`, `client/src/test/reasoningCapabilities.normalize.test.ts`, and `client/src/test/useChatStream.reasoning.test.tsx` were clean at baseline time, so they should only be edited if later shared-helper changes expose a direct residual.
+- Page and integration suites still dominate the broader baseline (`chatPage.*`, `flowsPage.*`, `agentsPage.*`, ingest/logs/router/version page tests, and `codexDeviceAuthDialog.test.tsx`), but those remain intentionally deferred to Task 16 and were excluded from the Task 15 fix list.
+- Subtasks 2-4 closed by tightening the shared fetch/bootstrap typing in `setupTests.ts`, confirming `mockChatWs.ts` stayed clean under the typed helper contract, and reconfirming `ensureCodexFlagsPanelExpanded.ts` did not regress after the shared `userEvent` helper changes from Task 13.
+- Subtasks 5-13 replaced the remaining low-level API/logging response literals with typed shared fetch helpers (`mockJsonResponse`, `mockTextResponse`, `asFetchImplementation`) so the low-level API suites no longer depended on `Response` casts or `unknown` mock signatures.
+- Subtasks 14-18 and 20-24 cleaned up the remaining hook/test-helper residuals by typing reconnect callbacks in `useChatWs.test.ts`, converting the `useConversationTurns` suites to typed fetch snapshots, aligning `useChatStream.inflightMismatch.test.tsx` with the current `turn_final`/segment contracts, using typed fetch mocks in `useChatStream.toolPayloads.test.tsx`, and simplifying the EventSource constructor typing in `useLogs.test.ts`.
+- Subtask 19 closed without edits because `useChatStream.reasoning.test.tsx` stayed out of the residual list after the shared helper cleanup reruns.
+- Subtask 25: `npm run test:summary:client -- --file client/src/test/useChatWs.test.ts --file client/src/test/useConversationTurns.refresh.test.ts --file client/src/test/useChatStream.inflightMismatch.test.tsx --file client/src/test/useLogs.test.ts` passed with 48/48 tests green in `test-results/client-tests-2026-03-08T10-52-04-377Z.log`, and the follow-up `npm run typecheck --workspace client` rerun showed no remaining direct Task 15 file errors.
+- Subtask 26: kept the Task 15 note trail current while the residual list collapsed, rather than batching the low-level file closeout at the end.
+- Testing 1: `npm run test:summary:client -- --file client/src/test/useChatWs.test.ts --file client/src/test/useConversationTurns.refresh.test.ts --file client/src/test/useChatStream.inflightMismatch.test.tsx --file client/src/test/useLogs.test.ts` passed again with 48/48 tests green in `test-results/client-tests-2026-03-08T10-52-55-556Z.log`.
+- Testing 2: `npm run build:summary:client` passed; `logs/test-summaries/build-client-latest.log` still only reported the existing Vite chunk-size warning rather than a Task 15 regression.
+- Testing 3: `npm run lint --workspaces` completed with the same pre-existing 57 server `import/order` warnings after the Task 15 cleanup removed the transient client unused-import errors and deleted the emitted client `.js` artifacts.
+- Testing 4: `npm run format:check --workspaces` failed once on four Task 15 files, ran `npx prettier --write` on those files, and then passed cleanly on rerun.
+- Testing 5: final `npm run typecheck --workspace client` still exited non-zero in `/tmp/task15-final-typecheck.qp9O.log`, but the remaining baseline is now isolated to Task 16 page/integration suites (`agentsPage.*`, `chatPage.*`, `flowsPage.*`, `chatSendPayload.test.tsx`, `chatSidebar.test.tsx`, `chatPersistenceBanner.test.tsx`, and `codexDeviceAuthDialog.test.tsx`); no Task 15 file remained in the residual list.
 
 ### 16. Client page and integration test typing cleanup plus typecheck gate
 

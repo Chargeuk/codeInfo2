@@ -1,16 +1,12 @@
-import { jest } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import { INGEST_ROOTS_SCHEMA_VERSION } from '@codeinfo2/common';
 import useIngestRoots from '../hooks/useIngestRoots';
+import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = global.fetch as jest.Mock;
+const mockFetch = getFetchMock();
 
 function mockRootsResponse(payload: unknown) {
-  mockFetch.mockResolvedValueOnce({
-    ok: true,
-    status: 200,
-    json: async () => payload,
-  } as Response);
+  mockFetch.mockResolvedValueOnce(mockJsonResponse(payload));
 }
 
 describe('useIngestRoots', () => {

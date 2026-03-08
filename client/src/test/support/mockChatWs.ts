@@ -1,5 +1,10 @@
 import { act } from '@testing-library/react';
-import { getFetchMock, type TestFetchMock } from './fetchMock';
+import {
+  asFetchImplementation,
+  getFetchMock,
+  mockJsonResponse,
+  type TestFetchMock,
+} from './fetchMock';
 import type {
   WebSocketMockInstance,
   WebSocketMockRegistry,
@@ -94,83 +99,60 @@ export function setupChatWsHarness(params: {
     nextCursor: null,
   };
 
-  mockFetch.mockImplementation((url: RequestInfo | URL, opts?: RequestInit) => {
-    const href = typeof url === 'string' ? url : url.toString();
+  mockFetch.mockImplementation(
+    asFetchImplementation((url: RequestInfo | URL, opts?: RequestInit) => {
+      const href = typeof url === 'string' ? url : url.toString();
 
-    if (href.includes('/health')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => healthPayload,
-      }) as unknown as Response;
-    }
+      if (href.includes('/health')) {
+        return mockJsonResponse(healthPayload);
+      }
 
-    if (href.includes('/chat/providers')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => providersPayload,
-      }) as unknown as Response;
-    }
+      if (href.includes('/chat/providers')) {
+        return mockJsonResponse(providersPayload);
+      }
 
-    if (href.includes('/chat/models')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => modelsPayload,
-      }) as unknown as Response;
-    }
+      if (href.includes('/chat/models')) {
+        return mockJsonResponse(modelsPayload);
+      }
 
-    if (href.includes('/conversations/') && href.includes('/turns')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => turnsPayload,
-      }) as unknown as Response;
-    }
+      if (href.includes('/conversations/') && href.includes('/turns')) {
+        return mockJsonResponse(turnsPayload);
+      }
 
-    if (href.includes('/conversations') && opts?.method !== 'POST') {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => conversationsPayload,
-      }) as unknown as Response;
-    }
+      if (href.includes('/conversations') && opts?.method !== 'POST') {
+        return mockJsonResponse(conversationsPayload);
+      }
 
-    if (href.includes('/chat') && opts?.method === 'POST') {
-      const body =
-        typeof opts?.body === 'string'
-          ? (JSON.parse(opts.body) as Record<string, unknown>)
-          : {};
-      chatBodies.push(body);
-      lastConversationId =
-        typeof body.conversationId === 'string' ? body.conversationId : null;
-      lastInflightId =
-        typeof body.inflightId === 'string' ? body.inflightId : 'i1';
+      if (href.includes('/chat') && opts?.method === 'POST') {
+        const body =
+          typeof opts?.body === 'string'
+            ? (JSON.parse(opts.body) as Record<string, unknown>)
+            : {};
+        chatBodies.push(body);
+        lastConversationId =
+          typeof body.conversationId === 'string' ? body.conversationId : null;
+        lastInflightId =
+          typeof body.inflightId === 'string' ? body.inflightId : 'i1';
 
-      return Promise.resolve({
-        ok: true,
-        status: 202,
-        json: async () => ({
-          status: 'started',
-          conversationId: lastConversationId,
-          inflightId: lastInflightId,
-          provider: body.provider,
-          model: body.model,
-        }),
-      }) as unknown as Response;
-    }
+        return mockJsonResponse(
+          {
+            status: 'started',
+            conversationId: lastConversationId,
+            inflightId: lastInflightId,
+            provider: body.provider,
+            model: body.model,
+          },
+          { status: 202 },
+        );
+      }
 
-    if (params.fallbackFetch) {
-      return Promise.resolve(params.fallbackFetch(url, opts));
-    }
+      if (params.fallbackFetch) {
+        return params.fallbackFetch(url, opts);
+      }
 
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }) as unknown as Response;
-  });
+      return mockJsonResponse({});
+    }),
+  );
 
   const sockets = (): WebSocketMockInstance[] => {
     const registry = wsRegistry();

@@ -1,7 +1,11 @@
 import { TextDecoder, TextEncoder } from 'util';
 import { jest } from '@jest/globals';
 import '@testing-library/jest-dom';
-import { getFetchMock } from './support/fetchMock';
+import {
+  asFetchImplementation,
+  getFetchMock,
+  mockJsonResponse,
+} from './support/fetchMock';
 import { installMockWebSocket } from './support/mockWebSocket';
 
 // React 19 uses this global to decide whether it should warn about act().
@@ -18,8 +22,8 @@ if (windowRef) {
 }
 
 const nodeGlobals = globalThis as typeof globalThis & {
-  TextEncoder?: typeof TextEncoder;
-  TextDecoder?: typeof TextDecoder;
+  TextEncoder?: typeof globalThis.TextEncoder;
+  TextDecoder?: typeof globalThis.TextDecoder;
   Response?: typeof Response;
   Headers?: typeof Headers;
   Request?: typeof Request;
@@ -27,10 +31,12 @@ const nodeGlobals = globalThis as typeof globalThis & {
 
 // Provide TextEncoder/Decoder for libraries that expect them in the JSDOM environment.
 if (!nodeGlobals.TextEncoder) {
-  nodeGlobals.TextEncoder = TextEncoder as typeof globalThis.TextEncoder;
+  nodeGlobals.TextEncoder =
+    TextEncoder as unknown as typeof globalThis.TextEncoder;
 }
 if (!nodeGlobals.TextDecoder) {
-  nodeGlobals.TextDecoder = TextDecoder as typeof globalThis.TextDecoder;
+  nodeGlobals.TextDecoder =
+    TextDecoder as unknown as typeof globalThis.TextDecoder;
 }
 
 if (!nodeGlobals.Response) {
@@ -137,11 +143,21 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
         return computeMatches();
       },
       onchange: null,
-      addEventListener: (_type, listener) => {
-        listeners.add(listener as (event: MediaQueryListEvent) => void);
+      addEventListener: (
+        _type: string,
+        listener: EventListenerOrEventListenerObject,
+      ) => {
+        if (typeof listener === 'function') {
+          listeners.add(listener as (event: MediaQueryListEvent) => void);
+        }
       },
-      removeEventListener: (_type, listener) => {
-        listeners.delete(listener as (event: MediaQueryListEvent) => void);
+      removeEventListener: (
+        _type: string,
+        listener: EventListenerOrEventListenerObject,
+      ) => {
+        if (typeof listener === 'function') {
+          listeners.delete(listener as (event: MediaQueryListEvent) => void);
+        }
       },
       addListener: (listener) => {
         listeners.add(listener as (event: MediaQueryListEvent) => void);
@@ -195,13 +211,11 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
 }
 
 // Default fetch mock for tests; individual tests can override as needed.
-getFetchMock().mockImplementation(async (input: RequestInfo | URL) => {
-  const url = typeof input === 'string' ? input : input.toString();
-  if (url.includes('/chat/providers')) {
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({
+getFetchMock().mockImplementation(
+  asFetchImplementation(async (input: RequestInfo | URL) => {
+    const url = typeof input === 'string' ? input : input.toString();
+    if (url.includes('/chat/providers')) {
+      return mockJsonResponse({
         providers: [
           {
             id: 'lmstudio',
@@ -210,14 +224,10 @@ getFetchMock().mockImplementation(async (input: RequestInfo | URL) => {
             toolsAvailable: true,
           },
         ],
-      }),
-    } as Response;
-  }
-  if (url.includes('/chat/models')) {
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({
+      });
+    }
+    if (url.includes('/chat/models')) {
+      return mockJsonResponse({
         provider: 'lmstudio',
         available: true,
         toolsAvailable: true,
@@ -225,14 +235,10 @@ getFetchMock().mockImplementation(async (input: RequestInfo | URL) => {
           { key: 'm1', displayName: 'Model 1', type: 'gguf' },
           { key: 'embed', displayName: 'Embedding Model', type: 'embedding' },
         ],
-      }),
-    } as Response;
-  }
-  return {
-    ok: true,
-    status: 200,
-    json: async () => ({ version: '0.0.0', app: 'server' }),
-  } as Response;
-});
+      });
+    }
+    return mockJsonResponse({ version: '0.0.0', app: 'server' });
+  }),
+);
 
 installMockWebSocket();

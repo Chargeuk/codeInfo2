@@ -1,6 +1,7 @@
 import { LogEntry } from '@codeinfo2/common';
 import { jest } from '@jest/globals';
 import { flushQueue, sendLogs, _getQueue } from '../../logging/transport';
+import { getFetchMock, mockJsonResponse } from '../support/fetchMock';
 
 const baseEntry: LogEntry = {
   level: 'info',
@@ -16,7 +17,7 @@ beforeEach(() => {
   _getQueue().length = 0;
   jest.clearAllMocks();
   jest.useRealTimers();
-  global.fetch = jest.fn();
+  global.fetch = getFetchMock();
   Object.defineProperty(navigator, 'onLine', {
     value: true,
     configurable: true,
@@ -31,7 +32,7 @@ afterEach(() => {
 
 describe('transport', () => {
   it('posts queued entries and clears the queue', async () => {
-    (global.fetch as jest.Mock).mockResolvedValue({ ok: true });
+    getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
 
     sendLogs([baseEntry]);
     await flushQueue();
@@ -48,7 +49,7 @@ describe('transport', () => {
 
   it('drops entries that exceed max bytes', async () => {
     process.env.VITE_LOG_MAX_BYTES = '10';
-    (global.fetch as jest.Mock).mockResolvedValue({ ok: true });
+    getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
 
     sendLogs([{ ...baseEntry, message: 'a'.repeat(50) }]);
     await flushQueue();
@@ -59,9 +60,9 @@ describe('transport', () => {
 
   it('retries with backoff when the request fails', async () => {
     jest.useFakeTimers();
-    (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({ ok: false, status: 500 })
-      .mockResolvedValueOnce({ ok: true });
+    getFetchMock()
+      .mockResolvedValueOnce(mockJsonResponse({}, { status: 500 }))
+      .mockResolvedValueOnce(mockJsonResponse({}, { status: 200 }));
 
     sendLogs([baseEntry]);
     await flushQueue();

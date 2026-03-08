@@ -1,8 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import { createElement } from 'react';
 import useConversationTurns from '../hooks/useConversationTurns';
+import {
+  asFetchImplementation,
+  getFetchMock,
+  mockJsonResponse,
+} from './support/fetchMock';
 
-const mockFetch = global.fetch as jest.Mock;
+const mockFetch = getFetchMock();
 
 beforeEach(() => {
   mockFetch.mockReset();
@@ -12,26 +17,20 @@ function mockApi(params: {
   items?: Array<Record<string, unknown>>;
   inflight?: Record<string, unknown> | null;
 }) {
-  mockFetch.mockImplementation((input: RequestInfo | URL) => {
-    const url = typeof input === 'string' ? input : input.toString();
-    if (url.includes('/conversations/c1/turns')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/conversations/c1/turns')) {
+        return mockJsonResponse({
           items: params.items ?? [],
           inflight: params.inflight ?? null,
           nextCursor: undefined,
-        }),
-      }) as Response;
-    }
+        });
+      }
 
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }) as Response;
-  });
+      return mockJsonResponse({});
+    }),
+  );
 }
 
 function TestCommandTurn() {

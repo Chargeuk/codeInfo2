@@ -2946,7 +2946,7 @@ This task is intentionally limited to the client typecheck command and the clien
 
 - Task Status: `__done__`
 - Git Commits:
-  - None yet.
+  - `e4bcd3d9` - `DEV-[0000042] - Document client build validation workflow`
 
 #### Overview
 

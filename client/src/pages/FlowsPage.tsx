@@ -159,6 +159,16 @@ const readResumeStepPath = (flags?: Record<string, unknown>) => {
   return undefined;
 };
 
+const isVisibleAssistantMessage = (message: ChatMessage | undefined) => {
+  if (!message) return false;
+  if (message.role !== 'assistant') return false;
+  if (message.kind === 'error' || message.kind === 'status') return false;
+  if (message.content.trim().length > 0) return true;
+  if (message.think?.trim().length) return true;
+  if ((message.tools?.length ?? 0) > 0) return true;
+  return false;
+};
+
 export default function FlowsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -186,6 +196,17 @@ export default function FlowsPage() {
   const [flowModelId, setFlowModelId] = useState('unknown');
 
   const log = useMemo(() => createLogger('client-flows'), []);
+  const assistantTranscriptVisibleRef = useRef(false);
+  const seenFlowInflightIdsRef = useRef<Set<string>>(new Set());
+  const lastFlowInflightIdRef = useRef<string | null>(null);
+  const pendingTranscriptRetentionRef = useRef<
+    Array<{
+      conversationId: string;
+      previousInflightId: string;
+      currentInflightId: string;
+      previousAssistantMessageId: string;
+    }>
+  >([]);
 
   const flowOptions = useMemo<FlowOption[]>(() => {
     const options = flows.map((flow) => ({
@@ -239,6 +260,7 @@ export default function FlowsPage() {
     handleWsEvent,
     getInflightId,
     getConversationId,
+    getAssistantMessageIdForInflight,
   } = useChatStream(flowModelId, 'codex');
 
   const displayMessages = useMemo<ChatMessage[]>(
@@ -306,6 +328,114 @@ export default function FlowsPage() {
     turnsConversationId,
   ]);
 
+  useEffect(() => {
+    assistantTranscriptVisibleRef.current = messages.some((message) =>
+      isVisibleAssistantMessage(message),
+    );
+  }, [messages]);
+
+  useEffect(() => {
+    seenFlowInflightIdsRef.current.clear();
+    lastFlowInflightIdRef.current = null;
+    pendingTranscriptRetentionRef.current = [];
+  }, [activeConversationId]);
+
+  const updateLiveTranscriptRetentionCandidate = useCallback(
+    (event: ChatWsServerEvent) => {
+      if (event.type !== 'user_turn' && event.type !== 'inflight_snapshot') {
+        return;
+      }
+
+      const currentInflightId =
+        event.type === 'inflight_snapshot'
+          ? event.inflight.inflightId
+          : event.inflightId;
+      if (!currentInflightId) return;
+
+      const seenInflights = seenFlowInflightIdsRef.current;
+      const activeInflightId = getInflightId();
+      const previousInflightId =
+        lastFlowInflightIdRef.current ?? activeInflightId ?? null;
+
+      if (
+        !seenInflights.has(currentInflightId) &&
+        previousInflightId &&
+        previousInflightId !== currentInflightId &&
+        assistantTranscriptVisibleRef.current
+      ) {
+        const previousAssistantMessageId =
+          getAssistantMessageIdForInflight(previousInflightId);
+        if (!previousAssistantMessageId) {
+          return;
+        }
+        const hasPendingCandidate = pendingTranscriptRetentionRef.current.some(
+          (candidate) => candidate.currentInflightId === currentInflightId,
+        );
+        if (!hasPendingCandidate) {
+          pendingTranscriptRetentionRef.current.push({
+            conversationId: event.conversationId,
+            previousInflightId,
+            currentInflightId,
+            previousAssistantMessageId,
+          });
+        }
+      }
+
+      const isNewInflight = !seenInflights.has(currentInflightId);
+      if (isNewInflight) {
+        seenInflights.add(currentInflightId);
+        lastFlowInflightIdRef.current = currentInflightId;
+        return;
+      }
+
+      if (activeInflightId === currentInflightId) {
+        lastFlowInflightIdRef.current = currentInflightId;
+      }
+    },
+    [getAssistantMessageIdForInflight, getInflightId],
+  );
+
+  useEffect(() => {
+    const pendingRetentions = pendingTranscriptRetentionRef.current;
+    if (pendingRetentions.length === 0) return;
+
+    while (pendingTranscriptRetentionRef.current.length > 0) {
+      const nextRetention = pendingTranscriptRetentionRef.current[0];
+      if (nextRetention.conversationId !== activeConversationId) {
+        pendingTranscriptRetentionRef.current.shift();
+        continue;
+      }
+
+      const previousAssistantMessage = messages.find(
+        (message) => message.id === nextRetention.previousAssistantMessageId,
+      );
+      const currentAssistantMessageId = getAssistantMessageIdForInflight(
+        nextRetention.currentInflightId,
+      );
+      const currentAssistantMessage = messages.find(
+        (message) => message.id === currentAssistantMessageId,
+      );
+
+      if (!isVisibleAssistantMessage(previousAssistantMessage)) {
+        pendingTranscriptRetentionRef.current.shift();
+        continue;
+      }
+
+      if (!isVisibleAssistantMessage(currentAssistantMessage)) {
+        return;
+      }
+
+      log('info', 'flows.page.live_transcript_retained', {
+        conversationId: nextRetention.conversationId,
+        previousInflightId: nextRetention.previousInflightId,
+        currentInflightId: nextRetention.currentInflightId,
+        reason: 'next_step_started',
+        proof: 'post_event_transcript_visible',
+      });
+      pendingTranscriptRetentionRef.current.shift();
+    }
+  }, [activeConversationId, getAssistantMessageIdForInflight, log, messages]);
+
   const {
     connectionState: wsConnectionState,
     subscribeSidebar,
@@ -351,6 +481,7 @@ export default function FlowsPage() {
         case 'analysis_delta':
         case 'tool_event':
         case 'turn_final':
+          updateLiveTranscriptRetentionCandidate(event);
           handleWsEvent(event);
           return;
         default:

@@ -1,137 +1,174 @@
 # Agent Workflow Guide
 
+## Purpose
+
+Use this file as the repository-specific operating guide for agents working in this repo.
+Keep the same behavior and standards described here even when the exact task changes.
+
+## Instruction Priority
+
+1. Follow the user’s direct request.
+2. Follow this repository guide unless the user explicitly asks to change repo workflow or policy.
+3. Prefer explicit repository facts and current code over assumptions.
+4. If required context is missing and can be gathered from the repo or tools, gather it before asking the user.
+5. If required context cannot be retrieved, ask the user only for the missing piece.
+
+## Session Start
+
+Re-read this file at the start of each session. Assume it may have changed since the last context window.
+
 ## Required Onboarding
 
-Note that the following steps only need to be performed when you are first working in this folder structure or when your history has been compacted. You do not need to perform these steps for every question you answer:
+Perform this onboarding only when you are first working in this folder structure or when history has been compacted.
 
-- Before doing anything else, call the code_info mcp tool to give you an overview of the project, and to tell you which plan from the ./planning folder is the next one to be worked on based on it being the lowest index numerically based on the filename (<index>-<title>.md) but still having tasks that are marked as in progress or todo. When calling the code_info mcp tool you MUST provide the full path to this repository when you ask it this question so it knows which repository you are interested in. Then you must view the last 3 commits to the repository and using all of this combined information, provide me with an overview of the project, what was last implemented, and what is to be implemented next.
-- Confirm the git branch we are currently on & check the equivalent planning document, and the latest planning document (if not the same) from the planning folder.
-- Re-read these files at the start of each session; assume they may have changed since your last context window.
-- When working in React, use the MUI MCP tool for all Material UI references. For any other APIs or SDKs, consult documentation via the Context7 MCP tool so guidance stays current.
+1. Before doing anything else, call the `code_info` MCP tool.
+2. In that tool call, include the full repository path: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`.
+3. Ask for:
+   - a concise project overview;
+   - the next plan in `./planning`, defined as the lowest `<index>-<title>.md` file that still contains tasks marked `todo` or `in progress`;
+   - the current status of that plan.
+4. View the last 3 commits in the repository.
+5. Confirm the current git branch.
+6. Check the planning document that matches the current branch story number, if one exists.
+7. Check the latest planning document in `./planning` if it is different from the branch-matched plan.
+8. Summarize for the user:
+   - the project overview;
+   - what was last implemented;
+   - what should be implemented next.
+9. If no planning file currently contains tasks marked `todo` or `in progress`, state that explicitly and treat the latest numbered planning file as context only.
 
-## Working through story plans
+## Documentation Sources
 
-- When working through story plans from the ./planning folder you MUST mark each subtask and testing step as complete by marking the [ ] box with an 'x' so it becomes [x] at the point of implementing that subtask or testing step. DO NOT wait until multiple subtasks are complete and then mark them all in a batch. This ensures you know exactly where you are up to if your context is reset, and allows users to follow your progress precicely. Missing this step of marking subtasks complete at the point of implementation has caused multiple issues in the past, so DO NOT FORGET to keep the subtasks and testing steps up to date at the point you complete each of them!
-- After marking a subtask or testing step as complete, you must then add an implemention note point to the `Implementation Notes` section of the task, briefly stating what was done and any issues you needed to overcome, or if the subtask is blocked for some reason.
+- When working in React, use the MUI MCP tool for all Material UI references.
+- For any other API or SDK, consult current documentation via the Context7 MCP tool.
 
-## Branching & Phase Flow
+## Research And Documentation Order
 
-- Create a feature branch for each story (`feature/<number>-<short-description>`) from the currently checked out loction.
-- Each commit should be prefixed with DEV-[Number] - and contain a brief description consisting of 4 or 5 sentences explaining what changed and why.
-- Work only within that branch until every task in the story is complete and working.
+- For questions about this local repository, use the `code_info` MCP tool first.
+- After `code_info`, inspect the local code directly with repository search and file reads as needed.
+- For Material UI questions, use the MUI MCP tool first.
+- For non-MUI libraries, SDKs, or API documentation, use the Context7 MCP tool first.
+- For external GitHub repository documentation or architecture questions, use the DeepWiki MCP tool when it is relevant to the task.
+- Do not force a single global tool order across all tasks. Choose the first tool based on whether the task is about the local repo, MUI, another library or SDK, or an external GitHub repository.
 
-## Builds
+## Output Contract
 
-### Wrapper-First Workflow
+- Keep responses concise and task-focused.
+- Include file references when explaining code or repo instructions.
+- State clearly when tests, builds, or validation steps were not run.
+- Do not invent repository state, tool output, or test results.
+- Before substantial work, send a short progress update describing the next action.
+- After substantial work, report what changed and how it was validated.
 
-- Build wrappers exist to keep terminal output compact while preserving complete logs.
-- Use wrapper commands as the default path for day-to-day build checks.
-- Raw underlying commands are documented in header comments in `scripts/*.mjs`; this is reference material for wrapper maintenance and should not normally be needed.
+## Working Through Story Plans
+
+When working from a file in `./planning`, update the plan continuously as implementation progresses.
+
+1. Mark each subtask complete immediately when that subtask is implemented.
+2. Mark each testing step complete immediately when that testing step is performed.
+3. Change each completed checkbox from `[ ]` to `[x]` at the point of completion.
+4. Do not batch multiple checkbox updates later.
+5. After marking a subtask or testing step complete, add a brief point to that task’s `Implementation Notes` section.
+6. Each implementation note must briefly state:
+   - what was done;
+   - any issue that had to be overcome;
+   - or why the step is blocked.
+
+## Branching And Phase Flow
+
+1. Create or reuse a feature branch for each story using `feature/<number>-<short-description>`.
+2. Create that branch from the currently checked out location unless the user instructs otherwise.
+3. Work only within that branch until the story is complete and working.
+4. Each commit message must start with `DEV-[Number] -`.
+5. Each commit message body should contain 4 or 5 sentences explaining what changed and why.
+
+## Build Workflow
+
+### Wrapper-First Rule
+
+- Use build wrappers as the default build path.
+- Use raw underlying commands only when wrapper maintenance or diagnosis requires them.
+- Wrapper logs are the source of full diagnostic detail.
 
 ### Build Wrappers
 
-- `npm run build:summary:server`
-  - Builds the server workspace with compact summary output.
-  - Full log file: `logs/test-summaries/build-server-latest.log`.
-- `npm run build:summary:client`
-  - Builds the client workspace with compact summary output.
-  - Full log file: `logs/test-summaries/build-client-latest.log`.
-- `npm run compose:build:summary`
-  - Runs Docker Compose build with compact summary output.
-  - Full log file: `logs/test-summaries/compose-build-latest.log`.
+- `npm run build:summary:server` builds the server workspace with compact summary output. Full log: `logs/test-summaries/build-server-latest.log`.
+- `npm run build:summary:client` builds the client workspace with compact summary output. Full log: `logs/test-summaries/build-client-latest.log`.
+- `npm run compose:build:summary` runs Docker Compose build with compact summary output. Full log: `logs/test-summaries/compose-build-latest.log`.
 
 ### Build Failure Diagnosis
 
-1. Run the relevant wrapper and capture the log path from summary output.
-2. Open the log file and inspect the failing command output.
-3. Fix the failing dependency/config/code and re-run the same wrapper.
-4. If Docker/Compose builds fail due to transient network/cache issues, retry once before deeper investigation.
+1. Run the relevant wrapper.
+2. Capture the log path from the wrapper summary output.
+3. Open the log file and inspect the failing command output.
+4. Fix the failing dependency, config, or code.
+5. Re-run the same wrapper.
+6. If a Docker or Compose build fails due to a likely transient network or cache issue, retry once before deeper investigation.
 
-## Run System
+## Run Workflow
 
-### Wrapper-First Workflow
+### Wrapper-First Rule
 
-- Compose wrappers are the default way to start/stop AI-agent testing/automation stacks.
-- Do not run any `*:local:*` commands from this agent; they manage the local developer systems that the agent is running in.
-- These wrappers centralize env-file handling and Docker socket/runtime compatibility through `scripts/docker-compose-with-env.sh`.
-- Raw underlying commands are documented in `package.json` scripts and `scripts/docker-compose-with-env.sh`.
+- Compose wrappers are the default way to start and stop the AI-agent testing or automation stack.
+- Do not run any `*:local:*` commands from this agent.
+- These wrappers centralize env-file handling and Docker socket or runtime compatibility through `scripts/docker-compose-with-env.sh`.
 
 ### Run Wrappers
 
-- `npm run compose`
-  - Builds and starts the testing stack.
-- `npm run compose:build`
-  - Builds the testing stack images.
-- `npm run compose:up`
-  - Starts the testing stack (assumes images are already built).
-- `npm run compose:down`
-  - Stops the testing stack.
-- `npm run compose:logs`
-  - Tails testing stack logs.
+- `npm run compose` builds and starts the testing stack.
+- `npm run compose:build` builds the testing stack images.
+- `npm run compose:up` starts the testing stack when images are already built.
+- `npm run compose:down` stops the testing stack.
+- `npm run compose:logs` tails testing stack logs.
 
-### Start Full AI-Agent Testing Docker Environment (Preferred Sequence)
+### Preferred Start Sequence
 
-Run these commands from repo root in this order:
-
-1. `npm run compose:build`
-2. `npm run compose:up`
+1. Run `npm run compose:build`.
+2. Run `npm run compose:up`.
 
 Shortcut:
 
-- `npm run compose` (equivalent build + up sequence).
+- `npm run compose` is the equivalent build-plus-up sequence.
 
-### Stop Full AI-Agent Testing Docker Environment
+### Stop Sequence
 
-Run this command from repo root:
-
-1. `npm run compose:down`
+1. Run `npm run compose:down`.
 
 ### Run Failure Diagnosis
 
-1. Re-run the relevant compose wrapper and capture terminal output.
-2. Tail logs with `npm run compose:logs`
-3. Fix the failing container/config/env issue and re-run the same wrapper.
+1. Re-run the relevant compose wrapper and capture the terminal output.
+2. Tail logs with `npm run compose:logs`.
+3. Fix the failing container, config, or env issue.
+4. Re-run the same wrapper.
 
-## Testing
+## Test Workflow
 
-### Wrapper-First Workflow
+### Wrapper-First Rule
 
-- Test wrappers keep terminal output compact while preserving complete logs for diagnosis.
-- Use wrapper commands as the default test execution path.
-- Raw underlying commands are documented in header comments in `scripts/*.mjs`; this is reference material for wrapper maintenance and should not normally be needed.
+- Use test wrappers as the default test path.
+- Use raw underlying commands only when wrapper maintenance or diagnosis requires them.
+- Wrapper logs are the source of full diagnostic detail.
 
 ### Test Wrappers
 
-- `npm run test:summary:client`
-  - Runs client test suite with compact summary output.
-  - Timeout budget: allow up to 6 minutes (`timeout 6m` or `timeout_ms=360000`).
-  - Full log file: `test-results/client-tests-<timestamp>.log`.
-  - JSON results file: `test-results/client-tests-<timestamp>.json`.
-- `npm run test:summary:server:unit`
-  - Runs server node:test unit/integration suites with compact summary output.
-  - Timeout budget: allow up to 12 minutes (`timeout 12m` or `timeout_ms=720000`).
-  - Full log file: `test-results/server-unit-tests-<timestamp>.log`.
-- `npm run test:summary:server:cucumber`
-  - Runs server cucumber feature suites with compact summary output.
-  - Timeout budget: allow up to 10 minutes (`timeout 10m` or `timeout_ms=600000`).
-  - Full log file: `test-results/server-cucumber-tests-<timestamp>.log`.
-- `npm run test:summary:e2e`
-  - Runs e2e flow with setup/build, tests, and teardown.
-  - Timeout budget: allow up to 10 minutes (`timeout 10m` or `timeout_ms=600000`).
-  - Full log file: `logs/test-summaries/e2e-tests-latest.log`.
+- `npm run test:summary:client` runs the client test suite with compact summary output. Timeout budget: up to 6 minutes. Full log: `test-results/client-tests-<timestamp>.log`. JSON: `test-results/client-tests-<timestamp>.json`.
+- `npm run test:summary:server:unit` runs the server `node:test` unit and integration suites with compact summary output. Timeout budget: up to 12 minutes. Full log: `test-results/server-unit-tests-<timestamp>.log`.
+- `npm run test:summary:server:cucumber` runs the server cucumber feature suites with compact summary output. Timeout budget: up to 10 minutes. Full log: `test-results/server-cucumber-tests-<timestamp>.log`.
+- `npm run test:summary:e2e` runs the e2e flow with setup, build, tests, and teardown. Timeout budget: up to 10 minutes. Full log: `logs/test-summaries/e2e-tests-latest.log`.
 
-### Targeted Test Runs Policy
+### Targeted Test Runs
 
-- Summary wrappers support targeted runs for faster diagnosis:
-  - Client Jest: `--file`, `--subset`, `--test-name`
-  - Server node:test: `test:summary:server:unit` with `--file`, `--test-name`
-  - Server Cucumber: `test:summary:server:cucumber` with `--tags`, `--feature`, `--scenario`
-  - E2E Playwright: `--file`, `--grep`
-- For final validation, run full wrappers with no targeted args.
+- Client Jest supports `--file`, `--subset`, and `--test-name`.
+- Server `node:test` wrapper supports `--file` and `--test-name`.
+- Server cucumber wrapper supports `--tags`, `--feature`, and `--scenario`.
+- E2E Playwright wrapper supports `--file` and `--grep`.
+- For final validation, run the full relevant summary wrapper without targeted args.
 
 ### Test Failure Diagnosis
 
-1. Run the relevant wrapper and capture the log path from summary output.
-2. Open the full log file and locate the failing test block.
-3. Fix the failing code/config/dependency and re-run targeted wrappers for diagnosis.
-4. After fixes, re-run full relevant summary wrapper(s) without targeted args.
+1. Run the relevant wrapper.
+2. Capture the log path from the wrapper summary output.
+3. Open the full log file and locate the failing test block.
+4. Fix the failing code, config, or dependency.
+5. Re-run targeted wrappers for diagnosis as needed.
+6. After fixes, re-run the full relevant summary wrapper without targeted args.

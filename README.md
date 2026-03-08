@@ -192,6 +192,7 @@ codex_agents/<agentName>/
 - Chat workspace with provider/model selection, streaming responses, conversation history, and tool/citation rendering.
 - Agents workspace for running Codex agent instructions and reusable command macros with history and stop/resume controls.
 - Flows workspace to execute JSON-defined multi-step flows and resume interrupted runs.
+  Previously rendered Flow assistant bubbles now stay visible while later steps stream because the client ignores stale earlier-step websocket transcript events instead of rebinding the active bubble.
 - Ingest workspace for embedding repositories, monitoring ingest progress, and managing re-embed/remove operations.
 - Logs workspace for live server/client log inspection and filtering.
 

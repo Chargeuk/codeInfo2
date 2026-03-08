@@ -92,11 +92,82 @@ describe('useChatWs', () => {
     expect(result.current.connectionState).toBe('open');
   });
 
-  it('ignores stale/out-of-order transcript events based on seq', async () => {
+  it('drops lower-sequence same-inflight transcript events before they reach downstream consumers', async () => {
     const received: string[] = [];
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const { result } = renderHook(() =>
+        useChatWs({
+          onEvent: (event) => received.push(event.type),
+        }),
+      );
+      await waitFor(() => expect(result.current.connectionState).toBe('open'));
+
+      act(() => {
+        lastSocket()._receive({
+          protocolVersion: 'v1',
+          type: 'inflight_snapshot',
+          conversationId: 'c1',
+          seq: 2,
+          inflight: {
+            inflightId: 'i1',
+            assistantText: '',
+            assistantThink: '',
+            toolEvents: [],
+            startedAt: '2025-01-01T00:00:00.000Z',
+          },
+        });
+        lastSocket()._receive({
+          protocolVersion: 'v1',
+          type: 'assistant_delta',
+          conversationId: 'c1',
+          seq: 1,
+          inflightId: 'i1',
+          delta: 'stale',
+        });
+      });
+
+      expect(received).toEqual(['inflight_snapshot']);
+
+      const staleLog = logSpy.mock.calls.find(([entry]) => {
+        if (!entry || typeof entry !== 'object') return false;
+        const record = entry as {
+          message?: string;
+          context?: Record<string, unknown>;
+        };
+        return record.message === 'chat.ws.client_stale_event_ignored';
+      });
+
+      expect(staleLog?.[0]).toMatchObject({
+        message: 'chat.ws.client_stale_event_ignored',
+        context: expect.objectContaining({
+          reason: 'seq_regression',
+          eventType: 'assistant_delta',
+          inflightId: 'i1',
+          seq: 1,
+          lastSeq: 2,
+        }),
+      });
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('accepts sequence resets for a new inflight while still blocking stale packets from the old inflight', async () => {
+    const received: Array<{ type: string; inflightId?: string }> = [];
     const { result } = renderHook(() =>
       useChatWs({
-        onEvent: (event) => received.push(event.type),
+        onEvent: (event) =>
+          received.push({
+            type: event.type,
+            inflightId:
+              event.type === 'inflight_snapshot'
+                ? event.inflight.inflightId
+                : 'inflightId' in event
+                  ? event.inflightId
+                  : undefined,
+          }),
       }),
     );
     await waitFor(() => expect(result.current.connectionState).toBe('open'));
@@ -104,28 +175,42 @@ describe('useChatWs', () => {
     act(() => {
       lastSocket()._receive({
         protocolVersion: 'v1',
-        type: 'inflight_snapshot',
+        type: 'assistant_delta',
         conversationId: 'c1',
-        seq: 2,
-        inflight: {
-          inflightId: 'i1',
-          assistantText: '',
-          assistantThink: '',
-          toolEvents: [],
-          startedAt: '2025-01-01T00:00:00.000Z',
-        },
+        seq: 7,
+        inflightId: 'i1',
+        delta: 'older accepted',
       });
       lastSocket()._receive({
         protocolVersion: 'v1',
         type: 'assistant_delta',
         conversationId: 'c1',
         seq: 1,
+        inflightId: 'i2',
+        delta: 'new inflight accepted',
+      });
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId: 'c1',
+        seq: 6,
         inflightId: 'i1',
-        delta: 'stale',
+        delta: 'older stale',
+      });
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId: 'c1',
+        seq: 7,
+        inflightId: 'i1',
+        delta: 'older duplicate stale',
       });
     });
 
-    expect(received).toEqual(['inflight_snapshot']);
+    expect(received).toEqual([
+      { type: 'assistant_delta', inflightId: 'i1' },
+      { type: 'assistant_delta', inflightId: 'i2' },
+    ]);
   });
 
   it('refreshes snapshots and re-subscribes on reconnect', async () => {

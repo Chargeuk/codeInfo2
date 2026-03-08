@@ -2999,7 +2999,7 @@ Keep the direct client `typecheck` command available for targeted local diagnosi
 
 ### 19. Shared wrapper heartbeat and agent-action protocol
 
-- Task Status: `__todo__`
+- Task Status: `__done__`
 - Git Commits:
   - None yet.
 
@@ -3027,7 +3027,7 @@ The core behavior to add is:
 
 #### Subtasks
 
-1. [ ] Re-read all current summary wrappers and identify the shared output/heartbeat behavior that can be centralized.
+1. [x] Re-read all current summary wrappers and identify the shared output/heartbeat behavior that can be centralized.
    - Files to read:
      - `scripts/build-summary-server.mjs`
      - `scripts/build-summary-client.mjs`
@@ -3036,7 +3036,7 @@ The core behavior to add is:
      - `scripts/test-summary-server-cucumber.mjs`
      - `scripts/test-summary-client.mjs`
      - `scripts/test-summary-e2e.mjs`
-2. [ ] Define the shared wrapper output contract for heartbeat lines and final summary lines before editing the scripts.
+2. [x] Define the shared wrapper output contract for heartbeat lines and final summary lines before editing the scripts.
    - Required fields:
      - wrapper name
      - timestamp
@@ -3047,27 +3047,35 @@ The core behavior to add is:
      - `agent_action`
      - `do_not_read_log`
      - machine-readable reason for `inspect_log`/`skip_log`
-3. [ ] Implement a shared helper under `scripts/` that can:
+3. [x] Implement a shared helper under `scripts/` that can:
    - start/stop a heartbeat interval
    - report log size without corrupting the child log
    - emit consistent final `agent_action` lines
-4. [ ] Ensure the shared helper writes heartbeat/final summary guidance to wrapper stdout only and never injects those lines into the captured child log file.
-5. [ ] Define the exact action rules in code and docs:
+4. [x] Ensure the shared helper writes heartbeat/final summary guidance to wrapper stdout only and never injects those lines into the captured child log file.
+5. [x] Define the exact action rules in code and docs:
    - running => `agent_action: wait`, `do_not_read_log: true`
    - passed with zero warnings and unambiguous counts => `agent_action: skip_log`, `do_not_read_log: true`
    - failed, warned, or ambiguous => `agent_action: inspect_log`, `do_not_read_log: false`
-6. [ ] Update Task 19 implementation notes continuously as the protocol/helper is introduced.
+6. [x] Update Task 19 implementation notes continuously as the protocol/helper is introduced.
 
 #### Testing
 
-1. [ ] Run at least one long-running wrapper long enough to observe a heartbeat line with timestamp, phase, and log size.
-2. [ ] Force at least one wrapper failure and confirm the final summary prints `agent_action: inspect_log`.
-3. [ ] Confirm a clean wrapper run prints `agent_action: skip_log`.
-4. [ ] Confirm heartbeat/final guidance lines do not appear inside the saved child log file.
+1. [x] Run at least one long-running wrapper long enough to observe a heartbeat line with timestamp, phase, and log size.
+2. [x] Force at least one wrapper failure and confirm the final summary prints `agent_action: inspect_log`.
+3. [x] Confirm a clean wrapper run prints `agent_action: skip_log`.
+4. [x] Confirm heartbeat/final guidance lines do not appear inside the saved child log file.
 
 #### Implementation notes
 
-- Pending.
+- Subtask 1: Re-read all seven current summary wrappers and confirmed they all duplicate child spawn/log capture/final-summary patterns, but only the future shared helper should own heartbeat timing, log-size reporting, and machine-readable `agent_action` guidance.
+- Subtask 2: Defined the shared output contract in `scripts/summary-wrapper-protocol.mjs` so heartbeats always emit wrapper name, timestamp, phase, status, log size, `agent_action`, `do_not_read_log`, and reason, while final summaries add the saved log path.
+- Subtask 3: Added `scripts/summary-wrapper-protocol.mjs` plus a dedicated `scripts/summary-wrapper-protocol-fixture.mjs` wrapper so the protocol can be proven without prematurely consuming the client-build or remaining-wrapper rollout scope from Tasks 20 and 21.
+- Subtask 5: Centralized the exact action rules in `classifyAgentAction`, mapping running to `wait`, clean success to `skip_log`, and warnings/failures/ambiguous counts to `inspect_log`.
+- Subtask 4: Kept heartbeat and final protocol lines on wrapper stdout only by streaming child output exclusively into the saved log stream while the helper emits guidance through `console.log`.
+- Testing 1: `SUMMARY_WRAPPER_HEARTBEAT_MS=1000 node ./scripts/summary-wrapper-protocol-fixture.mjs --mode success --duration-ms 2200` emitted repeated heartbeat lines with `timestamp`, `phase: fixture`, and growing `log_size_bytes` values before the final summary.
+- Testing 2: `node ./scripts/summary-wrapper-protocol-fixture.mjs --mode failure --duration-ms 500` exited non-zero and finished with `agent_action: inspect_log`, `do_not_read_log: false`, and the saved log path.
+- Testing 3: The same clean success fixture run from Testing 1 ended with `agent_action: skip_log`, `do_not_read_log: true`, and `reason: clean_success`.
+- Testing 4: `rg -n "agent_action|do_not_read_log|timestamp:|status: running|status: passed|status: failed" logs/test-summaries/summary-wrapper-protocol-fixture.log` returned no matches, confirming the protocol guidance stayed out of the child log file.
 
 ### 20. Client build wrapper pre-build typecheck integration
 

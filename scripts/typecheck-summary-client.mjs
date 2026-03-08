@@ -3,7 +3,7 @@
 // Use: `npm run typecheck:summary:client` from repository root.
 // Behavior: runs `npm run typecheck --workspace client`, writes full output to logs/test-summaries/typecheck-client-latest.log,
 // and prints only status, TypeScript error count, and log location.
-// Note: until Task 17 converts the client workspace command to a non-emitting check, this wrapper still reflects the current `tsc -b` behavior.
+// Note: this wrapper follows the client workspace `typecheck` script, which is expected to stay non-emitting for repeatable diagnosis.
 
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';

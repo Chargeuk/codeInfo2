@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Purpose: reduce token usage by printing only a compact client build summary in the terminal.
 // Use: `npm run build:summary:client` from repository root.
-// Behavior: runs `npm run build --workspace client`, writes full output to logs/test-summaries/build-client-latest.log,
-// and prints only status (passed/failed), warning count, and log location.
+// Behavior: runs `npm run typecheck --workspace client` and then `npm run build --workspace client`,
+// writes full output to logs/test-summaries/build-client-latest.log, and prints only status (passed/failed),
+// failed phase (typecheck/build), warning count for the build phase, and log location.
 // Warning count: best-effort line-based parsing of build output for warning markers.
 // Why: this keeps routine AI-assisted runs low-noise while preserving full build output for troubleshooting.
 
@@ -70,18 +71,42 @@ const countWarnings = (output) => {
   return warningLines.size;
 };
 
-const result = await run(
-  'npm',
-  ['run', 'build', '--workspace', 'client'],
-  rootDir,
-);
-writeFileSync(logPath, result.output, 'utf8');
+const phaseOutputs = [];
 
-const warningCount = countWarnings(result.output);
-const status = result.code === 0 ? 'passed' : 'failed';
+const runPhase = async (phase, args) => {
+  const result = await run('npm', args, rootDir);
+  phaseOutputs.push(`===== phase: ${phase} =====\n${result.output}`);
+  return result;
+};
+
+const typecheckResult = await runPhase('typecheck', [
+  'run',
+  'typecheck',
+  '--workspace',
+  'client',
+]);
+
+let failedPhase = 'none';
+let buildResult = { code: 0, output: '' };
+
+if (typecheckResult.code !== 0) {
+  failedPhase = 'typecheck';
+} else {
+  buildResult = await runPhase('build', ['run', 'build', '--workspace', 'client']);
+  if (buildResult.code !== 0) {
+    failedPhase = 'build';
+  }
+}
+
+const combinedOutput = phaseOutputs.join('\n');
+writeFileSync(logPath, combinedOutput, 'utf8');
+
+const warningCount = countWarnings(buildResult.output);
+const status = failedPhase === 'none' ? 'passed' : 'failed';
 
 console.log(`[build:client] status: ${status}`);
+console.log(`[build:client] phase: ${failedPhase === 'none' ? 'build' : failedPhase}`);
 console.log(`[build:client] warnings: ${warningCount}`);
 console.log(`[build:client] log: ${path.relative(rootDir, logPath)}`);
 
-process.exit(result.code);
+process.exit(failedPhase === 'none' ? 0 : 1);

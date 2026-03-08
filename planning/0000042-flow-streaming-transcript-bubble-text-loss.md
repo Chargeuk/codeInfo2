@@ -2867,7 +2867,7 @@ This task should not begin until Tasks 13 through 15 have reduced the residual l
 
 ### 17. Client non-emitting typecheck command and build-wrapper preflight
 
-- Task Status: `__todo__`
+- Task Status: `__done__`
 - Git Commits:
   - None yet.
 
@@ -2888,48 +2888,59 @@ This task is intentionally limited to the client typecheck command and the clien
 
 #### Subtasks
 
-1. [ ] Re-read the current client typecheck command, client tsconfig, and client build summary wrapper before editing.
+1. [x] Re-read the current client typecheck command, client tsconfig, and client build summary wrapper before editing.
    - Files to read:
      - `client/package.json`
      - `client/tsconfig.json`
      - `scripts/build-summary-client.mjs`
-2. [ ] Replace the current client `typecheck` npm script with a non-emitting TypeScript check.
+2. [x] Replace the current client `typecheck` npm script with a non-emitting TypeScript check.
    - Files to edit:
      - `client/package.json`
    - Required outcome:
      - the command must not emit `.js` artifacts into `client/src`
      - the command should remain easy to run directly for targeted diagnosis
-3. [ ] Add `client/tsconfig.typecheck.json` only if the client cannot safely express the non-emitting check through the existing `client/tsconfig.json`.
+3. [x] Add `client/tsconfig.typecheck.json` only if the client cannot safely express the non-emitting check through the existing `client/tsconfig.json`.
    - Files to edit only if required:
      - `client/tsconfig.typecheck.json`
      - `client/tsconfig.json`
    - Required outcome:
      - keep the typecheck config client-local
      - avoid widening the change into server or shared compiler behavior
-4. [ ] Update `scripts/build-summary-client.mjs` so it runs the client typecheck command before `npm run build --workspace client`.
+4. [x] Update `scripts/build-summary-client.mjs` so it runs the client typecheck command before `npm run build --workspace client`.
    - Required outcome:
      - if typecheck fails, the wrapper must stop before starting the Vite build
      - the wrapper must still print the failure status and log path for AI-agent diagnosis
      - the wrapper output should make the failed phase obvious (`typecheck` vs `build`)
-5. [ ] Preserve the existing compact wrapper behavior after the pre-build typecheck phase is added.
+5. [x] Preserve the existing compact wrapper behavior after the pre-build typecheck phase is added.
    - Required outcome:
      - keep the concise summary format
      - keep the existing log file location contract
      - keep warning counting meaningful for the real build phase
-6. [ ] Add or update wrapper-level automated coverage if the repo already has a pattern for script/wrapper tests; otherwise document the wrapper contract change in the task notes and workflow docs.
-7. [ ] Update Task 17 implementation notes continuously as each change lands.
+6. [x] Add or update wrapper-level automated coverage if the repo already has a pattern for script/wrapper tests; otherwise document the wrapper contract change in the task notes and workflow docs.
+7. [x] Update Task 17 implementation notes continuously as each change lands.
 
 #### Testing
 
-1. [ ] `npm run typecheck --workspace client`
-2. [ ] `npm run build:summary:client`
-3. [ ] Confirm that a forced client typecheck failure stops the wrapper before the build phase and still prints the log path.
-4. [ ] `npm run lint --workspaces`
-5. [ ] `npm run format:check --workspaces`
+1. [x] `npm run typecheck --workspace client`
+2. [x] `npm run build:summary:client`
+3. [x] Confirm that a forced client typecheck failure stops the wrapper before the build phase and still prints the log path.
+4. [x] `npm run lint --workspaces`
+5. [x] `npm run format:check --workspaces`
 
 #### Implementation notes
 
-- Pending.
+- Subtask 1: Re-read `client/package.json`, `client/tsconfig.json`, and `scripts/build-summary-client.mjs`; confirmed the current client `typecheck` still uses emitting `tsc -b`, while direct `npx tsc --noEmit -p tsconfig.json` succeeds client-locally and should let Task 17 stay within existing client config unless a wrapper integration detail proves otherwise.
+- Subtask 2: Replaced the client workspace `typecheck` script with `tsc --noEmit -p tsconfig.json`, keeping the command direct and targeted while stopping `.js` emission into `client/src`.
+- Subtask 3: No extra `client/tsconfig.typecheck.json` was needed because the existing client-local `tsconfig.json` already works for the non-emitting check without widening scope into shared/server compiler settings.
+- Subtask 4: Updated `scripts/build-summary-client.mjs` to run `npm run typecheck --workspace client` before the Vite build and to stop immediately if the typecheck phase fails.
+- Subtask 5: Preserved the existing compact wrapper contract by keeping the same log path, counting warnings only from the actual build phase, and printing an explicit `phase` field so failures are clearly attributed to `typecheck` or `build`.
+- Subtask 6: No existing wrapper-test pattern was found in the repo, so the wrapper contract change is documented here and will be reflected in workflow docs during Task 18 instead of adding ad hoc script tests in this task.
+- Subtask 7: Kept this section current while landing the non-emitting command, wrapper preflight, and forced-failure proof so Task 18 can build directly on the updated contract.
+- Testing 1: `npm run typecheck --workspace client` passed with the new non-emitting command and did not recreate any `client/src/**/*.js` artifacts.
+- Testing 2: `npm run build:summary:client` passed with the new pre-build typecheck path; the wrapper now reports `phase: build` on success and still only surfaced the existing single Vite chunk-size warning.
+- Testing 3: A temporary `client/src/__task17_typecheck_failure_sentinel.ts` file forced a client typecheck error, and `npm run build:summary:client` failed fast with `status: failed`, `phase: typecheck`, `warnings: 0`, and the existing `logs/test-summaries/build-client-latest.log` path before the build phase could start; the sentinel file was deleted immediately after the proof run.
+- Testing 4: `npm run lint --workspaces` completed with no new errors; the same pre-existing 57 server `import/order` warnings remained unchanged.
+- Testing 5: `npm run format:check --workspaces` passed cleanly after the wrapper and package-script edits.
 
 ### 18. Client build-validation workflow update and final verification
 

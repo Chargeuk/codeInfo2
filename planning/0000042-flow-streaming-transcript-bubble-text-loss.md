@@ -2740,3 +2740,119 @@ This task should not begin until Tasks 13 through 15 have reduced the residual l
 #### Implementation notes
 
 - Pending.
+
+### 17. Client non-emitting typecheck command and build-wrapper preflight
+
+- Task Status: `__todo__`
+- Git Commits:
+  - None yet.
+
+#### Overview
+
+Once the client typecheck baseline is close to green, the repo should gain a real non-emitting client typecheck command and the client build summary wrapper should run that command before it starts the Vite build. This closes the gap where frontend changes can appear buildable to the wrapper path while still carrying TypeScript correctness defects.
+
+This task is intentionally limited to the client typecheck command and the client build summary wrapper. Do not widen it into the client test wrapper; behavioral tests should remain separate from the static type gate.
+
+#### Documentation Locations
+
+- TypeScript `noEmit` reference: https://www.typescriptlang.org/tsconfig/#noEmit
+  - use this when deciding whether the client can rely on `tsc --noEmit` directly or needs a dedicated typecheck tsconfig
+- TypeScript project references/build mode reference: https://www.typescriptlang.org/docs/handbook/project-references.html
+  - use this when confirming the client should move away from the current emitting `tsc -b` workflow for typecheck
+- Node child_process docs: https://nodejs.org/api/child_process.html
+  - use this when updating the wrapper process flow so the pre-build typecheck phase preserves log capture and exit behavior
+
+#### Subtasks
+
+1. [ ] Re-read the current client typecheck command, client tsconfig, and client build summary wrapper before editing.
+   - Files to read:
+     - `client/package.json`
+     - `client/tsconfig.json`
+     - `scripts/build-summary-client.mjs`
+2. [ ] Replace the current client `typecheck` npm script with a non-emitting TypeScript check.
+   - Files to edit:
+     - `client/package.json`
+   - Required outcome:
+     - the command must not emit `.js` artifacts into `client/src`
+     - the command should remain easy to run directly for targeted diagnosis
+3. [ ] Add `client/tsconfig.typecheck.json` only if the client cannot safely express the non-emitting check through the existing `client/tsconfig.json`.
+   - Files to edit only if required:
+     - `client/tsconfig.typecheck.json`
+     - `client/tsconfig.json`
+   - Required outcome:
+     - keep the typecheck config client-local
+     - avoid widening the change into server or shared compiler behavior
+4. [ ] Update `scripts/build-summary-client.mjs` so it runs the client typecheck command before `npm run build --workspace client`.
+   - Required outcome:
+     - if typecheck fails, the wrapper must stop before starting the Vite build
+     - the wrapper must still print the failure status and log path for AI-agent diagnosis
+     - the wrapper output should make the failed phase obvious (`typecheck` vs `build`)
+5. [ ] Preserve the existing compact wrapper behavior after the pre-build typecheck phase is added.
+   - Required outcome:
+     - keep the concise summary format
+     - keep the existing log file location contract
+     - keep warning counting meaningful for the real build phase
+6. [ ] Add or update wrapper-level automated coverage if the repo already has a pattern for script/wrapper tests; otherwise document the wrapper contract change in the task notes and workflow docs.
+7. [ ] Update Task 17 implementation notes continuously as each change lands.
+
+#### Testing
+
+1. [ ] `npm run typecheck --workspace client`
+2. [ ] `npm run build:summary:client`
+3. [ ] Confirm that a forced client typecheck failure stops the wrapper before the build phase and still prints the log path.
+4. [ ] `npm run lint --workspaces`
+5. [ ] `npm run format:check --workspaces`
+
+#### Implementation notes
+
+- Pending.
+
+### 18. Client build-validation workflow update and final verification
+
+- Task Status: `__todo__`
+- Git Commits:
+  - None yet.
+
+#### Overview
+
+After the build wrapper absorbs the client typecheck gate, the documented frontend workflow should be updated so future work treats `npm run build:summary:client` as both a buildability check and a TypeScript correctness gate. This task is about workflow clarity, validation expectations, and final verification rather than about changing the client test wrapper.
+
+Keep the direct client `typecheck` command available for targeted local diagnosis even after the build wrapper starts calling it automatically.
+
+#### Documentation Locations
+
+- Repo workflow docs:
+  - `AGENTS.md`
+  - `projectStructure.md`
+  - this story file
+- Build workflow wrapper guidance already used in this repo:
+  - `scripts/build-summary-client.mjs`
+  - root `package.json`
+
+#### Subtasks
+
+1. [ ] Update the documented frontend workflow so `npm run build:summary:client` explicitly includes the client typecheck pre-build gate.
+   - Files to edit:
+     - `AGENTS.md`
+     - `projectStructure.md`
+     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+2. [ ] Update any Story 42 validation wording that currently treats client build and client typecheck as unrelated checks if Task 17 makes build imply typecheck.
+3. [ ] Keep `npm run typecheck --workspace client` documented as the targeted direct command for local diagnosis even after Task 17 lands.
+4. [ ] Re-run the final client validation matrix once the wrapper-integrated typecheck gate is green.
+   - Required command set:
+     - `npm run build:summary:client`
+     - `npm run test:summary:client`
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+5. [ ] Update Task 18 implementation notes continuously as the docs and final validation are completed.
+
+#### Testing
+
+1. [ ] `npm run build:summary:client`
+2. [ ] `npm run test:summary:client`
+3. [ ] `npm run lint --workspaces`
+4. [ ] `npm run format:check --workspaces`
+
+#### Implementation notes
+
+- Pending.

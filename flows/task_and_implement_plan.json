@@ -16,6 +16,20 @@
       ]
     },
     {
+      "type": "llm",
+      "label": "Tasker Select Next Plan",
+      "agentType": "tasking_agent",
+      "identifier": "tasker",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Please tell me the next plan that has not yet been fully executed - this can be determined by looking for plans containing either: `1. No tasks within the plan.` OR `2. Some or all tasks that are not yet moved to the status of completed.` The lowest indexed story that meets one of these two criteria will be the story we will be working on. Confirm to me what story that is, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
+          ]
+        }
+      ]
+    },
+    {
       "type": "command",
       "label": "Task Up Plan",
       "agentType": "tasking_agent",
@@ -45,7 +59,7 @@
         {
           "role": "user",
           "content": [
-            "Please read Agents.md and follow its instructions. Use the same story/plan that was selected and tasked up in the earlier steps of this flow. Do not choose a new plan. Re-open that selected plan, confirm which story you will be working on, and explain the next coding work still remaining for that plan. Include the main files or components likely to change, any notable gotchas, risks, or dependencies, and how the remaining work should be tested. Do not make any file changes at this time."
+            "Please read Agents.md and follow its instructions. Please tell me the next plan that has not yet been fully executed. This can be determined by looking for plans that include tasks that are not yet moved to the status of completed/complete. The lowest indexed story that meets this criteria will be the story we will be working on. Confirm to me what story that is, and provide me with an overview of the story, including what is still remaining to be done, without making file changes at this time."
           ]
         }
       ]

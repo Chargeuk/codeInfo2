@@ -2452,7 +2452,7 @@ These tasks are intentionally appended as follow-up hardening work and are not p
 
 ### 13. Client typecheck foundations and baseline collapse
 
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits:
   - `0696a5d1` - Collapse client typecheck foundations and record the reduced residual baseline for Tasks 14 and 15.
 
@@ -2512,7 +2512,7 @@ Do not start mass-editing every test file before this task is complete. The goal
      - later test files should consume shared typed helpers instead of repeating ad hoc casts
 8. [x] Re-run `npm run typecheck --workspace client` and record the reduced post-foundation baseline, including the specific residual runtime file families and test file families that still need direct edits.
 9. [x] If Task 13 changes the expected client compiler model or test environment contract, update `projectStructure.md` and this story file so the chosen typecheck approach is documented before file-by-file cleanup continues.
-10. [ ] Update Task 13 implementation notes continuously as each foundational fix lands.
+10. [x] Update Task 13 implementation notes continuously as each foundational fix lands.
 
 #### Testing
 

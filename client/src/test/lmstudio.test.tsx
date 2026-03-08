@@ -7,11 +7,10 @@ import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 type FetchLmStudioStatus =
   (typeof import('@codeinfo2/common'))['fetchLmStudioStatus'];
 
-const mockFetch = jest.fn<
-  ReturnType<FetchLmStudioStatus>,
-  Parameters<FetchLmStudioStatus>
->();
-const mockFetchServerVersion = jest.fn().mockResolvedValue({ version: 'test' });
+const mockFetch = jest.fn<FetchLmStudioStatus>();
+const mockFetchServerVersion = jest
+  .fn<() => Promise<{ version: string }>>()
+  .mockResolvedValue({ version: 'test' });
 const logQueue: unknown[] = [];
 
 await jest.unstable_mockModule('../logging/transport', async () => ({

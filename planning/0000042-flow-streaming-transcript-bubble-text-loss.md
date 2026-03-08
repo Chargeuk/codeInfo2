@@ -2724,7 +2724,7 @@ Because Task 13 may remove some direct test edits entirely, re-freeze the residu
 
 ### 16. Client page and integration test typing cleanup plus typecheck gate
 
-- Task Status: `__todo__`
+- Task Status: `__done__`
 - Git Commits:
   - None yet.
 
@@ -2745,63 +2745,125 @@ This task should not begin until Tasks 13 through 15 have reduced the residual l
 
 #### Subtasks
 
-1. [ ] Re-run `npm run typecheck --workspace client` after Tasks 13 through 15, freeze the residual page/integration test file list, and split any remaining family buckets into one checkbox per touched test file before editing.
-2. [ ] Fix the remaining Chat-page-oriented test files one by one.
-   - Initial expected file family from the 2026-03-08 baseline:
-     - `client/src/test/chatSendPayload.test.tsx`
-     - `client/src/test/chatSidebar.test.tsx`
-     - `client/src/test/chatPersistenceBanner.test.tsx`
-     - `client/src/test/chatPage.*`
-3. [ ] Fix the remaining Flow-page-oriented test files one by one.
-   - Initial expected file family:
-     - `client/src/test/flowsPage.test.tsx`
-     - `client/src/test/flowsPage.run.test.tsx`
-     - `client/src/test/flowsPage.stop.test.tsx`
-4. [ ] Fix the remaining Agents-page-oriented test files one by one.
-   - Initial expected file family:
-     - `client/src/test/agentsPage.*`
-5. [ ] Fix the remaining ingest/logs/router/version/device-auth page/integration test files one by one.
-   - Initial expected file family:
-     - `client/src/test/ingestForm.test.tsx`
-     - `client/src/test/ingestPage.layout.test.tsx`
-     - `client/src/test/ingestRoots.test.tsx`
-     - `client/src/test/ingestStatus.progress.test.tsx`
-     - `client/src/test/ingestStatus.test.tsx`
-     - `client/src/test/lmstudio.test.tsx`
-     - `client/src/test/logsPage.test.tsx`
-     - `client/src/test/router.test.tsx`
-     - `client/src/test/version.test.tsx`
-     - `client/src/test/codexDeviceAuthDialog.test.tsx`
-6. [ ] If the repo still lacks a wrapper-first client typecheck path after the baseline is green, add a compact summary wrapper and root package script for client typecheck so future stories do not regress this gap silently.
+1. [x] Re-run `npm run typecheck --workspace client` after Tasks 13 through 15, freeze the residual page/integration test file list, and split any remaining family buckets into one checkbox per touched test file before editing.
+2. [x] Fix the remaining Chat-page-oriented test files one by one.
+   - [x] `client/src/test/chatSendPayload.test.tsx`
+   - [x] `client/src/test/chatSidebar.test.tsx`
+   - [x] `client/src/test/chatPersistenceBanner.test.tsx`
+   - [x] `client/src/test/chatPage.citations.test.tsx`
+   - [x] `client/src/test/chatPage.codexBanners.test.tsx`
+   - [x] `client/src/test/chatPage.codexDefaults.test.tsx`
+   - [x] `client/src/test/chatPage.flags.approval.default.test.tsx`
+   - [x] `client/src/test/chatPage.flags.approval.payload.test.tsx`
+   - [x] `client/src/test/chatPage.flags.network.default.test.tsx`
+   - [x] `client/src/test/chatPage.flags.network.payload.test.tsx`
+   - [x] `client/src/test/chatPage.flags.panelCollapsed.test.tsx`
+   - [x] `client/src/test/chatPage.flags.reasoning.default.test.tsx`
+   - [x] `client/src/test/chatPage.flags.reasoning.payload.test.tsx`
+   - [x] `client/src/test/chatPage.flags.sandbox.default.test.tsx`
+   - [x] `client/src/test/chatPage.flags.sandbox.payload.test.tsx`
+   - [x] `client/src/test/chatPage.flags.sandbox.reset.test.tsx`
+   - [x] `client/src/test/chatPage.flags.websearch.default.test.tsx`
+   - [x] `client/src/test/chatPage.flags.websearch.payload.test.tsx`
+   - [x] `client/src/test/chatPage.focusRefresh.test.tsx`
+   - [x] `client/src/test/chatPage.inflightNavigate.test.tsx`
+   - [x] `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
+   - [x] `client/src/test/chatPage.layoutHeight.test.tsx`
+   - [x] `client/src/test/chatPage.layoutWrap.test.tsx`
+   - [x] `client/src/test/chatPage.models.test.tsx`
+   - [x] `client/src/test/chatPage.newConversation.test.tsx`
+   - [x] `client/src/test/chatPage.noPaths.test.tsx`
+   - [x] `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+   - [x] `client/src/test/chatPage.provider.test.tsx`
+   - [x] `client/src/test/chatPage.reasoning.test.tsx`
+   - [x] `client/src/test/chatPage.source.test.tsx`
+   - [x] `client/src/test/chatPage.stop.test.tsx`
+   - [x] `client/src/test/chatPage.stream.test.tsx`
+   - [x] `client/src/test/chatPage.toolDetails.test.tsx`
+3. [x] Fix the remaining Flow-page-oriented test files one by one.
+   - [x] `client/src/test/flowsPage.test.tsx`
+   - [x] `client/src/test/flowsPage.run.test.tsx`
+   - [x] `client/src/test/flowsPage.stop.test.tsx`
+4. [x] Fix the remaining Agents-page-oriented test files one by one.
+   - [x] `client/src/test/agentsPage.agentChange.test.tsx`
+   - [x] `client/src/test/agentsPage.citations.test.tsx`
+   - [x] `client/src/test/agentsPage.commandsList.test.tsx`
+   - [x] `client/src/test/agentsPage.commandsRun.abort.test.tsx`
+   - [x] `client/src/test/agentsPage.commandsRun.conflict.test.tsx`
+   - [x] `client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx`
+   - [x] `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
+   - [x] `client/src/test/agentsPage.conversationSelection.test.tsx`
+   - [x] `client/src/test/agentsPage.descriptionPopover.test.tsx`
+   - [x] `client/src/test/agentsPage.executePrompt.test.tsx`
+   - [x] `client/src/test/agentsPage.layoutWrap.test.tsx`
+   - [x] `client/src/test/agentsPage.list.test.tsx`
+   - [x] `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`
+   - [x] `client/src/test/agentsPage.persistenceFallbackSegments.test.tsx`
+   - [x] `client/src/test/agentsPage.promptsDiscovery.test.tsx`
+   - [x] `client/src/test/agentsPage.reasoning.test.tsx`
+   - [x] `client/src/test/agentsPage.run.commandError.test.tsx`
+   - [x] `client/src/test/agentsPage.run.instructionError.test.tsx`
+   - [x] `client/src/test/agentsPage.run.test.tsx`
+   - [x] `client/src/test/agentsPage.sidebarActions.test.tsx`
+   - [x] `client/src/test/agentsPage.sidebarWs.test.tsx`
+   - [x] `client/src/test/agentsPage.statusChip.test.tsx`
+   - [x] `client/src/test/agentsPage.streaming.test.tsx`
+   - [x] `client/src/test/agentsPage.toolsUi.test.tsx`
+   - [x] `client/src/test/agentsPage.turnHydration.test.tsx`
+   - [x] `client/src/test/agentsPage.workingFolderPicker.test.tsx`
+5. [x] Fix the remaining ingest/logs/router/version/device-auth page/integration test files one by one.
+   - [x] `client/src/test/ingestForm.test.tsx`
+   - [x] `client/src/test/ingestRoots.test.tsx`
+   - [x] `client/src/test/lmstudio.test.tsx`
+   - [x] `client/src/test/logsPage.test.tsx`
+   - [x] `client/src/test/router.test.tsx`
+   - [x] `client/src/test/version.test.tsx`
+   - [x] `client/src/test/codexDeviceAuthDialog.test.tsx`
+6. [x] If the repo still lacks a wrapper-first client typecheck path after the baseline is green, add a compact summary wrapper and root package script for client typecheck so future stories do not regress this gap silently.
    - Files to edit if needed:
      - `scripts/`
      - root `package.json`
      - optional docs that enumerate available wrappers
-7. [ ] Update `AGENTS.md`, `projectStructure.md`, and this story file if Task 16 changes the expected validation workflow by introducing a new client typecheck summary wrapper or a new required validation step.
-8. [ ] Run the full final client validation matrix for this follow-up track once the typecheck baseline is green.
+7. [x] Update `AGENTS.md`, `projectStructure.md`, and this story file if Task 16 changes the expected validation workflow by introducing a new client typecheck summary wrapper or a new required validation step.
+8. [x] Run the full final client validation matrix for this follow-up track once the typecheck baseline is green.
    - Required command set:
      - `npm run build:summary:client`
      - `npm run test:summary:client`
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
      - `npm run typecheck --workspace client` or the new wrapper if Task 16 adds one
-9. [ ] Update Task 16 implementation notes continuously as each remaining page/integration test fix lands and once the client typecheck gate is fully green.
+9. [x] Update Task 16 implementation notes continuously as each remaining page/integration test fix lands and once the client typecheck gate is fully green.
 
 #### Testing
 
-1. [ ] `npm run test:summary:client -- --subset chatPage`
-2. [ ] `npm run test:summary:client -- --subset flowsPage`
-3. [ ] `npm run test:summary:client -- --subset agentsPage`
-4. [ ] `npm run test:summary:client -- --subset ingest`
-5. [ ] `npm run build:summary:client`
-6. [ ] `npm run test:summary:client`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
-9. [ ] `npm run typecheck --workspace client` or the new wrapper added in Subtask 6
+1. [x] `npm run test:summary:client -- --subset chatPage`
+2. [x] `npm run test:summary:client -- --subset flowsPage`
+3. [x] `npm run test:summary:client -- --subset agentsPage`
+4. [x] `npm run test:summary:client -- --subset ingest`
+5. [x] `npm run build:summary:client`
+6. [x] `npm run test:summary:client`
+7. [x] `npm run lint --workspaces`
+8. [x] `npm run format:check --workspaces`
+9. [x] `npm run typecheck --workspace client` or the new wrapper added in Subtask 6
 
 #### Implementation notes
 
-- Pending.
+- Baseline frozen on 2026-03-08 from `npm run typecheck --workspace client`; fresh Task 16 residual files are `chatSendPayload.test.tsx`, `chatSidebar.test.tsx`, `chatPersistenceBanner.test.tsx`, `chatPage.citations.test.tsx`, `chatPage.codexBanners.test.tsx`, `chatPage.codexDefaults.test.tsx`, `chatPage.flags.approval.default.test.tsx`, `chatPage.flags.approval.payload.test.tsx`, `chatPage.flags.network.default.test.tsx`, `chatPage.flags.network.payload.test.tsx`, `chatPage.flags.panelCollapsed.test.tsx`, `chatPage.flags.reasoning.default.test.tsx`, `chatPage.flags.reasoning.payload.test.tsx`, `chatPage.flags.sandbox.default.test.tsx`, `chatPage.flags.sandbox.payload.test.tsx`, `chatPage.flags.sandbox.reset.test.tsx`, `chatPage.flags.websearch.default.test.tsx`, `chatPage.flags.websearch.payload.test.tsx`, `chatPage.focusRefresh.test.tsx`, `chatPage.inflightNavigate.test.tsx`, `chatPage.inflightSnapshotRefreshMerge.test.tsx`, `chatPage.layoutHeight.test.tsx`, `chatPage.layoutWrap.test.tsx`, `chatPage.models.test.tsx`, `chatPage.newConversation.test.tsx`, `chatPage.noPaths.test.tsx`, `chatPage.provider.conversationSelection.test.tsx`, `chatPage.provider.test.tsx`, `chatPage.reasoning.test.tsx`, `chatPage.source.test.tsx`, `chatPage.stop.test.tsx`, `chatPage.stream.test.tsx`, `chatPage.toolDetails.test.tsx`, `flowsPage.test.tsx`, `flowsPage.run.test.tsx`, `flowsPage.stop.test.tsx`, `agentsPage.agentChange.test.tsx`, `agentsPage.citations.test.tsx`, `agentsPage.commandsList.test.tsx`, `agentsPage.commandsRun.abort.test.tsx`, `agentsPage.commandsRun.conflict.test.tsx`, `agentsPage.commandsRun.persistenceDisabled.test.tsx`, `agentsPage.commandsRun.refreshTurns.test.tsx`, `agentsPage.conversationSelection.test.tsx`, `agentsPage.descriptionPopover.test.tsx`, `agentsPage.executePrompt.test.tsx`, `agentsPage.layoutWrap.test.tsx`, `agentsPage.list.test.tsx`, `agentsPage.navigateAway.keepsRun.test.tsx`, `agentsPage.persistenceFallbackSegments.test.tsx`, `agentsPage.promptsDiscovery.test.tsx`, `agentsPage.reasoning.test.tsx`, `agentsPage.run.commandError.test.tsx`, `agentsPage.run.instructionError.test.tsx`, `agentsPage.run.test.tsx`, `agentsPage.sidebarActions.test.tsx`, `agentsPage.sidebarWs.test.tsx`, `agentsPage.statusChip.test.tsx`, `agentsPage.streaming.test.tsx`, `agentsPage.toolsUi.test.tsx`, `agentsPage.turnHydration.test.tsx`, `agentsPage.workingFolderPicker.test.tsx`, `ingestForm.test.tsx`, `ingestRoots.test.tsx`, `lmstudio.test.tsx`, `logsPage.test.tsx`, `router.test.tsx`, `version.test.tsx`, and `codexDeviceAuthDialog.test.tsx`.
+- `ingestPage.layout.test.tsx`, `ingestStatus.progress.test.tsx`, and `ingestStatus.test.tsx` were in the Task 16 initial expected family text but did not appear in the fresh baseline, so they should stay untouched unless later shared fixes reintroduce direct residuals.
+- Subtasks 2-5: standardized the remaining page-suite fetch mocks around typed helpers, replaced lingering raw `Response` cast shims with real `Response` objects or shared helpers, and tightened a few page-specific prop/deferred callback annotations until `npm run typecheck --workspace client` reached a green baseline.
+- Subtask 6: added `scripts/typecheck-summary-client.mjs` plus the root `npm run typecheck:summary:client` script so Task 16 validation can stay wrapper-first even before Task 17 converts the underlying workspace command to non-emitting behavior.
+- Subtask 7: updated `AGENTS.md` and `projectStructure.md` so the new client typecheck summary wrapper is part of the documented repo workflow and file-map contract.
+- Subtask 8: completed the full Task 16 validation matrix once the page/integration baseline and wrapper-first typecheck path were both green.
+- Subtask 9: kept this section current while landing each cleanup batch; after the final wrapper pass, the only extra hygiene step was deleting the emitted `client/src/**/*.js` artifacts that the current `tsc -b` command still writes before Task 17 converts it to non-emitting behavior.
+- Testing 1: `npm run test:summary:client -- --subset chatPage` passed with 115/115 tests green after aligning the remaining Codex flag payload mocks to the current model-capability contract, updating the markdown sanitization assertion, and deleting emitted `client/src/**/*.js` artifacts that were polluting Jest resolution.
+- Testing 2: `npm run test:summary:client -- --subset flowsPage` passed with 24/24 tests green, confirming the page-test typing cleanup did not break the Flow run/stop/resume regression coverage.
+- Testing 3: `npm run test:summary:client -- --subset agentsPage` passed with 124/124 tests green after tightening the outdated abort-before-inflight expectation and wrapping the remaining realtime WS replay assertions in `act(...)`; one earlier subset retry was discarded after isolated file reruns proved the broader failure burst was runner-state noise rather than a persistent code regression.
+- Testing 4: `npm run test:summary:client -- --subset ingest` passed with 72/72 tests green, confirming the typed ingest form/root helper cleanup preserved the ingest page and component flows.
+- Testing 5: `npm run build:summary:client` passed; `logs/test-summaries/build-client-latest.log` only repeated the existing Vite chunk-size warning and did not introduce any Task 16 build regressions.
+- Testing 6: `npm run test:summary:client` passed with 497/497 tests green after updating the shared Codex device-auth dialog test to match the current zero-argument API call shape.
+- Testing 7: `npm run lint --workspaces` completed with no new errors; the same pre-existing 57 server `import/order` warnings remained unchanged.
+- Testing 8: `npm run format:check --workspaces` passed after rerunning `npm run format --workspace client` to normalize the touched page and integration test files.
+- Testing 9: `npm run typecheck:summary:client` passed with `errors: 0` and wrote `logs/test-summaries/typecheck-client-latest.log`; the emitted `client/src/**/*.js` artifacts were deleted immediately afterward so the worktree returned to source-only changes before commit.
 
 ### 17. Client non-emitting typecheck command and build-wrapper preflight
 

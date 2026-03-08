@@ -2,10 +2,10 @@ import { jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -89,7 +89,7 @@ function installTranscriptHeightMock(options: {
 
 describe('Chat transcript viewport height fill', () => {
   it('grows when the viewport height increases', async () => {
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
       if (target.includes('/health')) {
         return Promise.resolve({
@@ -161,7 +161,7 @@ describe('Chat transcript viewport height fill', () => {
   });
 
   it('keeps transcript height non-negative with tall controls (Codex flags expanded)', async () => {
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
       if (target.includes('/health')) {
         return Promise.resolve({

@@ -3,10 +3,10 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -42,7 +42,7 @@ function mockChatProvidersFetch(options: {
   modelsProvider: string;
   agents?: Array<{ name: string }>;
 }) {
-  mockFetch.mockImplementation((url: RequestInfo | URL) => {
+  mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
     const href = typeof url === 'string' ? url : url.toString();
     if (href.includes('/health')) {
       return Promise.resolve({
@@ -94,7 +94,7 @@ function mockChatProvidersFetch(options: {
 
 describe('Chat provider selection (WS transport)', () => {
   it('shows Codex as unavailable with guidance banner', async () => {
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const href = typeof url === 'string' ? url : url.toString();
       if (href.includes('/health')) {
         return Promise.resolve({
@@ -253,7 +253,7 @@ describe('Chat provider selection (WS transport)', () => {
   });
 
   it('keeps Provider/Model selects visible when models are empty', async () => {
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const href = typeof url === 'string' ? url : url.toString();
       if (href.includes('/health')) {
         return Promise.resolve({
@@ -320,7 +320,7 @@ describe('Chat provider selection (WS transport)', () => {
   });
 
   it('disables Model select when provider is unavailable', async () => {
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const href = typeof url === 'string' ? url : url.toString();
       if (href.includes('/health')) {
         return Promise.resolve({
@@ -382,7 +382,7 @@ describe('Chat provider selection (WS transport)', () => {
     const bodies: Record<string, unknown>[] = [];
 
     mockFetch.mockImplementation(
-      (url: RequestInfo | URL, opts?: RequestInit) => {
+      async (url: RequestInfo | URL, opts?: RequestInit) => {
         const href = typeof url === 'string' ? url : url.toString();
         if (href.includes('/health')) {
           return Promise.resolve({

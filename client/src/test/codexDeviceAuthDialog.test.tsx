@@ -2,7 +2,11 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-const postCodexDeviceAuth = jest.fn();
+type PostCodexDeviceAuth =
+  (typeof import('../api/codex'))['postCodexDeviceAuth'];
+type CodexDeviceAuthSuccessResponse = Awaited<ReturnType<PostCodexDeviceAuth>>;
+
+const postCodexDeviceAuth = jest.fn<PostCodexDeviceAuth>();
 const logSpy = jest.fn();
 
 await jest.unstable_mockModule('../api/codex', async () => ({
@@ -45,10 +49,12 @@ describe('CodexDeviceAuthDialog', () => {
 
   it('disables the start button while pending', async () => {
     const user = userEvent.setup();
-    let resolvePromise: (() => void) | undefined;
+    let resolvePromise:
+      | ((value: CodexDeviceAuthSuccessResponse) => void)
+      | undefined;
     postCodexDeviceAuth.mockImplementation(
       () =>
-        new Promise<void>((resolve) => {
+        new Promise<CodexDeviceAuthSuccessResponse>((resolve) => {
           resolvePromise = resolve;
         }),
     );
@@ -64,7 +70,10 @@ describe('CodexDeviceAuthDialog', () => {
     });
 
     await waitFor(() => expect(startButton).toBeDisabled());
-    resolvePromise?.();
+    resolvePromise?.({
+      status: 'ok',
+      rawOutput: 'Open https://example.com/device and enter code HOLD-CODE.',
+    });
   });
 
   it('renders raw output with linkified URLs on success', async () => {
@@ -146,7 +155,7 @@ describe('CodexDeviceAuthDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('sends strict empty request payload for shared auth flow', async () => {
+  it('sends no request payload for shared auth flow', async () => {
     const user = userEvent.setup();
     postCodexDeviceAuth.mockResolvedValue({
       status: 'ok',
@@ -159,7 +168,7 @@ describe('CodexDeviceAuthDialog', () => {
       screen.getByRole('button', { name: /start device auth/i }),
     );
 
-    await waitFor(() => expect(postCodexDeviceAuth).toHaveBeenCalledWith({}));
+    await waitFor(() => expect(postCodexDeviceAuth).toHaveBeenCalledWith());
   });
 
   it('does not render a target selector', () => {

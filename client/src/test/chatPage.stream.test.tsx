@@ -11,10 +11,10 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { setupChatWsHarness } from './support/mockChatWs';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -374,12 +374,16 @@ describe('Chat WS streaming UI', () => {
     });
 
     const newerBubble = await screen.findByText('Second reply');
-    const newerBubbleNode = newerBubble.closest('[data-testid="chat-bubble"]');
+    const newerBubbleNode = newerBubble.closest(
+      '[data-testid="chat-bubble"]',
+    ) as HTMLElement | null;
     if (!newerBubbleNode) {
       throw new Error('Missing chat-bubble wrapper for newer reply');
     }
     const olderBubble = await screen.findByText('Partial reply');
-    const olderBubbleNode = olderBubble.closest('[data-testid="chat-bubble"]');
+    const olderBubbleNode = olderBubble.closest(
+      '[data-testid="chat-bubble"]',
+    ) as HTMLElement | null;
     if (!olderBubbleNode) {
       throw new Error('Missing chat-bubble wrapper for older reply');
     }
@@ -441,7 +445,7 @@ describe('Chat WS streaming UI', () => {
     const completedBubble = await screen.findByText('Completed reply');
     const completedBubbleNode = completedBubble.closest(
       '[data-testid="chat-bubble"]',
-    );
+    ) as HTMLElement | null;
     if (!completedBubbleNode) {
       throw new Error('Missing chat-bubble wrapper for completed reply');
     }

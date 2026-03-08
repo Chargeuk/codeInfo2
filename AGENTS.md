@@ -94,6 +94,7 @@ When working from a file in `./planning`, update the plan continuously as implem
 
 - `npm run build:summary:server` builds the server workspace with compact summary output. Full log: `logs/test-summaries/build-server-latest.log`.
 - `npm run build:summary:client` builds the client workspace with compact summary output. Full log: `logs/test-summaries/build-client-latest.log`.
+- `npm run typecheck:summary:client` runs the client workspace typecheck with compact summary output. Full log: `logs/test-summaries/typecheck-client-latest.log`.
 - `npm run compose:build:summary` runs Docker Compose build with compact summary output. Full log: `logs/test-summaries/compose-build-latest.log`.
 
 ### Build Failure Diagnosis

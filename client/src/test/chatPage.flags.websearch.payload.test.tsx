@@ -3,11 +3,12 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
+import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -33,119 +34,103 @@ const routes = [
 ];
 
 function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
-  mockFetch.mockImplementation((url: RequestInfo | URL, opts?: RequestInit) => {
-    const href = typeof url === 'string' ? url : url.toString();
-    if (href.includes('/health')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({ mongoConnected: true }),
-      }) as unknown as Response;
-    }
-    if (href.includes('/conversations') && opts?.method !== 'POST') {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({ items: [], nextCursor: null }),
-      }) as unknown as Response;
-    }
-    if (href.includes('/chat/providers')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          providers: [
-            {
-              id: 'lmstudio',
-              label: 'LM Studio',
-              available: true,
-              toolsAvailable: true,
-            },
-            {
-              id: 'codex',
-              label: 'OpenAI Codex',
-              available: true,
-              toolsAvailable: true,
-            },
-          ],
-        }),
-      }) as unknown as Response;
-    }
-    if (href.includes('/chat/models') && href.includes('provider=codex')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          provider: 'codex',
-          available: true,
-          toolsAvailable: true,
-          codexDefaults: {
-            sandboxMode: 'workspace-write',
-            approvalPolicy: 'on-failure',
-            modelReasoningEffort: 'high',
-            networkAccessEnabled: true,
-            webSearchEnabled: true,
-          },
-          codexWarnings: [],
-          models: [
-            {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
-              type: 'codex',
-            },
-            {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
-              type: 'codex',
-            },
-          ],
-        }),
-      }) as unknown as Response;
-    }
-    if (href.includes('/chat/models')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          provider: 'lmstudio',
-          available: true,
-          toolsAvailable: true,
-          models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
-        }),
-      }) as unknown as Response;
-    }
-    if (href.includes('/chat') && opts?.method === 'POST') {
-      if (opts?.body) {
-        try {
-          chatBodies.push(JSON.parse(opts.body as string));
-        } catch {
-          chatBodies.push({});
+  mockFetch.mockImplementation(
+    asFetchImplementation(
+      async (url: RequestInfo | URL, opts?: RequestInit) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        if (href.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
         }
-      }
+        if (href.includes('/conversations') && opts?.method !== 'POST') {
+          return mockJsonResponse({ items: [], nextCursor: null });
+        }
+        if (href.includes('/chat/providers')) {
+          return mockJsonResponse({
+            providers: [
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          });
+        }
+        if (href.includes('/chat/models') && href.includes('provider=codex')) {
+          return mockJsonResponse({
+            provider: 'codex',
+            available: true,
+            toolsAvailable: true,
+            codexDefaults: {
+              sandboxMode: 'workspace-write',
+              approvalPolicy: 'on-failure',
+              modelReasoningEffort: 'medium',
+              networkAccessEnabled: true,
+              webSearchEnabled: true,
+            },
+            codexWarnings: [],
+            models: [
+              {
+                key: 'gpt-5.1-codex-max',
+                displayName: 'gpt-5.1-codex-max',
+                type: 'codex',
+                supportedReasoningEfforts: ['medium', 'high'],
+                defaultReasoningEffort: 'medium',
+              },
+              {
+                key: 'gpt-5.2',
+                displayName: 'gpt-5.2',
+                type: 'codex',
+                supportedReasoningEfforts: ['minimal'],
+                defaultReasoningEffort: 'minimal',
+              },
+            ],
+          });
+        }
+        if (href.includes('/chat/models')) {
+          return mockJsonResponse({
+            provider: 'lmstudio',
+            available: true,
+            toolsAvailable: true,
+            models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
+          });
+        }
+        if (href.includes('/chat') && opts?.method === 'POST') {
+          if (opts?.body) {
+            try {
+              chatBodies.push(JSON.parse(opts.body as string));
+            } catch {
+              chatBodies.push({});
+            }
+          }
 
-      const body = chatBodies.at(-1) ?? {};
-      return Promise.resolve({
-        ok: true,
-        status: 202,
-        json: async () => ({
-          status: 'started',
-          conversationId: body.conversationId,
-          inflightId: 'i1',
-          provider: body.provider,
-          model: body.model,
-        }),
-      }) as unknown as Response;
-    }
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }) as unknown as Response;
-  });
+          const body = chatBodies.at(-1) ?? {};
+          return mockJsonResponse(
+            {
+              status: 'started',
+              conversationId: body.conversationId,
+              inflightId: 'i1',
+              provider: body.provider,
+              model: body.model,
+            },
+            { status: 202 },
+          );
+        }
+        return mockJsonResponse({});
+      },
+    ),
+  );
 }
 
 describe('Codex web search flag payloads', () => {
   it('omits web search flag for LM Studio, includes toggled value for Codex, and resets to default', async () => {
+    const user = userEvent.setup();
     const chatBodies: Record<string, unknown>[] = [];
     mockProvidersWithBodies(chatBodies);
 
@@ -156,11 +141,11 @@ describe('Codex web search flag payloads', () => {
     const sendButton = await screen.findByTestId('chat-send');
 
     await waitFor(() => expect(input).toBeEnabled());
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Hello LM');
+    await user.clear(input);
+    await user.type(input, 'Hello LM');
     await waitFor(() => expect(sendButton).toBeEnabled());
     await act(async () => {
-      await userEvent.click(sendButton);
+      await user.click(sendButton);
     });
 
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
@@ -172,23 +157,23 @@ describe('Codex web search flag payloads', () => {
       name: /new conversation/i,
     });
     await act(async () => {
-      await userEvent.click(newConversationButton);
+      await user.click(newConversationButton);
     });
 
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
-    await userEvent.click(providerSelect);
+    await user.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
     });
-    await userEvent.click(codexOption);
+    await user.click(codexOption);
 
     await ensureCodexFlagsPanelExpanded();
 
     const webSearchSwitch = await screen.findByTestId('web-search-switch');
     await waitFor(() => expect(webSearchSwitch).toBeChecked());
-    await userEvent.click(webSearchSwitch); // disable web search
+    await user.click(webSearchSwitch);
 
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
@@ -197,11 +182,11 @@ describe('Codex web search flag payloads', () => {
       expect(modelSelect).toHaveTextContent('gpt-5.1-codex-max'),
     );
 
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Hello Codex');
+    await user.clear(input);
+    await user.type(input, 'Hello Codex');
     await waitFor(() => expect(sendButton).toBeEnabled());
     await act(async () => {
-      await userEvent.click(sendButton);
+      await user.click(sendButton);
     });
 
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
@@ -210,7 +195,7 @@ describe('Codex web search flag payloads', () => {
     expect(codexBody.webSearchEnabled).toBe(false);
 
     await act(async () => {
-      await userEvent.click(newConversationButton);
+      await user.click(newConversationButton);
     });
 
     await ensureCodexFlagsPanelExpanded();

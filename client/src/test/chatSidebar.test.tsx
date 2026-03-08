@@ -10,10 +10,10 @@ import type { ConversationFilterState } from '../hooks/useConversations';
 import { createLogger } from '../logging/logger';
 import { setupChatWsHarness } from './support/mockChatWs';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -87,15 +87,17 @@ const createBaseProps = (
   onBulkArchive: async (ids) => ({ updatedCount: ids.length }),
   onBulkRestore: async (ids) => ({ updatedCount: ids.length }),
   onBulkDelete: async (ids) => ({ deletedCount: ids.length }),
-  onLoadMore: jest.fn(),
-  onRefresh: jest.fn(),
-  onRetry: jest.fn(),
+  onLoadMore: async () => undefined,
+  onRefresh: () => undefined,
+  onRetry: () => undefined,
   ...overrides,
 });
 
-function rowByTitle(title: string) {
+function rowByTitle(title: string): HTMLElement {
   const titleNode = screen.getByText(title);
-  const row = titleNode.closest('[data-testid="conversation-row"]');
+  const row = titleNode.closest(
+    '[data-testid="conversation-row"]',
+  ) as HTMLElement | null;
   if (!row) throw new Error(`Row not found for ${title}`);
   return row;
 }
@@ -222,7 +224,7 @@ describe('ConversationList control gating', () => {
 
   it('loads more conversations when pagination is available', async () => {
     const user = userEvent.setup();
-    const onLoadMore = jest.fn();
+    const onLoadMore: () => Promise<void> = jest.fn(async () => undefined);
 
     render(
       <ConversationList {...createBaseProps({ hasMore: true, onLoadMore })} />,

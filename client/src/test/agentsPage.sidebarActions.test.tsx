@@ -4,10 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { createLogger } from '../logging/logger';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -59,11 +59,12 @@ const logSidebarParityRendered = (params: {
 };
 
 function mockJsonResponse(payload: unknown, init?: { status?: number }) {
-  return Promise.resolve({
-    ok: (init?.status ?? 200) >= 200 && (init?.status ?? 200) < 300,
-    status: init?.status ?? 200,
-    json: async () => payload,
-  } as Response);
+  return Promise.resolve(
+    new Response(JSON.stringify(payload), {
+      status: init?.status ?? 200,
+      headers: { 'content-type': 'application/json' },
+    }),
+  );
 }
 
 function mockAgentsFetch(params?: {

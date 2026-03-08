@@ -4,10 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -33,7 +33,7 @@ const routes = [
 ];
 
 function mockCodexReady() {
-  mockFetch.mockImplementation((url: RequestInfo | URL) => {
+  mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
     const href = typeof url === 'string' ? url : url.toString();
     if (href.includes('/health')) {
       return Promise.resolve({

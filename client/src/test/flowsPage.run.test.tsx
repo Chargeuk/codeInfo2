@@ -10,11 +10,11 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { setupChatWsHarness } from './support/mockChatWs';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
   process.env.MODE = 'test';
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -46,11 +46,12 @@ const defaultDirs = {
 };
 
 function mockJsonResponse(payload: unknown, init?: { status?: number }) {
-  return Promise.resolve({
-    ok: (init?.status ?? 200) >= 200 && (init?.status ?? 200) < 300,
-    status: init?.status ?? 200,
-    json: async () => payload,
-  } as Response);
+  return Promise.resolve(
+    new Response(JSON.stringify(payload), {
+      status: init?.status ?? 200,
+      headers: { 'content-type': 'application/json' },
+    }),
+  );
 }
 
 function mockFlowsFetch(options?: {
@@ -124,7 +125,7 @@ function setupFlowsRunHarness(options?: {
   runResponse?: unknown;
 }) {
   const now = new Date('2025-01-01T00:00:00.000Z').toISOString();
-  const conversations = options?.conversations ?? {
+  const conversations = (options?.conversations ?? {
     items: [
       {
         conversationId: 'flow-1',
@@ -139,12 +140,15 @@ function setupFlowsRunHarness(options?: {
       },
     ],
     nextCursor: null,
-  };
+  }) as Record<string, unknown>;
 
   return setupChatWsHarness({
     mockFetch,
     conversations,
-    turns: options?.turns ?? { items: [], nextCursor: null },
+    turns: (options?.turns ?? { items: [], nextCursor: null }) as Record<
+      string,
+      unknown
+    >,
     fallbackFetch: (url) => {
       const target = typeof url === 'string' ? url : url.toString();
 
@@ -299,21 +303,29 @@ describe('Flows page run/resume controls', () => {
 
     await waitFor(() => expect(runTitleInput).toBeDisabled());
 
-    if (resolveRun) {
-      await act(async () => {
-        resolveRun({
-          ok: true,
-          status: 200,
-          json: async () => ({
+    if (!resolveRun) {
+      throw new Error('Expected flow run promise resolver to be assigned');
+    }
+
+    const completeRun = resolveRun;
+
+    await act(async () => {
+      completeRun(
+        new Response(
+          JSON.stringify({
             status: 'started',
             flowName: 'daily',
             conversationId: 'flow-1',
             inflightId: 'i1',
             modelId: 'gpt-5',
           }),
-        } as Response);
-      });
-    }
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      );
+    });
   });
 
   it('runs a flow with working folder and conversation id', async () => {
@@ -862,7 +874,7 @@ describe('Flows page run/resume controls', () => {
     const user = userEvent.setup();
 
     mockFlowsFetch({
-      dirs: (path) => {
+      dirs: (path: string | undefined) => {
         if (path === '/base/repo') {
           return { base: '/base', path: '/base/repo', dirs: [] };
         }

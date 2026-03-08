@@ -2,11 +2,12 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -48,12 +49,8 @@ async function waitForPickerEnabled() {
   );
 }
 
-function mockJsonResponse(payload: unknown, init?: { status?: number }) {
-  return Promise.resolve({
-    ok: (init?.status ?? 200) >= 200 && (init?.status ?? 200) < 300,
-    status: init?.status ?? 200,
-    json: async () => payload,
-  } as Response);
+function okJson(payload: unknown, init?: { status?: number }) {
+  return Promise.resolve(mockJsonResponse(payload, { status: init?.status }));
 }
 
 function mockAgentsFetch(options?: {
@@ -64,61 +61,65 @@ function mockAgentsFetch(options?: {
     init?: RequestInit,
   ) => Response | Promise<Response>;
 }) {
-  mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
-    const target = typeof url === 'string' ? url : url.toString();
+  mockFetch.mockImplementation(
+    asFetchImplementation(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
 
-    if (target.includes('/health')) {
-      return mockJsonResponse({ mongoConnected: true });
-    }
+        if (target.includes('/health')) {
+          return okJson({ mongoConnected: true });
+        }
 
-    if (target.endsWith('/agents')) {
-      return mockJsonResponse({ agents: [{ name: 'coding_agent' }] });
-    }
+        if (target.endsWith('/agents')) {
+          return okJson({ agents: [{ name: 'coding_agent' }] });
+        }
 
-    if (target.includes('/agents/coding_agent/commands')) {
-      return mockJsonResponse({ commands: [] });
-    }
+        if (target.includes('/agents/coding_agent/commands')) {
+          return okJson({ commands: [] });
+        }
 
-    if (target.includes('/conversations')) {
-      return mockJsonResponse({ items: [] });
-    }
+        if (target.includes('/conversations')) {
+          return okJson({ items: [] });
+        }
 
-    if (target.includes('/ingest/dirs')) {
-      const path = new URL(target).searchParams.get('path') ?? undefined;
-      const dirs =
-        typeof options?.dirs === 'function'
-          ? options.dirs(path)
-          : (options?.dirs ?? defaultDirs);
-      return mockJsonResponse(dirs);
-    }
+        if (target.includes('/ingest/dirs')) {
+          const path = new URL(target).searchParams.get('path') ?? undefined;
+          const dirs =
+            typeof options?.dirs === 'function'
+              ? options.dirs(path)
+              : (options?.dirs ?? defaultDirs);
+          return okJson(dirs);
+        }
 
-    if (target.includes('/agents/coding_agent/run')) {
-      if (options?.runResponse) {
-        return options.runResponse(init);
-      }
-      return mockJsonResponse(
-        {
-          status: 'started',
-          agentName: 'coding_agent',
-          conversationId: 'c1',
-          inflightId: 'i1',
-          modelId: 'gpt-5.2-codex',
-        },
-        { status: 202 },
-      );
-    }
+        if (target.includes('/agents/coding_agent/run')) {
+          if (options?.runResponse) {
+            return options.runResponse(init);
+          }
+          return okJson(
+            {
+              status: 'started',
+              agentName: 'coding_agent',
+              conversationId: 'c1',
+              inflightId: 'i1',
+              modelId: 'gpt-5.2-codex',
+            },
+            { status: 202 },
+          );
+        }
 
-    if (target.includes('/agents/coding_agent/prompts')) {
-      const workingFolder =
-        new URL(target).searchParams.get('working_folder') ?? undefined;
-      if (options?.promptsResponse) {
-        return options.promptsResponse(workingFolder, init);
-      }
-      return mockJsonResponse({ prompts: [] });
-    }
+        if (target.includes('/agents/coding_agent/prompts')) {
+          const workingFolder =
+            new URL(target).searchParams.get('working_folder') ?? undefined;
+          if (options?.promptsResponse) {
+            return options.promptsResponse(workingFolder, init);
+          }
+          return okJson({ prompts: [] });
+        }
 
-    return mockJsonResponse({});
-  });
+        return okJson({});
+      },
+    ),
+  );
 }
 
 function getPromptDiscoveryCalls() {
@@ -168,7 +169,7 @@ describe('Agents page - working folder picker', () => {
     const user = userEvent.setup();
 
     mockAgentsFetch({
-      dirs: (path) => {
+      dirs: (path: string | undefined) => {
         if (path === '/base/repo') {
           return { base: '/base', path: '/base/repo', dirs: [] };
         }
@@ -280,16 +281,14 @@ describe('Agents page - working folder picker', () => {
 
     mockAgentsFetch({
       runResponse: () =>
-        ({
-          ok: false,
-          status: 400,
-          headers: { get: () => 'application/json' },
-          json: async () => ({
+        mockJsonResponse(
+          {
             error: 'invalid_request',
             code: 'WORKING_FOLDER_INVALID',
             message: 'Invalid working folder.',
-          }),
-        }) as Response,
+          },
+          { status: 400 },
+        ),
     });
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
@@ -362,7 +361,7 @@ describe('Agents page - working folder picker', () => {
   it('starts prompt discovery after directory picker selects a folder', async () => {
     const user = userEvent.setup();
     mockAgentsFetch({
-      dirs: (path) => {
+      dirs: (path: string | undefined) => {
         if (path === '/base/repo') {
           return { base: '/base', path: '/base/repo', dirs: [] };
         }

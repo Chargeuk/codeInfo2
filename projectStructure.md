@@ -486,7 +486,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”œâ”€ docker-compose.e2e.yml — isolated e2e stack (client 6001, server 6010, chroma 8800, fixtures mount)
 â”œâ”€ eslint.config.js â€” root ESLint flat config
 â”œâ”€ package-lock.json â€” workspace lockfile
-â”œâ”€ package.json â€” root package/workspaces/scripts
+â”œâ”€ package.json â€” root package/workspaces/scripts, including compact summary wrappers such as `build:summary:client`, `test:summary:client`, and `typecheck:summary:client`
 â”œâ”€ tsconfig.base.json â€” shared TS config
 â”œâ”€ tsconfig.json â€” project references entry
 â”œâ”€ client/ â€” React 19 Vite app
@@ -502,7 +502,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ jest.config.ts â€” Jest config
 â”‚  â”œâ”€ package.json â€” client workspace manifest
 â”‚  â”œâ”€ tsconfig.app.json â€” TS config for app build
-â”‚  â”œâ”€ tsconfig.json â€” client-local browser typecheck config overriding the shared `NodeNext` base with Vite-friendly bundler resolution plus explicit `vite/client`/`jest`/`node` ambient types
+â”‚  â”œâ”€ tsconfig.json â€” client-local browser typecheck config overriding the shared `NodeNext` base with Vite-friendly bundler resolution plus explicit `vite/client`/`jest`/`node` ambient types; consumed by the current `typecheck:summary:client` wrapper until Task 17 makes the command non-emitting
 â”‚  â”œâ”€ tsconfig.node.json â€” TS config for tools
 â”‚  â”œâ”€ vite.config.ts â€” Vite config
 â”‚  â”œâ”€ public/

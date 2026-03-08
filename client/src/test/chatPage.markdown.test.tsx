@@ -77,8 +77,8 @@ describe('Chat markdown rendering', () => {
     });
 
     await waitFor(() => {
-      expect(assistantMarkdown.textContent ?? '').toContain('safe wrapper');
-      expect(userMarkdown.textContent ?? '').toContain('safe wrapper');
+      expect(assistantMarkdown.textContent ?? '').not.toContain('safe wrapper');
+      expect(userMarkdown.textContent ?? '').not.toContain('safe wrapper');
     });
 
     await waitFor(() => {

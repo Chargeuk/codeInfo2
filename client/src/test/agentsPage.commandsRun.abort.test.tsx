@@ -3,10 +3,10 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -210,7 +210,7 @@ describe('Agents page - abort command execute', () => {
     infoSpy.mockRestore();
   });
 
-  it('Stop before inflight id is known sends WS cancel_inflight by conversation only', async () => {
+  it('Stop before inflight id is known does not send cancel_inflight until an inflight id exists', async () => {
     let resolveCommandStart: ((res: Response) => void) | null = null;
 
     const user = userEvent.setup();
@@ -343,15 +343,18 @@ describe('Agents page - abort command execute', () => {
     expect(conversationId).toBeTruthy();
 
     const cancelMessage = sent.find((msg) => msg.type === 'cancel_inflight');
-    expect(cancelMessage).toMatchObject({
-      type: 'cancel_inflight',
-      conversationId,
-    });
-    expect(cancelMessage).not.toHaveProperty('inflightId');
+    expect(cancelMessage).toBeUndefined();
     const markerCalls = infoSpy.mock.calls.filter((call) =>
       String(call[0] ?? '').includes('[DEV-0000038][T2]'),
     );
-    expect(markerCalls.length).toBeGreaterThanOrEqual(2);
+    expect(
+      markerCalls.some((call) => String(call[0]).includes('STOP_CLICK')),
+    ).toBe(true);
+    expect(
+      markerCalls.some((call) =>
+        String(call[0]).includes('CANCEL_INFLIGHT_SENT'),
+      ),
+    ).toBe(false);
     infoSpy.mockRestore();
   });
 
@@ -367,7 +370,7 @@ describe('Agents page - abort command execute', () => {
     ).__wsMock;
     const randomUuidSpy = jest
       .spyOn(globalThis.crypto, 'randomUUID')
-      .mockReturnValue('');
+      .mockReturnValue('00000000-0000-0000-0000-000000000000');
 
     mockFetch.mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {

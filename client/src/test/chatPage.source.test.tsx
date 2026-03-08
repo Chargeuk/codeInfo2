@@ -1,9 +1,11 @@
 import { render, screen } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import ConversationList, {
   type ConversationListItem,
 } from '../components/chat/ConversationList';
 
-const baseProps = {
+const baseProps: ComponentProps<typeof ConversationList> = {
+  conversations: [],
   selectedId: undefined,
   isLoading: false,
   isError: false,

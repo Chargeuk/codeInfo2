@@ -2,11 +2,12 @@ import { jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -35,16 +36,7 @@ const EXECUTE_PROMPT_INSTRUCTION_TEMPLATE =
   'Please read the following markdown file. It is designed as a persona you MUST assume. You MUST follow all the instructions within the markdown file including providing the user with the option of selecting the next path to follow once the work of the markdown file is complete, and then loading that new file to continue. You must stay friendly and helpful at all times, ensuring you communicate with the user in an easy to follow way, providing examples to illustrate your point and guiding them through the more complex scenarios. Try to do as much of the heavy lifting as you can using the various mcp tools at your disposal. Here is the file: <full path of markdown file>';
 
 function okJson(payload: unknown, init?: { status?: number }) {
-  return Promise.resolve({
-    ok: (init?.status ?? 200) >= 200 && (init?.status ?? 200) < 300,
-    status: init?.status ?? 200,
-    headers: (() => {
-      const headers = new Headers();
-      headers.append('content-type', 'application/json');
-      return headers;
-    })(),
-    json: async () => payload,
-  } as Response);
+  return Promise.resolve(mockJsonResponse(payload, { status: init?.status }));
 }
 
 function setupExecutePromptFetch(params?: {
@@ -69,63 +61,62 @@ function setupExecutePromptFetch(params?: {
       fullPath: '/workspace/.github/prompts/onboarding/start.md',
     } as const);
 
-  mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
-    const target = typeof url === 'string' ? url : url.toString();
-    const promptsMatch = target.match(/\/agents\/([^/]+)\/prompts(?:\?|$)/);
-    const commandRunMatch = target.match(
-      /\/agents\/([^/]+)\/commands\/run(?:\?|$)/,
-    );
-    const runMatch = target.match(/\/agents\/([^/]+)\/run(?:\?|$)/);
-
-    if (target.includes('/health')) return okJson({ mongoConnected: true });
-    if (
-      target.includes('/agents') &&
-      !target.includes('/commands') &&
-      !target.includes('/run') &&
-      !target.includes('/prompts')
-    ) {
-      return okJson({ agents: params?.agents ?? [{ name: 'coding_agent' }] });
-    }
-    if (/\/agents\/[^/]+\/commands(?:\?|$)/.test(target)) {
-      return okJson({ commands: [] });
-    }
-    if (target.includes('/conversations')) return okJson({ items: [] });
-    if (promptsMatch) {
-      const agentName = promptsMatch[1];
-      const prompts = params?.promptsByAgent?.[agentName] ?? [prompt];
-      return okJson({ prompts });
-    }
-    if (commandRunMatch) {
-      commandRunUrls.push(target);
-      return okJson({ status: 'started' });
-    }
-    if (runMatch) {
-      runUrls.push(target);
-      if (init?.body) {
-        runBodies.push(JSON.parse(init.body.toString()));
-      }
-      if (params?.runResponse && params.runResponse.status !== 202) {
-        return Promise.resolve({
-          ok: false,
-          status: params.runResponse.status,
-          headers: { get: () => 'application/json' },
-          json: async () => params.runResponse?.payload ?? {},
-        } as Response);
-      }
-      return okJson(
-        {
-          status: 'started',
-          agentName: 'coding_agent',
-          conversationId: 'c1',
-          inflightId: 'i1',
-          modelId: 'gpt-5.3-codex',
-          ...(params?.runResponse?.payload ?? {}),
-        },
-        { status: 202 },
+  mockFetch.mockImplementation(
+    asFetchImplementation((url: RequestInfo | URL, init?: RequestInit) => {
+      const target = typeof url === 'string' ? url : url.toString();
+      const promptsMatch = target.match(/\/agents\/([^/]+)\/prompts(?:\?|$)/);
+      const commandRunMatch = target.match(
+        /\/agents\/([^/]+)\/commands\/run(?:\?|$)/,
       );
-    }
-    return okJson({});
-  });
+      const runMatch = target.match(/\/agents\/([^/]+)\/run(?:\?|$)/);
+
+      if (target.includes('/health')) return okJson({ mongoConnected: true });
+      if (
+        target.includes('/agents') &&
+        !target.includes('/commands') &&
+        !target.includes('/run') &&
+        !target.includes('/prompts')
+      ) {
+        return okJson({ agents: params?.agents ?? [{ name: 'coding_agent' }] });
+      }
+      if (/\/agents\/[^/]+\/commands(?:\?|$)/.test(target)) {
+        return okJson({ commands: [] });
+      }
+      if (target.includes('/conversations')) return okJson({ items: [] });
+      if (promptsMatch) {
+        const agentName = promptsMatch[1];
+        const prompts = params?.promptsByAgent?.[agentName] ?? [prompt];
+        return okJson({ prompts });
+      }
+      if (commandRunMatch) {
+        commandRunUrls.push(target);
+        return okJson({ status: 'started' });
+      }
+      if (runMatch) {
+        runUrls.push(target);
+        if (init?.body) {
+          runBodies.push(JSON.parse(init.body.toString()));
+        }
+        if (params?.runResponse && params.runResponse.status !== 202) {
+          return mockJsonResponse(params.runResponse?.payload ?? {}, {
+            status: params.runResponse.status,
+          });
+        }
+        return okJson(
+          {
+            status: 'started',
+            agentName: 'coding_agent',
+            conversationId: 'c1',
+            inflightId: 'i1',
+            modelId: 'gpt-5.3-codex',
+            ...(params?.runResponse?.payload ?? {}),
+          },
+          { status: 202 },
+        );
+      }
+      return okJson({});
+    }),
+  );
 
   return { runBodies, runUrls, commandRunUrls, prompt };
 }

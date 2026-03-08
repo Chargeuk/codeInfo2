@@ -2944,7 +2944,7 @@ This task is intentionally limited to the client typecheck command and the clien
 
 ### 18. Client build-validation workflow update and final verification
 
-- Task Status: `__todo__`
+- Task Status: `__done__`
 - Git Commits:
   - None yet.
 
@@ -2966,31 +2966,36 @@ Keep the direct client `typecheck` command available for targeted local diagnosi
 
 #### Subtasks
 
-1. [ ] Update the documented frontend workflow so `npm run build:summary:client` explicitly includes the client typecheck pre-build gate.
+1. [x] Update the documented frontend workflow so `npm run build:summary:client` explicitly includes the client typecheck pre-build gate.
    - Files to edit:
      - `AGENTS.md`
      - `projectStructure.md`
      - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-2. [ ] Update any Story 42 validation wording that currently treats client build and client typecheck as unrelated checks if Task 17 makes build imply typecheck.
-3. [ ] Keep `npm run typecheck --workspace client` documented as the targeted direct command for local diagnosis even after Task 17 lands.
-4. [ ] Re-run the final client validation matrix once the wrapper-integrated typecheck gate is green.
+2. [x] Update any Story 42 validation wording that currently treats client build and client typecheck as unrelated checks if Task 17 makes build imply typecheck.
+3. [x] Keep `npm run typecheck --workspace client` documented as the targeted direct command for local diagnosis even after Task 17 lands.
+4. [x] Re-run the final client validation matrix once the wrapper-integrated typecheck gate is green.
    - Required command set:
      - `npm run build:summary:client`
      - `npm run test:summary:client`
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
-5. [ ] Update Task 18 implementation notes continuously as the docs and final validation are completed.
+5. [x] Update Task 18 implementation notes continuously as the docs and final validation are completed.
 
 #### Testing
 
-1. [ ] `npm run build:summary:client`
-2. [ ] `npm run test:summary:client`
-3. [ ] `npm run lint --workspaces`
-4. [ ] `npm run format:check --workspaces`
+1. [x] `npm run build:summary:client`
+2. [x] `npm run test:summary:client`
+3. [x] `npm run lint --workspaces`
+4. [x] `npm run format:check --workspaces`
 
 #### Implementation notes
 
-- Pending.
+- Subtasks 1-3: Updated `AGENTS.md` and `projectStructure.md` so `npm run build:summary:client` is documented as the wrapper-first client typecheck-plus-build gate while `npm run typecheck --workspace client` and `npm run typecheck:summary:client` remain the direct diagnostic paths.
+- Subtask 2: Updated Story 42 wording here and in Task 20's overview so the remaining plan no longer describes client build and client typecheck as separate future integration work after Task 17 already merged them.
+- Testing 1: `npm run build:summary:client` passed with `status: passed`, `phase: build`, `warnings: 1`, and the existing `logs/test-summaries/build-client-latest.log` path; the only remaining warning is still the pre-existing Vite chunk-size warning.
+- Testing 2: `npm run test:summary:client` passed with 497/497 tests green in `test-results/client-tests-2026-03-08T12-38-30-981Z.log`.
+- Testing 3: `npm run lint --workspaces` completed with no new errors; the same pre-existing 57 server `import/order` warnings remained unchanged.
+- Testing 4: `npm run format:check --workspaces` passed cleanly across the client, server, and common workspaces.
 
 ### 19. Shared wrapper heartbeat and agent-action protocol
 
@@ -3072,7 +3077,7 @@ The core behavior to add is:
 
 #### Overview
 
-After the shared wrapper protocol exists, the client build wrapper should absorb the non-emitting client typecheck command as a pre-build gate. This ensures frontend build validation fails fast on TypeScript errors while still surfacing the correct wrapper guidance to the AI agent.
+After the shared wrapper protocol exists, the client build wrapper should preserve the non-emitting client typecheck pre-build gate from Task 17 while adding the shared heartbeat and final `agent_action` guidance. This ensures frontend build validation still fails fast on TypeScript errors while surfacing the correct wrapper protocol to the AI agent.
 
 Do not add the same static gate to the client test wrapper. The test wrapper should remain focused on behavioral regressions.
 

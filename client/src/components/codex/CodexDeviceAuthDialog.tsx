@@ -97,7 +97,7 @@ export default function CodexDeviceAuthDialog({
     setResult(undefined);
 
     try {
-      const response = await postCodexDeviceAuth({});
+      const response = await postCodexDeviceAuth();
       setResult(response);
       log('info', 'DEV-0000031:T6:codex_device_auth_dialog_success', {
         source,

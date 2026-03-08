@@ -32,7 +32,7 @@ export function useIngestStatus(): Status {
           '0000022 ingest status snapshot received',
           event.status
             ? { runId: event.status.runId, state: event.status.state }
-            : null,
+            : {},
         );
         if (event.status?.ast) {
           console.info('DEV-0000032:T10:ast-status-received', {

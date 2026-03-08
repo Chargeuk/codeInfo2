@@ -1468,3 +1468,37 @@ Modified files (implementation traceability):
 Task notes:
 
 - Story 0000042 added no new tracked files through Tasks 1-7; Task 8 updates the structure map to reflect the final behavior of existing hooks, pages, and regression files instead of recording path additions or renames.
+
+## Story 0000042 Task 14 structural verification ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/components/Markdown.tsx` — shared markdown renderer now follows the current `react-markdown` and `rehype-sanitize` typing model while preserving mermaid fences and external-link behavior.
+- `client/src/components/chat/CodexFlagsPanel.tsx` — Codex flag switches now use typed helper wrappers for MUI input slot test ids.
+- `client/src/components/chat/ConversationList.tsx` — shared sidebar list now uses typed checkbox input helpers and removes always-true optional-handler guards.
+- `client/src/components/codex/CodexDeviceAuthDialog.tsx` — shared device-auth dialog now matches the current API call signature.
+- `client/src/components/ingest/DirectoryPickerDialog.tsx` — ingest directory picker now narrows the success/error response union before storing payload state.
+- `client/src/hooks/useChatStream.ts` — assistant-bubble creation now stabilizes the generated assistant id before it is reused across inflight maps and message state.
+- `client/src/hooks/useConversationTurns.ts` — hydrated REST inflight snapshots are explicitly typed before overlay decisions are logged/applied.
+- `client/src/hooks/useConversations.ts` — bulk-action error handling now narrows the response union safely and preserves fallback error codes/messages.
+- `client/src/hooks/useIngestStatus.ts` — ingest snapshot logging now emits an object payload even when realtime status is absent.
+- `client/src/pages/AgentsPage.tsx` — runtime page typing now guards inflight cancellation, narrows tool payload/error rendering, and keeps shared sidebar wiring explicit.
+- `client/src/pages/ChatPage.tsx` — runtime page typing now uses explicit reducer generics, typed MUI select-display helpers, safer payload/error booleans, and slot-prop based input metadata.
+- `client/src/pages/IngestPage.tsx` — ingest page now normalizes embedding-provider values before passing locked-model props into shared ingest components.
+- `planning/0000042-flow-streaming-transcript-bubble-text-loss.md` — Task 14 implementation and validation trail updated in place as each runtime subtask and testing step completed.
+
+Task notes:
+
+- Task 14 changed existing runtime files only; the documentation update is limited to structure/traceability because no user-visible flow behavior or design contract changed beyond the runtime typing cleanup itself.

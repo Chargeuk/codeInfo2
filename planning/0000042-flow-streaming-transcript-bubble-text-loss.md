@@ -2540,7 +2540,7 @@ Do not start mass-editing every test file before this task is complete. The goal
 
 ### 14. Client runtime source typing cleanup
 
-- Task Status: `__todo__`
+- Task Status: `__done__`
 - Git Commits:
   - None yet.
 
@@ -2564,8 +2564,8 @@ This task is for production/runtime source files only. Do not widen it into the 
 
 #### Subtasks
 
-1. [ ] Re-run `npm run typecheck --workspace client` after Task 13 and freeze the residual non-test file list in the Task 14 implementation notes before editing.
-2. [ ] Fix the client shell/router/runtime entry file typing for:
+1. [x] Re-run `npm run typecheck --workspace client` after Task 13 and freeze the residual non-test file list in the Task 14 implementation notes before editing.
+2. [x] Fix the client shell/router/runtime entry file typing for:
    - `client/src/App.tsx`
    - `client/src/main.tsx`
    - `client/src/routes/router.tsx`
@@ -2573,60 +2573,79 @@ This task is for production/runtime source files only. Do not widen it into the 
    - `client/src/pages/HomePage.tsx`
    - `client/src/pages/LmStudioPage.tsx`
    - `client/src/pages/LogsPage.tsx`
-3. [ ] Fix the API-layer typing for:
+3. [x] Fix the API-layer typing for:
    - `client/src/api/agents.ts`
    - `client/src/api/baseUrl.ts`
    - `client/src/api/codex.ts`
    - `client/src/api/flows.ts`
-4. [ ] Fix the shared logging/runtime utility typing for:
+4. [x] Fix the shared logging/runtime utility typing for:
    - `client/src/logging/index.ts`
    - `client/src/logging/logger.ts`
    - `client/src/logging/transport.ts`
-5. [ ] Fix the shared markdown/rendering and dialog component typing for:
+5. [x] Fix the shared markdown/rendering and dialog component typing for:
    - `client/src/components/Markdown.tsx`
    - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
-6. [ ] Fix the chat shared-component typing for:
+6. [x] Fix the chat shared-component typing for:
    - `client/src/components/chat/CodexFlagsPanel.tsx`
    - `client/src/components/chat/ConversationList.tsx`
-7. [ ] Fix the ingest shared-component typing for:
+7. [x] Fix the ingest shared-component typing for:
    - `client/src/components/ingest/ActiveRunCard.tsx`
    - `client/src/components/ingest/DirectoryPickerDialog.tsx`
    - `client/src/components/ingest/IngestForm.tsx`
    - `client/src/components/ingest/RootDetailsDrawer.tsx`
    - `client/src/components/ingest/RootsTable.tsx`
    - `client/src/components/ingest/ingestDirsApi.ts`
-8. [ ] Fix the chat/flow/shared hook typing for:
+8. [x] Fix the chat/flow/shared hook typing for:
    - `client/src/hooks/useChatModel.ts`
    - `client/src/hooks/useChatStream.ts`
    - `client/src/hooks/useChatWs.ts`
    - `client/src/hooks/useConversationTurns.ts`
    - `client/src/hooks/useConversations.ts`
    - `client/src/hooks/usePersistenceStatus.ts`
-9. [ ] Fix the ingest/status/log hook typing for:
+9. [x] Fix the ingest/status/log hook typing for:
    - `client/src/hooks/useIngestModels.ts`
    - `client/src/hooks/useIngestRoots.ts`
    - `client/src/hooks/useIngestStatus.ts`
    - `client/src/hooks/useLmStudioStatus.ts`
    - `client/src/hooks/useLogs.ts`
-10. [ ] Fix `client/src/pages/ChatPage.tsx`, including explicit callback/value typing, MUI handler signatures, and any remaining icon/component prop errors.
-11. [ ] Fix `client/src/pages/FlowsPage.tsx`, including explicit callback typing and `unknown` error narrowing.
-12. [ ] Fix `client/src/pages/AgentsPage.tsx`, including the largest remaining page-level callback/value typing set after Task 13.
-13. [ ] Fix `client/src/pages/IngestPage.tsx` and any remaining ingest-page runtime typing after the shared ingest components are corrected.
-14. [ ] Re-run targeted client wrappers for the runtime areas touched in this task and confirm the residual client typecheck baseline no longer contains non-test source-file errors introduced by these pages/components/hooks.
-15. [ ] Update `design.md`, `projectStructure.md`, and this story file if Task 14 changes any documented client runtime typing contracts, helper signatures, or expected compiler assumptions.
-16. [ ] Update Task 14 implementation notes continuously as each runtime source fix lands.
+10. [x] Fix `client/src/pages/ChatPage.tsx`, including explicit callback/value typing, MUI handler signatures, and any remaining icon/component prop errors.
+11. [x] Fix `client/src/pages/FlowsPage.tsx`, including explicit callback typing and `unknown` error narrowing.
+12. [x] Fix `client/src/pages/AgentsPage.tsx`, including the largest remaining page-level callback/value typing set after Task 13.
+13. [x] Fix `client/src/pages/IngestPage.tsx` and any remaining ingest-page runtime typing after the shared ingest components are corrected.
+14. [x] Re-run targeted client wrappers for the runtime areas touched in this task and confirm the residual client typecheck baseline no longer contains non-test source-file errors introduced by these pages/components/hooks.
+15. [x] Update `design.md`, `projectStructure.md`, and this story file if Task 14 changes any documented client runtime typing contracts, helper signatures, or expected compiler assumptions.
+16. [x] Update Task 14 implementation notes continuously as each runtime source fix lands.
 
 #### Testing
 
-1. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx --file client/src/test/flowsPage.run.test.tsx --file client/src/test/agentsPage.streaming.test.tsx`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run lint --workspaces`
-4. [ ] `npm run format:check --workspaces`
-5. [ ] `npm run typecheck --workspace client`
+1. [x] `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx --file client/src/test/flowsPage.run.test.tsx --file client/src/test/agentsPage.streaming.test.tsx`
+2. [x] `npm run build:summary:client`
+3. [x] `npm run lint --workspaces`
+4. [x] `npm run format:check --workspaces`
+5. [x] `npm run typecheck --workspace client`
 
 #### Implementation notes
 
-- Pending.
+- Baseline frozen on 2026-03-08 from `npm run typecheck --workspace client`; current non-test residual files are `Markdown.tsx`, `CodexFlagsPanel.tsx`, `ConversationList.tsx`, `CodexDeviceAuthDialog.tsx`, `DirectoryPickerDialog.tsx`, `useChatStream.ts`, `useConversationTurns.ts`, `useConversations.ts`, `useIngestStatus.ts`, `ChatPage.tsx`, `AgentsPage.tsx`, and `IngestPage.tsx`.
+- No direct residual errors remained in the Task 14 entry/router group, API-layer group, or shared logging utility group at baseline time, so those groups can be closed without file edits if they stay clean after the runtime fixes land.
+- Subtasks 2-4 closed without source edits after the post-fix `typecheck` reruns confirmed `App.tsx`, `main.tsx`, router files, API files, and shared logging utilities still had no direct residual errors beyond the Task 13 baseline.
+- Subtask 5 tightened `Markdown.tsx` to use the current `react-markdown`/`rehype-sanitize` typings, moved external-link targeting into the anchor renderer, and removed the stale device-auth API argument in `CodexDeviceAuthDialog.tsx`.
+- Subtask 6 replaced the remaining MUI test-id prop patterns in the chat shared components with typed helper wrappers and removed the always-true optional-handler guards that Task 13 left behind in `ConversationList.tsx`.
+- Subtask 7 narrowed the ingest directory picker response on the success path and confirmed the rest of the shared ingest component family stayed runtime-clean without direct edits.
+- Subtask 8 resolved the remaining hook-side runtime typing by stabilizing assistant-id creation in `useChatStream.ts`, explicitly typing the hydrated inflight snapshot in `useConversationTurns.ts`, and adding safe bulk-error fallbacks in `useConversations.ts`.
+- Subtask 9 replaced the nullable ingest snapshot log payload in `useIngestStatus.ts`; `useIngestModels.ts`, `useIngestRoots.ts`, `useLmStudioStatus.ts`, and `useLogs.ts` stayed clean after the runtime pass.
+- Subtask 10 updated `ChatPage.tsx` with explicit reducer generics, safer payload/error booleans, typed select display helpers, modern MUI slot props, and a button callback wrapper so the page no longer carries direct runtime typecheck errors.
+- Subtask 11 closed without edits because `FlowsPage.tsx` remained clear in the runtime-only residual list after the Task 14 reruns.
+- Subtask 12 updated `AgentsPage.tsx` with explicit reducer generics, guarded inflight cancellation, stable boolean wiring for the shared conversation list handlers, and safe tool payload/error rendering checks.
+- Subtask 13 normalized the ingest-page embedding provider before it flows into the shared ingest components so `IngestPage.tsx` no longer leaks broad string values into the locked-model props.
+- Subtask 14 reran the targeted client regression wrapper plus repeated client `typecheck` snapshots until the runtime-only residual list was empty; the remaining baseline is now fully isolated to test files for Task 15 onward.
+- Subtask 15 updated `projectStructure.md` and this story file for Task 14 traceability; `design.md` did not need a content change because the cleanup tightened runtime typing without changing the documented user-visible stream or ingest behavior.
+- Subtask 16 kept this note trail live as each Task 14 runtime group and validation step completed rather than batching the evidence at the end.
+- Testing 1: `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx --file client/src/test/flowsPage.run.test.tsx --file client/src/test/agentsPage.streaming.test.tsx` passed with 50/50 tests green in `test-results/client-tests-2026-03-08T10-27-50-352Z.log`.
+- Testing 2: `npm run build:summary:client` passed; `logs/test-summaries/build-client-latest.log` still only reported the existing Vite chunk-size warning rather than a Task 14 regression.
+- Testing 3: `npm run lint --workspaces` completed with the same pre-existing 57 server `import/order` warnings plus one transient client warning in emitted `client/src/logging/logger.js`; there were no new lint errors from the Task 14 runtime-source changes.
+- Testing 4: deleted the transient `.js` artifacts emitted into `client/src` by the current `typecheck` command, ran Prettier write on `client/src/hooks/useConversations.ts` after the first check failed, and then `npm run format:check --workspaces` passed cleanly.
+- Testing 5: final `npm run typecheck --workspace client` still failed only because Task 15+ test files remain in the baseline; the runtime-only grep from `/tmp/task14-final-typecheck.b78d.log` was empty, confirming Task 14 removed all direct non-test client source errors.
 
 ### 15. Client shared test infrastructure and hook/API typing cleanup
 

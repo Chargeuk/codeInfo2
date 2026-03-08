@@ -381,8 +381,9 @@ export function useChatStream(
       }
 
       if (!assistantId) {
-        assistantId = makeId();
-        activeAssistantMessageIdRef.current = assistantId;
+        const resolvedAssistantId = makeId();
+        assistantId = resolvedAssistantId;
+        activeAssistantMessageIdRef.current = resolvedAssistantId;
         segmentsRef.current = [{ id: makeId(), kind: 'text', content: '' }];
         toolCallsRef.current = new Map();
         assistantTextRef.current = '';
@@ -392,17 +393,17 @@ export function useChatStream(
         if (inflightKey) {
           assistantMessageIdByInflightIdRef.current.set(
             inflightKey,
-            assistantId,
+            resolvedAssistantId,
           );
           historicalAssistantMessageIdByInflightIdRef.current.set(
             inflightKey,
-            assistantId,
+            resolvedAssistantId,
           );
         }
         updateMessages((prev) => [
           ...prev,
           {
-            id: assistantId,
+            id: resolvedAssistantId,
             role: 'assistant',
             content: '',
             warnings: undefined,

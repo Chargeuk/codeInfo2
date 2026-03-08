@@ -218,7 +218,7 @@ export default function AgentsPage() {
         )
           ? ((payload as { results: unknown[] }).results as unknown[])
           : [];
-        const count = results.reduce((total, item) => {
+        const count = results.reduce<number>((total, item) => {
           if (!item || typeof item !== 'object') return total;
           const record = item as Record<string, unknown>;
           const repo =
@@ -1007,7 +1007,7 @@ export default function AgentsPage() {
       inflightId,
     });
 
-    if (activeConversationId) {
+    if (activeConversationId && inflightId) {
       cancelInflight(activeConversationId, inflightId);
       log('info', 'DEV-0000021[T6] agents.ws cancel_inflight sent', {
         conversationId: activeConversationId,
@@ -1575,9 +1575,9 @@ export default function AgentsPage() {
   const conversationListDisabled =
     !sidebarSelectableDuringRun || persistenceUnavailable;
 
-  const hasFilters = Boolean(setFilterState && refreshConversations);
+  const hasFilters = true;
   const hasBulkActions = Boolean(bulkArchive || bulkRestore || bulkDelete);
-  const hasRowActions = Boolean(archiveConversation && restoreConversation);
+  const hasRowActions = true;
 
   useEffect(() => {
     log('info', '0000023 agents sidebar handlers wired', {
@@ -1987,6 +1987,8 @@ export default function AgentsPage() {
 
     const trimmedError = tool.errorTrimmed ?? null;
     const fullError = tool.errorFull;
+    const hasFullError = fullError !== undefined && fullError !== null;
+    const hasPayload = tool.payload !== undefined && tool.payload !== null;
 
     const hasVectorFiles = tool.name === 'VectorSearch' && files.length > 0;
     const hasVectorMatches =
@@ -2009,7 +2011,7 @@ export default function AgentsPage() {
               {trimmedError.code ? `${trimmedError.code}: ` : ''}
               {trimmedError.message ?? 'Error'}
             </Typography>
-            {fullError && (
+            {hasFullError && (
               <Box>
                 <Button
                   size="small"
@@ -2058,7 +2060,7 @@ export default function AgentsPage() {
         {hasVectorFiles && renderVectorFiles(files)}
         {hasVectorMatches && renderVectorMatches(vectorMatches)}
 
-        {!hasRepos && !hasVectorFiles && !hasVectorMatches && tool.payload && (
+        {!hasRepos && !hasVectorFiles && !hasVectorMatches && hasPayload && (
           <Typography
             variant="caption"
             color="text.secondary"

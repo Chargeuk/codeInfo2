@@ -26,10 +26,11 @@ import {
   AccordionSummary,
   AccordionDetails,
 } from '@mui/material';
-import type { SelectChangeEvent } from '@mui/material/Select';
 import { useTheme } from '@mui/material/styles';
 import {
+  ChangeEvent,
   FormEvent,
+  type HTMLAttributes,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -120,6 +121,12 @@ const buildStepLine = (command: ChatMessage['command']) => {
   }
   return `Step ${command.stepIndex} of ${command.totalSteps}`;
 };
+
+const selectDisplayTestId = (
+  value: string,
+): HTMLAttributes<HTMLDivElement> & { 'data-testid': string } => ({
+  'data-testid': value,
+});
 
 export default function ChatPage() {
   const theme = useTheme();
@@ -266,7 +273,7 @@ export default function ChatPage() {
         )
           ? ((payload as { results: unknown[] }).results as unknown[])
           : [];
-        const count = results.reduce((total, item) => {
+        const count = results.reduce<number>((total, item) => {
           if (!item || typeof item !== 'object') return total;
           const record = item as Record<string, unknown>;
           const repo =
@@ -840,7 +847,9 @@ export default function ChatPage() {
     }
   };
 
-  const handleProviderChange = (event: SelectChangeEvent<string>) => {
+  const handleProviderChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     const nextProvider = event.target.value;
     setProvider(nextProvider);
     handleNewConversation({ reason: 'provider-change', nextProvider });
@@ -1335,6 +1344,8 @@ export default function ChatPage() {
 
     const trimmedError = tool.errorTrimmed ?? null;
     const fullError = tool.errorFull;
+    const hasFullError = fullError !== undefined && fullError !== null;
+    const hasPayload = tool.payload !== undefined && tool.payload !== null;
 
     const hasVectorFiles = tool.name === 'VectorSearch' && files.length > 0;
     const hasVectorMatches =
@@ -1357,7 +1368,7 @@ export default function ChatPage() {
               {trimmedError.code ? `${trimmedError.code}: ` : ''}
               {trimmedError.message ?? 'Error'}
             </Typography>
-            {fullError && (
+            {hasFullError && (
               <Box>
                 <MuiButton
                   size="small"
@@ -1405,7 +1416,7 @@ export default function ChatPage() {
         {hasVectorFiles && renderVectorFiles(files)}
         {hasVectorMatches && renderVectorMatches(vectorMatches)}
 
-        {!hasRepos && !hasVectorFiles && !hasVectorMatches && tool.payload && (
+        {!hasRepos && !hasVectorFiles && !hasVectorMatches && hasPayload && (
           <Typography
             variant="caption"
             color="text.secondary"
@@ -1614,10 +1625,12 @@ export default function ChatPage() {
                           onChange={handleProviderChange}
                           disabled={isLoading || providerLocked}
                           sx={{ minWidth: 220 }}
-                          SelectProps={{
-                            displayEmpty: true,
-                            SelectDisplayProps: {
-                              'data-testid': 'provider-select',
+                          SelectProps={{ displayEmpty: true }}
+                          slotProps={{
+                            select: {
+                              SelectDisplayProps: {
+                                ...selectDisplayTestId('provider-select'),
+                              },
                             },
                           }}
                         >
@@ -1647,10 +1660,12 @@ export default function ChatPage() {
                             !providerAvailable
                           }
                           sx={{ minWidth: 260, flex: 1 }}
-                          SelectProps={{
-                            displayEmpty: true,
-                            SelectDisplayProps: {
-                              'data-testid': 'model-select',
+                          SelectProps={{ displayEmpty: true }}
+                          slotProps={{
+                            select: {
+                              SelectDisplayProps: {
+                                ...selectDisplayTestId('model-select'),
+                              },
                             },
                           }}
                         >
@@ -1674,7 +1689,7 @@ export default function ChatPage() {
                               variant="outlined"
                               color="secondary"
                               size="small"
-                              onClick={handleNewConversation}
+                              onClick={() => handleNewConversation()}
                               disabled={isLoading}
                               fullWidth
                             >
@@ -1793,7 +1808,9 @@ export default function ChatPage() {
                           value={input}
                           onChange={(event) => setInput(event.target.value)}
                           disabled={controlsDisabled}
-                          inputProps={{ 'data-testid': 'chat-input' }}
+                          slotProps={{
+                            htmlInput: { 'data-testid': 'chat-input' },
+                          }}
                           helperText={
                             providerIsCodex &&
                             (!providerAvailable || !toolsAvailable)

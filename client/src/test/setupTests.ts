@@ -1,42 +1,39 @@
 import { TextDecoder, TextEncoder } from 'util';
 import { jest } from '@jest/globals';
 import '@testing-library/jest-dom';
+import { getFetchMock } from './support/fetchMock';
 import { installMockWebSocket } from './support/mockWebSocket';
 
 // React 19 uses this global to decide whether it should warn about act().
 // In Jest + JSDOM the check is sensitive to where the flag is attached.
-(
-  globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }
-).IS_REACT_ACT_ENVIRONMENT = true;
-const windowRef = (
-  globalThis as unknown as {
-    window?: {
-      IS_REACT_ACT_ENVIRONMENT?: boolean;
-      __CODEINFO_TEST__?: boolean;
-    };
-  }
-).window;
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+const windowRef = globalThis.window;
 if (windowRef) {
   windowRef.IS_REACT_ACT_ENVIRONMENT = true;
 }
 
-(globalThis as unknown as { __CODEINFO_TEST__?: boolean }).__CODEINFO_TEST__ =
-  true;
+globalThis.__CODEINFO_TEST__ = true;
 if (windowRef) {
   windowRef.__CODEINFO_TEST__ = true;
 }
 
+const nodeGlobals = globalThis as typeof globalThis & {
+  TextEncoder?: typeof TextEncoder;
+  TextDecoder?: typeof TextDecoder;
+  Response?: typeof Response;
+  Headers?: typeof Headers;
+  Request?: typeof Request;
+};
+
 // Provide TextEncoder/Decoder for libraries that expect them in the JSDOM environment.
-if (!global.TextEncoder) {
-  // @ts-expect-error align node util types with browser globals
-  global.TextEncoder = TextEncoder;
+if (!nodeGlobals.TextEncoder) {
+  nodeGlobals.TextEncoder = TextEncoder as typeof globalThis.TextEncoder;
 }
-if (!global.TextDecoder) {
-  // @ts-expect-error align node util types with browser globals
-  global.TextDecoder = TextDecoder;
+if (!nodeGlobals.TextDecoder) {
+  nodeGlobals.TextDecoder = TextDecoder as typeof globalThis.TextDecoder;
 }
 
-if (!global.Response) {
+if (!nodeGlobals.Response) {
   class SimpleResponse {
     status: number;
     statusText: string;
@@ -45,7 +42,6 @@ if (!global.Response) {
     constructor(body?: BodyInit | null, init: ResponseInit = {}) {
       this.status = init.status ?? 200;
       this.statusText = init.statusText ?? '';
-      // @ts-expect-error align with browser Headers type
       this.headers = (init.headers as Headers) ?? new Headers();
       this.bodyValue = body ?? null;
     }
@@ -68,11 +64,10 @@ if (!global.Response) {
       });
     }
   }
-  // @ts-expect-error provide minimal Response polyfill for tests
-  global.Response = SimpleResponse;
+  nodeGlobals.Response = SimpleResponse as unknown as typeof Response;
 }
 
-if (!global.Headers) {
+if (!nodeGlobals.Headers) {
   class SimpleHeaders {
     private store = new Map<string, string>();
     append(key: string, value: string) {
@@ -82,11 +77,10 @@ if (!global.Headers) {
       return this.store.get(key.toLowerCase()) ?? null;
     }
   }
-  // @ts-expect-error minimal polyfill for tests
-  global.Headers = SimpleHeaders;
+  nodeGlobals.Headers = SimpleHeaders as unknown as typeof Headers;
 }
 
-if (!global.Request) {
+if (!nodeGlobals.Request) {
   class SimpleRequest {
     url: string;
     method: string;
@@ -102,12 +96,15 @@ if (!global.Request) {
       return this;
     }
   }
-  // @ts-expect-error minimal polyfill for tests
-  global.Request = SimpleRequest;
+  nodeGlobals.Request = SimpleRequest as unknown as typeof Request;
 }
 
-if (!global.fetch) {
-  global.fetch = jest.fn();
+if (!globalThis.fetch || !('mockImplementation' in globalThis.fetch)) {
+  Object.defineProperty(globalThis, 'fetch', {
+    configurable: true,
+    writable: true,
+    value: jest.fn<typeof fetch>(),
+  });
 }
 
 if (typeof window !== 'undefined' && !window.matchMedia) {
@@ -198,46 +195,44 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
 }
 
 // Default fetch mock for tests; individual tests can override as needed.
-(global.fetch as jest.Mock).mockImplementation(
-  async (input: RequestInfo | URL) => {
-    const url = typeof input === 'string' ? input : input.toString();
-    if (url.includes('/chat/providers')) {
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          providers: [
-            {
-              id: 'lmstudio',
-              label: 'LM Studio',
-              available: true,
-              toolsAvailable: true,
-            },
-          ],
-        }),
-      } as Response;
-    }
-    if (url.includes('/chat/models')) {
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          provider: 'lmstudio',
-          available: true,
-          toolsAvailable: true,
-          models: [
-            { key: 'm1', displayName: 'Model 1', type: 'gguf' },
-            { key: 'embed', displayName: 'Embedding Model', type: 'embedding' },
-          ],
-        }),
-      } as Response;
-    }
+getFetchMock().mockImplementation(async (input: RequestInfo | URL) => {
+  const url = typeof input === 'string' ? input : input.toString();
+  if (url.includes('/chat/providers')) {
     return {
       ok: true,
       status: 200,
-      json: async () => ({ version: '0.0.0', app: 'server' }),
+      json: async () => ({
+        providers: [
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
+          },
+        ],
+      }),
     } as Response;
-  },
-);
+  }
+  if (url.includes('/chat/models')) {
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: [
+          { key: 'm1', displayName: 'Model 1', type: 'gguf' },
+          { key: 'embed', displayName: 'Embedding Model', type: 'embedding' },
+        ],
+      }),
+    } as Response;
+  }
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({ version: '0.0.0', app: 'server' }),
+  } as Response;
+});
 
 installMockWebSocket();

@@ -1,13 +1,15 @@
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { createTestUser, type TestUserEvent } from './userEvent';
 
-export async function ensureCodexFlagsPanelExpanded() {
+export async function ensureCodexFlagsPanelExpanded(
+  user: TestUserEvent = createTestUser(),
+) {
   const summaryButton = await screen.findByRole('button', {
     name: /codex flags/i,
   });
 
   if (summaryButton.getAttribute('aria-expanded') !== 'true') {
-    await userEvent.click(summaryButton);
+    await user.click(summaryButton);
   }
 
   await waitFor(() => {

@@ -502,7 +502,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ jest.config.ts â€” Jest config
 â”‚  â”œâ”€ package.json â€” client workspace manifest
 â”‚  â”œâ”€ tsconfig.app.json â€” TS config for app build
-â”‚  â”œâ”€ tsconfig.json â€” TS references
+â”‚  â”œâ”€ tsconfig.json â€” client-local browser typecheck config overriding the shared `NodeNext` base with Vite-friendly bundler resolution plus explicit `vite/client`/`jest`/`node` ambient types
 â”‚  â”œâ”€ tsconfig.node.json â€” TS config for tools
 â”‚  â”œâ”€ vite.config.ts â€” Vite config
 â”‚  â”œâ”€ public/
@@ -619,7 +619,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- logsPage.test.tsx ? Logs page renders data, live toggle behaviour
 |     |     |- lmstudio.test.tsx ? LM Studio page tests
 |     |     |- router.test.tsx ? nav/router tests
-|     |     |- setupTests.ts ? Jest/test setup
+|     |     |- setupTests.ts ? Jest/test setup with typed fetch/browser polyfills and shared test globals
+|     |     |- support/
+|     |     |  |- fetchMock.ts ? typed `fetch` mock accessor shared by client tests and harness helpers
+|     |     |  |- mockChatWs.ts ? shared WS + fetch harness helpers with typed transcript/sidebar event emitters
+|     |     |  |- testEnvironment.d.ts ? ambient Jest/browser/test global declarations (`__wsMock`, `__CODEINFO_TEST__`, `window.__chatTest`)
+|     |     |  - userEvent.ts ? shared `userEvent.setup()` helper/type used by support utilities and later test cleanup
 |     |     |- useChatStream.reasoning.test.tsx ? chat hook reasoning parser coverage
 |     |     |- useChatStream.toolPayloads.test.tsx ? chat hook WS tool payload handling plus raw outbound payload preservation assertions
 |     |     |- useLmStudioStatus.test.ts ? hook tests

@@ -788,56 +788,68 @@ Extend the inflight mismatch rule to the remaining shared-hook event types that 
      - Jest 30: https://jestjs.io/docs/getting-started
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 10. [x] Add a duplicate `stream_warning` dedupe test.
-   - Test type:
-     - hook regression test
-   - Location:
-     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
-   - Description:
-     - add a test that sends the same warning twice for one inflight and asserts it appears only once
-   - Purpose:
-     - protect the no-duplicate warning corner case while warning handling changes
-   - Documentation for this subtask:
-     - Jest 30: https://jestjs.io/docs/getting-started
-     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+- Test type:
+  - hook regression test
+- Location:
+  - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+- Description:
+  - add a test that sends the same warning twice for one inflight and asserts it appears only once
+- Purpose:
+  - protect the no-duplicate warning corner case while warning handling changes
+- Documentation for this subtask:
+  - Jest 30: https://jestjs.io/docs/getting-started
+  - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
 11. [x] Add a matching-inflight `inflight_snapshot` happy-path test.
-   - Test type:
-     - hook regression test
-   - Location:
-     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
-   - Description:
-     - add a test that sends an inflight snapshot for the active inflight and asserts the visible transcript state hydrates normally
-   - Purpose:
-     - prove valid snapshots still hydrate the active message
-   - Documentation for this subtask:
-     - Jest 30: https://jestjs.io/docs/getting-started
-     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+- Test type:
+  - hook regression test
+- Location:
+  - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+- Description:
+  - add a test that sends an inflight snapshot for the active inflight and asserts the visible transcript state hydrates normally
+- Purpose:
+  - prove valid snapshots still hydrate the active message
+- Documentation for this subtask:
+  - Jest 30: https://jestjs.io/docs/getting-started
+  - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
 12. [x] Add a stale `inflight_snapshot` regression test.
-   - Test type:
-     - hook regression test
-   - Location:
-     - `client/src/test/useChatStream.inflightMismatch.test.tsx`
-   - Description:
-     - add a test that sends an inflight snapshot for an older inflight and asserts the active message state does not get replaced
-   - Purpose:
-     - prove stale snapshots are ignored
-   - Documentation for this subtask:
-     - Jest 30: https://jestjs.io/docs/getting-started
-     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+- Test type:
+  - hook regression test
+- Location:
+  - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+- Description:
+  - add a test that sends an inflight snapshot for an older inflight and asserts the active message state does not get replaced
+- Purpose:
+  - prove stale snapshots are ignored
+- Documentation for this subtask:
+  - Jest 30: https://jestjs.io/docs/getting-started
+  - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
 13. [x] Re-run nearby shared-hook consumer regressions for Chat and Agents to prove the broader mismatch filtering does not break them.
-   - Files to read/edit only if failures require updates:
-     - `client/src/test/chatPage.stream.test.tsx`
-     - `client/src/test/agentsPage.streaming.test.tsx`
+
+- Files to read/edit only if failures require updates:
+  - `client/src/test/chatPage.stream.test.tsx`
+  - `client/src/test/agentsPage.streaming.test.tsx`
+
 14. [x] Update `design.md` with the non-final event filtering rules and any affected mermaid diagram.
-   - Files to edit:
-     - `design.md`
-   - Documentation for this subtask:
-     - Mermaid docs: Context7 `/mermaid-js/mermaid`
-   - Required content:
-     - document how `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot` now follow the same inflight-ownership rule
-     - update any stream-event mermaid diagram affected by those rules
+
+- Files to edit:
+  - `design.md`
+- Documentation for this subtask:
+  - Mermaid docs: Context7 `/mermaid-js/mermaid`
+- Required content:
+  - document how `analysis_delta`, `tool_event`, `stream_warning`, and `inflight_snapshot` now follow the same inflight-ownership rule
+  - update any stream-event mermaid diagram affected by those rules
+
 15. [x] Update this story file’s Implementation notes for Task 3 once the code and tests are complete.
-   - Files to edit:
-     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+
+- Files to edit:
+  - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+
 16. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
@@ -2281,49 +2293,61 @@ Do not widen this task into contract/schema changes, Flow-only stream ownership 
      - duplicate finalization does not create a new bubble
      - previously finalized metadata stays intact
 10. [x] Re-run nearby shared-consumer regressions that exercise late-final and transcript-ownership behavior.
-   - Files to read/edit only if failures require updates:
-     - `client/src/test/chatPage.stream.test.tsx`
-     - `client/src/test/agentsPage.streaming.test.tsx`
-     - `client/src/test/flowsPage.run.test.tsx`
-   - Required outcome:
-     - the shared hook hardening does not regress Chat, Agents, or the Flow happy path
+
+- Files to read/edit only if failures require updates:
+  - `client/src/test/chatPage.stream.test.tsx`
+  - `client/src/test/agentsPage.streaming.test.tsx`
+  - `client/src/test/flowsPage.run.test.tsx`
+- Required outcome:
+  - the shared hook hardening does not regress Chat, Agents, or the Flow happy path
+
 11. [x] Update `client/src/pages/FlowsPage.tsx` so `flows.page.live_transcript_retained` is emitted only after the page has enough post-event state to prove the earlier transcript actually remained visible through the next-step transition.
-   - Files to edit:
-     - `client/src/pages/FlowsPage.tsx`
-   - Constraint:
-     - keep this change limited to marker correctness/evidence strength
-     - do not convert this into Flow-only stream ownership logic
-     - do not widen scope into unrelated `flowConversations` reset hardening from Task 7
-   - Required outcome:
-     - the marker is tied to retained post-event UI state rather than only to pre-event visibility plus a new inflight id
+
+- Files to edit:
+  - `client/src/pages/FlowsPage.tsx`
+- Constraint:
+  - keep this change limited to marker correctness/evidence strength
+  - do not convert this into Flow-only stream ownership logic
+  - do not widen scope into unrelated `flowConversations` reset hardening from Task 7
+- Required outcome:
+  - the marker is tied to retained post-event UI state rather than only to pre-event visibility plus a new inflight id
+
 12. [x] Add or update a separate Flow page regression proving the strengthened `flows.page.live_transcript_retained` marker only fires when the earlier bubble remains visible after the next step is applied.
-   - Test type:
-     - page integration regression test
-   - Location:
-     - `client/src/test/flowsPage.run.test.tsx`
-   - Required assertions:
-     - the earlier Flow bubble is still visible after the next step transition that emits the marker
-     - stale replay-only transitions do not move the marker bookkeeping backward
-     - the test proves the marker now reflects post-event transcript retention rather than a pre-event guess
+
+- Test type:
+  - page integration regression test
+- Location:
+  - `client/src/test/flowsPage.run.test.tsx`
+- Required assertions:
+  - the earlier Flow bubble is still visible after the next step transition that emits the marker
+  - stale replay-only transitions do not move the marker bookkeeping backward
+  - the test proves the marker now reflects post-event transcript retention rather than a pre-event guess
+
 13. [x] Normalize Task 7 N/A bookkeeping in this story file so conditional subtasks/testing steps no longer leave Story 42 falsely looking like the next active todo plan.
-   - Files to edit:
-     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-   - Required outcome:
-     - Task 7 still clearly records that no Flow-page hardening was required
-     - conditional Task 7 boxes are normalized so the plan no longer appears unfinished solely because that task was N/A
-     - the story remains active only because of Task 12 until this new work is complete
+
+- Files to edit:
+  - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+- Required outcome:
+  - Task 7 still clearly records that no Flow-page hardening was required
+  - conditional Task 7 boxes are normalized so the plan no longer appears unfinished solely because that task was N/A
+  - the story remains active only because of Task 12 until this new work is complete
+
 14. [x] Update `design.md`, `projectStructure.md`, and the `Acceptance audit` section in this story file if Task 12 changes the documented replay-ignore rules, Flow marker semantics, or story closeout bookkeeping.
-   - Files to edit:
-     - `design.md`
-     - `projectStructure.md`
-     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
-   - Required content:
-     - document the final post-final replay ignore rule distinctly from stale cross-inflight ignores
-     - document the strengthened Flow retention marker semantics
-     - update the Acceptance audit evidence trail if Task 12 changes which markers/manual checks are still considered valid proof
+
+- Files to edit:
+  - `design.md`
+  - `projectStructure.md`
+  - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+- Required content:
+  - document the final post-final replay ignore rule distinctly from stale cross-inflight ignores
+  - document the strengthened Flow retention marker semantics
+  - update the Acceptance audit evidence trail if Task 12 changes which markers/manual checks are still considered valid proof
+
 15. [x] Update this story file’s Implementation notes for Task 12 once the code and tests are complete.
-   - Files to edit:
-     - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+
+- Files to edit:
+  - `planning/0000042-flow-streaming-transcript-bubble-text-loss.md`
+
 16. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
@@ -2428,7 +2452,7 @@ These tasks are intentionally appended as follow-up hardening work and are not p
 
 ### 13. Client typecheck foundations and baseline collapse
 
-- Task Status: `__todo__`
+- Task Status: `__completed__`
 - Git Commits:
   - None yet.
 
@@ -2460,48 +2484,59 @@ Do not start mass-editing every test file before this task is complete. The goal
 
 #### Subtasks
 
-1. [ ] Re-run `npm run typecheck --workspace client`, capture the current baseline counts and dominant error families in the Task 13 implementation notes, and confirm which categories are root-cause candidates versus true residual file-level defects.
+1. [x] Re-run `npm run typecheck --workspace client`, capture the current baseline counts and dominant error families in the Task 13 implementation notes, and confirm which categories are root-cause candidates versus true residual file-level defects.
    - Required outcome:
      - preserve the baseline command and the major error classes before editing
      - identify which classes are expected to collapse after tsconfig/shared-helper fixes
-2. [ ] Decide whether `client/tsconfig.json` should override the shared base `module`/`moduleResolution` settings for a Vite/browser workspace, then implement the least risky option.
+2. [x] Decide whether `client/tsconfig.json` should override the shared base `module`/`moduleResolution` settings for a Vite/browser workspace, then implement the least risky option.
    - Files to edit:
      - `client/tsconfig.json`
      - optionally `tsconfig.base.json` only if the client cannot safely solve this locally
    - Required outcome:
      - eliminate the client-only false-positive import-resolution baseline without weakening the server/compiler contract
      - if the shared base cannot be changed safely, keep the override client-local
-3. [ ] Add the explicit client ambient type entries required for browser, Jest, and any approved Node/test globals instead of relying on implicit `global` or missing `process` names.
+3. [x] Add the explicit client ambient type entries required for browser, Jest, and any approved Node/test globals instead of relying on implicit `global` or missing `process` names.
    - Files to edit:
      - `client/tsconfig.json`
      - optional client-local ambient declarations file under `client/src` if needed
    - Required outcome:
      - `process`, `globalThis`, Jest globals, and DOM/browser test types are modeled intentionally rather than incidentally
-4. [ ] Update `client/src/test/setupTests.ts` so the shared test bootstrap exposes typed globals/mocks and no longer seeds downstream `global`/`never`/`unknown` type drift.
+4. [x] Update `client/src/test/setupTests.ts` so the shared test bootstrap exposes typed globals/mocks and no longer seeds downstream `global`/`never`/`unknown` type drift.
    - Required outcome:
      - shared setup should become the first place to fix fetch/EventSource/mock typing drift
-5. [ ] Update `client/src/test/support/mockChatWs.ts` so the websocket test helper exports strongly typed helpers instead of letting callback and payload shapes degrade into `unknown`.
-6. [ ] Update `client/src/test/support/ensureCodexFlagsPanelExpanded.ts` so the helper aligns with the chosen `userEvent` typing/import strategy and does not perpetuate incorrect helper signatures.
-7. [ ] Standardize the client-wide `userEvent` typing/import pattern and any shared typed mock helpers needed by later test files.
+5. [x] Update `client/src/test/support/mockChatWs.ts` so the websocket test helper exports strongly typed helpers instead of letting callback and payload shapes degrade into `unknown`.
+6. [x] Update `client/src/test/support/ensureCodexFlagsPanelExpanded.ts` so the helper aligns with the chosen `userEvent` typing/import strategy and does not perpetuate incorrect helper signatures.
+7. [x] Standardize the client-wide `userEvent` typing/import pattern and any shared typed mock helpers needed by later test files.
    - Required outcome:
      - the project should have one deliberate pattern for `userEvent.setup()`
      - later test files should consume shared typed helpers instead of repeating ad hoc casts
-8. [ ] Re-run `npm run typecheck --workspace client` and record the reduced post-foundation baseline, including the specific residual runtime file families and test file families that still need direct edits.
-9. [ ] If Task 13 changes the expected client compiler model or test environment contract, update `projectStructure.md` and this story file so the chosen typecheck approach is documented before file-by-file cleanup continues.
+8. [x] Re-run `npm run typecheck --workspace client` and record the reduced post-foundation baseline, including the specific residual runtime file families and test file families that still need direct edits.
+9. [x] If Task 13 changes the expected client compiler model or test environment contract, update `projectStructure.md` and this story file so the chosen typecheck approach is documented before file-by-file cleanup continues.
 10. [ ] Update Task 13 implementation notes continuously as each foundational fix lands.
 
 #### Testing
 
-1. [ ] `npm run typecheck --workspace client` - Required pre-edit baseline capture.
-2. [ ] `npm run test:summary:client -- --file client/src/test/useChatWs.test.ts --file client/src/test/useConversationTurns.refresh.test.ts` - Shared helper smoke check after Task 13 setup/support changes.
-3. [ ] `npm run build:summary:client` - Required because compiler-config changes can affect the client build path.
-4. [ ] `npm run lint --workspaces`
-5. [ ] `npm run format:check --workspaces`
-6. [ ] `npm run typecheck --workspace client` - Required post-edit baseline reduction check.
+1. [x] `npm run typecheck --workspace client` - Required pre-edit baseline capture.
+2. [x] `npm run test:summary:client -- --file client/src/test/useChatWs.test.ts --file client/src/test/useConversationTurns.refresh.test.ts` - Shared helper smoke check after Task 13 setup/support changes.
+3. [x] `npm run build:summary:client` - Required because compiler-config changes can affect the client build path.
+4. [x] `npm run lint --workspaces`
+5. [x] `npm run format:check --workspaces`
+6. [x] `npm run typecheck --workspace client` - Required post-edit baseline reduction check.
 
 #### Implementation notes
 
-- Pending.
+- Baseline captured on 2026-03-08 with `npm run typecheck --workspace client`; dominant codes were `TS2339` (407), `TS2835` (372), `TS2345` (224), `TS2304` (128), and `TS7006` (127).
+- Root-cause candidates identified before editing: client `NodeNext` import-resolution mismatch for Vite/browser code, missing `node`/`jest` ambient typing for `process` and `global`, and shared test helpers that currently widen fetch/websocket/user-event types into `unknown`/`never`.
+- Subtasks 2-7: kept the compiler-model fix client-local by switching `client/tsconfig.json` to bundler-style browser resolution, added explicit `jest`/`node` ambient types plus a shared test-environment declaration file, and introduced typed fetch/user-event helpers so `setupTests.ts`, `mockChatWs.ts`, and `ensureCodexFlagsPanelExpanded.ts` stop exporting loose helper contracts into later tests.
+- Post-foundation baseline rerun on 2026-03-08 removed the `TS2835`/`TS2834` import-resolution flood entirely; dominant remaining codes are `TS2345` (227), `TS2322` (95), `TS2352` (38), `TS2339` (16), and `TS18046` (15).
+- Residual runtime families frozen for Task 14: `client/src/components/Markdown.tsx`, chat sidebar/flags and device-auth dialog prop typing, `DirectoryPickerDialog.tsx`, `useChatStream.ts`, `useConversationTurns.ts`, `useConversations.ts`, `useIngestStatus.ts`, and page-level callback/value narrowing in `ChatPage.tsx`, `AgentsPage.tsx`, and `IngestPage.tsx`.
+- Residual test families frozen for Task 15 onward: API helper tests using raw `jest.fn()` fetch mocks, Agents page command/run suites with untyped mock implementations, hook tests around `useChatStream`, `useConversationTurns`, and `useLogs`, plus a handful of version/logs helper assertions that still depend on direct per-file typing cleanup.
+- Documentation updated in `projectStructure.md` and this task note set to reflect the client-local bundler-resolution override, explicit test ambient declarations, and shared typed `fetch`/`userEvent` support helpers introduced here.
+- Testing 2: `npm run test:summary:client -- --file client/src/test/useChatWs.test.ts --file client/src/test/useConversationTurns.refresh.test.ts` passed with 21/21 tests green in `test-results/client-tests-2026-03-08T10-06-46-545Z.log`.
+- Testing 3: `npm run build:summary:client` passed; inspected `logs/test-summaries/build-client-latest.log` and the only warning remained the existing Vite chunk-size warning.
+- Testing 4: `npm run lint --workspaces` completed with the same pre-existing 57 server `import/order` warnings plus one client warning in generated `client/src/logging/logger.js` while emitted artifacts existed; there were no new lint errors from Task 13 source changes.
+- Testing 5: initial `npm run format:check --workspaces` failed because `npm run typecheck --workspace client` still emits transient `.js` artifacts into `client/src`; after deleting the emitted files and formatting the touched sources, `npm run format:check --workspaces` passed cleanly.
+- Testing 6: post-edit `npm run typecheck --workspace client` reran successfully as a failure-baseline capture and held at the reduced counts (`TS2345` 227, `TS2322` 95, `TS2352` 38, `TS2339` 16, `TS18046` 15), confirming the import-resolution flood stayed removed.
 
 ### 14. Client runtime source typing cleanup
 

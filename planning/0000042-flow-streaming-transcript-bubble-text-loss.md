@@ -3298,7 +3298,7 @@ After the wrappers have a stable heartbeat/action contract, the repo workflow do
 
 - Task Status: `__done__`
 - Git Commits:
-  - Pending direct implementation commit reference
+  - `2a608d39` - `DEV-[0000042] - Preserve flow transcript on transient refresh miss`
 
 #### Overview
 

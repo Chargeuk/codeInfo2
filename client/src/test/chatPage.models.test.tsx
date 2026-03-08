@@ -3,11 +3,12 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
+import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -34,27 +35,17 @@ const routes = [
 
 describe('Chat page models list', () => {
   it('shows loading then selects the first model', async () => {
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
-      const target = typeof url === 'string' ? url : url.toString();
-      if (target.includes('/health')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ mongoConnected: true }),
-        }) as unknown as Response;
-      }
-      if (target.includes('/conversations')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ items: [], nextCursor: null }),
-        }) as unknown as Response;
-      }
-      if (target.includes('/chat/providers')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
+    mockFetch.mockImplementation(
+      asFetchImplementation(async (url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [], nextCursor: null });
+        }
+        if (target.includes('/chat/providers')) {
+          return mockJsonResponse({
             providers: [
               {
                 id: 'lmstudio',
@@ -63,14 +54,10 @@ describe('Chat page models list', () => {
                 toolsAvailable: true,
               },
             ],
-          }),
-        });
-      }
-      if (target.includes('/chat/models')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
+          });
+        }
+        if (target.includes('/chat/models')) {
+          return mockJsonResponse({
             provider: 'lmstudio',
             available: true,
             toolsAvailable: true,
@@ -82,15 +69,11 @@ describe('Chat page models list', () => {
                 type: 'embedding',
               },
             ],
-          }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      }) as unknown as Response;
-    });
+          });
+        }
+        return mockJsonResponse({});
+      }),
+    );
 
     const router = createMemoryRouter(routes, {
       initialEntries: ['/chat'],
@@ -121,27 +104,17 @@ describe('Chat page models list', () => {
   });
 
   it('renders capability-driven reasoning options for Codex defaults', async () => {
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
-      const target = typeof url === 'string' ? url : url.toString();
-      if (target.includes('/health')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ mongoConnected: true }),
-        }) as unknown as Response;
-      }
-      if (target.includes('/conversations')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ items: [], nextCursor: null }),
-        }) as unknown as Response;
-      }
-      if (target.includes('/chat/providers')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
+    mockFetch.mockImplementation(
+      asFetchImplementation(async (url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [], nextCursor: null });
+        }
+        if (target.includes('/chat/providers')) {
+          return mockJsonResponse({
             providers: [
               {
                 id: 'codex',
@@ -150,14 +123,10 @@ describe('Chat page models list', () => {
                 toolsAvailable: true,
               },
             ],
-          }),
-        });
-      }
-      if (target.includes('/chat/models')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
+          });
+        }
+        if (target.includes('/chat/models')) {
+          return mockJsonResponse({
             provider: 'codex',
             available: true,
             toolsAvailable: true,
@@ -176,15 +145,11 @@ describe('Chat page models list', () => {
                 type: 'codex',
               },
             ],
-          }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      }) as unknown as Response;
-    });
+          });
+        }
+        return mockJsonResponse({});
+      }),
+    );
 
     const router = createMemoryRouter(routes, {
       initialEntries: ['/chat'],
@@ -206,27 +171,17 @@ describe('Chat page models list', () => {
   });
 
   it('renders non-standard runtime reasoning values from model capabilities', async () => {
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
-      const target = typeof url === 'string' ? url : url.toString();
-      if (target.includes('/health')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ mongoConnected: true }),
-        }) as unknown as Response;
-      }
-      if (target.includes('/conversations')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ items: [], nextCursor: null }),
-        }) as unknown as Response;
-      }
-      if (target.includes('/chat/providers')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
+    mockFetch.mockImplementation(
+      asFetchImplementation(async (url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [], nextCursor: null });
+        }
+        if (target.includes('/chat/providers')) {
+          return mockJsonResponse({
             providers: [
               {
                 id: 'codex',
@@ -235,14 +190,10 @@ describe('Chat page models list', () => {
                 toolsAvailable: true,
               },
             ],
-          }),
-        });
-      }
-      if (target.includes('/chat/models')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
+          });
+        }
+        if (target.includes('/chat/models')) {
+          return mockJsonResponse({
             provider: 'codex',
             available: true,
             toolsAvailable: true,
@@ -263,15 +214,11 @@ describe('Chat page models list', () => {
                 defaultReasoningEffort: 'turbo-max',
               },
             ],
-          }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      }) as unknown as Response;
-    });
+          });
+        }
+        return mockJsonResponse({});
+      }),
+    );
 
     const router = createMemoryRouter(routes, {
       initialEntries: ['/chat'],

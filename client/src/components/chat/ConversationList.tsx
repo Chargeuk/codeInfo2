@@ -25,7 +25,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { type InputHTMLAttributes, useEffect, useMemo, useState } from 'react';
 import type { ConversationFilterState } from '../../hooks/useConversations';
 import { createLogger } from '../../logging/logger';
 
@@ -68,6 +68,17 @@ type Props = {
   onRetry: () => void;
 };
 
+const checkboxInputProps = (
+  ariaLabel: string,
+  dataTestId: string,
+): InputHTMLAttributes<HTMLInputElement> & {
+  'aria-label': string;
+  'data-testid': string;
+} => ({
+  'aria-label': ariaLabel,
+  'data-testid': dataTestId,
+});
+
 function formatTimestamp(value?: string) {
   if (!value) return '—';
   const date = new Date(value);
@@ -99,8 +110,8 @@ export function ConversationList({
 }: Props) {
   const log = useMemo(() => createLogger('client'), []);
   const enableBulkUi = Boolean(onBulkArchive || onBulkRestore || onBulkDelete);
-  const showFilters = Boolean(onFilterChange && onRefresh);
-  const showRowActions = Boolean(onArchive && onRestore);
+  const showFilters = true;
+  const showRowActions = true;
   const bulkDisabled = Boolean(disabled || mongoConnected === false);
   const sorted = useMemo(
     () =>
@@ -403,9 +414,11 @@ export function ConversationList({
                       : new Set<string>();
                   });
                 }}
-                inputProps={{
-                  'aria-label': 'Select all conversations',
-                  'data-testid': 'conversation-select-all',
+                slotProps={{
+                  input: checkboxInputProps(
+                    'Select all conversations',
+                    'conversation-select-all',
+                  ),
                 }}
               />
               <Typography variant="caption" color="text.secondary">
@@ -581,9 +594,11 @@ export function ConversationList({
                               return next;
                             });
                           }}
-                          inputProps={{
-                            'aria-label': 'Select conversation',
-                            'data-testid': 'conversation-select',
+                          slotProps={{
+                            input: checkboxInputProps(
+                              'Select conversation',
+                              'conversation-select',
+                            ),
                           }}
                           sx={{ mt: 0.25, mr: 0.5 }}
                         />

@@ -3,10 +3,10 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
   if (!('getBBox' in SVGElement.prototype)) {
     // @ts-expect-error jsdom SVGElement shim for mermaid layout
     SVGElement.prototype.getBBox = () => ({
@@ -361,30 +361,32 @@ describe('Agents page - run', () => {
     ).__wsMock;
     const ws = wsRegistry?.last();
     if (!ws) throw new Error('No WebSocket instance; did AgentsPage mount?');
-    ws._receive({
-      protocolVersion: 'v1',
-      type: 'user_turn',
-      conversationId,
-      seq: 1,
-      inflightId: 'i1',
-      content,
-      createdAt: '2025-01-01T00:00:00.000Z',
-    });
-    ws._receive({
-      protocolVersion: 'v1',
-      type: 'assistant_delta',
-      conversationId,
-      seq: 2,
-      inflightId: 'i1',
-      delta: content,
-    });
-    ws._receive({
-      protocolVersion: 'v1',
-      type: 'turn_final',
-      conversationId,
-      seq: 3,
-      inflightId: 'i1',
-      status: 'ok',
+    await act(async () => {
+      ws._receive({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content,
+        createdAt: '2025-01-01T00:00:00.000Z',
+      });
+      ws._receive({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        delta: content,
+      });
+      ws._receive({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 3,
+        inflightId: 'i1',
+        status: 'ok',
+      });
     });
 
     const userMarkdown = await screen.findByTestId('agents-user-markdown');
@@ -485,6 +487,7 @@ describe('Agents page - run', () => {
     ].join('\n');
     const input = await screen.findByTestId('agent-input');
     await user.type(input, malformed);
+    await waitFor(() => expect(screen.getByTestId('agent-send')).toBeEnabled());
     await act(async () => {
       await user.click(screen.getByTestId('agent-send'));
     });
@@ -498,30 +501,32 @@ describe('Agents page - run', () => {
     ).__wsMock;
     const ws = wsRegistry?.last();
     if (!ws) throw new Error('No WebSocket instance; did AgentsPage mount?');
-    ws._receive({
-      protocolVersion: 'v1',
-      type: 'user_turn',
-      conversationId,
-      seq: 1,
-      inflightId: 'i1',
-      content: malformed,
-      createdAt: '2025-01-01T00:00:00.000Z',
-    });
-    ws._receive({
-      protocolVersion: 'v1',
-      type: 'assistant_delta',
-      conversationId,
-      seq: 2,
-      inflightId: 'i1',
-      delta: malformed,
-    });
-    ws._receive({
-      protocolVersion: 'v1',
-      type: 'turn_final',
-      conversationId,
-      seq: 3,
-      inflightId: 'i1',
-      status: 'ok',
+    await act(async () => {
+      ws._receive({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: malformed,
+        createdAt: '2025-01-01T00:00:00.000Z',
+      });
+      ws._receive({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        delta: malformed,
+      });
+      ws._receive({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 3,
+        inflightId: 'i1',
+        status: 'ok',
+      });
     });
 
     const userMarkdown = await screen.findByTestId('agents-user-markdown');
@@ -957,17 +962,27 @@ describe('Agents page - run', () => {
     await user.click(sendButton);
     await waitFor(() => expect(resolveRun).toEqual(expect.any(Function)));
 
-    resolveRun?.({
-      ok: true,
-      status: 202,
-      json: async () => ({
-        status: 'started',
-        agentName: 'coding_agent',
-        conversationId: 'c1',
-        inflightId: 'i1',
-        modelId: 'gpt-5.3-codex',
-      }),
-    } as Response);
+    if (!resolveRun) {
+      throw new Error('Expected resolveRun to be assigned');
+    }
+
+    const completeRun = resolveRun as (value: Response) => void;
+
+    completeRun(
+      new Response(
+        JSON.stringify({
+          status: 'started',
+          agentName: 'coding_agent',
+          conversationId: 'c1',
+          inflightId: 'i1',
+          modelId: 'gpt-5.3-codex',
+        }),
+        {
+          status: 202,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    );
 
     await waitFor(() => expect(sendButton).toBeEnabled());
     expect(screen.queryByTestId('agents-run-error')).toBeNull();

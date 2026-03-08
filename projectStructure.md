@@ -486,7 +486,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”œâ”€ docker-compose.e2e.yml — isolated e2e stack (client 6001, server 6010, chroma 8800, fixtures mount)
 â”œâ”€ eslint.config.js â€” root ESLint flat config
 â”œâ”€ package-lock.json â€” workspace lockfile
-â”œâ”€ package.json â€” root package/workspaces/scripts
+â”œâ”€ package.json â€” root package/workspaces/scripts, including compact summary wrappers such as `build:summary:client` (client typecheck + build), `test:summary:client`, and `typecheck:summary:client`; summary wrappers now emit heartbeat/final-action guidance (`agent_action`, `do_not_read_log`, `log`) so healthy runs can avoid unnecessary log reads while warned/failed/ambiguous runs still point maintainers to the saved log
 â”œâ”€ tsconfig.base.json â€” shared TS config
 â”œâ”€ tsconfig.json â€” project references entry
 â”œâ”€ client/ â€” React 19 Vite app
@@ -502,7 +502,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ jest.config.ts â€” Jest config
 â”‚  â”œâ”€ package.json â€” client workspace manifest
 â”‚  â”œâ”€ tsconfig.app.json â€” TS config for app build
-â”‚  â”œâ”€ tsconfig.json â€” TS references
+â”‚  â”œâ”€ tsconfig.json â€” client-local browser typecheck config overriding the shared `NodeNext` base with Vite-friendly bundler resolution plus explicit `vite/client`/`jest`/`node` ambient types; used by the non-emitting `npm run typecheck --workspace client` command and the `typecheck:summary:client` wrapper that `build:summary:client` now runs before the Vite build
 â”‚  â”œâ”€ tsconfig.node.json â€” TS config for tools
 â”‚  â”œâ”€ vite.config.ts â€” Vite config
 â”‚  â”œâ”€ public/
@@ -534,8 +534,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |  â””â”€ systemContext.ts — holds optional system prompt prepended to chat payloads when non-empty
 |     |- hooks/
 |     |  |- useChatModel.ts ? fetches /chat/models, tracks selected model state
-|     |  |- useChatWs.ts — WebSocket client hook (connect/reconnect, subscribe/unsubscribe, JSON codec, client log forwarding)
-|     |  |- useChatStream.ts — chat run hook (POST /chat start-run 202 + merges WS transcript events into ChatMessage state, preserving raw non-whitespace outbound input and blocking whitespace-only sends)
+|     |  |- useChatWs.ts — WebSocket client hook (connect/reconnect, subscribe/unsubscribe, per-inflight seq gating, JSON codec, client log forwarding)
+|     |  |- useChatStream.ts — chat run hook (POST /chat start-run 202 + merges WS transcript events into ChatMessage state, preserving raw non-whitespace outbound input, blocking whitespace-only sends, ignoring stale older-inflight non-final events, and preserving late older `turn_final` updates non-destructively)
 |     |  |- useLmStudioStatus.ts ? LM Studio status/models data hook
 |     |  |- useConversations.ts ? conversation list infinite scroll + archive/restore helpers
 |     |  |- useConversationTurns.ts ? lazy turn loading with load-older cursor handling
@@ -556,7 +556,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |- pages/
 |     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, rounded 14px bubbles, tool blocks, citations accordion (closed by default), stream status/thinking UI (1s idle guard, ignores tool-only waits), and raw-input send guards/logging
 |     |  |- AgentsPage.tsx ? agents UI with selector/stop/new-conversation controls, command `Start step` selector (`Step 1..N`), persisted conversation continuation, raw-instruction send guards, and shared user-markdown rendering/logging
-|     |  |- FlowsPage.tsx ? flows UI with selector/run/resume/stop controls, flow-filtered sidebar, and step metadata transcript
+|     |  |- FlowsPage.tsx ? flows UI with selector/run/resume/stop controls, flow-filtered sidebar, step metadata transcript, and `flows.page.live_transcript_retained` logging only after post-event UI proof shows the earlier bubble stayed visible through the next-step transition
 |     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
 |     |  |- HomePage.tsx ? version card page
 |     |  |- LmStudioPage.tsx ? LM Studio config/status/models UI
@@ -600,7 +600,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- agentsPage.run.instructionError.test.tsx ? Agents page shows error banner when instruction start fails
 |     |     |- agentsPage.workingFolderPicker.test.tsx ? Agents working-folder picker dialog open/pick/cancel/error coverage
 |     |     |- flowsPage.test.tsx ? Flows page renders flow list and step metadata
-|     |     |- flowsPage.run.test.tsx ? Flows page run/resume controls send expected payloads
+|     |     |- flowsPage.run.test.tsx ? Flows page run/resume controls plus two-step live transcript retention coverage while stale earlier-step replays are ignored
 |     |     |- flowsPage.stop.test.tsx ? Flows page stop button sends cancel_inflight
 |     |     |- agentsPage.run.commandError.test.tsx ? Agents page shows command start errors, including unchanged `INVALID_START_STEP` range text
 |     |     |- agentsPage.navigateAway.keepsRun.test.tsx ? navigating away does not cancel run; transcript resumes via WS
@@ -619,7 +619,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- logsPage.test.tsx ? Logs page renders data, live toggle behaviour
 |     |     |- lmstudio.test.tsx ? LM Studio page tests
 |     |     |- router.test.tsx ? nav/router tests
-|     |     |- setupTests.ts ? Jest/test setup
+|     |     |- setupTests.ts ? Jest/test setup with typed fetch/browser polyfills and shared test globals
+|     |     |- support/
+|     |     |  |- fetchMock.ts ? typed `fetch` mock accessor shared by client tests and harness helpers
+|     |     |  |- mockChatWs.ts ? shared WS + fetch harness helpers with typed transcript/sidebar event emitters
+|     |     |  |- testEnvironment.d.ts ? ambient Jest/browser/test global declarations (`__wsMock`, `__CODEINFO_TEST__`, `window.__chatTest`)
+|     |     |  - userEvent.ts ? shared `userEvent.setup()` helper/type used by support utilities and later test cleanup
 |     |     |- useChatStream.reasoning.test.tsx ? chat hook reasoning parser coverage
 |     |     |- useChatStream.toolPayloads.test.tsx ? chat hook WS tool payload handling plus raw outbound payload preservation assertions
 |     |     |- useLmStudioStatus.test.ts ? hook tests
@@ -1137,7 +1142,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - client/src/test/agentsPage.toolsUi.test.tsx — Agents transcript renders Parameters/Result accordions for tool events
 - client/src/test/agentsPage.statusChip.test.tsx — Agents transcript status chip shows Failed when turn_final status is failed
 - client/src/test/chatSidebar.test.tsx — Chat sidebar bulk-selection coverage (filter reset, reorder stability, delete confirm, persistence gating) + ChatPage agent upsert ignore
-- client/src/test/useChatWs.test.ts — hook-level coverage for chat WebSocket connect/reconnect/seq gating and disabled realtime mode
+- client/src/test/useChatStream.inflightMismatch.test.tsx — hook-level coverage for stale older-inflight transcript events versus active inflight ownership across Chat/Agents/Flows consumers
+- client/src/test/useChatWs.test.ts — hook-level coverage for chat WebSocket connect/reconnect, per-inflight seq gating, new-inflight seq resets, and disabled realtime mode
+- client/src/test/support/mockChatWs.ts — shared websocket harness for Chat/Agents/Flows page tests with inflight emit helpers used by stream-retention regressions
 - client/src/test/support/mockWebSocket.ts — shared deterministic JSDOM WebSocket mock used by WS-driven client tests
 - client/src/test/useConversationTurns.refresh.test.ts — unit coverage for `useConversationTurns.refresh()` replace-only snapshots + error case retains prior turns
 - client/src/test/useConversationTurns.commandMetadata.test.ts — unit coverage that turns preserve optional `command` metadata for UI rendering
@@ -1436,3 +1443,62 @@ Modified files (story-wide traceability):
 Task notes:
 
 - Task 10 closeout check confirmed every story-touched tracked file from `git diff --name-only 3401898d..HEAD` has a matching purpose entry in this document.
+
+## Story 0000042 Task 8 structural verification ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md` — top-level Flow feature note now states the live transcript bug fix at a user-visible level.
+- `design.md` — documents the final shared stream-ownership rules, non-destructive late-final behavior, Flow transcript retention rule, and Story 42 manual verification log matrix.
+- `projectStructure.md` — synchronized client hook/page/test descriptions with the final Story 42 regression surface.
+- `planning/0000042-flow-streaming-transcript-bubble-text-loss.md` — task-by-task implementation and verification evidence for the streaming transcript retention fix.
+
+Task notes:
+
+- Story 0000042 added no new tracked files through Tasks 1-7; Task 8 updates the structure map to reflect the final behavior of existing hooks, pages, and regression files instead of recording path additions or renames.
+
+## Story 0000042 Task 14 structural verification ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/components/Markdown.tsx` — shared markdown renderer now follows the current `react-markdown` and `rehype-sanitize` typing model while preserving mermaid fences and external-link behavior.
+- `client/src/components/chat/CodexFlagsPanel.tsx` — Codex flag switches now use typed helper wrappers for MUI input slot test ids.
+- `client/src/components/chat/ConversationList.tsx` — shared sidebar list now uses typed checkbox input helpers and removes always-true optional-handler guards.
+- `client/src/components/codex/CodexDeviceAuthDialog.tsx` — shared device-auth dialog now matches the current API call signature.
+- `client/src/components/ingest/DirectoryPickerDialog.tsx` — ingest directory picker now narrows the success/error response union before storing payload state.
+- `client/src/hooks/useChatStream.ts` — assistant-bubble creation now stabilizes the generated assistant id before it is reused across inflight maps and message state.
+- `client/src/hooks/useConversationTurns.ts` — hydrated REST inflight snapshots are explicitly typed before overlay decisions are logged/applied.
+- `client/src/hooks/useConversations.ts` — bulk-action error handling now narrows the response union safely and preserves fallback error codes/messages.
+- `client/src/hooks/useIngestStatus.ts` — ingest snapshot logging now emits an object payload even when realtime status is absent.
+- `client/src/pages/AgentsPage.tsx` — runtime page typing now guards inflight cancellation, narrows tool payload/error rendering, and keeps shared sidebar wiring explicit.
+- `client/src/pages/ChatPage.tsx` — runtime page typing now uses explicit reducer generics, typed MUI select-display helpers, safer payload/error booleans, and slot-prop based input metadata.
+- `client/src/pages/IngestPage.tsx` — ingest page now normalizes embedding-provider values before passing locked-model props into shared ingest components.
+- `planning/0000042-flow-streaming-transcript-bubble-text-loss.md` — Task 14 implementation and validation trail updated in place as each runtime subtask and testing step completed.
+
+Task notes:
+
+- Task 14 changed existing runtime files only; the documentation update is limited to structure/traceability because no user-visible flow behavior or design contract changed beyond the runtime typing cleanup itself.

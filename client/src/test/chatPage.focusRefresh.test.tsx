@@ -9,11 +9,12 @@ import {
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { setupChatWsHarness } from './support/mockChatWs';
+import type { ConversationListItem } from '../components/chat/ConversationList';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -64,7 +65,10 @@ describe('Chat snapshot refresh on focus/visibility + reconnect', () => {
       nextCursor: string | null;
     };
 
-    const conversationsPayload = { items: [], nextCursor: null };
+    const conversationsPayload: {
+      items: ConversationListItem[];
+      nextCursor: string | null;
+    } = { items: [], nextCursor: null };
 
     const harness = setupChatWsHarness({
       mockFetch,

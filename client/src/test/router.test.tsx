@@ -6,10 +6,17 @@ import App from '../App';
 import HomePage from '../pages/HomePage';
 import LmStudioPage from '../pages/LmStudioPage';
 
-jest.mock('@codeinfo2/common', () => ({
-  ...jest.requireActual('@codeinfo2/common'),
-  fetchServerVersion: jest.fn().mockResolvedValue({ version: '1.0.0' }),
-}));
+jest.mock('@codeinfo2/common', () => {
+  const actual = jest.requireActual(
+    '@codeinfo2/common',
+  ) as typeof import('@codeinfo2/common');
+  return {
+    ...actual,
+    fetchServerVersion: jest
+      .fn<typeof actual.fetchServerVersion>()
+      .mockResolvedValue({ app: 'server', version: '1.0.0' }),
+  };
+});
 
 const routes = [
   {

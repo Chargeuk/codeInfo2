@@ -1,15 +1,22 @@
 #!/usr/bin/env node
 // Purpose: reduce token usage by printing only a compact client build summary in the terminal.
 // Use: `npm run build:summary:client` from repository root.
-// Behavior: runs `npm run build --workspace client`, writes full output to logs/test-summaries/build-client-latest.log,
-// and prints only status (passed/failed), warning count, and log location.
+// Behavior: runs `npm run typecheck --workspace client` and then `npm run build --workspace client`,
+// streams full output to logs/test-summaries/build-client-latest.log, and prints the shared wrapper
+// heartbeat/final-action protocol plus the final status (passed/failed), failed phase (typecheck/build),
+// warning count for the build phase, and log location.
 // Warning count: best-effort line-based parsing of build output for warning markers.
 // Why: this keeps routine AI-assisted runs low-noise while preserving full build output for troubleshooting.
 
-import { spawn } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import {
+  createSummaryLogStream,
+  createSummaryWrapperProtocol,
+  runLoggedCommand,
+  writeLogLine,
+} from './summary-wrapper-protocol.mjs';
 
 const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -17,37 +24,6 @@ const rootDir = path.resolve(
 );
 const resultsDir = path.join(rootDir, 'logs', 'test-summaries');
 const logPath = path.join(resultsDir, 'build-client-latest.log');
-
-mkdirSync(resultsDir, { recursive: true });
-
-const run = (cmd, args, cwd) =>
-  new Promise((resolve) => {
-    const child = spawn(cmd, args, {
-      cwd,
-      env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    let output = '';
-    let settled = false;
-    const finish = (code) => {
-      if (settled) return;
-      settled = true;
-      resolve({ code: code ?? 1, output });
-    };
-    child.stdout.on('data', (chunk) => {
-      output += chunk.toString();
-    });
-    child.stderr.on('data', (chunk) => {
-      output += chunk.toString();
-    });
-    child.on('error', (err) => {
-      const message = err?.message ?? String(err);
-      output += `\nSpawn error: ${message}\n`;
-      finish(1);
-    });
-    child.on('close', (code) => finish(code));
-  });
 
 const stripAnsi = (value) => value.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '');
 
@@ -70,18 +46,80 @@ const countWarnings = (output) => {
   return warningLines.size;
 };
 
-const result = await run(
-  'npm',
-  ['run', 'build', '--workspace', 'client'],
-  rootDir,
-);
-writeFileSync(logPath, result.output, 'utf8');
+const runPhase = async (phase, args) => {
+  protocol.setPhase(phase);
+  writeLogLine(logStream, `===== phase: ${phase} =====`);
+  const result = await runLoggedCommand({
+    cmd: 'npm',
+    args,
+    cwd: rootDir,
+    logStream,
+    protocol,
+    phase,
+    bannerPrefix: '',
+  });
+  return result;
+};
 
-const warningCount = countWarnings(result.output);
-const status = result.code === 0 ? 'passed' : 'failed';
+const logStream = createSummaryLogStream(logPath);
+const protocol = createSummaryWrapperProtocol({
+  wrapperName: 'build:client',
+  logPath,
+  logDisplayPath: path.relative(rootDir, logPath),
+  initialPhase: 'typecheck',
+});
 
-console.log(`[build:client] status: ${status}`);
-console.log(`[build:client] warnings: ${warningCount}`);
-console.log(`[build:client] log: ${path.relative(rootDir, logPath)}`);
+protocol.startHeartbeat();
 
-process.exit(result.code);
+const typecheckResult = await runPhase('typecheck', [
+  'run',
+  'typecheck',
+  '--workspace',
+  'client',
+]);
+
+let failedPhase = 'none';
+let buildResult = { code: 0, output: '' };
+
+if (typecheckResult.code !== 0) {
+  failedPhase = 'typecheck';
+} else {
+  buildResult = await runPhase('build', [
+    'run',
+    'build',
+    '--workspace',
+    'client',
+  ]);
+  if (buildResult.code !== 0) {
+    failedPhase = 'build';
+  }
+}
+
+await new Promise((resolve) => logStream.end(resolve));
+
+const warningCount = countWarnings(buildResult.output);
+const status = failedPhase === 'none' ? 'passed' : 'failed';
+const exitCode =
+  failedPhase === 'none'
+    ? 0
+    : failedPhase === 'typecheck'
+      ? typecheckResult.code
+      : buildResult.code;
+
+protocol.emitFinal({
+  status,
+  warningCount,
+  reason:
+    status === 'passed'
+      ? warningCount > 0
+        ? 'warnings_present'
+        : 'clean_success'
+      : failedPhase === 'typecheck'
+        ? 'typecheck_failed'
+        : 'build_failed',
+  extraFields: {
+    warning_count: warningCount,
+  },
+});
+
+process.exit(exitCode);

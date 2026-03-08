@@ -1,15 +1,19 @@
 #!/usr/bin/env node
 // Purpose: reduce token usage by printing only a compact server build summary in the terminal.
 // Use: `npm run build:summary:server` from repository root.
-// Behavior: runs `npm run build --workspace server`, writes full output to logs/test-summaries/build-server-latest.log,
-// and prints only status (passed/failed), warning count, and log location.
+// Behavior: runs `npm run build --workspace server`, streams full output to logs/test-summaries/build-server-latest.log,
+// and prints the shared heartbeat/final-action protocol plus the final status (passed/failed), warning count, and log location.
 // Warning count: best-effort line-based parsing of build output for warning markers.
 // Why: this keeps routine AI-assisted runs low-noise while preserving full build output for troubleshooting.
 
-import { spawn } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import {
+  createSummaryLogStream,
+  createSummaryWrapperProtocol,
+  runLoggedCommand,
+} from './summary-wrapper-protocol.mjs';
 
 const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -17,37 +21,6 @@ const rootDir = path.resolve(
 );
 const resultsDir = path.join(rootDir, 'logs', 'test-summaries');
 const logPath = path.join(resultsDir, 'build-server-latest.log');
-
-mkdirSync(resultsDir, { recursive: true });
-
-const run = (cmd, args, cwd) =>
-  new Promise((resolve) => {
-    const child = spawn(cmd, args, {
-      cwd,
-      env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    let output = '';
-    let settled = false;
-    const finish = (code) => {
-      if (settled) return;
-      settled = true;
-      resolve({ code: code ?? 1, output });
-    };
-    child.stdout.on('data', (chunk) => {
-      output += chunk.toString();
-    });
-    child.stderr.on('data', (chunk) => {
-      output += chunk.toString();
-    });
-    child.on('error', (err) => {
-      const message = err?.message ?? String(err);
-      output += `\nSpawn error: ${message}\n`;
-      finish(1);
-    });
-    child.on('close', (code) => finish(code));
-  });
 
 const stripAnsi = (value) => value.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '');
 
@@ -70,18 +43,43 @@ const countWarnings = (output) => {
   return warningLines.size;
 };
 
-const result = await run(
-  'npm',
-  ['run', 'build', '--workspace', 'server'],
-  rootDir,
-);
-writeFileSync(logPath, result.output, 'utf8');
+const logStream = createSummaryLogStream(logPath);
+const protocol = createSummaryWrapperProtocol({
+  wrapperName: 'build:server',
+  logPath,
+  logDisplayPath: path.relative(rootDir, logPath),
+  initialPhase: 'build',
+});
+
+protocol.startHeartbeat();
+
+const result = await runLoggedCommand({
+  cmd: 'npm',
+  args: ['run', 'build', '--workspace', 'server'],
+  cwd: rootDir,
+  logStream,
+  protocol,
+  phase: 'build',
+  bannerPrefix: '',
+});
+
+await new Promise((resolve) => logStream.end(resolve));
 
 const warningCount = countWarnings(result.output);
 const status = result.code === 0 ? 'passed' : 'failed';
 
-console.log(`[build:server] status: ${status}`);
-console.log(`[build:server] warnings: ${warningCount}`);
-console.log(`[build:server] log: ${path.relative(rootDir, logPath)}`);
+protocol.emitFinal({
+  status,
+  warningCount,
+  reason:
+    status === 'passed'
+      ? warningCount > 0
+        ? 'warnings_present'
+        : 'clean_success'
+      : 'build_failed',
+  extraFields: {
+    warning_count: warningCount,
+  },
+});
 
 process.exit(result.code);

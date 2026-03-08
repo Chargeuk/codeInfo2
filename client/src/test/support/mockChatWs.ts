@@ -1,18 +1,57 @@
 import { act } from '@testing-library/react';
+import {
+  asFetchImplementation,
+  getFetchMock,
+  mockJsonResponse,
+  type TestFetchMock,
+} from './fetchMock';
+import type {
+  WebSocketMockInstance,
+  WebSocketMockRegistry,
+} from './mockWebSocket';
 
-type WsMock = {
-  sent: string[];
-  _receive: (data: unknown) => void;
-};
+type MockFetchReturn = Response | Promise<Response>;
+type JsonPayload = Record<string, unknown>;
+type ChatHarnessFetch = (
+  url: RequestInfo | URL,
+  opts?: RequestInit,
+) => MockFetchReturn;
+type TranscriptEventType =
+  | 'user_turn'
+  | 'inflight_snapshot'
+  | 'stream_warning'
+  | 'assistant_delta'
+  | 'analysis_delta'
+  | 'tool_event'
+  | 'turn_final';
 
-type WsMockRegistry = {
-  reset: () => void;
-  last: () => WsMock | null;
-  instances?: WsMock[];
-};
+type TranscriptEvent = {
+  type: TranscriptEventType;
+  conversationId: string;
+  seq: number;
+  inflightId?: string;
+} & JsonPayload;
 
-function wsRegistry(): WsMockRegistry {
-  return (globalThis as unknown as { __wsMock?: WsMockRegistry }).__wsMock!;
+type SidebarEvent =
+  | {
+      type: 'conversation_upsert';
+      seq: number;
+      conversation: JsonPayload;
+    }
+  | {
+      type: 'conversation_delete';
+      seq: number;
+      conversationId: string;
+    };
+
+type HarnessEvent = TranscriptEvent | SidebarEvent;
+
+function wsRegistry(): WebSocketMockRegistry {
+  const registry = globalThis.__wsMock;
+  if (!registry) {
+    throw new Error('Missing __wsMock registry; is setupTests.ts running?');
+  }
+  return registry;
 }
 
 const defaultProviders = {
@@ -34,21 +73,19 @@ const defaultModels = {
 };
 
 export function setupChatWsHarness(params: {
-  mockFetch: {
-    mockImplementation: (
-      fn: (url: RequestInfo | URL, opts?: RequestInit) => unknown,
-    ) => void;
-  };
-  providers?: unknown;
-  models?: unknown;
-  health?: unknown;
-  conversations?: unknown;
-  turns?: unknown;
+  mockFetch?: TestFetchMock;
+  providers?: JsonPayload;
+  models?: JsonPayload;
+  health?: JsonPayload;
+  conversations?: JsonPayload;
+  turns?: JsonPayload;
+  fallbackFetch?: ChatHarnessFetch;
 }) {
-  const chatBodies: Record<string, unknown>[] = [];
+  const chatBodies: JsonPayload[] = [];
   let lastConversationId: string | null = null;
   let lastInflightId: string | null = null;
   let seq = 0;
+  const mockFetch = params.mockFetch ?? getFetchMock();
 
   const providersPayload = params.providers ?? defaultProviders;
   const modelsPayload = params.models ?? defaultModels;
@@ -62,48 +99,28 @@ export function setupChatWsHarness(params: {
     nextCursor: null,
   };
 
-  params.mockFetch.mockImplementation(
-    (url: RequestInfo | URL, opts?: RequestInit) => {
+  mockFetch.mockImplementation(
+    asFetchImplementation((url: RequestInfo | URL, opts?: RequestInit) => {
       const href = typeof url === 'string' ? url : url.toString();
 
       if (href.includes('/health')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => healthPayload,
-        }) as unknown as Response;
+        return mockJsonResponse(healthPayload);
       }
 
       if (href.includes('/chat/providers')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => providersPayload,
-        }) as unknown as Response;
+        return mockJsonResponse(providersPayload);
       }
 
       if (href.includes('/chat/models')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => modelsPayload,
-        }) as unknown as Response;
+        return mockJsonResponse(modelsPayload);
       }
 
       if (href.includes('/conversations/') && href.includes('/turns')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => turnsPayload,
-        }) as unknown as Response;
+        return mockJsonResponse(turnsPayload);
       }
 
       if (href.includes('/conversations') && opts?.method !== 'POST') {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => conversationsPayload,
-        }) as unknown as Response;
+        return mockJsonResponse(conversationsPayload);
       }
 
       if (href.includes('/chat') && opts?.method === 'POST') {
@@ -117,28 +134,27 @@ export function setupChatWsHarness(params: {
         lastInflightId =
           typeof body.inflightId === 'string' ? body.inflightId : 'i1';
 
-        return Promise.resolve({
-          ok: true,
-          status: 202,
-          json: async () => ({
+        return mockJsonResponse(
+          {
             status: 'started',
             conversationId: lastConversationId,
             inflightId: lastInflightId,
             provider: body.provider,
             model: body.model,
-          }),
-        }) as unknown as Response;
+          },
+          { status: 202 },
+        );
       }
 
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      }) as unknown as Response;
-    },
+      if (params.fallbackFetch) {
+        return params.fallbackFetch(url, opts);
+      }
+
+      return mockJsonResponse({});
+    }),
   );
 
-  const sockets = () => {
+  const sockets = (): WebSocketMockInstance[] => {
     const registry = wsRegistry();
     const instances = registry.instances ?? [];
     if (instances.length === 0) {
@@ -156,16 +172,12 @@ export function setupChatWsHarness(params: {
     return seq;
   };
 
-  const emit = (event: Record<string, unknown>) => {
+  const emit = (event: HarnessEvent) => {
     setTimeout(() => {
       const withProtocol = { protocolVersion: 'v1', ...event };
       const handler =
         typeof window !== 'undefined'
-          ? (
-              window as unknown as {
-                __chatTest?: { handleWsEvent?: (ev: unknown) => void };
-              }
-            ).__chatTest?.handleWsEvent
+          ? window.__chatTest?.handleWsEvent
           : undefined;
 
       const isTranscript =
@@ -292,7 +304,7 @@ export function setupChatWsHarness(params: {
     emitToolEvent: (payload: {
       conversationId: string;
       inflightId: string;
-      event: Record<string, unknown>;
+      event: JsonPayload;
     }) => {
       emit({
         type: 'tool_event',

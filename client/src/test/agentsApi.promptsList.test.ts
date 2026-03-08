@@ -1,12 +1,17 @@
 import { jest } from '@jest/globals';
+import {
+  getFetchMock,
+  mockJsonResponse,
+  mockTextResponse,
+} from './support/fetchMock';
 
-const mockFetch = jest.fn();
+const mockFetch = getFetchMock();
 const mockConsoleInfo = jest.spyOn(console, 'info').mockImplementation(() => {
   // Silence expected observability logs in test output.
 });
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -22,11 +27,7 @@ const { AgentApiError, listAgentPrompts } = await import('../api/agents');
 
 describe('Agents API listAgentPrompts', () => {
   it('calls GET /agents/:agentName/prompts', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ prompts: [] }),
-    } as unknown as Response);
+    mockFetch.mockResolvedValue(mockJsonResponse({ prompts: [] }));
 
     await listAgentPrompts({
       agentName: 'planning_agent',
@@ -39,11 +40,7 @@ describe('Agents API listAgentPrompts', () => {
   });
 
   it('encodes working_folder query string safely', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ prompts: [] }),
-    } as unknown as Response);
+    mockFetch.mockResolvedValue(mockJsonResponse({ prompts: [] }));
 
     await listAgentPrompts({
       agentName: 'planning_agent',
@@ -57,10 +54,8 @@ describe('Agents API listAgentPrompts', () => {
   });
 
   it('parses success payload as { prompts }', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
         prompts: [
           {
             relativePath: 'nested/start.md',
@@ -68,7 +63,7 @@ describe('Agents API listAgentPrompts', () => {
           },
         ],
       }),
-    } as unknown as Response);
+    );
 
     await expect(
       listAgentPrompts({
@@ -86,16 +81,16 @@ describe('Agents API listAgentPrompts', () => {
   });
 
   it('maps JSON error responses to AgentApiError with code and message', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 409,
-      headers: { get: () => 'application/json' },
-      json: async () => ({
-        error: 'invalid_request',
-        code: 'RUN_IN_PROGRESS',
-        message: 'Already running',
-      }),
-    } as unknown as Response);
+    mockFetch.mockResolvedValue(
+      mockJsonResponse(
+        {
+          error: 'invalid_request',
+          code: 'RUN_IN_PROGRESS',
+          message: 'Already running',
+        },
+        { status: 409 },
+      ),
+    );
 
     await expect(
       listAgentPrompts({
@@ -110,12 +105,12 @@ describe('Agents API listAgentPrompts', () => {
   });
 
   it('falls back to text for non-JSON error responses', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 502,
-      headers: { get: () => 'text/plain' },
-      text: async () => 'bad gateway from proxy',
-    } as unknown as Response);
+    mockFetch.mockResolvedValue(
+      mockTextResponse('bad gateway from proxy', {
+        status: 502,
+        headers: { 'content-type': 'text/plain' },
+      }),
+    );
 
     await expect(
       listAgentPrompts({
@@ -140,16 +135,16 @@ describe('Agents API listAgentPrompts', () => {
   });
 
   it('maps 400 invalid_request responses from prompts route', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 400,
-      headers: { get: () => 'application/json' },
-      json: async () => ({
-        error: 'invalid_request',
-        code: 'WORKING_FOLDER_INVALID',
-        message: 'working_folder must be an absolute path',
-      }),
-    } as unknown as Response);
+    mockFetch.mockResolvedValue(
+      mockJsonResponse(
+        {
+          error: 'invalid_request',
+          code: 'WORKING_FOLDER_INVALID',
+          message: 'working_folder must be an absolute path',
+        },
+        { status: 400 },
+      ),
+    );
 
     await expect(
       listAgentPrompts({
@@ -164,12 +159,9 @@ describe('Agents API listAgentPrompts', () => {
   });
 
   it('maps 404 not_found responses for unknown agent', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 404,
-      headers: { get: () => 'application/json' },
-      json: async () => ({ error: 'not_found' }),
-    } as unknown as Response);
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ error: 'not_found' }, { status: 404 }),
+    );
 
     await expect(
       listAgentPrompts({
@@ -184,15 +176,15 @@ describe('Agents API listAgentPrompts', () => {
   });
 
   it('maps 500 agent_prompts_failed responses', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 500,
-      headers: { get: () => 'application/json' },
-      json: async () => ({
-        error: 'agent_prompts_failed',
-        message: 'prompt discovery failed',
-      }),
-    } as unknown as Response);
+    mockFetch.mockResolvedValue(
+      mockJsonResponse(
+        {
+          error: 'agent_prompts_failed',
+          message: 'prompt discovery failed',
+        },
+        { status: 500 },
+      ),
+    );
 
     await expect(
       listAgentPrompts({
@@ -207,15 +199,15 @@ describe('Agents API listAgentPrompts', () => {
   });
 
   it('throws AgentApiError for HTTP failures', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 400,
-      headers: { get: () => 'application/json' },
-      json: async () => ({
-        code: 'WORKING_FOLDER_INVALID',
-        message: 'working_folder must be an absolute path',
-      }),
-    } as unknown as Response);
+    mockFetch.mockResolvedValue(
+      mockJsonResponse(
+        {
+          code: 'WORKING_FOLDER_INVALID',
+          message: 'working_folder must be an absolute path',
+        },
+        { status: 400 },
+      ),
+    );
 
     await expect(
       listAgentPrompts({

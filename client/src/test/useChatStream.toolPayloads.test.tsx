@@ -3,6 +3,7 @@ import { render, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import useChatStream, { type ChatMessage } from '../hooks/useChatStream';
 import type { ChatWsTranscriptEvent } from '../hooks/useChatWs';
+import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
 function Wrapper({
   conversationId,
@@ -469,17 +470,21 @@ describe('useChatStream tool payload handling (WS transcript events)', () => {
 
   it('preserves leading/trailing whitespace in outbound payload and user message', async () => {
     const originalFetch = global.fetch;
-    const fetchMock = jest.fn().mockResolvedValue({
-      status: 202,
-      json: async () => ({
-        status: 'started',
-        conversationId: 'c-send-1',
-        inflightId: 'i-send-1',
-        provider: 'lmstudio',
-        model: 'm1',
-      }),
-    });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    const fetchMock = getFetchMock();
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue(
+      mockJsonResponse(
+        {
+          status: 'started',
+          conversationId: 'c-send-1',
+          inflightId: 'i-send-1',
+          provider: 'lmstudio',
+          model: 'm1',
+        },
+        { status: 202 },
+      ),
+    );
+    global.fetch = fetchMock;
 
     const onUpdate = jest.fn();
     const rawMessage = '  keep surrounding spaces  ';
@@ -520,17 +525,21 @@ describe('useChatStream tool payload handling (WS transcript events)', () => {
 
   it('preserves newline structure in outbound payload and user message', async () => {
     const originalFetch = global.fetch;
-    const fetchMock = jest.fn().mockResolvedValue({
-      status: 202,
-      json: async () => ({
-        status: 'started',
-        conversationId: 'c-send-2',
-        inflightId: 'i-send-2',
-        provider: 'lmstudio',
-        model: 'm1',
-      }),
-    });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    const fetchMock = getFetchMock();
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue(
+      mockJsonResponse(
+        {
+          status: 'started',
+          conversationId: 'c-send-2',
+          inflightId: 'i-send-2',
+          provider: 'lmstudio',
+          model: 'm1',
+        },
+        { status: 202 },
+      ),
+    );
+    global.fetch = fetchMock;
 
     const onUpdate = jest.fn();
     const rawMessage = 'line one\n  line two\nline three';

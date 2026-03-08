@@ -1,25 +1,26 @@
-import { jest } from '@jest/globals';
+import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = jest.fn();
+const mockFetch = getFetchMock();
 
 beforeAll(() => {
   process.env.MODE = 'test';
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
   mockFetch.mockReset();
-  mockFetch.mockResolvedValue({
-    ok: true,
-    status: 202,
-    json: async () => ({
-      status: 'started',
-      flowName: 'daily',
-      conversationId: 'c1',
-      inflightId: 'i1',
-      modelId: 'gpt-5.2-codex',
-    }),
-  } as unknown as Response);
+  mockFetch.mockResolvedValue(
+    mockJsonResponse(
+      {
+        status: 'started',
+        flowName: 'daily',
+        conversationId: 'c1',
+        inflightId: 'i1',
+        modelId: 'gpt-5.2-codex',
+      },
+      { status: 202 },
+    ),
+  );
 });
 
 const { runFlow } = await import('../api/flows');

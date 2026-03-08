@@ -3,10 +3,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -33,7 +33,7 @@ const routes = [
 
 describe('Chat Codex banners', () => {
   it('does not render the Codex ready banner when Codex is available', async () => {
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const href = typeof url === 'string' ? url : url.toString();
 
       if (href.includes('/health')) {
@@ -143,7 +143,7 @@ describe('Chat Codex banners', () => {
   });
 
   it('renders Codex warnings only while Codex is selected', async () => {
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const href = typeof url === 'string' ? url : url.toString();
 
       if (href.includes('/health')) {
@@ -255,7 +255,7 @@ describe('Chat Codex banners', () => {
   });
 
   it('does not render the Codex warnings banner when codexWarnings is empty', async () => {
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const href = typeof url === 'string' ? url : url.toString();
 
       if (href.includes('/health')) {
@@ -362,7 +362,7 @@ describe('Chat Codex banners', () => {
   });
 
   it('still shows the tools-missing banner when Codex tools are unavailable', async () => {
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const href = typeof url === 'string' ? url : url.toString();
 
       if (href.includes('/health')) {

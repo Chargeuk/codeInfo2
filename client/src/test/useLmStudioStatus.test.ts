@@ -2,9 +2,9 @@ import {
   LmStudioStatusOk,
   type LmStudioStatusResponse,
 } from '@codeinfo2/common';
-import { jest } from '@jest/globals';
 import { renderHook, act } from '@testing-library/react';
 import { useLmStudioStatus } from '../hooks/useLmStudioStatus';
+import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
 const okMany: LmStudioStatusOk = {
   status: 'ok',
@@ -14,17 +14,16 @@ const okMany: LmStudioStatusOk = {
 
 const okEmpty: LmStudioStatusOk = { ...okMany, models: [] };
 
-function mockFetch(
-  response: Partial<Response> & { json: () => Promise<unknown> },
-) {
-  (global.fetch as jest.Mock).mockResolvedValue(response);
+function mockFetchResponse(response: Response) {
+  getFetchMock().mockResolvedValue(response);
 }
 
 describe('useLmStudioStatus', () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
-    (global as typeof globalThis & { fetch: jest.Mock }).fetch = jest.fn();
+    global.fetch = getFetchMock();
+    getFetchMock().mockReset();
     localStorage.clear();
   });
 
@@ -33,7 +32,7 @@ describe('useLmStudioStatus', () => {
   });
 
   it('fetches models and sets success state', async () => {
-    mockFetch({ ok: true, status: 200, json: async () => okMany } as Response);
+    mockFetchResponse(mockJsonResponse(okMany));
     const { result } = renderHook(() => useLmStudioStatus());
 
     await act(async () => {
@@ -49,7 +48,7 @@ describe('useLmStudioStatus', () => {
   });
 
   it('marks empty when no models', async () => {
-    mockFetch({ ok: true, status: 200, json: async () => okEmpty } as Response);
+    mockFetchResponse(mockJsonResponse(okEmpty));
     const { result } = renderHook(() => useLmStudioStatus());
     await act(async () => {
       await result.current.refresh();
@@ -63,11 +62,7 @@ describe('useLmStudioStatus', () => {
       baseUrl: 'http://bad',
       error: 'boom',
     };
-    mockFetch({
-      ok: false,
-      status: 502,
-      json: async () => errBody,
-    } as Response);
+    mockFetchResponse(mockJsonResponse(errBody, { status: 502 }));
     const { result } = renderHook(() => useLmStudioStatus());
     await act(async () => {
       await result.current.refresh();
@@ -79,7 +74,7 @@ describe('useLmStudioStatus', () => {
   });
 
   it('handles network rejection', async () => {
-    (global.fetch as jest.Mock).mockRejectedValue(new Error('network down'));
+    getFetchMock().mockRejectedValue(new Error('network down'));
     const { result } = renderHook(() => useLmStudioStatus());
     await act(async () => {
       await result.current.refresh();
@@ -91,7 +86,7 @@ describe('useLmStudioStatus', () => {
   });
 
   it('persists baseUrl to localStorage', async () => {
-    mockFetch({ ok: true, status: 200, json: async () => okMany } as Response);
+    mockFetchResponse(mockJsonResponse(okMany));
     const { result } = renderHook(() => useLmStudioStatus());
     await act(async () => {
       await result.current.refresh('http://override:1234');

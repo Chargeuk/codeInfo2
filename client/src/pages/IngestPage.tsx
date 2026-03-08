@@ -17,6 +17,11 @@ import useIngestRoots, { type IngestRoot } from '../hooks/useIngestRoots';
 import useIngestStatus from '../hooks/useIngestStatus';
 import { createLogger } from '../logging/logger';
 
+const normalizeEmbeddingProvider = (
+  value: string | undefined,
+): 'lmstudio' | 'openai' | undefined =>
+  value === 'lmstudio' || value === 'openai' ? value : undefined;
+
 export default function IngestPage() {
   const log = useMemo(() => createLogger('client'), []);
   const containerMaxWidth = false;
@@ -50,8 +55,9 @@ export default function IngestPage() {
 
   const canonicalLock =
     lockedModel.embeddingModel ?? roots[0]?.lock?.embeddingModel ?? undefined;
-  const lockedProvider =
-    lockedModel.embeddingProvider ?? roots[0]?.lock?.embeddingProvider;
+  const lockedProvider = normalizeEmbeddingProvider(
+    lockedModel.embeddingProvider ?? roots[0]?.lock?.embeddingProvider,
+  );
   const lockedDimensions =
     lockedModel.embeddingDimensions ?? roots[0]?.lock?.embeddingDimensions;
   const locked = canonicalLock ?? lockedModelId ?? rootsLockedModelId;

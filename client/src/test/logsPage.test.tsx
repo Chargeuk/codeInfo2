@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
 const logSpy = jest.fn();
 
@@ -79,15 +80,12 @@ describe('LogsPage', () => {
 
   beforeEach(() => {
     logSpy.mockClear();
-    (global as typeof globalThis & { fetch: jest.Mock }).fetch = jest
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => sampleBody,
-      } as Response);
-    (global as typeof globalThis & { EventSource: jest.Mock }).EventSource =
-      jest.fn(() => createMockEventSource());
+    global.fetch = getFetchMock();
+    getFetchMock().mockReset();
+    getFetchMock().mockResolvedValue(mockJsonResponse(sampleBody));
+    global.EventSource = jest.fn(() =>
+      createMockEventSource(),
+    ) as unknown as typeof EventSource;
   });
 
   afterEach(() => {
@@ -112,7 +110,8 @@ describe('LogsPage', () => {
 
   it('stops streaming when live is toggled off', async () => {
     const es = createMockEventSource();
-    (global.EventSource as jest.Mock).mockReturnValue(es);
+    const eventSourceMock = global.EventSource as unknown as jest.Mock;
+    eventSourceMock.mockReturnValue(es);
     render(<LogsPage />);
 
     await screen.findByText('sample log');
@@ -120,7 +119,7 @@ describe('LogsPage', () => {
 
     await waitFor(() => expect(es.close).toHaveBeenCalled());
 
-    (global.EventSource as jest.Mock).mockClear();
+    eventSourceMock.mockClear();
     fireEvent.click(screen.getByText('Refresh now'));
     expect(global.EventSource).not.toHaveBeenCalled();
   });
@@ -138,11 +137,7 @@ describe('LogsPage', () => {
   });
 
   it('renders ingest warning/error logs with provider and code details', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ingestFailureBody,
-    } as Response);
+    getFetchMock().mockResolvedValueOnce(mockJsonResponse(ingestFailureBody));
 
     render(<LogsPage />);
 

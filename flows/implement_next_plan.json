@@ -3,6 +3,20 @@
   "steps": [
     {
       "type": "llm",
+      "label": "Planner Select Next Plan",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Please read Agents.md and follow its instructions. Use the same story/plan that was selected in the previous planner step. Do not choose a new plan. Re-open that selected plan, confirm which story you will be working on, and explain the next coding work still remaining for that plan. Include the main files or components likely to change, any notable gotchas, risks, or dependencies, and how the remaining work should be tested. Do not make any file changes at this time."
+          ]
+        }
+      ]
+    },
+    {
+      "type": "llm",
       "label": "Explain Next Coding Work",
       "agentType": "coding_agent",
       "identifier": "coder",
@@ -10,7 +24,7 @@
         {
           "role": "user",
           "content": [
-            "Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved."
+            "Please read Agents.md and follow its instructions. Please tell me the next plan that has not yet been fully executed. This can be determined by looking for plans that include tasks that are not yet moved to the status of completed/complete. The lowest indexed story that meets one of these two criteria will be the story we will be working on. Confirm to me what story that is, and provide me with an overview of the story, including what is still remaining to be done, without making file changes at this time."
           ]
         }
       ]
@@ -28,7 +42,7 @@
             {
               "role": "user",
               "content": [
-                "Please check the last commit AND re-read the next plan to be worked on, even if you have read it before you MUST double check to see if tasks have been added to it or if anything has changed. You must ensure you fully understand the plan and it's remaining tasks before proceeding. You MUST Read the plan and CANNOT assume you understand it from before. You MUST read the whole plan again even if you have read it before. Once you have done this, give me a summary of the remaining work."
+                "Please check the last commit AND re-read the next plan to be worked on, even if you have read it before. You MUST double-check to see if tasks have been added to it or if anything has changed. You must ensure you fully understand the plan and its remaining tasks before proceeding. You MUST read the plan and CANNOT assume you understand it from before. You MUST read the whole plan again even if you have read it before. Once you have done this, give me a summary of the remaining work."
               ]
             }
           ]
@@ -46,7 +60,7 @@
                 {
                   "role": "user",
                   "content": [
-                    "Please explain the gotchas a developer would need to watch out for while implementing the next task given all the information within the Description, it's subsections, the AC & Out of scope. Also take into account the implementation information of any previous tasks. If you had asked for clarification about a blocker then ensure you re-read the task as it will have answers for you to proceed within the implementation notes of this task. No matter what, even if you think you know what is in the plan you must re-read at least the next task as it is possible changes have been made since you last read it."
+                    "Please explain the gotchas a developer would need to watch out for while implementing the next task, given all the information within the Description, its subsections, the AC, and the Out of Scope section. Also take into account the implementation information of any previous tasks. If you had asked for clarification about a blocker, then ensure you re-read the task, as it will have answers for you to proceed within the implementation notes of this task. No matter what, even if you think you know what is in the plan, you must re-read at least the next task, as it is possible changes have been made since you last read it."
                   ]
                 }
               ]
@@ -60,7 +74,7 @@
                 {
                   "role": "user",
                   "content": [
-                    "Taking these gotchas into account, please fully work through the next task yourself, precisely following the steps within the 'Implementation Plan Instructions' section to work through each step. You must keep the subtasks tickbox updated as you work through each subtask to ensure everyone understands what has been done. Then you run through the testing steps, ensuring you keep the subtasks tickbox updated as you work through each testing step. Note that LMStudio is running and available, and locally codex has been logged into and works. Get back to me once all subtasks and testing steps are complete. Get back to me once the task is FULLY complete AND each subtask is marked complete AND each testing step is marked complete, with a concise summary of what changed, the gotchas you came across while working through the task and any commands/output that indicate success. Remember to mark each subtask and testing step as complete immediately after completing it rather than waiting until the end so your progress can be monitored. DO NOT BOTHER ME unless a blocker is hit or the whole task is complete and is marked as such. If a blocker is hit then state the blocker within the implemenmtation notes and another agent will add the required information to the plan to help you move past the blocker. Remember to keep your implementation notes concise and to the point. YOU MUST commit, but not push before finishing this request, no matter what changes you made."
+                    "Taking these gotchas into account, please fully work through the next task yourself, precisely following the steps within the 'Implementation Plan Instructions' section. You must keep the subtasks tick box updated as you work through each subtask to ensure everyone understands what has been done. Then run through the testing steps, ensuring you keep the subtasks tick box updated as you work through each testing step. Note that LMStudio is running and available, and Codex has been logged in locally and works. Get back to me once all subtasks and testing steps are complete. Get back to me once the task is FULLY complete AND each subtask is marked complete AND each testing step is marked complete, with a concise summary of what changed, the gotchas you came across while working through the task, and any commands or output that indicate success. Remember to mark each subtask and testing step as complete immediately after completing it rather than waiting until the end so your progress can be monitored. DO NOT BOTHER ME unless a blocker is hit or the whole task is complete and is marked as such. If a blocker is hit, then state the blocker within the implementation notes and another agent will add the required information to the plan to help you move past the blocker. Remember to keep your implementation notes concise and to the point. YOU MUST commit, but not push, before finishing this request, no matter what changes you made."
                   ]
                 }
               ]
@@ -126,7 +140,7 @@
             {
               "role": "user",
               "content": [
-                "Now that everything has been implemented I want you to perform a full code review of all changes in this branch against the main branch. Please perform a standard review looking for code quality, maintainability, performance, security, and adherence to best practices. Also ensure your review checks that all acceptance criteria have been fully met. If you find issues or areas for improvement, please add tasks to the plan to fix these issues, following the same structure of previous tasks. If you do add tasks, you must effectively re-add a full re-test task that will force a full re-test of the story against the acceptance (the last task before you add more work, if it is needed is likely to be a good baseline to copy) AND commit the plan, but don't push. If everything is ok, then add a section to the end of the plan detailing the changes made and the checks you performed AND commit. No matter what changes you make, you must commit them, but don't push."
+                "Now that everything has been implemented, I want you to perform a full code review of all changes in this branch against the main branch. Please perform a standard review looking for code quality, maintainability, performance, security, and adherence to best practices. Also ensure your review checks that all acceptance criteria have been fully met. If you find issues or areas for improvement, please add tasks to the plan to fix these issues, following the same structure of previous tasks. If you do add tasks, you must effectively re-add a full re-test task that will force a full re-test of the story against the acceptance. The last task before you add more work, if it is needed, is likely to be a good baseline to copy. AND commit the plan, but don't push. If everything is okay, then add a section to the end of the plan detailing the changes made and the checks you performed AND commit. No matter what changes you make, you must commit them, but don't push."
               ]
             }
           ]
@@ -136,7 +150,7 @@
           "label": "Check for completion",
           "agentType": "planning_agent",
           "identifier": "planner",
-          "question": "Re-read the plan that was being worked on and check the last 3 git commits. Is the plan that was being worked on now complete? You MUST re-read the plan and check the last 3 git commits before giving your answer as the plan probably has changes made by other agents since you last looked at it.You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+          "question": "Re-read the plan that was being worked on and check the last 3 git commits. Is the plan that was being worked on now complete? You MUST re-read the plan and check the last 3 git commits before giving your answer, as the plan probably has changes made by other agents since you last looked at it. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
           "breakOn": "yes"
         }
       ]

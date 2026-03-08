@@ -2,66 +2,67 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { createElement, useEffect, useRef } from 'react';
 import useConversationTurns from '../hooks/useConversationTurns';
+import {
+  asFetchImplementation,
+  getFetchMock,
+  mockJsonResponse,
+} from './support/fetchMock';
 
-const mockFetch = global.fetch as jest.Mock;
+const mockFetch = getFetchMock();
 
 beforeEach(() => {
   mockFetch.mockReset();
 });
 
+function mockTurnsSnapshot(
+  items: Array<Record<string, unknown>>,
+  inflight?: Record<string, unknown>,
+): Response {
+  return mockJsonResponse({
+    items,
+    ...(inflight === undefined ? {} : { inflight }),
+  });
+}
+
 function mockApi() {
   let turnsCall = 0;
-  mockFetch.mockImplementation((input: RequestInfo | URL) => {
-    const url = typeof input === 'string' ? input : input.toString();
-    if (url.includes('/conversations/c1/turns')) {
-      turnsCall += 1;
-      if (turnsCall === 1) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            items: [
-              {
-                conversationId: 'c1',
-                role: 'assistant',
-                content: 'Initial reply',
-                model: 'm1',
-                provider: 'lmstudio',
-                toolCalls: null,
-                status: 'ok',
-                createdAt: '2025-01-01T00:00:00Z',
-              },
-            ],
-          }),
-        }) as Response;
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (!url.includes('/conversations/c1/turns')) {
+        return mockJsonResponse({});
       }
 
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          items: [
-            {
-              conversationId: 'c1',
-              role: 'assistant',
-              content: 'Refreshed reply',
-              model: 'm1',
-              provider: 'lmstudio',
-              toolCalls: null,
-              status: 'ok',
-              createdAt: '2025-01-02T00:00:00Z',
-            },
-          ],
-        }),
-      }) as Response;
-    }
+      turnsCall += 1;
+      if (turnsCall === 1) {
+        return mockTurnsSnapshot([
+          {
+            conversationId: 'c1',
+            role: 'assistant',
+            content: 'Initial reply',
+            model: 'm1',
+            provider: 'lmstudio',
+            toolCalls: null,
+            status: 'ok',
+            createdAt: '2025-01-01T00:00:00Z',
+          },
+        ]);
+      }
 
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }) as Response;
-  });
+      return mockTurnsSnapshot([
+        {
+          conversationId: 'c1',
+          role: 'assistant',
+          content: 'Refreshed reply',
+          model: 'm1',
+          provider: 'lmstudio',
+          toolCalls: null,
+          status: 'ok',
+          createdAt: '2025-01-02T00:00:00Z',
+        },
+      ]);
+    }),
+  );
 }
 
 function TestTurnsRefresh() {
@@ -71,7 +72,7 @@ function TestTurnsRefresh() {
   useEffect(() => {
     if (
       !refreshedRef.current &&
-      turns.some((t) => t.content === 'Initial reply')
+      turns.some((turn) => turn.content === 'Initial reply')
     ) {
       refreshedRef.current = true;
       void refresh();
@@ -81,7 +82,9 @@ function TestTurnsRefresh() {
   return createElement(
     'div',
     null,
-    ...turns.map((t) => createElement('p', { key: t.createdAt }, t.content)),
+    ...turns.map((turn) =>
+      createElement('p', { key: turn.createdAt }, turn.content),
+    ),
   );
 }
 
@@ -99,8 +102,8 @@ test('useConversationTurns.refresh replaces turn state from full snapshot', asyn
   expect(await screen.findByText('Refreshed reply')).toBeInTheDocument();
   expect(mockFetch).toHaveBeenCalledTimes(2);
 
-  const urls = mockFetch.mock.calls.map((call) =>
-    typeof call[0] === 'string' ? call[0] : call[0].toString(),
+  const urls = mockFetch.mock.calls.map(([input]) =>
+    typeof input === 'string' ? input : input.toString(),
   );
   expect(urls.every((url) => url.includes('/conversations/c1/turns'))).toBe(
     true,
@@ -110,44 +113,32 @@ test('useConversationTurns.refresh replaces turn state from full snapshot', asyn
 
 test('useConversationTurns.refresh error does not clear existing turns', async () => {
   let turnsCall = 0;
-  mockFetch.mockImplementation((input: RequestInfo | URL) => {
-    const url = typeof input === 'string' ? input : input.toString();
-    if (!url.includes('/conversations/c1/turns')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      }) as Response;
-    }
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (!url.includes('/conversations/c1/turns')) {
+        return mockJsonResponse({});
+      }
 
-    turnsCall += 1;
-    if (turnsCall === 1) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          items: [
-            {
-              conversationId: 'c1',
-              role: 'assistant',
-              content: 'Initial reply',
-              model: 'm1',
-              provider: 'lmstudio',
-              toolCalls: null,
-              status: 'ok',
-              createdAt: '2025-01-01T00:00:00Z',
-            },
-          ],
-        }),
-      }) as Response;
-    }
+      turnsCall += 1;
+      if (turnsCall === 1) {
+        return mockTurnsSnapshot([
+          {
+            conversationId: 'c1',
+            role: 'assistant',
+            content: 'Initial reply',
+            model: 'm1',
+            provider: 'lmstudio',
+            toolCalls: null,
+            status: 'ok',
+            createdAt: '2025-01-01T00:00:00Z',
+          },
+        ]);
+      }
 
-    return Promise.resolve({
-      ok: false,
-      status: 500,
-      json: async () => ({}),
-    }) as Response;
-  });
+      return mockJsonResponse({}, { status: 500 });
+    }),
+  );
 
   function TestTurnsError() {
     const { turns, isError, error, refresh } = useConversationTurns('c1');
@@ -168,7 +159,9 @@ test('useConversationTurns.refresh error does not clear existing turns', async (
         { 'data-testid': 'error' },
         isError ? (error ?? 'error') : 'ok',
       ),
-      ...turns.map((t) => createElement('p', { key: t.createdAt }, t.content)),
+      ...turns.map((turn) =>
+        createElement('p', { key: turn.createdAt }, turn.content),
+      ),
     );
   }
 
@@ -204,36 +197,37 @@ function TestInflightOverlay() {
   );
 }
 
-const findOverlayLog = (logSpy: jest.SpyInstance) =>
-  logSpy.mock.calls
-    .map((call) => call[0])
+function findOverlayLog(logSpy: { mock: { calls: unknown[][] } }) {
+  return logSpy.mock.calls
+    .map(([entry]) => entry)
     .find(
-      (entry) =>
-        entry &&
-        typeof entry === 'object' &&
-        'message' in entry &&
-        (entry as { message?: string }).message ===
-          'DEV-0000029:T2:inflight_overlay_decision',
-    ) as
-    | {
+      (
+        entry,
+      ): entry is {
+        message?: string;
         context?: {
           overlayApplied?: boolean;
           assistantPresent?: boolean;
         };
-      }
-    | undefined;
+      } =>
+        Boolean(entry) &&
+        typeof entry === 'object' &&
+        entry !== null &&
+        'message' in entry &&
+        (entry as { message?: string }).message ===
+          'DEV-0000029:T2:inflight_overlay_decision',
+    );
+}
 
 test('snapshot retains assistant history during inflight thinking', async () => {
   const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
 
-  mockFetch.mockImplementation((input: RequestInfo | URL) => {
-    const url = typeof input === 'string' ? input : input.toString();
-    if (url.includes('/conversations/c1/turns')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          items: [
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/conversations/c1/turns')) {
+        return mockTurnsSnapshot(
+          [
             {
               conversationId: 'c1',
               role: 'assistant',
@@ -255,7 +249,7 @@ test('snapshot retains assistant history during inflight thinking', async () => 
               createdAt: '2025-01-01T00:00:01Z',
             },
           ],
-          inflight: {
+          {
             inflightId: 'i1',
             assistantText: '',
             assistantThink: '',
@@ -263,16 +257,12 @@ test('snapshot retains assistant history during inflight thinking', async () => 
             startedAt: '2025-01-02T00:00:00Z',
             seq: 1,
           },
-        }),
-      }) as Response;
-    }
+        );
+      }
 
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }) as Response;
-  });
+      return mockJsonResponse({});
+    }),
+  );
 
   render(createElement(TestInflightOverlay));
 
@@ -294,14 +284,12 @@ test('snapshot retains assistant history during inflight thinking', async () => 
 test('no duplicate assistant bubble when snapshot includes inflight assistant', async () => {
   const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
 
-  mockFetch.mockImplementation((input: RequestInfo | URL) => {
-    const url = typeof input === 'string' ? input : input.toString();
-    if (url.includes('/conversations/c1/turns')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          items: [
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/conversations/c1/turns')) {
+        return mockTurnsSnapshot(
+          [
             {
               conversationId: 'c1',
               role: 'assistant',
@@ -313,7 +301,7 @@ test('no duplicate assistant bubble when snapshot includes inflight assistant', 
               createdAt: '2025-01-02T00:00:00Z',
             },
           ],
-          inflight: {
+          {
             inflightId: 'i1',
             assistantText: 'Inflight content',
             assistantThink: '',
@@ -321,16 +309,12 @@ test('no duplicate assistant bubble when snapshot includes inflight assistant', 
             startedAt: '2025-01-02T00:00:00Z',
             seq: 1,
           },
-        }),
-      }) as Response;
-    }
+        );
+      }
 
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }) as Response;
-  });
+      return mockJsonResponse({});
+    }),
+  );
 
   render(createElement(TestInflightOverlay));
 
@@ -352,14 +336,12 @@ test('no duplicate assistant bubble when snapshot includes inflight assistant', 
 test('no overlay when snapshot has finalized inflight assistant with empty text', async () => {
   const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
 
-  mockFetch.mockImplementation((input: RequestInfo | URL) => {
-    const url = typeof input === 'string' ? input : input.toString();
-    if (url.includes('/conversations/c1/turns')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          items: [
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/conversations/c1/turns')) {
+        return mockTurnsSnapshot(
+          [
             {
               conversationId: 'c1',
               role: 'assistant',
@@ -371,7 +353,7 @@ test('no overlay when snapshot has finalized inflight assistant with empty text'
               createdAt: '2025-01-02T00:00:00Z',
             },
           ],
-          inflight: {
+          {
             inflightId: 'i1',
             assistantText: '',
             assistantThink: '',
@@ -379,16 +361,12 @@ test('no overlay when snapshot has finalized inflight assistant with empty text'
             startedAt: '2025-01-02T00:00:00Z',
             seq: 1,
           },
-        }),
-      }) as Response;
-    }
+        );
+      }
 
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }) as Response;
-  });
+      return mockJsonResponse({});
+    }),
+  );
 
   render(createElement(TestInflightOverlay));
 
@@ -410,14 +388,12 @@ test('no overlay when snapshot has finalized inflight assistant with empty text'
 test('overlay appears when snapshot has no inflight assistant', async () => {
   const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
 
-  mockFetch.mockImplementation((input: RequestInfo | URL) => {
-    const url = typeof input === 'string' ? input : input.toString();
-    if (url.includes('/conversations/c1/turns')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          items: [
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/conversations/c1/turns')) {
+        return mockTurnsSnapshot(
+          [
             {
               conversationId: 'c1',
               role: 'user',
@@ -429,7 +405,7 @@ test('overlay appears when snapshot has no inflight assistant', async () => {
               createdAt: '2025-01-01T00:00:00Z',
             },
           ],
-          inflight: {
+          {
             inflightId: 'i1',
             assistantText: '',
             assistantThink: '',
@@ -437,16 +413,12 @@ test('overlay appears when snapshot has no inflight assistant', async () => {
             startedAt: '2025-01-02T00:00:00Z',
             seq: 1,
           },
-        }),
-      }) as Response;
-    }
+        );
+      }
 
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }) as Response;
-  });
+      return mockJsonResponse({});
+    }),
+  );
 
   render(createElement(TestInflightOverlay));
 
@@ -467,50 +439,35 @@ test('overlay appears when snapshot has no inflight assistant', async () => {
 
 test('inflight id change resets overlay', async () => {
   let turnsCall = 0;
-  mockFetch.mockImplementation((input: RequestInfo | URL) => {
-    const url = typeof input === 'string' ? input : input.toString();
-    if (url.includes('/conversations/c1/turns')) {
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (!url.includes('/conversations/c1/turns')) {
+        return mockJsonResponse({});
+      }
+
       turnsCall += 1;
       if (turnsCall === 1) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            items: [],
-            inflight: {
-              inflightId: 'i1',
-              assistantText: 'First',
-              assistantThink: '',
-              toolEvents: [],
-              startedAt: '2025-01-02T00:00:00Z',
-              seq: 1,
-            },
-          }),
-        }) as Response;
+        return mockTurnsSnapshot([], {
+          inflightId: 'i1',
+          assistantText: 'First',
+          assistantThink: '',
+          toolEvents: [],
+          startedAt: '2025-01-02T00:00:00Z',
+          seq: 1,
+        });
       }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          items: [],
-          inflight: {
-            inflightId: 'i2',
-            assistantText: 'Second',
-            assistantThink: '',
-            toolEvents: [],
-            startedAt: '2025-01-03T00:00:00Z',
-            seq: 1,
-          },
-        }),
-      }) as Response;
-    }
 
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }) as Response;
-  });
+      return mockTurnsSnapshot([], {
+        inflightId: 'i2',
+        assistantText: 'Second',
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: '2025-01-03T00:00:00Z',
+        seq: 1,
+      });
+    }),
+  );
 
   function TestInflightRefresh() {
     const { inflight, refresh } = useConversationTurns('c1');

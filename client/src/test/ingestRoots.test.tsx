@@ -4,11 +4,12 @@ import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import RootDetailsDrawer from '../components/ingest/RootDetailsDrawer';
 import RootsTable from '../components/ingest/RootsTable';
 import useIngestRoots from '../hooks/useIngestRoots';
+import { mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -39,9 +40,8 @@ function HookHarness() {
 
 describe('useIngestRoots', () => {
   it('loads roots from the server', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
+    mockFetch.mockResolvedValueOnce(
+      mockJsonResponse({
         roots: [
           {
             runId: 'run-1',
@@ -56,7 +56,7 @@ describe('useIngestRoots', () => {
           },
         ],
       }),
-    });
+    );
 
     render(
       <RouterProvider
@@ -119,12 +119,9 @@ describe('RootsTable', () => {
   });
 
   it('calls re-embed endpoint and notifies parent when re-embed is clicked', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ runId: 'new-run' }),
-    });
+    mockFetch.mockResolvedValue(mockJsonResponse({ runId: 'new-run' }));
     const onRunStarted = jest.fn();
-    const onRefresh = jest.fn().mockResolvedValue(undefined);
+    const onRefresh: () => Promise<void> = jest.fn(async () => undefined);
 
     render(
       <RootsTable
@@ -154,11 +151,10 @@ describe('RootsTable', () => {
   });
 
   it('calls remove endpoint and shows message', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ status: 'ok', unlocked: true }),
-    });
-    const onRefresh = jest.fn().mockResolvedValue(undefined);
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ status: 'ok', unlocked: true }),
+    );
+    const onRefresh: () => Promise<void> = jest.fn(async () => undefined);
 
     render(
       <RootsTable

@@ -69,7 +69,7 @@ export default function DirectoryPickerDialog({
         const res: IngestDirsResponse = await fetchIngestDirs({
           path: nextPath,
         });
-        if ('status' in res && res.status === 'error') {
+        if (!('dirs' in res)) {
           setPayload(undefined);
           setError(res);
           log('error', '0000020 ingest dirpicker error', {
@@ -78,6 +78,7 @@ export default function DirectoryPickerDialog({
           });
           return;
         }
+        setError(undefined);
         setPayload(res);
       } catch {
         setPayload(undefined);

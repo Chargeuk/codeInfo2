@@ -11,7 +11,7 @@
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format:check": "prettier . --check",
     "format": "prettier . --write",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --experimental-vm-modules ../node_modules/jest/bin/jest.js --config jest.config.cjs"
   },
   "engines": {

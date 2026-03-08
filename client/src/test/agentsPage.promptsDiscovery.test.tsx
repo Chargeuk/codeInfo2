@@ -8,11 +8,12 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -38,11 +39,7 @@ const routes = [
 ];
 
 function okJson(payload: unknown, init?: { status?: number }) {
-  return Promise.resolve({
-    ok: (init?.status ?? 200) >= 200 && (init?.status ?? 200) < 300,
-    status: init?.status ?? 200,
-    json: async () => payload,
-  } as Response);
+  return Promise.resolve(mockJsonResponse(payload, { status: init?.status }));
 }
 
 function deferredResponse() {
@@ -61,50 +58,53 @@ function setupPromptRaceFetch(params: {
   runStatus?: number;
 }) {
   const runBodies: Record<string, unknown>[] = [];
-  mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
-    const target = typeof url === 'string' ? url : url.toString();
+  mockFetch.mockImplementation(
+    asFetchImplementation(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
 
-    if (target.includes('/health')) return okJson({ mongoConnected: true });
-    if (target.includes('/agents/coding_agent/prompts')) {
-      const folder = new URL(target).searchParams.get('working_folder') ?? '';
-      const handler = params.promptsHandlers[folder];
-      if (!handler) {
-        return okJson({ prompts: [] });
-      }
-      handler.calls += 1;
-      return handler.promise;
-    }
-    if (target.includes('/agents/coding_agent/run')) {
-      if (init?.body) {
-        runBodies.push(JSON.parse(init.body.toString()));
-      }
-      return Promise.resolve({
-        ok: (params.runStatus ?? 202) >= 200 && (params.runStatus ?? 202) < 300,
-        status: params.runStatus ?? 202,
-        headers: { get: () => 'application/json' },
-        json: async () => ({
-          status: 'started',
-          agentName: 'coding_agent',
-          conversationId: 'c1',
-          inflightId: 'i1',
-          modelId: 'gpt-5.3-codex',
-        }),
-      } as Response);
-    }
-    if (
-      target.includes('/agents') &&
-      !target.includes('/commands') &&
-      !target.includes('/run') &&
-      !target.includes('/prompts')
-    ) {
-      return okJson({ agents: [{ name: 'coding_agent' }] });
-    }
-    if (target.includes('/agents/coding_agent/commands')) {
-      return okJson({ commands: [] });
-    }
-    if (target.includes('/conversations')) return okJson({ items: [] });
-    return okJson({});
-  });
+        if (target.includes('/health')) return okJson({ mongoConnected: true });
+        if (target.includes('/agents/coding_agent/prompts')) {
+          const folder =
+            new URL(target).searchParams.get('working_folder') ?? '';
+          const handler = params.promptsHandlers[folder];
+          if (!handler) {
+            return okJson({ prompts: [] });
+          }
+          handler.calls += 1;
+          return handler.promise;
+        }
+        if (target.includes('/agents/coding_agent/run')) {
+          if (init?.body) {
+            runBodies.push(JSON.parse(init.body.toString()));
+          }
+          return mockJsonResponse(
+            {
+              status: 'started',
+              agentName: 'coding_agent',
+              conversationId: 'c1',
+              inflightId: 'i1',
+              modelId: 'gpt-5.3-codex',
+            },
+            { status: params.runStatus ?? 202 },
+          );
+        }
+        if (
+          target.includes('/agents') &&
+          !target.includes('/commands') &&
+          !target.includes('/run') &&
+          !target.includes('/prompts')
+        ) {
+          return okJson({ agents: [{ name: 'coding_agent' }] });
+        }
+        if (target.includes('/agents/coding_agent/commands')) {
+          return okJson({ commands: [] });
+        }
+        if (target.includes('/conversations')) return okJson({ items: [] });
+        return okJson({});
+      },
+    ),
+  );
   return { runBodies };
 }
 
@@ -135,50 +135,49 @@ function setupPromptUiFetch(params: {
     | { status: 'error'; httpStatus?: number; payload: Record<string, unknown> }
   >;
 }) {
-  mockFetch.mockImplementation((url: RequestInfo | URL) => {
-    const target = typeof url === 'string' ? url : url.toString();
-    if (target.includes('/health')) return okJson({ mongoConnected: true });
-    if (
-      target.includes('/agents') &&
-      !target.includes('/commands') &&
-      !target.includes('/run') &&
-      !target.includes('/prompts')
-    ) {
-      return okJson({ agents: params.agents ?? [{ name: 'coding_agent' }] });
-    }
-    if (/\/agents\/[^/]+\/commands(?:\?|$)/.test(target)) {
-      return okJson({ commands: [] });
-    }
-    if (target.includes('/conversations')) return okJson({ items: [] });
-    if (target.includes('/ingest/dirs')) {
-      const parsed = new URL(target);
-      const path = parsed.searchParams.get('path') ?? '/';
-      return okJson({
-        base: '/',
-        path,
-        dirs: ['picker-folder'],
-      });
-    }
-    const promptsMatch = target.match(/\/agents\/([^/]+)\/prompts(?:\?|$)/);
-    if (promptsMatch) {
-      const agentName = promptsMatch[1];
-      const folder = new URL(target).searchParams.get('working_folder') ?? '';
-      const response =
-        params.promptsByAgentAndFolder?.[`${agentName}::${folder}`] ??
-        params.promptsByFolder[folder];
-      if (!response) return okJson({ prompts: [] });
-      if (response.status === 'error') {
-        return Promise.resolve({
-          ok: false,
-          status: response.httpStatus ?? 400,
-          headers: { get: () => 'application/json' },
-          json: async () => response.payload,
-        } as Response);
+  mockFetch.mockImplementation(
+    asFetchImplementation(async (url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+      if (target.includes('/health')) return okJson({ mongoConnected: true });
+      if (
+        target.includes('/agents') &&
+        !target.includes('/commands') &&
+        !target.includes('/run') &&
+        !target.includes('/prompts')
+      ) {
+        return okJson({ agents: params.agents ?? [{ name: 'coding_agent' }] });
       }
-      return okJson({ prompts: response.prompts });
-    }
-    return okJson({});
-  });
+      if (/\/agents\/[^/]+\/commands(?:\?|$)/.test(target)) {
+        return okJson({ commands: [] });
+      }
+      if (target.includes('/conversations')) return okJson({ items: [] });
+      if (target.includes('/ingest/dirs')) {
+        const parsed = new URL(target);
+        const path = parsed.searchParams.get('path') ?? '/';
+        return okJson({
+          base: '/',
+          path,
+          dirs: ['picker-folder'],
+        });
+      }
+      const promptsMatch = target.match(/\/agents\/([^/]+)\/prompts(?:\?|$)/);
+      if (promptsMatch) {
+        const agentName = promptsMatch[1];
+        const folder = new URL(target).searchParams.get('working_folder') ?? '';
+        const response =
+          params.promptsByAgentAndFolder?.[`${agentName}::${folder}`] ??
+          params.promptsByFolder[folder];
+        if (!response) return okJson({ prompts: [] });
+        if (response.status === 'error') {
+          return mockJsonResponse(response.payload, {
+            status: response.httpStatus ?? 400,
+          });
+        }
+        return okJson({ prompts: response.prompts });
+      }
+      return okJson({});
+    }),
+  );
 }
 
 describe('Agents page - prompts discovery lifecycle', () => {
@@ -298,12 +297,12 @@ describe('Agents page - prompts discovery lifecycle', () => {
       );
     });
     await act(async () => {
-      staleError.resolve({
-        ok: false,
-        status: 500,
-        headers: { get: () => 'application/json' },
-        json: async () => ({ error: 'agent_prompts_failed' }),
-      } as Response);
+      staleError.resolve(
+        await mockJsonResponse(
+          { error: 'agent_prompts_failed' },
+          { status: 500 },
+        ),
+      );
     });
 
     await waitFor(() =>
@@ -337,12 +336,12 @@ describe('Agents page - prompts discovery lifecycle', () => {
     await commitWorkingFolderByBlur('/latest-error');
 
     await act(async () => {
-      latestError.resolve({
-        ok: false,
-        status: 500,
-        headers: { get: () => 'application/json' },
-        json: async () => ({ error: 'agent_prompts_failed' }),
-      } as Response);
+      latestError.resolve(
+        await mockJsonResponse(
+          { error: 'agent_prompts_failed' },
+          { status: 500 },
+        ),
+      );
     });
     await act(async () => {
       staleSuccess.resolve(
@@ -368,7 +367,7 @@ describe('Agents page - prompts discovery lifecycle', () => {
     const user = userEvent.setup();
     const runBodies: Record<string, unknown>[] = [];
     mockFetch.mockImplementation(
-      (url: RequestInfo | URL, init?: RequestInit) => {
+      async (url: RequestInfo | URL, init?: RequestInit) => {
         const target = typeof url === 'string' ? url : url.toString();
 
         if (target.includes('/health')) return okJson({ mongoConnected: true });

@@ -1,8 +1,17 @@
 import { Box, useTheme } from '@mui/material';
 import mermaid from 'mermaid';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+  isValidElement,
+  type ComponentPropsWithoutRef,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import type { Schema } from 'hast-util-sanitize';
 import remarkGfm from 'remark-gfm';
 import { createLogger } from '../logging/logger';
 
@@ -11,7 +20,7 @@ type MarkdownProps = {
   'data-testid'?: string;
 };
 
-const markdownSchema = {
+const markdownSchema: Schema = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
@@ -31,6 +40,12 @@ const log = createLogger('client');
 type MermaidProps = {
   code: string;
 };
+
+type MarkdownPreProps = ComponentPropsWithoutRef<'pre'> & {
+  children?: unknown;
+};
+
+type MarkdownCodeProps = ComponentPropsWithoutRef<'code'>;
 
 function MermaidBlock({ code }: MermaidProps) {
   const theme = useTheme();
@@ -189,24 +204,38 @@ export default function Markdown({
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeSanitize(markdownSchema)]}
-        linkTarget="_blank"
+        rehypePlugins={[[rehypeSanitize, markdownSchema]]}
         components={{
-          code({ inline, className, children, ...props }) {
-            const language = /language-([\w-]+)/.exec(className ?? '');
-            const text = String(children ?? '').trim();
-            if (!inline && language?.[1]?.toLowerCase() === 'mermaid') {
-              return <MermaidBlock code={text} />;
+          a({ href, children, ...props }) {
+            return (
+              <a
+                {...props}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {children}
+              </a>
+            );
+          },
+          pre({ children, ...props }: MarkdownPreProps) {
+            if (isValidElement<MarkdownCodeProps>(children)) {
+              const className =
+                typeof children.props.className === 'string'
+                  ? children.props.className
+                  : '';
+              const language = /language-([\w-]+)/.exec(className);
+              if (language?.[1]?.toLowerCase() === 'mermaid') {
+                return (
+                  <MermaidBlock
+                    code={String(children.props.children ?? '').trim()}
+                  />
+                );
+              }
             }
-            if (!inline) {
-              return (
-                <pre>
-                  <code className={className} {...props}>
-                    {children}
-                  </code>
-                </pre>
-              );
-            }
+            return <pre {...props}>{children}</pre>;
+          },
+          code({ className, children, ...props }: MarkdownCodeProps) {
             return (
               <code className={className} {...props}>
                 {children}

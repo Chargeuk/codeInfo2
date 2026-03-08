@@ -60,6 +60,20 @@ type BulkErrorResponse = {
   message?: string;
 };
 
+const isBulkErrorResponse = (
+  payload: BulkOkResponse | BulkErrorResponse | null,
+): payload is BulkErrorResponse =>
+  Boolean(
+    payload &&
+      typeof (payload as BulkErrorResponse).message === 'string' &&
+      (payload as BulkErrorResponse).message,
+  ) ||
+  Boolean(
+    payload &&
+      typeof (payload as BulkErrorResponse).code === 'string' &&
+      (payload as BulkErrorResponse).code,
+  );
+
 const PAGE_SIZE = 20;
 
 export function useConversations(params?: {
@@ -274,14 +288,13 @@ export function useConversations(params?: {
 
       if (!res.ok) {
         const err = new Error(
-          typeof payload?.message === 'string'
-            ? payload.message
+          isBulkErrorResponse(payload)
+            ? (payload.message ?? `Bulk ${action} failed (${res.status})`)
             : `Bulk ${action} failed (${res.status})`,
         ) as ConversationBulkError;
-        err.code =
-          typeof payload?.code === 'string'
-            ? payload.code
-            : `HTTP_${res.status}`;
+        err.code = isBulkErrorResponse(payload)
+          ? (payload.code ?? `HTTP_${res.status}`)
+          : `HTTP_${res.status}`;
         err.httpStatus = res.status;
         throw err;
       }

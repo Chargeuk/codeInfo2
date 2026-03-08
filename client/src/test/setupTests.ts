@@ -1,113 +1,67 @@
 import { TextDecoder, TextEncoder } from 'util';
 import { jest } from '@jest/globals';
 import '@testing-library/jest-dom';
+import {
+  asFetchImplementation,
+  getFetchMock,
+  mockJsonResponse,
+} from './support/fetchMock';
+import {
+  SimpleHeaders,
+  SimpleRequest,
+  SimpleResponse,
+} from './support/fetchPolyfills';
 import { installMockWebSocket } from './support/mockWebSocket';
 
 // React 19 uses this global to decide whether it should warn about act().
 // In Jest + JSDOM the check is sensitive to where the flag is attached.
-(
-  globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }
-).IS_REACT_ACT_ENVIRONMENT = true;
-const windowRef = (
-  globalThis as unknown as {
-    window?: {
-      IS_REACT_ACT_ENVIRONMENT?: boolean;
-      __CODEINFO_TEST__?: boolean;
-    };
-  }
-).window;
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+const windowRef = globalThis.window;
 if (windowRef) {
   windowRef.IS_REACT_ACT_ENVIRONMENT = true;
 }
 
-(globalThis as unknown as { __CODEINFO_TEST__?: boolean }).__CODEINFO_TEST__ =
-  true;
+globalThis.__CODEINFO_TEST__ = true;
 if (windowRef) {
   windowRef.__CODEINFO_TEST__ = true;
 }
 
+const nodeGlobals = globalThis as typeof globalThis & {
+  TextEncoder?: typeof globalThis.TextEncoder;
+  TextDecoder?: typeof globalThis.TextDecoder;
+  Response?: typeof Response;
+  Headers?: typeof Headers;
+  Request?: typeof Request;
+};
+
 // Provide TextEncoder/Decoder for libraries that expect them in the JSDOM environment.
-if (!global.TextEncoder) {
-  // @ts-expect-error align node util types with browser globals
-  global.TextEncoder = TextEncoder;
+if (!nodeGlobals.TextEncoder) {
+  nodeGlobals.TextEncoder =
+    TextEncoder as unknown as typeof globalThis.TextEncoder;
 }
-if (!global.TextDecoder) {
-  // @ts-expect-error align node util types with browser globals
-  global.TextDecoder = TextDecoder;
-}
-
-if (!global.Response) {
-  class SimpleResponse {
-    status: number;
-    statusText: string;
-    headers: Headers;
-    private bodyValue: unknown;
-    constructor(body?: BodyInit | null, init: ResponseInit = {}) {
-      this.status = init.status ?? 200;
-      this.statusText = init.statusText ?? '';
-      // @ts-expect-error align with browser Headers type
-      this.headers = (init.headers as Headers) ?? new Headers();
-      this.bodyValue = body ?? null;
-    }
-    get ok() {
-      return this.status >= 200 && this.status < 300;
-    }
-    async json() {
-      if (typeof this.bodyValue === 'string') return JSON.parse(this.bodyValue);
-      return this.bodyValue;
-    }
-    async text() {
-      if (typeof this.bodyValue === 'string') return this.bodyValue;
-      return JSON.stringify(this.bodyValue ?? '');
-    }
-    clone() {
-      return new SimpleResponse(this.bodyValue as BodyInit, {
-        status: this.status,
-        statusText: this.statusText,
-        headers: this.headers,
-      });
-    }
-  }
-  // @ts-expect-error provide minimal Response polyfill for tests
-  global.Response = SimpleResponse;
+if (!nodeGlobals.TextDecoder) {
+  nodeGlobals.TextDecoder =
+    TextDecoder as unknown as typeof globalThis.TextDecoder;
 }
 
-if (!global.Headers) {
-  class SimpleHeaders {
-    private store = new Map<string, string>();
-    append(key: string, value: string) {
-      this.store.set(key.toLowerCase(), value);
-    }
-    get(key: string) {
-      return this.store.get(key.toLowerCase()) ?? null;
-    }
-  }
-  // @ts-expect-error minimal polyfill for tests
-  global.Headers = SimpleHeaders;
+if (!nodeGlobals.Response) {
+  nodeGlobals.Response = SimpleResponse as unknown as typeof Response;
 }
 
-if (!global.Request) {
-  class SimpleRequest {
-    url: string;
-    method: string;
-    headers: Headers;
-    body: unknown;
-    constructor(input: RequestInfo | URL, init: RequestInit = {}) {
-      this.url = typeof input === 'string' ? input : input.toString();
-      this.method = init.method ?? 'GET';
-      this.headers = (init.headers as Headers) ?? new Headers();
-      this.body = init.body;
-    }
-    clone() {
-      return this;
-    }
-  }
-  // @ts-expect-error minimal polyfill for tests
-  global.Request = SimpleRequest;
+if (!nodeGlobals.Headers) {
+  nodeGlobals.Headers = SimpleHeaders as unknown as typeof Headers;
 }
 
-if (!global.fetch) {
-  global.fetch = jest.fn();
+if (!nodeGlobals.Request) {
+  nodeGlobals.Request = SimpleRequest as unknown as typeof Request;
+}
+
+if (!globalThis.fetch || !('mockImplementation' in globalThis.fetch)) {
+  Object.defineProperty(globalThis, 'fetch', {
+    configurable: true,
+    writable: true,
+    value: jest.fn<typeof fetch>(),
+  });
 }
 
 if (typeof window !== 'undefined' && !window.matchMedia) {
@@ -140,11 +94,21 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
         return computeMatches();
       },
       onchange: null,
-      addEventListener: (_type, listener) => {
-        listeners.add(listener as (event: MediaQueryListEvent) => void);
+      addEventListener: (
+        _type: string,
+        listener: EventListenerOrEventListenerObject,
+      ) => {
+        if (typeof listener === 'function') {
+          listeners.add(listener as (event: MediaQueryListEvent) => void);
+        }
       },
-      removeEventListener: (_type, listener) => {
-        listeners.delete(listener as (event: MediaQueryListEvent) => void);
+      removeEventListener: (
+        _type: string,
+        listener: EventListenerOrEventListenerObject,
+      ) => {
+        if (typeof listener === 'function') {
+          listeners.delete(listener as (event: MediaQueryListEvent) => void);
+        }
       },
       addListener: (listener) => {
         listeners.add(listener as (event: MediaQueryListEvent) => void);
@@ -198,46 +162,34 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
 }
 
 // Default fetch mock for tests; individual tests can override as needed.
-(global.fetch as jest.Mock).mockImplementation(
-  async (input: RequestInfo | URL) => {
+getFetchMock().mockImplementation(
+  asFetchImplementation(async (input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
     if (url.includes('/chat/providers')) {
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          providers: [
-            {
-              id: 'lmstudio',
-              label: 'LM Studio',
-              available: true,
-              toolsAvailable: true,
-            },
-          ],
-        }),
-      } as Response;
+      return mockJsonResponse({
+        providers: [
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
+          },
+        ],
+      });
     }
     if (url.includes('/chat/models')) {
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          provider: 'lmstudio',
-          available: true,
-          toolsAvailable: true,
-          models: [
-            { key: 'm1', displayName: 'Model 1', type: 'gguf' },
-            { key: 'embed', displayName: 'Embedding Model', type: 'embedding' },
-          ],
-        }),
-      } as Response;
+      return mockJsonResponse({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: [
+          { key: 'm1', displayName: 'Model 1', type: 'gguf' },
+          { key: 'embed', displayName: 'Embedding Model', type: 'embedding' },
+        ],
+      });
     }
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ version: '0.0.0', app: 'server' }),
-    } as Response;
-  },
+    return mockJsonResponse({ version: '0.0.0', app: 'server' });
+  }),
 );
 
 installMockWebSocket();

@@ -1,15 +1,11 @@
-import { jest } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import useIngestModels from '../hooks/useIngestModels';
+import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = global.fetch as jest.Mock;
+const mockFetch = getFetchMock();
 
 function mockModelsResponse(payload: unknown) {
-  mockFetch.mockResolvedValueOnce({
-    ok: true,
-    status: 200,
-    json: async () => payload,
-  } as Response);
+  mockFetch.mockResolvedValueOnce(mockJsonResponse(payload));
 }
 
 describe('useIngestModels', () => {

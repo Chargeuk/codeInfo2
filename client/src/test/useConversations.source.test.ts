@@ -1,36 +1,36 @@
 import { jest } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useConversations } from '../hooks/useConversations';
+import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
 const originalFetch = global.fetch;
+const mockFetch = getFetchMock();
 
 describe('useConversations source metadata', () => {
   beforeEach(() => {
-    (global as typeof globalThis & { fetch: jest.Mock }).fetch = jest
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          items: [
-            {
-              conversationId: 'c1',
-              title: 'Rest convo',
-              provider: 'lmstudio',
-              model: 'llama',
-              lastMessageAt: '2025-01-01T00:00:00.000Z',
-            },
-            {
-              conversationId: 'c2',
-              title: 'MCP convo',
-              provider: 'codex',
-              model: 'gpt',
-              source: 'MCP',
-              lastMessageAt: '2025-01-02T00:00:00.000Z',
-            },
-          ],
-        }),
-      } as Response);
+    global.fetch = mockFetch;
+    mockFetch.mockReset();
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Rest convo',
+            provider: 'lmstudio',
+            model: 'llama',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+          },
+          {
+            conversationId: 'c2',
+            title: 'MCP convo',
+            provider: 'codex',
+            model: 'gpt',
+            source: 'MCP',
+            lastMessageAt: '2025-01-02T00:00:00.000Z',
+          },
+        ],
+      }),
+    );
   });
 
   afterEach(() => {
@@ -61,8 +61,7 @@ describe('useConversations source metadata', () => {
 
     await waitFor(() => expect(result.current.conversations.length).toBe(2));
 
-    const fetchCalls = (global as typeof globalThis & { fetch: jest.Mock })
-      .fetch.mock.calls;
+    const fetchCalls = mockFetch.mock.calls;
     const conversationCall = fetchCalls.find((call) =>
       String(call[0]).includes('/conversations?'),
     );
@@ -78,8 +77,7 @@ describe('useConversations source metadata', () => {
 
     await waitFor(() => expect(result.current.conversations.length).toBe(2));
 
-    const fetchCalls = (global as typeof globalThis & { fetch: jest.Mock })
-      .fetch.mock.calls;
+    const fetchCalls = mockFetch.mock.calls;
     const conversationCall = fetchCalls.find((call) =>
       String(call[0]).includes('/conversations?'),
     );

@@ -13,6 +13,7 @@ import {
   Switch,
   Typography,
 } from '@mui/material';
+import type { InputHTMLAttributes } from 'react';
 import type { ApprovalPolicy, SandboxMode } from '../../hooks/useChatStream';
 
 type Props = {
@@ -45,6 +46,11 @@ const approvalOptions: Array<{ value: ApprovalPolicy; label: string }> = [
 
 const reasoningLabel = (value: string) =>
   value.charAt(0).toUpperCase() + value.slice(1);
+
+const withDataTestId = (value: string) =>
+  ({ 'data-testid': value }) as InputHTMLAttributes<HTMLInputElement> & {
+    'data-testid': string;
+  };
 
 export default function CodexFlagsPanel({
   sandboxMode,
@@ -147,7 +153,9 @@ export default function CodexFlagsPanel({
                     onNetworkAccessEnabledChange(event.target.checked)
                   }
                   disabled={disabled}
-                  inputProps={{ 'data-testid': 'network-access-switch' }}
+                  slotProps={{
+                    input: withDataTestId('network-access-switch'),
+                  }}
                 />
               }
               label="Enable network access"
@@ -167,7 +175,9 @@ export default function CodexFlagsPanel({
                     onWebSearchEnabledChange(event.target.checked)
                   }
                   disabled={disabled}
-                  inputProps={{ 'data-testid': 'web-search-switch' }}
+                  slotProps={{
+                    input: withDataTestId('web-search-switch'),
+                  }}
                 />
               }
               label="Enable web search"

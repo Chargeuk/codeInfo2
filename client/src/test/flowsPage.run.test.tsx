@@ -8,12 +8,13 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { setupChatWsHarness } from './support/mockChatWs';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
   process.env.MODE = 'test';
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -45,11 +46,12 @@ const defaultDirs = {
 };
 
 function mockJsonResponse(payload: unknown, init?: { status?: number }) {
-  return Promise.resolve({
-    ok: (init?.status ?? 200) >= 200 && (init?.status ?? 200) < 300,
-    status: init?.status ?? 200,
-    json: async () => payload,
-  } as Response);
+  return Promise.resolve(
+    new Response(JSON.stringify(payload), {
+      status: init?.status ?? 200,
+      headers: { 'content-type': 'application/json' },
+    }),
+  );
 }
 
 function mockFlowsFetch(options?: {
@@ -113,6 +115,65 @@ function emitWsEvent(event: Record<string, unknown>) {
   if (!ws) throw new Error('No WebSocket instance; did FlowsPage mount?');
   act(() => {
     ws._receive(event);
+  });
+}
+
+function setupFlowsRunHarness(options?: {
+  conversations?: unknown;
+  turns?: unknown;
+  flows?: unknown;
+  runResponse?: unknown;
+}) {
+  const now = new Date('2025-01-01T00:00:00.000Z').toISOString();
+  const conversations = (options?.conversations ?? {
+    items: [
+      {
+        conversationId: 'flow-1',
+        title: 'Flow: daily',
+        provider: 'codex',
+        model: 'gpt-5',
+        source: 'REST',
+        lastMessageAt: now,
+        archived: false,
+        flowName: 'daily',
+        flags: {},
+      },
+    ],
+    nextCursor: null,
+  }) as Record<string, unknown>;
+
+  return setupChatWsHarness({
+    mockFetch,
+    conversations,
+    turns: (options?.turns ?? { items: [], nextCursor: null }) as Record<
+      string,
+      unknown
+    >,
+    fallbackFetch: (url) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: options?.flows ?? [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        return mockJsonResponse(
+          options?.runResponse ?? {
+            status: 'started',
+            flowName: 'daily',
+            conversationId: 'flow-1',
+            inflightId: 'i1',
+            modelId: 'gpt-5',
+          },
+        );
+      }
+
+      return mockJsonResponse({});
+    },
   });
 }
 
@@ -242,21 +303,29 @@ describe('Flows page run/resume controls', () => {
 
     await waitFor(() => expect(runTitleInput).toBeDisabled());
 
-    if (resolveRun) {
-      await act(async () => {
-        resolveRun({
-          ok: true,
-          status: 200,
-          json: async () => ({
+    if (!resolveRun) {
+      throw new Error('Expected flow run promise resolver to be assigned');
+    }
+
+    const completeRun = resolveRun;
+
+    await act(async () => {
+      completeRun(
+        new Response(
+          JSON.stringify({
             status: 'started',
             flowName: 'daily',
             conversationId: 'flow-1',
             inflightId: 'i1',
             modelId: 'gpt-5',
           }),
-        } as Response);
-      });
-    }
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      );
+    });
   });
 
   it('runs a flow with working folder and conversation id', async () => {
@@ -393,6 +462,435 @@ describe('Flows page run/resume controls', () => {
       const body = JSON.parse(init.body as string) as Record<string, unknown>;
       expect(body.customTitle).toBe('Daily recap');
     });
+  });
+
+  it('keeps the earlier assistant bubble visible while the next flow step streams and stale earlier-step replays arrive', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const harness = setupFlowsRunHarness();
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+      render(<RouterProvider router={router} />);
+
+      await screen.findByText('Flow: daily');
+      await waitFor(() =>
+        expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
+      );
+
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        content: 'Run step one',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        delta: 'First step answer',
+      });
+
+      expect(await screen.findByText('First step answer')).toBeInTheDocument();
+
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        content: 'Run step two',
+      });
+      expect(
+        logSpy.mock.calls.find(([entry]) => {
+          if (!entry || typeof entry !== 'object') return false;
+          const record = entry as {
+            message?: string;
+            context?: Record<string, unknown>;
+          };
+          return record.message === 'flows.page.live_transcript_retained';
+        }),
+      ).toBeUndefined();
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        content: 'Run step one replay',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        delta: ' hidden',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        delta: 'Second step live',
+      });
+
+      expect(await screen.findByText('Second step live')).toBeInTheDocument();
+      expect(screen.getByText('First step answer')).toBeInTheDocument();
+      expect(screen.queryByText('Run step one replay')).not.toBeInTheDocument();
+      expect(screen.queryByText('First step answer hidden')).toBeNull();
+
+      const retainedLog = logSpy.mock.calls.find(([entry]) => {
+        if (!entry || typeof entry !== 'object') return false;
+        const record = entry as {
+          message?: string;
+          context?: Record<string, unknown>;
+        };
+        return record.message === 'flows.page.live_transcript_retained';
+      });
+
+      expect(retainedLog?.[0]).toMatchObject({
+        message: 'flows.page.live_transcript_retained',
+        context: expect.objectContaining({
+          conversationId: 'flow-1',
+          previousInflightId: 'flow-step-1',
+          currentInflightId: 'flow-step-2',
+          reason: 'next_step_started',
+          proof: 'post_event_transcript_visible',
+        }),
+      });
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('keeps the earlier flow bubble visible while the later step continues streaming its own text', async () => {
+    const harness = setupFlowsRunHarness();
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Flow: daily');
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
+    );
+
+    harness.emitUserTurn({
+      conversationId: 'flow-1',
+      inflightId: 'flow-step-1',
+      content: 'Run step one',
+    });
+    harness.emitAssistantDelta({
+      conversationId: 'flow-1',
+      inflightId: 'flow-step-1',
+      delta: 'First step answer',
+    });
+
+    expect(await screen.findByText('First step answer')).toBeInTheDocument();
+
+    harness.emitUserTurn({
+      conversationId: 'flow-1',
+      inflightId: 'flow-step-2',
+      content: 'Run step two',
+    });
+    harness.emitAssistantDelta({
+      conversationId: 'flow-1',
+      inflightId: 'flow-step-2',
+      delta: 'Second step',
+    });
+    harness.emitAssistantDelta({
+      conversationId: 'flow-1',
+      inflightId: 'flow-step-2',
+      delta: ' still streaming',
+    });
+
+    expect(
+      await screen.findByText('Second step still streaming'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('First step answer')).toBeInTheDocument();
+  });
+
+  it('keeps visible transcript text if a flow refresh temporarily omits the active conversation while streaming', async () => {
+    const user = userEvent.setup();
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const now = new Date('2025-01-01T00:00:00.000Z').toISOString();
+    let conversationsRequestCount = 0;
+    let runRequested = false;
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+
+        if (target.includes('/flows') && !target.includes('/run')) {
+          return mockJsonResponse({
+            flows: [
+              { name: 'daily', description: 'Daily flow', disabled: false },
+            ],
+          });
+        }
+
+        if (target.includes('/conversations/flow-1/turns')) {
+          return mockJsonResponse({
+            items: [
+              {
+                turnId: 't1',
+                conversationId: 'flow-1',
+                role: 'assistant',
+                content: 'Earlier output',
+                provider: 'codex',
+                model: 'gpt-5',
+                status: 'ok',
+                createdAt: now,
+              },
+            ],
+          });
+        }
+
+        if (target.includes('/conversations') && init?.method !== 'POST') {
+          conversationsRequestCount += 1;
+          if (!runRequested || conversationsRequestCount < 3) {
+            return mockJsonResponse({
+              items: [
+                {
+                  conversationId: 'flow-1',
+                  title: 'Flow: daily',
+                  provider: 'codex',
+                  model: 'gpt-5',
+                  source: 'REST',
+                  lastMessageAt: now,
+                  archived: false,
+                  flowName: 'daily',
+                  flags: {},
+                },
+              ],
+            });
+          }
+          return mockJsonResponse({ items: [] });
+        }
+
+        if (target.includes('/flows/daily/run')) {
+          runRequested = true;
+          return mockJsonResponse({
+            status: 'started',
+            flowName: 'daily',
+            conversationId: 'flow-1',
+            inflightId: 'flow-step-2',
+            modelId: 'gpt-5',
+          });
+        }
+
+        return mockJsonResponse({});
+      },
+    );
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+      render(<RouterProvider router={router} />);
+
+      expect(await screen.findByText('Earlier output')).toBeInTheDocument();
+
+      const runButton = await screen.findByTestId('flow-run');
+      await waitFor(() => expect(runButton).toBeEnabled());
+      await user.click(runButton);
+
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        seq: 1,
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        content: 'Continue flow',
+        createdAt: now,
+      });
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        seq: 2,
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        delta: 'Latest live output',
+      });
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        seq: 3,
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        delta: ' still running',
+      });
+
+      expect(await screen.findByText('Earlier output')).toBeInTheDocument();
+      expect(
+        await screen.findByText('Latest live output still running'),
+      ).toBeInTheDocument();
+      const hiddenLogs = logSpy.mock.calls.filter(([entry]) => {
+        if (!entry || typeof entry !== 'object') return false;
+        return (
+          (entry as { message?: string }).message ===
+          'flows.page.active_conversation_temporarily_hidden'
+        );
+      });
+      expect(hiddenLogs).toHaveLength(1);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('drops stale invisible retention candidates so later visible step transitions can still be logged', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const harness = setupFlowsRunHarness();
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+      render(<RouterProvider router={router} />);
+
+      await screen.findByText('Flow: daily');
+      await waitFor(() =>
+        expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
+      );
+
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        content: 'Run step one',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        delta: 'First step answer',
+      });
+      expect(await screen.findByText('First step answer')).toBeInTheDocument();
+
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        content: 'Run silent step two',
+      });
+
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-3',
+        content: 'Run step three',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-3',
+        delta: 'Third step answer',
+      });
+      expect(await screen.findByText('Third step answer')).toBeInTheDocument();
+
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-4',
+        content: 'Run step four',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-4',
+        delta: 'Fourth step answer',
+      });
+      expect(await screen.findByText('Fourth step answer')).toBeInTheDocument();
+
+      await waitFor(() => {
+        const retainedLogs = logSpy.mock.calls
+          .map(([entry]) => entry)
+          .filter((entry) => {
+            if (!entry || typeof entry !== 'object') return false;
+            return (
+              (entry as { message?: string }).message ===
+              'flows.page.live_transcript_retained'
+            );
+          }) as Array<{ context?: Record<string, unknown>; message?: string }>;
+
+        expect(retainedLogs).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              message: 'flows.page.live_transcript_retained',
+              context: expect.objectContaining({
+                previousInflightId: 'flow-step-3',
+                currentInflightId: 'flow-step-4',
+              }),
+            }),
+          ]),
+        );
+      });
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('logs the latest real flow step transition even if an older step replay arrives in between', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const harness = setupFlowsRunHarness();
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+      render(<RouterProvider router={router} />);
+
+      await screen.findByText('Flow: daily');
+      await waitFor(() =>
+        expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
+      );
+
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        content: 'Run step one',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        delta: 'First step answer',
+      });
+      expect(await screen.findByText('First step answer')).toBeInTheDocument();
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        content: 'Run step two',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        delta: 'Second step answer',
+      });
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-1',
+        content: 'Run step one replay',
+      });
+      harness.emitUserTurn({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-3',
+        content: 'Run step three',
+      });
+      harness.emitAssistantDelta({
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-3',
+        delta: 'Third step answer',
+      });
+
+      await waitFor(() => {
+        const retainedLogs = logSpy.mock.calls
+          .map(([entry]) => entry)
+          .filter((entry) => {
+            if (!entry || typeof entry !== 'object') return false;
+            return (
+              (entry as { message?: string }).message ===
+              'flows.page.live_transcript_retained'
+            );
+          }) as Array<{ context?: Record<string, unknown>; message?: string }>;
+
+        expect(retainedLogs).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              message: 'flows.page.live_transcript_retained',
+              context: expect.objectContaining({
+                previousInflightId: 'flow-step-1',
+                currentInflightId: 'flow-step-2',
+              }),
+            }),
+            expect.objectContaining({
+              message: 'flows.page.live_transcript_retained',
+              context: expect.objectContaining({
+                previousInflightId: 'flow-step-2',
+                currentInflightId: 'flow-step-3',
+              }),
+            }),
+          ]),
+        );
+      });
+    } finally {
+      logSpy.mockRestore();
+    }
   });
 
   it('clears transcript and active conversation on New Flow', async () => {
@@ -589,7 +1087,7 @@ describe('Flows page run/resume controls', () => {
     const user = userEvent.setup();
 
     mockFlowsFetch({
-      dirs: (path) => {
+      dirs: (path: string | undefined) => {
         if (path === '/base/repo') {
           return { base: '/base', path: '/base/repo', dirs: [] };
         }

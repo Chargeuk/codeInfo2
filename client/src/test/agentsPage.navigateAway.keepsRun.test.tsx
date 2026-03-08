@@ -2,11 +2,12 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 beforeEach(() => {
@@ -37,36 +38,37 @@ describe('Agents page - navigate away keeps run', () => {
     const wsRegistry = (
       globalThis as unknown as {
         __wsMock?: {
-          instances: Array<{ sent: string[]; _receive: (d: unknown) => void }>;
-          last: () => { sent: string[]; _receive: (d: unknown) => void } | null;
+          instances: Array<{
+            sent: string[];
+            _receive: (d: unknown) => void;
+            readyState: number;
+          }>;
+          last: () => {
+            sent: string[];
+            _receive: (d: unknown) => void;
+            readyState: number;
+          } | null;
         };
       }
     ).__wsMock;
 
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
-      const target = typeof url === 'string' ? url : url.toString();
+    mockFetch.mockImplementation(
+      asFetchImplementation((url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
 
-      if (target.includes('/health')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ mongoConnected: true }),
-        } as Response);
-      }
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
 
-      if (target.endsWith('/agents')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ agents: [{ name: 'a1' }] }),
-        } as Response);
-      }
+        if (target.endsWith('/agents')) {
+          return mockJsonResponse({ agents: [{ name: 'a1' }] });
+        }
 
-      if (target.includes('/agents/a1/commands') && !target.includes('/run')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
+        if (
+          target.includes('/agents/a1/commands') &&
+          !target.includes('/run')
+        ) {
+          return mockJsonResponse({
             commands: [
               {
                 name: 'improve_plan',
@@ -75,24 +77,16 @@ describe('Agents page - navigate away keeps run', () => {
                 stepCount: 1,
               },
             ],
-          }),
-        } as Response);
-      }
+          });
+        }
 
-      if (target.includes('/conversations/') && target.includes('/turns')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ items: [], inflight: null }),
-        } as Response);
-      }
+        if (target.includes('/conversations/') && target.includes('/turns')) {
+          return mockJsonResponse({ items: [], inflight: null });
+        }
 
-      if (target.includes('/conversations')) {
-        const hasAgentParam = target.includes('agentName=a1');
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
+        if (target.includes('/conversations')) {
+          const hasAgentParam = target.includes('agentName=a1');
+          return mockJsonResponse({
             items: hasAgentParam
               ? [
                   {
@@ -104,30 +98,25 @@ describe('Agents page - navigate away keeps run', () => {
                   },
                 ]
               : [],
-          }),
-        } as Response);
-      }
+          });
+        }
 
-      if (target.includes('/agents/a1/commands/run')) {
-        return Promise.resolve({
-          ok: true,
-          status: 202,
-          json: async () => ({
-            status: 'started',
-            agentName: 'a1',
-            commandName: 'improve_plan',
-            conversationId: 'c1',
-            modelId: 'gpt-5.1-codex-max',
-          }),
-        } as Response);
-      }
+        if (target.includes('/agents/a1/commands/run')) {
+          return mockJsonResponse(
+            {
+              status: 'started',
+              agentName: 'a1',
+              commandName: 'improve_plan',
+              conversationId: 'c1',
+              modelId: 'gpt-5.1-codex-max',
+            },
+            { status: 202 },
+          );
+        }
 
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      } as Response);
-    });
+        return mockJsonResponse({});
+      }),
+    );
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);

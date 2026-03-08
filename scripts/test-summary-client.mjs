@@ -1,18 +1,23 @@
 #!/usr/bin/env node
 // Purpose: reduce token usage by printing only a compact client test summary in the terminal.
 // Use: `npm run test:summary:client` from the repository root.
-// Behavior: executes the existing client workspace test command, writes full output to test-results/ for inspection,
-// and prints only total/passed/failed counts plus failing test names when present.
+// Behavior: executes the existing client workspace test command, streams full output to test-results/ for inspection,
+// and prints the shared heartbeat/final-action protocol plus total/passed/failed counts and failing test names when present.
 // Optional targeting:
 //   --file <path>       repeatable; mapped to Jest --runTestsByPath
 //   --subset <pattern>  mapped to Jest --testPathPatterns
 //   --test-name <expr>  mapped to Jest --testNamePattern
 // Why: this keeps routine AI-assisted runs low-noise while still preserving full logs when failures need diagnosis.
 
-import { spawn } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import {
+  createSummaryLogStream,
+  createSummaryWrapperProtocol,
+  runLoggedCommand,
+} from './summary-wrapper-protocol.mjs';
 
 const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -25,8 +30,6 @@ const timestamp = new Date()
   .replaceAll('.', '-');
 const logPath = path.join(resultsDir, `client-tests-${timestamp}.log`);
 const jsonPath = path.join(resultsDir, `client-tests-${timestamp}.json`);
-
-mkdirSync(resultsDir, { recursive: true });
 
 const args = process.argv.slice(2);
 const options = {
@@ -103,38 +106,19 @@ if (options.testName) {
   jestArgs.push('--testNamePattern', options.testName);
 }
 
-const run = (cmd, args, cwd) =>
-  new Promise((resolve) => {
-    const child = spawn(cmd, args, {
-      cwd,
-      env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+const logStream = createSummaryLogStream(logPath);
+const protocol = createSummaryWrapperProtocol({
+  wrapperName: 'client',
+  logPath,
+  logDisplayPath: path.relative(rootDir, logPath),
+  initialPhase: 'test',
+});
 
-    let output = '';
-    let settled = false;
-    const finish = (code) => {
-      if (settled) return;
-      settled = true;
-      resolve({ code: code ?? 1, output });
-    };
-    child.stdout.on('data', (chunk) => {
-      output += chunk.toString();
-    });
-    child.stderr.on('data', (chunk) => {
-      output += chunk.toString();
-    });
-    child.on('error', (err) => {
-      const message = err?.message ?? String(err);
-      output += `\nSpawn error: ${message}\n`;
-      finish(1);
-    });
-    child.on('close', (code) => finish(code));
-  });
+protocol.startHeartbeat();
 
-const result = await run(
-  'npm',
-  [
+const result = await runLoggedCommand({
+  cmd: 'npm',
+  args: [
     'run',
     'test',
     '--workspace',
@@ -145,15 +129,20 @@ const result = await run(
     '--outputFile',
     jsonPath,
   ],
-  rootDir,
-);
+  cwd: rootDir,
+  logStream,
+  protocol,
+  phase: 'test',
+  bannerPrefix: '',
+});
 
-writeFileSync(logPath, result.output, 'utf8');
+await new Promise((resolve) => logStream.end(resolve));
 
 let total = 0;
 let passed = 0;
 let failed = 0;
 const failingNames = new Set();
+let parseFailed = false;
 
 try {
   const parsed = JSON.parse(readFileSync(jsonPath, 'utf8'));
@@ -168,13 +157,13 @@ try {
     }
   }
 } catch {
+  parseFailed = true;
   const failMatches = result.output.matchAll(/^FAIL\s+(.+)$/gm);
   for (const match of failMatches) {
     failingNames.add(match[1].trim());
   }
 }
 
-console.log(`[client] log: ${path.relative(rootDir, logPath)}`);
 console.log(`[client] tests run: ${total}`);
 console.log(`[client] passed: ${passed}`);
 console.log(`[client] failed: ${failed}`);
@@ -184,5 +173,19 @@ if (failingNames.size > 0) {
     console.log(`- ${name}`);
   }
 }
+
+const status = result.code === 0 ? 'passed' : 'failed';
+const ambiguousCounts = parseFailed || (status === 'passed' && total === 0);
+
+protocol.emitFinal({
+  status,
+  ambiguousCounts,
+  reason:
+    status === 'passed'
+      ? ambiguousCounts
+        ? 'ambiguous_counts'
+        : 'clean_success'
+      : 'test_failed',
+});
 
 process.exit(result.code);

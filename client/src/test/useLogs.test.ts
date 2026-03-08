@@ -2,6 +2,7 @@ import type { LogEntry } from '@codeinfo2/common';
 import { jest } from '@jest/globals';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import useLogs from '../hooks/useLogs';
+import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
 const originalFetch = global.fetch;
 const originalEventSource = global.EventSource;
@@ -31,13 +32,11 @@ function createMockEventSource() {
 
 describe('useLogs', () => {
   beforeEach(() => {
-    (global as typeof globalThis & { fetch: jest.Mock }).fetch = jest
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ items: [baseLog], lastSequence: 1 }),
-      } as Response);
+    global.fetch = getFetchMock();
+    getFetchMock().mockReset();
+    getFetchMock().mockResolvedValue(
+      mockJsonResponse({ items: [baseLog], lastSequence: 1 }),
+    );
   });
 
   afterEach(() => {
@@ -48,8 +47,7 @@ describe('useLogs', () => {
 
   it('fetches logs and processes SSE events', async () => {
     const { es, emit } = createMockEventSource();
-    (global as typeof globalThis & { EventSource: jest.Mock }).EventSource =
-      jest.fn(() => es);
+    global.EventSource = jest.fn(() => es) as unknown as typeof EventSource;
 
     const { result } = renderHook(() =>
       useLogs({ level: [], source: [], text: '' }, true),
@@ -70,8 +68,7 @@ describe('useLogs', () => {
 
   it('does not open EventSource when live is false', async () => {
     const mockEs = createMockEventSource().es;
-    (global as typeof globalThis & { EventSource: jest.Mock }).EventSource =
-      jest.fn(() => mockEs);
+    global.EventSource = jest.fn(() => mockEs) as unknown as typeof EventSource;
 
     const { result } = renderHook(
       ({ live }) => useLogs({ level: [], source: [], text: '' }, live),

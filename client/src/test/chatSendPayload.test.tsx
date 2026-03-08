@@ -1,19 +1,22 @@
-import { ReadableStream } from 'node:stream/web';
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ChatPage from '../pages/ChatPage';
+import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  // @ts-expect-error jsdom lacks IntersectionObserver
-  global.IntersectionObserver = class {
+  (
+    globalThis as typeof globalThis & {
+      IntersectionObserver?: typeof IntersectionObserver;
+    }
+  ).IntersectionObserver = class {
     constructor() {}
     observe() {}
     disconnect() {}
     unobserve() {}
   } as unknown as typeof IntersectionObserver;
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 afterEach(() => {
@@ -48,56 +51,44 @@ function streamFromFrames(frames: string[]) {
 }
 
 test('chat send payload includes only conversationId and message', async () => {
-  let chatBody: Record<string, unknown> | null = null;
+  type ChatBody = {
+    conversationId?: string;
+    message?: string;
+    provider?: string;
+    model?: string;
+  };
+  let chatBody: ChatBody | null = null;
 
   mockFetch.mockImplementation(
-    (input: RequestInfo | URL, init?: RequestInit) => {
+    asFetchImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString();
       if (url.includes('/health')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ mongoConnected: true }),
-        }) as Response;
+        return mockJsonResponse({ mongoConnected: true });
       }
       if (url.includes('/chat/providers')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => providerPayload,
-        }) as Response;
+        return mockJsonResponse(providerPayload);
       }
       if (url.includes('/chat/models')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => modelPayload,
-        }) as Response;
+        return mockJsonResponse(modelPayload);
       }
       if (url.includes('/chat')) {
-        chatBody = init?.body ? JSON.parse(init.body as string) : null;
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          body: streamFromFrames([
+        chatBody =
+          typeof init?.body === 'string'
+            ? (JSON.parse(init.body) as ChatBody)
+            : null;
+        return new Response(
+          streamFromFrames([
             'data: {"type":"final","message":{"role":"assistant","content":"hi"}}\n\n',
             'data: {"type":"complete"}\n\n',
           ]),
-        }) as Response;
+          { status: 200 },
+        );
       }
       if (url.includes('/conversations')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ items: [] }),
-        }) as Response;
+        return mockJsonResponse({ items: [] });
       }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      }) as Response;
-    },
+      return mockJsonResponse({});
+    }),
   );
 
   render(<ChatPage />);
@@ -111,10 +102,15 @@ test('chat send payload includes only conversationId and message', async () => {
 
   await waitFor(() => expect(chatBody).not.toBeNull());
 
-  expect(chatBody).toBeTruthy();
-  expect(chatBody?.conversationId).toBeDefined();
-  expect(chatBody?.message).toBe('Hello world');
-  expect(chatBody?.provider).toBe('lmstudio');
-  expect(chatBody?.model).toBe('m1');
-  expect(chatBody).not.toHaveProperty('messages');
+  if (!chatBody) {
+    throw new Error('Expected chat request body to be captured');
+  }
+
+  const submittedBody = chatBody as ChatBody;
+
+  expect(submittedBody.conversationId).toBeDefined();
+  expect(submittedBody.message).toBe('Hello world');
+  expect(submittedBody.provider).toBe('lmstudio');
+  expect(submittedBody.model).toBe('m1');
+  expect(submittedBody).not.toHaveProperty('messages');
 });

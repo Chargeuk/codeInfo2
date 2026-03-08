@@ -288,7 +288,7 @@ export function useConversationTurns(
         };
       });
       const chronological = sortChronological(hydrated.slice().reverse());
-      const inflight = data.inflight
+      const inflight: InflightSnapshot | null = data.inflight
         ? (() => {
             const { command, ...rest } = data.inflight;
             const normalizedCommand = normalizeCommand(command);

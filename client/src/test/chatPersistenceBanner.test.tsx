@@ -1,18 +1,22 @@
 import { jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import ChatPage from '../pages/ChatPage';
+import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
-const mockFetch = jest.fn();
+const mockFetch = jest.fn<typeof fetch>();
 
 beforeAll(() => {
-  // @ts-expect-error jsdom lacks IntersectionObserver
-  global.IntersectionObserver = class {
+  (
+    globalThis as typeof globalThis & {
+      IntersectionObserver?: typeof IntersectionObserver;
+    }
+  ).IntersectionObserver = class {
     constructor() {}
     observe() {}
     disconnect() {}
     unobserve() {}
   } as unknown as typeof IntersectionObserver;
-  global.fetch = mockFetch as unknown as typeof fetch;
+  global.fetch = mockFetch;
 });
 
 afterEach(() => {
@@ -40,42 +44,24 @@ const modelPayload = {
 };
 
 test('shows persistence banner and disables archive controls when mongo is down', async () => {
-  mockFetch.mockImplementation((input: RequestInfo | URL) => {
-    const url = typeof input === 'string' ? input : input.toString();
-    if (url.includes('/health')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({ mongoConnected: false }),
-      }) as Response;
-    }
-    if (url.includes('/chat/providers')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => providerPayload,
-      }) as Response;
-    }
-    if (url.includes('/chat/models')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => modelPayload,
-      }) as Response;
-    }
-    if (url.includes('/conversations')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({ items: [] }),
-      }) as Response;
-    }
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }) as Response;
-  });
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: false });
+      }
+      if (url.includes('/chat/providers')) {
+        return mockJsonResponse(providerPayload);
+      }
+      if (url.includes('/chat/models')) {
+        return mockJsonResponse(modelPayload);
+      }
+      if (url.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+      return mockJsonResponse({});
+    }),
+  );
 
   render(<ChatPage />);
 

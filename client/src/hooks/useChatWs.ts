@@ -487,6 +487,8 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
         const last = lastSeqByKeyRef.current.get(key) ?? 0;
         if (seq <= last) {
           log('info', 'chat.ws.client_stale_event_ignored', {
+            reason: 'seq_regression',
+            eventType: msg.type,
             ...(conversationId ? { conversationId } : {}),
             ...(inflightId ? { inflightId } : {}),
             seq,

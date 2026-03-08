@@ -208,7 +208,12 @@ export default function Markdown({
         components={{
           a({ href, children, ...props }) {
             return (
-              <a {...props} href={href} target="_blank" rel="noopener noreferrer">
+              <a
+                {...props}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 {children}
               </a>
             );

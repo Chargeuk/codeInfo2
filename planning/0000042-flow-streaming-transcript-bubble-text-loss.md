@@ -3343,3 +3343,17 @@ This task hardens the Flows page against that transient refresh miss, adds expli
 - Testing 5: `npm run test:summary:client` passed with `tests run: 498`, `passed: 498`, and `failed: 0`.
 - Testing 6: `npm run lint --workspace client` passed; the only output was the existing `baseline-browser-mapping` staleness notice.
 - Testing 7: `npm run format:check --workspaces` initially failed on `client/src/test/flowsPage.run.test.tsx`, the file was formatted with Prettier, and the full workspace format check then passed.
+
+## Review Comment Follow-up 6
+
+- Follow-up date: 2026-03-08
+- Scope:
+  - corrected the stale PR summary note in `test-results/pr-comments/0000042-summary.md` so it now reflects the later Flow-page safeguard that shipped for transient filtered-sidebar refresh misses
+  - updated `scripts/build-summary-client.mjs` to exit with the real failing child exit code instead of collapsing all failures to `1`
+  - simplified a small `FlowsPage` effect check by removing the misleading one-use `pendingRetentions` snapshot variable
+- Validation rerun:
+  - forced a client typecheck failure with a temporary probe file and confirmed `npm run build:summary:client` now exits with code `2`, finishes in `phase: typecheck`, and ends with `reason: typecheck_failed`
+  - `npm run build:summary:client` passed after the temporary probe file was removed and ended with `warning_count: 0`, `agent_action: skip_log`, and `logs/test-summaries/build-client-latest.log`
+  - `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx` passed with `tests run: 15`, `passed: 15`, and `failed: 0`
+  - `npm run lint --workspace client` passed; the only terminal output was the existing `baseline-browser-mapping` staleness notice
+  - `npm run format:check --workspaces` passed across the client, server, and common workspaces

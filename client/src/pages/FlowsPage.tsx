@@ -396,8 +396,7 @@ export default function FlowsPage() {
   );
 
   useEffect(() => {
-    const pendingRetentions = pendingTranscriptRetentionRef.current;
-    if (pendingRetentions.length === 0) return;
+    if (pendingTranscriptRetentionRef.current.length === 0) return;
 
     while (pendingTranscriptRetentionRef.current.length > 0) {
       const nextRetention = pendingTranscriptRetentionRef.current[0];

@@ -99,6 +99,12 @@ await new Promise((resolve) => logStream.end(resolve));
 
 const warningCount = countWarnings(buildResult.output);
 const status = failedPhase === 'none' ? 'passed' : 'failed';
+const exitCode =
+  failedPhase === 'none'
+    ? 0
+    : failedPhase === 'typecheck'
+      ? typecheckResult.code
+      : buildResult.code;
 
 protocol.emitFinal({
   status,
@@ -116,4 +122,4 @@ protocol.emitFinal({
   },
 });
 
-process.exit(failedPhase === 'none' ? 0 : 1);
+process.exit(exitCode);

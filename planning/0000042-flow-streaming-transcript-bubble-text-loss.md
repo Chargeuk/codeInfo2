@@ -3374,3 +3374,17 @@ This task hardens the Flows page against that transient refresh miss, adds expli
   - `npm run test:summary:server:cucumber` passed with `tests run: 68`, `passed: 68`, and `failed: 0`
   - `npm run test:summary:client` initially failed with two timeout-style Agents markdown tests while running in parallel with the server wrappers, then passed cleanly when rerun serially with `tests run: 499`, `passed: 499`, and `failed: 0`
   - `npm run test:summary:e2e` passed with `tests run: 42`, `passed: 42`, and `failed: 0`
+
+## Review Comment Follow-up 8
+
+- Follow-up date: 2026-03-08
+- Scope:
+  - extracted the lightweight fetch polyfills into `client/src/test/support/fetchPolyfills.ts` so the fallback `Headers`, `Response`, and `Request` behavior lives in one place instead of being partially inlined in `setupTests.ts`
+  - expanded the fallback `Headers` implementation to support constructor init data plus the `has`, `set`, `delete`, `forEach`, and iterator behaviors that the current test helpers rely on
+  - updated the fallback `Response` and `Request` implementations to normalize `init.headers` through `new Headers(init.headers)` semantics instead of assuming a prebuilt `Headers` instance
+  - added a focused regression file that proves `mockJsonResponse(...)` still works when the test environment is backed by the fallback polyfills rather than the native Fetch globals
+- Validation rerun:
+  - `npm run test:summary:client -- --file client/src/test/fetchPolyfills.test.ts` passed with `tests run: 3`, `passed: 3`, and `failed: 0`
+  - `npm run lint --workspace client` passed; the only terminal output was the existing `baseline-browser-mapping` staleness notice
+  - `npm run format:check --workspaces` passed across the client, server, and common workspaces
+  - `npm run test:summary:client` passed with `tests run: 502`, `passed: 502`, and `failed: 0`

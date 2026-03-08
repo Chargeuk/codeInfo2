@@ -6,6 +6,11 @@ import {
   getFetchMock,
   mockJsonResponse,
 } from './support/fetchMock';
+import {
+  SimpleHeaders,
+  SimpleRequest,
+  SimpleResponse,
+} from './support/fetchPolyfills';
 import { installMockWebSocket } from './support/mockWebSocket';
 
 // React 19 uses this global to decide whether it should warn about act().
@@ -40,68 +45,14 @@ if (!nodeGlobals.TextDecoder) {
 }
 
 if (!nodeGlobals.Response) {
-  class SimpleResponse {
-    status: number;
-    statusText: string;
-    headers: Headers;
-    private bodyValue: unknown;
-    constructor(body?: BodyInit | null, init: ResponseInit = {}) {
-      this.status = init.status ?? 200;
-      this.statusText = init.statusText ?? '';
-      this.headers = (init.headers as Headers) ?? new Headers();
-      this.bodyValue = body ?? null;
-    }
-    get ok() {
-      return this.status >= 200 && this.status < 300;
-    }
-    async json() {
-      if (typeof this.bodyValue === 'string') return JSON.parse(this.bodyValue);
-      return this.bodyValue;
-    }
-    async text() {
-      if (typeof this.bodyValue === 'string') return this.bodyValue;
-      return JSON.stringify(this.bodyValue ?? '');
-    }
-    clone() {
-      return new SimpleResponse(this.bodyValue as BodyInit, {
-        status: this.status,
-        statusText: this.statusText,
-        headers: this.headers,
-      });
-    }
-  }
   nodeGlobals.Response = SimpleResponse as unknown as typeof Response;
 }
 
 if (!nodeGlobals.Headers) {
-  class SimpleHeaders {
-    private store = new Map<string, string>();
-    append(key: string, value: string) {
-      this.store.set(key.toLowerCase(), value);
-    }
-    get(key: string) {
-      return this.store.get(key.toLowerCase()) ?? null;
-    }
-  }
   nodeGlobals.Headers = SimpleHeaders as unknown as typeof Headers;
 }
 
 if (!nodeGlobals.Request) {
-  class SimpleRequest {
-    url: string;
-    method: string;
-    headers: Headers;
-    body: unknown;
-    constructor(input: RequestInfo | URL, init: RequestInit = {}) {
-      this.url = typeof input === 'string' ? input : input.toString();
-      this.method = init.method ?? 'GET';
-      this.headers = (init.headers as Headers) ?? new Headers();
-      this.body = init.body;
-    }
-    clone() {
-      return this;
-    }
-  }
   nodeGlobals.Request = SimpleRequest as unknown as typeof Request;
 }
 

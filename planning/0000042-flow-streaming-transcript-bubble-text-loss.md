@@ -2398,3 +2398,16 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
 - Review outcome:
   - no additional blocking issues were identified in the branch diff against `main`
   - no new follow-up tasks were added because the implemented changes, regression coverage, and acceptance evidence are consistent with the story requirements
+
+## Review Comment Follow-up 3
+
+- Follow-up date: 2026-03-08
+- Scope:
+  - replaced the Flow retention marker's count-based post-event proof with exact assistant-message identity checks tied to the specific `previousInflightId` and `currentInflightId`
+  - added a historical inflight-to-assistant-message lookup in `useChatStream` so `FlowsPage` can prove the named earlier bubble is still visible rather than inferring retention from assistant-bubble counts
+  - kept the scope limited to marker-proof correctness; the shared finalized-inflight replay hardening from Task 12 was left intact
+- Validation rerun:
+  - `npm run build:summary:client` passed with the same existing Vite chunk-size warning only
+  - `npm run test:summary:client` passed with 497/497 tests green in `test-results/client-tests-2026-03-08T00-03-45-549Z.log`
+  - `npm run lint --workspaces` completed with the same pre-existing 57 server import-order warnings and no new errors
+  - `npm run format:check --workspaces` passed cleanly after formatting `client/src/hooks/useChatStream.ts` and `client/src/pages/FlowsPage.tsx`

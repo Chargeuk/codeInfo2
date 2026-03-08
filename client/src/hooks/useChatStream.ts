@@ -280,6 +280,9 @@ export function useChatStream(
   const assistantMessageIdByInflightIdRef = useRef<Map<string, string>>(
     new Map(),
   );
+  const historicalAssistantMessageIdByInflightIdRef = useRef<
+    Map<string, string>
+  >(new Map());
   const seenInflightIdsRef = useRef<Set<string>>(new Set());
   const finalizedInflightIdsRef = useRef<Set<string>>(new Set());
   const toolCallsRef = useRef<Map<string, ToolCall>>(new Map());
@@ -297,6 +300,7 @@ export function useChatStream(
 
   useEffect(() => {
     assistantMessageIdByInflightIdRef.current.clear();
+    historicalAssistantMessageIdByInflightIdRef.current.clear();
     seenInflightIdsRef.current.clear();
     finalizedInflightIdsRef.current.clear();
   }, [conversationId]);
@@ -390,6 +394,10 @@ export function useChatStream(
             inflightKey,
             assistantId,
           );
+          historicalAssistantMessageIdByInflightIdRef.current.set(
+            inflightKey,
+            assistantId,
+          );
         }
         updateMessages((prev) => [
           ...prev,
@@ -411,6 +419,12 @@ export function useChatStream(
           !assistantMessageIdByInflightIdRef.current.has(inflightKey)
         ) {
           assistantMessageIdByInflightIdRef.current.set(
+            inflightKey,
+            assistantId,
+          );
+        }
+        if (inflightKey) {
+          historicalAssistantMessageIdByInflightIdRef.current.set(
             inflightKey,
             assistantId,
           );
@@ -727,6 +741,7 @@ export function useChatStream(
     setThreadId(null);
     threadIdRef.current = null;
     assistantMessageIdByInflightIdRef.current.clear();
+    historicalAssistantMessageIdByInflightIdRef.current.clear();
     seenInflightIdsRef.current.clear();
     finalizedInflightIdsRef.current.clear();
     const nextConversationId = makeId();
@@ -745,6 +760,7 @@ export function useChatStream(
       setThreadId(null);
       threadIdRef.current = null;
       assistantMessageIdByInflightIdRef.current.clear();
+      historicalAssistantMessageIdByInflightIdRef.current.clear();
       seenInflightIdsRef.current.clear();
       finalizedInflightIdsRef.current.clear();
       setConversationId(nextConversationId);
@@ -771,6 +787,7 @@ export function useChatStream(
 
       if (!sameConversation) {
         assistantMessageIdByInflightIdRef.current.clear();
+        historicalAssistantMessageIdByInflightIdRef.current.clear();
         seenInflightIdsRef.current.clear();
         finalizedInflightIdsRef.current.clear();
       } else if (!hasActiveInflight) {
@@ -908,6 +925,7 @@ export function useChatStream(
       inflightSeqRef.current = inflight.seq;
       if (!sameConversation) {
         assistantMessageIdByInflightIdRef.current.clear();
+        historicalAssistantMessageIdByInflightIdRef.current.clear();
         seenInflightIdsRef.current.clear();
         finalizedInflightIdsRef.current.clear();
       }
@@ -1816,6 +1834,19 @@ export function useChatStream(
 
   const getInflightId = useCallback(() => inflightIdRef.current, []);
   const getConversationId = useCallback(() => conversationIdRef.current, []);
+  const getAssistantMessageIdForInflight = useCallback(
+    (targetInflightId: string | null) => {
+      if (!targetInflightId) return null;
+      return (
+        assistantMessageIdByInflightIdRef.current.get(targetInflightId) ??
+        historicalAssistantMessageIdByInflightIdRef.current.get(
+          targetInflightId,
+        ) ??
+        null
+      );
+    },
+    [],
+  );
 
   return useMemo(
     () => ({
@@ -1832,6 +1863,7 @@ export function useChatStream(
       inflightId,
       getInflightId,
       getConversationId,
+      getAssistantMessageIdForInflight,
       handleWsEvent,
     }),
     [
@@ -1848,6 +1880,7 @@ export function useChatStream(
       inflightId,
       getInflightId,
       getConversationId,
+      getAssistantMessageIdForInflight,
       handleWsEvent,
     ],
   );

@@ -159,6 +159,16 @@ const readResumeStepPath = (flags?: Record<string, unknown>) => {
   return undefined;
 };
 
+const isVisibleAssistantMessage = (message: ChatMessage | undefined) => {
+  if (!message) return false;
+  if (message.role !== 'assistant') return false;
+  if (message.kind === 'error' || message.kind === 'status') return false;
+  if (message.content.trim().length > 0) return true;
+  if (message.think?.trim().length) return true;
+  if ((message.tools?.length ?? 0) > 0) return true;
+  return false;
+};
+
 export default function FlowsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -194,7 +204,7 @@ export default function FlowsPage() {
       conversationId: string;
       previousInflightId: string;
       currentInflightId: string;
-      requiredVisibleAssistantCount: number;
+      previousAssistantMessageId: string;
     }>
   >([]);
 
@@ -250,6 +260,7 @@ export default function FlowsPage() {
     handleWsEvent,
     getInflightId,
     getConversationId,
+    getAssistantMessageIdForInflight,
   } = useChatStream(flowModelId, 'codex');
 
   const displayMessages = useMemo<ChatMessage[]>(
@@ -318,14 +329,9 @@ export default function FlowsPage() {
   ]);
 
   useEffect(() => {
-    assistantTranscriptVisibleRef.current = messages.some((message) => {
-      if (message.role !== 'assistant') return false;
-      if (message.kind === 'error' || message.kind === 'status') return false;
-      if (message.content.trim().length > 0) return true;
-      if (message.think?.trim().length) return true;
-      if ((message.tools?.length ?? 0) > 0) return true;
-      return false;
-    });
+    assistantTranscriptVisibleRef.current = messages.some((message) =>
+      isVisibleAssistantMessage(message),
+    );
   }, [messages]);
 
   useEffect(() => {
@@ -357,6 +363,11 @@ export default function FlowsPage() {
         previousInflightId !== currentInflightId &&
         assistantTranscriptVisibleRef.current
       ) {
+        const previousAssistantMessageId =
+          getAssistantMessageIdForInflight(previousInflightId);
+        if (!previousAssistantMessageId) {
+          return;
+        }
         const hasPendingCandidate = pendingTranscriptRetentionRef.current.some(
           (candidate) => candidate.currentInflightId === currentInflightId,
         );
@@ -365,7 +376,7 @@ export default function FlowsPage() {
             conversationId: event.conversationId,
             previousInflightId,
             currentInflightId,
-            requiredVisibleAssistantCount: seenInflights.size + 1,
+            previousAssistantMessageId,
           });
         }
       }
@@ -381,26 +392,12 @@ export default function FlowsPage() {
         lastFlowInflightIdRef.current = currentInflightId;
       }
     },
-    [getInflightId],
+    [getAssistantMessageIdForInflight, getInflightId],
   );
 
   useEffect(() => {
     const pendingRetentions = pendingTranscriptRetentionRef.current;
     if (pendingRetentions.length === 0) return;
-
-    const visibleAssistantMessages = messages.filter((message) => {
-      if (message.role !== 'assistant') return false;
-      if (message.kind === 'error' || message.kind === 'status') return false;
-      if (message.content.trim().length > 0) return true;
-      if (message.think?.trim().length) return true;
-      if ((message.tools?.length ?? 0) > 0) return true;
-      return false;
-    });
-    const retainedEarlierBubbleVisible = visibleAssistantMessages.some(
-      (message) => message.streamStatus === 'processing',
-    );
-
-    if (!retainedEarlierBubbleVisible) return;
 
     while (pendingTranscriptRetentionRef.current.length > 0) {
       const nextRetention = pendingTranscriptRetentionRef.current[0];
@@ -408,10 +405,23 @@ export default function FlowsPage() {
         pendingTranscriptRetentionRef.current.shift();
         continue;
       }
-      if (
-        visibleAssistantMessages.length <
-        nextRetention.requiredVisibleAssistantCount
-      ) {
+
+      const previousAssistantMessage = messages.find(
+        (message) => message.id === nextRetention.previousAssistantMessageId,
+      );
+      const currentAssistantMessageId = getAssistantMessageIdForInflight(
+        nextRetention.currentInflightId,
+      );
+      const currentAssistantMessage = messages.find(
+        (message) => message.id === currentAssistantMessageId,
+      );
+
+      if (!isVisibleAssistantMessage(previousAssistantMessage)) {
+        pendingTranscriptRetentionRef.current.shift();
+        continue;
+      }
+
+      if (!isVisibleAssistantMessage(currentAssistantMessage)) {
         return;
       }
 
@@ -424,7 +434,7 @@ export default function FlowsPage() {
       });
       pendingTranscriptRetentionRef.current.shift();
     }
-  }, [activeConversationId, log, messages]);
+  }, [activeConversationId, getAssistantMessageIdForInflight, log, messages]);
 
   const {
     connectionState: wsConnectionState,

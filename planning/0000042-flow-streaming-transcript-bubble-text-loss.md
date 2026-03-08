@@ -3203,7 +3203,7 @@ This task should not change what each wrapper actually runs. It should only chan
 
 - Task Status: `__done__`
 - Git Commits:
-  - None yet.
+  - `c8051634` - `DEV-[0000042] - Document wrapper workflow contract`
 
 #### Overview
 

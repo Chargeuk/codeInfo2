@@ -3141,7 +3141,7 @@ Do not add the same static gate to the client test wrapper. The test wrapper sho
 
 - Task Status: `__done__`
 - Git Commits:
-  - None yet.
+  - `75dd4e7c` - `DEV-[0000042] - Roll out wrapper protocol to remaining wrappers`
 
 #### Overview
 

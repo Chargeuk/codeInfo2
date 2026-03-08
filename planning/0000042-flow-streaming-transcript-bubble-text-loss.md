@@ -2411,3 +2411,332 @@ Do not attempt to run tests without using the wrapper. Only open full logs when 
   - `npm run test:summary:client` passed with 497/497 tests green in `test-results/client-tests-2026-03-08T00-03-45-549Z.log`
   - `npm run lint --workspaces` completed with the same pre-existing 57 server import-order warnings and no new errors
   - `npm run format:check --workspaces` passed cleanly after formatting `client/src/hooks/useChatStream.ts` and `client/src/pages/FlowsPage.tsx`
+
+## Post-Story Client TypeScript Hardening Follow-up
+
+These tasks are intentionally appended as follow-up hardening work and are not part of the original Story 42 transcript-loss acceptance bar.
+
+- Why they are attached here:
+  - the Story 42 branch work surfaced a large client-only TypeScript baseline that is currently outside the repo’s normal wrapper validation path
+  - the baseline should be planned while the affected Flow/Chat/Agents areas are still fresh in branch context
+- Current baseline reference:
+  - on 2026-03-08, `npm run typecheck --workspace client` failed with a broad client baseline including high counts of `TS2339`, `TS2835`, `TS2345`, `TS2304`, and `TS7006`
+  - the dominant failure classes are client module-resolution/import rules, missing browser/test ambient typings, overly-loose mock/test helper typing, and explicit runtime/component typing gaps across Chat, Flows, Agents, and related shared UI
+- Planning rule for the tasks below:
+  - if a later task rerun shows that a planned test-file fix no longer needs a direct file edit because an earlier shared/config fix removed the error, mark that subtask not applicable in-place and explain why in the task notes
+  - if a residual family subtask below still requires edits in more than one test file at implementation time, split that family into one checkbox per touched test file before editing so the plan continues to follow the “one test-file modification per subtask” discipline
+
+### 13. Client typecheck foundations and baseline collapse
+
+- Task Status: `__todo__`
+- Git Commits:
+  - None yet.
+
+#### Overview
+
+The first follow-up task must reduce the client baseline through shared foundations before any file-by-file cleanup begins. The current client typecheck output is dominated by root-cause problems that can make the per-file error list look much larger than the real residual work:
+
+- the client inherits `NodeNext`/`NodeNext` compiler behavior from the shared base config even though the runtime is Vite/browser-oriented
+- the client tsconfig currently exposes only `vite/client` types, so test and `process`/Node-related ambient names are not modeled cleanly for typecheck
+- the Jest path executes TypeScript via `ts-jest`, but there is no wrapper-level client typecheck gate today
+- shared test support files still allow mock types to collapse into `unknown`, `never`, or untyped `global` access patterns that then fan out into many individual test errors
+
+Do not start mass-editing every test file before this task is complete. The goal here is to collapse the baseline first and then re-scope the remaining file-level work.
+
+#### Documentation Locations
+
+- TypeScript module resolution reference: https://www.typescriptlang.org/tsconfig/#moduleResolution
+  - use this when deciding whether the client should override the shared `NodeNext` defaults with a browser/Vite-appropriate compiler mode
+- TypeScript `module` reference: https://www.typescriptlang.org/tsconfig/#module
+  - use this together with the module-resolution docs before changing client compiler options
+- TypeScript `types` reference: https://www.typescriptlang.org/tsconfig/#types
+  - use this when wiring explicit browser/test ambient typings for the client workspace
+- TypeScript `isolatedModules` reference: https://www.typescriptlang.org/tsconfig/#isolatedModules
+  - use this to understand why the Jest execution path does not replace a real project-wide typecheck gate
+- Jest 30 docs: https://jestjs.io/docs/getting-started
+  - use this when validating any shared test setup or environment changes
+- Testing Library user-event docs: https://testing-library.com/docs/user-event/intro/
+  - use this when standardizing the shared `userEvent` typing/import pattern
+
+#### Subtasks
+
+1. [ ] Re-run `npm run typecheck --workspace client`, capture the current baseline counts and dominant error families in the Task 13 implementation notes, and confirm which categories are root-cause candidates versus true residual file-level defects.
+   - Required outcome:
+     - preserve the baseline command and the major error classes before editing
+     - identify which classes are expected to collapse after tsconfig/shared-helper fixes
+2. [ ] Decide whether `client/tsconfig.json` should override the shared base `module`/`moduleResolution` settings for a Vite/browser workspace, then implement the least risky option.
+   - Files to edit:
+     - `client/tsconfig.json`
+     - optionally `tsconfig.base.json` only if the client cannot safely solve this locally
+   - Required outcome:
+     - eliminate the client-only false-positive import-resolution baseline without weakening the server/compiler contract
+     - if the shared base cannot be changed safely, keep the override client-local
+3. [ ] Add the explicit client ambient type entries required for browser, Jest, and any approved Node/test globals instead of relying on implicit `global` or missing `process` names.
+   - Files to edit:
+     - `client/tsconfig.json`
+     - optional client-local ambient declarations file under `client/src` if needed
+   - Required outcome:
+     - `process`, `globalThis`, Jest globals, and DOM/browser test types are modeled intentionally rather than incidentally
+4. [ ] Update `client/src/test/setupTests.ts` so the shared test bootstrap exposes typed globals/mocks and no longer seeds downstream `global`/`never`/`unknown` type drift.
+   - Required outcome:
+     - shared setup should become the first place to fix fetch/EventSource/mock typing drift
+5. [ ] Update `client/src/test/support/mockChatWs.ts` so the websocket test helper exports strongly typed helpers instead of letting callback and payload shapes degrade into `unknown`.
+6. [ ] Update `client/src/test/support/ensureCodexFlagsPanelExpanded.ts` so the helper aligns with the chosen `userEvent` typing/import strategy and does not perpetuate incorrect helper signatures.
+7. [ ] Standardize the client-wide `userEvent` typing/import pattern and any shared typed mock helpers needed by later test files.
+   - Required outcome:
+     - the project should have one deliberate pattern for `userEvent.setup()`
+     - later test files should consume shared typed helpers instead of repeating ad hoc casts
+8. [ ] Re-run `npm run typecheck --workspace client` and record the reduced post-foundation baseline, including the specific residual runtime file families and test file families that still need direct edits.
+9. [ ] If Task 13 changes the expected client compiler model or test environment contract, update `projectStructure.md` and this story file so the chosen typecheck approach is documented before file-by-file cleanup continues.
+10. [ ] Update Task 13 implementation notes continuously as each foundational fix lands.
+
+#### Testing
+
+1. [ ] `npm run typecheck --workspace client` - Required pre-edit baseline capture.
+2. [ ] `npm run test:summary:client -- --file client/src/test/useChatWs.test.ts --file client/src/test/useConversationTurns.refresh.test.ts` - Shared helper smoke check after Task 13 setup/support changes.
+3. [ ] `npm run build:summary:client` - Required because compiler-config changes can affect the client build path.
+4. [ ] `npm run lint --workspaces`
+5. [ ] `npm run format:check --workspaces`
+6. [ ] `npm run typecheck --workspace client` - Required post-edit baseline reduction check.
+
+#### Implementation notes
+
+- Pending.
+
+### 14. Client runtime source typing cleanup
+
+- Task Status: `__todo__`
+- Git Commits:
+  - None yet.
+
+#### Overview
+
+Once the foundational baseline is collapsed, the remaining non-test client files should be cleaned up in deliberate runtime groups rather than through opportunistic edits. The current baseline indicates residual work is concentrated in shared rendering/components, page-level callback typing, icon/component typing, and runtime hook return/value narrowing.
+
+This task is for production/runtime source files only. Do not widen it into the full page/integration test suite; those test-file edits belong to later tasks once the shared/runtime surfaces are stable.
+
+#### Documentation Locations
+
+- React 19 docs: https://react.dev/reference/react
+  - use this when tightening event handlers, component props, and state/value narrowing in page components
+- MUI docs reference for current client component usage:
+  - MUI MCP `@mui/material@6.4.12`
+  - use this for icon/component prop typing, `slotProps`, input props, and select/button handler signatures
+- React Markdown docs: https://github.com/remarkjs/react-markdown
+  - use this for renderer typing updates in `Markdown.tsx`
+- rehype-sanitize docs: https://github.com/rehypejs/rehype-sanitize
+  - use this for schema typing corrections in markdown sanitization
+
+#### Subtasks
+
+1. [ ] Re-run `npm run typecheck --workspace client` after Task 13 and freeze the residual non-test file list in the Task 14 implementation notes before editing.
+2. [ ] Fix the client shell/router/runtime entry file typing for:
+   - `client/src/App.tsx`
+   - `client/src/main.tsx`
+   - `client/src/routes/router.tsx`
+   - `client/src/routes/RouterErrorBoundary.tsx`
+   - `client/src/pages/HomePage.tsx`
+   - `client/src/pages/LmStudioPage.tsx`
+   - `client/src/pages/LogsPage.tsx`
+3. [ ] Fix the API-layer typing for:
+   - `client/src/api/agents.ts`
+   - `client/src/api/baseUrl.ts`
+   - `client/src/api/codex.ts`
+   - `client/src/api/flows.ts`
+4. [ ] Fix the shared logging/runtime utility typing for:
+   - `client/src/logging/index.ts`
+   - `client/src/logging/logger.ts`
+   - `client/src/logging/transport.ts`
+5. [ ] Fix the shared markdown/rendering and dialog component typing for:
+   - `client/src/components/Markdown.tsx`
+   - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
+6. [ ] Fix the chat shared-component typing for:
+   - `client/src/components/chat/CodexFlagsPanel.tsx`
+   - `client/src/components/chat/ConversationList.tsx`
+7. [ ] Fix the ingest shared-component typing for:
+   - `client/src/components/ingest/ActiveRunCard.tsx`
+   - `client/src/components/ingest/DirectoryPickerDialog.tsx`
+   - `client/src/components/ingest/IngestForm.tsx`
+   - `client/src/components/ingest/RootDetailsDrawer.tsx`
+   - `client/src/components/ingest/RootsTable.tsx`
+   - `client/src/components/ingest/ingestDirsApi.ts`
+8. [ ] Fix the chat/flow/shared hook typing for:
+   - `client/src/hooks/useChatModel.ts`
+   - `client/src/hooks/useChatStream.ts`
+   - `client/src/hooks/useChatWs.ts`
+   - `client/src/hooks/useConversationTurns.ts`
+   - `client/src/hooks/useConversations.ts`
+   - `client/src/hooks/usePersistenceStatus.ts`
+9. [ ] Fix the ingest/status/log hook typing for:
+   - `client/src/hooks/useIngestModels.ts`
+   - `client/src/hooks/useIngestRoots.ts`
+   - `client/src/hooks/useIngestStatus.ts`
+   - `client/src/hooks/useLmStudioStatus.ts`
+   - `client/src/hooks/useLogs.ts`
+10. [ ] Fix `client/src/pages/ChatPage.tsx`, including explicit callback/value typing, MUI handler signatures, and any remaining icon/component prop errors.
+11. [ ] Fix `client/src/pages/FlowsPage.tsx`, including explicit callback typing and `unknown` error narrowing.
+12. [ ] Fix `client/src/pages/AgentsPage.tsx`, including the largest remaining page-level callback/value typing set after Task 13.
+13. [ ] Fix `client/src/pages/IngestPage.tsx` and any remaining ingest-page runtime typing after the shared ingest components are corrected.
+14. [ ] Re-run targeted client wrappers for the runtime areas touched in this task and confirm the residual client typecheck baseline no longer contains non-test source-file errors introduced by these pages/components/hooks.
+15. [ ] Update `design.md`, `projectStructure.md`, and this story file if Task 14 changes any documented client runtime typing contracts, helper signatures, or expected compiler assumptions.
+16. [ ] Update Task 14 implementation notes continuously as each runtime source fix lands.
+
+#### Testing
+
+1. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx --file client/src/test/flowsPage.run.test.tsx --file client/src/test/agentsPage.streaming.test.tsx`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run lint --workspaces`
+4. [ ] `npm run format:check --workspaces`
+5. [ ] `npm run typecheck --workspace client`
+
+#### Implementation notes
+
+- Pending.
+
+### 15. Client shared test infrastructure and hook/API typing cleanup
+
+- Task Status: `__todo__`
+- Git Commits:
+  - None yet.
+
+#### Overview
+
+After Tasks 13 and 14, the remaining low-level client test failures should be cleaned up before the page-level integration suites. This task covers shared test infrastructure, API tests, logging tests, and hook-focused tests where the dominant work is typing the mocks and helper contracts rather than page rendering logic.
+
+Because Task 13 may remove some direct test edits entirely, re-freeze the residual test-file list before touching anything. For every test file that still needs a direct edit during Task 15, preserve the one-file-per-subtask discipline by splitting any remaining family bucket into separate checkboxes before editing.
+
+#### Documentation Locations
+
+- Jest mock functions docs: https://jestjs.io/docs/mock-functions
+  - use this when replacing `unknown`/`never` mock flows with typed mock helpers
+- Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
+  - use this for hook render typing and shared test helper patterns
+- Testing Library user-event docs: https://testing-library.com/docs/user-event/intro/
+  - use this when correcting `userEvent.setup()` usage across low-level tests
+
+#### Subtasks
+
+1. [ ] Re-run `npm run typecheck --workspace client` after Tasks 13 and 14, freeze the residual non-page test-file list for Task 15, and split any remaining multi-file family buckets into one checkbox per touched test file before editing.
+2. [ ] Fix `client/src/test/setupTests.ts` if it still has residual direct type errors after Task 13.
+3. [ ] Fix `client/src/test/support/mockChatWs.ts` if it still has residual direct type errors after Task 13.
+4. [ ] Fix `client/src/test/support/ensureCodexFlagsPanelExpanded.ts` if it still has residual direct type errors after Task 13.
+5. [ ] Fix the logging/unit utility test typing for:
+   - `client/src/test/clientLogging.test.ts`
+   - `client/src/test/logging/logger.test.ts`
+   - `client/src/test/logging/transport.test.ts`
+   - `client/src/test/reasoningCapabilities.normalize.test.ts`
+6. [ ] Fix the API-focused test typing for:
+   - `client/src/test/codexDeviceAuthApi.test.ts`
+   - `client/src/test/flowsApi.test.ts`
+   - `client/src/test/flowsApi.run.payload.test.ts`
+   - `client/src/test/agentsApi.commandsList.test.ts`
+   - `client/src/test/agentsApi.commandsRun.test.ts`
+   - `client/src/test/agentsApi.errors.test.ts`
+   - `client/src/test/agentsApi.promptsList.test.ts`
+   - `client/src/test/agentsApi.workingFolder.payload.test.ts`
+7. [ ] Fix `client/src/test/useChatWs.test.ts`.
+8. [ ] Fix `client/src/test/useConversationTurns.commandMetadata.test.ts`.
+9. [ ] Fix `client/src/test/useConversationTurns.refresh.test.ts`.
+10. [ ] Fix `client/src/test/useConversations.source.test.ts`.
+11. [ ] Fix `client/src/test/useChatStream.inflightMismatch.test.tsx`.
+12. [ ] Fix `client/src/test/useChatStream.reasoning.test.tsx`.
+13. [ ] Fix `client/src/test/useChatStream.toolPayloads.test.tsx`.
+14. [ ] Fix `client/src/test/useIngestModels.test.tsx`.
+15. [ ] Fix `client/src/test/useIngestRoots.test.tsx`.
+16. [ ] Fix `client/src/test/useLmStudioStatus.test.ts`.
+17. [ ] Fix `client/src/test/useLogs.test.ts`.
+18. [ ] Re-run the targeted low-level client test wrappers touched in Task 15 and confirm the residual baseline has moved primarily to page/integration test files only.
+19. [ ] Update Task 15 implementation notes continuously as each low-level test fix lands.
+
+#### Testing
+
+1. [ ] `npm run test:summary:client -- --file client/src/test/useChatWs.test.ts --file client/src/test/useConversationTurns.refresh.test.ts --file client/src/test/useChatStream.inflightMismatch.test.tsx --file client/src/test/useLogs.test.ts`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run lint --workspaces`
+4. [ ] `npm run format:check --workspaces`
+5. [ ] `npm run typecheck --workspace client`
+
+#### Implementation notes
+
+- Pending.
+
+### 16. Client page and integration test typing cleanup plus typecheck gate
+
+- Task Status: `__todo__`
+- Git Commits:
+  - None yet.
+
+#### Overview
+
+The final follow-up task should finish the client typecheck baseline by cleaning up the remaining page/integration tests and then making client type safety part of the normal validation workflow. This task is expected to contain the most residual file-by-file cleanup because many page tests duplicate fetch/user-event/mock patterns and page-specific render helpers.
+
+This task should not begin until Tasks 13 through 15 have reduced the residual list. Before editing, freeze the remaining page/integration test files and split any multi-file family buckets into one checkbox per touched test file.
+
+#### Documentation Locations
+
+- Jest docs: https://jestjs.io/docs/getting-started
+  - use this when finishing page-level test typing and any wrapper/json output integration
+- Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
+  - use this for page render/helper typing across Chat, Flows, Agents, Ingest, Logs, and Router tests
+- Playwright docs: https://playwright.dev/docs/intro
+  - use this only if a client typecheck gate update requires any e2e-related wrapper or docs adjustment
+
+#### Subtasks
+
+1. [ ] Re-run `npm run typecheck --workspace client` after Tasks 13 through 15, freeze the residual page/integration test file list, and split any remaining family buckets into one checkbox per touched test file before editing.
+2. [ ] Fix the remaining Chat-page-oriented test files one by one.
+   - Initial expected file family from the 2026-03-08 baseline:
+     - `client/src/test/chatSendPayload.test.tsx`
+     - `client/src/test/chatSidebar.test.tsx`
+     - `client/src/test/chatPersistenceBanner.test.tsx`
+     - `client/src/test/chatPage.*`
+3. [ ] Fix the remaining Flow-page-oriented test files one by one.
+   - Initial expected file family:
+     - `client/src/test/flowsPage.test.tsx`
+     - `client/src/test/flowsPage.run.test.tsx`
+     - `client/src/test/flowsPage.stop.test.tsx`
+4. [ ] Fix the remaining Agents-page-oriented test files one by one.
+   - Initial expected file family:
+     - `client/src/test/agentsPage.*`
+5. [ ] Fix the remaining ingest/logs/router/version/device-auth page/integration test files one by one.
+   - Initial expected file family:
+     - `client/src/test/ingestForm.test.tsx`
+     - `client/src/test/ingestPage.layout.test.tsx`
+     - `client/src/test/ingestRoots.test.tsx`
+     - `client/src/test/ingestStatus.progress.test.tsx`
+     - `client/src/test/ingestStatus.test.tsx`
+     - `client/src/test/lmstudio.test.tsx`
+     - `client/src/test/logsPage.test.tsx`
+     - `client/src/test/router.test.tsx`
+     - `client/src/test/version.test.tsx`
+     - `client/src/test/codexDeviceAuthDialog.test.tsx`
+6. [ ] If the repo still lacks a wrapper-first client typecheck path after the baseline is green, add a compact summary wrapper and root package script for client typecheck so future stories do not regress this gap silently.
+   - Files to edit if needed:
+     - `scripts/`
+     - root `package.json`
+     - optional docs that enumerate available wrappers
+7. [ ] Update `AGENTS.md`, `projectStructure.md`, and this story file if Task 16 changes the expected validation workflow by introducing a new client typecheck summary wrapper or a new required validation step.
+8. [ ] Run the full final client validation matrix for this follow-up track once the typecheck baseline is green.
+   - Required command set:
+     - `npm run build:summary:client`
+     - `npm run test:summary:client`
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+     - `npm run typecheck --workspace client` or the new wrapper if Task 16 adds one
+9. [ ] Update Task 16 implementation notes continuously as each remaining page/integration test fix lands and once the client typecheck gate is fully green.
+
+#### Testing
+
+1. [ ] `npm run test:summary:client -- --subset chatPage`
+2. [ ] `npm run test:summary:client -- --subset flowsPage`
+3. [ ] `npm run test:summary:client -- --subset agentsPage`
+4. [ ] `npm run test:summary:client -- --subset ingest`
+5. [ ] `npm run build:summary:client`
+6. [ ] `npm run test:summary:client`
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
+9. [ ] `npm run typecheck --workspace client` or the new wrapper added in Subtask 6
+
+#### Implementation notes
+
+- Pending.

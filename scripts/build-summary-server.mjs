@@ -77,6 +77,9 @@ protocol.emitFinal({
         ? 'warnings_present'
         : 'clean_success'
       : 'build_failed',
+  extraFields: {
+    warning_count: warningCount,
+  },
 });
 
 process.exit(result.code);

@@ -3281,3 +3281,15 @@ After the wrappers have a stable heartbeat/action contract, the repo workflow do
   - no additional blocker questions were found in the implementation notes
 - Residual review note:
   - the branch remains broad relative to the original transcript-loss defect, so future stories should continue to prefer narrower diffs when possible, but this review did not identify a concrete correctness, security, performance, or maintainability defect that requires new Story 42 follow-up work
+
+## Review Comment Follow-up 5
+
+- Follow-up date: 2026-03-08
+- Scope:
+  - moved `scripts/typecheck-summary-client.mjs` onto the shared wrapper heartbeat/final-action protocol so the standalone client typecheck path now emits `agent_action`, `do_not_read_log`, log size, and the final saved log path just like the other summary wrappers
+  - restored explicit `warning_count` output in `scripts/build-summary-client.mjs` and `scripts/build-summary-server.mjs` so the build-wrapper summary matches its own comment-level contract again
+  - kept the fix narrowly focused on the wrapper protocol/reporting mismatch identified during branch review; no behavioral changes were made to the underlying build or typecheck commands
+- Validation rerun:
+  - `npm run typecheck:summary:client` passed and now ends with `agent_action: skip_log`, `do_not_read_log: true`, `error_count: 0`, and `logs/test-summaries/typecheck-client-latest.log`
+  - `npm run build:summary:client` passed and now ends with `warning_count: 0`, `agent_action: skip_log`, and `logs/test-summaries/build-client-latest.log`
+  - `npm run build:summary:server` passed and now ends with `warning_count: 0`, `agent_action: skip_log`, and `logs/test-summaries/build-server-latest.log`

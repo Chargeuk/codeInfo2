@@ -111,6 +111,9 @@ protocol.emitFinal({
       : failedPhase === 'typecheck'
         ? 'typecheck_failed'
         : 'build_failed',
+  extraFields: {
+    warning_count: warningCount,
+  },
 });
 
 process.exit(failedPhase === 'none' ? 0 : 1);

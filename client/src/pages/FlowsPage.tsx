@@ -623,6 +623,40 @@ export default function FlowsPage() {
       (conversation) => conversation.conversationId === activeConversationId,
     );
     if (stillVisible) return;
+    const hasVisibleAssistantTranscript = assistantTranscriptVisibleRef.current;
+    const hasProcessingTranscript = messages.some(
+      (message) => message.streamStatus === 'processing',
+    );
+    if (
+      hasVisibleAssistantTranscript ||
+      hasProcessingTranscript ||
+      isStreaming ||
+      status === 'sending'
+    ) {
+      log('info', 'flows.page.active_conversation_temporarily_hidden', {
+        conversationId: activeConversationId,
+        selectedFlowName,
+        flowConversationCount: flowConversations.length,
+        messageCount: messages.length,
+        hasVisibleAssistantTranscript,
+        hasProcessingTranscript,
+        isStreaming,
+        status,
+        action: 'preserve_transcript',
+      });
+      return;
+    }
+    log('info', 'flows.page.active_conversation_hidden_reset', {
+      conversationId: activeConversationId,
+      selectedFlowName,
+      flowConversationCount: flowConversations.length,
+      messageCount: messages.length,
+      hasVisibleAssistantTranscript,
+      hasProcessingTranscript,
+      isStreaming,
+      status,
+      action: 'clear_transcript',
+    });
     resetTurns();
     setActiveConversationId(undefined);
     setConversation(makeClientConversationId(), { clearMessages: true });
@@ -630,9 +664,13 @@ export default function FlowsPage() {
   }, [
     activeConversationId,
     flowConversations,
+    isStreaming,
+    log,
+    messages,
     resetTurns,
     selectedFlowName,
     setConversation,
+    status,
   ]);
 
   useEffect(() => {

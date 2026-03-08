@@ -595,6 +595,127 @@ describe('Flows page run/resume controls', () => {
     expect(screen.getByText('First step answer')).toBeInTheDocument();
   });
 
+  it('keeps visible transcript text if a flow refresh temporarily omits the active conversation while streaming', async () => {
+    const user = userEvent.setup();
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const now = new Date('2025-01-01T00:00:00.000Z').toISOString();
+    let conversationsRequestCount = 0;
+    let runRequested = false;
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+
+        if (target.includes('/flows') && !target.includes('/run')) {
+          return mockJsonResponse({
+            flows: [
+              { name: 'daily', description: 'Daily flow', disabled: false },
+            ],
+          });
+        }
+
+        if (target.includes('/conversations/flow-1/turns')) {
+          return mockJsonResponse({
+            items: [
+              {
+                turnId: 't1',
+                conversationId: 'flow-1',
+                role: 'assistant',
+                content: 'Earlier output',
+                provider: 'codex',
+                model: 'gpt-5',
+                status: 'ok',
+                createdAt: now,
+              },
+            ],
+          });
+        }
+
+        if (target.includes('/conversations') && init?.method !== 'POST') {
+          conversationsRequestCount += 1;
+          if (!runRequested || conversationsRequestCount < 3) {
+            return mockJsonResponse({
+              items: [
+                {
+                  conversationId: 'flow-1',
+                  title: 'Flow: daily',
+                  provider: 'codex',
+                  model: 'gpt-5',
+                  source: 'REST',
+                  lastMessageAt: now,
+                  archived: false,
+                  flowName: 'daily',
+                  flags: {},
+                },
+              ],
+            });
+          }
+          return mockJsonResponse({ items: [] });
+        }
+
+        if (target.includes('/flows/daily/run')) {
+          runRequested = true;
+          return mockJsonResponse({
+            status: 'started',
+            flowName: 'daily',
+            conversationId: 'flow-1',
+            inflightId: 'flow-step-2',
+            modelId: 'gpt-5',
+          });
+        }
+
+        return mockJsonResponse({});
+      },
+    );
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+      render(<RouterProvider router={router} />);
+
+      expect(await screen.findByText('Earlier output')).toBeInTheDocument();
+
+      const runButton = await screen.findByTestId('flow-run');
+      await waitFor(() => expect(runButton).toBeEnabled());
+      await user.click(runButton);
+
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        seq: 1,
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        content: 'Continue flow',
+        createdAt: now,
+      });
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        seq: 2,
+        conversationId: 'flow-1',
+        inflightId: 'flow-step-2',
+        delta: 'Latest live output',
+      });
+
+      expect(await screen.findByText('Earlier output')).toBeInTheDocument();
+      expect(await screen.findByText('Latest live output')).toBeInTheDocument();
+      expect(
+        logSpy.mock.calls.find(([entry]) => {
+          if (!entry || typeof entry !== 'object') return false;
+          return (
+            (entry as { message?: string }).message ===
+            'flows.page.active_conversation_temporarily_hidden'
+          );
+        }),
+      ).toBeDefined();
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
   it('logs the latest real flow step transition even if an older step replay arrives in between', async () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const harness = setupFlowsRunHarness();

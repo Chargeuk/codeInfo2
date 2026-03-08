@@ -2856,3 +2856,221 @@ Keep the direct client `typecheck` command available for targeted local diagnosi
 #### Implementation notes
 
 - Pending.
+
+### 19. Shared wrapper heartbeat and agent-action protocol
+
+- Task Status: `__todo__`
+- Git Commits:
+  - None yet.
+
+#### Overview
+
+The summary wrappers should expose a consistent long-running execution protocol so AI agents do not mistake silence for a hang and do not waste tokens opening logs when the wrapper already knows the run is healthy. The protocol should be shared across wrappers rather than re-implemented ad hoc in each script.
+
+The core behavior to add is:
+
+- a heartbeat every minute while a wrapped command is still running
+- the current date/time, current phase, and current log size in each heartbeat
+- an explicit `agent_action` contract:
+  - while running: wait and do not read the log
+  - on clean success: skip the log
+  - on warnings, failures, or ambiguous parsing: inspect the log
+
+#### Documentation Locations
+
+- Node timers docs: https://nodejs.org/api/timers.html
+  - use this when implementing a stable once-per-minute heartbeat without leaking intervals
+- Node fs docs: https://nodejs.org/api/fs.html
+  - use this when reading current log-file size safely while the child process is still writing output
+- Node child_process docs: https://nodejs.org/api/child_process.html
+  - use this when preserving the wrapper’s existing child lifecycle and exit handling
+
+#### Subtasks
+
+1. [ ] Re-read all current summary wrappers and identify the shared output/heartbeat behavior that can be centralized.
+   - Files to read:
+     - `scripts/build-summary-server.mjs`
+     - `scripts/build-summary-client.mjs`
+     - `scripts/compose-build-summary.mjs`
+     - `scripts/test-summary-server-unit.mjs`
+     - `scripts/test-summary-server-cucumber.mjs`
+     - `scripts/test-summary-client.mjs`
+     - `scripts/test-summary-e2e.mjs`
+2. [ ] Define the shared wrapper output contract for heartbeat lines and final summary lines before editing the scripts.
+   - Required fields:
+     - wrapper name
+     - timestamp
+     - phase
+     - status
+     - log size
+     - log path in final summary
+     - `agent_action`
+     - `do_not_read_log`
+     - machine-readable reason for `inspect_log`/`skip_log`
+3. [ ] Implement a shared helper under `scripts/` that can:
+   - start/stop a heartbeat interval
+   - report log size without corrupting the child log
+   - emit consistent final `agent_action` lines
+4. [ ] Ensure the shared helper writes heartbeat/final summary guidance to wrapper stdout only and never injects those lines into the captured child log file.
+5. [ ] Define the exact action rules in code and docs:
+   - running => `agent_action: wait`, `do_not_read_log: true`
+   - passed with zero warnings and unambiguous counts => `agent_action: skip_log`, `do_not_read_log: true`
+   - failed, warned, or ambiguous => `agent_action: inspect_log`, `do_not_read_log: false`
+6. [ ] Update Task 19 implementation notes continuously as the protocol/helper is introduced.
+
+#### Testing
+
+1. [ ] Run at least one long-running wrapper long enough to observe a heartbeat line with timestamp, phase, and log size.
+2. [ ] Force at least one wrapper failure and confirm the final summary prints `agent_action: inspect_log`.
+3. [ ] Confirm a clean wrapper run prints `agent_action: skip_log`.
+4. [ ] Confirm heartbeat/final guidance lines do not appear inside the saved child log file.
+
+#### Implementation notes
+
+- Pending.
+
+### 20. Client build wrapper pre-build typecheck integration
+
+- Task Status: `__todo__`
+- Git Commits:
+  - None yet.
+
+#### Overview
+
+After the shared wrapper protocol exists, the client build wrapper should absorb the non-emitting client typecheck command as a pre-build gate. This ensures frontend build validation fails fast on TypeScript errors while still surfacing the correct wrapper guidance to the AI agent.
+
+Do not add the same static gate to the client test wrapper. The test wrapper should remain focused on behavioral regressions.
+
+#### Documentation Locations
+
+- TypeScript `noEmit` reference: https://www.typescriptlang.org/tsconfig/#noEmit
+- TypeScript project references/build mode reference: https://www.typescriptlang.org/docs/handbook/project-references.html
+- Node child_process docs: https://nodejs.org/api/child_process.html
+
+#### Subtasks
+
+1. [ ] Re-read the client package scripts, client tsconfig, and client build wrapper before editing.
+   - Files to read:
+     - `client/package.json`
+     - `client/tsconfig.json`
+     - `scripts/build-summary-client.mjs`
+2. [ ] Replace the client `typecheck` npm command with a non-emitting command that is safe to run repeatedly during diagnosis and wrapper execution.
+   - Files to edit:
+     - `client/package.json`
+   - Required outcome:
+     - no emitted `.js` artifacts in `client/src`
+     - no behavior change to the actual Vite build script
+3. [ ] Add `client/tsconfig.typecheck.json` only if the non-emitting check cannot be expressed safely through the existing client tsconfig.
+4. [ ] Update `scripts/build-summary-client.mjs` so it runs the client typecheck command before the actual build command.
+5. [ ] Make the client build wrapper stop before the build phase if the typecheck phase fails.
+6. [ ] Make the final wrapper summary clearly identify whether the failure came from `typecheck` or `build`.
+7. [ ] Apply the Task 19 heartbeat/agent-action protocol to the client build wrapper.
+8. [ ] Update Task 20 implementation notes continuously as the pre-build typecheck integration lands.
+
+#### Testing
+
+1. [ ] `npm run typecheck --workspace client`
+2. [ ] `npm run build:summary:client`
+3. [ ] Force a client typecheck failure and confirm the wrapper stops before build, prints the log path, and ends with `agent_action: inspect_log`.
+4. [ ] Confirm a clean client build run ends with `agent_action: skip_log`.
+5. [ ] `npm run lint --workspaces`
+6. [ ] `npm run format:check --workspaces`
+
+#### Implementation notes
+
+- Pending.
+
+### 21. Remaining wrapper heartbeat and agent-action rollout
+
+- Task Status: `__todo__`
+- Git Commits:
+  - None yet.
+
+#### Overview
+
+Once the shared helper/protocol and the client build integration are proven, the remaining summary wrappers should adopt the same heartbeat and final action contract. This keeps AI-agent behavior consistent across builds, tests, and compose flows.
+
+This task should not change what each wrapper actually runs. It should only change how progress and final guidance are reported.
+
+#### Documentation Locations
+
+- `scripts/build-summary-server.mjs`
+- `scripts/compose-build-summary.mjs`
+- `scripts/test-summary-server-unit.mjs`
+- `scripts/test-summary-server-cucumber.mjs`
+- `scripts/test-summary-client.mjs`
+- `scripts/test-summary-e2e.mjs`
+
+#### Subtasks
+
+1. [ ] Update `scripts/build-summary-server.mjs` to use the shared heartbeat/agent-action protocol.
+2. [ ] Update `scripts/compose-build-summary.mjs` to use the shared heartbeat/agent-action protocol.
+3. [ ] Update `scripts/test-summary-server-unit.mjs` to use the shared heartbeat/agent-action protocol.
+4. [ ] Update `scripts/test-summary-server-cucumber.mjs` to use the shared heartbeat/agent-action protocol.
+5. [ ] Update `scripts/test-summary-client.mjs` to use the shared heartbeat/agent-action protocol.
+6. [ ] Update `scripts/test-summary-e2e.mjs` to use the shared heartbeat/agent-action protocol.
+7. [ ] Confirm each updated wrapper emits `agent_action: wait` while running, `agent_action: skip_log` on clean success, and `agent_action: inspect_log` on warnings/failure/ambiguous counts.
+8. [ ] Update Task 21 implementation notes continuously as each wrapper adopts the new protocol.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run compose:build:summary`
+3. [ ] `npm run test:summary:server:unit`
+4. [ ] `npm run test:summary:server:cucumber`
+5. [ ] `npm run test:summary:client`
+6. [ ] `npm run test:summary:e2e`
+7. [ ] Confirm at least one long-running test wrapper emits a heartbeat with current log size.
+8. [ ] Confirm clean wrappers tell the agent to skip the log and failing/warning/ambiguous wrappers tell the agent to inspect it.
+
+#### Implementation notes
+
+- Pending.
+
+### 22. Wrapper workflow documentation and final validation
+
+- Task Status: `__todo__`
+- Git Commits:
+  - None yet.
+
+#### Overview
+
+After the wrappers have a stable heartbeat/action contract, the repo workflow docs should be updated so future agents know exactly when not to read logs and when log inspection is required. This task closes the loop between wrapper behavior and repo instructions.
+
+#### Documentation Locations
+
+- `AGENTS.md`
+- `projectStructure.md`
+- root `package.json`
+- this story file
+
+#### Subtasks
+
+1. [ ] Update `AGENTS.md` so the wrapper contract explicitly tells agents not to read logs while a wrapper is still running and not to read clean-success logs unless instructed otherwise.
+2. [ ] Update `projectStructure.md` so the wrapper output contract and `agent_action` fields are documented for future maintainers.
+3. [ ] Update any root script or workflow docs that describe available summary wrappers if Task 19 through Task 21 add shared helper behavior or new wrapper expectations.
+4. [ ] Update this story file so the final follow-up tasks reflect the new wrapper protocol and the client build wrapper’s typecheck preflight behavior.
+5. [ ] Re-run the final wrapper validation matrix after all wrapper changes land.
+   - Required command set:
+     - `npm run build:summary:server`
+     - `npm run build:summary:client`
+     - `npm run compose:build:summary`
+     - `npm run test:summary:server:unit`
+     - `npm run test:summary:server:cucumber`
+     - `npm run test:summary:client`
+     - `npm run test:summary:e2e`
+6. [ ] Update Task 22 implementation notes continuously as the documentation and final validation are completed.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run test:summary:server:unit`
+5. [ ] `npm run test:summary:server:cucumber`
+6. [ ] `npm run test:summary:client`
+7. [ ] `npm run test:summary:e2e`
+
+#### Implementation notes
+
+- Pending.

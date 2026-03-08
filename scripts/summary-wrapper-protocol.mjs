@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { createWriteStream, mkdirSync, statSync } from 'node:fs';
+import { createWriteStream, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 export const SUMMARY_WRAPPER_HEARTBEAT_ENV = 'SUMMARY_WRAPPER_HEARTBEAT_MS';
@@ -81,6 +81,10 @@ export const classifyAgentAction = ({
 
 export const createSummaryLogStream = (logPath, { flags = 'w' } = {}) => {
   mkdirSync(path.dirname(logPath), { recursive: true });
+  if (flags === 'w') {
+    writeFileSync(logPath, '', 'utf8');
+    return createWriteStream(logPath, { flags: 'a' });
+  }
   return createWriteStream(logPath, { flags });
 };
 

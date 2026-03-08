@@ -3293,3 +3293,53 @@ After the wrappers have a stable heartbeat/action contract, the repo workflow do
   - `npm run typecheck:summary:client` passed and now ends with `agent_action: skip_log`, `do_not_read_log: true`, `error_count: 0`, and `logs/test-summaries/typecheck-client-latest.log`
   - `npm run build:summary:client` passed and now ends with `warning_count: 0`, `agent_action: skip_log`, and `logs/test-summaries/build-client-latest.log`
   - `npm run build:summary:server` passed and now ends with `warning_count: 0`, `agent_action: skip_log`, and `logs/test-summaries/build-server-latest.log`
+
+### 23. Flow transcript retention under transient sidebar refresh misses
+
+- Task Status: `__done__`
+- Git Commits:
+  - Pending direct implementation commit reference
+
+#### Overview
+
+After Story 42 was marked complete, a follow-up investigation reproduced one remaining transcript-loss path in the Flows page. If a filtered flow conversation refresh temporarily omitted the active conversation while earlier output was still visible or a new response was still streaming, the page immediately cleared the active transcript.
+
+This task hardens the Flows page against that transient refresh miss, adds explicit logging so future investigations can distinguish preserved transient omissions from intentional resets, and locks the scenario down with a dedicated regression test.
+
+#### Documentation Locations
+
+- `client/src/pages/FlowsPage.tsx`
+- `client/src/test/flowsPage.run.test.tsx`
+- this story file
+
+#### Subtasks
+
+1. [x] Reproduce the remaining transcript-loss path with a focused client test that simulates a transient filtered conversation refresh miss during live Flow streaming.
+2. [x] Add investigation logging around the Flows page active-conversation visibility reset so temporary omissions and actual clears are distinguishable in future runs.
+3. [x] Change the Flows page reset logic so visible or actively streaming transcript state is preserved when the active flow conversation is only temporarily missing from the filtered sidebar response.
+4. [x] Re-run the relevant Flow tests, client build validation, and a full client-suite pass after the hardening lands.
+5. [x] Update Task 23 implementation notes continuously as the direct investigation and fix are completed.
+
+#### Testing
+
+1. [x] `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --test-name "keeps visible transcript text if a flow refresh temporarily omits the active conversation while streaming"`
+2. [x] `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
+3. [x] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
+4. [x] `npm run build:summary:client`
+5. [x] `npm run test:summary:client`
+6. [x] `npm run lint --workspace client`
+7. [x] `npm run format:check --workspaces`
+
+#### Implementation notes
+
+- Subtask 1: Added a focused Flows regression in `client/src/test/flowsPage.run.test.tsx` that starts with visible earlier output, triggers a Flow run, forces the filtered `/conversations?flowName=daily` refresh to omit the active conversation once, and verifies the earlier bubble text and new live output both remain visible.
+- Subtasks 1-3: The new regression failed against the current branch before the fix, proving there was still a real UI-clearing path after the earlier Story 42 stale-replay hardening.
+- Subtasks 2-3: Updated `client/src/pages/FlowsPage.tsx` to log `flows.page.active_conversation_temporarily_hidden` when a transient filtered refresh miss happens during visible or processing transcript state, and to keep the transcript instead of immediately calling the hard reset path in that case.
+- Subtasks 2-3: Added a complementary `flows.page.active_conversation_hidden_reset` log for the branch that still intentionally clears the transcript when the active conversation is gone and there is no visible or processing transcript state left to preserve.
+- Testing 1: The focused regression command failed before the fix and then passed after the Flows page hardening landed, confirming the investigation reproduced and closed a real remaining bug rather than only adding observational logging.
+- Testing 2: `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx` passed with `tests run: 15`, `passed: 15`, and `failed: 0`.
+- Testing 3: `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx` passed with `tests run: 6`, `passed: 6`, and `failed: 0`.
+- Testing 4: `npm run build:summary:client` passed with `warning_count: 0` and `agent_action: skip_log`.
+- Testing 5: `npm run test:summary:client` passed with `tests run: 498`, `passed: 498`, and `failed: 0`.
+- Testing 6: `npm run lint --workspace client` passed; the only output was the existing `baseline-browser-mapping` staleness notice.
+- Testing 7: `npm run format:check --workspaces` initially failed on `client/src/test/flowsPage.run.test.tsx`, the file was formatted with Prettier, and the full workspace format check then passed.

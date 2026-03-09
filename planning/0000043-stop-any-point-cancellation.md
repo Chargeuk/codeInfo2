@@ -896,7 +896,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 9. Add Shared Client Stop State And Reconciliation Logic
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `1c867b1a - DEV-[0000043] - Add shared client stop-state reconciliation`
 
 #### Overview
@@ -933,7 +933,7 @@ Update the shared client stop state machine so the frontend can represent `stopp
 11. [x] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves unmounts, remounts, or reconnects while `stopping` is pending reconcile correctly when late events arrive. Purpose: cover shared navigation and reconnect corner cases.
 12. [x] Update `design.md`. Files (read/edit): `design.md`. Add a shared stop-state section and a Mermaid `flowchart` that shows `running -> stopping -> stopped`, the conversation-only no-op recovery path back to ready after `cancel_ack.result === 'noop'`, and the stale-event or invalid-target paths that must not invent a terminal state.
 13. [x] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
-14. [ ] Update this plan file’s `Implementation notes` for Task 9 after the implementation and tests are complete.
+14. [x] Update this plan file’s `Implementation notes` for Task 9 after the implementation and tests are complete.
 15. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
@@ -944,7 +944,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 2. [x] `npm run test:summary:client` - Use because this task changes Jest-covered shared client stop-state behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:client`.
 3. [x] `npm run compose:build:summary` - Use because this task is testable from the front end through the dockerized app. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
 4. [x] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm shared `stopping` and `stopped` behavior. In the browser console, assert `[stop-debug][stream-state] stopping` appears when Stop is clicked, then either `[stop-debug][stream-state] stopped` appears with the same `conversationId` and active `inflightId` after a real stop, or `[stop-debug][stream-state] noop-recovered` appears with the matching `conversationId` and `requestId` after a no-op path. Take a screenshot that shows the resulting GUI state and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`; the agent must review that screenshot to confirm the screen visibly shows `Stopping`, a final `Stopped` state, or ready-state recovery exactly as required by the exercised path. Expected outcome: exactly one matching transition line is emitted for the path taken, no stale-ack transition line appears, the screenshot shows the expected visible state, and there are no unexpected browser-console errors. If the shared console behavior is correct but the page still renders the old visible state, do not weaken Task 9 or patch page rendering here; leave Task 9 `__in_progress__` and rerun this manual check after Task 10 lands.
+5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm shared `stopping` and `stopped` behavior. In the browser console, assert `[stop-debug][stream-state] stopping` appears when Stop is clicked, then either `[stop-debug][stream-state] stopped` appears with the same `conversationId` and active `inflightId` after a real stop, or `[stop-debug][stream-state] noop-recovered` appears with the matching `conversationId` and `requestId` after a no-op path. Take a screenshot that shows the resulting GUI state and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`; the agent must review that screenshot to confirm the screen visibly shows `Stopping`, a final `Stopped` state, or ready-state recovery exactly as required by the exercised path. Expected outcome: exactly one matching transition line is emitted for the path taken, no stale-ack transition line appears, the screenshot shows the expected visible state, and there are no unexpected browser-console errors. If the shared console behavior is correct but the page still renders the old visible state, do not weaken Task 9 or patch page rendering here; leave Task 9 `__in_progress__` and rerun this manual check after Task 10 lands.
 6. [x] `npm run compose:down`
 
 #### Implementation notes
@@ -960,6 +960,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 - Testing 5 blocker: After rebuilding the client bundle sequentially and re-running the browser check on LM Studio, the shared console path is now correct: send no longer emits a phantom `[stop-debug][stream-state] stopping`, and a real stop emits one matching `[stop-debug][stream-state] stopping` followed by `[stop-debug][stream-state] stopped` for the active conversation and inflight. The reviewed screenshot from that run still shows the Chat bubble as `Processing` after the stopped final, so the required visible-state assertion is blocked on Chat page rendering work in Task 10 rather than the shared stream hook itself.
 - Blocker answer: Yes, treat this as an expected dependency on Task 10 rather than a reason to weaken Task 9 or move page rendering logic into the shared hook. Keep Task 9 `__in_progress__`, keep commit `1c867b1a` recorded for the implemented shared-state work, and rerun Testing step 5 plus the final Task 9 notes check only after Task 10 updates the Chat page to render the shared `stopping` and `stopped` states correctly.
 - Testing 6: Stopped the dockerized stack cleanly after the browser verification run so the environment is left in the expected down state while Task 9 remains open on the visible-state blocker.
+- Testing step 5 and Subtask 14: reran the required browser check after Task 10 at `http://host.docker.internal:5001/chat`, confirmed one `[stop-debug][stream-state] stopping` followed by one matching `[stop-debug][stream-state] stopped` for the same `conversationId`, `inflightId`, and final `turnId`, and reviewed `playwright-output-local/task9-stream-stopped.png`, which now shows the visible `Stopped` chip with no lingering `Processing`, `Stopping`, or `Generation stopped` state.
 
 ---
 

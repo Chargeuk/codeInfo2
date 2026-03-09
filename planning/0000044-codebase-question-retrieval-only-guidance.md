@@ -729,3 +729,119 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Final regression step 9 passed in Playwright against `http://host.docker.internal:5001`: the home app shell rendered correctly, the saved screenshot [0000044-final-regression-home.png](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000044-final-regression-home.png) showed no blank screen or obvious layout regression, the console showed an unrelated legacy `DEV-0000028[T8]` info log only, zero `[DEV-0000044][T1-9]` matches, and zero browser console `error` entries.
 - Final regression step 10 passed via `npm run compose:down`; the local compose stack shut down cleanly after the smoke test.
 - After stabilizing the timed-out client markdown test, reran `npx prettier client/src/test/agentsPage.run.test.tsx --write`, then reran `npm run format:check --workspaces` (clean) and `npm run lint --workspaces` (same pre-existing repo-wide import-order warnings only) so the final committed state stayed formatted.
+
+## Post-Implementation Code Review
+
+### Review Summary
+
+A full review of the branch against `main` found one material issue that should be fixed before this story is considered merge-ready. The Story 44 acceptance criteria for retrieval-only wording were met in the intended MCP, docs, prompt, and command surfaces, but three flow files on this branch now contain a conflicting instruction that tells agents not to use `code_info` during next-plan discovery. That conflicts with the repository onboarding contract in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md), which requires `code_info` first for repository questions and next-plan discovery.
+
+### Review Finding 1
+
+- Severity: High
+- Title: Next-plan flow prompts now conflict with mandatory `AGENTS.md` onboarding and can force agents onto a less accurate discovery path.
+- Files:
+  - [flows/implement_next_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/implement_next_plan.json)
+  - [flows/improve_task_implement_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/improve_task_implement_plan.json)
+  - [flows/task_and_implement_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/task_and_implement_plan.json)
+  - [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
+- Why it matters: these flow prompts explicitly say `Do NOT use code_info tools for this search`, while [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md) requires agents to call `code_info` before doing anything else during onboarding and to use `code_info` first for local repository questions. That contradiction makes the workflow nondeterministic, weakens the repository’s intended discovery path, and undermines the consistency Story 44 was trying to improve.
+- Expected fix direction: remove or rewrite the prohibition so the flow prompts align with the repository onboarding rule instead of overriding it.
+
+### Review Checks Performed
+
+- Compared the full branch diff against `main` with `git diff --stat main...HEAD` and `git diff --name-only main...HEAD`.
+- Re-read the core Story 44 surfaces, including the MCP tool definition, happy-path MCP test, docs, prompt families, command families, and the final story closeout notes.
+- Cross-checked the changed flow prompts against the onboarding and research-order rules in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md).
+- Checked the branch for legacy certainty wording across the Story 44 surfaces and confirmed the intended retrieval-first rewrites remain in place.
+
+### 10. Flow Next-Plan Discovery Alignment
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Align the flow prompts that select the next plan with the repository onboarding rule in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). This task exists because the branch currently contains flow-level wording that explicitly forbids `code_info` during next-plan discovery, which conflicts with the repo’s required onboarding path.
+
+#### Documentation Locations
+
+- Model Context Protocol tools concept and server behavior: https://modelcontextprotocol.io/docs/learn/server-concepts
+- OpenAI function calling guide, for concise workflow wording that cooperates with tool-use instructions rather than contradicting them: https://platform.openai.com/docs/guides/function-calling
+- OpenAI tools and MCP guide, for how tool instructions influence agent behavior without replacing repository policy: https://platform.openai.com/docs/guides/tools-connectors-mcp
+- JSON RFC overview, because this task edits JSON string content and must preserve valid JSON syntax and escaping: https://www.rfc-editor.org/rfc/rfc8259
+- npm run-script command reference, because validation should still use repository wrapper scripts where wrappers are relevant: https://docs.npmjs.com/cli/v10/commands/npm-run-script
+
+#### Subtasks
+
+Self-contained reminder for every subtask in this task: keep `https://modelcontextprotocol.io/docs/learn/server-concepts`, `https://platform.openai.com/docs/guides/function-calling`, `https://platform.openai.com/docs/guides/tools-connectors-mcp`, and `https://www.rfc-editor.org/rfc/rfc8259` open while working. The goal is to remove the contradiction with [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md) while leaving the rest of each flow unchanged.
+
+1. [ ] Read the documentation links above, then inspect [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md), [flows/implement_next_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/implement_next_plan.json), [flows/improve_task_implement_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/improve_task_implement_plan.json), and [flows/task_and_implement_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/task_and_implement_plan.json). Confirm the exact `Do NOT use code_info tools for this search` wording, note which flow steps contain it, and confirm the onboarding rule in `AGENTS.md` that requires `code_info` first for local repository questions and next-plan discovery. Junior copy/paste snippet for this subtask: `sed -n '20,55p' AGENTS.md`, `sed -n '1,40p' flows/implement_next_plan.json`, `sed -n '1,80p' flows/improve_task_implement_plan.json`, `sed -n '1,40p' flows/task_and_implement_plan.json`, `rg -n 'Do NOT use code_info tools for this search|code_info' flows/implement_next_plan.json flows/improve_task_implement_plan.json flows/task_and_implement_plan.json AGENTS.md`.
+2. [ ] Update the affected flow prompt strings in [flows/implement_next_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/implement_next_plan.json), [flows/improve_task_implement_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/improve_task_implement_plan.json), and [flows/task_and_implement_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/task_and_implement_plan.json) so next-plan discovery no longer forbids `code_info`. The replacement wording must align with the repo rule that `code_info` is used first for repository questions and onboarding, while still keeping the task focused on identifying the next incomplete story without making file changes at that stage.
+3. [ ] Search the three flow files for `Do NOT use code_info tools for this search`, `code_info`, `read Agents.md and follow its instructions`, and `next plan that has not yet been fully executed`. Record in Implementation notes which strings were changed, which flow steps were affected, and confirm there are no remaining prompt strings that contradict the onboarding order in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md).
+4. [ ] Specific file validation needed before wrapper testing. Confirm [flows/implement_next_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/implement_next_plan.json), [flows/improve_task_implement_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/improve_task_implement_plan.json), and [flows/task_and_implement_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/task_and_implement_plan.json) still parse as JSON after the wording edits by running `node -e "JSON.parse(require('fs').readFileSync('flows/implement_next_plan.json', 'utf8'));"`, `node -e "JSON.parse(require('fs').readFileSync('flows/improve_task_implement_plan.json', 'utf8'));"`, and `node -e "JSON.parse(require('fs').readFileSync('flows/task_and_implement_plan.json', 'utf8'));"`. Record the clean parse result for all three files in Implementation notes so quote or escape regressions are not missed.
+5. [ ] Manual Playwright-MCP log contract for Task 10. Expected browser-console outcome later: zero matches for the prefix `[DEV-0000044][T10]` and zero browser `error` entries caused by this story, because Task 10 changes flow/template JSON only and does not touch the browser runtime. Do not add any new client/runtime log line such as `[DEV-0000044][T10] event=flow_next_plan_alignment_applied result=success`. Record this expected zero-match outcome in Implementation notes.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Wrapper-only policy: do not attempt to run builds or tests without using repository wrapper commands.
+No wrapper build or automated test run is required for this task because it changes flow-template JSON text only. Validation for this task is the wording search, `AGENTS.md` comparison, and JSON parse checks completed in the subtasks above. Full wrapper regression is deferred to the final story re-close task below.
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 11. Final Story Re-Close After Review Fixes
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Perform the final whole-story validation again after Task 10 resolves the code-review finding. This task re-runs the Story 44 acceptance and regression checks so the branch is re-closed against both the original story intent and the post-implementation review finding.
+
+#### Documentation Locations
+
+- npm run-script command reference, because all validation must be run through repository wrapper scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- Node.js `node:test` API, because the server regression assertion added in this story still runs through the full server unit wrapper: https://nodejs.org/docs/latest-v22.x/api/test.html
+- Context7 Jest library reference: https://context7.com/jestjs/jest, because this task reruns the client Jest wrapper and any client-test diagnosis in this task should use the Jest documentation surfaced through the Context7 workflow the repository expects for non-MUI libraries.
+- Context7 Mermaid reference: https://context7.com/mermaid-js/mermaid, because if this re-close task discovers architecture or flow drift that must be documented, any Mermaid diagram added to `design.md` needs to match the Mermaid specification.
+- Cucumber guides index: https://cucumber.io/docs/guides/, because this task reruns the repository cucumber wrapper and the story should still point implementers at the official Cucumber guides hub before any deeper wrapper-level diagnosis.
+- Cucumber Continuous Integration guide, because it explicitly recommends running Cucumber from the build or CI entrypoint instead of ad hoc commands, which matches this repository’s wrapper-first test policy: https://cucumber.io/docs/guides/continuous-integration/
+- Playwright intro docs, because this task repeats the final manual smoke/regression check: https://playwright.dev/docs/intro
+- Markdown Guide basic syntax reference, because this task may need to update final summary text inside the story plan itself: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+Self-contained reminder for every subtask in this task: keep `https://docs.npmjs.com/cli/v10/commands/npm-run-script`, `https://nodejs.org/docs/latest-v22.x/api/test.html`, `https://context7.com/jestjs/jest`, `https://cucumber.io/docs/guides/`, and `https://context7.com/mermaid-js/mermaid` open while working. This task is the post-review safety net, so each subtask should explicitly record what was rechecked and why the story is merge-ready afterward.
+
+1. [ ] Re-read every file changed by Tasks 1 to 10 and confirm the wording contract is consistent across the server tool description, repo guidance, helper text, system prompts, command templates, and flow templates. Use repository searches for `come up with suggestions`, `100% confident`, `to be 100% confident of the answer`, `double check your thoughts`, `double-check your thoughts`, `ensure all edge cases are covered`, `check if all the changes needed`, `check if any of the logic planned`, `judge whether`, `be certain`, `confirm correctness`, `determine the approach`, `decide what to change`, `Do NOT use code_info tools for this search`, `code_info`, and `codebase_question`. In the same review pass, confirm the stable retrieval-first phrase set or a clearly equivalent lighter rewrite still appears across the core layers and that next-plan flow prompts no longer contradict [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). Junior copy/paste snippet for this subtask: `rg -n 'come up with suggestions|100% confident|double check your thoughts|double-check your thoughts|ensure all edge cases are covered|check if all the changes needed|check if any of the logic planned|judge whether|be certain|confirm correctness|determine the approach|decide what to change|Do NOT use code_info tools for this search|code_info|codebase_question|repository facts|likely file locations|summaries of existing implementations|current contracts|inspect source files directly|do its own reasoning' AGENTS.md docs/developer-reference.md usefulCommands.txt.md codex_agents flows server/src/mcp2/tools/codebaseQuestion.ts`.
+2. [ ] Perform an explicit acceptance-and-review checklist pass against the finished implementation. Record in Implementation notes where each of the following was confirmed: retrieval-only wording in the MCP tool description, the inspect-and-reason requirement, aligned wording across `AGENTS.md`, `codex_agents`, and `flows`, removal or rewrite of legacy certainty phrases, removal of the flow-level `Do NOT use code_info tools for this search` contradiction, the lightweight regression check location, unchanged public MCP method name, unchanged REST/MCP request-response shapes, unchanged runtime/storage behavior, unchanged legacy identifiers such as `CODE_INFO_LLM_UNAVAILABLE`, and confirmation that no investigation subtasks or open implementation questions remain.
+3. [ ] Document review: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md). Confirm they still do not need changes after the review-driven flow fix, or update any that unexpectedly drifted. Record the explicit keep-as-is or updated decision for each file in Implementation notes.
+4. [ ] Scope confirmation outside markdown docs. Description and purpose: confirm no `client/`, MUI, compose, websocket, REST, or Mongo-facing files needed additional changes as part of the review fix and record that keep-as-is decision in Implementation notes so the final re-close does not leave those boundaries implicit.
+5. [ ] Add a concise final post-review story summary in this plan’s Implementation notes describing the review finding, the flow files updated to fix it, the acceptance checks rerun, and any intentionally unchanged files that were reviewed.
+6. [ ] Manual Playwright-MCP log contract for Task 11. Expected browser-console outcome later: zero matches for the prefix `[DEV-0000044][T11]` and zero browser `error` entries caused by this story, because this final re-close still does not add browser/runtime behavior. Do not add any new client/runtime log line such as `[DEV-0000044][T11] event=story_reclose_verified result=success`. Record this expected zero-match outcome in Implementation notes.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Wrapper-only policy: do not attempt to run builds or tests without using the wrapper commands listed below.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Use because server/common code is still part of the story boundary and this is the final post-review regression check. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Use because this is the final post-review regression check and the repository is validated at the app level even though no client runtime files are expected to change. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Use for server `node:test` unit/integration coverage when server/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Use because this is the final post-review regression check and repository-wide text/config changes should still leave the full client wrapper green. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Use because this is the final post-review regression check and the plan must validate the full wrapper-driven app flow once after all story changes are complete. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - Use because this is the final post-review regression check. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP check to confirm the front end still loads at `http://host.docker.internal:5001`, the app shell renders without breaking after the review fix, and the browser debug console shows no logged errors during the regression pass. Capture at least one screenshot of the loaded app shell and any GUI surface touched during the smoke pass, save the files under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using Story 44 post-review names such as `0000044-post-review-regression-home.png`, and review the saved images directly to confirm there is no blank screen, broken layout, obvious visual regression, or unexpected error state. Expected console-log outcome: zero matches for `[DEV-0000044][T1]`, `[DEV-0000044][T2]`, `[DEV-0000044][T3]`, `[DEV-0000044][T4]`, `[DEV-0000044][T5]`, `[DEV-0000044][T6]`, `[DEV-0000044][T7]`, `[DEV-0000044][T8]`, `[DEV-0000044][T9]`, `[DEV-0000044][T10]`, and `[DEV-0000044][T11]`, because Story 44 remains guidance-only and must not introduce browser/runtime markers. If any of those prefixes appear, or any console entry has type `error`, fail the manual check and treat it as scope drift or a regression.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending.

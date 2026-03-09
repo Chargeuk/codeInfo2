@@ -1,5 +1,6 @@
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import HourglassTopIcon from '@mui/icons-material/HourglassTop';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
 import {
@@ -197,6 +198,9 @@ export default function FlowsPage() {
 
   const log = useMemo(() => createLogger('client-flows'), []);
   const assistantTranscriptVisibleRef = useRef(false);
+  const serverVisibleInflightIdRef = useRef<string | null>(null);
+  const stoppingVisibleLoggedRef = useRef<string | null>(null);
+  const stoppedVisibleLoggedRef = useRef<Set<string>>(new Set());
   const seenFlowInflightIdsRef = useRef<Set<string>>(new Set());
   const lastFlowInflightIdRef = useRef<string | null>(null);
   const hiddenConversationLogKeyRef = useRef<string | null>(null);
@@ -255,6 +259,7 @@ export default function FlowsPage() {
     status,
     isStreaming,
     stop,
+    reset,
     setConversation,
     hydrateHistory,
     hydrateInflightSnapshot,
@@ -340,6 +345,8 @@ export default function FlowsPage() {
     lastFlowInflightIdRef.current = null;
     hiddenConversationLogKeyRef.current = null;
     pendingTranscriptRetentionRef.current = [];
+    serverVisibleInflightIdRef.current = null;
+    stoppingVisibleLoggedRef.current = null;
   }, [activeConversationId]);
 
   const updateLiveTranscriptRetentionCandidate = useCallback(
@@ -493,6 +500,21 @@ export default function FlowsPage() {
         case 'analysis_delta':
         case 'tool_event':
         case 'turn_final':
+        case 'cancel_ack':
+          if (event.type === 'inflight_snapshot') {
+            serverVisibleInflightIdRef.current = event.inflight.inflightId;
+          } else if (
+            event.type !== 'cancel_ack' &&
+            event.type !== 'turn_final' &&
+            typeof event.inflightId === 'string'
+          ) {
+            serverVisibleInflightIdRef.current = event.inflightId;
+          } else if (
+            event.type === 'turn_final' &&
+            serverVisibleInflightIdRef.current === event.inflightId
+          ) {
+            serverVisibleInflightIdRef.current = null;
+          }
           updateLiveTranscriptRetentionCandidate(event);
           handleWsEvent(event);
           return;
@@ -642,23 +664,21 @@ export default function FlowsPage() {
     const hasProcessingTranscript = messages.some(
       (message) => message.streamStatus === 'processing',
     );
-    const action =
+    const shouldPreserveHiddenConversation =
       hasVisibleAssistantTranscript ||
       hasProcessingTranscript ||
       isStreaming ||
-      status === 'sending'
-        ? 'preserve_transcript'
-        : 'clear_transcript';
+      startPending ||
+      status === 'sending' ||
+      status === 'stopping';
+    const action = shouldPreserveHiddenConversation
+      ? 'preserve_transcript'
+      : 'clear_transcript';
     const hiddenLogKey = `${activeConversationId}:${selectedFlowName}:${action}`;
     const shouldLogHiddenTransition =
       hiddenConversationLogKeyRef.current !== hiddenLogKey;
     hiddenConversationLogKeyRef.current = hiddenLogKey;
-    if (
-      hasVisibleAssistantTranscript ||
-      hasProcessingTranscript ||
-      isStreaming ||
-      status === 'sending'
-    ) {
+    if (shouldPreserveHiddenConversation) {
       if (shouldLogHiddenTransition) {
         log('info', 'flows.page.active_conversation_temporarily_hidden', {
           conversationId: activeConversationId,
@@ -689,7 +709,9 @@ export default function FlowsPage() {
     }
     resetTurns();
     setActiveConversationId(undefined);
-    setConversation(makeClientConversationId(), { clearMessages: true });
+    setConversation(reset(), { clearMessages: true });
+    serverVisibleInflightIdRef.current = null;
+    stoppingVisibleLoggedRef.current = null;
     setSuppressAutoSelect(false);
   }, [
     activeConversationId,
@@ -697,6 +719,8 @@ export default function FlowsPage() {
     isStreaming,
     log,
     messages,
+    startPending,
+    reset,
     resetTurns,
     selectedFlowName,
     setConversation,
@@ -712,8 +736,42 @@ export default function FlowsPage() {
 
   useEffect(() => {
     if (!activeConversationId || !inflightSnapshot) return;
+    serverVisibleInflightIdRef.current = inflightSnapshot.inflightId;
     hydrateInflightSnapshot(activeConversationId, inflightSnapshot);
   }, [activeConversationId, hydrateInflightSnapshot, inflightSnapshot]);
+
+  useEffect(() => {
+    if (!activeConversationId) {
+      stoppingVisibleLoggedRef.current = null;
+      return;
+    }
+    if (status !== 'stopping') {
+      stoppingVisibleLoggedRef.current = null;
+      return;
+    }
+    if (stoppingVisibleLoggedRef.current === activeConversationId) return;
+    stoppingVisibleLoggedRef.current = activeConversationId;
+    console.info('[stop-debug][flows-ui] stopping-visible', {
+      conversationId: activeConversationId,
+    });
+  }, [activeConversationId, status]);
+
+  useEffect(() => {
+    displayMessages.forEach((message) => {
+      if (
+        message.role !== 'assistant' ||
+        message.streamStatus !== 'stopped' ||
+        stoppedVisibleLoggedRef.current.has(message.id)
+      ) {
+        return;
+      }
+      stoppedVisibleLoggedRef.current.add(message.id);
+      console.info('[stop-debug][flows-ui] stopped-visible', {
+        conversationId: activeConversationId ?? getConversationId(),
+        turnId: message.id,
+      });
+    });
+  }, [activeConversationId, displayMessages, getConversationId]);
 
   const mapToolCalls = useCallback((toolCalls: unknown): ToolCall[] => {
     const calls =
@@ -766,7 +824,12 @@ export default function FlowsPage() {
             role: turn.role === 'system' ? 'assistant' : turn.role,
             content: turn.content,
             tools: mapToolCalls(turn.toolCalls ?? null),
-            streamStatus: turn.status === 'failed' ? 'failed' : 'complete',
+            streamStatus:
+              turn.status === 'failed'
+                ? 'failed'
+                : turn.status === 'stopped'
+                  ? 'stopped'
+                  : 'complete',
             command: turn.command,
             usage: turn.usage,
             timing: turn.timing,
@@ -800,16 +863,17 @@ export default function FlowsPage() {
   ]);
 
   const resetConversation = useCallback(() => {
-    stop();
     setStartPending(false);
     setRunError(null);
     resetTurns();
     setActiveConversationId(undefined);
-    setConversation(makeClientConversationId(), { clearMessages: true });
+    setConversation(reset(), { clearMessages: true });
     setFlowModelId('unknown');
     setWorkingFolder('');
     setCustomTitle('');
-  }, [resetTurns, setConversation, stop]);
+    serverVisibleInflightIdRef.current = null;
+    stoppingVisibleLoggedRef.current = null;
+  }, [reset, resetTurns, setConversation]);
 
   const handleNewFlowReset = useCallback(() => {
     setSuppressAutoSelect(true);
@@ -858,10 +922,11 @@ export default function FlowsPage() {
 
   const handleSelectConversation = (conversationId: string) => {
     if (conversationId === activeConversationId) return;
-    stop();
     resetTurns();
     setSuppressAutoSelect(false);
     setConversation(conversationId, { clearMessages: true });
+    serverVisibleInflightIdRef.current = null;
+    stoppingVisibleLoggedRef.current = null;
     const summary = flowConversations.find(
       (conversation) => conversation.conversationId === conversationId,
     );
@@ -872,23 +937,27 @@ export default function FlowsPage() {
   };
 
   const handleStopClick = useCallback(() => {
-    if (!selectedFlowName) return;
-    log('info', 'flows.ui.stop_clicked', { flowName: selectedFlowName });
-    const inflightId = getInflightId();
-    const conversationId = getConversationId() ?? activeConversationId;
-
-    if (conversationId && inflightId) {
-      cancelInflight(conversationId, inflightId);
+    if (!selectedFlowName || !activeConversationId || status === 'stopping') {
+      return;
     }
-
-    stop({ showStatusBubble: true });
+    log('info', 'flows.ui.stop_clicked', { flowName: selectedFlowName });
+    const inflightId =
+      inflightSnapshot?.inflightId ??
+      serverVisibleInflightIdRef.current ??
+      undefined;
+    console.info('[stop-debug][flows-ui] stop-clicked', {
+      conversationId: activeConversationId,
+      ...(inflightId ? { inflightId } : {}),
+    });
+    const requestId = cancelInflight(activeConversationId, inflightId);
+    stop({ requestId, showStatusBubble: true });
   }, [
     activeConversationId,
     cancelInflight,
-    getConversationId,
-    getInflightId,
+    inflightSnapshot?.inflightId,
     log,
     selectedFlowName,
+    status,
     stop,
   ]);
 
@@ -912,7 +981,6 @@ export default function FlowsPage() {
         { flowName: selectedFlowName },
       );
 
-      stop();
       setStartPending(true);
 
       const nextConversationId =
@@ -1009,7 +1077,6 @@ export default function FlowsPage() {
       selectedFlowName,
       setConversation,
       setSuppressAutoSelect,
-      stop,
       subscribeConversation,
       workingFolder,
       wsTranscriptReady,
@@ -1017,7 +1084,8 @@ export default function FlowsPage() {
   );
 
   const isSending = startPending || isStreaming || status === 'sending';
-  const showStop = isSending;
+  const isStopping = status === 'stopping';
+  const showStop = isSending || isStopping;
   const customTitleDisabled =
     isSending || Boolean(resumeStepPath) || selectedFlowHasHistory;
 
@@ -1301,10 +1369,10 @@ export default function FlowsPage() {
                       type="button"
                       variant="outlined"
                       onClick={handleStopClick}
-                      disabled={!showStop}
+                      disabled={!showStop || isStopping}
                       data-testid="flow-stop"
                     >
-                      Stop
+                      {isStopping ? 'Stopping...' : 'Stop'}
                     </Button>
                   </Stack>
                   {resumeStepPath && (
@@ -1559,7 +1627,11 @@ export default function FlowsPage() {
                                           ? 'success'
                                           : message.streamStatus === 'failed'
                                             ? 'error'
-                                            : 'default'
+                                            : message.streamStatus === 'stopped'
+                                              ? 'warning'
+                                              : isStopping
+                                                ? 'warning'
+                                                : 'default'
                                       }
                                       icon={
                                         message.streamStatus === 'complete' ? (
@@ -1567,8 +1639,16 @@ export default function FlowsPage() {
                                         ) : message.streamStatus ===
                                           'failed' ? (
                                           <ErrorOutlineIcon fontSize="small" />
+                                        ) : message.streamStatus ===
+                                          'stopped' ? (
+                                          <HourglassTopIcon fontSize="small" />
                                         ) : (
-                                          <CircularProgress size={14} />
+                                          <CircularProgress
+                                            size={14}
+                                            color={
+                                              isStopping ? 'warning' : 'inherit'
+                                            }
+                                          />
                                         )
                                       }
                                       label={
@@ -1576,7 +1656,11 @@ export default function FlowsPage() {
                                           ? 'Complete'
                                           : message.streamStatus === 'failed'
                                             ? 'Failed'
-                                            : 'Processing'
+                                            : message.streamStatus === 'stopped'
+                                              ? 'Stopped'
+                                              : isStopping
+                                                ? 'Stopping'
+                                                : 'Processing'
                                       }
                                       data-testid="status-chip"
                                       sx={{ alignSelf: 'flex-start' }}

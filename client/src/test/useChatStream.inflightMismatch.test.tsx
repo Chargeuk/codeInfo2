@@ -1,6 +1,10 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { jest } from '@jest/globals';
 import useChatStream, { type ChatMessage } from '../hooks/useChatStream';
-import type { ChatWsTranscriptEvent } from '../hooks/useChatWs';
+import type {
+  ChatWsCancelAckEvent,
+  ChatWsTranscriptEvent,
+} from '../hooks/useChatWs';
 
 describe('useChatStream inflight mismatch handling', () => {
   const getAssistantMessages = (result: {
@@ -1775,6 +1779,544 @@ describe('useChatStream inflight mismatch handling', () => {
       expect(assistantMessages).toHaveLength(1);
       expect(assistantMessages[0]?.content).toBe('First reply continues');
       expect(assistantMessages[0]?.streamStatus).toBe('processing');
+    });
+  });
+
+  it('enters stopping and preserves a distinct stopped terminal status when the matching final arrives', async () => {
+    const conversationId = 'stop-state-happy-path';
+    const consoleInfoSpy = jest
+      .spyOn(console, 'info')
+      .mockImplementation(() => {});
+
+    try {
+      const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+      act(() => {
+        result.current.setConversation(conversationId, { clearMessages: true });
+      });
+
+      act(() =>
+        result.current.handleWsEvent({
+          protocolVersion: 'v1',
+          type: 'user_turn',
+          conversationId,
+          seq: 1,
+          inflightId: 'i1',
+          content: 'Stop this run',
+          createdAt: '2025-01-01T00:00:00.000Z',
+        }),
+      );
+      act(() =>
+        result.current.handleWsEvent({
+          protocolVersion: 'v1',
+          type: 'assistant_delta',
+          conversationId,
+          seq: 2,
+          inflightId: 'i1',
+          delta: 'Partial reply',
+        }),
+      );
+
+      act(() => {
+        result.current.stop({
+          requestId: 'req-stop-1',
+          showStatusBubble: true,
+        });
+      });
+
+      await waitFor(() => {
+        expect(result.current.status).toBe('stopping');
+        const assistantMessages = getAssistantMessages(result);
+        expect(assistantMessages[0]?.streamStatus).toBe('processing');
+      });
+
+      expect(consoleInfoSpy).toHaveBeenCalledWith(
+        '[stop-debug][stream-state] stopping',
+        {
+          conversationId,
+          inflightId: 'i1',
+        },
+      );
+
+      act(() =>
+        result.current.handleWsEvent({
+          protocolVersion: 'v1',
+          type: 'turn_final',
+          conversationId,
+          seq: 3,
+          inflightId: 'i1',
+          status: 'stopped',
+        }),
+      );
+
+      await waitFor(() => {
+        expect(result.current.status).toBe('idle');
+        const assistantMessages = getAssistantMessages(result);
+        expect(assistantMessages[0]?.streamStatus).toBe('stopped');
+        expect(assistantMessages[0]?.content).toBe('Partial reply');
+      });
+
+      expect(consoleInfoSpy).toHaveBeenCalledWith(
+        '[stop-debug][stream-state] stopped',
+        expect.objectContaining({
+          conversationId,
+          inflightId: 'i1',
+          turnId: expect.any(String),
+        }),
+      );
+    } finally {
+      consoleInfoSpy.mockRestore();
+    }
+  });
+
+  it('does not enter stopping when send starts a new run', async () => {
+    const conversationId = 'send-does-not-stop';
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: 'started',
+          conversationId,
+          inflightId: 'i1',
+          provider: 'codex',
+          model: 'm1',
+        }),
+        {
+          status: 202,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    );
+    const consoleInfoSpy = jest
+      .spyOn(console, 'info')
+      .mockImplementation(() => {});
+
+    try {
+      const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+      act(() => {
+        result.current.setConversation(conversationId, { clearMessages: true });
+      });
+
+      await act(async () => {
+        await result.current.send('Start a new run');
+      });
+
+      await waitFor(() => {
+        expect(result.current.status).toBe('sending');
+      });
+
+      expect(consoleInfoSpy).not.toHaveBeenCalledWith(
+        '[stop-debug][stream-state] stopping',
+        expect.anything(),
+      );
+    } finally {
+      consoleInfoSpy.mockRestore();
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('clears stopping after a matching noop cancel_ack without inventing a terminal bubble', async () => {
+    const conversationId = 'stop-state-noop-recovery';
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Race start',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        delta: 'Partial reply',
+      }),
+    );
+
+    act(() => {
+      result.current.stop({ requestId: 'req-noop-1', showStatusBubble: true });
+    });
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('stopping');
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'cancel_ack',
+        conversationId,
+        requestId: 'req-noop-1',
+        result: 'noop',
+      } satisfies ChatWsCancelAckEvent),
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('idle');
+      const assistantMessages = getAssistantMessages(result);
+      expect(
+        assistantMessages.some(
+          (message) => message.content === 'Generation stopped',
+        ),
+      ).toBe(false);
+      expect(
+        assistantMessages.some((message) => message.streamStatus === 'stopped'),
+      ).toBe(false);
+    });
+  });
+
+  it('ignores invalid-target failures for an older inflight and duplicate final events for the active inflight', async () => {
+    const conversationId = 'stop-state-invalid-target-and-duplicates';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'First run',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        delta: 'First reply',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 3,
+        inflightId: 'i1',
+        status: 'ok',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 4,
+        inflightId: 'i2',
+        content: 'Second run',
+        createdAt: '2025-01-01T00:00:10.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 5,
+        inflightId: 'i2',
+        delta: 'Second reply',
+      }),
+    );
+
+    act(() => {
+      result.current.stop({ requestId: 'req-invalid-target' });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 6,
+        inflightId: 'i1',
+        status: 'failed',
+        error: {
+          code: 'INFLIGHT_NOT_FOUND',
+          message: 'No active in-flight run found for conversation.',
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('stopping');
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages[0]?.streamStatus).toBe('complete');
+      expect(assistantMessages[1]?.streamStatus).toBe('processing');
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 7,
+        inflightId: 'i2',
+        status: 'stopped',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 8,
+        inflightId: 'i2',
+        status: 'stopped',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('idle');
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages[0]?.streamStatus).toBe('complete');
+      expect(assistantMessages[1]?.streamStatus).toBe('stopped');
+      expect(assistantMessages).toHaveLength(2);
+    });
+  });
+
+  it('suppresses a stale older-inflight terminal failure when no visible bubble exists for that run', async () => {
+    const conversationId = 'replacement-run-stale-terminal-suppressed';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i2',
+        content: 'Replacement run',
+        createdAt: '2025-01-01T00:00:10.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i2',
+        delta: 'Replacement reply',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.content).toBe('Replacement reply');
+      expect(assistantMessages[0]?.streamStatus).toBe('processing');
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 3,
+        inflightId: 'i1',
+        status: 'failed',
+        error: {
+          code: 'INFLIGHT_NOT_FOUND',
+          message: 'Stale stop request ignored for the replacement run',
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.content).toBe('Replacement reply');
+      expect(assistantMessages[0]?.streamStatus).toBe('processing');
+      expect(
+        assistantMessages.some((message) =>
+          message.content.includes('Stale stop request ignored'),
+        ),
+      ).toBe(false);
+    });
+  });
+
+  it('does not clear stopping when cancel_ack.requestId does not match the active stop request', async () => {
+    const conversationId = 'stop-state-stale-ack';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+
+    act(() => {
+      result.current.stop({ requestId: 'req-current-stop' });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'cancel_ack',
+        conversationId,
+        requestId: 'req-stale-stop',
+        result: 'noop',
+      } satisfies ChatWsCancelAckEvent),
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('stopping');
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages[0]?.streamStatus).toBe('processing');
+    });
+  });
+
+  it('does not append an immediate local Generation stopped bubble when the shared stop path is called', async () => {
+    const conversationId = 'stop-state-no-local-bubble';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+
+    act(() => {
+      result.current.stop({
+        requestId: 'req-no-local-bubble',
+        showStatusBubble: true,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('stopping');
+      expect(
+        result.current.messages.some(
+          (message) =>
+            message.role === 'assistant' &&
+            message.kind === 'status' &&
+            message.content === 'Generation stopped',
+        ),
+      ).toBe(false);
+    });
+  });
+
+  it('reconciles a reconnect-style inflight hydration while stopping and applies the late stopped final once', async () => {
+    const conversationId = 'stop-state-reconnect-reconcile';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i1',
+        content: 'Prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i1',
+        delta: 'Partial reply',
+      }),
+    );
+    act(() => {
+      result.current.stop({ requestId: 'req-reconnect-stop' });
+    });
+
+    const hydratedHistory = result.current.messages.map((message) => ({
+      ...message,
+    }));
+
+    act(() => {
+      result.current.hydrateHistory(conversationId, hydratedHistory, 'replace');
+      result.current.hydrateInflightSnapshot(conversationId, {
+        inflightId: 'i1',
+        seq: 3,
+        assistantText: 'Partial reply',
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: '2025-01-01T00:00:00.000Z',
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('stopping');
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages[0]?.streamStatus).toBe('processing');
+      expect(assistantMessages[0]?.content).toBe('Partial reply');
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 4,
+        inflightId: 'i1',
+        status: 'stopped',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('idle');
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages[0]?.streamStatus).toBe('stopped');
+      expect(assistantMessages[0]?.content).toBe('Partial reply');
     });
   });
 });

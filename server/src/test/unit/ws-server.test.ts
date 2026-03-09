@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 import express from 'express';
 import WebSocket, { type RawData } from 'ws';
 
+import { runAgentCommandRunner } from '../../agents/commandsRunner.js';
+import {
+  cleanupInflight,
+  createInflight,
+} from '../../chat/inflightRegistry.js';
 import {
   __resetIngestJobsForTest,
   __setStatusAndPublishForTest,
@@ -345,6 +353,46 @@ test('WS cancel_inflight accepts payload with conversationId and inflightId', as
   }
 });
 
+test('WS cancel_inflight with wrong active inflightId keeps explicit invalid-target failure behavior', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'c-wrong-active-target';
+
+  createInflight({
+    conversationId,
+    inflightId: 'active-inflight',
+  });
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    sendJson(ws, {
+      type: 'cancel_inflight',
+      conversationId,
+      inflightId: 'wrong-inflight',
+    });
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (
+        payload,
+      ): payload is { type: string; error?: { code?: string } } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'turn_final',
+      timeoutMs: 1000,
+    });
+
+    assert.equal(final.error?.code, 'INFLIGHT_NOT_FOUND');
+  } finally {
+    cleanupInflight({ conversationId });
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
 test('WS cancel_inflight rejects malformed payloads', async () => {
   {
     const server = await startServer();
@@ -391,6 +439,13 @@ test('WS cancel_inflight rejects malformed payloads', async () => {
       await stopServer(server);
     }
   }
+
+  assert.equal(
+    query({
+      text: '[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED',
+    }).length,
+    0,
+  );
 });
 
 test('WS conversation-only cancel does not emit INFLIGHT_NOT_FOUND turn_final', async () => {
@@ -405,6 +460,24 @@ test('WS conversation-only cancel does not emit INFLIGHT_NOT_FOUND turn_final', 
 
     sendJson(ws, { type: 'cancel_inflight', conversationId });
 
+    const ack = await waitForEvent({
+      ws,
+      predicate: (
+        payload,
+      ): payload is {
+        type: string;
+        conversationId?: string;
+        result?: string;
+      } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'cancel_ack',
+      timeoutMs: 1000,
+    });
+
+    assert.equal(ack.conversationId, conversationId);
+    assert.equal(ack.result, 'noop');
+
     await assert.rejects(
       waitForEvent({
         ws,
@@ -417,6 +490,40 @@ test('WS conversation-only cancel does not emit INFLIGHT_NOT_FOUND turn_final', 
         timeoutMs: 300,
       }),
     );
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('WS conversation-only cancel_ack requestId matches the initiating request', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'c-noop-request-correlation';
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const { requestId } = sendJson(ws, {
+      type: 'cancel_inflight',
+      conversationId,
+    });
+
+    const ack = await waitForEvent({
+      ws,
+      predicate: (
+        payload,
+      ): payload is { type: string; requestId?: string; result?: string } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'cancel_ack',
+      timeoutMs: 1000,
+    });
+
+    assert.equal(ack.requestId, requestId);
+    assert.equal(ack.result, 'noop');
   } finally {
     await closeWs(ws);
     await stopServer(server);
@@ -444,6 +551,268 @@ test('WS conversation-only cancel attempts command abort by conversationId', asy
   } finally {
     await closeWs(ws);
     await stopServer(server);
+  }
+});
+
+test('WS conversation-only cancel emits no invalid-target final while an agent command run is active', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'ws-server-command-cancel-'),
+  );
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'c-command-active-cancel';
+
+  try {
+    const agentHome = path.join(tmpDir, 'agent-a');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    await fs.writeFile(
+      path.join(agentHome, 'commands', 'wait.json'),
+      JSON.stringify({
+        Description: 'Wait for stop',
+        items: [{ type: 'message', role: 'user', content: ['step 1'] }],
+      }),
+      'utf-8',
+    );
+
+    let resolveAbortWait: (() => void) | undefined;
+    let started: (() => void) | undefined;
+    const stepStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const abortObserved = new Promise<void>((resolve) => {
+      resolveAbortWait = resolve;
+    });
+
+    const runPromise = runAgentCommandRunner({
+      agentName: 'agent-a',
+      agentHome,
+      commandName: 'wait',
+      conversationId,
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        started?.();
+        params.signal?.addEventListener('abort', () => resolveAbortWait?.(), {
+          once: true,
+        });
+        await abortObserved;
+        return { modelId: 'm1' };
+      },
+    });
+
+    await stepStarted;
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    sendJson(ws, { type: 'cancel_inflight', conversationId });
+    await runPromise;
+
+    assert.ok(
+      query({
+        text: `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED conversationId=${conversationId}`,
+      }).length > 0,
+    );
+    await assert.rejects(
+      waitForEvent({
+        ws,
+        predicate: (
+          payload,
+        ): payload is { type: string; error?: { code?: string } } =>
+          typeof payload === 'object' &&
+          payload !== null &&
+          (payload as { type?: string }).type === 'turn_final',
+        timeoutMs: 300,
+      }),
+    );
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('WS explicit cancel for an active command-step inflight stops the command run completely', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'ws-server-command-explicit-stop-'),
+  );
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'c-command-explicit-stop';
+  const inflightId = 'command-step-1';
+
+  try {
+    const agentHome = path.join(tmpDir, 'agent-a');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    await fs.writeFile(
+      path.join(agentHome, 'commands', 'wait.json'),
+      JSON.stringify({
+        Description: 'Wait for explicit stop',
+        items: [
+          { type: 'message', role: 'user', content: ['step 1'] },
+          { type: 'message', role: 'user', content: ['step 2'] },
+        ],
+      }),
+      'utf-8',
+    );
+
+    let startedStepOne: (() => void) | undefined;
+    const stepOneStarted = new Promise<void>((resolve) => {
+      startedStepOne = resolve;
+    });
+    const calls: number[] = [];
+
+    const runPromise = runAgentCommandRunner({
+      agentName: 'agent-a',
+      agentHome,
+      commandName: 'wait',
+      conversationId,
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        const stepIndex = params.command?.stepIndex ?? -1;
+        calls.push(stepIndex);
+        if (stepIndex === 1) {
+          createInflight({
+            conversationId,
+            inflightId,
+            command: { name: 'wait', stepIndex: 1, totalSteps: 2 },
+          });
+          startedStepOne?.();
+          await new Promise<void>((resolve) => {
+            params.signal?.addEventListener(
+              'abort',
+              () => {
+                cleanupInflight({ conversationId });
+                resolve();
+              },
+              { once: true },
+            );
+          });
+        }
+        return { modelId: 'm1' };
+      },
+    });
+
+    await stepOneStarted;
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    sendJson(ws, {
+      type: 'cancel_inflight',
+      conversationId,
+      inflightId,
+    });
+
+    await runPromise;
+    assert.deepEqual(calls, [1]);
+    await assert.rejects(
+      waitForEvent({
+        ws,
+        predicate: (
+          payload,
+        ): payload is { type: string; error?: { code?: string } } =>
+          typeof payload === 'object' &&
+          payload !== null &&
+          (payload as { type?: string }).type === 'turn_final',
+        timeoutMs: 300,
+      }),
+    );
+  } finally {
+    cleanupInflight({ conversationId });
+    await closeWs(ws);
+    await stopServer(server);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('WS explicit cancel with wrong inflightId does not abort an active command run', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'ws-server-command-wrong-explicit-stop-'),
+  );
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'c-command-wrong-explicit-stop';
+  const activeInflightId = 'command-step-1-active';
+
+  try {
+    const agentHome = path.join(tmpDir, 'agent-a');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    await fs.writeFile(
+      path.join(agentHome, 'commands', 'continue.json'),
+      JSON.stringify({
+        Description: 'Continue after invalid target',
+        items: [
+          { type: 'message', role: 'user', content: ['step 1'] },
+          { type: 'message', role: 'user', content: ['step 2'] },
+        ],
+      }),
+      'utf-8',
+    );
+
+    let startedStepOne: (() => void) | undefined;
+    let allowStepOneToFinish: (() => void) | undefined;
+    const stepOneStarted = new Promise<void>((resolve) => {
+      startedStepOne = resolve;
+    });
+    const continueAfterFailure = new Promise<void>((resolve) => {
+      allowStepOneToFinish = resolve;
+    });
+    const calls: number[] = [];
+
+    const runPromise = runAgentCommandRunner({
+      agentName: 'agent-a',
+      agentHome,
+      commandName: 'continue',
+      conversationId,
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        const stepIndex = params.command?.stepIndex ?? -1;
+        calls.push(stepIndex);
+        if (stepIndex === 1) {
+          createInflight({
+            conversationId,
+            inflightId: activeInflightId,
+            command: { name: 'continue', stepIndex: 1, totalSteps: 2 },
+          });
+          startedStepOne?.();
+          await continueAfterFailure;
+          cleanupInflight({ conversationId });
+        }
+        return { modelId: 'm1' };
+      },
+    });
+
+    await stepOneStarted;
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    sendJson(ws, {
+      type: 'cancel_inflight',
+      conversationId,
+      inflightId: 'wrong-inflight-id',
+    });
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (
+        payload,
+      ): payload is { type: string; error?: { code?: string } } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'turn_final',
+      timeoutMs: 1000,
+    });
+
+    assert.equal(final.error?.code, 'INFLIGHT_NOT_FOUND');
+    allowStepOneToFinish?.();
+    await runPromise;
+    assert.deepEqual(calls, [1, 2]);
+  } finally {
+    cleanupInflight({ conversationId });
+    await closeWs(ws);
+    await stopServer(server);
+    await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 

@@ -1244,6 +1244,392 @@ sequenceDiagram
   end
 ```
 
+## Story 0000043 Task 1: websocket stop contract with explicit no-op acknowledgement
+
+- `cancel_inflight` remains the client stop message and still requires `conversationId` while keeping `inflightId` optional.
+- Explicit `{ conversationId, inflightId }` requests keep the existing invalid-target failure behavior when the inflight id does not match the active run.
+- Conversation-only `{ conversationId }` requests first try the legacy command-run abort path, then abort the current inflight run when one exists, and only emit `cancel_ack { result: 'noop' }` when there is no active run for that conversation.
+- `cancel_ack` is non-terminal and request-correlated; successful active cancellations still complete through the existing `turn_final.status === 'stopped'` path.
+
+```mermaid
+sequenceDiagram
+  participant UI as Client
+  participant WS as WebSocket /ws
+  participant CR as Commands Runner
+  participant IR as Inflight Registry
+  participant Run as Active Run
+
+  UI->>WS: cancel_inflight(conversationId, inflightId?)
+  WS->>WS: validate request and log receipt
+
+  alt inflightId provided
+    WS->>IR: abortInflight(conversationId, inflightId)
+    alt explicit target matches active run
+      IR-->>Run: abort signal
+      Run-->>UI: turn_final(status=stopped)
+    else explicit target missing or stale
+      WS-->>UI: turn_final(status=failed, error.code=INFLIGHT_NOT_FOUND)
+    end
+  else inflightId omitted
+    WS->>CR: abortAgentCommandRun(conversationId)
+    alt active command run found
+      CR-->>Run: abort signal
+      Run-->>UI: existing terminal stop path
+    else no active command run
+      WS->>IR: abortInflightByConversation(conversationId)
+      alt active inflight run found
+        IR-->>Run: abort signal
+        Run-->>UI: turn_final(status=stopped)
+      else no active run
+        WS-->>UI: cancel_ack(requestId, conversationId, result=noop)
+      end
+    end
+  end
+```
+
+## Story 0000043 Task 2: active-run ownership lives in the conversation lock
+
+- The conversation lock now owns lightweight runtime metadata rather than bare set membership.
+- Each successful lock acquisition creates a fresh `runToken` and `startedAt` timestamp for the one active run on that conversation.
+- Ownership remains runtime-only and is not persisted or published over websocket.
+- Lock release can optionally verify an expected `runToken` so a stale cleanup path does not clear a newer replacement run.
+
+```mermaid
+flowchart TD
+  A[tryAcquireConversationLock conversationId] --> B{Lock already held?}
+  B -- yes --> C[Return false and keep current ownership]
+  B -- no --> D[Create runToken with crypto.randomUUID]
+  D --> E[Store startedAt timestamp]
+  E --> F[Return lock acquired]
+  F --> G[Active run executes with ownership metadata]
+  G --> H{releaseConversationLock called}
+  H --> I{expectedRunToken provided?}
+  I -- no --> J[Clear ownership and unlock conversation]
+  I -- yes --> K{expectedRunToken matches active runToken?}
+  K -- yes --> J
+  K -- no --> L[Keep newer ownership intact and return false]
+```
+
+## Story 0000043 Task 3: pending-cancel state is runtime-only and token-bound
+
+- Pending cancel now lives in the shared inflight registry as runtime-only conversation state, not in a second registry.
+- Each pending-cancel entry binds to the active `runToken`, may later bind to that run's `inflightId`, and can only be consumed once by the matching run.
+- No-active-run paths keep the registry empty, and cleanup paths clear matching pending-cancel state so stale startup-race stop requests cannot leak into a replacement run.
+- Shared cleanup callers may clear pending state independently of lock release success so cleanup failures do not strand stop ownership.
+
+```mermaid
+flowchart TD
+  A[Stop accepted for active conversation runToken] --> B[Register pending cancel with requestedAt]
+  B --> C{InflightId known yet?}
+  C -- no --> D[Wait for run to create or expose inflightId]
+  C -- yes --> E[Bind pending cancel to inflightId]
+  D --> E
+  E --> F{Matching runToken consumes pending cancel?}
+  F -- yes --> G[Return single pending cancel payload and delete entry]
+  F -- no --> H[Keep entry until matching run or cleanup]
+  G --> I[Run finalization and shared cleanup]
+  H --> I
+  I --> J[Clear matching pending cancel on cleanup or no-op]
+  J --> K[Replacement run starts without inheriting stale cancel]
+```
+
+## Story 0000043 Task 4: chat stop reuses shared ownership and cleanup
+
+- Chat start keeps the existing `202 started` route contract, but the runtime now captures the active `runToken` and re-checks pending cancel after inflight creation and again before provider execution starts.
+- Chat execution passes the shared inflight `AbortSignal` into provider-capable paths and pre-checks that signal before `execute(...)` begins meaningful work, so a startup-race stop can still finish as `turn_final.status === 'stopped'`.
+- Chat route finalization is now the single runtime cleanup path for chat: it falls back to one stopped or failed terminal outcome when the provider never emits a terminal event, then clears inflight state, pending-cancel state, and the conversation lock in a fixed order.
+- Same-conversation reuse depends on that cleanup path completing, so duplicate stops and cleanup-failure fallback must never leak lock ownership or pending cancel into the next chat run.
+
+```mermaid
+sequenceDiagram
+  participant UI as Client
+  participant Route as POST /chat
+  participant IR as Inflight Registry
+  participant Chat as ChatInterface.run
+  participant Bridge as Chat Stream Bridge
+  participant Provider as Provider Runtime
+
+  UI->>Route: start chat
+  Route->>Route: acquire conversation lock and runToken
+  Route->>IR: createInflight(conversationId, inflightId)
+  Route->>IR: consume pending cancel for runToken if present
+  Route-->>UI: 202 started with inflightId
+  Route->>Bridge: attach stream bridge
+  Route->>Chat: run(... signal, deferInflightCleanup=true)
+  Chat->>Chat: signal.throwIfAborted()
+  alt startup-race stop already won
+    Chat-->>Route: abort before provider work
+    Route->>Bridge: finalize fallback status=stopped
+  else provider work proceeds
+    Chat->>Provider: execute with AbortSignal
+    alt stop arrives during provider work
+      Provider-->>Bridge: error(aborted)
+      Bridge-->>UI: turn_final(status=stopped)
+    else normal completion
+      Provider-->>Bridge: complete/final events
+      Bridge-->>UI: turn_final(status=ok)
+    end
+  end
+  Route->>IR: cleanupInflight(conversationId, inflightId)
+  Route->>IR: cleanup pending cancel for runToken
+  Route->>Route: releaseConversationLock(conversationId, runToken)
+  Note over UI,Route: Same conversation is reusable after terminal stop cleanup finishes
+```
+
+## Story 0000043 Task 5: normal agent runs finalize stop through shared runtime cleanup
+
+- Normal agent instruction runs now hold the conversation `runToken` until their own finalization path completes instead of releasing the conversation lock outside the runtime cleanup path.
+- Conversation-only stop without a usable client `inflightId` can now bind to the active normal run by registering a token-bound pending cancel when the run owns the conversation but has not published an inflight target yet.
+- `runAgentInstructionUnlocked(...)` now re-checks pending cancel immediately after inflight creation and again before `chat.run(...)` begins useful work, passes the inflight `AbortSignal` into the agent runtime, and falls back to one stopped or failed terminal outcome if the provider path never emits its own terminal event.
+- The same finalization path clears inflight state, pending-cancel state, and active lock ownership in order, including a direct-cleanup fallback if the primary cleanup callback throws, so same-conversation reuse happens after confirmed stop instead of leaving a stale `RUN_IN_PROGRESS`.
+
+```mermaid
+sequenceDiagram
+  participant UI as Client
+  participant Route as startAgentInstruction
+  participant WS as cancel_inflight
+  participant Lock as runLock
+  participant Runtime as runAgentInstructionUnlocked
+  participant IR as inflightRegistry
+  participant Agent as ChatInterface.run
+
+  UI->>Route: POST /agents/:agentName/run
+  Route->>Lock: tryAcquireConversationLock(conversationId)
+  Lock-->>Route: runToken
+  Route-->>UI: 202 started { conversationId, inflightId }
+  par startup-race stop
+    UI->>WS: cancel_inflight { conversationId }
+    WS->>Lock: getActiveRunOwnership(conversationId)
+    WS->>IR: registerPendingConversationCancel(runToken)
+  and runtime start
+    Route->>Runtime: runAgentInstructionUnlocked(..., runToken)
+    Runtime->>IR: createInflight(conversationId, inflightId)
+    Runtime->>IR: bind and consume pending cancel
+    Runtime->>IR: abortInflight(conversationId, inflightId)
+    Runtime->>Agent: chat.run(... signal)
+  end
+  alt stop won
+    Agent-->>Runtime: abort/error path
+    Runtime-->>UI: turn_final(status=stopped)
+  else normal completion
+    Agent-->>Runtime: final/complete events
+    Runtime-->>UI: turn_final(status=ok)
+  end
+  Runtime->>IR: cleanupInflight(conversationId, inflightId)
+  Runtime->>IR: cleanupPendingConversationCancel(runToken, inflightId)
+  Runtime->>Lock: releaseConversationLock(conversationId, runToken)
+  Note over UI,Route: Same conversation can start again after stop cleanup completes
+```
+
+## Story 0000043 Task 6: command runs stop at step and retry checkpoints
+
+- Command-list execution now carries the active conversation `runToken` into `runAgentCommandRunner(...)` so startup-race conversation-only stop can register a token-bound pending cancel before the command-run abort-controller map exists.
+- The command runner consumes pending cancel immediately after it creates the per-conversation abort controller, re-checks stop before the first step and before each later step, and re-checks again before retry or backoff waits can resume work.
+- The existing conversation-based `abortAgentCommandRun(conversationId)` path remains the live stop mechanism once a command run is active, so command starts still work without a client-visible `inflightId`.
+- Command-run cleanup now releases pending-cancel state and the conversation lock with the expected `runToken`, which prevents stale stop or stale cleanup from affecting a replacement run on the same conversation.
+
+```mermaid
+flowchart TD
+  A[Command route owns conversation lock] --> B[Resolve runToken]
+  B --> C[Create command abort controller and combined AbortSignal]
+  C --> D{Pending cancel registered for runToken?}
+  D -- yes --> E[Consume pending cancel and abort controller]
+  D -- no --> F[Enter command step loop]
+  E --> Z[Skip step execution and cleanup runtime state]
+  F --> G{Signal aborted before step?}
+  G -- yes --> Z
+  G -- no --> H[Start next command step]
+  H --> I{Retry needed?}
+  I -- no --> J[Advance to next step]
+  I -- yes --> K{Signal aborted before backoff wait?}
+  K -- yes --> Z
+  K -- no --> L[Sleep with abort-aware retry signal]
+  L --> M{Signal aborted during wait?}
+  M -- yes --> Z
+  M -- no --> H
+  J --> G
+  Z --> N[Delete command abort controller]
+  N --> O[cleanupPendingConversationCancel(conversationId, runToken)]
+  O --> P[releaseConversationLock(conversationId, runToken)]
+```
+
+## Story 0000043 Task 7: flow runs stop at step, loop, and nested handoff boundaries
+
+- `startFlowRun(...)` now captures the active conversation `runToken` immediately after the flow lock is acquired, keeps that ownership through the background flow execution, and clears pending-cancel plus lock ownership from the same final runtime cleanup path.
+- `runFlowInstruction(...)` now binds and consumes token-bound pending cancel immediately after inflight creation, passes the shared inflight `AbortSignal` into `chat.run(...)` with deferred inflight cleanup, and falls back to direct cleanup if the primary flow cleanup callback throws.
+- Flow command steps now have a pre-handoff stop checkpoint: if a pending cancel exists before nested command item execution begins, the flow emits one stopped terminal turn for the command step and never launches the nested agent work.
+- Loop and multi-step continuation still stop cooperatively through the current inflight signal, but later iterations and follow-on command items do not continue after a stopped terminal outcome has been confirmed.
+
+```mermaid
+flowchart TD
+  A[Flow route acquires conversation lock] --> B[Capture runToken]
+  B --> C[Background flow execution starts]
+  C --> D{Next flow step}
+  D --> E[Create step inflight]
+  E --> F[Bind and consume pending cancel for runToken]
+  F --> G{Pending cancel consumed?}
+  G -- yes --> H[Abort inflight and finalize step as stopped]
+  G -- no --> I{Step is command handoff?}
+  I -- yes --> J{Pending cancel before nested handoff?}
+  J -- yes --> K[Emit stopped command step without launching nested agent]
+  J -- no --> L[Launch nested command item agent run with inflight AbortSignal]
+  I -- no --> M[Run LLM or break step with inflight AbortSignal]
+  L --> N{Stopped or failed?}
+  M --> N
+  H --> N
+  K --> N
+  N -- yes --> O[Persist resume state for last completed step only]
+  O --> P[Cleanup inflight with direct fallback if callback throws]
+  P --> Q[Clear pending cancel for runToken]
+  Q --> R[Release conversation lock with runToken]
+  N -- no --> S[Persist completed step and advance to next step or loop iteration]
+  S --> D
+```
+
+## Story 0000043 Task 8: shared websocket client stop acknowledgement handling
+
+- Page code keeps using `cancelInflight(conversationId, inflightId?)`; omitting `inflightId` remains the supported startup-race stop path.
+- `useChatWs` now surfaces `cancel_ack` through the existing shared websocket event union so downstream subscribers can correlate the no-op branch by `requestId`.
+- The websocket hook emits stable browser `console.info` lines for the stop send path and the `cancel_ack` receive path without changing the shared stop-state machine yet.
+- Successful active stops are still confirmed later by `turn_final.status === 'stopped'`; `cancel_ack.result === 'noop'` only represents the no-active-run recovery branch.
+
+```mermaid
+sequenceDiagram
+  participant Page as Page code
+  participant Hook as useChatWs
+  participant WS as WebSocket /ws
+  participant Stream as Shared stream consumers
+
+  Page->>Hook: cancelInflight(conversationId, inflightId?)
+  Hook->>WS: cancel_inflight(requestId, conversationId, inflightId?)
+  Hook->>Page: console.info ws-send
+
+  alt no active run for conversation
+    WS-->>Hook: cancel_ack(requestId, conversationId, result=noop)
+    Hook->>Page: console.info ws-event cancel_ack
+    Hook-->>Stream: forward cancel_ack
+  else active run stops later
+    WS-->>Hook: turn_final(status=stopped)
+    Hook-->>Stream: forward turn_final
+  end
+```
+
+## Story 0000043 Task 9: shared stop-state reconciliation lives in useChatStream
+
+- `useChatStream` is now the single shared stop-state manager: it distinguishes `sending`, `stopping`, and final `stopped` state without adding a second client stop coordinator.
+- Calling the shared stop path no longer appends the immediate local `Generation stopped` bubble; the hook enters `stopping` and waits for either `turn_final.status === 'stopped'` or a request-correlated `cancel_ack.result === 'noop'`.
+- `cancel_ack` remains limited to no-op recovery, where it clears `stopping` only when the `requestId` matches the active stop attempt.
+- Late invalid-target failures, stale acks, duplicate finals, and reconnect-style inflight hydration must not invent a local terminal state or reopen a finalized run.
+
+```mermaid
+flowchart TD
+  A[running or sending] --> B[stop called]
+  B --> C[status = stopping]
+  C --> D{Next matching server event}
+  D -- turn_final status=stopped --> E[streamStatus = stopped]
+  E --> F[status = idle]
+  D -- cancel_ack result=noop and requestId matches --> G[clear optimistic stop state]
+  G --> F
+  D -- turn_final status=failed invalid target or stale event --> H[preserve active run or ignore stale transition]
+  H --> C
+  D -- duplicate final or stale cancel_ack --> I[ignore]
+  I --> C
+```
+
+## Story 0000043 Task 10: Chat page stop UX now mirrors shared stop reconciliation
+
+- `ChatPage` now sends `cancelInflight(conversationId, inflightId?)` using the current server-visible inflight id when one exists and omits `inflightId` during the startup race instead of blocking the stop request locally.
+- The page renders `Stopping` while the shared hook is waiting for server reconciliation and renders persisted or live `Turn.status === 'stopped'` as a visible `Stopped` chip rather than falling back to `Processing`.
+- Browser-visible markers are page-scoped and deterministic: Chat emits one `stop-clicked`, one `stopping-visible`, and one `stopped-visible` line for the exercised active-stop path.
+
+```mermaid
+flowchart TD
+  A[User clicks Chat Stop] --> B[ChatPage sends cancelInflight conversationId inflightId?]
+  B --> C[useChatStream enters stopping]
+  C --> D[ChatPage renders Stopping state]
+  D --> E{Next matching server event}
+  E -- cancel_ack result=noop --> F[Clear stopping without stopped bubble]
+  F --> G[Chat controls return to ready state]
+  E -- turn_final status=stopped --> H[Assistant turn streamStatus becomes stopped]
+  H --> I[ChatPage renders Stopped chip and stopped-visible log]
+```
+
+## Story 0000043 Task 11: Agents page uses the same stop contract for instruction and command runs
+
+- `AgentsPage` now applies the same page-layer stop rules to both normal instruction runs and command-list runs: stop always sends `conversationId` and includes `inflightId` only when a server-visible inflight id is already known.
+- Persisted stopped turns now stay visibly `Stopped` after reload, and non-user resets or conversation changes clear page-local stop markers without inventing phantom `stopping` state.
+- Browser-visible markers include `runKind` so manual verification can distinguish the instruction and command paths while still using the same shared stop-state machine underneath.
+
+```mermaid
+flowchart TD
+  A[User clicks Agents Stop] --> B[AgentsPage sends cancelInflight conversationId inflightId? runKind]
+  B --> C[useChatStream enters stopping]
+  C --> D[AgentsPage renders Stopping state]
+  D --> E{Next matching server event}
+  E -- cancel_ack result=noop --> F[Clear stopping and keep transcript non-terminal]
+  E -- turn_final status=stopped --> G[Render Stopped transcript state]
+  G --> H[Same conversation can run again]
+```
+
+## Story 0000043 Task 12: Flows page stop UX follows the shared stop contract
+
+- `FlowsPage` now uses the same page-layer stop pattern as Chat and Agents: the stop button sends `cancelInflight(conversationId, inflightId?)` with the current server-visible inflight id when known and conversation-only cancel during the startup race.
+- Non-user reset and navigation paths no longer call the shared `stop()` helper, so switching flow selection, clearing hidden conversations, or remounting the page does not create phantom `stopping` UI.
+- Persisted `Turn.status === 'stopped'` now hydrates into a visible `Stopped` chip instead of collapsing into `Complete`, and live flow stop requests render `Stopping` until the shared hook reconciles either a no-op `cancel_ack.result === 'noop'` or a real `turn_final.status === 'stopped'`.
+- The page emits stable browser debug markers for stop click, visible stopping, and visible stopped state so the dockerized manual verification can assert the page-level stop contract directly.
+
+```mermaid
+flowchart TD
+  A[User clicks Flow Stop] --> B[FlowsPage sends cancelInflight conversationId inflightId?]
+  B --> C[useChatStream enters stopping]
+  C --> D[FlowsPage shows Stopping button state and warning chip]
+  D --> E{Next matching server event}
+  E -- cancel_ack result=noop --> F[Clear stopping state without stopped bubble]
+  F --> G[Run and Stop controls return to ready]
+  E -- turn_final status=stopped --> H[Assistant turn streamStatus becomes stopped]
+  H --> I[FlowsPage renders Stopped chip and stopped-visible log]
+  I --> J[Same conversation can run again]
+```
+
+## Story 0000043 Task 13: final stop lifecycle summary
+
+- The shipped contract is now consistent across Chat, Agents, command runs, and Flows:
+  - stop always targets the active conversation;
+  - `inflightId` is optional and is only sent when the page knows the current server-visible inflight id;
+  - conversation-only startup-race stop is valid;
+  - `cancel_ack.result === 'noop'` is request-correlated and non-terminal;
+  - a real stop is confirmed only by `turn_final.status === 'stopped'`.
+- Runtime ownership is server-authoritative: the conversation lock owns the active `runToken`, the inflight registry owns token-bound pending-cancel state, and cleanup clears inflight state, pending cancel, and lock ownership in that order so same-conversation reuse works immediately after a confirmed stop.
+- Client state is shared and page-specific only at the rendering layer: `useChatWs` handles websocket send or receive transport, `useChatStream` owns `stopping` plus no-op reconciliation, and Chat, Agents, and Flows render the visible `Stopping` or `Stopped` states plus page-scoped debug markers.
+
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant Page as Chat | Agents | Flows page
+  participant Stream as useChatStream
+  participant WS as useChatWs / WebSocket
+  participant Server as stop contract + runtime ownership
+
+  User->>Page: click Stop
+  Page->>WS: cancelInflight(conversationId, inflightId?)
+  Page->>Page: console.info stop-clicked
+  WS->>Server: cancel_inflight(requestId, conversationId, inflightId?)
+  Stream->>Stream: streamStatus = stopping
+  Page->>Page: console.info stopping-visible
+
+  alt no active run
+    Server-->>WS: cancel_ack(requestId, conversationId, result=noop)
+    WS->>Page: console.info ws-event cancel_ack
+    WS-->>Stream: cancel_ack
+    Stream->>Stream: clear stopping when requestId matches
+  else active run confirmed stopped
+    Server-->>WS: turn_final(status=stopped)
+    WS-->>Stream: turn_final
+    Stream->>Stream: streamStatus = stopped
+    Page->>Page: console.info stopped-visible
+  end
+```
+
 ## Story 0000038 Task 5: ingest listing status/phase normalization and active overlay precedence
 
 - External listing status contract for `/ingest/roots` and classic MCP `ListIngestedRepositories` is now normalized from internal ingest states:

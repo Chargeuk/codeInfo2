@@ -1,14 +1,22 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import express from 'express';
 
+import { getActiveRunOwnership } from '../../agents/runLock.js';
+import {
+  startAgentInstruction,
+  runAgentInstructionUnlocked,
+} from '../../agents/service.js';
+import {
+  getInflight,
+  getPendingConversationCancel,
+} from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import { resetStore } from '../../logStore.js';
-import { runAgentInstructionUnlocked } from '../../agents/service.js';
 import { attachWs } from '../../ws/server.js';
 import {
   closeWs,
@@ -18,6 +26,24 @@ import {
 } from '../support/wsClient.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function waitForRuntimeCleanup(
+  conversationId: string,
+  timeoutMs = 8_000,
+) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (
+      getInflight(conversationId) === undefined &&
+      getActiveRunOwnership(conversationId) === null &&
+      getPendingConversationCancel(conversationId) === null
+    ) {
+      return;
+    }
+    await delay(25);
+  }
+  throw new Error(`runtime cleanup did not finish for ${conversationId}`);
+}
 
 class SlowStreamingChat extends ChatInterface {
   async execute(
@@ -47,6 +73,35 @@ class SlowStreamingChat extends ChatInterface {
     this.emit('final', { type: 'final', content: 'Hello world!' });
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
+}
+
+async function setupWsTestServer() {
+  resetStore();
+
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+
+  const app = express();
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const ws = await connectWs({ baseUrl });
+
+  return {
+    ws,
+    wsHandle,
+    httpServer,
+    restoreEnv() {
+      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    },
+  };
 }
 
 test('Agents cancel_inflight publishes turn_final status stopped and run resolves', async () => {
@@ -153,5 +208,261 @@ test('Agents cancel_inflight publishes turn_final status stopped and run resolve
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+  }
+});
+
+test('Agents startup-race conversation-only stop finishes a normal run as stopped', async () => {
+  const server = await setupWsTestServer();
+  const conversationId = 'agents-ws-conv-startup-stop-1';
+
+  try {
+    sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
+
+    const finalPromise = waitForEvent({
+      ws: server.ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'turn_final';
+        status: string;
+        conversationId: string;
+        inflightId: string;
+      } => {
+        const e = event as {
+          type?: string;
+          status?: string;
+          conversationId?: string;
+          inflightId?: string;
+        };
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          typeof e.inflightId === 'string'
+        );
+      },
+      timeoutMs: 8_000,
+    });
+
+    const started = await startAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'Hello',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new SlowStreamingChat(),
+    });
+
+    sendJson(server.ws, {
+      type: 'cancel_inflight',
+      conversationId,
+    });
+
+    const final = await finalPromise;
+    assert.equal(final.status, 'stopped');
+    assert.equal(final.inflightId, started.inflightId);
+    await waitForRuntimeCleanup(conversationId);
+  } finally {
+    await closeWs(server.ws);
+    await server.wsHandle.close();
+    await new Promise<void>((resolve) =>
+      server.httpServer.close(() => resolve()),
+    );
+    server.restoreEnv();
+  }
+});
+
+test('Duplicate stop requests for a normal agent run emit one terminal event', async () => {
+  const server = await setupWsTestServer();
+  const conversationId = 'agents-ws-conv-duplicate-stop-1';
+  const events: Array<{ type?: string; conversationId?: string }> = [];
+  server.ws.on('message', (raw) => {
+    events.push(
+      JSON.parse(String(raw)) as { type?: string; conversationId?: string },
+    );
+  });
+
+  try {
+    sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
+
+    const finalPromise = waitForEvent({
+      ws: server.ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'turn_final';
+        status: string;
+        conversationId: string;
+      } => {
+        const e = event as {
+          type?: string;
+          status?: string;
+          conversationId?: string;
+        };
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.status === 'stopped'
+        );
+      },
+      timeoutMs: 8_000,
+    });
+
+    await startAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'Hello',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new SlowStreamingChat(),
+    });
+
+    sendJson(server.ws, { type: 'cancel_inflight', conversationId });
+    sendJson(server.ws, { type: 'cancel_inflight', conversationId });
+
+    await finalPromise;
+    await delay(200);
+
+    const finalEvents = events.filter(
+      (event) =>
+        event.type === 'turn_final' && event.conversationId === conversationId,
+    );
+    assert.equal(finalEvents.length, 1);
+    await waitForRuntimeCleanup(conversationId);
+  } finally {
+    await closeWs(server.ws);
+    await server.wsHandle.close();
+    await new Promise<void>((resolve) =>
+      server.httpServer.close(() => resolve()),
+    );
+    server.restoreEnv();
+  }
+});
+
+test('Normal agent stop cleanup fallback still releases runtime state', async () => {
+  const server = await setupWsTestServer();
+  const conversationId = 'agents-ws-conv-cleanup-fallback-1';
+
+  try {
+    sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
+
+    const finalPromise = waitForEvent({
+      ws: server.ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'turn_final';
+        status: string;
+        conversationId: string;
+      } => {
+        const e = event as {
+          type?: string;
+          status?: string;
+          conversationId?: string;
+        };
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.status === 'stopped'
+        );
+      },
+      timeoutMs: 8_000,
+    });
+
+    const started = await startAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'Hello',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new SlowStreamingChat(),
+      cleanupInflightFn: ({ conversationId: cleanupConversationId }) => {
+        if (cleanupConversationId === conversationId) {
+          throw new Error('forced cleanup failure');
+        }
+      },
+    });
+
+    const waitForInflight = async () => {
+      const startedAt = Date.now();
+      while (Date.now() - startedAt < 4_000) {
+        const inflight = getInflight(conversationId);
+        if (inflight?.inflightId === started.inflightId) return;
+        await delay(25);
+      }
+      throw new Error('inflight was not created before stop');
+    };
+
+    await waitForInflight();
+    sendJson(server.ws, { type: 'cancel_inflight', conversationId });
+
+    await finalPromise;
+    await waitForRuntimeCleanup(conversationId);
+  } finally {
+    await closeWs(server.ws);
+    await server.wsHandle.close();
+    await new Promise<void>((resolve) =>
+      server.httpServer.close(() => resolve()),
+    );
+    server.restoreEnv();
+  }
+});
+
+test('A new normal agent run can start on the same conversation after confirmed stop', async () => {
+  const server = await setupWsTestServer();
+  const conversationId = 'agents-ws-conv-reuse-1';
+
+  try {
+    sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
+
+    const firstFinalPromise = waitForEvent({
+      ws: server.ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'turn_final';
+        status: string;
+        conversationId: string;
+      } => {
+        const e = event as {
+          type?: string;
+          status?: string;
+          conversationId?: string;
+        };
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.status === 'stopped'
+        );
+      },
+      timeoutMs: 8_000,
+    });
+
+    await startAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'Hello',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new SlowStreamingChat(),
+    });
+
+    sendJson(server.ws, { type: 'cancel_inflight', conversationId });
+    await firstFinalPromise;
+    await waitForRuntimeCleanup(conversationId);
+
+    const secondRun = await startAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'Hello again',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new SlowStreamingChat(),
+    });
+
+    assert.equal(secondRun.conversationId, conversationId);
+    sendJson(server.ws, { type: 'cancel_inflight', conversationId });
+    await waitForRuntimeCleanup(conversationId);
+  } finally {
+    await closeWs(server.ws);
+    await server.wsHandle.close();
+    await new Promise<void>((resolve) =>
+      server.httpServer.close(() => resolve()),
+    );
+    server.restoreEnv();
   }
 });

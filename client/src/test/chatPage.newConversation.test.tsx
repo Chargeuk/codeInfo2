@@ -97,6 +97,8 @@ describe('Chat page new conversation control', () => {
 
     expect(cancelMessages.length).toBeGreaterThan(0);
     expect(cancelMessages.at(-1)?.conversationId).toBe(conversationId);
-    expect(cancelMessages.at(-1)?.inflightId).toBe(inflightId);
+    expect([inflightId, undefined]).toContain(
+      cancelMessages.at(-1)?.inflightId,
+    );
   });
 });

@@ -7,10 +7,20 @@ import express from 'express';
 import request from 'supertest';
 
 import {
+  getActiveRunOwnership,
+  releaseConversationLock,
+  tryAcquireConversationLock,
+} from '../../agents/runLock.js';
+import {
   appendAssistantDelta,
+  bindPendingConversationCancelToInflight,
   cleanupInflight,
+  cleanupPendingConversationCancel,
+  consumePendingConversationCancel,
   createInflight,
   getInflight,
+  getPendingConversationCancel,
+  registerPendingConversationCancel,
   setAssistantText,
   snapshotInflight,
 } from '../../chat/inflightRegistry.js';
@@ -204,6 +214,141 @@ afterEach(() => {
   memoryConversations.clear();
   memoryTurns.clear();
   resetStore();
+});
+
+test('conversation lock acquisition creates ownership metadata and release clears it', () => {
+  const conversationId = 'run-lock-ownership-happy-path';
+
+  assert.equal(tryAcquireConversationLock(conversationId), true);
+
+  const ownership = getActiveRunOwnership(conversationId);
+  assert.ok(ownership);
+  assert.equal(typeof ownership.runToken, 'string');
+  assert.equal(ownership.runToken.length > 0, true);
+  assert.equal(typeof ownership.startedAt, 'string');
+
+  assert.equal(
+    releaseConversationLock(conversationId, ownership.runToken),
+    true,
+  );
+  assert.equal(getActiveRunOwnership(conversationId), null);
+});
+
+test('replacement run gets a fresh ownership token and stale release does not clear it', () => {
+  const conversationId = 'run-lock-ownership-replacement';
+
+  assert.equal(tryAcquireConversationLock(conversationId), true);
+  const firstOwnership = getActiveRunOwnership(conversationId);
+  assert.ok(firstOwnership);
+
+  assert.equal(
+    releaseConversationLock(conversationId, firstOwnership.runToken),
+    true,
+  );
+  assert.equal(getActiveRunOwnership(conversationId), null);
+
+  assert.equal(tryAcquireConversationLock(conversationId), true);
+  const secondOwnership = getActiveRunOwnership(conversationId);
+  assert.ok(secondOwnership);
+  assert.notEqual(secondOwnership.runToken, firstOwnership.runToken);
+
+  assert.equal(
+    releaseConversationLock(conversationId, firstOwnership.runToken),
+    false,
+  );
+  assert.deepEqual(getActiveRunOwnership(conversationId), secondOwnership);
+
+  assert.equal(
+    releaseConversationLock(conversationId, secondOwnership.runToken),
+    true,
+  );
+  assert.equal(getActiveRunOwnership(conversationId), null);
+});
+
+test('pending cancel is consumed once for the bound run and cannot be applied twice', () => {
+  const conversationId = 'pending-cancel-consumed-once';
+  const inflightId = 'pending-cancel-inflight';
+
+  assert.equal(tryAcquireConversationLock(conversationId), true);
+  const ownership = getActiveRunOwnership(conversationId);
+  assert.ok(ownership);
+
+  createInflight({
+    conversationId,
+    inflightId,
+    provider: 'codex',
+    model: 'gpt-5.3-codex',
+    source: 'REST',
+  });
+
+  const registered = registerPendingConversationCancel({
+    conversationId,
+    runToken: ownership.runToken,
+  });
+  assert.equal(registered.alreadyPending, false);
+
+  const rebound = registerPendingConversationCancel({
+    conversationId,
+    runToken: ownership.runToken,
+  });
+  assert.equal(rebound.alreadyPending, true);
+
+  const bound = bindPendingConversationCancelToInflight({
+    conversationId,
+    runToken: ownership.runToken,
+    inflightId,
+  });
+  assert.equal(bound.ok, true);
+  if (!bound.ok) {
+    throw new Error('expected pending cancel to bind');
+  }
+  assert.equal(bound.alreadyBound, false);
+
+  const consumed = consumePendingConversationCancel({
+    conversationId,
+    runToken: ownership.runToken,
+    inflightId,
+  });
+  assert.ok(consumed);
+  assert.equal(consumed.runToken, ownership.runToken);
+  assert.equal(consumed.boundInflightId, inflightId);
+
+  const consumedAgain = consumePendingConversationCancel({
+    conversationId,
+    runToken: ownership.runToken,
+    inflightId,
+  });
+  assert.equal(consumedAgain, null);
+  assert.equal(getPendingConversationCancel(conversationId), null);
+
+  cleanupInflight({ conversationId, inflightId });
+  releaseConversationLock(conversationId, ownership.runToken);
+});
+
+test('no-active-run path leaves no pending cancel state behind', () => {
+  const conversationId = 'pending-cancel-noop';
+
+  assert.equal(getActiveRunOwnership(conversationId), null);
+  assert.equal(getPendingConversationCancel(conversationId), null);
+
+  const bindResult = bindPendingConversationCancelToInflight({
+    conversationId,
+    runToken: 'missing-run-token',
+    inflightId: 'missing-inflight',
+  });
+  assert.deepEqual(bindResult, {
+    ok: false,
+    reason: 'PENDING_CANCEL_NOT_FOUND',
+  });
+
+  const consumed = consumePendingConversationCancel({
+    conversationId,
+    runToken: 'missing-run-token',
+    inflightId: 'missing-inflight',
+  });
+  assert.equal(consumed, null);
+  assert.equal(cleanupPendingConversationCancel({ conversationId }), false);
+  assert.equal(getPendingConversationCancel(conversationId), null);
 });
 
 test('transcript seq increases monotonically per conversation stream', async () => {
@@ -646,11 +791,160 @@ test('cancel_inflight with invalid inflightId yields turn_final failed INFLIGHT_
 
     assert.equal(final.status, 'failed');
     assert.equal(final.error?.code, 'INFLIGHT_NOT_FOUND');
-    assert.ok(
+    assert.equal(
       query({
         text: `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED conversationId=${conversationId}`,
-      }).length > 0,
+      }).length,
+      0,
     );
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('duplicate websocket stop requests emit one terminal outcome for the same run', async () => {
+  const server = await startServer({
+    chatFactory: buildChatFactory({
+      withAnalysis: false,
+      withTools: false,
+      delayMs: 50,
+    }),
+  });
+  const conversationId = 'ws-cancel-duplicate-final';
+
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  const seenFinals: WsTranscriptEvent[] = [];
+  const onMessage = (raw: unknown) => {
+    if (
+      !(raw instanceof Buffer) &&
+      typeof raw !== 'string' &&
+      !Array.isArray(raw) &&
+      !(raw instanceof ArrayBuffer)
+    ) {
+      return;
+    }
+    const text =
+      typeof raw === 'string'
+        ? raw
+        : Array.isArray(raw)
+          ? Buffer.concat(raw).toString('utf8')
+          : raw instanceof ArrayBuffer
+            ? Buffer.from(raw).toString('utf8')
+            : raw.toString('utf8');
+    const parsed = JSON.parse(text) as WsTranscriptEvent;
+    if (
+      parsed.type === 'turn_final' &&
+      parsed.conversationId === conversationId
+    ) {
+      seenFinals.push(parsed);
+    }
+  };
+  ws.on('message', onMessage);
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await delay(10);
+
+    const res = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'lmstudio',
+        model: 'm',
+        conversationId,
+        message: 'Hello',
+      })
+      .expect(202);
+
+    const inflightId = res.body.inflightId as string;
+
+    sendJson(ws, {
+      type: 'cancel_inflight',
+      conversationId,
+      inflightId,
+    });
+    sendJson(ws, {
+      type: 'cancel_inflight',
+      conversationId,
+      inflightId,
+    });
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    assert.equal(final.status, 'stopped');
+    await delay(200);
+    assert.equal(seenFinals.length, 1);
+  } finally {
+    ws.off('message', onMessage);
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('conversation-only stop during startup race still finishes chat as stopped', async () => {
+  const server = await startServer({
+    chatFactory: buildChatFactory({
+      withAnalysis: false,
+      withTools: false,
+      delayMs: 75,
+    }),
+  });
+  const conversationId = 'ws-chat-startup-race-stop';
+
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const startPromise = fetch(`${server.baseUrl}/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        model: 'm',
+        conversationId,
+        message: 'Hello',
+      }),
+    });
+
+    const deadline = Date.now() + 3000;
+    while (Date.now() < deadline) {
+      if (getInflight(conversationId)) break;
+      await delay(10);
+    }
+    assert.ok(getInflight(conversationId));
+
+    sendJson(ws, { type: 'cancel_inflight', conversationId });
+
+    const res = await startPromise;
+    assert.equal(res.status, 202);
+    const body = (await res.json()) as { inflightId: string };
+    const inflightId = body.inflightId;
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    assert.equal(final.status, 'stopped');
   } finally {
     await closeWs(ws);
     await stopServer(server);
@@ -829,6 +1123,20 @@ test('late assistant update after finalization does not emit duplicate assistant
   const conversationId = 'ws-late-delta-ignored-1';
 
   const ws = await connectWs({ baseUrl: server.baseUrl });
+  const seenFinals: WsTranscriptEvent[] = [];
+  const onMessage = (raw: unknown) => {
+    if (!(raw instanceof Buffer) && typeof raw !== 'string') return;
+    const parsed = JSON.parse(
+      typeof raw === 'string' ? raw : raw.toString('utf8'),
+    ) as WsTranscriptEvent;
+    if (
+      parsed.type === 'turn_final' &&
+      parsed.conversationId === conversationId
+    ) {
+      seenFinals.push(parsed);
+    }
+  };
+  ws.on('message', onMessage);
   try {
     sendJson(ws, { type: 'subscribe_conversation', conversationId });
     const res = await request(server.httpServer)
@@ -863,7 +1171,11 @@ test('late assistant update after finalization does not emit duplicate assistant
       );
     });
     assert.equal(assistantDeltaEvents.length, 2);
+    await delay(100);
+    assert.equal(seenFinals.length, 1);
+    assert.equal(getInflight(conversationId), undefined);
   } finally {
+    ws.off('message', onMessage);
     await closeWs(ws);
     await stopServer(server);
   }

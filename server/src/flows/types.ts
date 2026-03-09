@@ -1,3 +1,5 @@
+import type { releaseConversationLock } from '../agents/runLock.js';
+import type { cleanupInflight } from '../chat/inflightRegistry.js';
 import type { ChatInterface } from '../chat/interfaces/ChatInterface.js';
 import type { ListReposResult } from '../lmstudio/toolService.js';
 
@@ -33,6 +35,12 @@ export type FlowRunStartParams = {
   inflightId?: string;
   chatFactory?: FlowChatFactory;
   listIngestedRepositories?: () => Promise<ListReposResult>;
+  onOwnershipReady?: (params: {
+    conversationId: string;
+    runToken: string;
+  }) => Promise<void> | void;
+  cleanupInflightFn?: typeof cleanupInflight;
+  releaseConversationLockFn?: typeof releaseConversationLock;
 };
 
 export type FlowRunStartResult = {

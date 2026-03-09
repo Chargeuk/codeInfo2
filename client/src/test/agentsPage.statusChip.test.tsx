@@ -138,4 +138,72 @@ describe('Agents status chip rendering', () => {
     await waitFor(() => expect(statusChip).toHaveTextContent('Failed'));
     expect(statusChip).not.toHaveTextContent('Complete');
   });
+
+  it('shows Stopped for persisted turns with status === stopped after reload', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/agents') && !target.includes('/commands')) {
+        return mockJsonResponse({ agents: [{ name: 'a1' }] });
+      }
+
+      if (target.includes('/agents/a1/commands')) {
+        return mockJsonResponse({ commands: [] });
+      }
+
+      if (
+        target.includes('/conversations') &&
+        target.includes('agentName=a1')
+      ) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'c-stopped',
+              title: 'Stopped conversation',
+              provider: 'codex',
+              model: 'gpt-5.2',
+              lastMessageAt: '2025-01-01T00:00:00.000Z',
+              archived: false,
+            },
+          ],
+          nextCursor: null,
+        });
+      }
+
+      if (target.includes('/conversations/c-stopped/turns')) {
+        return mockJsonResponse({
+          items: [
+            {
+              turnId: 'turn-stopped',
+              role: 'assistant',
+              content: 'Stopped reply',
+              status: 'stopped',
+              createdAt: '2025-01-01T00:00:00.000Z',
+              provider: 'codex',
+              model: 'gpt-5.2',
+            },
+          ],
+          inflight: null,
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Stopped conversation');
+    await user.click(screen.getByText('Stopped conversation'));
+
+    expect(await screen.findByText('Stopped reply')).toBeInTheDocument();
+    const statusChip = await screen.findByTestId('status-chip');
+    await waitFor(() => expect(statusChip).toHaveTextContent('Stopped'));
+    expect(statusChip).not.toHaveTextContent('Complete');
+  });
 });

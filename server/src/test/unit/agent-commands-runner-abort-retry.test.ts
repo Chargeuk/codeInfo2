@@ -10,9 +10,17 @@ import {
 } from '../../agents/commandsRunner.js';
 import { runWithRetry } from '../../agents/retry.js';
 import {
+  getActiveRunOwnership,
+  tryAcquireConversationLock,
+} from '../../agents/runLock.js';
+import {
   getErrorMessage,
   isTransientReconnect,
 } from '../../agents/transientReconnect.js';
+import {
+  getPendingConversationCancel,
+  registerPendingConversationCancel,
+} from '../../chat/inflightRegistry.js';
 
 test('retries stop on abort', async () => {
   const controller = new AbortController();
@@ -89,6 +97,53 @@ test('command runner stops remaining steps after abortAgentCommandRun is called'
     await runPromise;
 
     assert.deepEqual(calls, [1]);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('pending cancel before the first command step prevents step execution', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agent-commands-runner-startup-stop-'),
+  );
+  const conversationId = 'c-command-startup-stop';
+  try {
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    await fs.writeFile(
+      path.join(agentHome, 'commands', 'startup.json'),
+      JSON.stringify({
+        Description: 'Startup stop command',
+        items: [{ type: 'message', role: 'user', content: ['s1'] }],
+      }),
+      'utf-8',
+    );
+
+    assert.equal(tryAcquireConversationLock(conversationId), true);
+    const ownership = getActiveRunOwnership(conversationId);
+    assert.ok(ownership);
+
+    registerPendingConversationCancel({
+      conversationId,
+      runToken: ownership.runToken,
+    });
+
+    const runStep = mock.fn(async () => ({ modelId: 'm1' }));
+
+    const result = await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'startup',
+      conversationId,
+      lockAlreadyHeld: true,
+      source: 'REST',
+      runToken: ownership.runToken,
+      runAgentInstructionUnlocked: runStep,
+    });
+
+    assert.equal(runStep.mock.calls.length, 0);
+    assert.equal(result.conversationId, conversationId);
+    assert.equal(getPendingConversationCancel(conversationId), null);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -189,6 +244,69 @@ test('duplicate stop requests are idempotent and do not restart steps', async ()
     await runPromise;
 
     assert.deepEqual(calls, [1]);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('command stop cleanup fallback still releases pending runtime state when lock cleanup throws', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agent-commands-runner-pending-cleanup-'),
+  );
+  try {
+    const agentHome = path.join(tmpDir, 'a1');
+    const conversationId = 'c-pending-cleanup';
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    await fs.writeFile(
+      path.join(agentHome, 'commands', 'cleanup.json'),
+      JSON.stringify({
+        Description: 'Cleanup command',
+        items: [{ type: 'message', role: 'user', content: ['s1'] }],
+      }),
+      'utf-8',
+    );
+
+    assert.equal(tryAcquireConversationLock(conversationId), true);
+    const ownership = getActiveRunOwnership(conversationId);
+    assert.ok(ownership);
+
+    let resolveStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      resolveStarted = resolve;
+    });
+
+    const runPromise = runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'cleanup',
+      conversationId,
+      lockAlreadyHeld: true,
+      source: 'REST',
+      runToken: ownership.runToken,
+      releaseConversationLockFn: () => {
+        throw new Error('release failed');
+      },
+      runAgentInstructionUnlocked: async (params) => {
+        resolveStarted?.();
+        await new Promise<void>((resolve) => {
+          params.signal?.addEventListener('abort', () => resolve(), {
+            once: true,
+          });
+        });
+        return { modelId: 'm1' };
+      },
+    });
+
+    await started;
+    registerPendingConversationCancel({
+      conversationId,
+      runToken: ownership.runToken,
+    });
+    assert.ok(getPendingConversationCancel(conversationId));
+    abortAgentCommandRun(conversationId);
+
+    await assert.rejects(runPromise, /release failed/);
+    assert.equal(getPendingConversationCancel(conversationId), null);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

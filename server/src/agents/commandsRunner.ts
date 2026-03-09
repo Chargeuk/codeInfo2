@@ -2,6 +2,11 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import {
+  cleanupPendingConversationCancel,
+  consumePendingConversationCancel,
+  getInflight,
+} from '../chat/inflightRegistry.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
@@ -10,6 +15,7 @@ import { formatRetryInstruction } from '../utils/retryContext.js';
 import { loadAgentCommandFile } from './commandsLoader.js';
 import { AbortError, runWithRetry } from './retry.js';
 import {
+  getActiveRunOwnership,
   releaseConversationLock,
   tryAcquireConversationLock,
 } from './runLock.js';
@@ -22,6 +28,20 @@ const commandAbortByConversationId = new Map<string, AbortController>();
 export function abortAgentCommandRun(conversationId: string) {
   const controller = commandAbortByConversationId.get(conversationId);
   if (!controller) return false;
+  controller.abort();
+  return true;
+}
+
+export function abortAgentCommandRunForInflight(params: {
+  conversationId: string;
+  inflightId: string;
+}) {
+  const controller = commandAbortByConversationId.get(params.conversationId);
+  if (!controller) return false;
+  const inflight = getInflight(params.conversationId);
+  if (!inflight) return false;
+  if (inflight.inflightId !== params.inflightId) return false;
+  if (!inflight.command) return false;
   controller.abort();
   return true;
 }
@@ -46,6 +66,8 @@ export type RunAgentCommandRunnerParams = {
   source: 'REST' | 'MCP';
   logger?: LoggerLike;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+  releaseConversationLockFn?: typeof releaseConversationLock;
+  runToken?: string;
   runAgentInstructionUnlocked: (params: {
     agentName: string;
     instruction: string;
@@ -129,6 +151,7 @@ export async function runAgentCommandRunner(
 
   const lockAlreadyHeld = Boolean(params.lockAlreadyHeld);
   let lockAcquired = lockAlreadyHeld;
+  let runToken = params.runToken;
 
   if (!lockAlreadyHeld) {
     if (!tryAcquireConversationLock(conversationId)) {
@@ -137,7 +160,19 @@ export async function runAgentCommandRunner(
         'A run is already in progress for this conversation.',
       );
     }
+    const ownership = getActiveRunOwnership(conversationId);
+    if (!ownership) {
+      releaseConversationLock(conversationId);
+      throw new Error('Conversation run ownership could not be resolved.');
+    }
+    runToken = ownership.runToken;
     lockAcquired = true;
+  } else if (!runToken) {
+    const ownership = getActiveRunOwnership(conversationId);
+    if (!ownership) {
+      throw new Error('Conversation run ownership could not be resolved.');
+    }
+    runToken = ownership.runToken;
   }
 
   const mustExist = false;
@@ -148,6 +183,16 @@ export async function runAgentCommandRunner(
   const combinedSignal = params.signal
     ? AbortSignal.any([params.signal, commandAbortController.signal])
     : commandAbortController.signal;
+  const consumePendingCommandStop = () => {
+    if (!runToken) return false;
+    const pendingCancel = consumePendingConversationCancel({
+      conversationId,
+      runToken,
+    });
+    if (!pendingCancel) return false;
+    commandAbortController.abort();
+    return true;
+  };
 
   append({
     level: 'info',
@@ -184,7 +229,10 @@ export async function runAgentCommandRunner(
   const maxAttempts = getFlowAndCommandRetries();
 
   try {
+    consumePendingCommandStop();
+
     for (let i = startIndex; i < totalSteps; i++) {
+      consumePendingCommandStop();
       if (combinedSignal.aborted) break;
 
       const item = command.items[i];
@@ -202,6 +250,10 @@ export async function runAgentCommandRunner(
 
       const res = await runWithRetry({
         runStep: async () => {
+          consumePendingCommandStop();
+          if (combinedSignal.aborted) {
+            throw new AbortError();
+          }
           currentAttempt += 1;
           const retryInstruction =
             currentAttempt > 1
@@ -228,7 +280,27 @@ export async function runAgentCommandRunner(
         maxAttempts,
         baseDelayMs: BASE_DELAY_MS,
         signal: combinedSignal,
-        sleep: params.sleep,
+        sleep: async (ms, signal) => {
+          consumePendingCommandStop();
+          const sleep = params.sleep;
+          if (sleep) {
+            return sleep(ms, signal);
+          }
+          if (signal?.aborted) {
+            throw new AbortError();
+          }
+          return new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(resolve, ms);
+            signal?.addEventListener(
+              'abort',
+              () => {
+                clearTimeout(timer);
+                reject(new AbortError());
+              },
+              { once: true },
+            );
+          });
+        },
         onRetry: ({
           attempt,
           maxAttempts: allowedAttempts,
@@ -330,8 +402,14 @@ export async function runAgentCommandRunner(
     };
   } finally {
     commandAbortByConversationId.delete(conversationId);
-    if (lockAcquired) {
-      releaseConversationLock(conversationId);
+    try {
+      if (lockAcquired) {
+        const releaseLock =
+          params.releaseConversationLockFn ?? releaseConversationLock;
+        releaseLock(conversationId, runToken);
+      }
+    } finally {
+      cleanupPendingConversationCancel({ conversationId, runToken });
     }
   }
 }

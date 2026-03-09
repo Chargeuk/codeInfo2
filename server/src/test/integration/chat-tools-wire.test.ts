@@ -12,6 +12,13 @@ import {
 import express from 'express';
 import request from 'supertest';
 
+import { getActiveRunOwnership } from '../../agents/runLock.js';
+import {
+  getInflight,
+  getPendingConversationCancel,
+  registerPendingConversationCancel,
+} from '../../chat/inflightRegistry.js';
+import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   getMemoryTurns,
   memoryConversations,
@@ -105,6 +112,31 @@ type WsTranscriptEvent = {
   delta?: unknown;
 };
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+class ScriptedChat extends ChatInterface {
+  constructor(
+    private readonly script: (
+      chat: ChatInterface,
+      signal?: AbortSignal,
+    ) => Promise<void>,
+  ) {
+    super();
+  }
+
+  async execute(
+    _message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ): Promise<void> {
+    void _model;
+    const signal = (flags as { signal?: AbortSignal }).signal;
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    await this.script(this, signal);
+  }
+}
+
 beforeEach(() => {
   process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
   process.env.HOST_INGEST_DIR = '/host/base';
@@ -124,8 +156,30 @@ async function waitForAssistantTurn(conversationId: string, timeoutMs = 4000) {
   throw new Error(`Timed out waiting for assistant turn: ${conversationId}`);
 }
 
+async function waitForRuntimeCleanup(conversationId: string, timeoutMs = 4000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (
+      getInflight(conversationId) === undefined &&
+      getActiveRunOwnership(conversationId) === null &&
+      getPendingConversationCancel(conversationId) === null
+    ) {
+      return;
+    }
+    await delay(25);
+  }
+  throw new Error(`Timed out waiting for runtime cleanup: ${conversationId}`);
+}
+
 async function startServer(
   act: (chat: Chat, tools: Tool[], opts: ActCallbacks) => Promise<unknown>,
+  opts?: {
+    chatFactory?: () => ChatInterface;
+    cleanupInflightFn?: (params: {
+      conversationId: string;
+      inflightId?: string;
+    }) => void;
+  },
 ) {
   const app = express();
   app.use(express.json());
@@ -143,6 +197,10 @@ async function startServer(
             model: async () => ({ act }),
           },
         }) as unknown as LMStudioClient,
+      ...(opts?.chatFactory ? { chatFactory: opts.chatFactory } : {}),
+      ...(opts?.cleanupInflightFn
+        ? { cleanupInflightFn: opts.cleanupInflightFn }
+        : {}),
       toolFactory: (opts) => createLmStudioTools({ ...opts, deps: toolDeps }),
     }),
   );
@@ -847,6 +905,211 @@ test('chat route suppresses assistant tool payload echo while emitting tool-resu
     assert.ok(!String(finalAssistant?.content ?? '').includes('/host/path/a'));
   } finally {
     await Promise.allSettled([toolResultPromise, finalPromise]);
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('duplicate stop requests for a chat run emit one terminal stopped event', async () => {
+  const conversationId = 'conv-chat-stop-idempotent';
+  const server = await startServer(async () => undefined, {
+    chatFactory: () =>
+      new ScriptedChat(async (chat, signal) => {
+        await delay(80);
+        if (signal?.aborted) {
+          chat.emit('error', { type: 'error', message: 'aborted' });
+          return;
+        }
+        chat.emit('final', { type: 'final', content: 'done' });
+        chat.emit('complete', { type: 'complete', threadId: 'thread' });
+      }),
+  });
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  const seenFinals: WsTranscriptEvent[] = [];
+  const onMessage = (raw: unknown) => {
+    if (!(raw instanceof Buffer) && typeof raw !== 'string') return;
+    const parsed = JSON.parse(
+      typeof raw === 'string' ? raw : raw.toString('utf8'),
+    ) as WsTranscriptEvent;
+    if (
+      parsed.type === 'turn_final' &&
+      parsed.conversationId === conversationId
+    ) {
+      seenFinals.push(parsed);
+    }
+  };
+  ws.on('message', onMessage);
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    const res = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'lmstudio',
+        model: 'dummy-model',
+        conversationId,
+        message: 'hello',
+      })
+      .expect(202);
+
+    const inflightId = res.body.inflightId as string;
+    sendJson(ws, { type: 'cancel_inflight', conversationId, inflightId });
+    sendJson(ws, { type: 'cancel_inflight', conversationId, inflightId });
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    assert.equal(final.status, 'stopped');
+    await delay(200);
+    assert.equal(seenFinals.length, 1);
+  } finally {
+    ws.off('message', onMessage);
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('chat cleanup fallback still clears inflight, ownership, and pending cancel state', async () => {
+  const conversationId = 'conv-chat-stop-cleanup-fallback';
+  let cleanupAttempts = 0;
+  const server = await startServer(async () => undefined, {
+    chatFactory: () =>
+      new ScriptedChat(async (chat, signal) => {
+        await delay(80);
+        if (signal?.aborted) {
+          chat.emit('error', { type: 'error', message: 'aborted' });
+          return;
+        }
+        chat.emit('final', { type: 'final', content: 'done' });
+        chat.emit('complete', { type: 'complete', threadId: 'thread' });
+      }),
+    cleanupInflightFn: () => {
+      cleanupAttempts += 1;
+      throw new Error('cleanup failed');
+    },
+  });
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    const res = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'lmstudio',
+        model: 'dummy-model',
+        conversationId,
+        message: 'hello',
+      })
+      .expect(202);
+
+    const inflightId = res.body.inflightId as string;
+    const ownership = getActiveRunOwnership(conversationId);
+    assert.ok(ownership);
+    registerPendingConversationCancel({
+      conversationId,
+      runToken: ownership.runToken,
+      boundInflightId: inflightId,
+    });
+    assert.ok(getPendingConversationCancel(conversationId));
+
+    sendJson(ws, { type: 'cancel_inflight', conversationId, inflightId });
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    assert.equal(final.status, 'stopped');
+    await waitForRuntimeCleanup(conversationId);
+    assert.equal(cleanupAttempts, 1);
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('a new chat run can start on the same conversation after a confirmed stop', async () => {
+  const conversationId = 'conv-chat-stop-reuse';
+  const server = await startServer(async () => undefined, {
+    chatFactory: () =>
+      new ScriptedChat(async (chat, signal) => {
+        await delay(60);
+        if (signal?.aborted) {
+          chat.emit('error', { type: 'error', message: 'aborted' });
+          return;
+        }
+        chat.emit('final', { type: 'final', content: 'done' });
+        chat.emit('complete', { type: 'complete', threadId: 'thread' });
+      }),
+  });
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const first = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'lmstudio',
+        model: 'dummy-model',
+        conversationId,
+        message: 'hello',
+      })
+      .expect(202);
+
+    const firstInflightId = first.body.inflightId as string;
+    sendJson(ws, {
+      type: 'cancel_inflight',
+      conversationId,
+      inflightId: firstInflightId,
+    });
+
+    const stopped = await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === firstInflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+    assert.equal(stopped.status, 'stopped');
+    await waitForRuntimeCleanup(conversationId);
+
+    const second = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'lmstudio',
+        model: 'dummy-model',
+        conversationId,
+        message: 'hello again',
+      })
+      .expect(202);
+
+    assert.equal(second.body.status, 'started');
+    assert.notEqual(second.body.inflightId, firstInflightId);
+  } finally {
     await closeWs(ws);
     await stopServer(server);
   }

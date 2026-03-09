@@ -290,7 +290,7 @@ describe('Chat WS streaming UI', () => {
     expect(assistantBubbles.length).toBe(2);
   });
 
-  it('creates a new assistant bubble after Stop even if a prior bubble is still processing', async () => {
+  it('creates a new assistant bubble only after the stopped final arrives for the prior inflight', async () => {
     const harness = setupChatWsHarness({ mockFetch });
     const user = userEvent.setup();
 
@@ -328,6 +328,16 @@ describe('Chat WS streaming UI', () => {
     await act(async () => {
       await user.click(stopButton);
     });
+
+    await waitFor(() => expect(sendButton).toBeDisabled());
+
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId: inflightId1,
+      status: 'stopped',
+    });
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
 
     fireEvent.change(input, { target: { value: 'Hello 2' } });
     await waitFor(() => expect(sendButton).toBeEnabled());
@@ -394,7 +404,7 @@ describe('Chat WS streaming UI', () => {
       ).toHaveTextContent('Complete');
       expect(
         within(olderBubbleNode).getByTestId('status-chip'),
-      ).toHaveTextContent('Complete');
+      ).toHaveTextContent('Stopped');
       expect(
         within(newerBubbleNode).getByText('Second reply'),
       ).toBeInTheDocument();
@@ -1623,7 +1633,7 @@ describe('Chat WS streaming UI', () => {
     expect(harness.chatBodies.length).toBe(0);
   });
 
-  it('omits metadata rows for status and error bubbles', async () => {
+  it('does not append a status bubble on stop and still omits metadata rows for error bubbles', async () => {
     const harness = setupChatWsHarness({ mockFetch });
     const user = userEvent.setup();
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
@@ -1658,9 +1668,13 @@ describe('Chat WS streaming UI', () => {
     await act(async () => {
       await user.click(stopButton);
     });
+    expect(screen.queryByText(/generation stopped/i)).not.toBeInTheDocument();
 
-    const statusBubble = await findBubbleByRole('assistant', 'status');
-    expect(within(statusBubble).queryByTestId('bubble-timestamp')).toBeNull();
+    harness.emitFinal({
+      conversationId,
+      inflightId,
+      status: 'stopped',
+    });
 
     fireEvent.change(input, { target: { value: 'Fail me' } });
     await waitFor(() => expect(sendButton).toBeEnabled());

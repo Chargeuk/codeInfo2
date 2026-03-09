@@ -731,7 +731,22 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ 0000035-15-chat-user-markdown-parity.png â€” Task 15 chat user markdown parity revalidation capture
 â”‚  â”œâ”€ 0000035-15-agents-raw-input-parity.png â€” Task 15 agents raw-input parity revalidation capture
 â”‚  â”œâ”€ 0000035-15-agents-user-markdown-parity.png â€” Task 15 agents user markdown parity revalidation capture
+â”‚  â”œâ”€ task10-chat-stop-stopped.png â€” Story 0000043 Task 10 Chat stop UX verification capture showing the final visible `Stopped` state
+â”‚  â”œâ”€ task11-agents-command-stop-bubble.png â€” Story 0000043 Task 11 Agents command stop verification capture showing the visible `Stopped` state
+â”‚  â”œâ”€ task11-agents-instruction-stop-bubble.png â€” Story 0000043 Task 11 Agents instruction stop verification capture showing the visible `Stopped` state
+â”‚  â”œâ”€ task12-flows-stop-stopped.png â€” Story 0000043 Task 12 Flows stop verification capture showing the visible `Stopped` state
+â”‚  â”œâ”€ 0000043-14-chat-stopped.png â€” Story 0000043 Task 14 final Chat stopped-state acceptance capture
+â”‚  â”œâ”€ 0000043-14-chat-noop-recovered.png â€” Story 0000043 Task 14 final Chat no-op recovery acceptance capture
+â”‚  â”œâ”€ 0000043-14-agents-instruction-stopped.png â€” Story 0000043 Task 14 final Agents instruction stopped-state acceptance capture
+â”‚  â”œâ”€ 0000043-14-agents-command-stopped.png â€” Story 0000043 Task 14 final Agents command stopped-state acceptance capture
+â”‚  â”œâ”€ 0000043-14-flows-stopped.png â€” Story 0000043 Task 14 final Flows stopped-state acceptance capture
+â”‚  â”œâ”€ 0000043-14-chat-multiwindow-a.png â€” Story 0000043 Task 14 multi-window source-tab acceptance capture after the first stop
+â”‚  â”œâ”€ 0000043-14-chat-multiwindow-b.png â€” Story 0000043 Task 14 multi-window replacement-run acceptance capture showing the later run still active
 â”‚  â””â”€ 0000035-15-general-regression.png â€” Task 15 overall regression revalidation capture
+â”œâ”€ test-results/
+â”‚  â”œâ”€ pr-comments/
+â”‚  â”‚  â”œâ”€ 0000042-summary.md â€” Story 0000042 PR summary artifact
+â”‚  â”‚  â””â”€ 0000043-summary.md â€” Story 0000043 PR summary artifact covering the stop contract, runtime changes, client UX alignment, and verification evidence
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)
@@ -1443,6 +1458,137 @@ Modified files (story-wide traceability):
 Task notes:
 
 - Task 10 closeout check confirmed every story-touched tracked file from `git diff --name-only 3401898d..HEAD` has a matching purpose entry in this document.
+
+## Story 0000043 Task 10 structural verification ledger
+
+Added files:
+
+- None (tracked source tree).
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/pages/ChatPage.tsx` — Chat page stop dispatch now uses server-visible inflight identity, renders `stopping` and `stopped`, and emits the Task 10 browser debug markers.
+- `client/src/test/chatPage.stop.test.tsx` — Chat stop page coverage now exercises stopping UX, no-op recovery, startup-race conversation-only cancel, stopped finalization, stopped hydration, and conversation-switch recovery.
+- `client/src/test/chatPage.stream.test.tsx` — older stopped-final transcript expectation updated to the final visible `Stopped` chip contract.
+- `client/src/test/chatPage.newConversation.test.tsx` — new-conversation cancellation coverage now accepts the documented conversation-only cancel path when no server-visible inflight id exists yet.
+- `client/src/test/support/mockChatWs.ts` — shared websocket harness allows delayed `/chat` start responses for startup-race stop coverage.
+- `design.md` — Story 43 Task 10 Chat stop UX flow and browser-visible marker expectations documented.
+- `planning/0000043-stop-any-point-cancellation.md` — Task 10 implementation and verification status updated in sequence.
+- `projectStructure.md` — screenshot artifact index and Task 10 structural ledger synchronized with the Chat stop UX work.
+
+Task notes:
+
+- Task 10 updates existing Chat page, test, and story documentation files in place and refreshes the ignored `playwright-output-local/` artifact index with the reviewed Chat stop screenshot.
+
+## Story 0000043 Task 11 structural verification ledger
+
+Added files:
+
+- None (tracked source tree).
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/pages/AgentsPage.tsx` — Agents stop UX now follows the shared stop contract for both instruction and command runs, preserves visible `Stopped` transcript state, and emits the Task 11 browser debug markers.
+- `client/src/pages/ChatPage.tsx` — minor type narrowing cleanup landed during client validation without changing the Chat stop contract.
+- `client/src/test/agentsPage.commandsRun.abort.test.tsx` — command-run stop coverage now validates startup-race conversation-only cancel, visible stopping, visible stopped, and same-conversation reuse.
+- `client/src/test/agentsPage.statusChip.test.tsx` — persisted stopped transcript mapping now stays visibly `Stopped` after reload and reconciliation.
+- `design.md` — final Agents stop UX contract and browser-visible marker expectations documented.
+- `planning/0000043-stop-any-point-cancellation.md` — Task 11 implementation and verification evidence recorded in sequence.
+
+Task notes:
+
+- Task 11 updated existing Agents page and test files in place and added repo-local screenshot artifacts for both instruction and command stop verification.
+
+## Story 0000043 Task 12 structural verification ledger
+
+Added files:
+
+- None (tracked source tree).
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/pages/FlowsPage.tsx` — Flows stop UX now uses server-visible inflight targeting, preserves hidden active conversations during stop reconciliation, and renders visible `Stopped` transcript state.
+- `client/src/test/flowsPage.stop.test.tsx` — Flow stop coverage now exercises startup-race conversation-only cancel, no-op recovery, stopped hydration, remount recovery, and same-conversation reuse.
+- `design.md` — final Flows stop UX contract and browser-visible marker expectations documented.
+- `planning/0000043-stop-any-point-cancellation.md` — Task 12 implementation and verification evidence recorded in sequence.
+
+Task notes:
+
+- Task 12 updates existing Flows page and test files in place and refreshes the repo-local screenshot artifact index with the reviewed Flow stop screenshot.
+
+## Story 0000043 Task 13 structural verification ledger
+
+Added files:
+
+- `test-results/pr-comments/0000043-summary.md`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md` — top-level product docs now describe the shipped shared stop contract, including startup-race conversation-only stop, `cancel_ack.result === 'noop'`, and real-stop confirmation via `turn_final.status === 'stopped'`.
+- `design.md` — Story 0000043 stop lifecycle documentation consolidated with the missing Chat and Agents page sections plus one final end-to-end summary diagram.
+- `projectStructure.md` — Story 0000043 screenshot index, late-task ledgers, and PR-summary artifact map synchronized with the final documentation state.
+- `planning/0000043-stop-any-point-cancellation.md` — Task 13 progress, implementation notes, and testing evidence recorded in sequence.
+
+Task notes:
+
+- Task 13 adds the story PR summary artifact under `test-results/pr-comments/` and keeps the rest of the documentation updates in place within the existing repo docs.
+
+## Story 0000043 Task 14 structural verification ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/pages/AgentsPage.tsx` — command-run stop reconciliation now treats a live stopped marker as terminal for the page controls so the same conversation can be started again immediately after a confirmed stopped command run.
+- `e2e/chat-multiwindow.spec.ts` — final acceptance coverage now includes a stale-stop multi-window regression proving a replacement run in another context is not cancelled by the older stop target.
+- `projectStructure.md` — Task 14 screenshot index and final acceptance ledger synchronized with the multi-surface manual evidence.
+- `planning/0000043-stop-any-point-cancellation.md` — Task 14 acceptance status, implementation notes, and final wrapper/manual evidence recorded in sequence.
+
+Task notes:
+
+- Task 14 adds no tracked files, but it refreshes the final acceptance evidence by saving and reviewing the Story 0000043 Task 14 screenshots under `playwright-output-local/` and tightening the final Agents command-stop reuse behavior to match the acceptance contract.
 
 ## Story 0000042 Task 8 structural verification ledger
 

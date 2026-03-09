@@ -193,6 +193,13 @@ type WsTurnFinalEvent = WsServerEventBase & {
   timing?: TurnTimingMetadata;
 };
 
+type WsCancelAckEvent = WsServerEventBase & {
+  type: 'cancel_ack';
+  requestId: string;
+  conversationId: string;
+  result: 'noop';
+};
+
 type WsServerEvent =
   | WsSidebarConversationUpsertEvent
   | WsSidebarConversationDeleteEvent
@@ -203,6 +210,7 @@ type WsServerEvent =
   | WsToolEventEvent
   | WsStreamWarningEvent
   | WsTurnFinalEvent
+  | WsCancelAckEvent
   | WsIngestSnapshotEvent
   | WsIngestUpdateEvent;
 
@@ -218,6 +226,7 @@ export type ChatWsTranscriptEvent =
   | WsToolEventEvent
   | WsStreamWarningEvent
   | WsTurnFinalEvent;
+export type ChatWsCancelAckEvent = WsCancelAckEvent;
 export type ChatWsToolEvent = WsToolEvent;
 export type ChatWsIngestEvent = WsIngestSnapshotEvent | WsIngestUpdateEvent;
 
@@ -238,7 +247,10 @@ type UseChatWsState = {
   unsubscribeConversation: (conversationId: string) => void;
   subscribeIngest: () => void;
   unsubscribeIngest: () => void;
-  cancelInflight: (conversationId: string, inflightId?: string) => void;
+  cancelInflight: (
+    conversationId: string,
+    inflightId?: string,
+  ) => string | null;
 };
 
 const makeRequestId = () =>
@@ -373,24 +385,26 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
   }, []);
 
   const sendRaw = useCallback((body: Record<string, unknown>) => {
+    const requestId = makeRequestId();
     const payload = JSON.stringify({
       protocolVersion: WS_PROTOCOL_VERSION,
-      requestId: makeRequestId(),
+      requestId,
       ...body,
     });
 
     const ws = wsRef.current;
     if (!ws) {
       pendingMessagesRef.current.push(payload);
-      return;
+      return requestId;
     }
 
     try {
       ws.send(payload);
-      return;
+      return requestId;
     } catch {
       pendingMessagesRef.current.push(payload);
     }
+    return requestId;
   }, []);
 
   const connectNowRef = useRef<() => void>(() => {});
@@ -591,6 +605,14 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
         }
       }
 
+      if (msg.type === 'cancel_ack') {
+        console.info('[stop-debug][ws-event] cancel_ack', {
+          conversationId: msg.conversationId,
+          requestId: msg.requestId,
+          result: msg.result,
+        });
+      }
+
       log('info', '0000022 ws event forwarded', {
         eventType: msg.type,
         ...(conversationId ? { conversationId } : {}),
@@ -710,11 +732,16 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
 
   const cancelInflight = useCallback(
     (conversationId: string, inflightId?: string) => {
-      if (!conversationId) return;
-      sendRaw({
+      if (!conversationId) return null;
+      const requestId = sendRaw({
         type: 'cancel_inflight',
         conversationId,
         ...(inflightId ? { inflightId } : {}),
+      });
+      console.info('[stop-debug][ws-send] cancel_inflight', {
+        conversationId,
+        inflightId,
+        requestId,
       });
       if (isDev0000038MarkerGateEnabled()) {
         console.info(
@@ -726,6 +753,7 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
       if (connectionState === 'closed') {
         connectNowRef.current();
       }
+      return requestId;
     },
     [connectionState, sendRaw],
   );

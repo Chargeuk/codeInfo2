@@ -200,10 +200,28 @@ export default function AgentsPage() {
     handleWsEvent,
     getInflightId,
   } = useChatStream(agentModelId, 'codex');
+  const isStopping = status === 'stopping';
+  const serverVisibleInflightIdRef = useRef<string | null>(null);
+  const currentRunKindRef = useRef<'instruction' | 'command'>('instruction');
+  const stoppingVisibleLoggedRef = useRef<string | null>(null);
+  const stoppedVisibleLoggedRef = useRef(new Set<string>());
+  const stoppedVisibleConversationRef = useRef<string | null>(null);
+  const [liveStoppedMarker, setLiveStoppedMarker] = useState<{
+    conversationId: string;
+    inflightId: string;
+    turnId: string;
+    runKind: 'instruction' | 'command';
+  } | null>(null);
 
   const displayMessages = useMemo<ChatMessage[]>(
     () => [...messages].reverse(),
     [messages],
+  );
+  const latestAssistantMessageId = useMemo(
+    () =>
+      displayMessages.find((message) => message.role === 'assistant')?.id ??
+      null,
+    [displayMessages],
   );
 
   const toolMatchCountByKey = useMemo(() => {
@@ -940,7 +958,43 @@ export default function AgentsPage() {
             });
           }
 
+          if (transcriptEvent.type === 'inflight_snapshot') {
+            serverVisibleInflightIdRef.current =
+              transcriptEvent.inflight.inflightId;
+            currentRunKindRef.current = transcriptEvent.inflight.command
+              ? 'command'
+              : 'instruction';
+          }
+
+          if (
+            transcriptEvent.type === 'turn_final' &&
+            serverVisibleInflightIdRef.current === transcriptEvent.inflightId
+          ) {
+            serverVisibleInflightIdRef.current = null;
+          }
+          if (transcriptEvent.type === 'turn_final') {
+            if (transcriptEvent.status === 'stopped') {
+              setLiveStoppedMarker({
+                conversationId: transcriptEvent.conversationId,
+                inflightId: transcriptEvent.inflightId,
+                turnId: transcriptEvent.inflightId,
+                runKind: currentRunKindRef.current,
+              });
+            } else if (
+              transcriptEvent.conversationId === activeConversationId
+            ) {
+              setLiveStoppedMarker(null);
+            }
+          }
+
           handleWsEvent(transcriptEvent);
+          return;
+        }
+        case 'cancel_ack': {
+          if (event.conversationId === activeConversationId) {
+            setLiveStoppedMarker(null);
+          }
+          handleWsEvent(event);
           return;
         }
         default:
@@ -994,7 +1048,17 @@ export default function AgentsPage() {
   ]);
 
   const handleStopClick = useCallback(() => {
-    const inflightId = getInflightId();
+    if (!activeConversationId || isStopping) {
+      return;
+    }
+
+    const inflightId =
+      serverVisibleInflightIdRef.current ?? getInflightId() ?? undefined;
+    console.info('[stop-debug][agents-ui] stop-clicked', {
+      conversationId: activeConversationId,
+      ...(inflightId ? { inflightId } : {}),
+      runKind: currentRunKindRef.current,
+    });
     if (isDev0000038MarkerGateEnabled()) {
       console.info(
         '[DEV-0000038][T2] STOP_CLICK conversationId=%s inflightId=%s',
@@ -1005,20 +1069,28 @@ export default function AgentsPage() {
     log('info', 'DEV-0000021[T6] agents.stop clicked', {
       conversationId: activeConversationId,
       inflightId,
+      runKind: currentRunKindRef.current,
     });
 
-    if (activeConversationId && inflightId) {
-      cancelInflight(activeConversationId, inflightId);
-      log('info', 'DEV-0000021[T6] agents.ws cancel_inflight sent', {
-        conversationId: activeConversationId,
-        inflightId,
-      });
-    }
+    const requestId = cancelInflight(activeConversationId, inflightId);
+    log('info', 'DEV-0000021[T6] agents.ws cancel_inflight sent', {
+      conversationId: activeConversationId,
+      inflightId,
+      runKind: currentRunKindRef.current,
+      requestId,
+    });
 
-    stop({ showStatusBubble: true });
+    stop({ requestId, showStatusBubble: true });
     setInput(lastSentRef.current);
     inputRef.current?.focus();
-  }, [activeConversationId, cancelInflight, getInflightId, log, stop]);
+  }, [
+    activeConversationId,
+    cancelInflight,
+    getInflightId,
+    isStopping,
+    log,
+    stop,
+  ]);
 
   const makeClientConversationId = () =>
     crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
@@ -1031,7 +1103,10 @@ export default function AgentsPage() {
           : makeClientConversationId();
       const isNewConversation = nextConversationId !== activeConversationId;
 
-      stop();
+      currentRunKindRef.current = 'instruction';
+      serverVisibleInflightIdRef.current = null;
+      setLiveStoppedMarker(null);
+      stoppedVisibleConversationRef.current = null;
       setStartPending(true);
 
       if (isNewConversation) {
@@ -1122,14 +1197,12 @@ export default function AgentsPage() {
       refreshConversations,
       selectedAgentName,
       setConversation,
-      stop,
       subscribeConversation,
       wsConnectionState,
     ],
   );
 
   const resetConversation = useCallback(() => {
-    stop();
     setStartPending(false);
     setRunError(null);
     invalidatePromptDiscoveryState({
@@ -1146,13 +1219,13 @@ export default function AgentsPage() {
     setThinkOpen({});
     setToolOpen({});
     setToolErrorOpen({});
+    stoppedVisibleConversationRef.current = null;
     void refreshConversations();
   }, [
     invalidatePromptDiscoveryState,
     refreshConversations,
     resetTurns,
     setConversation,
-    stop,
   ]);
 
   const handleAgentChange = useCallback(
@@ -1263,7 +1336,12 @@ export default function AgentsPage() {
             role: turn.role === 'system' ? 'assistant' : turn.role,
             content: turn.content,
             tools: mapToolCalls(turn.toolCalls ?? null),
-            streamStatus: turn.status === 'failed' ? 'failed' : 'complete',
+            streamStatus:
+              turn.status === 'failed'
+                ? 'failed'
+                : turn.status === 'stopped'
+                  ? 'stopped'
+                  : 'complete',
             command: turn.command,
             usage: turn.usage,
             timing: turn.timing,
@@ -1302,8 +1380,57 @@ export default function AgentsPage() {
     const inflightKey = `${activeConversationId}-${inflightSnapshot.inflightId}-${inflightSnapshot.seq}`;
     if (lastInflightHydratedRef.current === inflightKey) return;
     lastInflightHydratedRef.current = inflightKey;
+    serverVisibleInflightIdRef.current = inflightSnapshot.inflightId;
+    currentRunKindRef.current = inflightSnapshot.command
+      ? 'command'
+      : 'instruction';
     hydrateInflightSnapshot(activeConversationId, inflightSnapshot);
   }, [activeConversationId, hydrateInflightSnapshot, inflightSnapshot]);
+
+  useEffect(() => {
+    if (!activeConversationId) {
+      stoppingVisibleLoggedRef.current = null;
+      stoppedVisibleConversationRef.current = null;
+      return;
+    }
+    const activeConversationKey = activeConversationId;
+    if (status !== 'stopping') {
+      stoppingVisibleLoggedRef.current = null;
+      return;
+    }
+    if (stoppingVisibleLoggedRef.current === activeConversationKey) return;
+    stoppingVisibleLoggedRef.current = activeConversationKey;
+    console.info('[stop-debug][agents-ui] stopping-visible', {
+      conversationId: activeConversationKey,
+      runKind: currentRunKindRef.current,
+    });
+  }, [activeConversationId, status]);
+
+  useEffect(() => {
+    if (!activeConversationId) {
+      stoppedVisibleConversationRef.current = null;
+      return;
+    }
+    const activeConversationKey = activeConversationId;
+    displayMessages.forEach((message) => {
+      const stoppedVisibleLogKey = message.id;
+      if (
+        message.role !== 'assistant' ||
+        message.streamStatus !== 'stopped' ||
+        stoppedVisibleLoggedRef.current.has(stoppedVisibleLogKey) ||
+        stoppedVisibleConversationRef.current === activeConversationKey
+      ) {
+        return;
+      }
+      stoppedVisibleLoggedRef.current.add(stoppedVisibleLogKey);
+      stoppedVisibleConversationRef.current = activeConversationKey;
+      console.info('[stop-debug][agents-ui] stopped-visible', {
+        conversationId: activeConversationKey,
+        turnId: stoppedVisibleLogKey,
+        runKind: message.command ? 'command' : 'instruction',
+      });
+    });
+  }, [activeConversationId, displayMessages]);
 
   const handleTranscriptScroll = () => {};
 
@@ -1320,6 +1447,10 @@ export default function AgentsPage() {
     }
     resetTurns();
     setConversation(conversationId, { clearMessages: true });
+    serverVisibleInflightIdRef.current = null;
+    currentRunKindRef.current = 'instruction';
+    setLiveStoppedMarker(null);
+    stoppedVisibleConversationRef.current = null;
     const summary = conversations.find(
       (conversation) => conversation.conversationId === conversationId,
     );
@@ -1439,7 +1570,10 @@ export default function AgentsPage() {
         : makeClientConversationId();
     const isNewConversation = nextConversationId !== activeConversationId;
 
-    stop();
+    currentRunKindRef.current = 'command';
+    serverVisibleInflightIdRef.current = null;
+    setLiveStoppedMarker(null);
+    stoppedVisibleConversationRef.current = null;
     setStartPending(true);
 
     try {
@@ -1543,7 +1677,6 @@ export default function AgentsPage() {
     startStep,
     setConversation,
     startPending,
-    stop,
     subscribeConversation,
     wsConnectionState,
     wsTranscriptReady,
@@ -1551,7 +1684,14 @@ export default function AgentsPage() {
   ]);
 
   const selectedAgent = agents.find((a) => a.name === selectedAgentName);
-  const isRunActive = startPending || isStreaming || status === 'sending';
+  const hasVisibleStoppedRun =
+    liveStoppedMarker !== null &&
+    liveStoppedMarker.conversationId === activeConversationId &&
+    !isStopping;
+  const isRunActive =
+    startPending ||
+    ((isStreaming || status === 'sending') && !hasVisibleStoppedRun) ||
+    isStopping;
   const controlsDisabled =
     agentsLoading || !!agentsError || !selectedAgentName || persistenceLoading;
   const submitDisabledForRun = isRunActive;
@@ -2609,8 +2749,9 @@ export default function AgentsPage() {
                             size="small"
                             onClick={handleStopClick}
                             data-testid="agent-stop"
+                            disabled={isStopping}
                           >
-                            Stop
+                            {isStopping ? 'Stopping...' : 'Stop'}
                           </Button>
                         ) : (
                           <Button
@@ -2885,38 +3026,73 @@ export default function AgentsPage() {
                                   </Stack>
                                 )}
                                 {message.role === 'assistant' &&
-                                  message.streamStatus && (
-                                    <Chip
-                                      size="small"
-                                      variant="outlined"
-                                      color={
-                                        message.streamStatus === 'complete'
-                                          ? 'success'
-                                          : message.streamStatus === 'failed'
-                                            ? 'error'
-                                            : 'default'
-                                      }
-                                      icon={
-                                        message.streamStatus === 'complete' ? (
-                                          <CheckCircleOutlineIcon fontSize="small" />
-                                        ) : message.streamStatus ===
-                                          'failed' ? (
-                                          <ErrorOutlineIcon fontSize="small" />
-                                        ) : (
-                                          <CircularProgress size={14} />
-                                        )
-                                      }
-                                      label={
-                                        message.streamStatus === 'complete'
-                                          ? 'Complete'
-                                          : message.streamStatus === 'failed'
-                                            ? 'Failed'
-                                            : 'Processing'
-                                      }
-                                      data-testid="status-chip"
-                                      sx={{ alignSelf: 'flex-start' }}
-                                    />
-                                  )}
+                                  message.streamStatus &&
+                                  (() => {
+                                    const usesLiveStoppedMarker =
+                                      liveStoppedMarker !== null &&
+                                      liveStoppedMarker.conversationId ===
+                                        activeConversationId &&
+                                      latestAssistantMessageId === message.id &&
+                                      message.streamStatus === 'processing' &&
+                                      !isStopping;
+                                    const visibleStreamStatus =
+                                      usesLiveStoppedMarker
+                                        ? 'stopped'
+                                        : message.streamStatus;
+
+                                    return (
+                                      <Chip
+                                        size="small"
+                                        variant="outlined"
+                                        color={
+                                          visibleStreamStatus === 'complete'
+                                            ? 'success'
+                                            : visibleStreamStatus === 'failed'
+                                              ? 'error'
+                                              : visibleStreamStatus ===
+                                                  'stopped'
+                                                ? 'warning'
+                                                : isStopping
+                                                  ? 'warning'
+                                                  : 'default'
+                                        }
+                                        icon={
+                                          visibleStreamStatus === 'complete' ? (
+                                            <CheckCircleOutlineIcon fontSize="small" />
+                                          ) : visibleStreamStatus ===
+                                            'failed' ? (
+                                            <ErrorOutlineIcon fontSize="small" />
+                                          ) : visibleStreamStatus ===
+                                            'stopped' ? (
+                                            <HourglassTopIcon fontSize="small" />
+                                          ) : (
+                                            <CircularProgress
+                                              size={14}
+                                              color={
+                                                isStopping
+                                                  ? 'warning'
+                                                  : 'inherit'
+                                              }
+                                            />
+                                          )
+                                        }
+                                        label={
+                                          visibleStreamStatus === 'complete'
+                                            ? 'Complete'
+                                            : visibleStreamStatus === 'failed'
+                                              ? 'Failed'
+                                              : visibleStreamStatus ===
+                                                  'stopped'
+                                                ? 'Stopped'
+                                                : isStopping
+                                                  ? 'Stopping'
+                                                  : 'Processing'
+                                        }
+                                        data-testid="status-chip"
+                                        sx={{ alignSelf: 'flex-start' }}
+                                      />
+                                    );
+                                  })()}
 
                                 {segments.map((segment) => {
                                   if (segment.kind === 'text') {

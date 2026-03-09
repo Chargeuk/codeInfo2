@@ -51,7 +51,11 @@ import useChatStream, {
   ToolCitation,
   ToolCall,
 } from '../hooks/useChatStream';
-import useChatWs, { type ChatWsServerEvent } from '../hooks/useChatWs';
+import useChatWs, {
+  type ChatWsCancelAckEvent,
+  type ChatWsServerEvent,
+  type ChatWsTranscriptEvent,
+} from '../hooks/useChatWs';
 import useConversationTurns, {
   StoredTurn,
 } from '../hooks/useConversationTurns';
@@ -195,7 +199,6 @@ export default function ChatPage() {
     setConversation,
     hydrateHistory,
     hydrateInflightSnapshot,
-    getInflightId,
     handleWsEvent,
   } = useChatStream(
     selected,
@@ -255,6 +258,9 @@ export default function ChatPage() {
   const stepLoggedRef = useRef(new Set<string>());
   const toolDistanceLoggedRef = useRef(new Set<string>());
   const transcriptRef = useRef<HTMLDivElement | null>(null);
+  const stoppingVisibleLoggedRef = useRef<string | null>(null);
+  const stoppedVisibleLoggedRef = useRef(new Set<string>());
+  const serverVisibleInflightIdRef = useRef<string | null>(null);
   const knownConversationIds = useMemo(
     () => new Set(conversations.map((c) => c.conversationId)),
     [conversations],
@@ -388,6 +394,26 @@ export default function ChatPage() {
     },
     onEvent: (event: ChatWsServerEvent) => {
       if (mongoConnected === false) return;
+      const forwardRealtimeEvent = (
+        targetEvent: ChatWsTranscriptEvent | ChatWsCancelAckEvent,
+      ) => {
+        if (targetEvent.type === 'inflight_snapshot') {
+          serverVisibleInflightIdRef.current = targetEvent.inflight.inflightId;
+        } else if (
+          targetEvent.type !== 'turn_final' &&
+          'inflightId' in targetEvent &&
+          typeof targetEvent.inflightId === 'string'
+        ) {
+          serverVisibleInflightIdRef.current = targetEvent.inflightId;
+        }
+        if (
+          targetEvent.type === 'turn_final' &&
+          serverVisibleInflightIdRef.current === targetEvent.inflightId
+        ) {
+          serverVisibleInflightIdRef.current = null;
+        }
+        handleWsEvent(targetEvent);
+      };
       switch (event.type) {
         case 'conversation_upsert': {
           const agentName = event.conversation.agentName;
@@ -417,7 +443,8 @@ export default function ChatPage() {
         case 'analysis_delta':
         case 'tool_event':
         case 'turn_final':
-          handleWsEvent(event);
+        case 'cancel_ack':
+          forwardRealtimeEvent(event);
           return;
         default:
           return;
@@ -459,7 +486,24 @@ export default function ChatPage() {
     );
     if (!enabled) return;
     (window as unknown as { __chatTest?: unknown }).__chatTest = {
-      handleWsEvent,
+      handleWsEvent: (event: ChatWsTranscriptEvent | ChatWsCancelAckEvent) => {
+        if (event.type === 'inflight_snapshot') {
+          serverVisibleInflightIdRef.current = event.inflight.inflightId;
+        } else if (
+          event.type !== 'turn_final' &&
+          'inflightId' in event &&
+          typeof event.inflightId === 'string'
+        ) {
+          serverVisibleInflightIdRef.current = event.inflightId;
+        }
+        if (
+          event.type === 'turn_final' &&
+          serverVisibleInflightIdRef.current === event.inflightId
+        ) {
+          serverVisibleInflightIdRef.current = null;
+        }
+        handleWsEvent(event);
+      },
     };
   }, [handleWsEvent]);
   const providerLocked = Boolean(selectedConversation || messages.length > 0);
@@ -514,7 +558,8 @@ export default function ChatPage() {
     !providerAvailable ||
     (providerIsCodex && !toolsAvailable);
   const isSending = isStreaming || status === 'sending';
-  const showStop = isSending;
+  const isStopping = status === 'stopping';
+  const showStop = isSending || isStopping;
   const combinedError =
     providerErrorMessage ?? errorMessage ?? 'Failed to load chat options.';
   const retryFetch = useCallback(() => {
@@ -593,6 +638,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     setActiveConversationId(conversationId);
+    serverVisibleInflightIdRef.current = null;
     console.info('[chat-history] conversationId changed', { conversationId });
   }, [conversationId]);
 
@@ -810,11 +856,21 @@ export default function ChatPage() {
   };
 
   const handleStop = () => {
-    const currentInflightId = getInflightId();
-    if (activeConversationId && currentInflightId) {
-      cancelInflight(activeConversationId, currentInflightId);
+    if (!activeConversationId || isStopping) {
+      return;
     }
-    stop({ showStatusBubble: true });
+
+    const currentInflightId =
+      inflightSnapshot?.inflightId ?? serverVisibleInflightIdRef.current;
+    console.info('[stop-debug][chat-ui] stop-clicked', {
+      conversationId: activeConversationId,
+      ...(currentInflightId ? { inflightId: currentInflightId } : {}),
+    });
+    const requestId = cancelInflight(
+      activeConversationId,
+      currentInflightId ?? undefined,
+    );
+    stop({ requestId, showStatusBubble: true });
     setInput(lastSentRef.current);
     inputRef.current?.focus();
   };
@@ -823,11 +879,13 @@ export default function ChatPage() {
     reason?: 'provider-change' | 'new-conversation';
     nextProvider?: string;
   }) => {
-    const currentInflightId = getInflightId();
-    if (activeConversationId && currentInflightId) {
+    const currentInflightId =
+      inflightSnapshot?.inflightId ??
+      serverVisibleInflightIdRef.current ??
+      undefined;
+    if (activeConversationId) {
       cancelInflight(activeConversationId, currentInflightId);
     }
-    stop();
     resetTurns();
     const nextId = reset();
     setConversation(nextId, { clearMessages: true });
@@ -837,6 +895,7 @@ export default function ChatPage() {
     inputRef.current?.focus();
     setThinkOpen({});
     setToolOpen({});
+    serverVisibleInflightIdRef.current = null;
     const targetProvider = options?.nextProvider ?? provider;
     if (targetProvider === 'codex') {
       const reason = options?.reason ?? 'new-conversation';
@@ -920,10 +979,18 @@ export default function ChatPage() {
     ) {
       setSelected(nextConversation.model);
     }
-    stop();
+    if (activeConversationId) {
+      cancelInflight(
+        activeConversationId,
+        inflightSnapshot?.inflightId ??
+          serverVisibleInflightIdRef.current ??
+          undefined,
+      );
+    }
     resetTurns();
     setConversation(conversation, { clearMessages: true });
     setActiveConversationId(conversation);
+    serverVisibleInflightIdRef.current = null;
     if (isMobile) {
       setMobileDrawerOpen(false);
     }
@@ -998,7 +1065,12 @@ export default function ChatPage() {
             role: turn.role === 'system' ? 'assistant' : turn.role,
             content: turn.content,
             tools: mapToolCalls(turn.toolCalls ?? null),
-            streamStatus: turn.status === 'failed' ? 'failed' : 'complete',
+            streamStatus:
+              turn.status === 'failed'
+                ? 'failed'
+                : turn.status === 'stopped'
+                  ? 'stopped'
+                  : 'complete',
             usage: turn.usage,
             timing: turn.timing,
             createdAt: turn.createdAt,
@@ -1031,8 +1103,42 @@ export default function ChatPage() {
     const inflightKey = `${activeConversationId}-${inflightSnapshot.inflightId}-${inflightSnapshot.seq}`;
     if (lastInflightHydratedRef.current === inflightKey) return;
     lastInflightHydratedRef.current = inflightKey;
+    serverVisibleInflightIdRef.current = inflightSnapshot.inflightId;
     hydrateInflightSnapshot(activeConversationId, inflightSnapshot);
   }, [activeConversationId, hydrateInflightSnapshot, inflightSnapshot]);
+
+  useEffect(() => {
+    if (!activeConversationId) {
+      stoppingVisibleLoggedRef.current = null;
+      return;
+    }
+    if (status !== 'stopping') {
+      stoppingVisibleLoggedRef.current = null;
+      return;
+    }
+    if (stoppingVisibleLoggedRef.current === activeConversationId) return;
+    stoppingVisibleLoggedRef.current = activeConversationId;
+    console.info('[stop-debug][chat-ui] stopping-visible', {
+      conversationId: activeConversationId,
+    });
+  }, [activeConversationId, status]);
+
+  useEffect(() => {
+    orderedMessages.forEach((message) => {
+      if (
+        message.role !== 'assistant' ||
+        message.streamStatus !== 'stopped' ||
+        stoppedVisibleLoggedRef.current.has(message.id)
+      ) {
+        return;
+      }
+      stoppedVisibleLoggedRef.current.add(message.id);
+      console.info('[stop-debug][chat-ui] stopped-visible', {
+        conversationId: activeConversationId ?? conversationId,
+        turnId: message.id,
+      });
+    });
+  }, [activeConversationId, conversationId, orderedMessages]);
 
   type RepoEntry = {
     id: string;
@@ -1840,17 +1946,18 @@ export default function ChatPage() {
                               size="small"
                               onClick={handleStop}
                               data-testid="chat-stop"
+                              disabled={isStopping}
                             >
-                              Stop
+                              {isStopping ? 'Stopping…' : 'Stop'}
                             </Button>
                           )}
                         </Stack>
                       </Stack>
                     </Stack>
                   </form>
-                  {isSending && (
+                  {(isSending || isStopping) && (
                     <Typography variant="body2" color="text.secondary">
-                      Responding...
+                      {isStopping ? 'Stopping…' : 'Responding...'}
                     </Typography>
                   )}
                 </Stack>
@@ -2078,7 +2185,12 @@ export default function ChatPage() {
                                             ? 'success'
                                             : message.streamStatus === 'failed'
                                               ? 'error'
-                                              : 'default'
+                                              : message.streamStatus ===
+                                                  'stopped'
+                                                ? 'warning'
+                                                : isStopping
+                                                  ? 'warning'
+                                                  : 'default'
                                         }
                                         icon={
                                           message.streamStatus ===
@@ -2087,8 +2199,18 @@ export default function ChatPage() {
                                           ) : message.streamStatus ===
                                             'failed' ? (
                                             <ErrorOutlineIcon fontSize="small" />
+                                          ) : message.streamStatus ===
+                                            'stopped' ? (
+                                            <HourglassTopIcon fontSize="small" />
                                           ) : (
-                                            <CircularProgress size={14} />
+                                            <CircularProgress
+                                              size={14}
+                                              color={
+                                                isStopping
+                                                  ? 'warning'
+                                                  : 'inherit'
+                                              }
+                                            />
                                           )
                                         }
                                         label={
@@ -2096,7 +2218,12 @@ export default function ChatPage() {
                                             ? 'Complete'
                                             : message.streamStatus === 'failed'
                                               ? 'Failed'
-                                              : 'Processing'
+                                              : message.streamStatus ===
+                                                  'stopped'
+                                                ? 'Stopped'
+                                                : isStopping
+                                                  ? 'Stopping'
+                                                  : 'Processing'
                                         }
                                         data-testid="status-chip"
                                         sx={{ alignSelf: 'flex-start' }}

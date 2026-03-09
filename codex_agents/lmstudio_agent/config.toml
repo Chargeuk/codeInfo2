@@ -3,7 +3,7 @@ model = "minimax-m2.5-reap-139b-a10b-i1"
 model_reasoning_effort = "high"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
-personality = "pragmatic"
+personality = "friendly"
 
 [model_providers.lmstudiospark]
 name = "lmstudiospark"

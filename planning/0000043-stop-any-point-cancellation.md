@@ -457,8 +457,6 @@ Update the websocket cancel handler so it follows the story’s targeting and ou
 11. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a short websocket stop-contract section and a Mermaid `sequenceDiagram` that shows `cancel_inflight` with and without `inflightId`, the explicit invalid-target path, the conversation-only no-active-run `cancel_ack.result === 'noop'` path, and the successful active-run path ending in `turn_final.status === 'stopped'`.
 12. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 13. [ ] Update this plan file’s `Implementation notes` for Task 1 after the implementation and tests are complete.
-14. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
-
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`
@@ -467,6 +465,8 @@ Update the websocket cancel handler so it follows the story’s targeting and ou
 4. [ ] Run `npm run compose:up`
 5. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/ws-server.test.ts`
 6. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/ws-chat-stream.test.ts`
+7. [ ] Run `npm run lint`
+8. [ ] Run `npm run format:check`
 
 #### Implementation notes
 
@@ -506,8 +506,6 @@ Introduce the runtime-only active-run ownership state the story depends on by ex
 6. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a short section describing active-run ownership in the conversation lock and a Mermaid `flowchart` that shows lock acquisition, `runToken` creation, active ownership during execution, and guaranteed ownership release during cleanup.
 7. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 8. [ ] Update this plan file’s `Implementation notes` for Task 2 after the implementation and tests are complete.
-9. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
-
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`
@@ -515,6 +513,8 @@ Introduce the runtime-only active-run ownership state the story depends on by ex
 3. [ ] Run `npm run compose:build:summary`
 4. [ ] Run `npm run compose:up`
 5. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/ws-chat-stream.test.ts`
+6. [ ] Run `npm run lint`
+7. [ ] Run `npm run format:check`
 
 #### Implementation notes
 
@@ -555,8 +555,6 @@ Introduce the runtime-only pending-cancel state the story depends on by extendin
 7. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a short section describing how pending-cancel binds to the active `runToken`, is consumed once, and is cleared on no-op or cleanup, plus a Mermaid `flowchart` that shows those state transitions.
 8. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 9. [ ] Update this plan file’s `Implementation notes` for Task 3 after the implementation and tests are complete.
-10. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
-
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`
@@ -565,6 +563,8 @@ Introduce the runtime-only pending-cancel state the story depends on by extendin
 4. [ ] Run `npm run compose:up`
 5. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/ws-chat-stream.test.ts`
 6. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/agent-commands-runner-abort-retry.test.ts`
+7. [ ] Run `npm run lint`
+8. [ ] Run `npm run format:check`
 
 #### Implementation notes
 
@@ -609,8 +609,6 @@ Wire the extended cancellation ownership model into chat runs only. This task sh
 10. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a chat stop-lifecycle section and a Mermaid `sequenceDiagram` that shows chat run start, startup-race stop, pending-cancel consumption, provider abort propagation, single `turn_final.status === 'stopped'`, and cleanup plus same-conversation reuse.
 11. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 12. [ ] Update this plan file’s `Implementation notes` for Task 4 after the implementation and tests are complete.
-13. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
-
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`
@@ -619,6 +617,8 @@ Wire the extended cancellation ownership model into chat runs only. This task sh
 4. [ ] Run `npm run compose:up`
 5. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/ws-chat-stream.test.ts`
 6. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/integration/chat-tools-wire.test.ts`
+7. [ ] Run `npm run lint`
+8. [ ] Run `npm run format:check`
 
 #### Implementation notes
 
@@ -661,8 +661,6 @@ Wire the new cancellation ownership model into normal agent instruction runs onl
 9. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a normal agent stop-lifecycle section and a Mermaid `sequenceDiagram` that shows route start, runtime ownership, startup-race stop, abort propagation into agent execution, terminal stopped publication, and cleanup before same-conversation reuse.
 10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 11. [ ] Update this plan file’s `Implementation notes` for Task 5 after the implementation and tests are complete.
-12. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
-
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`
@@ -671,6 +669,8 @@ Wire the new cancellation ownership model into normal agent instruction runs onl
 4. [ ] Run `npm run compose:up`
 5. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/integration/agents-run-ws-cancel.test.ts`
 6. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/mcp-agents-router-run.test.ts`
+7. [ ] Run `npm run lint`
+8. [ ] Run `npm run format:check`
 
 #### Implementation notes
 
@@ -714,8 +714,6 @@ Wire the new cancellation ownership model into agent command-list execution only
 9. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a command-run stop section and a Mermaid `flowchart` that shows stop checks before the first step, before later steps, during retry or backoff wait, and during cleanup so the cancellation boundaries are documented exactly.
 10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 11. [ ] Update this plan file’s `Implementation notes` for Task 6 after the implementation and tests are complete.
-12. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
-
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`
@@ -724,6 +722,8 @@ Wire the new cancellation ownership model into agent command-list execution only
 4. [ ] Run `npm run compose:up`
 5. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/agent-commands-runner-abort-retry.test.ts`
 6. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/agent-commands-runner-retry.test.ts`
+7. [ ] Run `npm run lint`
+8. [ ] Run `npm run format:check`
 
 #### Implementation notes
 
@@ -769,8 +769,6 @@ Wire the new cancellation ownership model into flow execution only. This task sh
 11. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a flow stop section and a Mermaid `flowchart` that shows flow start, active ownership, stop checks before the first step, before each later step or loop iteration, before nested handoffs, and final stopped cleanup so the flow cancellation boundaries are explicit.
 12. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 13. [ ] Update this plan file’s `Implementation notes` for Task 7 after the implementation and tests are complete.
-14. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
-
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`
@@ -779,6 +777,8 @@ Wire the new cancellation ownership model into flow execution only. This task sh
 4. [ ] Run `npm run compose:up`
 5. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/integration/flows.run.loop.test.ts`
 6. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/integration/flows.run.command.test.ts`
+7. [ ] Run `npm run lint`
+8. [ ] Run `npm run format:check`
 
 #### Implementation notes
 
@@ -821,8 +821,6 @@ Extend the shared websocket client layer so it can send conversation-only stop r
 7. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a shared websocket client section and a Mermaid `sequenceDiagram` that shows page code calling `cancelInflight(conversationId, inflightId?)`, `useChatWs` sending the request, and the client receiving either `cancel_ack.result === 'noop'` or later `turn_final.status === 'stopped'`.
 8. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 9. [ ] Update this plan file’s `Implementation notes` for Task 8 after the implementation and tests are complete.
-10. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
-
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`
@@ -830,6 +828,8 @@ Extend the shared websocket client layer so it can send conversation-only stop r
 3. [ ] Run `npm run compose:build:summary`
 4. [ ] Run `npm run compose:up`
 5. [ ] Run `npm run test:summary:client -- --file=useChatWs.test.ts`
+6. [ ] Run `npm run lint`
+7. [ ] Run `npm run format:check`
 
 #### Implementation notes
 
@@ -875,8 +875,6 @@ Update the shared client stop state machine so the frontend can represent `stopp
 11. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a shared stop-state section and a Mermaid `flowchart` that shows `running -> stopping -> stopped`, the conversation-only no-op recovery path back to ready after `cancel_ack.result === 'noop'`, and the stale-event or invalid-target paths that must not invent a terminal state.
 12. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 13. [ ] Update this plan file’s `Implementation notes` for Task 9 after the implementation and tests are complete.
-14. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
-
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`
@@ -884,6 +882,8 @@ Update the shared client stop state machine so the frontend can represent `stopp
 3. [ ] Run `npm run compose:build:summary`
 4. [ ] Run `npm run compose:up`
 5. [ ] Run `npm run test:summary:client -- --file=useChatStream.inflightMismatch.test.tsx`
+6. [ ] Run `npm run lint`
+7. [ ] Run `npm run format:check`
 
 #### Implementation notes
 
@@ -926,8 +926,6 @@ Update Chat page stop controls and local UX so Chat uses the shared stopping con
 9. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat recovers correctly if the page unmounts or the active conversation changes while `stopping` is still pending. Purpose: cover Chat navigation corner cases.
 10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 11. [ ] Update this plan file’s `Implementation notes` for Task 10 after the implementation and tests are complete.
-12. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
-
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`
@@ -935,6 +933,8 @@ Update Chat page stop controls and local UX so Chat uses the shared stopping con
 3. [ ] Run `npm run compose:build:summary`
 4. [ ] Run `npm run compose:up`
 5. [ ] Run `npm run test:summary:client -- --file=chatPage.stop.test.tsx`
+6. [ ] Run `npm run lint`
+7. [ ] Run `npm run format:check`
 
 #### Implementation notes
 
@@ -977,8 +977,6 @@ Update Agents page stop controls and local UX so both normal runs and command ru
 9. [ ] Add or update a page test in `client/src/test/agentsPage.commandsRun.abort.test.tsx` that proves Agents recovers correctly if the page unmounts or the active conversation changes while `stopping` is still pending. Purpose: cover Agents navigation corner cases.
 10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 11. [ ] Update this plan file’s `Implementation notes` for Task 11 after the implementation and tests are complete.
-12. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
-
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`
@@ -987,6 +985,8 @@ Update Agents page stop controls and local UX so both normal runs and command ru
 4. [ ] Run `npm run compose:up`
 5. [ ] Run `npm run test:summary:client -- --file=agentsPage.commandsRun.abort.test.tsx`
 6. [ ] Run `npm run test:summary:client -- --file=agentsPage.statusChip.test.tsx`
+7. [ ] Run `npm run lint`
+8. [ ] Run `npm run format:check`
 
 #### Implementation notes
 
@@ -1032,8 +1032,6 @@ Update Flows page stop controls and local UX so flow runs use the shared stoppin
 10. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a Flows page stop UX section and a Mermaid `flowchart` that shows user stop action, shared `stopping` UI, no-op recovery after `cancel_ack.result === 'noop'`, terminal `Stopped` rendering after `turn_final.status === 'stopped'`, and same-conversation reuse after confirmation.
 11. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 12. [ ] Update this plan file’s `Implementation notes` for Task 12 after the implementation and tests are complete.
-13. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
-
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`
@@ -1041,6 +1039,8 @@ Update Flows page stop controls and local UX so flow runs use the shared stoppin
 3. [ ] Run `npm run compose:build:summary`
 4. [ ] Run `npm run compose:up`
 5. [ ] Run `npm run test:summary:client -- --file=flowsPage.stop.test.tsx`
+6. [ ] Run `npm run lint`
+7. [ ] Run `npm run format:check`
 
 #### Implementation notes
 
@@ -1078,8 +1078,6 @@ Update the repository documentation to match the implemented stop behavior and p
 3. [ ] Update markdown document `projectStructure.md`. Document name: `projectStructure.md`. Location: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md`. Description: record any files or folders added, removed, or materially repurposed by this story, including any new tests, helpers, or documentation files created while implementing the stop lifecycle changes. Purpose: keep the repository structure map synchronized with the final file layout delivered by the story.
 4. [ ] Write a pull request comment summarizing all changes made by this story across every completed task. Files (read/edit): the PR summary artifact or markdown file used by the team for PR descriptions, plus this plan file’s implementation notes if the repo keeps the summary inline. Docs to use while doing this subtask: GitHub pull request docs and Markdown syntax docs.
 5. [ ] Update this plan file’s `Implementation notes` for Task 13 after the implementation and documentation updates are complete.
-6. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
-
 #### Testing
 
 1. [ ] Run `npm run lint`
@@ -1123,8 +1121,6 @@ Verify the full story end-to-end against the acceptance criteria. This task must
 6. [ ] Manually verify the documented multi-tab or multi-window behavior by stopping from one browser context and confirming a later replacement run in another context is not cancelled incorrectly.
 7. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 8. [ ] Update this plan file’s `Implementation notes` for Task 14 after the verification work is complete.
-9. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
-
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`
@@ -1136,6 +1132,8 @@ Verify the full story end-to-end against the acceptance criteria. This task must
 7. [ ] Run `npm run test:summary:client`
 8. [ ] Run `npm run test:summary:e2e`
 9. [ ] Use Playwright MCP tools to manually verify the stop UX for Chat, Agents, and Flows, including same-conversation reuse after stop and the multi-tab stop scenario, and save screenshots to `./test-results/screenshots/`
+10. [ ] Run `npm run lint`
+11. [ ] Run `npm run format:check`
 
 #### Implementation notes
 

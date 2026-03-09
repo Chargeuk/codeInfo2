@@ -2095,6 +2095,72 @@ describe('useChatStream inflight mismatch handling', () => {
     });
   });
 
+  it('suppresses a stale older-inflight terminal failure when no visible bubble exists for that run', async () => {
+    const conversationId = 'replacement-run-stale-terminal-suppressed';
+
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'i2',
+        content: 'Replacement run',
+        createdAt: '2025-01-01T00:00:10.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        seq: 2,
+        inflightId: 'i2',
+        delta: 'Replacement reply',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.content).toBe('Replacement reply');
+      expect(assistantMessages[0]?.streamStatus).toBe('processing');
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 3,
+        inflightId: 'i1',
+        status: 'failed',
+        error: {
+          code: 'INFLIGHT_NOT_FOUND',
+          message: 'Stale stop request ignored for the replacement run',
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.content).toBe('Replacement reply');
+      expect(assistantMessages[0]?.streamStatus).toBe('processing');
+      expect(
+        assistantMessages.some((message) =>
+          message.content.includes('Stale stop request ignored'),
+        ),
+      ).toBe(false);
+    });
+  });
+
   it('does not clear stopping when cancel_ack.requestId does not match the active stop request', async () => {
     const conversationId = 'stop-state-stale-ack';
 

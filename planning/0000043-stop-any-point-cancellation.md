@@ -1379,7 +1379,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 16. Suppress Stale Out-Of-Band Terminal Bubbles For Older Runs
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -1401,29 +1401,38 @@ Fix the shared client stream reconciliation so a stale terminal websocket event 
 
 #### Subtasks
 
-1. [ ] Re-read the story sections `Acceptance Criteria`, `Event Outcomes`, `UI State Contract`, and `Edge Cases and Failure Modes`, plus the completed Task 9 and Task 14 notes before editing.
-2. [ ] Update `client/src/hooks/useChatStream.ts` so a `turn_final` for an older `inflightId` does not create a new visible assistant bubble when a newer run is already active in the same conversation. Files (read/edit): `client/src/hooks/useChatStream.ts`; files to read: `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/pages/FlowsPage.tsx`.
-3. [ ] Keep the late-event path non-destructive by ensuring stale out-of-band finals are ignored or handled without rendering a new visible terminal bubble, while same-inflight finals and persisted-history hydration still behave correctly. Files (read/edit): `client/src/hooks/useChatStream.ts`; files to read: `client/src/test/useChatStream.inflightMismatch.test.tsx`.
-4. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves a stale `turn_final` for an older `inflightId` does not render a new failed or stopped assistant bubble while a newer run is active.
-5. [ ] Add or update the nearest page or e2e regression test so the replacement-run scenario also proves the UI does not show a bogus stale terminal bubble after the stale explicit stop failure arrives. Preferred files: `e2e/chat-multiwindow.spec.ts` and nearest Chat stop page test.
-6. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
-7. [ ] Update this plan file’s `Implementation notes` for Task 16 after the implementation and tests are complete.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+1. [x] Re-read the story sections `Acceptance Criteria`, `Event Outcomes`, `UI State Contract`, and `Edge Cases and Failure Modes`, plus the completed Task 9 and Task 14 notes before editing.
+2. [x] Update `client/src/hooks/useChatStream.ts` so a `turn_final` for an older `inflightId` does not create a new visible assistant bubble when a newer run is already active in the same conversation. Files (read/edit): `client/src/hooks/useChatStream.ts`; files to read: `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/pages/FlowsPage.tsx`.
+3. [x] Keep the late-event path non-destructive by ensuring stale out-of-band finals are ignored or handled without rendering a new visible terminal bubble, while same-inflight finals and persisted-history hydration still behave correctly. Files (read/edit): `client/src/hooks/useChatStream.ts`; files to read: `client/src/test/useChatStream.inflightMismatch.test.tsx`.
+4. [x] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves a stale `turn_final` for an older `inflightId` does not render a new failed or stopped assistant bubble while a newer run is active.
+5. [x] Add or update the nearest page or e2e regression test so the replacement-run scenario also proves the UI does not show a bogus stale terminal bubble after the stale explicit stop failure arrives. Preferred files: `e2e/chat-multiwindow.spec.ts` and nearest Chat stop page test.
+6. [x] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
+7. [x] Update this plan file’s `Implementation notes` for Task 16 after the implementation and tests are complete.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] `npm run build:summary:client` - Mandatory because this task changes the shared client stream hook. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
-2. [ ] `npm run test:summary:client` - Mandatory because the regression proof lives in the client Jest suite. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:client`.
-3. [ ] `npm run test:summary:e2e` - Run because the stale replacement-run issue is visible end-to-end in a multi-window scenario. If `failed > 0`, inspect `logs/test-summaries/e2e-tests-latest.log`.
-4. [ ] `npm run build:summary:server` - Run as a compatibility check because the client still consumes the current websocket server contract. If status is `failed`, inspect `logs/test-summaries/build-server-latest.log`.
-5. [ ] `npm run compose:build:summary` - Run because the final acceptance environment uses the dockerized client and server together. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
+1. [x] `npm run build:summary:client` - Mandatory because this task changes the shared client stream hook. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+2. [x] `npm run test:summary:client` - Mandatory because the regression proof lives in the client Jest suite. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:client`.
+3. [x] `npm run test:summary:e2e` - Run because the stale replacement-run issue is visible end-to-end in a multi-window scenario. If `failed > 0`, inspect `logs/test-summaries/e2e-tests-latest.log`.
+4. [x] `npm run build:summary:server` - Run as a compatibility check because the client still consumes the current websocket server contract. If status is `failed`, inspect `logs/test-summaries/build-server-latest.log`.
+5. [x] `npm run compose:build:summary` - Run because the final acceptance environment uses the dockerized client and server together. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
+- Subtask 1: Re-read the acceptance, event-outcome, UI-state, and edge-case sections plus the completed Task 9, Task 14, and Task 15 notes so this review fix stays in shared client reconciliation and does not weaken the already-correct stop contract or page-layer UX.
+- Subtasks 2-3: Updated `client/src/hooks/useChatStream.ts` so stale out-of-band `turn_final` events now reuse only an already-visible assistant bubble for that older inflight and otherwise suppress the terminal event without inventing a new visible bubble while the newer run stays active.
+- Subtask 4: Added a hook regression in `client/src/test/useChatStream.inflightMismatch.test.tsx` proving a stale older-inflight terminal failure does not create a new failed or stopped bubble when the current conversation only has the newer replacement run visible.
+- Subtask 5: Strengthened `e2e/chat-multiwindow.spec.ts` so the reviewed replacement-run stale explicit-stop scenario now also asserts the stale `INFLIGHT_NOT_FOUND` error text never appears in either chat context.
+- Subtask 6: Task 16 did not add or remove files, so `projectStructure.md` did not need changes.
+- Subtasks 7-8: Closed out the plan notes after the shared-hook and regression-test work completed; `format:check` initially failed on `client/src/hooks/useChatStream.ts`, so I ran Prettier on the touched hook, client test, and e2e spec before rerunning `format:check`, and `lint --workspaces` still exits cleanly with only the repository's existing warning baseline.
+- Testing step 1: `npm run build:summary:client` passed cleanly with `warning_count: 0` and `agent_action: skip_log`, so the shared-hook stale-final suppression stays compatible with the client build.
+- Testing step 2: A targeted wrapper rerun of `client/src/test/useChatStream.inflightMismatch.test.tsx` first exposed a local `assistantId` initialization regression in `useChatStream.ts`, which I fixed before rerunning the targeted file cleanly; the first full `npm run test:summary:client` wrapper then hit two unrelated `agentsPage.run.test.tsx` failures, the targeted Agents rerun passed cleanly, and the required full rerun of `npm run test:summary:client` then passed with `tests run: 522`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 3: A targeted `npm run test:summary:e2e -- --file e2e/chat-multiwindow.spec.ts --grep "stale stop from one context does not cancel a later replacement run in another context"` rerun first exposed a disabled send-button timing issue in the multi-window test, so I added explicit `toBeEnabled()` waits before the send clicks; the targeted rerun then passed, and the full `npm run test:summary:e2e` wrapper passed cleanly with `tests run: 43`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 4: `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`, confirming the client-side stale-final suppression stays compatible with the current websocket server contract.
+- Testing step 5: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the dockerized acceptance environment remains buildable after the Task 16 client and e2e regression changes.
 
 ---
 

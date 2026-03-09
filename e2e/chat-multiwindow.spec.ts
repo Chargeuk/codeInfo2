@@ -661,6 +661,7 @@ test('stale stop from one context does not cancel a later replacement run in ano
   }
 
   await page.getByTestId('chat-input').fill('First run from page A');
+  await expect(page.getByTestId('chat-send')).toBeEnabled({ timeout: 10000 });
   await page.getByTestId('chat-send').click();
   await expect(page.getByText('Assistant one complete')).toBeVisible({
     timeout: 10000,
@@ -670,6 +671,9 @@ test('stale stop from one context does not cancel a later replacement run in ano
   });
 
   await pageB.getByTestId('chat-input').fill('Replacement run from page B');
+  await expect(pageB.getByTestId('chat-send')).toBeEnabled({
+    timeout: 10000,
+  });
   await pageB.getByTestId('chat-send').click();
 
   await secondRunStarted;
@@ -721,10 +725,10 @@ test('stale stop from one context does not cancel a later replacement run in ano
   expect(staleSent).toBe(true);
 
   await expect
-    .poll(
-      () => mockWsA.getLastCancel(),
-      { timeout: 10000, message: 'expected stale cancel to reach mock WS A' },
-    )
+    .poll(() => mockWsA.getLastCancel(), {
+      timeout: 10000,
+      message: 'expected stale cancel to reach mock WS A',
+    })
     .toMatchObject({
       conversationId: conversation.conversationId,
       inflightId: 'i-1',
@@ -764,9 +768,15 @@ test('stale stop from one context does not cancel a later replacement run in ano
     timeout: 10000,
   });
   await expect(pageB.getByText('Stopped')).toHaveCount(0);
+  await expect(
+    pageB.getByText('Stale stop request ignored for the replacement run'),
+  ).toHaveCount(0);
   await expect(page.getByText('Assistant two still running')).toBeVisible({
     timeout: 10000,
   });
+  await expect(
+    page.getByText('Stale stop request ignored for the replacement run'),
+  ).toHaveCount(0);
 
   await page.screenshot({
     path: 'test-results/screenshots/0000043-14-multiwindow-stale-stop-a.png',

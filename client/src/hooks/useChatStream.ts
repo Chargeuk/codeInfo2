@@ -355,6 +355,24 @@ export function useChatStream(
     [],
   );
 
+  const getExistingAssistantMessageIdForInflight = useCallback(
+    (targetInflightId: string | null) => {
+      if (!targetInflightId) return null;
+      const assistantId =
+        assistantMessageIdByInflightIdRef.current.get(targetInflightId) ??
+        historicalAssistantMessageIdByInflightIdRef.current.get(
+          targetInflightId,
+        ) ??
+        null;
+      if (!assistantId) return null;
+      const stillVisible = messagesRef.current.some(
+        (message) => message.id === assistantId && message.role === 'assistant',
+      );
+      return stillVisible ? assistantId : null;
+    },
+    [],
+  );
+
   const clearPendingStop = useCallback(() => {
     stopRequestIdRef.current = null;
     stopInflightIdRef.current = null;
@@ -1842,7 +1860,9 @@ export function useChatStream(
           return;
         }
 
-        const assistantId = resolveAssistantId();
+        const existingAssistantId =
+          preMappedAssistantId ??
+          getExistingAssistantMessageIdForInflight(eventInflightId);
         rememberSeenInflightId(event.inflightId);
         rememberConfirmedInflightId(event.inflightId);
         finalizedInflightIdsRef.current.add(event.inflightId);
@@ -1873,7 +1893,7 @@ export function useChatStream(
 
         logWithChannel('info', 'chat.client_turn_final_sync', {
           inflightId: event.inflightId,
-          assistantMessageId: assistantId,
+          assistantMessageId: existingAssistantId,
           assistantTextLen: assistantTextRef.current.length,
           streamStatus,
           inflightMismatch,
@@ -1897,6 +1917,15 @@ export function useChatStream(
         }
 
         if (inflightMismatch || isOutOfBandFinal) {
+          if (!existingAssistantId) {
+            logWithChannel('info', 'chat.ws.client_turn_final_preserved', {
+              conversationId: event.conversationId,
+              finalInflightId: eventInflightId,
+              activeInflightId: currentInflightId,
+              reason: 'late_final_without_visible_bubble_suppressed',
+            });
+            return;
+          }
           syncAssistantMessage(
             {
               streamStatus,
@@ -1905,10 +1934,12 @@ export function useChatStream(
               ...(event.status === 'failed' ? { kind: 'error' as const } : {}),
               ...metadataUpdates,
             },
-            { assistantId, useRefs: false },
+            { assistantId: existingAssistantId, useRefs: false },
           );
           return;
         }
+
+        const assistantId = resolveAssistantId();
 
         inflightIdRef.current = eventInflightId;
         setInflightId(eventInflightId);
@@ -1960,6 +1991,7 @@ export function useChatStream(
       ensureAssistantMessage,
       logFlowCommand,
       logWithChannel,
+      getExistingAssistantMessageIdForInflight,
       rememberConfirmedInflightId,
       rememberSeenInflightId,
       removePendingAssistantIfOptimistic,

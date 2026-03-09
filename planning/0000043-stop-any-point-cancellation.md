@@ -1111,7 +1111,7 @@ Verify the full story end-to-end against the acceptance criteria. This task must
 
 - Playwright screenshots and assertions: https://playwright.dev/docs/screenshots — use this because the task requires saved visual proof for the stop UX.
 - Docker Compose overview and file reference: https://docs.docker.com/compose/ — use this for the build and startup verification steps that rely on the existing Compose wrappers.
-- Cucumber guides, especially continuous integration: https://cucumber.io/docs/guides/continuous-integration/ — use this because the task explicitly runs the server cucumber suite as part of the acceptance gate.
+- Cucumber guides: https://cucumber.io/docs/guides/ — use this because the task explicitly runs the server cucumber suite as part of the acceptance gate and any related BDD updates should follow the current Cucumber guides entrypoints.
 
 #### Subtasks
 

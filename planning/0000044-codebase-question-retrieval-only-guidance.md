@@ -294,7 +294,7 @@ Update the published `codebase_question` tool description so it clearly describe
 - Model Context Protocol tools concept and server behavior: https://modelcontextprotocol.io/docs/learn/server-concepts
 - OpenAI function calling guide, for concise tool-description wording that helps the model choose tools correctly: https://platform.openai.com/docs/guides/function-calling
 - OpenAI tools and MCP guide, for how tool metadata shapes model behavior without adding hard enforcement: https://platform.openai.com/docs/guides/tools-connectors-mcp
-- DeepWiki repo reference: `openai/openai-node` (use the tool/function-calling docs in that repo as secondary confirmation that natural-language tool descriptions guide the model while structured parameters define the contract)
+- DeepWiki indexed repo page for `openai/openai-node`: https://deepwiki.com/openai/openai-node, because its `Function Calling and Tools` section provides secondary confirmation that natural-language tool descriptions guide model tool choice while structured parameters still define the contract.
 - Node.js `node:test` API, because this task updates an existing Node test file rather than adding a new test framework: https://nodejs.org/docs/latest-v22.x/api/test.html
 - npm run-script command reference, because all validation in this task must be executed through repository wrapper scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -369,6 +369,8 @@ Update the human operator helper text in `usefulCommands.txt.md` so it matches t
 - Model Context Protocol tools concept and server behavior: https://modelcontextprotocol.io/docs/learn/server-concepts
 - OpenAI function calling guide, for concise wording that keeps tool descriptions and operator guidance aligned: https://platform.openai.com/docs/guides/function-calling
 - OpenAI tools and MCP guide, for the retrieval-helper mental model used by models and operators: https://platform.openai.com/docs/guides/tools-connectors-mcp
+- Context7 API Guide: https://context7.com/docs/api-guide, because it documents library search, context retrieval, version pinning, and error handling for the Context7 MCP-backed documentation workflow that this helper text names.
+- DeepWiki documentation site: https://deepwiki.com, because the helper text explicitly names DeepWiki as a research source and the wording must keep that role accurate.
 - Markdown Guide basic syntax reference, because this task edits a markdown-heavy operator helper file and should preserve valid formatting: https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
@@ -401,6 +403,8 @@ Align the three planning-oriented system prompts so they all describe `code_info
 
 - OpenAI function calling guide, for wording that keeps tool use concise and responsibility with the caller: https://platform.openai.com/docs/guides/function-calling
 - OpenAI tools and MCP guide, for how tool guidance should support model tool selection without becoming a substitute for reasoning: https://platform.openai.com/docs/guides/tools-connectors-mcp
+- Context7 API Guide: https://context7.com/docs/api-guide, because it documents library search, context retrieval, version pinning, and error handling for the Context7 MCP-backed documentation workflow that these prompts name.
+- DeepWiki documentation site: https://deepwiki.com, because these system prompts explicitly name DeepWiki and the wording must keep its role as a repository research source rather than a decision-maker.
 - Model Context Protocol tools concept and server behavior: https://modelcontextprotocol.io/docs/learn/server-concepts
 - Plain text file handling on GitHub and Markdown repositories, to preserve line-oriented prompt formatting with minimal edits: https://docs.github.com/en/get-started/writing-on-github
 
@@ -435,6 +439,8 @@ Align the three standard `improve_plan.json` command files so they frame reposit
 
 - OpenAI function calling guide, for concise task instructions that keep reasoning with the calling agent: https://platform.openai.com/docs/guides/function-calling
 - OpenAI tools and MCP guide, for retrieval-helper framing and concise tool-guidance wording: https://platform.openai.com/docs/guides/tools-connectors-mcp
+- Context7 API Guide: https://context7.com/docs/api-guide, because it documents library search, context retrieval, version pinning, and error handling for the Context7 MCP-backed documentation workflow that these command files name.
+- DeepWiki documentation site: https://deepwiki.com, because these command files explicitly name DeepWiki and the wording must keep its role as a repository research source rather than an authority.
 - JSON RFC overview, because this task edits JSON string content and must preserve valid JSON syntax and escaping: https://www.rfc-editor.org/rfc/rfc8259
 - npm run-script command reference, because task validation still uses repository wrapper scripts for formatting/linting: https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -468,6 +474,8 @@ Align the two `kadshow_improve_plan.json` variants so they use the same retrieva
 
 - OpenAI function calling guide, for concise task instructions that keep reasoning with the calling agent: https://platform.openai.com/docs/guides/function-calling
 - OpenAI tools and MCP guide, for retrieval-helper framing and concise tool-guidance wording: https://platform.openai.com/docs/guides/tools-connectors-mcp
+- Context7 API Guide: https://context7.com/docs/api-guide, because it documents library search, context retrieval, version pinning, and error handling for the Context7 MCP-backed documentation workflow that these command files name.
+- DeepWiki documentation site: https://deepwiki.com, because these command files explicitly name DeepWiki and the wording must keep its role as a repository research source rather than an authority.
 - JSON RFC overview, because this task edits JSON string content and must preserve valid JSON syntax and escaping: https://www.rfc-editor.org/rfc/rfc8259
 - npm run-script command reference, because task validation still uses repository wrapper scripts for formatting/linting: https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -501,6 +509,9 @@ Update the research-agent prompt so it can still perform broad research while ma
 
 - OpenAI function calling guide, for keeping tool instructions concise while preserving the model’s own reasoning responsibility: https://platform.openai.com/docs/guides/function-calling
 - OpenAI tools and MCP guide, for how tools should support research without replacing reasoning: https://platform.openai.com/docs/guides/tools-connectors-mcp
+- Context7 API Guide: https://context7.com/docs/api-guide, because it documents library search, context retrieval, version pinning, and error handling for the Context7 MCP-backed documentation workflow that this prompt names.
+- DeepWiki documentation site: https://deepwiki.com, because this prompt explicitly names DeepWiki and the wording must keep its role as a repository research source rather than an authority.
+- MUI MCP documentation index for Material UI 6.4.12: https://llms.mui.com/material-ui/6.4.12/llms.txt, because this prompt explicitly names the MUI MCP tool and the story must preserve that reference accurately without implying any MUI component work is required.
 - Model Context Protocol tools concept and server behavior: https://modelcontextprotocol.io/docs/learn/server-concepts
 - Writing clear instructions reference from GitHub Docs, for preserving a plain-text prompt’s readability while making minimal wording changes: https://docs.github.com/en/get-started/writing-on-github
 
@@ -534,6 +545,9 @@ Update the tasking command template so `code_info` is described as a source of e
 
 - OpenAI function calling guide, for concise instructions that keep the tool focused on retrieval and the agent focused on decision-making: https://platform.openai.com/docs/guides/function-calling
 - OpenAI tools and MCP guide, for how tool metadata and instructions should support, not replace, model reasoning: https://platform.openai.com/docs/guides/tools-connectors-mcp
+- Context7 API Guide: https://context7.com/docs/api-guide, because it documents library search, context retrieval, version pinning, and error handling for the Context7 MCP-backed documentation workflow that `task_up.json` names.
+- DeepWiki documentation site: https://deepwiki.com, because `task_up.json` explicitly names DeepWiki and the wording must keep its role as a repository research source rather than an authority.
+- MUI MCP documentation index for Material UI 6.4.12: https://llms.mui.com/material-ui/6.4.12/llms.txt, because `task_up.json` explicitly names the MUI MCP tool and the wording must preserve that reference accurately without introducing MUI implementation scope.
 - JSON RFC overview, because this task edits JSON string content and must preserve valid JSON syntax and escaping: https://www.rfc-editor.org/rfc/rfc8259
 - Model Context Protocol tools concept and server behavior: https://modelcontextprotocol.io/docs/learn/server-concepts
 
@@ -568,7 +582,7 @@ Perform the final whole-story validation. This task proves the server descriptio
 
 - npm run-script command reference, because all validation must be run through repository wrapper scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - Node.js `node:test` API, because the server regression assertion added in this story runs through the full server unit wrapper: https://nodejs.org/docs/latest-v22.x/api/test.html
-- Cucumber guides index, because the final regression task must use the repository’s full cucumber wrapper rather than ad hoc test commands: https://cucumber.io/docs/guides/
+- Cucumber Continuous Integration guide, because it explicitly recommends running Cucumber from the build or CI entrypoint instead of ad hoc commands, which matches this repository’s wrapper-first test policy: https://cucumber.io/docs/guides/continuous-integration/
 - Playwright intro docs, only if later implementation adds a GUI-touching change that must be checked manually; otherwise record that Playwright is not applicable to this non-GUI story: https://playwright.dev/docs/intro
 - Markdown Guide basic syntax reference, because this task may need to update final summary text inside the story plan itself: https://www.markdownguide.org/basic-syntax/
 

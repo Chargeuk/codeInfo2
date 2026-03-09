@@ -115,6 +115,55 @@ This story is intentionally about stop correctness and run ownership, not about 
 
 None. Repository and external research are sufficient to task this story.
 
+## Contracts And Storage Shapes
+
+- External websocket message contract:
+  - do not add a new stop message type for this story;
+  - continue using the existing `cancel_inflight` client message with `conversationId` required and `inflightId` optional;
+  - continue using the existing `turn_final` server event as the terminal result contract for stop outcomes;
+  - successful cancellation of an active run continues to be represented by `turn_final.status === 'stopped'`.
+
+- Existing client-visible contract that should remain unchanged:
+  - explicit `{ conversationId, inflightId }` stop requests continue to target one known run and may still use the existing invalid-target failure behavior when the inflight id does not match an active run;
+  - conversation-only `{ conversationId }` stop requests continue to be valid and must remain available because some surfaces, especially agent command runs, do not always give the client a usable `inflightId` before Stop can be pressed;
+  - if a conversation-only stop arrives when there is no active run, keep the current no-op behavior rather than inventing a new failure contract for this story.
+
+- REST response contract:
+  - do not add a new REST response shape for this story just to carry stop metadata;
+  - chat, agent, and flow start routes may continue returning their current response bodies;
+  - agent command run start may continue returning `conversationId` without `inflightId`, which is one of the reasons conversation-only stop must remain first-class.
+
+- New internal runtime storage shape required for this story:
+  - extend the current in-memory active-run ownership model from simple set membership to lightweight ownership metadata per conversation;
+  - recommended shape:
+    - `ActiveRunOwnership`
+    - `runToken: string`
+    - `startedAt: string`
+  - this remains runtime-only and is not exposed over websocket or persisted to Mongo.
+
+- New internal pending-cancel storage shape required for this story:
+  - add a conversation-scoped pending cancel registry so Stop can be remembered before an `inflightId` exists;
+  - recommended shape:
+    - `PendingConversationCancel`
+    - `runToken: string`
+    - `requestedAt: string`
+    - `boundInflightId?: string`
+  - meaning:
+    - `runToken` ties the stop request to the active run instance that owned the conversation when Stop was pressed;
+    - `requestedAt` is for cleanup, logging, and deterministic ordering;
+    - `boundInflightId` is filled once the run's inflight id becomes known so later matching and cleanup can stay precise.
+
+- Internal storage rules for the new runtime shapes:
+  - keep both ownership and pending-cancel state in memory only;
+  - clear pending-cancel state once it has been consumed by the matching run and that run reaches its terminal finalization path;
+  - clear ownership state in the same cleanup path that releases the conversation lock;
+  - do not allow a stale pending cancel to survive long enough to bind to a newer replacement run in the same conversation.
+
+- Persistent storage schema:
+  - no Mongo schema or document-shape change is required for this story;
+  - `Turn.status` already supports `'stopped'`, which is sufficient for the persistent terminal state;
+  - do not persist transient pending-cancel or active-run ownership data unless the story scope later expands to require restart-safe cancellation semantics.
+
 ## Research Findings
 
 - Repository behavior today:
@@ -168,6 +217,7 @@ None. Repository and external research are sufficient to task this story.
 
 - Keep the lock model simple and aligned with the current repository behavior:
   - the repository uses a single per-conversation lock rather than a queue, so this story should only cancel work that actually became active;
+  - implementation can keep that one-active-run model while upgrading the lock state from bare membership to lightweight ownership metadata as defined above;
   - if a new run is rejected up front with `RUN_IN_PROGRESS`, this story should not invent special stop behavior for that rejected start attempt;
   - stop implementation should therefore focus on active run ownership, cleanup, and unlock timing rather than queue management.
 

@@ -8,9 +8,9 @@ Do you have any remaining questions about what we want to achieve in this story 
 
 Is there any acceptance in this story that is not defined in a way that a junior developer could understand what the output should be? If so please update all relevent planning sections to get them to where we need to be.
 
-Do you feel this story is well scoped? How could it be improved? are there unknowns that need to be researched? If so, please research them using the codeInfo, deepwiki & context7 mcp tools, as well as cross referencing with internet searches to be 100% confident of the answer. Remember to give the repository path to the code_info tool as part of your question so it uses the correct repository. Then update the plan with your findings.
+Do you feel this story is well scoped? How could it be improved? are there unknowns that need to be researched? If so, please research them using the codeInfo, deepwiki & context7 mcp tools, as well as cross referencing with internet searches to gather repository evidence, relevant docs, and other facts before deciding on the answer. Remember to give the repository path to the code_info tool as part of your question so it uses the correct repository. Then update the plan with your findings.
 
-Without actually tasking up, can you create a rough plan on what will need to be changed in order to implement this story. Please double check your thoughts using the code_info, deepwiki and context7 mcp tools. Place the information into a section named Implementation Ideas
+Without actually tasking up, can you create a rough plan on what will need to be changed in order to implement this story. Please use the code_info, deepwiki and context7 mcp tools to gather repository evidence and relevant documentation, then verify your thoughts by reading the relevant files directly. Place the information into a section named Implementation Ideas
 
 Does the story require any new message contracts or storage shapes, or changes to existing ones? If so, can these be defined within their own section of the story up front based on what we know is needed?
 

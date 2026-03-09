@@ -388,7 +388,7 @@ No wrapper build or automated test run is required for this task because it chan
 
 ### 3. Operator Helper Command Library
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `none yet`
 
 #### Overview
@@ -408,11 +408,11 @@ Update the human operator helper text in `usefulCommands.txt.md` so it matches t
 
 Self-contained reminder for every subtask in this task: keep `https://modelcontextprotocol.io/docs/learn/server-concepts`, `https://platform.openai.com/docs/guides/function-calling`, `https://platform.openai.com/docs/guides/tools-connectors-mcp`, `https://context7.com/docs/api-guide`, `https://deepwiki.com`, and `https://www.markdownguide.org/basic-syntax/` open while working. The only file in scope here is [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md), and the goal is to remove certainty or authority wording without changing the file’s command-library structure.
 
-1. [ ] Read the documentation links above, then inspect [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md) alongside the updated [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). Confirm which entries currently ask `code_info` to make the plan, certify correctness, or make the operator `100% confident`. Junior copy/paste snippet for this subtask: `sed -n '1,120p' usefulCommands.txt.md`, `rg -n '100% confident|double check your thoughts|double-check your thoughts|code_info' usefulCommands.txt.md AGENTS.md`.
-2. [ ] Rewrite only the relevant entries in [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md) so they reuse the stable Task 1 / `AGENTS.md` retrieval-first wording instead of asking `code_info` to decide the answer. Keep the file’s command-library purpose and overall structure intact.
-3. [ ] Search [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md) for `100% confident`, `double check your thoughts`, `double-check your thoughts`, `come up with suggestions`, and `code_info`. Record in Implementation notes which phrases were removed, which were rewritten, and which remaining `code_info` mentions are intentionally operational-only.
-4. [ ] Manual Playwright-MCP log contract for Task 3. Expected browser-console outcome later: zero matches for the prefix `[DEV-0000044][T3]` and zero browser `error` entries caused by this story, because Task 3 only changes operator helper text. Do not add any new client/runtime log line such as `[DEV-0000044][T3] event=operator_helper_guidance_aligned result=success`. Record this expected zero-match outcome in Implementation notes.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Read the documentation links above, then inspect [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md) alongside the updated [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). Confirm which entries currently ask `code_info` to make the plan, certify correctness, or make the operator `100% confident`. Junior copy/paste snippet for this subtask: `sed -n '1,120p' usefulCommands.txt.md`, `rg -n '100% confident|double check your thoughts|double-check your thoughts|code_info' usefulCommands.txt.md AGENTS.md`.
+2. [x] Rewrite only the relevant entries in [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md) so they reuse the stable Task 1 / `AGENTS.md` retrieval-first wording instead of asking `code_info` to decide the answer. Keep the file’s command-library purpose and overall structure intact.
+3. [x] Search [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md) for `100% confident`, `double check your thoughts`, `double-check your thoughts`, `come up with suggestions`, and `code_info`. Record in Implementation notes which phrases were removed, which were rewritten, and which remaining `code_info` mentions are intentionally operational-only.
+4. [x] Manual Playwright-MCP log contract for Task 3. Expected browser-console outcome later: zero matches for the prefix `[DEV-0000044][T3]` and zero browser `error` entries caused by this story, because Task 3 only changes operator helper text. Do not add any new client/runtime log line such as `[DEV-0000044][T3] event=operator_helper_guidance_aligned result=success`. Record this expected zero-match outcome in Implementation notes.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -421,7 +421,12 @@ No wrapper build or automated test run is required for this task because it chan
 
 #### Implementation notes
 
-- Pending.
+- Read the MCP/OpenAI/Context7/DeepWiki/Markdown references, inspected `usefulCommands.txt.md` beside `AGENTS.md`, and searched for `100% confident`, `double check your thoughts`, `double-check your thoughts`, `come up with suggestions`, and `code_info` before editing.
+- Rewrote the helper entry that asked for cross-tool research “to be 100% confident of the answer” so it now frames `code_info` as evidence gathering for repository facts, relevant docs, and other facts before deciding on the answer.
+- Rewrote the helper entry that said “Please double check your thoughts using the code_info, deepwiki and context7 mcp tools” so it now says to gather repository evidence and relevant documentation, then verify thoughts by reading the relevant files directly.
+- Left the remaining `code_info` mentions in the long delegation instructions unchanged because they are operational workflow guidance rather than authority-style wording.
+- Recorded the Manual Playwright expectation for later story validation: zero `[DEV-0000044][T3]` browser-console entries and zero browser `error` entries caused by Task 3, because this task changes operator helper text only.
+- `npm run format:check --workspaces` passed cleanly; `npm run lint --workspaces` still reported the existing repo-wide import-order warnings outside Task 3 and did not introduce any Task 3-specific failures.
 
 ---
 

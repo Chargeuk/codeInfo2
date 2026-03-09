@@ -258,3 +258,269 @@ The story should be implementable by a junior developer without extra stakeholde
 - Prompt and command file consistency can be verified by direct file review in this story; do not introduce a broad repo-wide prompt validator unless implementation uncovers a concrete repeated failure mode that cannot be managed by the scoped file updates above.
 - Do not add runtime prompt rejection, heuristic filtering, semantic analysis, or CI machinery just to enforce wording.
 - Keep the final wording short and concrete because MCP/OpenAI tool guidance both rely on descriptions as hints that shape model behavior. Overlong policy prose would make the story noisier without making the contract clearer.
+
+## Task Execution Instructions
+
+1. Read this full story before implementation, including Acceptance Criteria, Wording Contract, Completion Checks, Edge Cases and Failure Modes, Tasking Readiness Notes, Developer Guardrails, and Implementation Ideas.
+2. Work tasks strictly in numeric order. Do not start a later task until the current task is fully complete and documented.
+3. This story is wording-and-test work only. Do not add runtime prompt rejection, new storage, websocket changes, REST changes, schema changes, or extra observability/logging just to support validation.
+4. For each task, set Task Status to `__in_progress__` before touching files, and set it to `__done__` only after subtasks, testing, and implementation notes are complete.
+5. Keep the `codebase_question` tool name, input schema, result shape, provider enum values, and existing legacy identifiers such as `CODE_INFO_LLM_UNAVAILABLE` unchanged throughout this story.
+6. When a subtask says to search for wording drift, use repository search and inspect the matching files directly before editing. Only update files that actually frame `code_info` or `codebase_question` as a reasoning authority.
+7. When a subtask says to keep grouped files aligned, make the wording changes in the whole group within the same task so the duplicated prompts do not drift.
+8. Do not add new test files unless the named existing test location cannot express the required check cleanly. Prefer the existing server test files already identified in this story.
+9. If a task touches only text files and does not change runtime code or automated tests, wrapper test commands are not required for that task. Record that explicitly instead of inventing runtime validation.
+10. After each completed subtask or testing step, update the task’s Implementation notes with what changed, any wording decisions, and any search terms used to prove the old authority-style phrases were removed.
+
+## Tasks
+
+### 1. MCP Tool Description Contract
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Update the published `codebase_question` tool description so it clearly describes a retrieval-only helper and add one lightweight regression assertion for the surfaced MCP contract. This task is first because later prompt and documentation wording should align to the server-published description instead of inventing their own phrasing.
+
+#### Documentation Locations
+
+- Model Context Protocol tools concept and server behavior: https://modelcontextprotocol.io/docs/learn/server-concepts
+- OpenAI function calling guide, for concise tool-description wording that helps the model choose tools correctly: https://platform.openai.com/docs/guides/function-calling
+- OpenAI tools and MCP guide, for how tool metadata shapes model behavior without adding hard enforcement: https://platform.openai.com/docs/guides/tools-connectors-mcp
+- Node.js `node:test` API, because this task updates an existing Node test file rather than adding a new test framework: https://nodejs.org/docs/latest-v22.x/api/test.html
+- npm run-script command reference, because all validation in this task must be executed through repository wrapper scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script
+
+#### Subtasks
+
+1. [ ] Read the documentation links above, then inspect [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts), [server/src/test/unit/mcp2-router-list-happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp2-router-list-happy.test.ts), and [server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts). Confirm before editing that this task must change only the human-readable `description` text surfaced by the tool and one existing automated test location.
+2. [ ] Edit [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts) so `codebaseQuestionDefinition()` describes `codebase_question` as a retrieval helper for repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering work. The new wording must also say the caller must inspect source files directly after retrieval and do its own reasoning. Do not rename the tool, change `inputSchema`, change returned data, or add runtime validation.
+3. [ ] Update [server/src/test/unit/mcp2-router-list-happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp2-router-list-happy.test.ts) with a lightweight assertion on the published `codebase_question` description returned from `tools/list`. Assert a few stable phrases that prove the retrieval-only boundary and the inspect-and-reason requirement. Do not snapshot the whole description text. Only use [server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts) if the router-level test genuinely cannot cover the surfaced contract.
+4. [ ] Search the repository for any server-side tests that might now duplicate or contradict the new wording expectation by running a direct text search for `codebase_question` in `server/src/test`. If another existing test asserts the old wording, update that existing test in the same task instead of adding a second new regression style.
+5. [ ] Record in this task’s Implementation notes the exact stable phrases used by the regression assertion and why they were chosen instead of a full-text snapshot.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Wrapper-only policy: do not attempt to run builds or tests without using the wrapper commands listed below.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - This task changes server TypeScript and server test code, so server build validation is required.
+2. [ ] `npm run test:summary:server:unit` - This task changes an existing `node:test` suite and must prove the full server unit/integration wrapper still passes.
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 2. Repository Guidance And Helper Text
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Align the repository-level human guidance so `AGENTS.md`, the developer reference, and the operator helper text all describe `code_info` as retrieval-first and do not ask it to decide the implementation. This task is separate from agent prompts so the repo’s human-facing guidance is settled before prompt-family rewrites begin.
+
+#### Documentation Locations
+
+- Model Context Protocol tools concept and server behavior: https://modelcontextprotocol.io/docs/learn/server-concepts
+- OpenAI function calling guide, for concise wording that keeps tool descriptions and operator guidance aligned: https://platform.openai.com/docs/guides/function-calling
+- OpenAI tools and MCP guide, for the retrieval-helper mental model used by models and operators: https://platform.openai.com/docs/guides/tools-connectors-mcp
+- Markdown Guide basic syntax reference, because this task edits markdown-heavy repository guidance files and should preserve valid formatting: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Read the documentation links above, then inspect [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md), [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md), and [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md). Confirm the exact wording that currently makes `code_info` sound like a reasoning authority before editing.
+2. [ ] Update [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md) so the repository instructions explicitly say `code_info` is for retrieval-first evidence gathering, followed by direct file inspection and reasoning by the working model. Keep the existing onboarding flow and conversation-id rules intact.
+3. [ ] Add or update a short note in [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) explaining that `codebase_question` reduces repository-search cost but does not replace source inspection, implementation design, risk assessment, or review by the working model.
+4. [ ] Rewrite the relevant entries in [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md) so they no longer ask `code_info` to make the plan, certify correctness, or make the user `100% confident`. Keep the command file’s purpose and structure intact. Only change the lines that assign reasoning or certainty to the tool.
+5. [ ] Run repository searches for `100% confident`, `double check your thoughts`, `double-check your thoughts`, `come up with suggestions`, and `code_info` across the three files touched in this task. Record in Implementation notes which phrases were removed and which remaining `code_info` mentions were intentionally left as operational-only wording.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+No wrapper build or automated test run is required for this task because it changes only markdown/text guidance files. Validation for this task is the wording search and file review completed in the subtasks above. Full wrapper regression is deferred to the final story task.
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 3. Planning Agent System Prompt Family
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Align the three planning-oriented system prompts so they all describe `code_info` as a retrieval helper rather than a source of implementation suggestions. This is a dedicated task because the files are duplicated prompt-family surfaces that should be kept in sync in one pass.
+
+#### Documentation Locations
+
+- OpenAI function calling guide, for wording that keeps tool use concise and responsibility with the caller: https://platform.openai.com/docs/guides/function-calling
+- OpenAI tools and MCP guide, for how tool guidance should support model tool selection without becoming a substitute for reasoning: https://platform.openai.com/docs/guides/tools-connectors-mcp
+- Model Context Protocol tools concept and server behavior: https://modelcontextprotocol.io/docs/learn/server-concepts
+- Plain text file handling on GitHub and Markdown repositories, to preserve line-oriented prompt formatting with minimal edits: https://docs.github.com/en/get-started/writing-on-github
+
+#### Subtasks
+
+1. [ ] Read the documentation links above, then inspect [codex_agents/planning_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/planning_agent/system_prompt.txt), [codex_agents/vllm_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/vllm_agent/system_prompt.txt), and [codex_agents/lmstudio_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/lmstudio_agent/system_prompt.txt). Confirm the shared phrase `come up with suggestions about how new features could be implemented` appears in all three files before editing.
+2. [ ] Update all three planning system prompts in the same edit pass so they tell the agent to use `code_info` to gather repository evidence, current implementations, and candidate files, then inspect those files directly and reason for itself. Keep the broader planning-agent role, KISS instructions, and question-asking behavior unchanged.
+3. [ ] After editing, compare the three files side by side and confirm the retrieval-only sentence stays materially identical across all variants so the family does not drift.
+4. [ ] Search these three files for `come up with suggestions`, `100% confident`, `double-check your thoughts`, and `code_info` and record in Implementation notes which wording was changed and which operational wording stayed unchanged.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+No wrapper build or automated test run is required for this task because it changes prompt text only. Validation for this task is the side-by-side comparison and wording searches completed in the subtasks above. Full wrapper regression is deferred to the final story task.
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 4. Planning Command Template Family
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Align the duplicated planning command JSON files so they all frame repository-question tooling as evidence gathering rather than plan authorship or correctness sign-off. This task is kept separate from the system-prompt task because these JSON command templates are a second duplicated family with different wording patterns.
+
+#### Documentation Locations
+
+- OpenAI function calling guide, for concise task instructions that keep reasoning with the calling agent: https://platform.openai.com/docs/guides/function-calling
+- OpenAI tools and MCP guide, for retrieval-helper framing and concise tool-guidance wording: https://platform.openai.com/docs/guides/tools-connectors-mcp
+- JSON RFC overview, because this task edits JSON string content and must preserve valid JSON syntax and escaping: https://www.rfc-editor.org/rfc/rfc8259
+- npm run-script command reference, because task validation still uses repository wrapper scripts for formatting/linting: https://docs.npmjs.com/cli/v10/commands/npm-run-script
+
+#### Subtasks
+
+1. [ ] Read the documentation links above, then inspect these five files together: [codex_agents/planning_agent/commands/improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/planning_agent/commands/improve_plan.json), [codex_agents/lmstudio_agent/commands/improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/lmstudio_agent/commands/improve_plan.json), [codex_agents/vllm_agent/commands/improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/vllm_agent/commands/improve_plan.json), [codex_agents/lmstudio_agent/commands/kadshow_improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/lmstudio_agent/commands/kadshow_improve_plan.json), and [codex_agents/vllm_agent/commands/kadshow_improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/vllm_agent/commands/kadshow_improve_plan.json). Confirm which strings currently use phrases such as `100% confident`, `double check your thoughts`, `double-check your thoughts`, or wording that asks `code_info` to ensure correctness or coverage.
+2. [ ] Update the three `improve_plan.json` files so any `code_info` instruction is phrased as finding repository facts, existing implementations, contracts, and candidate files for the planning agent to reason about. Do not rewrite unrelated command steps or rename command entries.
+3. [ ] Update the two `kadshow_improve_plan.json` files in the same style and keep their wording aligned with each other. Preserve their command structure and only change the strings that assign reasoning authority or certainty to the tool.
+4. [ ] Search all five command files for `100% confident`, `double check your thoughts`, `double-check your thoughts`, `come up with suggestions`, and `code_info`. Record in Implementation notes which strings were rewritten and confirm that the three standard variants still match each other and that the two `kadshow` variants still match each other.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+No wrapper build or automated test run is required for this task because it changes command-template text only. Validation for this task is the wording search plus JSON syntax preservation completed in the subtasks above. Full wrapper regression is deferred to the final story task.
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 5. Research Prompt Retrieval Boundary
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Update the research-agent prompt so it can still perform broad research while making it clear that `code_info` is one repository-evidence source, not the authority that decides the final answer. This task is isolated because the research prompt has a different job from the planning and tasking prompts.
+
+#### Documentation Locations
+
+- OpenAI function calling guide, for keeping tool instructions concise while preserving the model’s own reasoning responsibility: https://platform.openai.com/docs/guides/function-calling
+- OpenAI tools and MCP guide, for how tools should support research without replacing reasoning: https://platform.openai.com/docs/guides/tools-connectors-mcp
+- Model Context Protocol tools concept and server behavior: https://modelcontextprotocol.io/docs/learn/server-concepts
+- Writing clear instructions reference from GitHub Docs, for preserving a plain-text prompt’s readability while making minimal wording changes: https://docs.github.com/en/get-started/writing-on-github
+
+#### Subtasks
+
+1. [ ] Read the documentation links above, then inspect [codex_agents/research_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/research_agent/system_prompt.txt). Identify the exact sentence that talks about using `code_info`, DeepWiki, Context7, MUI, and web search so the rewrite stays local to that responsibility boundary.
+2. [ ] Update [codex_agents/research_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/research_agent/system_prompt.txt) so it still permits broad research across the codebase, libraries, and the web, while explicitly treating `code_info` as a repository-evidence tool rather than the authority that decides the answer. Keep the rest of the research-agent prompt structure and scope intact.
+3. [ ] Search the updated file for `code_info`, `100% confident`, and wording that could still imply the tool decides the answer. Record the before/after wording choice in Implementation notes.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+No wrapper build or automated test run is required for this task because it changes prompt text only. Validation for this task is the targeted wording search and file review completed in the subtasks above. Full wrapper regression is deferred to the final story task.
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 6. Tasking Command Retrieval Boundary
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Update the tasking command template so `code_info` is described as a source of existing code, contracts, and evidence while responsibility for deciding the task breakdown stays with the tasking agent. This task is separate because `task_up.json` contains tasking-specific wording and explicit conversation-id instructions that must be preserved.
+
+#### Documentation Locations
+
+- OpenAI function calling guide, for concise instructions that keep the tool focused on retrieval and the agent focused on decision-making: https://platform.openai.com/docs/guides/function-calling
+- OpenAI tools and MCP guide, for how tool metadata and instructions should support, not replace, model reasoning: https://platform.openai.com/docs/guides/tools-connectors-mcp
+- JSON RFC overview, because this task edits JSON string content and must preserve valid JSON syntax and escaping: https://www.rfc-editor.org/rfc/rfc8259
+- Model Context Protocol tools concept and server behavior: https://modelcontextprotocol.io/docs/learn/server-concepts
+
+#### Subtasks
+
+1. [ ] Read the documentation links above, then inspect [codex_agents/tasking_agent/commands/task_up.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/tasking_agent/commands/task_up.json) and [codex_agents/tasking_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/tasking_agent/system_prompt.txt). Confirm which `task_up.json` entries currently ask `code_info` to decide correctness, edge-case coverage, or missing logic, and confirm that the system prompt’s conversation-id rule is operational-only.
+2. [ ] Update only the affected strings in [codex_agents/tasking_agent/commands/task_up.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/tasking_agent/commands/task_up.json) so `code_info` is used to find existing code, existing contracts, reusable implementations, and repository evidence. Keep responsibility for deciding what to change, what to reuse, whether assumptions are valid, and how to break down the work with the tasking agent itself.
+3. [ ] Re-read [codex_agents/tasking_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/tasking_agent/system_prompt.txt) after the `task_up.json` edit. If it still only contains operational conversation-id guidance, leave it unchanged and record that decision in Implementation notes. Only edit it if it directly assigns reasoning or correctness decisions to `code_info`.
+4. [ ] Search `task_up.json` and `tasking_agent/system_prompt.txt` for `code_info`, `100% confident`, `double check`, `double-check`, and any remaining wording that sounds like correctness certification. Record which wording changed and which operational wording intentionally stayed.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+No wrapper build or automated test run is required for this task because it changes command-template text only. Validation for this task is the wording search and operational-wording review completed in the subtasks above. Full wrapper regression is deferred to the final story task.
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 7. Final Consistency Review And Full Regression
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Perform the final whole-story validation. This task proves the server description regression still passes, confirms the wording boundary is consistent across all updated surfaces, checks whether any additional file discovered during implementation also needed updating, and records any documentation files that were intentionally left unchanged.
+
+#### Documentation Locations
+
+- npm run-script command reference, because all validation must be run through repository wrapper scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- Node.js `node:test` API, because the server regression assertion added in this story runs through the full server unit wrapper: https://nodejs.org/docs/latest-v22.x/api/test.html
+- Cucumber guides index, because the final regression task must use the repository’s full cucumber wrapper rather than ad hoc test commands: https://cucumber.io/docs/guides/
+- Playwright intro docs, only if later implementation adds a GUI-touching change that must be checked manually; otherwise record that Playwright is not applicable to this non-GUI story: https://playwright.dev/docs/intro
+- Markdown Guide basic syntax reference, because this task may need to update final summary text inside the story plan itself: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Re-read every file changed by Tasks 1 to 6 and confirm the wording contract is consistent across the server tool description, repo guidance, helper text, system prompts, and command templates. Use repository searches for `come up with suggestions`, `100% confident`, `double check your thoughts`, `double-check your thoughts`, `ensure all edge cases are covered`, `judge whether`, `code_info`, and `codebase_question`. Record which files still mention `code_info` or `codebase_question` and why any remaining mentions are acceptable.
+2. [ ] Search the wider repository for additional prompt or helper files that mention `code_info` or `codebase_question` as if they are reasoning authorities. At minimum re-check `codex_agents/coding_agent/system_prompt.txt`, [codex_agents/tasking_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/tasking_agent/system_prompt.txt), and [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md). If a newly found file truly violates the story boundary, update it in this task; otherwise record why it was intentionally left unchanged.
+3. [ ] Verify documentation follow-through for this story: confirm [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) does not need wording changes for this story, confirm [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) does not need architecture changes because no runtime behavior changed, and confirm [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) does not need file-tree changes unless tracked files were added or removed during implementation. Record each explicit keep-as-is decision in Implementation notes rather than leaving it implicit.
+4. [ ] Add a concise final story summary in this plan’s Implementation notes describing which file groups were updated, which phrases were removed, where the regression check lives, and any intentionally unchanged files that were reviewed.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Wrapper-only policy: do not attempt to run builds or tests without using the wrapper commands listed below.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Mandatory because this story changes server TypeScript and a server test.
+2. [ ] `npm run build:summary:client` - Mandatory for final regression even though no client runtime files changed, because prompt/helper text is consumed from the same repository and final whole-repo validation should prove the client workspace still builds.
+3. [ ] `npm run test:summary:server:unit` - Mandatory because this story adds or updates the lightweight `node:test` regression for the published MCP tool description.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory for final regression because the story changes server-exposed wording and should prove the broader server wrapper suite still passes.
+5. [ ] `npm run test:summary:client` - Mandatory for final regression to prove no repository-wide tooling or shared workspace regressions were introduced by the text-and-test changes.
+6. [ ] Do not run Playwright-MCP, `npm run compose:build:summary`, `npm run compose:up`, or `npm run compose:down` for this story unless an earlier implementation task unexpectedly introduces a GUI-visible or compose-visible behavior change. If that happens, add those wrapper steps before marking this task complete and record why the extra runtime validation became necessary.
+
+#### Implementation notes
+
+- Pending.

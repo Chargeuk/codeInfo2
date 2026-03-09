@@ -160,6 +160,18 @@ Useful repository searches for completion review:
 - search for remaining problem phrasing such as `come up with suggestions`, `100% confident`, `double-check your thoughts`, and wording that asks `code_info` to ensure coverage or correctness;
 - search for `code_info` and `codebase_question` in the in-scope directories to confirm no overlooked prompt or helper file still frames the tool as the decision-maker.
 
+## Edge Cases and Failure Modes
+
+- Grouped prompt drift: one `improve_plan.json` or `kadshow_improve_plan.json` variant is updated while its sibling files keep the older wording, leaving different agents with conflicting guidance about the same repository-question tool.
+- Legacy naming confusion: a file is updated to mention `codebase_question` while another still uses `code_info`, but the wording makes them sound like separate tools instead of legacy names for the same repository-question capability.
+- Operational text over-edited: a purely procedural instruction such as conversation-id reuse gets rewritten even though it does not assign reasoning to the tool, causing unnecessary prompt churn and avoidable review noise.
+- Partial completion across surfaces: the MCP tool description and `AGENTS.md` are updated, but `docs/developer-reference.md`, `usefulCommands.txt.md`, or one of the agent variants still carries the old "tool as decision-maker" framing.
+- Certainty language survives in one variant: phrases such as `come up with suggestions`, `100% confident`, or `double-check your thoughts` remain in one helper file or agent variant and quietly reintroduce the old mental model.
+- Research-agent overcorrection: `codex_agents/research_agent/system_prompt.txt` is tightened so much that it no longer supports broad research, even though the intended boundary is narrower: `code_info` should be retrieval-first, but the research agent may still use other sources and do broader investigation.
+- Contract creep: a developer attempts to rename `CODE_INFO_LLM_UNAVAILABLE`, change schemas, adjust request/response payloads, or modify transport/runtime behavior while cleaning up wording, even though this story is text-and-test only.
+- Weak regression coverage: the MCP tool description is updated but no lightweight description assertion is added, allowing future wording drift; the opposite failure is adding a brittle full-text snapshot that makes harmless wording cleanup unnecessarily hard.
+- Hidden helper drift: human-facing helper files such as `usefulCommands.txt.md` are left behind because they are not executable code, even though they continue teaching the old usage pattern.
+
 ## Tasking Readiness Notes
 
 This story is intended to be easy to split into implementation tasks later without creating overlap or drift.

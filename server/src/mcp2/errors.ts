@@ -42,3 +42,18 @@ export class ProviderUnavailableError extends Error {
     this.code = -32001;
   }
 }
+
+export class ToolExecutionError extends Error {
+  code: number;
+  data?: unknown;
+  constructor(
+    code = -32002,
+    message = 'TOOL_EXECUTION_FAILED',
+    data?: unknown,
+  ) {
+    super(message);
+    this.name = 'ToolExecutionError';
+    this.code = code;
+    this.data = data;
+  }
+}

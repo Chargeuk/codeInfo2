@@ -9,10 +9,12 @@ import type {
   TurnOptions as CodexTurnOptions,
 } from '@openai/codex-sdk';
 
-import { handleRpc } from '../../mcp2/router.js';
-import { runCodebaseQuestion } from '../../mcp2/tools/codebaseQuestion.js';
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import { resolveChatDefaults } from '../../config/chatDefaults.js';
+import { RuntimeConfigResolutionError } from '../../config/runtimeConfig.js';
+import { handleRpc } from '../../mcp2/router.js';
+import { runCodebaseQuestion } from '../../mcp2/tools/codebaseQuestion.js';
+import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
 import {
   getCodexDetection,
   setCodexDetection,
@@ -292,6 +294,58 @@ test('MCP JSON-RPC error shape remains stable for invalid params', async () => {
     assert.equal(response.error.message, 'Invalid params');
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    server.close();
+  }
+});
+
+test('MCP JSON-RPC returns a typed tool error when chat runtime config resolution fails', async () => {
+  const prev = getCodexDetection();
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+  setToolDeps({
+    chatRuntimeConfigResolver: async () => {
+      throw new RuntimeConfigResolutionError({
+        code: 'RUNTIME_CONFIG_INVALID',
+        configPath: '/tmp/codeinfo-chat-config.toml',
+        surface: 'chat',
+        message: 'chat runtime config is invalid',
+      });
+    },
+  });
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const response = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 100,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: { question: 'Hello' },
+      },
+    });
+
+    assert.equal(response.jsonrpc, '2.0');
+    assert.equal(response.id, 100);
+    assert.equal(response.error.code, -32002);
+    assert.equal(response.error.message, 'CODE_INFO_CHAT_CONFIG_INVALID');
+    assert.deepEqual(response.error.data, {
+      code: 'RUNTIME_CONFIG_INVALID',
+      surface: 'chat',
+      configPath: '/tmp/codeinfo-chat-config.toml',
+    });
+  } finally {
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    setCodexDetection(prev);
     server.close();
   }
 });

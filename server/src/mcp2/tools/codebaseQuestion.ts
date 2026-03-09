@@ -24,14 +24,17 @@ import type {
   ChatToolResultEvent,
 } from '../../chat/interfaces/ChatInterface.js';
 import { McpResponder } from '../../chat/responders/McpResponder.js';
+import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import {
   resolveChatDefaults,
   resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
   type ChatDefaultProvider,
 } from '../../config/chatDefaults.js';
-import { resolveChatRuntimeConfig } from '../../config/runtimeConfig.js';
-import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
+import {
+  RuntimeConfigResolutionError,
+  resolveChatRuntimeConfig,
+} from '../../config/runtimeConfig.js';
 import { append } from '../../logStore.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
@@ -48,6 +51,7 @@ import {
   ArchivedConversationError,
   InvalidParamsError,
   ProviderUnavailableError,
+  ToolExecutionError,
 } from '../errors.js';
 
 export const CODEBASE_QUESTION_TOOL_NAME = 'codebase_question';
@@ -433,8 +437,19 @@ export async function runCodebaseQuestion(
   if (executionProvider === 'codex') {
     const runtimeConfigResolver =
       deps.chatRuntimeConfigResolver ?? resolveChatRuntimeConfig;
-    const { config } = await runtimeConfigResolver();
-    chatRuntimeConfig = config as CodexOptions['config'];
+    try {
+      const { config } = await runtimeConfigResolver();
+      chatRuntimeConfig = config as CodexOptions['config'];
+    } catch (err) {
+      if (err instanceof RuntimeConfigResolutionError) {
+        throw new ToolExecutionError(-32002, 'CODE_INFO_CHAT_CONFIG_INVALID', {
+          code: err.code,
+          surface: err.surface,
+          configPath: err.configPath,
+        });
+      }
+      throw err;
+    }
   }
 
   const threadOpts: ThreadOptions = {

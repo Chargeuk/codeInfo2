@@ -9,6 +9,7 @@ import {
   InvalidParamsError,
   ProviderUnavailableError,
   ReingestRepositoryToolError,
+  ToolExecutionError,
   ToolNotFoundError,
   callTool,
   listTools,
@@ -165,6 +166,10 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
 
           if (err instanceof ProviderUnavailableError) {
             return jsonRpcError(requestId, err.code, err.message);
+          }
+
+          if (err instanceof ToolExecutionError) {
+            return jsonRpcError(requestId, err.code, err.message, err.data);
           }
 
           if (err instanceof ToolNotFoundError) {

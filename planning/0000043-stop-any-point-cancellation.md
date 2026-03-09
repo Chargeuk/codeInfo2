@@ -426,6 +426,12 @@ None. Repository and external research are sufficient to task this story.
 
 Update the websocket cancel handler so it follows the story’s targeting and outcome rules exactly. This task is only about the `cancel_inflight` message contract, the new non-terminal `cancel_ack` response, and the immediate server-side results; it must not yet introduce the deeper runtime ownership or frontend behavior changes.
 
+#### Must Not Miss
+
+- Keep the existing client request message name `cancel_inflight`; this task must not invent a new stop request message or a REST fallback.
+- `cancel_ack` is only for the conversation-only no-active-run path; real cancellations still finish through one `turn_final` with `status: 'stopped'`.
+- If `{ conversationId, inflightId }` points at the wrong run, keep the existing explicit invalid-target failure behavior instead of silently converting it into a conversation-only no-op.
+
 #### Documentation Locations
 
 - `planning/0000043-stop-any-point-cancellation.md`
@@ -470,6 +476,12 @@ Update the websocket cancel handler so it follows the story’s targeting and ou
 
 Introduce the runtime-only active-run ownership state the story depends on by extending the existing conversation lock. This task is only about the in-memory ownership model and its invariants; it must not yet wire pending cancel, chat, agents, flows, or page UX to use that state.
 
+#### Must Not Miss
+
+- Extend `server/src/agents/runLock.ts`; do not create a second ownership manager elsewhere in the server.
+- The ownership token must identify the one active run that currently owns a conversation lock, because later stop logic will bind to that token during the startup race.
+- This task does not add pending-cancel behavior yet; keep the scope limited to ownership state and its tests.
+
 #### Documentation Locations
 
 - `planning/0000043-stop-any-point-cancellation.md`
@@ -511,6 +523,12 @@ Introduce the runtime-only active-run ownership state the story depends on by ex
 
 Introduce the runtime-only pending-cancel state the story depends on by extending the existing inflight registry. This task is only about the in-memory pending-cancel model and its invariants; it must not yet wire chat, agents, flows, or page UX to consume that state.
 
+#### Must Not Miss
+
+- Extend `server/src/chat/inflightRegistry.ts`; do not create a parallel pending-cancel registry module.
+- The pending-cancel entry must bind to the active run token and must never survive long enough to cancel a later replacement run.
+- If a conversation-only stop arrives when no active run exists, keep the path as a no-op and do not retain pending-cancel state.
+
 #### Documentation Locations
 
 - `planning/0000043-stop-any-point-cancellation.md`
@@ -550,6 +568,12 @@ Introduce the runtime-only pending-cancel state the story depends on by extendin
 #### Overview
 
 Wire the extended cancellation ownership model into chat runs only. This task should make chat honor conversation-only startup-race stop, emit the correct terminal outcome, and release runtime state safely without touching agent or flow execution yet.
+
+#### Must Not Miss
+
+- This task is chat-only; do not change agent instruction, command-list, or flow execution here.
+- Chat must not claim stop success locally; the authoritative successful stop result is still one terminal `turn_final.status === 'stopped'`.
+- Reuse `markInflightFinal`, `isInflightFinalized`, `publishFinalOnce`, `cleanupInflight`, and `releaseConversationLock` instead of inventing chat-only finalization flags.
 
 #### Documentation Locations
 
@@ -594,6 +618,12 @@ Wire the extended cancellation ownership model into chat runs only. This task sh
 
 Wire the new cancellation ownership model into normal agent instruction runs only. This task should make normal agent runs honor early stop, publish the correct terminal state, and clean up without touching command-list execution yet.
 
+#### Must Not Miss
+
+- This task is for normal agent instruction runs only; do not mix in command-list execution changes here.
+- Preserve the current route response and conflict behavior in `server/src/routes/agentsRun.ts`; the runtime logic changes underneath that contract.
+- Reuse the shared inflight finalization and cleanup helpers so stop behavior matches chat rather than becoming a new agent-only path.
+
 #### Documentation Locations
 
 - `planning/0000043-stop-any-point-cancellation.md`
@@ -635,6 +665,12 @@ Wire the new cancellation ownership model into normal agent instruction runs onl
 #### Overview
 
 Wire the new cancellation ownership model into agent command-list execution only. This task should make command runs stop safely before the first step, before each next step, and before any retry can continue.
+
+#### Must Not Miss
+
+- This task is for command-list execution only; do not alter normal agent instruction flow here.
+- The critical requirement is to stop before the first step, before later steps, and before retry or backoff resumes work.
+- Preserve the existing route contract where the client may only have `conversationId` and not `inflightId` when stop is pressed.
 
 #### Documentation Locations
 
@@ -678,6 +714,12 @@ Wire the new cancellation ownership model into agent command-list execution only
 
 Wire the new cancellation ownership model into flow execution only. This task should ensure flows check for cancellation at the documented boundaries and cannot continue through extra steps after stop has been requested.
 
+#### Must Not Miss
+
+- This task is flow-only; do not blend in chat or agents page UX work here.
+- The required checkpoints are before the first step, before each later step or loop iteration, and before nested handoffs that would continue cancelled work.
+- Preserve the existing route contract in `server/src/routes/flowsRun.ts`; change internal flow stop behavior, not the route shape.
+
 #### Documentation Locations
 
 - `planning/0000043-stop-any-point-cancellation.md`
@@ -720,6 +762,12 @@ Wire the new cancellation ownership model into flow execution only. This task sh
 
 Extend the shared websocket client layer so it can send conversation-only stop requests and receive the new `cancel_ack` event. This task is only about websocket event typing, parsing, subscription flow, and websocket-focused tests; it must not yet change the shared stop state machine or page-level UX.
 
+#### Must Not Miss
+
+- Keep using the shared `useChatWs` hook; do not add a second websocket hook or a page-local websocket protocol.
+- `cancel_ack` only exists for the no-op recovery path, so this task must not invent a broader acknowledgement protocol.
+- The sender still uses `cancelInflight(conversationId, inflightId?)`; support the missing-`inflightId` case instead of adding a new client API.
+
 #### Documentation Locations
 
 - `planning/0000043-stop-any-point-cancellation.md`
@@ -758,6 +806,12 @@ Extend the shared websocket client layer so it can send conversation-only stop r
 #### Overview
 
 Update the shared client stop state machine so the frontend can represent `stopping`, consume the new `cancel_ack` plus the existing terminal event correctly, preserve `stopped` as a distinct terminal state, and recover from the documented no-op path or reconnect scenarios without inventing incorrect local terminal states.
+
+#### Must Not Miss
+
+- Extend `client/src/hooks/useChatStream.ts`; do not add a second stop-state manager outside the shared stream hook.
+- `stopped` must remain distinct from `complete` in shared message state, because the server and persistence layers already distinguish `'stopped'`.
+- Keep `cancel_ack` handling limited to no-op recovery; successful real stops still complete through `turn_final.status === 'stopped'`.
 
 #### Documentation Locations
 
@@ -798,6 +852,12 @@ Update the shared client stop state machine so the frontend can represent `stopp
 
 Update Chat page stop controls and local UX so Chat uses the shared stopping contract correctly. This task is only about Chat page behavior, persisted-turn mapping, and Chat page tests after the shared server and hook work is already in place.
 
+#### Must Not Miss
+
+- This task is Chat page only; do not update Agents or Flows here.
+- Chat must send conversation-only stop when `inflightId` is unknown, and it must stop using the immediate local “Generation stopped” success path.
+- Persisted `Turn.status === 'stopped'` must render as visibly stopped after reload instead of being collapsed into complete.
+
 #### Documentation Locations
 
 - `planning/0000043-stop-any-point-cancellation.md`
@@ -836,6 +896,12 @@ Update Chat page stop controls and local UX so Chat uses the shared stopping con
 #### Overview
 
 Update Agents page stop controls and local UX so both normal runs and command runs use the shared stopping contract correctly. This task is only about Agents page behavior, persisted-turn mapping, and Agents page tests after the shared server and hook work is already in place.
+
+#### Must Not Miss
+
+- This task is Agents page only; do not change Chat or Flows here.
+- Cover both normal agent runs and command-list runs, because command runs are the main surface where the client may not yet know `inflightId`.
+- Persisted `Turn.status === 'stopped'` must render as visibly stopped after reload instead of being collapsed into complete.
 
 #### Documentation Locations
 
@@ -878,6 +944,12 @@ Update Agents page stop controls and local UX so both normal runs and command ru
 
 Update Flows page stop controls and local UX so flow runs use the shared stopping contract correctly. This task is only about Flows page behavior, persisted-turn mapping, and Flows page tests after the shared server and hook work is already in place.
 
+#### Must Not Miss
+
+- This task is Flows page only; do not change Chat or Agents here.
+- Flow stop UX must follow the same shared stopping rules as the other surfaces, but it still runs through the flow-specific page and tests.
+- Persisted `Turn.status === 'stopped'` must render as visibly stopped after reload instead of being collapsed into complete.
+
 #### Documentation Locations
 
 - `planning/0000043-stop-any-point-cancellation.md`
@@ -917,6 +989,12 @@ Update Flows page stop controls and local UX so flow runs use the shared stoppin
 
 Update the repository documentation to match the implemented stop behavior and prepare the final change summary. This task is only about repository documentation and the pull request summary after implementation is complete.
 
+#### Must Not Miss
+
+- Only document behavior that actually shipped; do not describe future cleanup or speculative follow-up work here.
+- Update the three repo docs listed in this task, because a junior developer working only on this task should not need to infer which docs matter from the rest of the story.
+- The PR summary must cover every completed task in this story, not just the task the developer personally worked on.
+
 #### Documentation Locations
 
 - `planning/0000043-stop-any-point-cancellation.md`
@@ -952,6 +1030,12 @@ Update the repository documentation to match the implemented stop behavior and p
 #### Overview
 
 Verify the full story end-to-end against the acceptance criteria. This task must prove the server and client builds work, the Docker build and Compose startup work, the relevant automated tests pass, and the stop UX works visually across the documented scenarios.
+
+#### Must Not Miss
+
+- This task is the acceptance gate for the whole story; it must check the actual acceptance criteria listed earlier in this plan, not a reduced subset.
+- Manual verification must include same-conversation reuse after stop, the no-op `cancel_ack` recovery path, and the multi-tab replacement-run protection scenario.
+- Do not skip the screenshots requirement, because this task is the final visual proof for the story.
 
 #### Documentation Locations
 

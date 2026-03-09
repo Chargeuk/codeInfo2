@@ -87,6 +87,32 @@ Research note for scoping:
 
 None. The story is intentionally guidance-only and the scope-defining decisions are already resolved.
 
+## Message Contracts And Storage Shapes
+
+This story does not introduce any new message contracts, payload shapes, schemas, persisted fields, or runtime storage structures.
+
+The existing MCP tool contract must remain shape-stable:
+
+- tool name remains `codebase_question`;
+- input schema fields remain `question`, optional `conversationId`, optional `provider`, and optional `model`;
+- provider enum values remain the current supported values only;
+- response shape remains `{ conversationId, modelId, segments }`;
+- existing invalid-params behavior remains the current MCP error path rather than a new wording-specific validation path.
+
+The only contract-facing change allowed in this story is the human-readable wording:
+
+- the `description` text exposed by `codebaseQuestionDefinition()` and surfaced via `tools/list`;
+- the matching guidance text in prompt files, helper text, and developer documentation.
+
+The story must not add or change any of the following:
+
+- Mongo conversation or turn document fields;
+- conversation flags or other persisted metadata;
+- in-memory registries, caches, or runtime tracking structures;
+- websocket message types;
+- REST request or response payload shapes;
+- MCP request or response payload shapes apart from the tool description text returned in tool metadata.
+
 ## Wording Contract
 
 The outcome of this story is wording consistency, so the wording rules need to be explicit up front.

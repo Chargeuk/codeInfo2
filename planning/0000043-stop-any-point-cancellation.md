@@ -431,6 +431,8 @@ Update the websocket cancel handler so it follows the story’s targeting and ou
 - Keep the existing client request message name `cancel_inflight`; this task must not invent a new stop request message or a REST fallback.
 - `cancel_ack` is only for the conversation-only no-active-run path; real cancellations still finish through one `turn_final` with `status: 'stopped'`.
 - If `{ conversationId, inflightId }` points at the wrong run, keep the existing explicit invalid-target failure behavior instead of silently converting it into a conversation-only no-op.
+- Do not remove the existing `abortAgentCommandRun(conversationId)` call in `server/src/ws/server.ts` during this task unless Task 6’s replacement command-run cancellation path is implemented in the same change, because command runs currently start without a REST `inflightId`.
+- Reuse the existing websocket test support in `server/src/test/support/wsClient.js` and the existing `server/src/test/unit/ws-server.test.ts` coverage shape instead of creating new websocket test infrastructure for this task.
 
 #### Documentation Locations
 
@@ -689,6 +691,7 @@ Wire the new cancellation ownership model into agent command-list execution only
 - This task is for command-list execution only; do not alter normal agent instruction flow here.
 - The critical requirement is to stop before the first step, before later steps, and before retry or backoff resumes work.
 - Preserve the existing route contract where the client may only have `conversationId` and not `inflightId` when stop is pressed.
+- `client/src/api/agents.ts` command starts currently return no `inflightId`, so this task must preserve a working conversation-only stop path for command runs while the runtime ownership model is introduced underneath it.
 
 #### Documentation Locations
 
@@ -741,6 +744,7 @@ Wire the new cancellation ownership model into flow execution only. This task sh
 - This task is flow-only; do not blend in chat or agents page UX work here.
 - The required checkpoints are before the first step, before each later step or loop iteration, and before nested handoffs that would continue cancelled work.
 - Preserve the existing route contract in `server/src/routes/flowsRun.ts`; change internal flow stop behavior, not the route shape.
+- Flows already reuse `createInflight`, `cleanupInflight`, and the conversation lock inside `server/src/flows/service.ts`; extend that local flow finalization path instead of importing chat-route-only stop helpers.
 
 #### Documentation Locations
 
@@ -859,15 +863,16 @@ Update the shared client stop state machine so the frontend can represent `stopp
 
 1. [ ] Read the story sections `UI State Contract`, `Event Outcomes`, and `Edge Cases and Failure Modes`.
 2. [ ] Update `client/src/hooks/useChatStream.ts` so the shared state machine distinguishes `stopping`, `stopped`, no-op recovery, and stale or duplicate late events by extending the existing `finalizedInflightIdsRef`, replay suppression, and `streamStatus` handling instead of adding a parallel stop-state manager.
-3. [ ] Ensure reconnect or stale-subscriber reconciliation uses shared stream state rather than leaving phantom running or phantom stopping UI behind, while keeping `cancel_ack` handling limited to the documented no-op recovery path.
-4. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves shared stream state enters `stopping` and preserves a distinct `stopped` terminal status when the matching final event arrives. Purpose: cover the shared stream happy path.
-5. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves `cancel_ack.result === 'noop'` clears `stopping` without inventing a terminal bubble. Purpose: cover shared no-op recovery.
-6. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves explicit invalid-target failure and duplicate terminal events do not regress stream state. Purpose: cover shared error handling and idempotence.
-7. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that unmounts, remounts, or reconnects while `stopping` is pending and proves the stream reconciles correctly when late events arrive. Purpose: cover shared navigation and reconnect corner cases.
-8. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a shared stop-state section and a Mermaid `flowchart` that shows `running -> stopping -> stopped`, the conversation-only no-op recovery path back to ready after `cancel_ack.result === 'noop'`, and the stale-event or invalid-target paths that must not invent a terminal state.
-9. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-10. [ ] Update this plan file’s `Implementation notes` for Task 9 after the implementation and tests are complete.
-11. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+3. [ ] Update the shared `stop()` behavior in `client/src/hooks/useChatStream.ts` so it no longer appends the immediate local `Generation stopped` status bubble or resets the stream to an authoritative stopped state before the server has answered; the shared hook must leave final stop confirmation to `turn_final.status === 'stopped'` and only use `cancel_ack.result === 'noop'` for the documented no-op recovery path.
+4. [ ] Ensure reconnect or stale-subscriber reconciliation uses shared stream state rather than leaving phantom running or phantom stopping UI behind, while keeping `cancel_ack` handling limited to the documented no-op recovery path.
+5. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves shared stream state enters `stopping` and preserves a distinct `stopped` terminal status when the matching final event arrives. Purpose: cover the shared stream happy path.
+6. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves `cancel_ack.result === 'noop'` clears `stopping` without inventing a terminal bubble. Purpose: cover shared no-op recovery.
+7. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves explicit invalid-target failure and duplicate terminal events do not regress stream state. Purpose: cover shared error handling and idempotence.
+8. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves unmounts, remounts, or reconnects while `stopping` is pending reconcile correctly when late events arrive. Purpose: cover shared navigation and reconnect corner cases.
+9. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a shared stop-state section and a Mermaid `flowchart` that shows `running -> stopping -> stopped`, the conversation-only no-op recovery path back to ready after `cancel_ack.result === 'noop'`, and the stale-event or invalid-target paths that must not invent a terminal state.
+10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+11. [ ] Update this plan file’s `Implementation notes` for Task 9 after the implementation and tests are complete.
+12. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -908,7 +913,7 @@ Update Chat page stop controls and local UX so Chat uses the shared stopping con
 #### Subtasks
 
 1. [ ] Read the story sections `Surface identity timing`, `UI State Contract`, and `Edge Cases and Failure Modes`.
-2. [ ] Update `client/src/pages/ChatPage.tsx` so Chat uses `stopping` instead of an immediate local terminal stopped state and sends conversation-only stop when `inflightId` is not yet available.
+2. [ ] Update `client/src/pages/ChatPage.tsx` so Chat uses `stopping` instead of an immediate local terminal stopped state and removes the current `if (activeConversationId && currentInflightId)` gate so Stop still sends `cancelInflight(conversationId, undefined)` when `inflightId` is not yet available.
 3. [ ] Update Chat page stored-turn mapping and assistant status chips so persisted `Turn.status === 'stopped'` remains visibly `Stopped` after reload instead of being collapsed to `Complete`.
 4. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat shows the visible stopping UX and disables duplicate stop actions while cancellation is pending. Purpose: cover the Chat page happy path.
 5. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves `cancel_ack.result === 'noop'` returns Chat to ready state without a fake terminal bubble. Purpose: cover the Chat page no-op path.
@@ -958,7 +963,7 @@ Update Agents page stop controls and local UX so both normal runs and command ru
 #### Subtasks
 
 1. [ ] Read the story sections `Surface identity timing`, `UI State Contract`, and `Edge Cases and Failure Modes`.
-2. [ ] Update `client/src/pages/AgentsPage.tsx` so normal agent runs and command-list runs both use the documented stopping behavior, including the no-op recovery path.
+2. [ ] Update `client/src/pages/AgentsPage.tsx` so normal agent runs and command-list runs both use the documented stopping behavior, including the no-op recovery path, and remove the current `if (activeConversationId && inflightId)` gate so Stop still sends conversation-only cancel when command runs have not yet produced a client-visible `inflightId`.
 3. [ ] Update Agents page stored-turn mapping and assistant status chips so persisted `Turn.status === 'stopped'` remains visibly `Stopped` after reload instead of being collapsed to `Complete`.
 4. [ ] Add or update a page test in `client/src/test/agentsPage.commandsRun.abort.test.tsx` that proves Agents shows the visible stopping UX and disables duplicate stop actions while cancellation is pending. Purpose: cover the Agents page happy path.
 5. [ ] Add or update a page test in `client/src/test/agentsPage.commandsRun.abort.test.tsx` that proves `cancel_ack.result === 'noop'` returns Agents to ready state without a fake terminal bubble. Purpose: cover the Agents page no-op path.
@@ -1011,7 +1016,7 @@ Update Flows page stop controls and local UX so flow runs use the shared stoppin
 #### Subtasks
 
 1. [ ] Read the story sections `Surface identity timing`, `UI State Contract`, and `Edge Cases and Failure Modes`.
-2. [ ] Update `client/src/pages/FlowsPage.tsx` so flow stop controls stay aligned with the same stopping and recovery rules.
+2. [ ] Update `client/src/pages/FlowsPage.tsx` so flow stop controls stay aligned with the same stopping and recovery rules and remove the current `if (conversationId && inflightId)` gate so Stop still sends conversation-only cancel when the flow run exists server-side but the page has not yet stored the `inflightId`.
 3. [ ] Update Flows page stored-turn mapping and assistant status chips so persisted `Turn.status === 'stopped'` remains visibly `Stopped` after reload instead of being collapsed to `Complete`.
 4. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves Flows shows the visible stopping UX and disables duplicate stop actions while cancellation is pending. Purpose: cover the Flows page happy path.
 5. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves `cancel_ack.result === 'noop'` returns Flows to ready state without a fake terminal bubble. Purpose: cover the Flows page no-op path.
@@ -1094,6 +1099,7 @@ Verify the full story end-to-end against the acceptance criteria. This task must
 - This task is the acceptance gate for the whole story; it must check the actual acceptance criteria listed earlier in this plan, not a reduced subset.
 - Manual verification must include same-conversation reuse after stop, the no-op `cancel_ack` recovery path, and the multi-tab replacement-run protection scenario.
 - Do not skip the screenshots requirement, because this task is the final visual proof for the story.
+- Reuse the existing cucumber coverage in `server/src/test/features/chat_cancellation.feature` and `server/src/test/steps/chat_cancellation.steps.ts` if the stop contract changes require server BDD updates; do not create a parallel cucumber scaffold for the same chat-cancellation behavior.
 
 #### Documentation Locations
 

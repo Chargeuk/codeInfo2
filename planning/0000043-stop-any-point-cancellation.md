@@ -444,9 +444,13 @@ Update the websocket cancel handler so it follows the story’s targeting and ou
 2. [ ] Extend the existing websocket unions in `server/src/ws/types.ts` so the contract continues to accept `cancel_inflight` with optional `inflightId`, `parseClientMessage` stays the parser entrypoint, and the new non-terminal `cancel_ack` server event is keyed by the existing `requestId`.
 3. [ ] Update the `cancel_inflight` branch in `server/src/ws/server.ts` so explicit `{ conversationId, inflightId }` requests and conversation-only `{ conversationId }` requests follow the documented targeting rules without silently converting one path into the other, and emit `cancel_ack` only for the documented conversation-only no-active-run path.
 4. [ ] Keep the existing explicit invalid-target behavior for stale or wrong `inflightId` requests and keep the documented conversation-only no-op behavior when no active run exists, but make the no-op path observable via `cancel_ack.result === 'noop'` rather than a terminal event.
-5. [ ] Add or update focused tests in `server/src/test/unit/ws-server.test.ts` and `server/src/test/unit/ws-chat-stream.test.ts` that prove explicit-target mismatch, conversation-only no-op, noop `cancel_ack` correlation by `requestId`, duplicate websocket stop requests, and malformed cancel payload rejection behave as documented.
-6. [ ] Update this plan file’s `Implementation notes` for Task 1 after the implementation and tests are complete.
-7. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+5. [ ] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that sends `{ conversationId, inflightId }` for the wrong active run and proves the server emits the existing explicit invalid-target failure outcome. Purpose: cover the explicit-target error path.
+6. [ ] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that sends conversation-only `cancel_inflight` when no active run exists and proves the server emits one `cancel_ack` with `result: 'noop'` and no `turn_final`. Purpose: cover the documented no-op path.
+7. [ ] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that proves `cancel_ack.requestId` matches the initiating conversation-only no-op request. Purpose: cover request correlation for the no-op ack path.
+8. [ ] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that sends a malformed `cancel_inflight` payload and proves validation rejects it without stop side effects. Purpose: cover malformed websocket input.
+9. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that sends duplicate websocket stop requests for the same run and proves the terminal outcome is emitted once. Purpose: cover websocket-level stop idempotence.
+10. [ ] Update this plan file’s `Implementation notes` for Task 1 after the implementation and tests are complete.
+11. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -488,9 +492,10 @@ Introduce the runtime-only active-run ownership state the story depends on by ex
 1. [ ] Read the story sections `Run lifecycle boundaries`, `Contracts And Storage Shapes`, `Cancellation Targeting`, and `Edge Cases and Failure Modes`.
 2. [ ] Extend the existing `tryAcquireConversationLock` and `releaseConversationLock` flow in `server/src/agents/runLock.ts` with lightweight ownership metadata instead of introducing a separate lock manager.
 3. [ ] Ensure the ownership metadata is exposed through the smallest helper surface needed by chat, agent, and flow start paths and does not require duplicated ownership tracking in feature-specific files.
-4. [ ] Add or update focused tests that prove ownership tokens are created, released, and never let a later replacement run inherit stale ownership.
-5. [ ] Update this plan file’s `Implementation notes` for Task 2 after the implementation and tests are complete.
-6. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+4. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves an ownership token is created when a conversation lock is acquired and cleared when the lock is released. Purpose: cover the active-run ownership happy path.
+5. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves a later replacement run gets a fresh ownership token and never inherits stale ownership. Purpose: cover replacement-run protection at the ownership layer.
+6. [ ] Update this plan file’s `Implementation notes` for Task 2 after the implementation and tests are complete.
+7. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -531,9 +536,11 @@ Introduce the runtime-only pending-cancel state the story depends on by extendin
 1. [ ] Read the story sections `Run lifecycle boundaries`, `Contracts And Storage Shapes`, `Cancellation Targeting`, and `Edge Cases and Failure Modes`.
 2. [ ] Extend `server/src/chat/inflightRegistry.ts` with the pending-cancel runtime shape and helper functions so they live beside `createInflight`, `getInflight`, `markInflightFinal`, and `cleanupInflight` rather than in a new registry module.
 3. [ ] Ensure the pending-cancel helpers are idempotent, consumed once, and cannot bind a stale cancel to a later replacement run.
-4. [ ] Add or update focused tests that prove pending-cancel is consumed once, no pending-cancel state is retained for the documented no-active-run path, and cleanup fallback still releases runtime state when the primary cleanup path throws.
-5. [ ] Update this plan file’s `Implementation notes` for Task 3 after the implementation and tests are complete.
-6. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+4. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves one pending cancel is consumed once and cannot be applied twice. Purpose: cover idempotent pending-cancel consumption.
+5. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves the documented no-active-run path leaves no pending-cancel state behind. Purpose: cover pending-cancel no-op behavior.
+6. [ ] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` that forces the primary cleanup path to throw and proves runtime state is still released. Purpose: cover cleanup fallback in shared runtime state.
+7. [ ] Update this plan file’s `Implementation notes` for Task 3 after the implementation and tests are complete.
+8. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -577,9 +584,13 @@ Wire the extended cancellation ownership model into chat runs only. This task sh
 2. [ ] Update `server/src/routes/chat.ts` so chat runs check for pending cancel before meaningful work starts, immediately after inflight creation, and in the finalization path.
 3. [ ] Update `server/src/chat/chatStreamBridge.ts` or `server/src/chat/interfaces/ChatInterface.ts` only where necessary to keep cancelled chat runs emitting one terminal `turn_final.status === 'stopped'`, propagating `AbortSignal` through provider APIs that already support it, and reusing `markInflightFinal`, `isInflightFinalized`, and `publishFinalOnce` for late-event protection.
 4. [ ] Ensure chat cleanup reuses `cleanupInflight` and `releaseConversationLock` so inflight state, active ownership, and pending-cancel state are released in one safe path even when stop happens near finalization or the primary cleanup path throws.
-5. [ ] Add or update chat-focused tests that prove startup-race stop works, duplicate stop requests remain idempotent, forced cleanup failure still releases runtime state, the final event is emitted once, late provider events do not reopen a cancelled run, and the same conversation can be reused without a stale `RUN_IN_PROGRESS` conflict after confirmed stop.
-6. [ ] Update this plan file’s `Implementation notes` for Task 4 after the implementation and tests are complete.
-7. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+5. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that stops a chat run during the startup race before the client-visible `inflightId` is usable and proves the run still finishes as `stopped`. Purpose: cover the early-stop happy path for chat.
+6. [ ] Add or update a server integration test in `server/src/test/integration/chat-tools-wire.test.ts` that sends duplicate stop requests for the same chat run and proves the final event is emitted once. Purpose: cover chat stop idempotence.
+7. [ ] Add or update a server integration test in `server/src/test/integration/chat-tools-wire.test.ts` that forces cleanup failure during chat stop finalization and proves inflight state, ownership, and pending-cancel state are still released. Purpose: cover chat cleanup fallback.
+8. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that delivers late provider events after chat has already terminalized and proves the run does not reopen. Purpose: cover chat late-event suppression.
+9. [ ] Add or update a server integration test in `server/src/test/integration/chat-tools-wire.test.ts` that starts a new chat run on the same conversation after confirmed stop and proves there is no stale `RUN_IN_PROGRESS` conflict. Purpose: cover chat conversation reuse.
+10. [ ] Update this plan file’s `Implementation notes` for Task 4 after the implementation and tests are complete.
+11. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -622,9 +633,12 @@ Wire the new cancellation ownership model into normal agent instruction runs onl
 2. [ ] Update `server/src/agents/service.ts` so normal agent runs observe pending cancel before useful work starts, propagate `AbortSignal` through provider or runtime APIs that already support it, and reuse the shared inflight finalization and cleanup helpers when publishing the correct final stopped outcome.
 3. [ ] Keep `server/src/routes/agentsRun.ts` aligned with the documented response and conflict behavior so the route remains stable while the runtime logic changes underneath it.
 4. [ ] Ensure active ownership and pending-cancel cleanup happen in the same finalization path used by normal agent runs.
-5. [ ] Add or update focused tests for normal agent instruction stop before `inflightId`, duplicate stop idempotence, forced cleanup failure releasing runtime state, correct final `turn_final`, and no stale `RUN_IN_PROGRESS` after a confirmed stop.
-6. [ ] Update this plan file’s `Implementation notes` for Task 5 after the implementation and tests are complete.
-7. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+5. [ ] Add or update an integration test in `server/src/test/integration/agents-run-ws-cancel.test.ts` that stops a normal agent instruction run before the client has a usable `inflightId` and proves the final outcome is `stopped`. Purpose: cover the early-stop happy path for normal agent runs.
+6. [ ] Add or update an integration test in `server/src/test/integration/agents-run-ws-cancel.test.ts` that sends duplicate stop requests for the same normal agent run and proves the final event is emitted once. Purpose: cover normal-agent stop idempotence.
+7. [ ] Add or update a unit or integration test in `server/src/test/unit/mcp-agents-router-run.test.ts` or `server/src/test/integration/agents-run-ws-cancel.test.ts` that forces cleanup failure during stop finalization and proves runtime state is still released. Purpose: cover cleanup fallback for normal agent runs.
+8. [ ] Add or update an integration test in `server/src/test/integration/agents-run-ws-cancel.test.ts` that starts a new normal agent run on the same conversation after confirmed stop and proves there is no stale `RUN_IN_PROGRESS` conflict. Purpose: cover conversation reuse for normal agent runs.
+9. [ ] Update this plan file’s `Implementation notes` for Task 5 after the implementation and tests are complete.
+10. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -667,9 +681,12 @@ Wire the new cancellation ownership model into agent command-list execution only
 2. [ ] Update `server/src/agents/commandsRunner.ts` so pending cancel is checked before the first step, before each later step, before each retry/backoff boundary, and any existing abort-capable command execution path receives the combined `AbortSignal` through the current abort-chain helpers rather than a new stop mechanism.
 3. [ ] Keep `server/src/routes/agentsCommands.ts` aligned with the documented response contract where `conversationId` may exist before any client-visible `inflightId`.
 4. [ ] Ensure duplicate stop requests remain idempotent for command runs and do not restart steps or leave stale command abort state behind.
-5. [ ] Add or update focused tests for startup-race cancel, duplicate stop idempotence, forced cleanup failure releasing runtime state, and retry suppression after stop.
-6. [ ] Update this plan file’s `Implementation notes` for Task 6 after the implementation and tests are complete.
-7. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+5. [ ] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` that cancels an agent command run before the first step begins and proves the run does not continue into step execution. Purpose: cover the startup-race happy path for command runs.
+6. [ ] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` that sends duplicate stop requests for the same command run and proves the stop path remains idempotent. Purpose: cover duplicate-stop handling for command runs.
+7. [ ] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` that forces cleanup failure during command-run stop finalization and proves runtime state is still released. Purpose: cover cleanup fallback for command runs.
+8. [ ] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-retry.test.ts` that requests stop while retry or backoff is pending and proves no later retry starts. Purpose: cover retry suppression after stop.
+9. [ ] Update this plan file’s `Implementation notes` for Task 6 after the implementation and tests are complete.
+10. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -712,9 +729,14 @@ Wire the new cancellation ownership model into flow execution only. This task sh
 2. [ ] Update `server/src/flows/service.ts` so flow runs check cancellation before the first step, before each next step or loop iteration, before any nested tool or agent handoff that would continue the cancelled flow, and pass `AbortSignal` into any existing abort-capable downstream call sites using the current flow abort and finalization path.
 3. [ ] Keep `server/src/routes/flowsRun.ts` aligned with the documented route contract and conflict behavior while the internal stop behavior changes.
 4. [ ] Ensure flow finalization still emits the correct single terminal stopped outcome and ignores late flow events after finalization.
-5. [ ] Add or update focused tests for flow startup-race cancel, duplicate stop idempotence, forced cleanup failure releasing runtime state, flow-loop cancel boundaries, nested handoff cancellation, and no stale flow continuation after stop.
-6. [ ] Update this plan file’s `Implementation notes` for Task 7 after the implementation and tests are complete.
-7. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+5. [ ] Add or update an integration test in `server/src/test/integration/flows.run.loop.test.ts` that cancels a flow during the startup race and proves the run still terminalizes as stopped. Purpose: cover the early-stop happy path for flows.
+6. [ ] Add or update an integration test in `server/src/test/integration/flows.run.loop.test.ts` that sends duplicate stop requests for the same flow run and proves the final event is emitted once. Purpose: cover flow stop idempotence.
+7. [ ] Add or update an integration test in `server/src/test/integration/flows.run.loop.test.ts` that forces cleanup failure during flow stop finalization and proves runtime state is still released. Purpose: cover flow cleanup fallback.
+8. [ ] Add or update an integration test in `server/src/test/integration/flows.run.loop.test.ts` that requests stop during a looped or multi-step flow and proves later iterations do not continue. Purpose: cover flow loop boundary cancellation.
+9. [ ] Add or update an integration test in `server/src/test/integration/flows.run.command.test.ts` that requests stop before a nested tool or agent handoff and proves the handoff does not start. Purpose: cover nested handoff cancellation.
+10. [ ] Add or update an integration test in `server/src/test/integration/flows.run.command.test.ts` that proves no stale flow continuation resumes after confirmed stop. Purpose: cover post-stop continuation suppression.
+11. [ ] Update this plan file’s `Implementation notes` for Task 7 after the implementation and tests are complete.
+12. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -757,9 +779,11 @@ Extend the shared websocket client layer so it can send conversation-only stop r
 1. [ ] Read the story sections `Contracts And Storage Shapes`, `Event Outcomes`, and `UI State Contract`.
 2. [ ] Update `client/src/hooks/useChatWs.ts` so shared cancel sending remains consistent with the documented contract, can support conversation-only stop when `inflightId` is not known, and exposes the new `cancel_ack` event shape through the existing websocket event union and subscriber flow.
 3. [ ] Update the websocket test support in `client/src/test/support/mockChatWs.ts` so tests can emit and assert `cancel_ack` alongside existing transcript events.
-4. [ ] Add or update focused websocket-hook tests for conversation-only cancel sending, `cancel_ack` parsing, and no-op request correlation through the existing hook API.
-5. [ ] Update this plan file’s `Implementation notes` for Task 8 after the implementation and tests are complete.
-6. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+4. [ ] Add or update a client hook test in `client/src/test/useChatWs.test.ts` that sends conversation-only stop with no `inflightId` and proves the websocket payload is still emitted correctly. Purpose: cover the browser happy path for startup-race stop.
+5. [ ] Add or update a client hook test in `client/src/test/useChatWs.test.ts` that receives `cancel_ack` and proves the event is parsed through the existing websocket event union. Purpose: cover the new client-side event contract.
+6. [ ] Add or update a client hook test in `client/src/test/useChatWs.test.ts` that proves `cancel_ack.requestId` can be correlated to the originating no-op stop request. Purpose: cover no-op recovery correlation.
+7. [ ] Update this plan file’s `Implementation notes` for Task 8 after the implementation and tests are complete.
+8. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -800,9 +824,12 @@ Update the shared client stop state machine so the frontend can represent `stopp
 1. [ ] Read the story sections `UI State Contract`, `Event Outcomes`, and `Edge Cases and Failure Modes`.
 2. [ ] Update `client/src/hooks/useChatStream.ts` so the shared state machine distinguishes `stopping`, `stopped`, no-op recovery, and stale or duplicate late events by extending the existing `finalizedInflightIdsRef`, replay suppression, and `streamStatus` handling instead of adding a parallel stop-state manager.
 3. [ ] Ensure reconnect or stale-subscriber reconciliation uses shared stream state rather than leaving phantom running or phantom stopping UI behind, while keeping `cancel_ack` handling limited to the documented no-op recovery path.
-4. [ ] Add or update shared-hook tests for stopping state, explicit stopped status preservation, no-op recovery via `cancel_ack`, explicit invalid-target handling, duplicate terminal events, late-event suppression, and unmount/remount or reconnect reconciliation while `stopping` is still in progress by extending the existing `useChatStream.inflightMismatch` test harness.
-5. [ ] Update this plan file’s `Implementation notes` for Task 9 after the implementation and tests are complete.
-6. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+4. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves shared stream state enters `stopping` and preserves a distinct `stopped` terminal status when the matching final event arrives. Purpose: cover the shared stream happy path.
+5. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves `cancel_ack.result === 'noop'` clears `stopping` without inventing a terminal bubble. Purpose: cover shared no-op recovery.
+6. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves explicit invalid-target failure and duplicate terminal events do not regress stream state. Purpose: cover shared error handling and idempotence.
+7. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that unmounts, remounts, or reconnects while `stopping` is pending and proves the stream reconciles correctly when late events arrive. Purpose: cover shared navigation and reconnect corner cases.
+8. [ ] Update this plan file’s `Implementation notes` for Task 9 after the implementation and tests are complete.
+9. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -844,9 +871,13 @@ Update Chat page stop controls and local UX so Chat uses the shared stopping con
 1. [ ] Read the story sections `Surface identity timing`, `UI State Contract`, and `Edge Cases and Failure Modes`.
 2. [ ] Update `client/src/pages/ChatPage.tsx` so Chat uses `stopping` instead of an immediate local terminal stopped state and sends conversation-only stop when `inflightId` is not yet available.
 3. [ ] Update Chat page stored-turn mapping and assistant status chips so persisted `Turn.status === 'stopped'` remains visibly `Stopped` after reload instead of being collapsed to `Complete`.
-4. [ ] Add or update Chat page tests that prove the visible stop UX, button disablement, no-op recovery via `cancel_ack`, final stopped synchronization, persisted stopped rendering after reload, conversation reuse without stale conflict after a confirmed stop, and page recovery if the Chat page unmounts or the active conversation changes while `stopping` is still pending.
-5. [ ] Update this plan file’s `Implementation notes` for Task 10 after the implementation and tests are complete.
-6. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+4. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat shows the visible stopping UX and disables duplicate stop actions while cancellation is pending. Purpose: cover the Chat page happy path.
+5. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves `cancel_ack.result === 'noop'` returns Chat to ready state without a fake terminal bubble. Purpose: cover the Chat page no-op path.
+6. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat waits for terminal stopped synchronization and allows same-conversation reuse after confirmed stop. Purpose: cover the Chat page finalization path.
+7. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves persisted `Turn.status === 'stopped'` renders visibly stopped after reload. Purpose: cover Chat stopped hydration.
+8. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat recovers correctly if the page unmounts or the active conversation changes while `stopping` is still pending. Purpose: cover Chat navigation corner cases.
+9. [ ] Update this plan file’s `Implementation notes` for Task 10 after the implementation and tests are complete.
+10. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -888,9 +919,13 @@ Update Agents page stop controls and local UX so both normal runs and command ru
 1. [ ] Read the story sections `Surface identity timing`, `UI State Contract`, and `Edge Cases and Failure Modes`.
 2. [ ] Update `client/src/pages/AgentsPage.tsx` so normal agent runs and command-list runs both use the documented stopping behavior, including the no-op recovery path.
 3. [ ] Update Agents page stored-turn mapping and assistant status chips so persisted `Turn.status === 'stopped'` remains visibly `Stopped` after reload instead of being collapsed to `Complete`.
-4. [ ] Add or update Agents page tests that prove the visible stop UX, button disablement, no-op recovery via `cancel_ack`, final stopped synchronization, persisted stopped rendering after reload, conversation reuse without stale conflict after a confirmed stop, and page recovery if the Agents page unmounts or the active conversation changes while `stopping` is still pending.
-5. [ ] Update this plan file’s `Implementation notes` for Task 11 after the implementation and tests are complete.
-6. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+4. [ ] Add or update a page test in `client/src/test/agentsPage.commandsRun.abort.test.tsx` that proves Agents shows the visible stopping UX and disables duplicate stop actions while cancellation is pending. Purpose: cover the Agents page happy path.
+5. [ ] Add or update a page test in `client/src/test/agentsPage.commandsRun.abort.test.tsx` that proves `cancel_ack.result === 'noop'` returns Agents to ready state without a fake terminal bubble. Purpose: cover the Agents page no-op path.
+6. [ ] Add or update a page test in `client/src/test/agentsPage.commandsRun.abort.test.tsx` that proves Agents waits for terminal stopped synchronization and allows same-conversation reuse after confirmed stop. Purpose: cover the Agents page finalization path.
+7. [ ] Add or update a page test in `client/src/test/agentsPage.statusChip.test.tsx` that proves persisted `Turn.status === 'stopped'` renders visibly stopped after reload. Purpose: cover Agents stopped hydration.
+8. [ ] Add or update a page test in `client/src/test/agentsPage.commandsRun.abort.test.tsx` that proves Agents recovers correctly if the page unmounts or the active conversation changes while `stopping` is still pending. Purpose: cover Agents navigation corner cases.
+9. [ ] Update this plan file’s `Implementation notes` for Task 11 after the implementation and tests are complete.
+10. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -933,9 +968,13 @@ Update Flows page stop controls and local UX so flow runs use the shared stoppin
 1. [ ] Read the story sections `Surface identity timing`, `UI State Contract`, and `Edge Cases and Failure Modes`.
 2. [ ] Update `client/src/pages/FlowsPage.tsx` so flow stop controls stay aligned with the same stopping and recovery rules.
 3. [ ] Update Flows page stored-turn mapping and assistant status chips so persisted `Turn.status === 'stopped'` remains visibly `Stopped` after reload instead of being collapsed to `Complete`.
-4. [ ] Add or update Flows page tests that prove the visible stop UX, button disablement, no-op recovery via `cancel_ack`, final stopped synchronization, persisted stopped rendering after reload, conversation reuse without stale conflict after a confirmed stop, and page recovery if the Flows page unmounts or the active conversation changes while `stopping` is still pending.
-5. [ ] Update this plan file’s `Implementation notes` for Task 12 after the implementation and tests are complete.
-6. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+4. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves Flows shows the visible stopping UX and disables duplicate stop actions while cancellation is pending. Purpose: cover the Flows page happy path.
+5. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves `cancel_ack.result === 'noop'` returns Flows to ready state without a fake terminal bubble. Purpose: cover the Flows page no-op path.
+6. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves Flows waits for terminal stopped synchronization and allows same-conversation reuse after confirmed stop. Purpose: cover the Flows page finalization path.
+7. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves persisted `Turn.status === 'stopped'` renders visibly stopped after reload. Purpose: cover Flows stopped hydration.
+8. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves Flows recovers correctly if the page unmounts or the active conversation changes while `stopping` is still pending. Purpose: cover Flows navigation corner cases.
+9. [ ] Update this plan file’s `Implementation notes` for Task 12 after the implementation and tests are complete.
+10. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 

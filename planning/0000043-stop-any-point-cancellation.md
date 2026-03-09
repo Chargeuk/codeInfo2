@@ -32,6 +32,18 @@ For this story, the words below have precise meanings:
 - conversation-only stop: a `cancel_inflight` request that contains `conversationId` but no `inflightId`;
 - terminal stopped confirmation: the matching `turn_final` event for that run with `status: 'stopped'`.
 
+Run lifecycle boundaries for this story:
+
+- active ownership begins when the conversation lock is acquired and a runtime run token is assigned to that active run;
+- precise server-side run identity exists once the server has either created the inflight entry or bound the stop request to that active run token;
+- precise client-side run identity exists once the browser has received and stored the `inflightId`;
+- the startup race is the period after active ownership has begun but before the browser has usable `inflightId` state.
+
+Surface identity timing for this story:
+
+- chat start, normal agent instruction start, and flow start already return `inflightId` in their `202 started` responses, but the user can still press Stop before the browser has processed and stored that response;
+- agent command-list start returns `conversationId` but not `inflightId`, so conversation-only stop is the expected early-stop path for that surface.
+
 Research-backed scoping constraints for this story:
 
 - the repository currently uses a simple per-conversation lock, not a queue; a second run either becomes the active run or fails immediately with `RUN_IN_PROGRESS`, so this story only needs to handle cancellation of work that actually became active;
@@ -69,18 +81,26 @@ This story is intentionally about stop correctness and run ownership, not about 
   - when the current operation is custom logic that does not support signal-based interruption, the stop path must complete at the next explicit cancellation check;
   - this story does not require arbitrary synchronous work to stop in the middle of a single uninterrupted CPU-bound section.
 - After Stop is requested and the server confirms termination, the same conversation may be used again without returning `409 RUN_IN_PROGRESS` from the cancelled prior run.
+- Confirmation is explicit:
+  - for an active cancelled run, confirmation means the matching `turn_final` with `status: 'stopped'` has been published and the associated active run ownership has been cleaned up;
+  - for a conversation-only no-op because no active run exists, confirmation means the UI has left `stopping` and returned to its normal ready state without a terminal stopped or failed bubble.
 - The stop contract is server-authoritative:
   - the client may show a transient stopping state immediately;
   - the client must not render a terminal “stopped” success state until the server publishes or returns the matching `turn_final` event for that run with `status: 'stopped'`;
-  - until that event arrives, the UI remains in a non-terminal `stopping` state.
+  - until that event arrives, the UI remains in a non-terminal `stopping` state;
+  - the exception is the documented conversation-only no-active-run path, where the UI must leave `stopping` without inventing a terminal event.
 - Conversation-only cancellation semantics are explicit and supported where needed:
   - if `conversationId` is known but `inflightId` is not yet known, the stop request still targets the currently active run for that conversation;
   - if no active run exists for that conversation when the server processes the request, the request is treated as a no-op and must not publish a failed `turn_final`;
-  - this does not allow a stale stop request for an older run to incorrectly cancel a newer run started later in the same conversation.
+  - this does not allow a stale stop request for an older run to incorrectly cancel a newer run started later in the same conversation;
+  - when the no-active-run no-op path happens, the page must clear its stopping state and re-enable controls instead of staying stuck waiting for a terminal websocket event that will never arrive.
 - A stop request issued during the startup race is consumed exactly once by the run that was active when Stop was pressed.
+- Startup-race ownership is explicit:
+  - the stop request binds to the same active run token that owned the conversation lock when the stop request was accepted;
+  - once that bound run consumes the stop request, later runs in the same conversation must not observe or inherit it.
 - Duplicate stop requests are safe:
   - the first successful stop request wins;
-  - later duplicate stop requests for the same run may be ignored or treated as no-op success, but must not convert the run into `failed` and must not emit misleading duplicate stopped UI state.
+  - later duplicate stop requests for the same run may be ignored or treated as no-op success, but must not convert the run into `failed`, must not emit a second terminal bubble, and must not move the UI back out of its current stop-related state.
 - Existing late-event protections remain non-destructive:
   - stale websocket events from a cancelled or earlier run must not re-activate a stopped UI state or corrupt a newer run in the same conversation;
   - client and server matching must continue to use the run `inflightId` when it is available so that late events from an older run are ignored instead of rebinding the UI.
@@ -139,7 +159,8 @@ None. Repository and external research are sufficient to task this story.
     - `ActiveRunOwnership`
     - `runToken: string`
     - `startedAt: string`
-  - this remains runtime-only and is not exposed over websocket or persisted to Mongo.
+  - this remains runtime-only and is not exposed over websocket or persisted to Mongo;
+  - `runToken` is created when active ownership begins, which is the point that a startup-race stop request must bind against.
 
 - New internal pending-cancel storage shape required for this story:
   - add a conversation-scoped pending cancel registry so Stop can be remembered before an `inflightId` exists;
@@ -157,6 +178,7 @@ None. Repository and external research are sufficient to task this story.
   - keep both ownership and pending-cancel state in memory only;
   - clear pending-cancel state once it has been consumed by the matching run and that run reaches its terminal finalization path;
   - clear ownership state in the same cleanup path that releases the conversation lock;
+  - if a conversation-only stop finds no active run, do not create or retain pending-cancel state for that conversation;
   - do not allow a stale pending cancel to survive long enough to bind to a newer replacement run in the same conversation.
 
 - Persistent storage schema:

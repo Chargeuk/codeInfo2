@@ -1486,6 +1486,34 @@ flowchart TD
   S --> D
 ```
 
+## Story 0000043 Task 8: shared websocket client stop acknowledgement handling
+
+- Page code keeps using `cancelInflight(conversationId, inflightId?)`; omitting `inflightId` remains the supported startup-race stop path.
+- `useChatWs` now surfaces `cancel_ack` through the existing shared websocket event union so downstream subscribers can correlate the no-op branch by `requestId`.
+- The websocket hook emits stable browser `console.info` lines for the stop send path and the `cancel_ack` receive path without changing the shared stop-state machine yet.
+- Successful active stops are still confirmed later by `turn_final.status === 'stopped'`; `cancel_ack.result === 'noop'` only represents the no-active-run recovery branch.
+
+```mermaid
+sequenceDiagram
+  participant Page as Page code
+  participant Hook as useChatWs
+  participant WS as WebSocket /ws
+  participant Stream as Shared stream consumers
+
+  Page->>Hook: cancelInflight(conversationId, inflightId?)
+  Hook->>WS: cancel_inflight(requestId, conversationId, inflightId?)
+  Hook->>Page: console.info ws-send
+
+  alt no active run for conversation
+    WS-->>Hook: cancel_ack(requestId, conversationId, result=noop)
+    Hook->>Page: console.info ws-event cancel_ack
+    Hook-->>Stream: forward cancel_ack
+  else active run stops later
+    WS-->>Hook: turn_final(status=stopped)
+    Hook-->>Stream: forward turn_final
+  end
+```
+
 ## Story 0000038 Task 5: ingest listing status/phase normalization and active overlay precedence
 
 - External listing status contract for `/ingest/roots` and classic MCP `ListIngestedRepositories` is now normalized from internal ingest states:

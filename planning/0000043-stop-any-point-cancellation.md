@@ -830,7 +830,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 8. Add Shared Client WebSocket Stop Acknowledgement Handling
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -855,32 +855,40 @@ Extend the shared websocket client layer so it can send conversation-only stop r
 
 #### Subtasks
 
-1. [ ] Read the story sections `Contracts And Storage Shapes`, `Event Outcomes`, and `UI State Contract`.
-2. [ ] Update `client/src/hooks/useChatWs.ts` so shared cancel sending remains consistent with the documented contract, can support conversation-only stop when `inflightId` is not known, and exposes the new `cancel_ack` event shape through the existing websocket event union and subscriber flow. Files (read/edit): `client/src/hooks/useChatWs.ts`; files to read: `server/src/ws/types.ts`, `server/src/ws/server.ts`. Docs to use while doing this subtask: React custom hooks docs, TypeScript discriminated unions docs, Browser WebSocket docs, and Jest docs because this hook is covered in Jest.
-3. [ ] In `client/src/hooks/useChatWs.ts`, add browser-visible `console.info` lines for the shared websocket stop path using these exact prefixes and payload expectations so the browser check can assert them reliably: `[stop-debug][ws-send] cancel_inflight` with `{ conversationId, inflightId, requestId }` when the client sends stop, and `[stop-debug][ws-event] cancel_ack` with `{ conversationId, requestId, result }` when the no-op acknowledgement is received. Do not use `console.error` for these expected-path diagnostics. Files (read/edit): `client/src/hooks/useChatWs.ts`; files to read: `client/src/hooks/useChatStream.ts`, `client/src/test/support/mockChatWs.ts`. Docs to use while doing this subtask: Browser WebSocket docs and React custom hooks docs.
-4. [ ] Update the websocket test support in `client/src/test/support/mockChatWs.ts` so tests can emit and assert `cancel_ack` alongside existing transcript events. Files (read/edit): `client/src/test/support/mockChatWs.ts`; files to read: `client/src/test/useChatWs.test.ts`, `client/src/hooks/useChatWs.ts`. Docs to use while doing this subtask: Jest docs and Browser WebSocket docs.
-5. [ ] Add or update a client hook test in `client/src/test/useChatWs.test.ts` that sends conversation-only stop with no `inflightId` and proves the websocket payload is still emitted correctly. Purpose: cover the browser happy path for startup-race stop.
-6. [ ] Add or update a client hook test in `client/src/test/useChatWs.test.ts` that receives `cancel_ack` and proves the event is parsed through the existing websocket event union. Purpose: cover the new client-side event contract.
-7. [ ] Add or update a client hook test in `client/src/test/useChatWs.test.ts` that proves `cancel_ack.requestId` can be correlated to the originating no-op stop request. Purpose: cover no-op recovery correlation.
-8. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a shared websocket client section and a Mermaid `sequenceDiagram` that shows page code calling `cancelInflight(conversationId, inflightId?)`, `useChatWs` sending the request, and the client receiving either `cancel_ack.result === 'noop'` or later `turn_final.status === 'stopped'`.
-9. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
+1. [x] Read the story sections `Contracts And Storage Shapes`, `Event Outcomes`, and `UI State Contract`.
+2. [x] Update `client/src/hooks/useChatWs.ts` so shared cancel sending remains consistent with the documented contract, can support conversation-only stop when `inflightId` is not known, and exposes the new `cancel_ack` event shape through the existing websocket event union and subscriber flow. Files (read/edit): `client/src/hooks/useChatWs.ts`; files to read: `server/src/ws/types.ts`, `server/src/ws/server.ts`. Docs to use while doing this subtask: React custom hooks docs, TypeScript discriminated unions docs, Browser WebSocket docs, and Jest docs because this hook is covered in Jest.
+3. [x] In `client/src/hooks/useChatWs.ts`, add browser-visible `console.info` lines for the shared websocket stop path using these exact prefixes and payload expectations so the browser check can assert them reliably: `[stop-debug][ws-send] cancel_inflight` with `{ conversationId, inflightId, requestId }` when the client sends stop, and `[stop-debug][ws-event] cancel_ack` with `{ conversationId, requestId, result }` when the no-op acknowledgement is received. Do not use `console.error` for these expected-path diagnostics. Files (read/edit): `client/src/hooks/useChatWs.ts`; files to read: `client/src/hooks/useChatStream.ts`, `client/src/test/support/mockChatWs.ts`. Docs to use while doing this subtask: Browser WebSocket docs and React custom hooks docs.
+4. [x] Update the websocket test support in `client/src/test/support/mockChatWs.ts` so tests can emit and assert `cancel_ack` alongside existing transcript events. Files (read/edit): `client/src/test/support/mockChatWs.ts`; files to read: `client/src/test/useChatWs.test.ts`, `client/src/hooks/useChatWs.ts`. Docs to use while doing this subtask: Jest docs and Browser WebSocket docs.
+5. [x] Add or update a client hook test in `client/src/test/useChatWs.test.ts` that sends conversation-only stop with no `inflightId` and proves the websocket payload is still emitted correctly. Purpose: cover the browser happy path for startup-race stop.
+6. [x] Add or update a client hook test in `client/src/test/useChatWs.test.ts` that receives `cancel_ack` and proves the event is parsed through the existing websocket event union. Purpose: cover the new client-side event contract.
+7. [x] Add or update a client hook test in `client/src/test/useChatWs.test.ts` that proves `cancel_ack.requestId` can be correlated to the originating no-op stop request. Purpose: cover no-op recovery correlation.
+8. [x] Update `design.md`. Files (read/edit): `design.md`. Add a shared websocket client section and a Mermaid `sequenceDiagram` that shows page code calling `cancelInflight(conversationId, inflightId?)`, `useChatWs` sending the request, and the client receiving either `cancel_ack.result === 'noop'` or later `turn_final.status === 'stopped'`.
+9. [x] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 10. [ ] Update this plan file’s `Implementation notes` for Task 8 after the implementation and tests are complete.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] `npm run build:summary:client` - Use because this task changes client websocket hook code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
-2. [ ] `npm run test:summary:client` - Use because this task changes Jest-covered client websocket behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end through the dockerized app. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
-4. [ ] `npm run compose:up`
+1. [x] `npm run build:summary:client` - Use because this task changes client websocket hook code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+2. [x] `npm run test:summary:client` - Use because this task changes Jest-covered client websocket behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - Use because this task is testable from the front end through the dockerized app. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
+4. [x] `npm run compose:up`
 5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm shared websocket stop behavior works in the browser. In the browser console, assert that clicking Stop during the startup-race path logs `[stop-debug][ws-send] cancel_inflight` exactly once with the expected `conversationId`, an omitted or `undefined` `inflightId`, and a non-empty `requestId`. For the no-active-run path, assert the console later logs `[stop-debug][ws-event] cancel_ack` with the same `conversationId`, the same `requestId`, and `result: 'noop'`. Take a screenshot that shows the visible browser state for the exercised stop path and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`; the agent must review that screenshot to confirm the GUI still matches the expected stopping or recovered-ready state with no stray terminal bubble. Expected outcome: both log lines appear with matching request correlation, the screenshot shows the expected UI state, and there are no unexpected browser-console errors.
-6. [ ] `npm run compose:down`
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Subtask 1: Re-read the Task 8 websocket-contract sections and the completed Task 1 to Task 7 notes before editing so the client hook exposes `cancel_ack` and conversation-only stop without prematurely implementing the shared `stopping` state machine from Task 9.
+- Subtasks 2-3: Extended `useChatWs` to keep the shared `cancelInflight(conversationId, inflightId?)` API, return the generated `requestId`, expose `cancel_ack` in the shared event union, and emit the exact `[stop-debug][ws-send]` and `[stop-debug][ws-event]` `console.info` lines required for browser verification.
+- Subtask 4: Updated `mockChatWs` so websocket-focused tests can emit `cancel_ack` through the same socket path as production code instead of a page-local shortcut.
+- Subtasks 5-7: Added `useChatWs` coverage for conversation-only stop payload emission, `cancel_ack` union parsing, and `requestId` correlation back to the originating no-op stop request.
+- Subtasks 8-9: Documented the shared websocket client stop contract in `design.md` and confirmed this task added no files, so `projectStructure.md` did not need an update.
+- Subtask 11: Ran workspace lint and format checks, fixed the touched client-file Prettier drift with `npx prettier --write`, and confirmed lint only reports the repo's existing import-order warning baseline.
+- Testing 1-2: `build:summary:client` initially failed on an existing `fetchPolyfills.ts` type narrowing bug, so I fixed that helper, reran the wrapper to a clean pass, and reran the full client Jest wrapper so the final recorded result reflects the post-fix state.
+- Testing 3-4 and 6: `compose:build:summary` passed cleanly, I recycled the stack after the first `compose:up` because it had started before the rebuilt client image finished, and the second `compose:up`/`compose:down` pair completed cleanly against the rebuilt image.
+- Testing 5 blocker: the rebuilt browser bundle emits `[stop-debug][ws-send] cancel_inflight`, but the current Chat stop flow still injects an optimistic client-side `inflightId` and immediate local terminal bubble during the startup race, so the browser reaches the explicit `INFLIGHT_NOT_FOUND` failure path instead of the required conversation-only `cancel_ack.result === 'noop'` path. This appears to require the shared stop-state and page-level reconciliation work planned in Tasks 9-10 before the manual no-op check can pass from the existing UI.
 
 ---
 

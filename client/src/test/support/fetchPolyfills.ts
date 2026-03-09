@@ -20,7 +20,8 @@ const consumeHeaderInit = (
   }
 
   if (typeof init === 'object' && 'forEach' in init) {
-    init.forEach((value, key) => {
+    const headers = init as Headers;
+    headers.forEach((value: string, key: string) => {
       store.set(
         normalizeHeaderName(key),
         appendHeaderValue(store.get(normalizeHeaderName(key)), String(value)),

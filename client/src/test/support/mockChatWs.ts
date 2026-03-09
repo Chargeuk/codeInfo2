@@ -25,6 +25,13 @@ type TranscriptEventType =
   | 'tool_event'
   | 'turn_final';
 
+type ControlEvent = {
+  type: 'cancel_ack';
+  conversationId: string;
+  requestId: string;
+  result: 'noop';
+};
+
 type TranscriptEvent = {
   type: TranscriptEventType;
   conversationId: string;
@@ -44,7 +51,7 @@ type SidebarEvent =
       conversationId: string;
     };
 
-type HarnessEvent = TranscriptEvent | SidebarEvent;
+type HarnessEvent = TranscriptEvent | SidebarEvent | ControlEvent;
 
 function wsRegistry(): WebSocketMockRegistry {
   const registry = globalThis.__wsMock;
@@ -338,6 +345,18 @@ export function setupChatWsHarness(params: {
         ...(payload.usage ? { usage: payload.usage } : {}),
         ...(payload.timing ? { timing: payload.timing } : {}),
         ...(payload.error !== undefined ? { error: payload.error } : {}),
+      });
+    },
+    emitCancelAck: (payload: {
+      conversationId: string;
+      requestId: string;
+      result?: 'noop';
+    }) => {
+      emit({
+        type: 'cancel_ack',
+        conversationId: payload.conversationId,
+        requestId: payload.requestId,
+        result: payload.result ?? 'noop',
       });
     },
   };

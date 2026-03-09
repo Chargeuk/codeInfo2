@@ -366,6 +366,9 @@ describe('useChatWs', () => {
       type: 'cancel_inflight',
       conversationId: 'c1',
     });
+    expect(cancelMessages[0]).toMatchObject({
+      requestId: expect.any(String),
+    });
     expect(cancelMessages[0]).not.toHaveProperty('inflightId');
   });
 
@@ -394,7 +397,89 @@ describe('useChatWs', () => {
       type: 'cancel_inflight',
       conversationId: 'c1',
       inflightId: 'i1',
+      requestId: expect.any(String),
     });
+  });
+
+  it('parses cancel_ack through the shared websocket event union', async () => {
+    const onEvent = jest.fn();
+    const consoleInfoSpy = jest
+      .spyOn(console, 'info')
+      .mockImplementation(() => {});
+
+    try {
+      const { result } = renderHook(() => useChatWs({ onEvent }));
+      await waitFor(() => expect(result.current.connectionState).toBe('open'));
+
+      act(() => {
+        lastSocket()._receive({
+          protocolVersion: 'v1',
+          type: 'cancel_ack',
+          conversationId: 'c1',
+          requestId: 'req-1',
+          result: 'noop',
+        });
+      });
+
+      expect(onEvent).toHaveBeenCalledWith({
+        protocolVersion: 'v1',
+        type: 'cancel_ack',
+        conversationId: 'c1',
+        requestId: 'req-1',
+        result: 'noop',
+      });
+      expect(consoleInfoSpy).toHaveBeenCalledWith(
+        '[stop-debug][ws-event] cancel_ack',
+        {
+          conversationId: 'c1',
+          requestId: 'req-1',
+          result: 'noop',
+        },
+      );
+    } finally {
+      consoleInfoSpy.mockRestore();
+    }
+  });
+
+  it('correlates cancel_ack.requestId with the originating conversation-only stop request', async () => {
+    const onEvent = jest.fn();
+    const { result } = renderHook(() => useChatWs({ onEvent }));
+    await waitFor(() => expect(result.current.connectionState).toBe('open'));
+
+    let requestId: string | null = null;
+    act(() => {
+      requestId = result.current.cancelInflight('c1');
+    });
+
+    expect(requestId).toEqual(expect.any(String));
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'cancel_ack',
+        conversationId: 'c1',
+        requestId,
+        result: 'noop',
+      });
+    });
+
+    const cancelMessage = getSentMessages().find(
+      (msg) =>
+        msg.type === 'cancel_inflight' &&
+        msg.conversationId === 'c1' &&
+        !('inflightId' in msg),
+    );
+    expect(cancelMessage).toMatchObject({
+      requestId,
+    });
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'cancel_ack',
+        conversationId: 'c1',
+        requestId,
+        result: 'noop',
+      }),
+    );
   });
 
   it('does not subscribe or reconnect when realtime is disabled', async () => {

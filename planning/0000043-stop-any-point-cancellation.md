@@ -1039,7 +1039,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 ### 11. Align Agents Stop UX With The Shared State Contract
 
 - Task Status: `__done__`
-- Git Commits: `__to_do__`
+- Git Commits: `9ef8551d - DEV-[0000043] - Align Agents stop UX with shared state contract`
 
 #### Overview
 

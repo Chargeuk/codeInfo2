@@ -712,7 +712,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 ### 6. Integrate Stop Ownership Into Agent Command Runs
 
 - Task Status: `__done__`
-- Git Commits: `__to_do__`
+- Git Commits: `aba18f89 - DEV-[0000043] - Integrate stop ownership into agent command runs`
 
 #### Overview
 

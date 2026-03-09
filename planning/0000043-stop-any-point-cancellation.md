@@ -143,12 +143,22 @@ None. Repository and external research are sufficient to task this story.
   - do not add a new stop message type for this story;
   - continue using the existing `cancel_inflight` client message with `conversationId` required and `inflightId` optional;
   - continue using the existing `turn_final` server event as the terminal result contract for stop outcomes;
+  - add one non-terminal websocket acknowledgment event for stop requests:
+    - recommended name: `cancel_ack`
+    - required fields:
+      - `requestId: string`
+      - `conversationId: string`
+      - `result: 'accepted' | 'noop'`
+      - `inflightId?: string`
+    - purpose:
+      - `accepted` confirms the server has bound the stop request to the targeted active run;
+      - `noop` confirms the documented conversation-only no-active-run path so the client can leave `stopping` without inventing a fake terminal bubble;
   - successful cancellation of an active run continues to be represented by `turn_final.status === 'stopped'`.
 
 - Existing client-visible contract that should remain unchanged:
   - explicit `{ conversationId, inflightId }` stop requests continue to target one known run and may still use the existing invalid-target failure behavior when the inflight id does not match an active run;
   - conversation-only `{ conversationId }` stop requests continue to be valid and must remain available because some surfaces, especially agent command runs, do not always give the client a usable `inflightId` before Stop can be pressed;
-  - if a conversation-only stop arrives when there is no active run, keep the current no-op behavior rather than inventing a new failure contract for this story.
+  - if a conversation-only stop arrives when there is no active run, keep the current no-op behavior rather than inventing a new failure terminal contract for this story, but emit the new non-terminal `cancel_ack` result so the client can recover deterministically.
 
 - REST response contract:
   - do not add a new REST response shape for this story just to carry stop metadata;
@@ -210,6 +220,7 @@ None. Repository and external research are sufficient to task this story.
 ## Event Outcomes
 
 - Explicit target matches active run:
+  - one `cancel_ack` with `result: 'accepted'` may be published immediately for the initiating client message;
   - exactly one terminal `turn_final` is published for that run;
   - the terminal status is `stopped`.
 
@@ -220,10 +231,12 @@ None. Repository and external research are sufficient to task this story.
 - Conversation-only stop with active run:
   - the client enters `stopping`;
   - the server binds the request to the active run token;
+  - the server emits one `cancel_ack` with `result: 'accepted'`;
   - exactly one terminal `turn_final` with `status: 'stopped'` is eventually published for that run.
 
 - Conversation-only stop with no active run:
   - no terminal websocket event is published;
+  - one `cancel_ack` with `result: 'noop'` is published for the initiating client request;
   - no local stopped or failed bubble is invented;
   - the page clears `stopping` and returns to ready state.
 
@@ -243,7 +256,7 @@ None. Repository and external research are sufficient to task this story.
 
 - UI rendering rules:
   - while in `stopping`, show that cancellation is in progress and keep duplicate stop actions from starting independent stop attempts;
-  - if the no-op path is reached, clear `stopping` quietly and re-enable controls without rendering a fake stopped or failed terminal bubble;
+  - if the no-op path is reached, clear `stopping` only after the matching `cancel_ack.result === 'noop'` is received, and re-enable controls without rendering a fake stopped or failed terminal bubble;
   - if an explicit invalid target is sent, preserve the current explicit-target error behavior rather than presenting it as a successful stop.
 
 ## Edge Cases and Failure Modes
@@ -293,7 +306,7 @@ None. Repository and external research are sufficient to task this story.
   - failure to avoid: one tab accidentally stopping a later replacement run started by another tab.
 
 - Reconnect or late subscriber after stop was requested elsewhere:
-  - expected handling: reconciled UI state comes from the active run or final event state for that conversation, not stale local assumptions;
+  - expected handling: reconciled UI state comes from the active run, `cancel_ack`, or final event state for that conversation, not stale local assumptions;
   - failure to avoid: a page showing phantom running or phantom stopping state after reconnect.
 
 - User changes page or conversation while stop is pending:
@@ -336,6 +349,7 @@ None. Repository and external research are sufficient to task this story.
 - Start with the server-side cancellation contract in `server/src/ws/server.ts` and `server/src/ws/types.ts`:
   - normalize how conversation-only stop and inflight-targeted stop are handled so every branch is deterministic;
   - keep the current payload validation rules, but make the runtime behavior explicit for active cancel, duplicate cancel, no active run, and invalid explicit inflight id;
+  - use the existing websocket `requestId` to correlate a new `cancel_ack` server event back to the initiating client message for accepted and no-op outcomes;
   - keep stop authority on the server so the UI can wait for the server result instead of inventing a terminal local state.
 
 - Add conversation-scoped pending-cancel tracking in `server/src/chat/inflightRegistry.ts`:
@@ -370,8 +384,8 @@ None. Repository and external research are sufficient to task this story.
   - stop implementation should therefore focus on active run ownership, cleanup, and unlock timing rather than queue management.
 
 - Update the client stop flow without changing the overall page architecture:
-  - `client/src/hooks/useChatWs.ts` already supports `cancelInflight(conversationId, inflightId?)`; keep that API but make sure pages always send `conversationId` and include `inflightId` when known;
-  - `client/src/hooks/useChatStream.ts` should remain the place that guards against stale or mismatched late events, including duplicate `turn_final` replays;
+  - `client/src/hooks/useChatWs.ts` already supports `cancelInflight(conversationId, inflightId?)`; keep that API but make sure pages always send `conversationId` and include `inflightId` when known, and expose the new `cancel_ack` event to subscribers;
+  - `client/src/hooks/useChatStream.ts` should remain the place that guards against stale or mismatched late events, including duplicate `turn_final` replays, and it must preserve `stopped` as a distinct terminal message status rather than collapsing it into `complete`;
   - `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx` should all switch from immediate local stopped state to an immediate local `stopping` state that only becomes final when the matching `turn_final` arrives, except for the documented no-active-run no-op path, which returns to ready state without a terminal bubble.
 
 - Keep the user-facing stop behavior identical across Chat, Agents, and Flows:
@@ -393,7 +407,7 @@ None. Repository and external research are sufficient to task this story.
 
 #### Overview
 
-Update the websocket cancel handler so it follows the story’s targeting and outcome rules exactly. This task is only about the `cancel_inflight` message contract and its immediate server-side results; it must not yet introduce the deeper runtime ownership or frontend behavior changes.
+Update the websocket cancel handler so it follows the story’s targeting and outcome rules exactly. This task is only about the `cancel_inflight` message contract, the new non-terminal `cancel_ack` response, and the immediate server-side results; it must not yet introduce the deeper runtime ownership or frontend behavior changes.
 
 #### Documentation Locations
 
@@ -402,15 +416,16 @@ Update the websocket cancel handler so it follows the story’s targeting and ou
 - `server/src/ws/server.ts`
 - `server/src/test/unit/ws-server.test.ts`
 - `server/src/test/unit/ws-chat-stream.test.ts`
+- `client/src/hooks/useChatWs.ts`
 - Node.js AbortController notes in this plan’s `Research Findings` section
 
 #### Subtasks
 
 1. [ ] Read the story sections `Contracts And Storage Shapes`, `Cancellation Targeting`, `Event Outcomes`, `UI State Contract`, and `Edge Cases and Failure Modes` before changing any code.
-2. [ ] Update `server/src/ws/types.ts` only if payload parsing or message typing must change to support the documented contract; otherwise leave the existing parser unchanged and document why no type change was needed.
-3. [ ] Update the `cancel_inflight` branch in `server/src/ws/server.ts` so explicit `{ conversationId, inflightId }` requests and conversation-only `{ conversationId }` requests follow the documented targeting rules without silently converting one path into the other.
-4. [ ] Keep the existing explicit invalid-target behavior for stale or wrong `inflightId` requests and keep the documented conversation-only no-op behavior when no active run exists.
-5. [ ] Add or update focused tests in `server/src/test/unit/ws-server.test.ts` and `server/src/test/unit/ws-chat-stream.test.ts` that prove explicit-target mismatch, conversation-only no-op, duplicate websocket stop requests, and malformed cancel payload rejection behave as documented.
+2. [ ] Update `server/src/ws/types.ts` so the websocket contract continues to accept `cancel_inflight` with optional `inflightId` and also exposes the new non-terminal `cancel_ack` server event keyed by the existing `requestId`.
+3. [ ] Update the `cancel_inflight` branch in `server/src/ws/server.ts` so explicit `{ conversationId, inflightId }` requests and conversation-only `{ conversationId }` requests follow the documented targeting rules without silently converting one path into the other, and emit `cancel_ack` for accepted and no-op outcomes.
+4. [ ] Keep the existing explicit invalid-target behavior for stale or wrong `inflightId` requests and keep the documented conversation-only no-op behavior when no active run exists, but make the no-op path observable via `cancel_ack.result === 'noop'` rather than a terminal event.
+5. [ ] Add or update focused tests in `server/src/test/unit/ws-server.test.ts` and `server/src/test/unit/ws-chat-stream.test.ts` that prove explicit-target mismatch, conversation-only no-op, accepted/no-op `cancel_ack` correlation by `requestId`, duplicate websocket stop requests, and malformed cancel payload rejection behave as documented.
 6. [ ] Update this plan file’s `Implementation notes` for Task 1 after the implementation and tests are complete.
 7. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
@@ -647,7 +662,7 @@ Wire the new cancellation ownership model into flow execution only. This task sh
 
 #### Overview
 
-Update the shared client stop state machine so the frontend can represent `stopping`, consume the correct terminal event, and recover from the documented no-op path or reconnect scenarios without inventing incorrect local terminal states.
+Update the shared client stop state machine so the frontend can represent `stopping`, consume the new `cancel_ack` plus the existing terminal event correctly, preserve `stopped` as a distinct terminal state, and recover from the documented no-op path or reconnect scenarios without inventing incorrect local terminal states.
 
 #### Documentation Locations
 
@@ -656,14 +671,15 @@ Update the shared client stop state machine so the frontend can represent `stopp
 - `client/src/hooks/useChatStream.ts`
 - `client/src/test/useChatWs.test.ts`
 - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+- `client/src/test/support/mockChatWs.ts`
 
 #### Subtasks
 
 1. [ ] Read the story sections `UI State Contract`, `Event Outcomes`, and `Edge Cases and Failure Modes`.
-2. [ ] Update `client/src/hooks/useChatWs.ts` so shared cancel sending remains consistent with the documented contract and can support conversation-only stop when `inflightId` is not known.
-3. [ ] Update `client/src/hooks/useChatStream.ts` so the shared state machine distinguishes `stopping`, final stopped outcomes, no-op recovery, and stale or duplicate late events.
-4. [ ] Ensure reconnect or stale-subscriber reconciliation uses shared stream state rather than leaving phantom running or phantom stopping UI behind, including when stop was requested from another tab or window for the same conversation.
-5. [ ] Add or update shared-hook tests for stopping state, no-op recovery, explicit invalid-target handling, duplicate terminal events, late-event suppression, and stop reconciliation after an external-tab stop request.
+2. [ ] Update `client/src/hooks/useChatWs.ts` so shared cancel sending remains consistent with the documented contract, can support conversation-only stop when `inflightId` is not known, and exposes the new `cancel_ack` event shape to hook and page subscribers.
+3. [ ] Update `client/src/hooks/useChatStream.ts` so the shared state machine distinguishes `stopping`, `stopped`, no-op recovery, and stale or duplicate late events instead of collapsing every non-failed terminal status into `complete`.
+4. [ ] Ensure reconnect or stale-subscriber reconciliation uses shared stream state rather than leaving phantom running or phantom stopping UI behind, including when stop was requested from another tab or window for the same conversation and the only immediate server response is `cancel_ack`.
+5. [ ] Add or update shared-hook tests for stopping state, explicit stopped status preservation, no-op recovery via `cancel_ack`, explicit invalid-target handling, duplicate terminal events, late-event suppression, and stop reconciliation after an external-tab stop request.
 6. [ ] Update this plan file’s `Implementation notes` for Task 7 after the implementation and tests are complete.
 7. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
@@ -689,7 +705,7 @@ Update the shared client stop state machine so the frontend can represent `stopp
 
 #### Overview
 
-Update the page-level stop controls and local UX so Chat, Agents, and Flows all use the shared stopping contract consistently. This task is only about page behavior and page tests after the shared server and hook work is already in place.
+Update the page-level stop controls and local UX so Chat, Agents, and Flows all use the shared stopping contract consistently. This task is only about page behavior, persisted-turn mapping, and page tests after the shared server and hook work is already in place.
 
 #### Documentation Locations
 
@@ -697,6 +713,7 @@ Update the page-level stop controls and local UX so Chat, Agents, and Flows all 
 - `client/src/pages/ChatPage.tsx`
 - `client/src/pages/AgentsPage.tsx`
 - `client/src/pages/FlowsPage.tsx`
+- `client/src/hooks/useConversationTurns.ts`
 - `client/src/test/chatPage.stop.test.tsx`
 - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
 - `client/src/test/flowsPage.stop.test.tsx`
@@ -707,9 +724,10 @@ Update the page-level stop controls and local UX so Chat, Agents, and Flows all 
 2. [ ] Update `client/src/pages/ChatPage.tsx` so Chat uses `stopping` instead of an immediate local terminal stopped state and sends conversation-only stop when `inflightId` is not yet available.
 3. [ ] Update `client/src/pages/AgentsPage.tsx` so normal agent runs and command-list runs both use the documented stopping behavior, including the no-op recovery path.
 4. [ ] Update `client/src/pages/FlowsPage.tsx` so flow stop controls stay aligned with the same stopping and recovery rules.
-5. [ ] Add or update page-level tests that prove the visible stop UX, button disablement, no-op recovery, final stopped synchronization for each surface, and conversation reuse without stale conflict after a confirmed stop.
-6. [ ] Update this plan file’s `Implementation notes` for Task 8 after the implementation and tests are complete.
-7. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+5. [ ] Update page-level stored-turn mapping and assistant status chips so persisted `Turn.status === 'stopped'` remains visibly `Stopped` after reload instead of being collapsed to `Complete`.
+6. [ ] Add or update page-level tests that prove the visible stop UX, button disablement, no-op recovery via `cancel_ack`, final stopped synchronization for each surface, persisted stopped rendering after reload, and conversation reuse without stale conflict after a confirmed stop.
+7. [ ] Update this plan file’s `Implementation notes` for Task 8 after the implementation and tests are complete.
+8. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -753,10 +771,11 @@ The final task must verify the full story end-to-end against the acceptance crit
 4. [ ] Ensure `projectStructure.md` is updated with any files or folders added, removed, or materially repurposed by this story.
 5. [ ] Save visual proof screenshots for the final manual verification into `./test-results/screenshots/` using filenames that begin with the plan number and task number.
 6. [ ] Manually verify that after a confirmed stop the same conversation can be started again immediately without a stale `RUN_IN_PROGRESS` conflict on Chat, Agents, command runs, and Flows.
-7. [ ] Manually verify the documented multi-tab or multi-window behavior by stopping from one browser context and confirming a later replacement run in another context is not cancelled incorrectly.
-8. [ ] Write a pull request comment summarizing all changes made by this story across every completed task.
-9. [ ] Update this plan file’s `Implementation notes` for Task 9 after the implementation and tests are complete.
-10. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+7. [ ] Manually verify that the conversation-only no-active-run path clears `stopping` only after the matching `cancel_ack.result === 'noop'` and does not render a fake terminal bubble.
+8. [ ] Manually verify the documented multi-tab or multi-window behavior by stopping from one browser context and confirming a later replacement run in another context is not cancelled incorrectly.
+9. [ ] Write a pull request comment summarizing all changes made by this story across every completed task.
+10. [ ] Update this plan file’s `Implementation notes` for Task 9 after the implementation and tests are complete.
+11. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 

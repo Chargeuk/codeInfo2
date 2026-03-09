@@ -589,6 +589,8 @@ Perform the final whole-story validation. This task proves the server descriptio
 
 - npm run-script command reference, because all validation must be run through repository wrapper scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - Node.js `node:test` API, because the server regression assertion added in this story runs through the full server unit wrapper: https://nodejs.org/docs/latest-v22.x/api/test.html
+- Context7 Jest library reference: https://context7.com/jestjs/jest, because this task runs the client Jest wrapper and any client-test diagnosis in this task should use the Jest documentation surfaced through the Context7 workflow the repository expects for non-MUI libraries.
+- Cucumber guides index: https://cucumber.io/docs/guides/, because this task runs the repository cucumber wrapper and the story should point implementers at the official Cucumber guides hub before any deeper wrapper-level diagnosis.
 - Cucumber Continuous Integration guide, because it explicitly recommends running Cucumber from the build or CI entrypoint instead of ad hoc commands, which matches this repository’s wrapper-first test policy: https://cucumber.io/docs/guides/continuous-integration/
 - Playwright intro docs, only if later implementation adds a GUI-touching change that must be checked manually; otherwise record that Playwright is not applicable to this non-GUI story: https://playwright.dev/docs/intro
 - Markdown Guide basic syntax reference, because this task may need to update final summary text inside the story plan itself: https://www.markdownguide.org/basic-syntax/

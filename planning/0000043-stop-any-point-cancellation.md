@@ -131,63 +131,57 @@ None. Repository and external research are sufficient to task this story.
 
 ## Implementation Ideas
 
-- Define the stop contract first:
-  - Stop should be conversation-authoritative from the moment the user clicks it.
-  - `inflightId` should still be used when available for precise matching, but it must not be required for correctness.
-  - do not introduce a new websocket message type for this story unless the existing `cancel_inflight` contract proves impossible to adapt.
+- Shape the implementation around the existing websocket contract, not a new transport:
+  - keep `cancel_inflight` as the stop message and keep `turn_final` as the terminal result event;
+  - use `status: 'stopped'` as the successful cancellation outcome for the run that was actually cancelled;
+  - keep explicit invalid-target behavior for bad `{ conversationId, inflightId }` pairs, but preserve the current conversation-only no-active-run path as a non-failing no-op unless implementation proves that contract is insufficient.
 
-- Client-side changes are likely needed in:
-  - `client/src/pages/ChatPage.tsx`
-  - `client/src/pages/AgentsPage.tsx`
-  - `client/src/pages/FlowsPage.tsx`
-  - `client/src/hooks/useChatStream.ts`
-  - `client/src/hooks/useChatWs.ts`
+- Start with the server-side cancellation contract in `server/src/ws/server.ts` and `server/src/ws/types.ts`:
+  - normalize how conversation-only stop and inflight-targeted stop are handled so every branch is deterministic;
+  - keep the current payload validation rules, but make the runtime behavior explicit for active cancel, duplicate cancel, no active run, and invalid explicit inflight id;
+  - keep stop authority on the server so the UI can wait for the server result instead of inventing a terminal local state.
 
-- Current client stop handlers only send `cancel_inflight` when `inflightId` is already known, then immediately switch the UI to a local stopped state. That behavior should be split into:
-  - immediate local `stopping` intent;
-  - unconditional stop message by conversation id;
-  - terminal stopped UI only after the matching `turn_final` reports `status: 'stopped'`.
+- Add conversation-scoped pending-cancel tracking in `server/src/chat/inflightRegistry.ts`:
+  - extend the inflight layer so a stop request can be recorded before an inflight id exists;
+  - key that pending intent by `conversationId`, but bind it to the run that was active when Stop was pressed so it cannot cancel a later run;
+  - expose helper functions that let run entrypoints check, consume, clear, and finalize pending cancellation in one place rather than re-implementing the same logic in chat, agents, and flows.
 
-- Server-side changes are likely needed in:
-  - `server/src/ws/server.ts`
-  - `server/src/chat/inflightRegistry.ts`
-  - `server/src/agents/service.ts`
-  - `server/src/agents/commandsRunner.ts`
-  - `server/src/chat` run entrypoints
-  - `server/src/flows/service.ts`
+- Wire that shared cancellation behavior through the chat run entrypoints:
+  - update `server/src/routes/chat.ts` and the chat stream path so stop is checked before expensive work starts, immediately after inflight creation, and during stream finalization;
+  - keep chat cleanup in one `finally` path so lock release, inflight cleanup, and terminal `turn_final` publication stay aligned;
+  - preserve the existing late-event protections in the chat stream bridge so late deltas after cancellation do not re-open a completed run.
 
-- The likely robust design is a shared pending-cancel registry keyed to the active conversation run:
-  - when Stop arrives before `inflightId` is known, store a cancel intent for the currently active run on that conversation;
-  - if the inflight already exists, abort immediately;
-  - if the inflight is created shortly after, consume the pending cancel immediately and finalize as stopped;
-  - if no active run exists when the cancel request is processed, do nothing and do not publish `INFLIGHT_NOT_FOUND`;
-  - clear that pending cancel deterministically when the associated run reaches a terminal state so a later run is not cancelled by stale intent.
+- Wire the same contract through agent instruction and command execution:
+  - `server/src/agents/service.ts` should observe pending cancel before normal instruction runs do meaningful work and should align its final status mapping with chat and flows;
+  - `server/src/agents/commandsRunner.ts` should continue using conversation-based abort, but it also needs pending-cancel checks before the first step, before each later step, and before retry scheduling;
+  - repeated stop calls for the same command run should remain idempotent, and all abort-controller or conversation-map cleanup should stay in `finally` so retries cannot leak a stale running state.
 
-- Command runs need special care because they span multiple steps and retries:
-  - the command runner must check cancellation before starting each next step;
-  - retry scheduling must stop once cancellation is requested;
-  - a command start request cancelled during the pre-inflight race must not proceed to later steps just because the first step has not surfaced yet.
-  - repeated stop requests for the same command run must remain harmless and must not turn the final status into `failed`.
-  - where command execution uses APIs that accept `AbortSignal`, the existing combined signal should be passed through rather than relying only on outer loop checks.
+- Wire the same contract through flow execution in `server/src/flows/service.ts`:
+  - check cancellation before the first flow step, before each subsequent step or loop iteration, and at any boundary where a tool or agent call can continue work for the cancelled run;
+  - keep the terminal status mapping consistent with the rest of the product so a successful stop becomes `turn_final.status === 'stopped'`, not a generic failure;
+  - keep the current inflight and turn cleanup paths aligned so late flow events cannot re-bind the UI after a stop has already terminalized.
 
-- Flow runs need equivalent handling:
-  - cancellation must stop the currently active flow run even if the UI has not yet received the step inflight id;
-  - flow step transitions and late websocket events from a cancelled flow must not re-bind the UI to that stopped run;
-  - cancellation should be checked before each next step or loop iteration so work does not continue after stop has been requested;
-  - long-running custom flow logic should use explicit `signal.aborted` or `throwIfAborted()` checks at step boundaries because abort is cooperative, not preemptive.
+- Use cooperative abort properly instead of assuming preemptive cancellation:
+  - where existing APIs already accept `AbortSignal`, pass the combined signal through instead of relying only on outer loop checks;
+  - between async calls and at step boundaries, use explicit `signal.aborted` or `throwIfAborted()` checks so command and flow loops stop before starting more work;
+  - do not promise to interrupt arbitrary synchronous code in the middle of a CPU-bound block, because the runtime does not provide that guarantee.
 
-- Protocol scope for this story is intentionally narrow:
-  - keep the existing start payloads and the existing `cancel_inflight` websocket message;
-  - keep the existing `turn_final` terminal event shape and use `status: 'stopped'` as the success signal for cancellation;
-  - only add a new transport field if implementation proves the current contract cannot identify the run that owned the stop request.
+- Keep the lock model simple and aligned with the current repository behavior:
+  - the repository uses a single per-conversation lock rather than a queue, so this story should only cancel work that actually became active;
+  - if a new run is rejected up front with `RUN_IN_PROGRESS`, this story should not invent special stop behavior for that rejected start attempt;
+  - stop implementation should therefore focus on active run ownership, cleanup, and unlock timing rather than queue management.
 
-- Recommended UI semantics for this story:
-  - after the user presses Stop, move the active run into a non-terminal `stopping` state immediately rather than rendering a final stopped status bubble at once;
-  - keep the Stop control visible but disabled while the stop is pending so the user can see that cancellation is in progress without repeatedly resubmitting it;
-  - only render the final stopped state after the server publishes or returns the matching `turn_final` event with `status: 'stopped'`;
-  - keep send and execute controls disabled during `stopping` so the client does not race ahead of a conversation lock that the server has not yet released.
+- Update the client stop flow without changing the overall page architecture:
+  - `client/src/hooks/useChatWs.ts` already supports `cancelInflight(conversationId, inflightId?)`; keep that API but make sure pages always send `conversationId` and include `inflightId` when known;
+  - `client/src/hooks/useChatStream.ts` should remain the place that guards against stale or mismatched late events, including duplicate `turn_final` replays;
+  - `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx` should all switch from immediate local stopped state to an immediate local `stopping` state that only becomes final when the matching `turn_final` arrives.
 
-- Testing should cover both the client symptom and the server authority model:
-  - existing Agents command stop tests already prove the pre-`inflightId` client gap;
-  - add integration coverage that the server consumes conversation-only stop correctly for instruction, command, chat, and flow startup races;
-  - add UI tests that Stop shows a non-terminal stopping state until the terminal event arrives.
+- Keep the user-facing stop behavior identical across Chat, Agents, and Flows:
+  - Stop should remain visible while the stop request is pending, but duplicate clicks should not create multiple independent stop attempts;
+  - send or execute controls should stay disabled only while the run is active or stopping, then recover immediately after the matching stopped final event;
+  - no page should claim success locally before the server has confirmed the stop result for the same run.
+
+- Expand automated coverage around the existing high-risk tests instead of inventing a brand-new test strategy:
+  - server coverage should primarily extend `server/src/test/unit/ws-server.test.ts`, `server/src/test/unit/ws-chat-stream.test.ts`, `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`, `server/src/test/integration/agents-run-ws-cancel.test.ts`, and the flow integration suites under `server/src/test/integration/flows.run.*.test.ts`;
+  - client coverage should extend `client/src/test/useChatWs.test.ts`, `client/src/test/chatPage.stop.test.tsx`, `client/src/test/agentsPage.commandsRun.abort.test.tsx`, `client/src/test/flowsPage.stop.test.tsx`, and the existing inflight-mismatch or late-event tests in `client/src/test/useChatStream.inflightMismatch.test.tsx`;
+  - the main cases to prove are startup-race stop before inflight id, duplicate stop idempotence, no new command retry or flow step after cancellation, conversation reusability after confirmed stop, and stale late-event suppression after a cancelled run.

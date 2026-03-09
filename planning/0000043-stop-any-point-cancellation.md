@@ -965,7 +965,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 ### 10. Align Chat Stop UX With The Shared State Contract
 
 - Task Status: `__in_progress__`
-- Git Commits: `__to_do__`
+- Git Commits: `c45d2ab2 - DEV-[0000043] - Align Chat stop UX with shared state contract`
 
 #### Overview
 

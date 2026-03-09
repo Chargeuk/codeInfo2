@@ -830,7 +830,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 8. Add Shared Client WebSocket Stop Acknowledgement Handling
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `afcd2601 - DEV-[0000043] - Add shared websocket stop acknowledgement handling`
 
 #### Overview
@@ -864,7 +864,7 @@ Extend the shared websocket client layer so it can send conversation-only stop r
 7. [x] Add or update a client hook test in `client/src/test/useChatWs.test.ts` that proves `cancel_ack.requestId` can be correlated to the originating no-op stop request. Purpose: cover no-op recovery correlation.
 8. [x] Update `design.md`. Files (read/edit): `design.md`. Add a shared websocket client section and a Mermaid `sequenceDiagram` that shows page code calling `cancelInflight(conversationId, inflightId?)`, `useChatWs` sending the request, and the client receiving either `cancel_ack.result === 'noop'` or later `turn_final.status === 'stopped'`.
 9. [x] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
-10. [ ] Update this plan file’s `Implementation notes` for Task 8 after the implementation and tests are complete.
+10. [x] Update this plan file’s `Implementation notes` for Task 8 after the implementation and tests are complete.
 11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
@@ -875,7 +875,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 2. [x] `npm run test:summary:client` - Use because this task changes Jest-covered client websocket behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:client`.
 3. [x] `npm run compose:build:summary` - Use because this task is testable from the front end through the dockerized app. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
 4. [x] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm shared websocket stop behavior works in the browser. In the browser console, assert that clicking Stop during the startup-race path logs `[stop-debug][ws-send] cancel_inflight` exactly once with the expected `conversationId`, an omitted or `undefined` `inflightId`, and a non-empty `requestId`. For the no-active-run path, assert the console later logs `[stop-debug][ws-event] cancel_ack` with the same `conversationId`, the same `requestId`, and `result: 'noop'`. Take a screenshot that shows the visible browser state for the exercised stop path and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`; the agent must review that screenshot to confirm the GUI still matches the expected stopping or recovered-ready state with no stray terminal bubble. Expected outcome: both log lines appear with matching request correlation, the screenshot shows the expected UI state, and there are no unexpected browser-console errors. If the current page-level stop flow still injects an optimistic `inflightId` or an immediate local terminal stopped state, do not weaken the Task 8 contract or invent a fake no-op path here; leave Task 8 `__in_progress__` and rerun this manual check after Tasks 9 and 10 land.
+5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm shared websocket stop behavior works in the browser. In the browser console, assert that clicking Stop during the startup-race path logs `[stop-debug][ws-send] cancel_inflight` exactly once with the expected `conversationId`, an omitted or `undefined` `inflightId`, and a non-empty `requestId`. For the no-active-run path, assert the console later logs `[stop-debug][ws-event] cancel_ack` with the same `conversationId`, the same `requestId`, and `result: 'noop'`. Take a screenshot that shows the visible browser state for the exercised stop path and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`; the agent must review that screenshot to confirm the GUI still matches the expected stopping or recovered-ready state with no stray terminal bubble. Expected outcome: both log lines appear with matching request correlation, the screenshot shows the expected UI state, and there are no unexpected browser-console errors. If the current page-level stop flow still injects an optimistic `inflightId` or an immediate local terminal stopped state, do not weaken the Task 8 contract or invent a fake no-op path here; leave Task 8 `__in_progress__` and rerun this manual check after Tasks 9 and 10 land.
 6. [x] `npm run compose:down`
 
 #### Implementation notes
@@ -890,6 +890,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 - Testing 3-4 and 6: `compose:build:summary` passed cleanly, I recycled the stack after the first `compose:up` because it had started before the rebuilt client image finished, and the second `compose:up`/`compose:down` pair completed cleanly against the rebuilt image.
 - Testing 5 blocker: the rebuilt browser bundle emits `[stop-debug][ws-send] cancel_inflight`, but the current Chat stop flow still injects an optimistic client-side `inflightId` and immediate local terminal bubble during the startup race, so the browser reaches the explicit `INFLIGHT_NOT_FOUND` failure path instead of the required conversation-only `cancel_ack.result === 'noop'` path. This appears to require the shared stop-state and page-level reconciliation work planned in Tasks 9-10 before the manual no-op check can pass from the existing UI.
 - Blocker answer: Yes, treat this as an expected dependency on Tasks 9-10 rather than a reason to weaken Task 8. Keep Task 8 `__in_progress__`, keep commit `afcd2601` recorded for the implemented websocket-hook work, and rerun Testing step 5 plus the final Task 8 notes check only after the shared stop-state and page-level reconciliation work removes the optimistic `inflightId` and immediate local terminal bubble path.
+- Testing step 5 and Subtask 10: reran the required browser check after Tasks 9-10 at `http://host.docker.internal:5001/chat`, forced a startup-race window, and confirmed one `[stop-debug][ws-send] cancel_inflight` with `inflightId: undefined` plus one matching `[stop-debug][ws-event] cancel_ack` with `result: 'noop'`; the reviewed screenshot `playwright-output-local/task8-ws-noop-recovered.png` shows the recovered-ready Chat state with no `Stopped`, `Stopping`, `INFLIGHT_NOT_FOUND`, or `Generation stopped` bubble.
 
 ---
 

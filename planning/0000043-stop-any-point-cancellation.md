@@ -770,7 +770,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 ### 7. Integrate Stop Ownership Into Flow Runs
 
 - Task Status: `__done__`
-- Git Commits: `__to_do__`
+- Git Commits: `67c5b70b - DEV-[0000043] - Integrate stop ownership into flow runs`
 
 #### Overview
 

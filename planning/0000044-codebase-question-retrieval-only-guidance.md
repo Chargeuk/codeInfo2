@@ -432,7 +432,7 @@ No wrapper build or automated test run is required for this task because it chan
 
 ### 4. Planning Agent System Prompt Family
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `none yet`
 
 #### Overview
@@ -452,12 +452,12 @@ Align the three planning-oriented system prompts so they all describe `code_info
 
 Self-contained reminder for every subtask in this task: keep `https://platform.openai.com/docs/guides/function-calling`, `https://platform.openai.com/docs/guides/tools-connectors-mcp`, `https://context7.com/docs/api-guide`, `https://deepwiki.com`, and `https://modelcontextprotocol.io/docs/learn/server-concepts` open while working. All three system-prompt files in this task should stay materially aligned after editing, and any change should preserve the surrounding planning-agent behavior.
 
-1. [ ] Read the documentation links above, then inspect [codex_agents/planning_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/planning_agent/system_prompt.txt), [codex_agents/vllm_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/vllm_agent/system_prompt.txt), and [codex_agents/lmstudio_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/lmstudio_agent/system_prompt.txt). Confirm the shared phrase `come up with suggestions about how new features could be implemented` appears in all three files before editing. Junior copy/paste snippet for this subtask: `sed -n '1,80p' codex_agents/planning_agent/system_prompt.txt`, `sed -n '1,80p' codex_agents/vllm_agent/system_prompt.txt`, `sed -n '1,80p' codex_agents/lmstudio_agent/system_prompt.txt`, `rg -n 'come up with suggestions|code_info' codex_agents/planning_agent/system_prompt.txt codex_agents/vllm_agent/system_prompt.txt codex_agents/lmstudio_agent/system_prompt.txt`.
-2. [ ] Update all three planning system prompts in the same edit pass so they tell the agent to use `code_info` to gather repository evidence, current implementations, and candidate files, then inspect those files directly and reason for itself. Reuse the same stable phrase set and responsibility boundary established in Task 1 and the updated `AGENTS.md` wording rather than inventing per-file variants. Keep the broader planning-agent role, KISS instructions, and question-asking behavior unchanged.
-3. [ ] After editing, compare the three files side by side and confirm the retrieval-only sentence stays materially identical across all variants so the family does not drift.
-4. [ ] Search these three files for `come up with suggestions`, `100% confident`, `double-check your thoughts`, and `code_info` and record in Implementation notes which wording was changed and which operational wording stayed unchanged.
-5. [ ] Manual Playwright-MCP log contract for Task 4. Expected browser-console outcome later: zero matches for the prefix `[DEV-0000044][T4]` and zero browser `error` entries caused by this story, because Task 4 only changes agent prompt text. Do not add any new client/runtime log line such as `[DEV-0000044][T4] event=planning_prompt_family_aligned result=success`. Record this expected zero-match outcome in Implementation notes.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Read the documentation links above, then inspect [codex_agents/planning_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/planning_agent/system_prompt.txt), [codex_agents/vllm_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/vllm_agent/system_prompt.txt), and [codex_agents/lmstudio_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/lmstudio_agent/system_prompt.txt). Confirm the shared phrase `come up with suggestions about how new features could be implemented` appears in all three files before editing. Junior copy/paste snippet for this subtask: `sed -n '1,80p' codex_agents/planning_agent/system_prompt.txt`, `sed -n '1,80p' codex_agents/vllm_agent/system_prompt.txt`, `sed -n '1,80p' codex_agents/lmstudio_agent/system_prompt.txt`, `rg -n 'come up with suggestions|code_info' codex_agents/planning_agent/system_prompt.txt codex_agents/vllm_agent/system_prompt.txt codex_agents/lmstudio_agent/system_prompt.txt`.
+2. [x] Update all three planning system prompts in the same edit pass so they tell the agent to use `code_info` to gather repository evidence, current implementations, and candidate files, then inspect those files directly and reason for itself. Reuse the same stable phrase set and responsibility boundary established in Task 1 and the updated `AGENTS.md` wording rather than inventing per-file variants. Keep the broader planning-agent role, KISS instructions, and question-asking behavior unchanged.
+3. [x] After editing, compare the three files side by side and confirm the retrieval-only sentence stays materially identical across all variants so the family does not drift.
+4. [x] Search these three files for `come up with suggestions`, `100% confident`, `double-check your thoughts`, and `code_info` and record in Implementation notes which wording was changed and which operational wording stayed unchanged.
+5. [x] Manual Playwright-MCP log contract for Task 4. Expected browser-console outcome later: zero matches for the prefix `[DEV-0000044][T4]` and zero browser `error` entries caused by this story, because Task 4 only changes agent prompt text. Do not add any new client/runtime log line such as `[DEV-0000044][T4] event=planning_prompt_family_aligned result=success`. Record this expected zero-match outcome in Implementation notes.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -466,7 +466,12 @@ No wrapper build or automated test run is required for this task because it chan
 
 #### Implementation notes
 
-- Pending.
+- Read the OpenAI/Context7/DeepWiki/MCP/GitHub Docs references, inspected all three planning prompt variants together, and confirmed the shared `come up with suggestions about how new features could be implemented` phrase appeared in each file before editing.
+- Replaced that shared sentence in `planning_agent`, `vllm_agent`, and `lmstudio_agent` with one materially identical retrieval-first sentence that tells the agent to gather repository evidence, current implementations, and candidate files, then inspect those files directly and reason for itself.
+- Kept the surrounding planning-agent behavior unchanged, including the KISS rules, question-asking pattern, and “do not create tasks” instructions.
+- Post-edit searches confirmed the old `come up with suggestions` wording was removed from all three files; no `100% confident` or `double-check your thoughts` wording was present in this prompt family to rewrite.
+- Recorded the Manual Playwright expectation for later story validation: zero `[DEV-0000044][T4]` browser-console entries and zero browser `error` entries caused by Task 4, because this task changes prompt text only.
+- `npm run format:check --workspaces` passed cleanly; `npm run lint --workspaces` still reported the existing repo-wide import-order warnings outside Task 4 and did not introduce any Task 4-specific failures.
 
 ---
 

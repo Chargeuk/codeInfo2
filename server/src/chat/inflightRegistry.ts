@@ -40,7 +40,17 @@ export type InflightState = {
   seq: number;
 };
 
+export type PendingConversationCancel = {
+  runToken: string;
+  requestedAt: string;
+  boundInflightId?: string;
+};
+
 const inflightByConversationId = new Map<string, InflightState>();
+const pendingCancelByConversationId = new Map<
+  string,
+  PendingConversationCancel
+>();
 
 export function hasInflight(conversationId: string): boolean {
   return inflightByConversationId.has(conversationId);
@@ -95,6 +105,126 @@ export function createInflight(params: {
 
   inflightByConversationId.set(params.conversationId, state);
   return state;
+}
+
+export function getPendingConversationCancel(
+  conversationId: string,
+): PendingConversationCancel | null {
+  const pending = pendingCancelByConversationId.get(conversationId);
+  if (!pending) return null;
+  return { ...pending };
+}
+
+export function registerPendingConversationCancel(params: {
+  conversationId: string;
+  runToken: string;
+  requestedAt?: string;
+  boundInflightId?: string;
+}): {
+  ok: true;
+  alreadyPending: boolean;
+  pendingCancel: PendingConversationCancel;
+} {
+  const existing = pendingCancelByConversationId.get(params.conversationId);
+  const pendingCancel: PendingConversationCancel = {
+    runToken: params.runToken,
+    requestedAt:
+      existing?.runToken === params.runToken
+        ? existing.requestedAt
+        : (params.requestedAt ?? new Date().toISOString()),
+    boundInflightId:
+      params.boundInflightId ?? existing?.boundInflightId ?? undefined,
+  };
+
+  pendingCancelByConversationId.set(params.conversationId, pendingCancel);
+  return {
+    ok: true,
+    alreadyPending: existing?.runToken === params.runToken,
+    pendingCancel: { ...pendingCancel },
+  };
+}
+
+export function bindPendingConversationCancelToInflight(params: {
+  conversationId: string;
+  runToken: string;
+  inflightId: string;
+}):
+  | {
+      ok: true;
+      alreadyBound: boolean;
+      pendingCancel: PendingConversationCancel;
+    }
+  | {
+      ok: false;
+      reason:
+        | 'PENDING_CANCEL_NOT_FOUND'
+        | 'RUN_TOKEN_MISMATCH'
+        | 'INFLIGHT_MISMATCH';
+    } {
+  const pending = pendingCancelByConversationId.get(params.conversationId);
+  if (!pending) {
+    return { ok: false, reason: 'PENDING_CANCEL_NOT_FOUND' };
+  }
+  if (pending.runToken !== params.runToken) {
+    return { ok: false, reason: 'RUN_TOKEN_MISMATCH' };
+  }
+  if (
+    pending.boundInflightId !== undefined &&
+    pending.boundInflightId !== params.inflightId
+  ) {
+    return { ok: false, reason: 'INFLIGHT_MISMATCH' };
+  }
+
+  const alreadyBound = pending.boundInflightId === params.inflightId;
+  if (!alreadyBound) {
+    pending.boundInflightId = params.inflightId;
+  }
+
+  return {
+    ok: true,
+    alreadyBound,
+    pendingCancel: { ...pending },
+  };
+}
+
+export function consumePendingConversationCancel(params: {
+  conversationId: string;
+  runToken: string;
+  inflightId?: string;
+}): PendingConversationCancel | null {
+  const pending = pendingCancelByConversationId.get(params.conversationId);
+  if (!pending) return null;
+  if (pending.runToken !== params.runToken) return null;
+  if (
+    params.inflightId !== undefined &&
+    pending.boundInflightId !== undefined &&
+    pending.boundInflightId !== params.inflightId
+  ) {
+    return null;
+  }
+  pendingCancelByConversationId.delete(params.conversationId);
+  return { ...pending };
+}
+
+export function cleanupPendingConversationCancel(params: {
+  conversationId: string;
+  runToken?: string;
+  inflightId?: string;
+}): boolean {
+  const pending = pendingCancelByConversationId.get(params.conversationId);
+  if (!pending) return false;
+  if (params.runToken !== undefined && pending.runToken !== params.runToken) {
+    return false;
+  }
+  if (
+    params.inflightId !== undefined &&
+    pending.boundInflightId !== undefined &&
+    pending.boundInflightId !== params.inflightId
+  ) {
+    return false;
+  }
+  pendingCancelByConversationId.delete(params.conversationId);
+  return true;
 }
 
 export function bumpSeq(conversationId: string): number {
@@ -223,6 +353,10 @@ export function cleanupInflight(params: {
   if (!state) return;
   if (params.inflightId && state.inflightId !== params.inflightId) return;
   inflightByConversationId.delete(params.conversationId);
+  cleanupPendingConversationCancel({
+    conversationId: params.conversationId,
+    inflightId: state.inflightId,
+  });
 }
 
 export function setInflightUserTurn(params: {

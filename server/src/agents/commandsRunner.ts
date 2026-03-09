@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { cleanupPendingConversationCancel } from '../chat/inflightRegistry.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
@@ -46,6 +47,7 @@ export type RunAgentCommandRunnerParams = {
   source: 'REST' | 'MCP';
   logger?: LoggerLike;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+  releaseConversationLockFn?: typeof releaseConversationLock;
   runAgentInstructionUnlocked: (params: {
     agentName: string;
     instruction: string;
@@ -330,8 +332,14 @@ export async function runAgentCommandRunner(
     };
   } finally {
     commandAbortByConversationId.delete(conversationId);
-    if (lockAcquired) {
-      releaseConversationLock(conversationId);
+    try {
+      if (lockAcquired) {
+        const releaseLock =
+          params.releaseConversationLockFn ?? releaseConversationLock;
+        releaseLock(conversationId);
+      }
+    } finally {
+      cleanupPendingConversationCancel({ conversationId });
     }
   }
 }

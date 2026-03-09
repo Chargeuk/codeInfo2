@@ -10,9 +10,17 @@ import {
 } from '../../agents/commandsRunner.js';
 import { runWithRetry } from '../../agents/retry.js';
 import {
+  getActiveRunOwnership,
+  tryAcquireConversationLock,
+} from '../../agents/runLock.js';
+import {
   getErrorMessage,
   isTransientReconnect,
 } from '../../agents/transientReconnect.js';
+import {
+  getPendingConversationCancel,
+  registerPendingConversationCancel,
+} from '../../chat/inflightRegistry.js';
 
 test('retries stop on abort', async () => {
   const controller = new AbortController();
@@ -189,6 +197,55 @@ test('duplicate stop requests are idempotent and do not restart steps', async ()
     await runPromise;
 
     assert.deepEqual(calls, [1]);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('pending cancel runtime state is released even if lock cleanup throws', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agent-commands-runner-pending-cleanup-'),
+  );
+  try {
+    const agentHome = path.join(tmpDir, 'a1');
+    const conversationId = 'c-pending-cleanup';
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    await fs.writeFile(
+      path.join(agentHome, 'commands', 'cleanup.json'),
+      JSON.stringify({
+        Description: 'Cleanup command',
+        items: [{ type: 'message', role: 'user', content: ['s1'] }],
+      }),
+      'utf-8',
+    );
+
+    assert.equal(tryAcquireConversationLock(conversationId), true);
+    const ownership = getActiveRunOwnership(conversationId);
+    assert.ok(ownership);
+
+    registerPendingConversationCancel({
+      conversationId,
+      runToken: ownership.runToken,
+    });
+    assert.ok(getPendingConversationCancel(conversationId));
+
+    await assert.rejects(
+      runAgentCommandRunner({
+        agentName: 'a1',
+        agentHome,
+        commandName: 'cleanup',
+        conversationId,
+        lockAlreadyHeld: true,
+        source: 'REST',
+        releaseConversationLockFn: () => {
+          throw new Error('release failed');
+        },
+        runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
+      }),
+      /release failed/,
+    );
+
+    assert.equal(getPendingConversationCancel(conversationId), null);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

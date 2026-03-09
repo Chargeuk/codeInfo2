@@ -537,7 +537,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 3. Add Pending-Cancel Runtime State
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -559,28 +559,35 @@ Introduce the runtime-only pending-cancel state the story depends on by extendin
 
 #### Subtasks
 
-1. [ ] Read the story sections `Run lifecycle boundaries`, `Contracts And Storage Shapes`, `Cancellation Targeting`, and `Edge Cases and Failure Modes`.
-2. [ ] Extend `server/src/chat/inflightRegistry.ts` with the pending-cancel runtime shape and helper functions so they live beside `createInflight`, `getInflight`, `markInflightFinal`, and `cleanupInflight` rather than in a new registry module. Files (read/edit): `server/src/chat/inflightRegistry.ts`. Docs to use while doing this subtask: MDN `Map` docs and TypeScript everyday-types docs.
-3. [ ] Ensure the pending-cancel helpers are idempotent, consumed once, and cannot bind a stale cancel to a later replacement run. Files (read/edit): `server/src/chat/inflightRegistry.ts`; files to read for consumers: `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`. Docs to use while doing this subtask: MDN `Map` docs.
-4. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves one pending cancel is consumed once and cannot be applied twice. Purpose: cover idempotent pending-cancel consumption.
-5. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves the documented no-active-run path leaves no pending-cancel state behind. Purpose: cover pending-cancel no-op behavior.
-6. [ ] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` that forces the primary cleanup path to throw and proves runtime state is still released. Purpose: cover cleanup fallback in shared runtime state.
-7. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a short section describing how pending-cancel binds to the active `runToken`, is consumed once, and is cleared on no-op or cleanup, plus a Mermaid `flowchart` that shows those state transitions.
-8. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
-9. [ ] Update this plan file’s `Implementation notes` for Task 3 after the implementation and tests are complete.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Read the story sections `Run lifecycle boundaries`, `Contracts And Storage Shapes`, `Cancellation Targeting`, and `Edge Cases and Failure Modes`.
+2. [x] Extend `server/src/chat/inflightRegistry.ts` with the pending-cancel runtime shape and helper functions so they live beside `createInflight`, `getInflight`, `markInflightFinal`, and `cleanupInflight` rather than in a new registry module. Files (read/edit): `server/src/chat/inflightRegistry.ts`. Docs to use while doing this subtask: MDN `Map` docs and TypeScript everyday-types docs.
+3. [x] Ensure the pending-cancel helpers are idempotent, consumed once, and cannot bind a stale cancel to a later replacement run. Files (read/edit): `server/src/chat/inflightRegistry.ts`; files to read for consumers: `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`. Docs to use while doing this subtask: MDN `Map` docs.
+4. [x] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves one pending cancel is consumed once and cannot be applied twice. Purpose: cover idempotent pending-cancel consumption.
+5. [x] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves the documented no-active-run path leaves no pending-cancel state behind. Purpose: cover pending-cancel no-op behavior.
+6. [x] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` that forces the primary cleanup path to throw and proves runtime state is still released. Purpose: cover cleanup fallback in shared runtime state.
+7. [x] Update `design.md`. Files (read/edit): `design.md`. Add a short section describing how pending-cancel binds to the active `runToken`, is consumed once, and is cleared on no-op or cleanup, plus a Mermaid `flowchart` that shows those state transitions.
+8. [x] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
+9. [x] Update this plan file’s `Implementation notes` for Task 3 after the implementation and tests are complete.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Use because this task changes shared server inflight runtime state. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit` - Use because this task changes server node:test inflight and pending-cancel behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use because shared stop behavior must still satisfy the existing server Cucumber coverage after pending-cancel changes. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
+1. [x] `npm run build:summary:server` - Use because this task changes shared server inflight runtime state. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes server node:test inflight and pending-cancel behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use because shared stop behavior must still satisfy the existing server Cucumber coverage after pending-cancel changes. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Subtask 1: Re-read the lifecycle, storage, targeting, and edge-case sections plus the completed Task 1 and Task 2 notes so Task 3 stays limited to shared pending-cancel runtime state and inherits the existing websocket contract and run-token ownership model.
+- Subtasks 2-3: Extended `server/src/chat/inflightRegistry.ts` with a runtime-only `PendingConversationCancel` map plus token-bound register, bind, consume, inspect, and cleanup helpers, and wired `cleanupInflight(...)` to clear matching pending state so stale startup-race cancels do not leak into replacement runs.
+- Subtasks 4-6: Added unit coverage in `server/src/test/unit/ws-chat-stream.test.ts` for single-use pending-cancel consumption and the no-active-run no-op case, and updated `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` plus `server/src/agents/commandsRunner.ts` so fallback cleanup still clears pending runtime state even when lock release throws.
+- Subtasks 7-8: Documented the pending-cancel lifecycle in `design.md`; no files were added or removed, so `projectStructure.md` did not need changes for Task 3.
+- Subtask 10: `format:check` initially failed on the touched registry and test files, so Prettier was run on those files and both hygiene commands now pass; `lint` still exits successfully with only the repo’s existing import-order warning baseline.
+- Testing step 1: `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`.
+- Testing step 2: `npm run test:summary:server:unit` passed cleanly with `tests run: 988`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 68`, `failed: 0`, and `agent_action: skip_log`.
 
 ---
 

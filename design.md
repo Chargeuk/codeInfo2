@@ -1310,6 +1310,29 @@ flowchart TD
   K -- no --> L[Keep newer ownership intact and return false]
 ```
 
+## Story 0000043 Task 3: pending-cancel state is runtime-only and token-bound
+
+- Pending cancel now lives in the shared inflight registry as runtime-only conversation state, not in a second registry.
+- Each pending-cancel entry binds to the active `runToken`, may later bind to that run's `inflightId`, and can only be consumed once by the matching run.
+- No-active-run paths keep the registry empty, and cleanup paths clear matching pending-cancel state so stale startup-race stop requests cannot leak into a replacement run.
+- Shared cleanup callers may clear pending state independently of lock release success so cleanup failures do not strand stop ownership.
+
+```mermaid
+flowchart TD
+  A[Stop accepted for active conversation runToken] --> B[Register pending cancel with requestedAt]
+  B --> C{InflightId known yet?}
+  C -- no --> D[Wait for run to create or expose inflightId]
+  C -- yes --> E[Bind pending cancel to inflightId]
+  D --> E
+  E --> F{Matching runToken consumes pending cancel?}
+  F -- yes --> G[Return single pending cancel payload and delete entry]
+  F -- no --> H[Keep entry until matching run or cleanup]
+  G --> I[Run finalization and shared cleanup]
+  H --> I
+  I --> J[Clear matching pending cancel on cleanup or no-op]
+  J --> K[Replacement run starts without inheriting stale cancel]
+```
+
 ## Story 0000038 Task 5: ingest listing status/phase normalization and active overlay precedence
 
 - External listing status contract for `/ingest/roots` and classic MCP `ListIngestedRepositories` is now normalized from internal ingest states:

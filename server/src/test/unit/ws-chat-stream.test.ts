@@ -13,9 +13,14 @@ import {
 } from '../../agents/runLock.js';
 import {
   appendAssistantDelta,
+  bindPendingConversationCancelToInflight,
   cleanupInflight,
+  cleanupPendingConversationCancel,
+  consumePendingConversationCancel,
   createInflight,
   getInflight,
+  getPendingConversationCancel,
+  registerPendingConversationCancel,
   setAssistantText,
   snapshotInflight,
 } from '../../chat/inflightRegistry.js';
@@ -258,6 +263,92 @@ test('replacement run gets a fresh ownership token and stale release does not cl
     true,
   );
   assert.equal(getActiveRunOwnership(conversationId), null);
+});
+
+test('pending cancel is consumed once for the bound run and cannot be applied twice', () => {
+  const conversationId = 'pending-cancel-consumed-once';
+  const inflightId = 'pending-cancel-inflight';
+
+  assert.equal(tryAcquireConversationLock(conversationId), true);
+  const ownership = getActiveRunOwnership(conversationId);
+  assert.ok(ownership);
+
+  createInflight({
+    conversationId,
+    inflightId,
+    provider: 'codex',
+    model: 'gpt-5.3-codex',
+    source: 'REST',
+  });
+
+  const registered = registerPendingConversationCancel({
+    conversationId,
+    runToken: ownership.runToken,
+  });
+  assert.equal(registered.alreadyPending, false);
+
+  const rebound = registerPendingConversationCancel({
+    conversationId,
+    runToken: ownership.runToken,
+  });
+  assert.equal(rebound.alreadyPending, true);
+
+  const bound = bindPendingConversationCancelToInflight({
+    conversationId,
+    runToken: ownership.runToken,
+    inflightId,
+  });
+  assert.equal(bound.ok, true);
+  if (!bound.ok) {
+    throw new Error('expected pending cancel to bind');
+  }
+  assert.equal(bound.alreadyBound, false);
+
+  const consumed = consumePendingConversationCancel({
+    conversationId,
+    runToken: ownership.runToken,
+    inflightId,
+  });
+  assert.ok(consumed);
+  assert.equal(consumed.runToken, ownership.runToken);
+  assert.equal(consumed.boundInflightId, inflightId);
+
+  const consumedAgain = consumePendingConversationCancel({
+    conversationId,
+    runToken: ownership.runToken,
+    inflightId,
+  });
+  assert.equal(consumedAgain, null);
+  assert.equal(getPendingConversationCancel(conversationId), null);
+
+  cleanupInflight({ conversationId, inflightId });
+  releaseConversationLock(conversationId, ownership.runToken);
+});
+
+test('no-active-run path leaves no pending cancel state behind', () => {
+  const conversationId = 'pending-cancel-noop';
+
+  assert.equal(getActiveRunOwnership(conversationId), null);
+  assert.equal(getPendingConversationCancel(conversationId), null);
+
+  const bindResult = bindPendingConversationCancelToInflight({
+    conversationId,
+    runToken: 'missing-run-token',
+    inflightId: 'missing-inflight',
+  });
+  assert.deepEqual(bindResult, {
+    ok: false,
+    reason: 'PENDING_CANCEL_NOT_FOUND',
+  });
+
+  const consumed = consumePendingConversationCancel({
+    conversationId,
+    runToken: 'missing-run-token',
+    inflightId: 'missing-inflight',
+  });
+  assert.equal(consumed, null);
+  assert.equal(cleanupPendingConversationCancel({ conversationId }), false);
+  assert.equal(getPendingConversationCancel(conversationId), null);
 });
 
 test('transcript seq increases monotonically per conversation stream', async () => {

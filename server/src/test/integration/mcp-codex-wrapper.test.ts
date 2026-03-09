@@ -3,6 +3,7 @@ import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import test from 'node:test';
 import type {
+  CodexOptions,
   ThreadEvent,
   ThreadOptions as CodexThreadOptions,
   TurnOptions as CodexTurnOptions,
@@ -209,6 +210,49 @@ test('MCP codebase_question uses shared resolver defaults for thread options', a
       mockCodex.lastStartOptions?.modelReasoningEffort,
       capabilities.defaults.modelReasoningEffort,
     );
+  } finally {
+    setCodexDetection(prev);
+  }
+});
+
+test('MCP codebase_question passes resolved chat runtime config to Codex', async () => {
+  const prev = getCodexDetection();
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const mockCodex = new MockCodex();
+  let capturedOptions: CodexOptions | undefined;
+  const runtimeConfig = {
+    model: 'openai/gpt-oss-20b',
+    model_provider: 'vllm',
+    model_providers: {
+      vllm: {
+        name: 'vLLM Local',
+        base_url: 'http://localhost:8000/v1',
+        wire_api: 'responses',
+      },
+    },
+  };
+
+  try {
+    await runCodebaseQuestion(
+      { question: 'Use runtime config please' },
+      {
+        codexFactory: (options?: CodexOptions) => {
+          capturedOptions = options;
+          return mockCodex;
+        },
+        chatRuntimeConfigResolver: async () => ({
+          config: runtimeConfig,
+          warnings: [],
+        }),
+      },
+    );
+
+    assert.deepEqual(capturedOptions?.config, runtimeConfig);
   } finally {
     setCodexDetection(prev);
   }

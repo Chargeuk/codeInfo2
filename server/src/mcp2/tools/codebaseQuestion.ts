@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
 import { LMStudioClient } from '@lmstudio/sdk';
-import type { ThreadOptions } from '@openai/codex-sdk';
+import type { CodexOptions, ThreadOptions } from '@openai/codex-sdk';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 
@@ -30,6 +30,7 @@ import {
   resolveRuntimeProviderSelection,
   type ChatDefaultProvider,
 } from '../../config/chatDefaults.js';
+import { resolveChatRuntimeConfig } from '../../config/runtimeConfig.js';
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import { append } from '../../logStore.js';
 import { ConversationModel } from '../../mongo/conversation.js';
@@ -128,12 +129,15 @@ function logSummaryContractRead(params: {
 }
 
 export type CodebaseQuestionDeps = {
-  codexFactory?: () => import('../../chat/interfaces/ChatInterfaceCodex.js').CodexLike;
+  codexFactory?: (
+    options?: CodexOptions,
+  ) => import('../../chat/interfaces/ChatInterfaceCodex.js').CodexLike;
   clientFactory?: (baseUrl: string) => import('@lmstudio/sdk').LMStudioClient;
   toolFactory?: (opts: Record<string, unknown>) => {
     tools: ReadonlyArray<unknown>;
   };
   chatFactory?: typeof getChatInterface;
+  chatRuntimeConfigResolver?: typeof resolveChatRuntimeConfig;
 };
 
 const preferMemoryPersistence = process.env.NODE_ENV === 'test';
@@ -424,6 +428,14 @@ export async function runCodebaseQuestion(
   const codexWorkingDirectory =
     process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data';
   const codexDefaults = codexCapabilities.defaults;
+  let chatRuntimeConfig: CodexOptions['config'] | undefined;
+
+  if (executionProvider === 'codex') {
+    const runtimeConfigResolver =
+      deps.chatRuntimeConfigResolver ?? resolveChatRuntimeConfig;
+    const { config } = await runtimeConfigResolver();
+    chatRuntimeConfig = config as CodexOptions['config'];
+  }
 
   const threadOpts: ThreadOptions = {
     model: executionModel,
@@ -501,6 +513,7 @@ export async function runCodebaseQuestion(
         {
           provider: executionProvider,
           threadId: activeThreadId,
+          runtimeConfig: chatRuntimeConfig,
           codexFlags: threadOpts,
           signal: getInflight(resolvedConversationId)?.abortController.signal,
           source: 'MCP',

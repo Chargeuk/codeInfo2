@@ -246,6 +246,72 @@ None. Repository and external research are sufficient to task this story.
   - if the no-op path is reached, clear `stopping` quietly and re-enable controls without rendering a fake stopped or failed terminal bubble;
   - if an explicit invalid target is sent, preserve the current explicit-target error behavior rather than presenting it as a successful stop.
 
+## Edge Cases and Failure Modes
+
+- Cancel arrives just before the run is registered:
+  - expected handling: bind the stop request to the active run token and consume it at the first possible boundary;
+  - failure to avoid: losing the stop request and allowing the run to continue as if Stop had never been pressed.
+
+- Conversation-only cancel arrives when no active run exists:
+  - expected handling: strict no-op, no terminal websocket event, no fake stopped or failed bubble;
+  - failure to avoid: leaving the UI stuck in `stopping` or emitting a misleading terminal state.
+
+- Explicit `inflightId` is stale, wrong, or already cleaned up:
+  - expected handling: preserve the existing explicit-target invalid behavior;
+  - failure to avoid: silently converting the request into a conversation-only cancel or accidentally canceling a different active run.
+
+- Duplicate stop requests arrive for the same run:
+  - expected handling: idempotent behavior after the first request wins;
+  - failure to avoid: duplicate abort work, duplicate terminal events, duplicate bubbles, or UI state flipping backwards.
+
+- Stop arrives during startup race before first real work checkpoint:
+  - expected handling: the request stays bound to the same active run token and is checked before the first step or provider call that can continue work;
+  - failure to avoid: the stop request being accepted but the first command or flow step still starting.
+
+- Stop arrives during command retry or backoff:
+  - expected handling: retry logic re-checks cancellation before every retry attempt and before any backoff boundary resumes work;
+  - failure to avoid: the current attempt stops but a scheduled retry starts anyway.
+
+- Stop arrives during flow loops or multi-step flows:
+  - expected handling: cancellation is checked before each step, before each loop iteration, and before any tool or agent handoff that would continue the flow;
+  - failure to avoid: long-running flow sequences continue through extra steps after stop has already been requested.
+
+- Stop or abort happens after completion has effectively finished but before cleanup has completed:
+  - expected handling: finalization remains single-path and cleanup stays idempotent;
+  - failure to avoid: mixed terminal states, duplicate `turn_final`, or leaked active-run ownership state.
+
+- Inflight or ownership runtime state is missing or inconsistent:
+  - expected handling: explicit-target requests prefer safe explicit failure, while conversation-only requests prefer safe no-op when the target cannot be resolved confidently;
+  - failure to avoid: canceling the wrong run because registry state is stale or partially cleaned up.
+
+- Cleanup work throws after stop has been requested:
+  - expected handling: cleanup failures are logged, but ownership and pending-cancel state are still released in a guaranteed fallback path;
+  - failure to avoid: orphaned lock state, orphaned pending-cancel state, or a page that can never leave `stopping`.
+
+- Multi-tab or multi-window use on the same conversation:
+  - expected handling: explicit `inflightId` stays deterministic, while conversation-only stop resolves through the active run token for that conversation;
+  - failure to avoid: one tab accidentally stopping a later replacement run started by another tab.
+
+- Reconnect or late subscriber after stop was requested elsewhere:
+  - expected handling: reconciled UI state comes from the active run or final event state for that conversation, not stale local assumptions;
+  - failure to avoid: a page showing phantom running or phantom stopping state after reconnect.
+
+- User changes page or conversation while stop is pending:
+  - expected handling: stop remains conversation-scoped and can still finalize correctly even if the initiating page is no longer foregrounded;
+  - failure to avoid: local state being dropped so the stop completes server-side but the UI never reconciles.
+
+- Late provider, tool, or websocket events arrive after the run has already terminalized:
+  - expected handling: late events are ignored for UI reactivation and do not reopen a finished run;
+  - failure to avoid: cancelled runs appearing active again or corrupting a newer run in the same conversation.
+
+- Underlying async operation ignores abort immediately:
+  - expected handling: the story still succeeds at the next explicit cancellation checkpoint;
+  - failure to avoid: promising instant preemption where the runtime only offers cooperative abort semantics.
+
+- Malformed or invalid cancel payload reaches the websocket boundary:
+  - expected handling: existing strict validation rejects it without side effects on active run state;
+  - failure to avoid: undefined partial cancellation behavior from bad payloads.
+
 ## Research Findings
 
 - Repository behavior today:

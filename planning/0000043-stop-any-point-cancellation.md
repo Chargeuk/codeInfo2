@@ -437,6 +437,8 @@ Update the websocket cancel handler so it follows the story’s targeting and ou
 - `ws` server documentation: DeepWiki `websockets/ws` — use this to confirm that extending the existing JSON message protocol with one extra server event is normal `ws` usage and does not require a transport redesign.
 - Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller — use this to confirm how abort signals behave when the stop request reaches an active run.
 - TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions — use this to keep websocket event typing safe when adding `cancel_ack`.
+- Mermaid docs: Context7 `/mermaid-js/mermaid` — use this as the authoritative Mermaid syntax reference when updating `design.md` for the websocket cancel contract.
+- Mermaid sequence diagram syntax: https://mermaid.js.org/syntax/sequenceDiagram.html — use this to keep the websocket cancel flow diagram parse-safe and aligned with Mermaid’s current sequence diagram rules.
 
 #### Subtasks
 
@@ -449,9 +451,10 @@ Update the websocket cancel handler so it follows the story’s targeting and ou
 7. [ ] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that proves `cancel_ack.requestId` matches the initiating conversation-only no-op request. Purpose: cover request correlation for the no-op ack path.
 8. [ ] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that sends a malformed `cancel_inflight` payload and proves validation rejects it without stop side effects. Purpose: cover malformed websocket input.
 9. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that sends duplicate websocket stop requests for the same run and proves the terminal outcome is emitted once. Purpose: cover websocket-level stop idempotence.
-10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-11. [ ] Update this plan file’s `Implementation notes` for Task 1 after the implementation and tests are complete.
-12. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+10. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a short websocket stop-contract section and a Mermaid `sequenceDiagram` that shows `cancel_inflight` with and without `inflightId`, the explicit invalid-target path, the conversation-only no-active-run `cancel_ack.result === 'noop'` path, and the successful active-run path ending in `turn_final.status === 'stopped'`.
+11. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+12. [ ] Update this plan file’s `Implementation notes` for Task 1 after the implementation and tests are complete.
+13. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -487,6 +490,8 @@ Introduce the runtime-only active-run ownership state the story depends on by ex
 
 - Node.js `crypto.randomUUID()`: https://nodejs.org/api/crypto.html#cryptorandomuuidoptions — use this to create stable per-run ownership tokens without inventing a custom ID format.
 - TypeScript object and type alias guidance: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html — use this to model the ownership metadata shape cleanly inside the existing lock module.
+- Mermaid docs: Context7 `/mermaid-js/mermaid` — use this as the authoritative Mermaid syntax reference when documenting the active-run ownership lifecycle in `design.md`.
+- Mermaid flowchart syntax: https://mermaid.js.org/syntax/flowchart.html — use this to keep the ownership lifecycle diagram parse-safe and aligned with Mermaid’s current flowchart rules.
 
 #### Subtasks
 
@@ -495,9 +500,10 @@ Introduce the runtime-only active-run ownership state the story depends on by ex
 3. [ ] Ensure the ownership metadata is exposed through the smallest helper surface needed by chat, agent, and flow start paths and does not require duplicated ownership tracking in feature-specific files.
 4. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves an ownership token is created when a conversation lock is acquired and cleared when the lock is released. Purpose: cover the active-run ownership happy path.
 5. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves a later replacement run gets a fresh ownership token and never inherits stale ownership. Purpose: cover replacement-run protection at the ownership layer.
-6. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-7. [ ] Update this plan file’s `Implementation notes` for Task 2 after the implementation and tests are complete.
-8. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+6. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a short section describing active-run ownership in the conversation lock and a Mermaid `flowchart` that shows lock acquisition, `runToken` creation, active ownership during execution, and guaranteed ownership release during cleanup.
+7. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+8. [ ] Update this plan file’s `Implementation notes` for Task 2 after the implementation and tests are complete.
+9. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -532,6 +538,8 @@ Introduce the runtime-only pending-cancel state the story depends on by extendin
 
 - JavaScript `Map` reference: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map — use this because the pending-cancel state is in-memory runtime state and should stay lightweight.
 - TypeScript object and type alias guidance: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html — use this to model pending-cancel entries beside the existing inflight types without creating a second registry abstraction.
+- Mermaid docs: Context7 `/mermaid-js/mermaid` — use this as the authoritative Mermaid syntax reference when documenting pending-cancel state in `design.md`.
+- Mermaid flowchart syntax: https://mermaid.js.org/syntax/flowchart.html — use this to keep the pending-cancel lifecycle diagram parse-safe and aligned with Mermaid’s current flowchart rules.
 
 #### Subtasks
 
@@ -541,9 +549,10 @@ Introduce the runtime-only pending-cancel state the story depends on by extendin
 4. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves one pending cancel is consumed once and cannot be applied twice. Purpose: cover idempotent pending-cancel consumption.
 5. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves the documented no-active-run path leaves no pending-cancel state behind. Purpose: cover pending-cancel no-op behavior.
 6. [ ] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` that forces the primary cleanup path to throw and proves runtime state is still released. Purpose: cover cleanup fallback in shared runtime state.
-7. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-8. [ ] Update this plan file’s `Implementation notes` for Task 3 after the implementation and tests are complete.
-9. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+7. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a short section describing how pending-cancel binds to the active `runToken`, is consumed once, and is cleared on no-op or cleanup, plus a Mermaid `flowchart` that shows those state transitions.
+8. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+9. [ ] Update this plan file’s `Implementation notes` for Task 3 after the implementation and tests are complete.
+10. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -580,6 +589,8 @@ Wire the extended cancellation ownership model into chat runs only. This task sh
 - Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller — use this to confirm the abort semantics chat runs can rely on.
 - OpenAI JavaScript/Node library docs: https://platform.openai.com/docs/libraries/javascript — use this to verify server-side SDK expectations when a provider call is given an abortable request path.
 - `ws` event transport reference: DeepWiki `websockets/ws` — use this to confirm the final `turn_final` event remains a normal custom JSON event over the existing socket.
+- Mermaid docs: Context7 `/mermaid-js/mermaid` — use this as the authoritative Mermaid syntax reference when documenting the chat stop lifecycle in `design.md`.
+- Mermaid sequence diagram syntax: https://mermaid.js.org/syntax/sequenceDiagram.html — use this to keep the chat stop flow diagram parse-safe and aligned with Mermaid’s current sequence diagram rules.
 
 #### Subtasks
 
@@ -592,9 +603,10 @@ Wire the extended cancellation ownership model into chat runs only. This task sh
 7. [ ] Add or update a server integration test in `server/src/test/integration/chat-tools-wire.test.ts` that forces cleanup failure during chat stop finalization and proves inflight state, ownership, and pending-cancel state are still released. Purpose: cover chat cleanup fallback.
 8. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that delivers late provider events after chat has already terminalized and proves the run does not reopen. Purpose: cover chat late-event suppression.
 9. [ ] Add or update a server integration test in `server/src/test/integration/chat-tools-wire.test.ts` that starts a new chat run on the same conversation after confirmed stop and proves there is no stale `RUN_IN_PROGRESS` conflict. Purpose: cover chat conversation reuse.
-10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-11. [ ] Update this plan file’s `Implementation notes` for Task 4 after the implementation and tests are complete.
-12. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+10. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a chat stop-lifecycle section and a Mermaid `sequenceDiagram` that shows chat run start, startup-race stop, pending-cancel consumption, provider abort propagation, single `turn_final.status === 'stopped'`, and cleanup plus same-conversation reuse.
+11. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+12. [ ] Update this plan file’s `Implementation notes` for Task 4 after the implementation and tests are complete.
+13. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -630,6 +642,8 @@ Wire the new cancellation ownership model into normal agent instruction runs onl
 
 - Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller — use this to confirm the cancellation behavior agent instruction runs can rely on.
 - OpenAI JavaScript/Node library docs: https://platform.openai.com/docs/libraries/javascript — use this to verify the server-side SDK assumptions for normal agent instruction execution.
+- Mermaid docs: Context7 `/mermaid-js/mermaid` — use this as the authoritative Mermaid syntax reference when documenting the normal agent stop lifecycle in `design.md`.
+- Mermaid sequence diagram syntax: https://mermaid.js.org/syntax/sequenceDiagram.html — use this to keep the normal agent stop flow diagram parse-safe and aligned with Mermaid’s current sequence diagram rules.
 
 #### Subtasks
 
@@ -641,9 +655,10 @@ Wire the new cancellation ownership model into normal agent instruction runs onl
 6. [ ] Add or update an integration test in `server/src/test/integration/agents-run-ws-cancel.test.ts` that sends duplicate stop requests for the same normal agent run and proves the final event is emitted once. Purpose: cover normal-agent stop idempotence.
 7. [ ] Add or update a unit or integration test in `server/src/test/unit/mcp-agents-router-run.test.ts` or `server/src/test/integration/agents-run-ws-cancel.test.ts` that forces cleanup failure during stop finalization and proves runtime state is still released. Purpose: cover cleanup fallback for normal agent runs.
 8. [ ] Add or update an integration test in `server/src/test/integration/agents-run-ws-cancel.test.ts` that starts a new normal agent run on the same conversation after confirmed stop and proves there is no stale `RUN_IN_PROGRESS` conflict. Purpose: cover conversation reuse for normal agent runs.
-9. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-10. [ ] Update this plan file’s `Implementation notes` for Task 5 after the implementation and tests are complete.
-11. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+9. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a normal agent stop-lifecycle section and a Mermaid `sequenceDiagram` that shows route start, runtime ownership, startup-race stop, abort propagation into agent execution, terminal stopped publication, and cleanup before same-conversation reuse.
+10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+11. [ ] Update this plan file’s `Implementation notes` for Task 5 after the implementation and tests are complete.
+12. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -679,6 +694,8 @@ Wire the new cancellation ownership model into agent command-list execution only
 
 - Node.js `AbortSignal.any()` and `throwIfAborted()`: https://nodejs.org/api/globals.html#class-abortcontroller — use this to confirm the combined-signal and checkpoint pattern for command retries and backoff.
 - Node.js timers/promises abort behavior: https://nodejs.org/api/timers.html — use this to verify how retry/backoff delays should stop once cancellation is requested.
+- Mermaid docs: Context7 `/mermaid-js/mermaid` — use this as the authoritative Mermaid syntax reference when documenting the command-run cancellation checkpoints in `design.md`.
+- Mermaid flowchart syntax: https://mermaid.js.org/syntax/flowchart.html — use this to keep the command-run cancellation diagram parse-safe and aligned with Mermaid’s current flowchart rules.
 
 #### Subtasks
 
@@ -690,9 +707,10 @@ Wire the new cancellation ownership model into agent command-list execution only
 6. [ ] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` that sends duplicate stop requests for the same command run and proves the stop path remains idempotent. Purpose: cover duplicate-stop handling for command runs.
 7. [ ] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` that forces cleanup failure during command-run stop finalization and proves runtime state is still released. Purpose: cover cleanup fallback for command runs.
 8. [ ] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-retry.test.ts` that requests stop while retry or backoff is pending and proves no later retry starts. Purpose: cover retry suppression after stop.
-9. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-10. [ ] Update this plan file’s `Implementation notes` for Task 6 after the implementation and tests are complete.
-11. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+9. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a command-run stop section and a Mermaid `flowchart` that shows stop checks before the first step, before later steps, during retry or backoff wait, and during cleanup so the cancellation boundaries are documented exactly.
+10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+11. [ ] Update this plan file’s `Implementation notes` for Task 6 after the implementation and tests are complete.
+12. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -728,6 +746,8 @@ Wire the new cancellation ownership model into flow execution only. This task sh
 
 - Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller — use this to confirm the cooperative abort behavior flow execution can rely on.
 - OpenAI JavaScript/Node library docs: https://platform.openai.com/docs/libraries/javascript — use this to verify the server-side SDK assumptions for flow steps that call model-backed work.
+- Mermaid docs: Context7 `/mermaid-js/mermaid` — use this as the authoritative Mermaid syntax reference when documenting the flow stop lifecycle in `design.md`.
+- Mermaid flowchart syntax: https://mermaid.js.org/syntax/flowchart.html — use this to keep the flow cancellation diagram parse-safe and aligned with Mermaid’s current flowchart rules.
 
 #### Subtasks
 
@@ -741,9 +761,10 @@ Wire the new cancellation ownership model into flow execution only. This task sh
 8. [ ] Add or update an integration test in `server/src/test/integration/flows.run.loop.test.ts` that requests stop during a looped or multi-step flow and proves later iterations do not continue. Purpose: cover flow loop boundary cancellation.
 9. [ ] Add or update an integration test in `server/src/test/integration/flows.run.command.test.ts` that requests stop before a nested tool or agent handoff and proves the handoff does not start. Purpose: cover nested handoff cancellation.
 10. [ ] Add or update an integration test in `server/src/test/integration/flows.run.command.test.ts` that proves no stale flow continuation resumes after confirmed stop. Purpose: cover post-stop continuation suppression.
-11. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-12. [ ] Update this plan file’s `Implementation notes` for Task 7 after the implementation and tests are complete.
-13. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+11. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a flow stop section and a Mermaid `flowchart` that shows flow start, active ownership, stop checks before the first step, before each later step or loop iteration, before nested handoffs, and final stopped cleanup so the flow cancellation boundaries are explicit.
+12. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+13. [ ] Update this plan file’s `Implementation notes` for Task 7 after the implementation and tests are complete.
+14. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -781,6 +802,8 @@ Extend the shared websocket client layer so it can send conversation-only stop r
 - Jest docs: Context7 `/jestjs/jest` — use this because the planned client hook tests in this task run through the existing Jest-based client test harness.
 - TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions — use this when extending the websocket event union with `cancel_ack`.
 - Browser WebSocket event model: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket — use this to verify the browser-side send/receive event behavior that `useChatWs` wraps.
+- Mermaid docs: Context7 `/mermaid-js/mermaid` — use this as the authoritative Mermaid syntax reference when documenting the client websocket stop contract in `design.md`.
+- Mermaid sequence diagram syntax: https://mermaid.js.org/syntax/sequenceDiagram.html — use this to keep the shared websocket client flow diagram parse-safe and aligned with Mermaid’s current sequence diagram rules.
 
 #### Subtasks
 
@@ -790,9 +813,10 @@ Extend the shared websocket client layer so it can send conversation-only stop r
 4. [ ] Add or update a client hook test in `client/src/test/useChatWs.test.ts` that sends conversation-only stop with no `inflightId` and proves the websocket payload is still emitted correctly. Purpose: cover the browser happy path for startup-race stop.
 5. [ ] Add or update a client hook test in `client/src/test/useChatWs.test.ts` that receives `cancel_ack` and proves the event is parsed through the existing websocket event union. Purpose: cover the new client-side event contract.
 6. [ ] Add or update a client hook test in `client/src/test/useChatWs.test.ts` that proves `cancel_ack.requestId` can be correlated to the originating no-op stop request. Purpose: cover no-op recovery correlation.
-7. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-8. [ ] Update this plan file’s `Implementation notes` for Task 8 after the implementation and tests are complete.
-9. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+7. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a shared websocket client section and a Mermaid `sequenceDiagram` that shows page code calling `cancelInflight(conversationId, inflightId?)`, `useChatWs` sending the request, and the client receiving either `cancel_ack.result === 'noop'` or later `turn_final.status === 'stopped'`.
+8. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+9. [ ] Update this plan file’s `Implementation notes` for Task 8 after the implementation and tests are complete.
+10. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -828,6 +852,8 @@ Update the shared client stop state machine so the frontend can represent `stopp
 - React docs on `useState`, `useRef`, and state updates: Context7 `/reactjs/react.dev` — use this to confirm the shared stop-state and ref-backed inflight tracking model in `useChatStream`.
 - Jest docs: Context7 `/jestjs/jest` — use this because the shared hook coverage in this task is implemented in the existing Jest client test suite.
 - TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions — use this when preserving `stopped` as a distinct terminal status in shared client types.
+- Mermaid docs: Context7 `/mermaid-js/mermaid` — use this as the authoritative Mermaid syntax reference when documenting shared stop-state transitions in `design.md`.
+- Mermaid flowchart syntax: https://mermaid.js.org/syntax/flowchart.html — use this to keep the shared stop-state diagram parse-safe and aligned with Mermaid’s current flowchart rules.
 
 #### Subtasks
 
@@ -838,9 +864,10 @@ Update the shared client stop state machine so the frontend can represent `stopp
 5. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves `cancel_ack.result === 'noop'` clears `stopping` without inventing a terminal bubble. Purpose: cover shared no-op recovery.
 6. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves explicit invalid-target failure and duplicate terminal events do not regress stream state. Purpose: cover shared error handling and idempotence.
 7. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that unmounts, remounts, or reconnects while `stopping` is pending and proves the stream reconciles correctly when late events arrive. Purpose: cover shared navigation and reconnect corner cases.
-8. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-9. [ ] Update this plan file’s `Implementation notes` for Task 9 after the implementation and tests are complete.
-10. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+8. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a shared stop-state section and a Mermaid `flowchart` that shows `running -> stopping -> stopped`, the conversation-only no-op recovery path back to ready after `cancel_ack.result === 'noop'`, and the stale-event or invalid-target paths that must not invent a terminal state.
+9. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+10. [ ] Update this plan file’s `Implementation notes` for Task 9 after the implementation and tests are complete.
+11. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -978,6 +1005,8 @@ Update Flows page stop controls and local UX so flow runs use the shared stoppin
 - Jest docs: Context7 `/jestjs/jest` — use this because Flows page tests in this task are implemented in the existing Jest client test suite.
 - MUI `Chip` API: use MUI MCP tool with `@mui/material` 6.x `chip.md` — use this because Flows renders terminal stop state through the existing chip component rather than a new UI primitive.
 - MUI `CircularProgress` API: use MUI MCP tool with `@mui/material` 6.x `circular-progress.md` — use this because Flows already uses the spinner path for in-progress status rendering.
+- Mermaid docs: Context7 `/mermaid-js/mermaid` — use this as the authoritative Mermaid syntax reference when documenting the Flows page stop UX in `design.md`.
+- Mermaid flowchart syntax: https://mermaid.js.org/syntax/flowchart.html — use this to keep the Flows page stop UX diagram parse-safe and aligned with Mermaid’s current flowchart rules.
 
 #### Subtasks
 
@@ -989,9 +1018,10 @@ Update Flows page stop controls and local UX so flow runs use the shared stoppin
 6. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves Flows waits for terminal stopped synchronization and allows same-conversation reuse after confirmed stop. Purpose: cover the Flows page finalization path.
 7. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves persisted `Turn.status === 'stopped'` renders visibly stopped after reload. Purpose: cover Flows stopped hydration.
 8. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves Flows recovers correctly if the page unmounts or the active conversation changes while `stopping` is still pending. Purpose: cover Flows navigation corner cases.
-9. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-10. [ ] Update this plan file’s `Implementation notes` for Task 12 after the implementation and tests are complete.
-11. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+9. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a Flows page stop UX section and a Mermaid `flowchart` that shows user stop action, shared `stopping` UI, no-op recovery after `cancel_ack.result === 'noop'`, terminal `Stopped` rendering after `turn_final.status === 'stopped'`, and same-conversation reuse after confirmation.
+10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+11. [ ] Update this plan file’s `Implementation notes` for Task 12 after the implementation and tests are complete.
+12. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -1026,11 +1056,14 @@ Update the repository documentation to match the implemented stop behavior and p
 
 - Markdown reference: https://www.markdownguide.org/basic-syntax/ — use this to keep README, design, and projectStructure updates consistently formatted.
 - GitHub pull request documentation: https://docs.github.com/en/pull-requests — use this to shape the requested PR summary in a format reviewers can follow.
+- Mermaid docs: Context7 `/mermaid-js/mermaid` — use this as the authoritative Mermaid syntax reference when consolidating final `design.md` diagrams for this story.
+- Mermaid flowchart syntax: https://mermaid.js.org/syntax/flowchart.html — use this to validate any final flowchart updates in `design.md`.
+- Mermaid sequence diagram syntax: https://mermaid.js.org/syntax/sequenceDiagram.html — use this to validate any final sequence diagram updates in `design.md`.
 
 #### Subtasks
 
 1. [ ] Ensure `README.md` is updated with any stop-behavior or command changes introduced by this story.
-2. [ ] Ensure `design.md` is updated with any architecture or state-flow changes introduced by this story.
+2. [ ] Ensure `design.md` is updated with any architecture or state-flow changes introduced by this story, including the Mermaid diagrams added by the architecture and flow tasks so the final design documentation matches the implemented stop lifecycle end to end.
 3. [ ] Ensure `projectStructure.md` is updated with any files or folders added, removed, or materially repurposed by this story.
 4. [ ] Write a pull request comment summarizing all changes made by this story across every completed task.
 5. [ ] Update this plan file’s `Implementation notes` for Task 13 after the implementation and documentation updates are complete.

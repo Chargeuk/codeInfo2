@@ -41,7 +41,7 @@ For this story, "relevant surfaces" is intentionally concrete. At minimum, the i
 - `codex_agents/vllm_agent/commands/kadshow_improve_plan.json`;
 - `codex_agents/tasking_agent/commands/task_up.json`.
 
-If additional prompt or command files are found during implementation that also describe `codebase_question` or `code_info` as a reasoning authority, those files are in scope too. Unrelated prompts that do not mention repository-question MCP usage are not part of this story. The current `codex_agents/tasking_agent/system_prompt.txt` conversation-id instruction should be reviewed for consistency, but it only needs changing if the surrounding wording starts implying that `code_info` should reason on the agent's behalf.
+If additional prompt or command files are found during implementation that also describe `codebase_question` or `code_info` as a reasoning authority, those files are in scope too. To find those files, search the repository for `code_info`, `codebase_question`, `come up with suggestions`, `100% confident`, `double-check your thoughts`, and wording that asks the tool to decide whether coverage, edge cases, or fixes are correct. Unrelated prompts that do not mention repository-question MCP usage are not part of this story. The current `codex_agents/tasking_agent/system_prompt.txt` conversation-id instruction should be reviewed for consistency, but it only needs changing if the file contains wording that asks `code_info` to decide what to change, judge correctness, or reason on behalf of the tasking agent.
 
 This story is intentionally guidance-only. The user has decided that there should be no runtime prompt rejection, no semantic classifier, and no hard enforcement in server code beyond the wording of the existing tool description and prompt files. The output of this story is therefore consistency and clarity, not a new validation layer.
 
@@ -130,6 +130,27 @@ Wording that should be removed or rewritten in this story:
 - text that asks the tool to judge whether risk, test coverage, or edge-case coverage is acceptable;
 - text that implies the tool is the authoritative decision-maker instead of a retrieval helper.
 
+Concrete rewrite examples for this story:
+
+- Replace wording like `use code_info to come up with suggestions about how new features could be implemented` with wording like `use code_info to gather repository evidence about what is already implemented, then inspect the relevant files and decide how the feature should be implemented`.
+- Replace wording like `please double-check your thoughts using the code_info tool` with wording like `use code_info to find relevant files, contracts, and existing implementations, then verify your thoughts by reading those files directly`.
+- Replace wording like `use code_info to ensure all edge cases are covered` with wording like `use code_info to find related code paths and existing contracts, then assess edge cases yourself`.
+- Leave purely operational wording alone when it does not assign reasoning to the tool. Example: a conversation-id instruction such as `use the returned conversationId for follow-up questions` does not need rewriting by itself.
+
+## Completion Checks
+
+The story is complete when a reviewer can confirm all of the following without guessing:
+
+- the in-scope files either use retrieval-first wording or were reviewed and intentionally left unchanged because they only contain operational guidance;
+- the MCP tool description, `AGENTS.md`, developer docs, helper text, and agent prompts all communicate the same responsibility boundary;
+- repository searches no longer find the old problem patterns in the updated surfaces;
+- the lightweight MCP tool-definition regression check covers the retrieval-only contract without snapshotting large prompt text blocks.
+
+Useful repository searches for completion review:
+
+- search for remaining problem phrasing such as `come up with suggestions`, `100% confident`, `double-check your thoughts`, and wording that asks `code_info` to ensure coverage or correctness;
+- search for `code_info` and `codebase_question` in the in-scope directories to confirm no overlooked prompt or helper file still frames the tool as the decision-maker.
+
 ## Implementation Ideas
 
 ### 1. Update the MCP tool definition first
@@ -179,6 +200,7 @@ Wording that should be removed or rewritten in this story:
 
 - Use `server/src/test/unit/mcp2-router-list-happy.test.ts` as the first-choice test location, because it already exercises `tools/list` and sees the published tool definition that clients consume.
 - Add a small assertion on the `codebase_question` description rather than a full-text snapshot. The goal is to lock the retrieval-only contract, not to make wording maintenance fragile.
+- Prefer checking for a few stable phrases that reflect the contract, such as repository facts/file locations/evidence gathering plus an explicit inspect-and-reason requirement, instead of asserting every word of the description.
 - If `tools/list` assertions become awkward, the fallback is a focused test near `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`, but router-level coverage is preferable because it validates the surfaced MCP contract.
 
 ### 6. Keep the implementation intentionally lightweight

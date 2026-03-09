@@ -24,6 +24,12 @@ This story therefore aligns the guidance in all relevant surfaces so they say th
 - the repository instructions in `AGENTS.md` must describe the tool the same way;
 - the planning/tasking/research command prompts under `codex_agents` must reinforce the same rule and must stop wording the tool as if it should directly solve problems.
 
+Terminology for this story is intentionally normalized:
+
+- `codebase_question` is the actual MCP method name exposed by the server;
+- `code_info` is legacy repo wording that still appears in prompts, helper text, MCP server names, and error-code naming;
+- this story aligns how those surfaces describe repository-question tooling, but it does not rename legacy identifiers that are already part of existing config or error contracts.
+
 For this story, "relevant surfaces" is intentionally concrete. At minimum, the implementation must review and update the places that currently describe repository-question tooling in user-facing or agent-facing instructions:
 
 - `server/src/mcp2/tools/codebaseQuestion.ts`;
@@ -65,6 +71,7 @@ Research note for scoping:
 - The tasking-oriented command file `codex_agents/tasking_agent/commands/task_up.json` is updated so repository-question MCP usage is described as finding existing code, contracts, and evidence, while the tasking agent remains responsible for deciding what to change in the plan.
 - The research-oriented prompt in `codex_agents/research_agent/system_prompt.txt` may still encourage broad research, but it frames `code_info` as one retrieval source among others rather than as the authority that decides the final answer.
 - Across all updated prompt and command surfaces, wording that asks the tool to decide how to fix an issue, confirm that coverage is sufficient, ensure that edge cases are fully handled, or judge whether a plan is correct is removed or rewritten so that responsibility stays with the calling agent.
+- Across the updated surfaces, legacy certainty or authority phrases such as `come up with suggestions`, `100% confident`, and `double-check your thoughts` are removed or rewritten whenever they make repository-question tooling sound like the decision-maker.
 - The wording across the MCP tool description, `AGENTS.md`, and the in-scope `codex_agents` files is internally consistent enough that a reader would come away with one clear rule: `codebase_question`/`code_info` helps gather repository evidence, but the working agent must inspect code and reason for itself.
 - A lightweight regression check is added for the MCP tool definition so a future change to `tools/list` cannot silently broaden the `codebase_question` description back into a general problem-solving tool description.
 - No server-side prompt rejection, heuristic blocking, or runtime validation is introduced for this story.
@@ -98,6 +105,7 @@ The existing MCP tool contract must remain shape-stable:
 - provider enum values remain the current supported values only;
 - response shape remains `{ conversationId, modelId, segments }`;
 - existing invalid-params behavior remains the current MCP error path rather than a new wording-specific validation path.
+- existing legacy identifier names such as `CODE_INFO_LLM_UNAVAILABLE` remain unchanged in this story.
 
 The only contract-facing change allowed in this story is the human-readable wording:
 
@@ -143,6 +151,7 @@ The story is complete when a reviewer can confirm all of the following without g
 
 - the in-scope files either use retrieval-first wording or were reviewed and intentionally left unchanged because they only contain operational guidance;
 - the MCP tool description, `AGENTS.md`, developer docs, helper text, and agent prompts all communicate the same responsibility boundary;
+- no updated file treats `codebase_question` and `code_info` as separate tools with different responsibilities;
 - repository searches no longer find the old problem patterns in the updated surfaces;
 - the lightweight MCP tool-definition regression check covers the retrieval-only contract without snapshotting large prompt text blocks.
 

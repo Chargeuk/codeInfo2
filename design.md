@@ -1514,6 +1514,28 @@ sequenceDiagram
   end
 ```
 
+## Story 0000043 Task 9: shared stop-state reconciliation lives in useChatStream
+
+- `useChatStream` is now the single shared stop-state manager: it distinguishes `sending`, `stopping`, and final `stopped` state without adding a second client stop coordinator.
+- Calling the shared stop path no longer appends the immediate local `Generation stopped` bubble; the hook enters `stopping` and waits for either `turn_final.status === 'stopped'` or a request-correlated `cancel_ack.result === 'noop'`.
+- `cancel_ack` remains limited to no-op recovery, where it clears `stopping` only when the `requestId` matches the active stop attempt.
+- Late invalid-target failures, stale acks, duplicate finals, and reconnect-style inflight hydration must not invent a local terminal state or reopen a finalized run.
+
+```mermaid
+flowchart TD
+  A[running or sending] --> B[stop called]
+  B --> C[status = stopping]
+  C --> D{Next matching server event}
+  D -- turn_final status=stopped --> E[streamStatus = stopped]
+  E --> F[status = idle]
+  D -- cancel_ack result=noop and requestId matches --> G[clear optimistic stop state]
+  G --> F
+  D -- turn_final status=failed invalid target or stale event --> H[preserve active run or ignore stale transition]
+  H --> C
+  D -- duplicate final or stale cancel_ack --> I[ignore]
+  I --> C
+```
+
 ## Story 0000038 Task 5: ingest listing status/phase normalization and active overlay precedence
 
 - External listing status contract for `/ingest/roots` and classic MCP `ListIngestedRepositories` is now normalized from internal ingest states:

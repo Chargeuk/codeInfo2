@@ -39,7 +39,7 @@ const routes = [
 ];
 
 describe('Chat page stop control', () => {
-  it('sends cancel_inflight over WS with inflightId and shows a stopped status bubble', async () => {
+  it('sends cancel_inflight over WS with inflightId without appending an immediate local stopped bubble', async () => {
     const harness = setupChatWsHarness({ mockFetch });
 
     const user = userEvent.setup();
@@ -115,8 +115,8 @@ describe('Chat page stop control', () => {
       expect(cancelMessages.at(-1)?.inflightId).toBe(inflightId);
     });
 
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    expect(await screen.findByText(/generation stopped/i)).toBeInTheDocument();
+    await waitFor(() => expect(stopButton).toBeVisible());
+    expect(screen.queryByText(/generation stopped/i)).not.toBeInTheDocument();
   });
 
   it('still sends cancel_inflight with inflightId when mongoConnected is false', async () => {

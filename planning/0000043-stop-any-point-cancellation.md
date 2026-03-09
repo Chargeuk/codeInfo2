@@ -460,14 +460,11 @@ Update the websocket cancel handler so it follows the story’s targeting and ou
 14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`
-2. [ ] Run `npm run build:summary:client`
-3. [ ] Run `npm run compose:build:summary`
-4. [ ] Run `npm run compose:up`
-5. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/ws-server.test.ts`
-6. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/ws-chat-stream.test.ts`
-7. [ ] Run `npm run lint`
-8. [ ] Run `npm run format:check`
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server websocket contract code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server node:test websocket behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because websocket cancel behavior is already covered by server Cucumber chat cancellation coverage. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -510,13 +507,11 @@ Introduce the runtime-only active-run ownership state the story depends on by ex
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`
-2. [ ] Run `npm run build:summary:client`
-3. [ ] Run `npm run compose:build:summary`
-4. [ ] Run `npm run compose:up`
-5. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/ws-chat-stream.test.ts`
-6. [ ] Run `npm run lint`
-7. [ ] Run `npm run format:check`
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server runtime lock behavior. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server node:test runtime ownership behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because server stop behavior must still pass the existing Cucumber suite after runtime lock changes. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -560,14 +555,11 @@ Introduce the runtime-only pending-cancel state the story depends on by extendin
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`
-2. [ ] Run `npm run build:summary:client`
-3. [ ] Run `npm run compose:build:summary`
-4. [ ] Run `npm run compose:up`
-5. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/ws-chat-stream.test.ts`
-6. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/agent-commands-runner-abort-retry.test.ts`
-7. [ ] Run `npm run lint`
-8. [ ] Run `npm run format:check`
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes shared server inflight runtime state. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server node:test inflight and pending-cancel behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because shared stop behavior must still satisfy the existing server Cucumber coverage after pending-cancel changes. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -615,14 +607,11 @@ Wire the extended cancellation ownership model into chat runs only. This task sh
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`
-2. [ ] Run `npm run build:summary:client`
-3. [ ] Run `npm run compose:build:summary`
-4. [ ] Run `npm run compose:up`
-5. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/ws-chat-stream.test.ts`
-6. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/integration/chat-tools-wire.test.ts`
-7. [ ] Run `npm run lint`
-8. [ ] Run `npm run format:check`
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server chat execution code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server node:test chat stop behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because chat cancellation is already covered by server Cucumber scenarios and must still pass after this task. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -668,14 +657,11 @@ Wire the new cancellation ownership model into normal agent instruction runs onl
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`
-2. [ ] Run `npm run build:summary:client`
-3. [ ] Run `npm run compose:build:summary`
-4. [ ] Run `npm run compose:up`
-5. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/integration/agents-run-ws-cancel.test.ts`
-6. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/mcp-agents-router-run.test.ts`
-7. [ ] Run `npm run lint`
-8. [ ] Run `npm run format:check`
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server agent execution code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server node:test agent stop behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because server Cucumber coverage must still pass after agent stop behavior changes. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -722,14 +708,11 @@ Wire the new cancellation ownership model into agent command-list execution only
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`
-2. [ ] Run `npm run build:summary:client`
-3. [ ] Run `npm run compose:build:summary`
-4. [ ] Run `npm run compose:up`
-5. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/agent-commands-runner-abort-retry.test.ts`
-6. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/unit/agent-commands-runner-retry.test.ts`
-7. [ ] Run `npm run lint`
-8. [ ] Run `npm run format:check`
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server command-run logic. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server node:test command-run stop behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because server Cucumber coverage must still pass after command-run stop changes. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -778,14 +761,11 @@ Wire the new cancellation ownership model into flow execution only. This task sh
 14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`
-2. [ ] Run `npm run build:summary:client`
-3. [ ] Run `npm run compose:build:summary`
-4. [ ] Run `npm run compose:up`
-5. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/integration/flows.run.loop.test.ts`
-6. [ ] Run `npm run test:summary:server:unit -- --file=server/src/test/integration/flows.run.command.test.ts`
-7. [ ] Run `npm run lint`
-8. [ ] Run `npm run format:check`
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server flow execution code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server node:test flow stop behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because server Cucumber coverage must still pass after flow stop changes. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -831,13 +811,14 @@ Extend the shared websocket client layer so it can send conversation-only stop r
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`
-2. [ ] Run `npm run build:summary:client`
-3. [ ] Run `npm run compose:build:summary`
-4. [ ] Run `npm run compose:up`
-5. [ ] Run `npm run test:summary:client -- --file=useChatWs.test.ts`
-6. [ ] Run `npm run lint`
-7. [ ] Run `npm run format:check`
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes client websocket hook code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+2. [ ] `npm run test:summary:client` - Use because this task changes Jest-covered client websocket behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end through the dockerized app. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm shared websocket stop behavior works in the browser, including the conversation-only stop path and no logged browser-console errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -886,13 +867,14 @@ Update the shared client stop state machine so the frontend can represent `stopp
 14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`
-2. [ ] Run `npm run build:summary:client`
-3. [ ] Run `npm run compose:build:summary`
-4. [ ] Run `npm run compose:up`
-5. [ ] Run `npm run test:summary:client -- --file=useChatStream.inflightMismatch.test.tsx`
-6. [ ] Run `npm run lint`
-7. [ ] Run `npm run format:check`
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes shared client stream-state logic. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+2. [ ] `npm run test:summary:client` - Use because this task changes Jest-covered shared client stop-state behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end through the dockerized app. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm shared `stopping` and `stopped` behavior, no-op recovery, and absence of browser-console errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -938,13 +920,14 @@ Update Chat page stop controls and local UX so Chat uses the shared stopping con
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`
-2. [ ] Run `npm run build:summary:client`
-3. [ ] Run `npm run compose:build:summary`
-4. [ ] Run `npm run compose:up`
-5. [ ] Run `npm run test:summary:client -- --file=chatPage.stop.test.tsx`
-6. [ ] Run `npm run lint`
-7. [ ] Run `npm run format:check`
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes Chat page front-end behavior. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+2. [ ] `npm run test:summary:client` - Use because this task changes Jest-covered Chat page stop UX. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end through the dockerized app. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm Chat stop UX, no-op recovery, same-conversation reuse, and no logged browser-console errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -990,14 +973,14 @@ Update Agents page stop controls and local UX so both normal runs and command ru
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`
-2. [ ] Run `npm run build:summary:client`
-3. [ ] Run `npm run compose:build:summary`
-4. [ ] Run `npm run compose:up`
-5. [ ] Run `npm run test:summary:client -- --file=agentsPage.commandsRun.abort.test.tsx`
-6. [ ] Run `npm run test:summary:client -- --file=agentsPage.statusChip.test.tsx`
-7. [ ] Run `npm run lint`
-8. [ ] Run `npm run format:check`
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes Agents page front-end behavior. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+2. [ ] `npm run test:summary:client` - Use because this task changes Jest-covered Agents page stop UX. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end through the dockerized app. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm Agents stop UX for both normal runs and command runs, same-conversation reuse, and no logged browser-console errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1046,13 +1029,14 @@ Update Flows page stop controls and local UX so flow runs use the shared stoppin
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`
-2. [ ] Run `npm run build:summary:client`
-3. [ ] Run `npm run compose:build:summary`
-4. [ ] Run `npm run compose:up`
-5. [ ] Run `npm run test:summary:client -- --file=flowsPage.stop.test.tsx`
-6. [ ] Run `npm run lint`
-7. [ ] Run `npm run format:check`
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes Flows page front-end behavior. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+2. [ ] `npm run test:summary:client` - Use because this task changes Jest-covered Flows page stop UX. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end through the dockerized app. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm Flows stop UX, no-op recovery, same-conversation reuse, and no logged browser-console errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1093,8 +1077,9 @@ Update the repository documentation to match the implemented stop behavior and p
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Run `npm run lint`
-2. [ ] Run `npm run format:check`
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] No wrapper-based testing is required for this documentation-only task because it does not change executable code.
 
 #### Implementation notes
 
@@ -1137,17 +1122,18 @@ Verify the full story end-to-end against the acceptance criteria. This task must
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`
-2. [ ] Run `npm run build:summary:client`
-3. [ ] Run `npm run compose:build:summary`
-4. [ ] Run `npm run compose:up`
-5. [ ] Run `npm run test:summary:server:unit`
-6. [ ] Run `npm run test:summary:server:cucumber`
-7. [ ] Run `npm run test:summary:client`
-8. [ ] Run `npm run test:summary:e2e`
-9. [ ] Use Playwright MCP tools to manually verify the stop UX for Chat, Agents, and Flows, including same-conversation reuse after stop and the multi-tab stop scenario, and save screenshots to `./test-results/screenshots/`
-10. [ ] Run `npm run lint`
-11. [ ] Run `npm run format:check`
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Mandatory because the final regression check must validate all server and common changes. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run build:summary:client` - Mandatory because the final regression check must validate all client and common changes. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+3. [ ] `npm run test:summary:server:unit` - Mandatory because the final regression check must validate full server node:test coverage. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory because the final regression check must validate full server Cucumber coverage. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Mandatory because the final regression check must validate full client coverage. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` - Allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - Use because the final regression check includes dockerized front-end validation. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm Chat, Agents, and Flows stop behavior, same-conversation reuse, multi-tab replacement-run protection, and that there are no logged browser-console errors. Save screenshots to `./test-results/screenshots/`.
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 

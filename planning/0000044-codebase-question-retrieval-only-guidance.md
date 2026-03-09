@@ -318,14 +318,14 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ---
 
-### 2. Repository Guidance And Helper Text
+### 2. Repository Guidance
 
 - Task Status: `__to_do__`
 - Git Commits: `none yet`
 
 #### Overview
 
-Align the repository-level human guidance so `AGENTS.md`, the developer reference, and the operator helper text all describe `code_info` as retrieval-first and do not ask it to decide the implementation. This task is separate from agent prompts so the repo’s human-facing guidance is settled before prompt-family rewrites begin.
+Align the repository-level guidance so `AGENTS.md` and the developer reference both describe `code_info` as retrieval-first and do not ask it to decide the implementation. This task is intentionally limited to the canonical repo documentation surfaces so they are settled before the helper-command library and prompt families are updated.
 
 #### Documentation Locations
 
@@ -336,12 +336,11 @@ Align the repository-level human guidance so `AGENTS.md`, the developer referenc
 
 #### Subtasks
 
-1. [ ] Read the documentation links above, then inspect [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md), [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md), [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md), and [planning/0000025-summary-first-retrieval.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000025-summary-first-retrieval.md). Confirm the exact wording that already frames repository-question tooling as retrieval-first before editing any repo guidance files.
+1. [ ] Read the documentation links above, then inspect [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md), [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md), and [planning/0000025-summary-first-retrieval.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000025-summary-first-retrieval.md). Confirm the exact wording that already frames repository-question tooling as retrieval-first before editing the canonical repo guidance files.
 2. [ ] Update [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md) so the repository instructions explicitly say `code_info` is for retrieval-first evidence gathering, followed by direct file inspection and reasoning by the working model. Keep the existing onboarding flow and conversation-id rules intact, and treat this file as the human-facing canonical wording source that later prompt tasks should mirror.
 3. [ ] Add or update a short note in [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) explaining that `codebase_question` reduces repository-search cost but does not replace source inspection, implementation design, risk assessment, or review by the working model. Reuse the stable phrases from Task 1 and the updated `AGENTS.md` wording instead of inventing new synonyms.
-4. [ ] Rewrite the relevant entries in [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md) so they no longer ask `code_info` to make the plan, certify correctness, or make the user `100% confident`. Keep the command file’s purpose and structure intact. Only change the lines that assign reasoning or certainty to the tool, and reuse the stable Task 1 / `AGENTS.md` wording instead of paraphrasing it differently.
-5. [ ] Run repository searches for `100% confident`, `double check your thoughts`, `double-check your thoughts`, `come up with suggestions`, and `code_info` across the three files touched in this task. Record in Implementation notes which phrases were removed and which remaining `code_info` mentions were intentionally left as operational-only wording.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+4. [ ] Run repository searches for `code_info`, `codebase_question`, `repository facts`, and `inspect the local code directly` across [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md) and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md). Record in Implementation notes which canonical wording was reused and which remaining mentions are intentionally operational or contractual rather than guidance.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -353,7 +352,40 @@ No wrapper build or automated test run is required for this task because it chan
 
 ---
 
-### 3. Planning Agent System Prompt Family
+### 3. Operator Helper Command Library
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Update the human operator helper text in `usefulCommands.txt.md` so it matches the same retrieval-first rule as the canonical repo guidance. This is kept separate because the file is a reusable operator command library rather than a system prompt or a runtime-facing document.
+
+#### Documentation Locations
+
+- Model Context Protocol tools concept and server behavior: https://modelcontextprotocol.io/docs/learn/server-concepts
+- OpenAI function calling guide, for concise wording that keeps tool descriptions and operator guidance aligned: https://platform.openai.com/docs/guides/function-calling
+- OpenAI tools and MCP guide, for the retrieval-helper mental model used by models and operators: https://platform.openai.com/docs/guides/tools-connectors-mcp
+- Markdown Guide basic syntax reference, because this task edits a markdown-heavy operator helper file and should preserve valid formatting: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Read the documentation links above, then inspect [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md) alongside the updated [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). Confirm which entries currently ask `code_info` to make the plan, certify correctness, or make the operator `100% confident`.
+2. [ ] Rewrite only the relevant entries in [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md) so they reuse the stable Task 1 / `AGENTS.md` retrieval-first wording instead of asking `code_info` to decide the answer. Keep the file’s command-library purpose and overall structure intact.
+3. [ ] Search [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md) for `100% confident`, `double check your thoughts`, `double-check your thoughts`, `come up with suggestions`, and `code_info`. Record in Implementation notes which phrases were removed, which were rewritten, and which remaining `code_info` mentions are intentionally operational-only.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+No wrapper build or automated test run is required for this task because it changes helper-text only. Validation for this task is the wording search and file review completed in the subtasks above. Full wrapper regression is deferred to the final story task.
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 4. Planning Agent System Prompt Family
 
 - Task Status: `__to_do__`
 - Git Commits: `none yet`
@@ -387,14 +419,14 @@ No wrapper build or automated test run is required for this task because it chan
 
 ---
 
-### 4. Planning Command Template Family
+### 5. Improve Plan Command Family
 
 - Task Status: `__to_do__`
 - Git Commits: `none yet`
 
 #### Overview
 
-Align the duplicated planning command JSON files so they all frame repository-question tooling as evidence gathering rather than plan authorship or correctness sign-off. This task is kept separate from the system-prompt task because these JSON command templates are a second duplicated family with different wording patterns.
+Align the three standard `improve_plan.json` command files so they frame repository-question tooling as evidence gathering rather than plan authorship or correctness sign-off. This task now covers only the standard family so it stays smaller and easier to validate.
 
 #### Documentation Locations
 
@@ -405,11 +437,10 @@ Align the duplicated planning command JSON files so they all frame repository-qu
 
 #### Subtasks
 
-1. [ ] Read the documentation links above, then inspect these five files together: [codex_agents/planning_agent/commands/improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/planning_agent/commands/improve_plan.json), [codex_agents/lmstudio_agent/commands/improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/lmstudio_agent/commands/improve_plan.json), [codex_agents/vllm_agent/commands/improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/vllm_agent/commands/improve_plan.json), [codex_agents/lmstudio_agent/commands/kadshow_improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/lmstudio_agent/commands/kadshow_improve_plan.json), and [codex_agents/vllm_agent/commands/kadshow_improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/vllm_agent/commands/kadshow_improve_plan.json). Confirm which strings currently use phrases such as `100% confident`, `double check your thoughts`, `double-check your thoughts`, and `ensure all edge cases and failure modes are covered`, or otherwise ask `code_info` to ensure correctness or coverage.
+1. [ ] Read the documentation links above, then inspect [codex_agents/planning_agent/commands/improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/planning_agent/commands/improve_plan.json), [codex_agents/lmstudio_agent/commands/improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/lmstudio_agent/commands/improve_plan.json), and [codex_agents/vllm_agent/commands/improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/vllm_agent/commands/improve_plan.json). Confirm which strings currently use phrases such as `100% confident`, `double check your thoughts`, `double-check your thoughts`, and `ensure all edge cases and failure modes are covered`, or otherwise ask `code_info` to ensure correctness or coverage.
 2. [ ] Update the three `improve_plan.json` files so any `code_info` instruction is phrased as finding repository facts, existing implementations, contracts, and candidate files for the planning agent to reason about. Reuse the exact stable phrases from Task 1 and `AGENTS.md` where they fit, and do not rewrite unrelated command steps or rename command entries.
-3. [ ] Update the two `kadshow_improve_plan.json` files in the same style and keep their wording aligned with each other. Preserve their command structure, reuse the same Task 1 / `AGENTS.md` wording patterns, and only change the strings that assign reasoning authority or certainty to the tool.
-4. [ ] Search all five command files for `100% confident`, `double check your thoughts`, `double-check your thoughts`, `come up with suggestions`, `ensure all edge cases`, and `code_info`. Record in Implementation notes which strings were rewritten and confirm that the three standard variants still match each other and that the two `kadshow` variants still match each other.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+3. [ ] Search the three standard command files for `100% confident`, `double check your thoughts`, `double-check your thoughts`, `come up with suggestions`, `ensure all edge cases`, and `code_info`. Record in Implementation notes which strings were rewritten and confirm that the three standard variants still match each other after editing.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -421,7 +452,40 @@ No wrapper build or automated test run is required for this task because it chan
 
 ---
 
-### 5. Research Prompt Retrieval Boundary
+### 6. Kadshow Plan Command Variants
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Align the two `kadshow_improve_plan.json` variants so they use the same retrieval-first boundary as the standard planning command family. This is split out from Task 5 because the files are a smaller duplicated set with their own wording drift risk.
+
+#### Documentation Locations
+
+- OpenAI function calling guide, for concise task instructions that keep reasoning with the calling agent: https://platform.openai.com/docs/guides/function-calling
+- OpenAI tools and MCP guide, for retrieval-helper framing and concise tool-guidance wording: https://platform.openai.com/docs/guides/tools-connectors-mcp
+- JSON RFC overview, because this task edits JSON string content and must preserve valid JSON syntax and escaping: https://www.rfc-editor.org/rfc/rfc8259
+- npm run-script command reference, because task validation still uses repository wrapper scripts for formatting/linting: https://docs.npmjs.com/cli/v10/commands/npm-run-script
+
+#### Subtasks
+
+1. [ ] Read the documentation links above, then inspect [codex_agents/lmstudio_agent/commands/kadshow_improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/lmstudio_agent/commands/kadshow_improve_plan.json) and [codex_agents/vllm_agent/commands/kadshow_improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/vllm_agent/commands/kadshow_improve_plan.json). Confirm which strings currently use phrases such as `100% confident`, `double check your thoughts`, `double-check your thoughts`, and `ensure all edge cases and failure modes are covered`, or otherwise ask `code_info` to ensure correctness or coverage.
+2. [ ] Update both `kadshow_improve_plan.json` files in the same edit pass so they reuse the same Task 1 / `AGENTS.md` wording patterns as the standard `improve_plan.json` family. Preserve their command structure and only change the strings that assign reasoning authority or certainty to the tool.
+3. [ ] Search both `kadshow` command files for `100% confident`, `double check your thoughts`, `double-check your thoughts`, `come up with suggestions`, `ensure all edge cases`, and `code_info`. Record in Implementation notes which strings were rewritten and confirm that the two variants still match each other after editing.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+No wrapper build or automated test run is required for this task because it changes command-template text only. Validation for this task is the wording search plus JSON syntax preservation completed in the subtasks above. Full wrapper regression is deferred to the final story task.
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 7. Research Prompt Retrieval Boundary
 
 - Task Status: `__to_do__`
 - Git Commits: `none yet`
@@ -454,7 +518,7 @@ No wrapper build or automated test run is required for this task because it chan
 
 ---
 
-### 6. Tasking Command Retrieval Boundary
+### 8. Tasking Command Retrieval Boundary
 
 - Task Status: `__to_do__`
 - Git Commits: `none yet`
@@ -488,7 +552,7 @@ No wrapper build or automated test run is required for this task because it chan
 
 ---
 
-### 7. Final Consistency Review And Full Regression
+### 9. Final Story Closeout
 
 - Task Status: `__to_do__`
 - Git Commits: `none yet`
@@ -507,7 +571,7 @@ Perform the final whole-story validation. This task proves the server descriptio
 
 #### Subtasks
 
-1. [ ] Re-read every file changed by Tasks 1 to 6 and confirm the wording contract is consistent across the server tool description, repo guidance, helper text, system prompts, and command templates. Use repository searches for `come up with suggestions`, `100% confident`, `to be 100% confident of the answer`, `double check your thoughts`, `double-check your thoughts`, `ensure all edge cases are covered`, `check if all the changes needed`, `check if any of the logic planned`, `judge whether`, `code_info`, and `codebase_question`. Record which files still mention `code_info` or `codebase_question` and why any remaining mentions are acceptable.
+1. [ ] Re-read every file changed by Tasks 1 to 8 and confirm the wording contract is consistent across the server tool description, repo guidance, helper text, system prompts, and command templates. Use repository searches for `come up with suggestions`, `100% confident`, `to be 100% confident of the answer`, `double check your thoughts`, `double-check your thoughts`, `ensure all edge cases are covered`, `check if all the changes needed`, `check if any of the logic planned`, `judge whether`, `code_info`, and `codebase_question`. Record which files still mention `code_info` or `codebase_question` and why any remaining mentions are acceptable.
 2. [ ] Search the wider repository for additional prompt or helper files that mention `code_info` or `codebase_question` as if they are reasoning authorities. At minimum re-check `codex_agents/coding_agent/system_prompt.txt`, [codex_agents/tasking_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/tasking_agent/system_prompt.txt), [codex_agents/tasking_agent/commands/smoke.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/tasking_agent/commands/smoke.json), and [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md). If a newly found file truly violates the story boundary, update it in this task; otherwise record why it was intentionally left unchanged. `smoke.json` is expected to stay unchanged unless it unexpectedly gains repository-question guidance.
 3. [ ] Perform an explicit acceptance-criteria checklist pass against the finished implementation. Record in Implementation notes where each of the following was confirmed: retrieval-only wording in the MCP tool description, the inspect-and-reason requirement, aligned wording across `AGENTS.md` and the `codex_agents` surfaces, removal or rewrite of legacy certainty phrases, the lightweight regression check location, unchanged public MCP method name, unchanged REST/MCP request-response shapes, unchanged runtime/storage behavior, unchanged legacy identifiers such as `CODE_INFO_LLM_UNAVAILABLE`, and confirmation that no investigation subtasks or open implementation questions remain.
 4. [ ] Verify documentation follow-through for this story: confirm [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) does not need wording changes for this story, confirm [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) does not need architecture changes because no runtime behavior changed, confirm [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) does not need file-tree changes unless tracked files were added or removed during implementation, and confirm no `client/`, MUI, compose, websocket, REST, or Mongo-facing files needed changes. Record each explicit keep-as-is decision in Implementation notes rather than leaving it implicit.

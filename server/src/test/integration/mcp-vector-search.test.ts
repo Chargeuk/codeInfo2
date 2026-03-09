@@ -89,3 +89,96 @@ test('classic MCP VectorSearch enforces locked provider/model path like REST', a
   const payload = JSON.parse(response.body.result.content[0].text as string);
   assert.equal(payload.modelId, 'text-embedding-3-small');
 });
+
+test('classic MCP VectorSearch accepts host-path repository selectors', async () => {
+  const originalHost = process.env.HOST_INGEST_DIR;
+  process.env.HOST_INGEST_DIR = '/Users/example/dev';
+
+  let capturedWhere: Record<string, unknown> | undefined;
+
+  try {
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/',
+      createMcpRouter({
+        listIngestedRepositories: async () => ({
+          repos: [
+            {
+              id: 'Repo-One',
+              description: null,
+              containerPath: '/data/repo-one',
+              hostPath: '/Users/example/dev/repo-one',
+              lastIngestAt: '2025-01-01T00:00:00.000Z',
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'text-embedding-3-small',
+              embeddingDimensions: 768,
+              model: 'text-embedding-3-small',
+              modelId: 'text-embedding-3-small',
+              lock: {
+                embeddingProvider: 'lmstudio',
+                embeddingModel: 'text-embedding-3-small',
+                embeddingDimensions: 768,
+                lockedModelId: 'text-embedding-3-small',
+                modelId: 'text-embedding-3-small',
+              },
+              counts: { files: 1, chunks: 1, embedded: 1 },
+              lastError: null,
+            },
+          ],
+          lockedModelId: 'text-embedding-3-small',
+        }),
+        getRootsCollection: async () =>
+          ({
+            get: async () => ({
+              ids: ['run-1'],
+              metadatas: [
+                {
+                  root: '/data/repo-one',
+                  name: 'Repo-One',
+                  model: 'text-embedding-3-small',
+                },
+              ],
+            }),
+          }) as unknown as import('chromadb').Collection,
+        getVectorsCollection: async () =>
+          ({
+            query: async (opts: { where?: Record<string, unknown> }) => {
+              capturedWhere = opts.where;
+              return {
+                ids: [[]],
+                documents: [[]],
+                metadatas: [[]],
+                distances: [[]],
+              };
+            },
+          }) as unknown as import('chromadb').Collection,
+        getLockedModel: async () => 'text-embedding-3-small',
+      }),
+    );
+
+    await request(app)
+      .post('/mcp')
+      .send({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'VectorSearch',
+          arguments: {
+            query: 'hello',
+            repository: '/Users/example/dev/repo-one',
+          },
+        },
+      })
+      .expect(200);
+
+    assert.deepEqual(capturedWhere, { root: '/data/repo-one' });
+  } finally {
+    if (originalHost === undefined) {
+      delete process.env.HOST_INGEST_DIR;
+    } else {
+      process.env.HOST_INGEST_DIR = originalHost;
+    }
+  }
+});

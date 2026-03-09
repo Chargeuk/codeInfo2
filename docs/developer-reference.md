@@ -136,7 +136,7 @@ Use this document for API contracts, protocol details, and advanced runtime beha
   - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'`
   - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'`
   - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"VectorSearch","arguments":{"query":"hello"}}}'`
-- Tools exposed: `ListIngestedRepositories` (no params), `VectorSearch` (`query` required, optional `repository`, `limit` capped at 20), and `reingest_repository` (`sourceId` required). Results are returned as `content: [{ type: "text", text: "<json>" }]` (JSON string).
+- Tools exposed: `ListIngestedRepositories` (no params), `VectorSearch` (`query` required, optional `repository`, `limit` capped at 20; `repository` may be the repo id, mounted container path, or host path), and `reingest_repository` (`sourceId` required; MCP accepts repo id, mounted container path, or host path and canonicalizes to the normalized container path before execution). Results are returned as `content: [{ type: "text", text: "<json>" }]` (JSON string).
 - Classic MCP `reingest_repository` compatibility lock: failures return JSON-RPC `error` envelopes (not `result.isError`) with canonical mappings (`INVALID_PARAMS`, `NOT_FOUND`, `BUSY`).
 - Reingest canonical contract (shared service behavior used by MCP wiring tasks):
   - request args: `{ "sourceId": "<absolute-normalized-container-path>" }`

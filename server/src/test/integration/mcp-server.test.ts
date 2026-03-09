@@ -273,6 +273,66 @@ test('tools/call validates VectorSearch arguments', async () => {
   );
 });
 
+test('tools/call canonicalizes VectorSearch repository selectors before dispatch', async () => {
+  let capturedRepository: string | undefined;
+
+  const res = await request(
+    baseApp({
+      vectorSearch: async (params) => {
+        capturedRepository = params.repository;
+        return {
+          results: [],
+          modelId: 'embed-model',
+          files: [],
+        };
+      },
+    }),
+  )
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 4.1,
+      method: 'tools/call',
+      params: {
+        name: 'VectorSearch',
+        arguments: { query: 'hi', repository: '/host/repo-1' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.equal(capturedRepository, 'repo-1');
+});
+
+test('tools/call leaves unresolved VectorSearch selectors unchanged', async () => {
+  let capturedRepository: string | undefined;
+
+  const res = await request(
+    baseApp({
+      vectorSearch: async (params) => {
+        capturedRepository = params.repository;
+        return {
+          results: [],
+          modelId: 'embed-model',
+          files: [],
+        };
+      },
+    }),
+  )
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 4.2,
+      method: 'tools/call',
+      params: {
+        name: 'VectorSearch',
+        arguments: { query: 'hi', repository: '/host/missing' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.equal(capturedRepository, '/host/missing');
+});
+
 test('tools/call executes AST tools', async () => {
   const app = baseApp();
 
@@ -357,6 +417,119 @@ test('tools/call executes AST tools', async () => {
     importsRes.body.result.content[0].text as string,
   );
   assert.equal(importsPayload.modules.length, 1);
+});
+
+test('tools/call canonicalizes AST repository selectors before dispatch', async () => {
+  const seen: Record<string, string | undefined> = {};
+  const app = baseApp({
+    astListSymbols: async (params) => {
+      seen.AstListSymbols = params.repository as string | undefined;
+      return { symbols: [sampleSymbol] };
+    },
+    astFindDefinition: async (params) => {
+      seen.AstFindDefinition = params.repository as string | undefined;
+      return { symbol: sampleSymbol };
+    },
+    astFindReferences: async (params) => {
+      seen.AstFindReferences = params.repository as string | undefined;
+      return {
+        references: [
+          {
+            relPath: 'src/index.ts',
+            range: sampleRange,
+            symbolId: 'symbol-1',
+          },
+        ],
+      };
+    },
+    astCallGraph: async (params) => {
+      seen.AstCallGraph = params.repository as string | undefined;
+      return {
+        nodes: [sampleSymbol],
+        edges: [
+          {
+            root: '/data/repo-1',
+            relPath: 'src/index.ts',
+            fileHash: 'hash-1',
+            fromSymbolId: 'symbol-1',
+            toSymbolId: 'symbol-2',
+            type: 'CALLS',
+          },
+        ],
+      };
+    },
+  });
+
+  const requests = [
+    {
+      id: 9.1,
+      name: 'AstListSymbols',
+      arguments: { repository: '/host/repo-1' },
+    },
+    {
+      id: 9.2,
+      name: 'AstFindDefinition',
+      arguments: { repository: '/host/repo-1', symbolId: 'symbol-1' },
+    },
+    {
+      id: 9.3,
+      name: 'AstFindReferences',
+      arguments: { repository: '/host/repo-1', name: 'hello' },
+    },
+    {
+      id: 9.4,
+      name: 'AstCallGraph',
+      arguments: { repository: '/host/repo-1', symbolId: 'symbol-1' },
+    },
+  ];
+
+  for (const requestBody of requests) {
+    const res = await request(app)
+      .post('/mcp')
+      .send({
+        jsonrpc: '2.0',
+        id: requestBody.id,
+        method: 'tools/call',
+        params: {
+          name: requestBody.name,
+          arguments: requestBody.arguments,
+        },
+      });
+    assert.equal(res.status, 200);
+  }
+
+  assert.deepEqual(seen, {
+    AstListSymbols: 'repo-1',
+    AstFindDefinition: 'repo-1',
+    AstFindReferences: 'repo-1',
+    AstCallGraph: 'repo-1',
+  });
+});
+
+test('tools/call leaves unresolved AST selectors unchanged', async () => {
+  let capturedRepository: string | undefined;
+
+  const res = await request(
+    baseApp({
+      astListSymbols: async (params) => {
+        capturedRepository = params.repository as string | undefined;
+        return { symbols: [sampleSymbol] };
+      },
+    }),
+  )
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 9.5,
+      method: 'tools/call',
+      params: {
+        name: 'AstListSymbols',
+        arguments: { repository: '/host/missing' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.equal(capturedRepository, '/host/missing');
 });
 
 test('tools/call returns validation errors for AST tools', async () => {

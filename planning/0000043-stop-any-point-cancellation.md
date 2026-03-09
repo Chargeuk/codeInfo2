@@ -1313,3 +1313,162 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 - Testing step 8 rerun: after rebuilding the dockerized client bundle for the late Agents command-stop reuse fix, `npm run compose:up` again started the full stack cleanly with healthy `server` and started `client`.
 - Testing step 9: the final host-mapped browser verification at `http://host.docker.internal:5001` succeeded after the late Agents command-stop reuse fix, with reviewed screenshots for Chat stopped (`0000043-14-chat-stopped.png`), Chat no-op recovery (`0000043-14-chat-noop-recovered.png`), Agents instruction stopped (`0000043-14-agents-instruction-stopped.png`), Agents command stopped (`0000043-14-agents-command-stopped.png`), Flows stopped (`0000043-14-flows-stopped.png`), and the multi-window source/replacement views (`0000043-14-chat-multiwindow-a.png`, `0000043-14-chat-multiwindow-b.png`).
 - Testing step 10: `npm run compose:down` completed cleanly after the final browser acceptance pass, returning the dockerized stack to a stopped state.
+
+---
+
+### 15. Fix Explicit Stop Propagation For Active Agent Command Runs
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Fix the server-side stop path so an explicit websocket stop request with both `{ conversationId, inflightId }` fully cancels an active agent command run instead of only aborting the currently visible step inflight. This task must ensure the active command-run controller is stopped as well, so no later command step or retry can continue after the user has already pressed Stop on a command run with a known `inflightId`.
+
+#### Must Not Miss
+
+- Preserve the documented invalid-target behavior for wrong `{ conversationId, inflightId }` pairs.
+- Do not weaken the current chat, normal agent instruction, or flow stop behavior while fixing the command-run path.
+- After the fix, an explicit stop for an active command run must stop the current step and also prevent the command runner from starting any later step or retry.
+- Add automated proof for the exact regression found in review, not only for the existing conversation-only command stop path.
+
+#### Documentation Locations
+
+- Node.js `AbortController` docs: https://nodejs.org/api/globals.html#class-abortcontroller — use this to keep the command-run abort chain aligned with current Node runtime behavior.
+- Node.js `AbortSignal.any()` docs: https://nodejs.org/api/globals.html#abortsignalanysignals — use this because command runs combine step-level and command-level cancellation.
+- Node.js timers docs: https://nodejs.org/api/timers.html — use this to confirm retry and backoff waits still stop correctly after the command-run controller is aborted.
+- `ws` GitHub repository docs: DeepWiki `websockets/ws` — use this to keep the websocket cancel handler behavior consistent with the existing server transport.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections `Acceptance Criteria`, `Cancellation Targeting`, `Edge Cases and Failure Modes`, and the completed Task 6 notes before editing.
+2. [ ] Update `server/src/ws/server.ts` so the explicit `{ conversationId, inflightId }` cancel path stops an active agent command run completely when the provided `inflightId` matches the active command step for that conversation. Files (read/edit): `server/src/ws/server.ts`; files to read: `server/src/agents/commandsRunner.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`. Keep the explicit invalid-target failure behavior for mismatched `inflightId` values.
+3. [ ] Update `server/src/agents/commandsRunner.ts` only as needed so the command-run controller and retry loop observe the explicit stop path deterministically without requiring the client to fall back to conversation-only cancel after the `inflightId` is already known. Files (read/edit): `server/src/agents/commandsRunner.ts`; files to read: `server/src/agents/service.ts`, `server/src/agents/retry.ts`.
+4. [ ] Add or update a server unit or integration test that starts an agent command run, waits until the step `inflightId` is known, sends explicit `{ conversationId, inflightId }` stop, and proves no later command step or retry starts. Preferred files: `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` and `server/src/test/unit/ws-server.test.ts`; add an integration test under `server/src/test/integration/agents-run-ws-cancel.test.ts` if the regression is easier to prove there.
+5. [ ] Add or update a regression test that proves the wrong explicit `inflightId` still returns the documented `INFLIGHT_NOT_FOUND` terminal failure and does not abort the active command run. Files (read/edit): `server/src/test/unit/ws-server.test.ts` and nearest existing command-run test file.
+6. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
+7. [ ] Update this plan file’s `Implementation notes` for Task 15 after the implementation and tests are complete.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Mandatory because this task changes the websocket cancel handler and command-run server runtime behavior. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit` - Mandatory because the regression is primarily server-runtime and websocket behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Run to ensure the server stop contract changes do not regress the existing chat-cancellation feature coverage. If `failed > 0`, inspect the exact log path printed by the wrapper.
+4. [ ] `npm run build:summary:client` - Mandatory because the server contract change still has to remain compatible with the current client bundle. If status is `failed`, inspect `logs/test-summaries/build-client-latest.log`.
+5. [ ] `npm run compose:build:summary` - Run because this fix must remain compatible with the dockerized stack used in final acceptance. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here.
+
+---
+
+### 16. Suppress Stale Out-Of-Band Terminal Bubbles For Older Runs
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Fix the shared client stream reconciliation so a stale terminal websocket event for an older run does not create a new visible assistant bubble while a newer replacement run is active in the same conversation. This task must preserve the active run UI, keep the late-event handling non-destructive, and stop stale explicit invalid-target stop finals from surfacing as bogus failed transcript bubbles in replacement-run scenarios.
+
+#### Must Not Miss
+
+- Keep the current active run intact; do not let a stale older final mutate the current active assistant bubble.
+- Preserve useful metadata for the active run and already-persisted history, but do not invent a new visible transcript bubble for an out-of-band terminal event that belongs to an older `inflightId`.
+- Cover the exact replacement-run scenario from the review, including the stale explicit stop failure case.
+- Do not regress the existing duplicate-final and same-inflight final handling.
+
+#### Documentation Locations
+
+- React docs on state updates and refs: Context7 `/reactjs/react.dev` — use this because the shared stream hook relies on React state and refs to reconcile websocket events.
+- Jest docs: Context7 `/jestjs/jest` — use this because the regression proof belongs in the existing client Jest suite.
+- Playwright docs: Context7 `/microsoft/playwright` — use this if the replacement-run regression needs e2e coverage strengthened alongside the hook test.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections `Acceptance Criteria`, `Event Outcomes`, `UI State Contract`, and `Edge Cases and Failure Modes`, plus the completed Task 9 and Task 14 notes before editing.
+2. [ ] Update `client/src/hooks/useChatStream.ts` so a `turn_final` for an older `inflightId` does not create a new visible assistant bubble when a newer run is already active in the same conversation. Files (read/edit): `client/src/hooks/useChatStream.ts`; files to read: `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/pages/FlowsPage.tsx`.
+3. [ ] Keep the late-event path non-destructive by ensuring stale out-of-band finals are ignored or handled without rendering a new visible terminal bubble, while same-inflight finals and persisted-history hydration still behave correctly. Files (read/edit): `client/src/hooks/useChatStream.ts`; files to read: `client/src/test/useChatStream.inflightMismatch.test.tsx`.
+4. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves a stale `turn_final` for an older `inflightId` does not render a new failed or stopped assistant bubble while a newer run is active.
+5. [ ] Add or update the nearest page or e2e regression test so the replacement-run scenario also proves the UI does not show a bogus stale terminal bubble after the stale explicit stop failure arrives. Preferred files: `e2e/chat-multiwindow.spec.ts` and nearest Chat stop page test.
+6. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
+7. [ ] Update this plan file’s `Implementation notes` for Task 16 after the implementation and tests are complete.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Mandatory because this task changes the shared client stream hook. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+2. [ ] `npm run test:summary:client` - Mandatory because the regression proof lives in the client Jest suite. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:client`.
+3. [ ] `npm run test:summary:e2e` - Run because the stale replacement-run issue is visible end-to-end in a multi-window scenario. If `failed > 0`, inspect `logs/test-summaries/e2e-tests-latest.log`.
+4. [ ] `npm run build:summary:server` - Run as a compatibility check because the client still consumes the current websocket server contract. If status is `failed`, inspect `logs/test-summaries/build-server-latest.log`.
+5. [ ] `npm run compose:build:summary` - Run because the final acceptance environment uses the dockerized client and server together. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here.
+
+---
+
+### 17. Re-Run Final Verification And Acceptance Check After Review Fixes
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Re-run the full story acceptance gate after the review follow-up fixes in Tasks 15 and 16. This task must prove the original story acceptance still holds, the review regressions are closed, and the full server, client, docker, automated, and manual evidence set is refreshed against the updated branch state.
+
+#### Must Not Miss
+
+- This task replaces the earlier final verification as the new acceptance gate after review follow-up work.
+- Manual verification must explicitly re-check the command-run explicit stop path and the replacement-run stale-terminal suppression path in addition to the original Chat, Agents, and Flows acceptance checks.
+- Do not skip screenshots or browser-console inspection; the refreshed evidence set must reflect the reviewed follow-up fixes, not the older pre-review acceptance pass.
+- Confirm that the review findings are closed before marking this task done.
+
+#### Documentation Locations
+
+- Playwright screenshots and assertions: https://playwright.dev/docs/screenshots — use this because the task requires refreshed visual proof for the updated stop behavior.
+- Docker Compose overview and file reference: https://docs.docker.com/compose/ — use this for the build and startup verification steps that rely on the existing Compose wrappers.
+- Cucumber guides: https://cucumber.io/docs/guides/ — use this because the full server acceptance gate still includes the cucumber suite.
+
+#### Subtasks
+
+1. [ ] Re-read the full story plan, the review follow-up Tasks 15 and 16, and their completed implementation notes. Confirm each original acceptance criterion and each review finding has corresponding implemented proof before starting the final rerun.
+2. [ ] Save refreshed visual proof screenshots for the final manual verification into `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using filenames that begin with `0000043-17-`. Review each saved screenshot as part of the acceptance check so the GUI evidence is explicitly checked, not just captured.
+3. [ ] Add or update automated coverage as needed so the reviewed command-run explicit stop regression and stale replacement-run terminal regression are both proven in the branch’s final automated suite. Use the nearest existing server, client, or e2e stop test files rather than creating parallel scaffolds.
+4. [ ] Manually verify that after a confirmed stop the same conversation can be started again immediately without a stale `RUN_IN_PROGRESS` conflict on Chat, Agents instruction runs, Agents command runs, and Flows.
+5. [ ] Manually verify that the conversation-only no-active-run path still clears `stopping` only after the matching `cancel_ack.result === 'noop'` and still does not render a fake terminal bubble.
+6. [ ] Manually verify that an explicit stop against an active agent command run with a known `inflightId` stops the command run fully and does not allow a later command step or retry to continue.
+7. [ ] Manually verify the documented multi-tab or multi-window replacement-run behavior again and confirm that a stale explicit stop failure for the older run does not render a bogus stale terminal bubble in the context that is showing the later replacement run.
+8. [ ] During final manual verification, inspect the browser console and confirm the exact debug lines from Tasks 8 to 12 still appear with the documented payloads and outcomes, and that the review follow-up paths do not add any contradictory extra transition logs.
+9. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
+10. [ ] Update this plan file’s `Implementation notes` for Task 17 after the verification work is complete.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Mandatory because the refreshed acceptance pass must validate all server and common changes after the review fixes. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run build:summary:client` - Mandatory because the refreshed acceptance pass must validate all client and common changes after the review fixes. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+3. [ ] `npm run test:summary:server:unit` - Mandatory because the refreshed acceptance pass must validate the full server node:test suite after the review fixes. If `failed > 0`, inspect the exact log path printed by the wrapper.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory because the refreshed acceptance pass must validate the full server cucumber suite after the review fixes. If `failed > 0`, inspect the exact log path printed by the wrapper.
+5. [ ] `npm run test:summary:client` - Mandatory because the refreshed acceptance pass must validate the full client suite after the review fixes. If `failed > 0`, inspect the exact log path printed by the wrapper.
+6. [ ] `npm run test:summary:e2e` - Mandatory because the refreshed acceptance pass must validate the multi-window and stop UX flows after the review fixes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`.
+7. [ ] `npm run compose:build:summary` - Mandatory because the refreshed acceptance pass includes dockerized front-end validation. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm Chat, Agents, and Flows stop behavior, same-conversation reuse, explicit command-run stop with known `inflightId`, replacement-run stale-terminal suppression, and the exact browser-console lines from Tasks 8 to 12. Take refreshed screenshots for every GUI state used to confirm acceptance and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`, then inspect those screenshots to confirm the visible states match the acceptance criteria and the review fixes. Expected outcome: no no-op path emits any `stopped-visible` line, no stale-request path emits a bogus terminal bubble in the replacement-run context, and there are no unexpected browser-console errors.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here.

@@ -419,7 +419,7 @@ None. Repository and external research are sufficient to task this story.
 
 ### 1. Normalize WebSocket Cancel Targeting Contract
 
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits: `77860571 - DEV-[0000043] - Normalize websocket cancel targeting contract`
 
 #### Overview

@@ -830,7 +830,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 8. Add Shared Client WebSocket Stop Acknowledgement Handling
 
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits: `afcd2601 - DEV-[0000043] - Add shared websocket stop acknowledgement handling`
 
 #### Overview

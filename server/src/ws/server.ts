@@ -3,7 +3,10 @@ import type http from 'node:http';
 
 import WebSocket, { type RawData, WebSocketServer } from 'ws';
 
-import { abortAgentCommandRun } from '../agents/commandsRunner.js';
+import {
+  abortAgentCommandRun,
+  abortAgentCommandRunForInflight,
+} from '../agents/commandsRunner.js';
 import { getActiveRunOwnership } from '../agents/runLock.js';
 
 import {
@@ -620,7 +623,12 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
                 message: 'No active in-flight run found for conversation.',
               },
             });
+            return;
           }
+          abortAgentCommandRunForInflight({
+            conversationId: message.conversationId,
+            inflightId: message.inflightId,
+          });
           return;
         }
 

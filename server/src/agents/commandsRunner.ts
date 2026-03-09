@@ -5,6 +5,7 @@ import path from 'node:path';
 import {
   cleanupPendingConversationCancel,
   consumePendingConversationCancel,
+  getInflight,
 } from '../chat/inflightRegistry.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
 import { append } from '../logStore.js';
@@ -27,6 +28,20 @@ const commandAbortByConversationId = new Map<string, AbortController>();
 export function abortAgentCommandRun(conversationId: string) {
   const controller = commandAbortByConversationId.get(conversationId);
   if (!controller) return false;
+  controller.abort();
+  return true;
+}
+
+export function abortAgentCommandRunForInflight(params: {
+  conversationId: string;
+  inflightId: string;
+}) {
+  const controller = commandAbortByConversationId.get(params.conversationId);
+  if (!controller) return false;
+  const inflight = getInflight(params.conversationId);
+  if (!inflight) return false;
+  if (inflight.inflightId !== params.inflightId) return false;
+  if (!inflight.command) return false;
   controller.abort();
   return true;
 }

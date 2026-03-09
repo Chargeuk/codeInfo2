@@ -1318,7 +1318,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 15. Fix Explicit Stop Propagation For Active Agent Command Runs
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -1341,29 +1341,39 @@ Fix the server-side stop path so an explicit websocket stop request with both `{
 
 #### Subtasks
 
-1. [ ] Re-read the story sections `Acceptance Criteria`, `Cancellation Targeting`, `Edge Cases and Failure Modes`, and the completed Task 6 notes before editing.
-2. [ ] Update `server/src/ws/server.ts` so the explicit `{ conversationId, inflightId }` cancel path stops an active agent command run completely when the provided `inflightId` matches the active command step for that conversation. Files (read/edit): `server/src/ws/server.ts`; files to read: `server/src/agents/commandsRunner.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`. Keep the explicit invalid-target failure behavior for mismatched `inflightId` values.
-3. [ ] Update `server/src/agents/commandsRunner.ts` only as needed so the command-run controller and retry loop observe the explicit stop path deterministically without requiring the client to fall back to conversation-only cancel after the `inflightId` is already known. Files (read/edit): `server/src/agents/commandsRunner.ts`; files to read: `server/src/agents/service.ts`, `server/src/agents/retry.ts`.
-4. [ ] Add or update a server unit or integration test that starts an agent command run, waits until the step `inflightId` is known, sends explicit `{ conversationId, inflightId }` stop, and proves no later command step or retry starts. Preferred files: `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` and `server/src/test/unit/ws-server.test.ts`; add an integration test under `server/src/test/integration/agents-run-ws-cancel.test.ts` if the regression is easier to prove there.
-5. [ ] Add or update a regression test that proves the wrong explicit `inflightId` still returns the documented `INFLIGHT_NOT_FOUND` terminal failure and does not abort the active command run. Files (read/edit): `server/src/test/unit/ws-server.test.ts` and nearest existing command-run test file.
-6. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
-7. [ ] Update this plan file’s `Implementation notes` for Task 15 after the implementation and tests are complete.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+1. [x] Re-read the story sections `Acceptance Criteria`, `Cancellation Targeting`, `Edge Cases and Failure Modes`, and the completed Task 6 notes before editing.
+2. [x] Update `server/src/ws/server.ts` so the explicit `{ conversationId, inflightId }` cancel path stops an active agent command run completely when the provided `inflightId` matches the active command step for that conversation. Files (read/edit): `server/src/ws/server.ts`; files to read: `server/src/agents/commandsRunner.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`. Keep the explicit invalid-target failure behavior for mismatched `inflightId` values.
+3. [x] Update `server/src/agents/commandsRunner.ts` only as needed so the command-run controller and retry loop observe the explicit stop path deterministically without requiring the client to fall back to conversation-only cancel after the `inflightId` is already known. Files (read/edit): `server/src/agents/commandsRunner.ts`; files to read: `server/src/agents/service.ts`, `server/src/agents/retry.ts`.
+4. [x] Add or update a server unit or integration test that starts an agent command run, waits until the step `inflightId` is known, sends explicit `{ conversationId, inflightId }` stop, and proves no later command step or retry starts. Preferred files: `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` and `server/src/test/unit/ws-server.test.ts`; add an integration test under `server/src/test/integration/agents-run-ws-cancel.test.ts` if the regression is easier to prove there.
+5. [x] Add or update a regression test that proves the wrong explicit `inflightId` still returns the documented `INFLIGHT_NOT_FOUND` terminal failure and does not abort the active command run. Files (read/edit): `server/src/test/unit/ws-server.test.ts` and nearest existing command-run test file.
+6. [x] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
+7. [x] Update this plan file’s `Implementation notes` for Task 15 after the implementation and tests are complete.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Mandatory because this task changes the websocket cancel handler and command-run server runtime behavior. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit` - Mandatory because the regression is primarily server-runtime and websocket behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Run to ensure the server stop contract changes do not regress the existing chat-cancellation feature coverage. If `failed > 0`, inspect the exact log path printed by the wrapper.
-4. [ ] `npm run build:summary:client` - Mandatory because the server contract change still has to remain compatible with the current client bundle. If status is `failed`, inspect `logs/test-summaries/build-client-latest.log`.
-5. [ ] `npm run compose:build:summary` - Run because this fix must remain compatible with the dockerized stack used in final acceptance. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
+1. [x] `npm run build:summary:server` - Mandatory because this task changes the websocket cancel handler and command-run server runtime behavior. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [x] `npm run test:summary:server:unit` - Mandatory because the regression is primarily server-runtime and websocket behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Run to ensure the server stop contract changes do not regress the existing chat-cancellation feature coverage. If `failed > 0`, inspect the exact log path printed by the wrapper.
+4. [x] `npm run build:summary:client` - Mandatory because the server contract change still has to remain compatible with the current client bundle. If status is `failed`, inspect `logs/test-summaries/build-client-latest.log`.
+5. [x] `npm run compose:build:summary` - Run because this fix must remain compatible with the dockerized stack used in final acceptance. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
+- Subtask 1: Re-read the story acceptance, targeting, and edge-case sections plus the completed Task 6 notes so this review fix stays focused on explicit `{ conversationId, inflightId }` command-run stop propagation without weakening the already-correct conversation-only, chat, normal agent, or flow stop paths.
+- Subtask 2: Updated `server/src/ws/server.ts` so the explicit cancel path still preserves wrong-target `INFLIGHT_NOT_FOUND` behavior but now also propagates a matching command-step stop through the active command-run controller after aborting the visible inflight.
+- Subtask 3: Added a narrow `abortAgentCommandRunForInflight(...)` helper in `server/src/agents/commandsRunner.ts` so explicit command-step stop only aborts the command runner when the active command inflight actually matches the provided `inflightId`.
+- Subtasks 4-5: Added websocket-level regression tests in `server/src/test/unit/ws-server.test.ts` covering the reviewed explicit command-step stop bug and the wrong-target explicit stop case that must still fail without aborting the active command run.
+- Subtask 6: Task 15 did not add or remove files, so `projectStructure.md` did not need changes.
+- Subtask 7: Closed out the Task 15 notes after the server fix, websocket regressions, and required wrapper reruns were all complete.
+- Subtask 8: `npm run format:check --workspaces` passed cleanly without edits, and `npm run lint --workspaces` still exits successfully with only the repository’s existing warning baseline.
+- Testing step 1: `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`.
+- Testing step 2: A targeted wrapper rerun of `server/src/test/unit/ws-server.test.ts` first passed with `21` tests and `0` failures; the first full wrapper run then hit a transient unrelated timeout in `server/src/test/integration/flows.run.loop.test.ts`, the isolated flow-loop wrapper rerun passed cleanly with `16` tests and `0` failures, and the required full rerun of `npm run test:summary:server:unit` then passed cleanly with `tests run: 1006`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 68`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 4: `npm run build:summary:client` passed cleanly with `warning_count: 0` and `agent_action: skip_log`, confirming the server-side stop fix stayed compatible with the client bundle.
+- Testing step 5: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`.
 
 ---
 

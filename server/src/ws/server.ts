@@ -4,11 +4,13 @@ import type http from 'node:http';
 import WebSocket, { type RawData, WebSocketServer } from 'ws';
 
 import { abortAgentCommandRun } from '../agents/commandsRunner.js';
+import { getActiveRunOwnership } from '../agents/runLock.js';
 
 import {
   abortInflightByConversation,
   abortInflight,
   bumpSeq,
+  registerPendingConversationCancel,
   snapshotInflight,
 } from '../chat/inflightRegistry.js';
 import { getActiveStatus, type IngestJobStatus } from '../ingest/ingestJob.js';
@@ -630,6 +632,15 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
 
         const cancelled = abortInflightByConversation(message.conversationId);
         if (cancelled.ok) {
+          return;
+        }
+
+        const ownership = getActiveRunOwnership(message.conversationId);
+        if (ownership) {
+          registerPendingConversationCancel({
+            conversationId: message.conversationId,
+            runToken: ownership.runToken,
+          });
           return;
         }
 

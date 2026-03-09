@@ -8,7 +8,11 @@ import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
 import {
   createInflight,
+  abortInflight,
+  bindPendingConversationCancelToInflight,
   cleanupInflight,
+  cleanupPendingConversationCancel,
+  consumePendingConversationCancel,
   getInflight,
 } from '../chat/inflightRegistry.js';
 import type {
@@ -21,8 +25,8 @@ import {
   shouldUseMemoryPersistence,
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
-import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
 import { RuntimeConfigResolutionError } from '../config/runtimeConfig.js';
+import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
@@ -45,6 +49,7 @@ import { runAgentCommandRunner } from './commandsRunner.js';
 import { resolveAgentRuntimeExecutionConfig } from './config.js';
 import { discoverAgents } from './discovery.js';
 import {
+  getActiveRunOwnership,
   releaseConversationLock,
   tryAcquireConversationLock,
 } from './runLock.js';
@@ -79,6 +84,9 @@ export type RunAgentInstructionResult = {
   modelId: string;
   segments: unknown[];
 };
+
+type InstructionRuntimeCleanupFn = typeof cleanupInflight;
+type InstructionReleaseLockFn = typeof releaseConversationLock;
 
 type RunAgentErrorCode =
   | 'AGENT_NOT_FOUND'
@@ -250,7 +258,10 @@ async function ensureAgentConversation(params: {
 }
 
 export async function startAgentInstruction(
-  params: Omit<RunAgentInstructionParams, 'signal'>,
+  params: Omit<RunAgentInstructionParams, 'signal'> & {
+    cleanupInflightFn?: InstructionRuntimeCleanupFn;
+    releaseConversationLockFn?: InstructionReleaseLockFn;
+  },
 ): Promise<{ conversationId: string; inflightId: string; modelId: string }> {
   const clientProvidedConversationId = Boolean(params.conversationId);
   const conversationId = params.conversationId ?? crypto.randomUUID();
@@ -262,6 +273,12 @@ export async function startAgentInstruction(
       'A run is already in progress for this conversation.',
     );
   }
+  const ownership = getActiveRunOwnership(conversationId);
+  if (!ownership) {
+    releaseConversationLock(conversationId);
+    throw new Error('Conversation run ownership could not be resolved.');
+  }
+  const { runToken } = ownership;
 
   const mustExist = false;
 
@@ -333,7 +350,8 @@ export async function startAgentInstruction(
     // deterministic 4xx rather than a background failure.
     await resolveWorkingFolderWorkingDirectory(params.working_folder);
   } catch (err) {
-    releaseConversationLock(conversationId);
+    cleanupPendingConversationCancel({ conversationId, runToken });
+    releaseConversationLock(conversationId, runToken);
     throw err;
   }
 
@@ -347,14 +365,15 @@ export async function startAgentInstruction(
         // Intentionally omit any request-bound signal; cancellation happens only
         // via explicit WS cancel_inflight.
         signal: undefined,
+        runToken,
+        cleanupInflightFn: params.cleanupInflightFn,
+        releaseConversationLockFn: params.releaseConversationLockFn,
       });
     } catch (err) {
       baseLogger.error(
         { agentName: params.agentName, conversationId, inflightId, err },
         'agents run failed (background)',
       );
-    } finally {
-      releaseConversationLock(conversationId);
     }
   })();
 
@@ -372,6 +391,12 @@ export async function runAgentInstruction(
       'A run is already in progress for this conversation.',
     );
   }
+  const ownership = getActiveRunOwnership(conversationId);
+  if (!ownership) {
+    releaseConversationLock(conversationId);
+    throw new Error('Conversation run ownership could not be resolved.');
+  }
+  const { runToken } = ownership;
 
   const mustExist = false;
   append({
@@ -388,15 +413,12 @@ export async function runAgentInstruction(
     },
   });
 
-  try {
-    return await runAgentInstructionUnlocked({
-      ...params,
-      conversationId,
-      mustExist,
-    });
-  } finally {
-    releaseConversationLock(conversationId);
-  }
+  return await runAgentInstructionUnlocked({
+    ...params,
+    conversationId,
+    mustExist,
+    runToken,
+  });
 }
 
 function isSafeAgentCommandName(raw: string): boolean {
@@ -755,8 +777,16 @@ export async function runAgentInstructionUnlocked(params: {
   source: 'REST' | 'MCP';
   inflightId?: string;
   chatFactory?: typeof getChatInterface;
+  runToken?: string;
+  cleanupInflightFn?: InstructionRuntimeCleanupFn;
+  releaseConversationLockFn?: InstructionReleaseLockFn;
 }): Promise<RunAgentInstructionResult> {
   const fallbackModelId = 'gpt-5.1-codex-max';
+  const managesInstructionLifecycle =
+    !params.command && typeof params.runToken === 'string';
+  const cleanupInflightFn = params.cleanupInflightFn ?? cleanupInflight;
+  const releaseConversationLockFn =
+    params.releaseConversationLockFn ?? releaseConversationLock;
 
   const discovered = await discoverAgents();
   const agent = discovered.find((item) => item.name === params.agentName);
@@ -770,241 +800,357 @@ export async function runAgentInstructionUnlocked(params: {
   }
 
   const conversationId = params.conversationId;
+  const runToken = params.runToken;
+  let finalizedInstructionRuntime = false;
+  let activeInflightId: string | undefined;
 
-  const existingConversation = await getConversation(conversationId);
-  const isNewConversation = !existingConversation;
-  if (params.mustExist && isNewConversation)
-    throw toRunAgentError('AGENT_NOT_FOUND');
-  if (existingConversation?.archivedAt)
-    throw toRunAgentError('CONVERSATION_ARCHIVED');
-  if (
-    existingConversation &&
-    (existingConversation.agentName ?? '') !== params.agentName
-  ) {
-    throw toRunAgentError('AGENT_MISMATCH');
-  }
+  const consumePendingInstructionStop = (inflightId: string) => {
+    if (!managesInstructionLifecycle || !runToken) return false;
+    const boundPending = bindPendingConversationCancelToInflight({
+      conversationId,
+      runToken,
+      inflightId,
+    });
+    if (!boundPending.ok) {
+      return boundPending.reason !== 'PENDING_CANCEL_NOT_FOUND';
+    }
 
-  let runtimeConfig: CodexOptions['config'];
-  let configuredModelId: string | undefined;
+    const pendingCancel = consumePendingConversationCancel({
+      conversationId,
+      runToken,
+      inflightId,
+    });
+    if (!pendingCancel) return false;
+
+    return abortInflight({ conversationId, inflightId }).ok;
+  };
+
+  const finalizeInstructionRuntime = () => {
+    if (
+      !managesInstructionLifecycle ||
+      !runToken ||
+      finalizedInstructionRuntime
+    )
+      return;
+    finalizedInstructionRuntime = true;
+
+    const inflightState = activeInflightId
+      ? getInflight(conversationId)
+      : undefined;
+    const activeInflight =
+      inflightState && inflightState.inflightId === activeInflightId
+        ? inflightState
+        : undefined;
+
+    try {
+      if (activeInflight) {
+        cleanupInflightFn({ conversationId, inflightId: activeInflightId });
+      }
+    } catch (cleanupError) {
+      baseLogger.error(
+        {
+          agentName: params.agentName,
+          conversationId,
+          inflightId: activeInflightId,
+          cleanupError,
+        },
+        'agents instruction cleanup failed; falling back to direct runtime cleanup',
+      );
+      if (activeInflightId) {
+        cleanupInflight({ conversationId, inflightId: activeInflightId });
+      }
+    } finally {
+      cleanupPendingConversationCancel({
+        conversationId,
+        runToken,
+        inflightId: activeInflightId,
+      });
+      releaseConversationLockFn(conversationId, runToken);
+    }
+  };
+
   try {
-    const resolved = await resolveAgentRuntimeExecutionConfig({
-      configPath: agent.configPath,
-      entrypoint: 'agents.service',
-    });
-    runtimeConfig = resolved.runtimeConfig as CodexOptions['config'];
-    configuredModelId = resolved.modelId;
-    console.info(T06_SUCCESS_LOG, {
-      surface: 'agents.run',
-      source: params.source,
-      isCommandRun: Boolean(params.command),
-      hasModel: Boolean(configuredModelId),
-    });
-    if (params.source === 'MCP') {
-      console.info(T07_SUCCESS_LOG, {
-        surface: 'mcp.agents.run',
+    const existingConversation = await getConversation(conversationId);
+    const isNewConversation = !existingConversation;
+    if (params.mustExist && isNewConversation) {
+      throw toRunAgentError('AGENT_NOT_FOUND');
+    }
+    if (existingConversation?.archivedAt) {
+      throw toRunAgentError('CONVERSATION_ARCHIVED');
+    }
+    if (
+      existingConversation &&
+      (existingConversation.agentName ?? '') !== params.agentName
+    ) {
+      throw toRunAgentError('AGENT_MISMATCH');
+    }
+
+    let runtimeConfig: CodexOptions['config'];
+    let configuredModelId: string | undefined;
+    try {
+      const resolved = await resolveAgentRuntimeExecutionConfig({
+        configPath: agent.configPath,
+        entrypoint: 'agents.service',
+      });
+      runtimeConfig = resolved.runtimeConfig as CodexOptions['config'];
+      configuredModelId = resolved.modelId;
+      console.info(T06_SUCCESS_LOG, {
+        surface: 'agents.run',
         source: params.source,
         isCommandRun: Boolean(params.command),
         hasModel: Boolean(configuredModelId),
       });
-    }
-  } catch (error) {
-    const code =
-      error instanceof RuntimeConfigResolutionError
-        ? error.code
-        : 'UNKNOWN_ERROR';
-    console.error(
-      `${T06_ERROR_LOG} surface=agents.run source=${params.source} code=${code}`,
-    );
-    if (params.source === 'MCP') {
+      if (params.source === 'MCP') {
+        console.info(T07_SUCCESS_LOG, {
+          surface: 'mcp.agents.run',
+          source: params.source,
+          isCommandRun: Boolean(params.command),
+          hasModel: Boolean(configuredModelId),
+        });
+      }
+    } catch (error) {
+      const code =
+        error instanceof RuntimeConfigResolutionError
+          ? error.code
+          : 'UNKNOWN_ERROR';
       console.error(
-        `${T07_ERROR_LOG} surface=mcp.agents.run source=${params.source} code=${code}`,
+        `${T06_ERROR_LOG} surface=agents.run source=${params.source} code=${code}`,
       );
+      if (params.source === 'MCP') {
+        console.error(
+          `${T07_ERROR_LOG} surface=mcp.agents.run source=${params.source} code=${code}`,
+        );
+      }
+      throw error;
     }
-    throw error;
-  }
-  const modelId =
-    configuredModelId ?? existingConversation?.model ?? fallbackModelId;
 
-  const title =
-    params.instruction.trim().slice(0, 80) || 'Untitled conversation';
+    const modelId =
+      configuredModelId ?? existingConversation?.model ?? fallbackModelId;
+    const title =
+      params.instruction.trim().slice(0, 80) || 'Untitled conversation';
 
-  if (isNewConversation) {
-    await ensureAgentConversation({
-      conversationId,
-      agentName: params.agentName,
-      modelId,
-      title,
-      source: params.source,
-    });
-  }
+    if (isNewConversation) {
+      await ensureAgentConversation({
+        conversationId,
+        agentName: params.agentName,
+        modelId,
+        title,
+        source: params.source,
+      });
+    }
 
-  const conversation =
-    existingConversation ?? (await getConversation(conversationId));
-  if (!conversation) throw toRunAgentError('AGENT_NOT_FOUND');
+    const conversation =
+      existingConversation ?? (await getConversation(conversationId));
+    if (!conversation) throw toRunAgentError('AGENT_NOT_FOUND');
 
-  const threadId =
-    conversation?.flags &&
-    typeof (conversation.flags as Record<string, unknown>).threadId === 'string'
-      ? ((conversation.flags as Record<string, unknown>).threadId as string)
-      : undefined;
+    const threadId =
+      conversation.flags &&
+      typeof (conversation.flags as Record<string, unknown>).threadId ===
+        'string'
+        ? ((conversation.flags as Record<string, unknown>).threadId as string)
+        : undefined;
 
-  let systemPrompt: string | undefined;
-  if (isNewConversation && agent.systemPromptPath) {
+    let systemPrompt: string | undefined;
+    if (isNewConversation && agent.systemPromptPath) {
+      try {
+        systemPrompt = await fs.readFile(agent.systemPromptPath, 'utf8');
+      } catch {
+        systemPrompt = undefined;
+      }
+    }
+
+    const resolvedChatFactory = params.chatFactory ?? getChatInterface;
+
+    let chat;
     try {
-      systemPrompt = await fs.readFile(agent.systemPromptPath, 'utf8');
-    } catch {
-      // best-effort: missing/unreadable prompt should not block execution
-      systemPrompt = undefined;
+      chat = resolvedChatFactory('codex');
+    } catch (err) {
+      if (err instanceof UnsupportedProviderError) {
+        throw new Error(err.message);
+      }
+      throw err;
     }
-  }
 
-  const resolvedChatFactory = params.chatFactory ?? getChatInterface;
+    const workingDirectoryOverride = await resolveWorkingFolderWorkingDirectory(
+      params.working_folder,
+    );
 
-  let chat;
-  try {
-    chat = resolvedChatFactory('codex');
-  } catch (err) {
-    if (err instanceof UnsupportedProviderError) {
-      throw new Error(err.message);
-    }
-    throw err;
-  }
-
-  const workingDirectoryOverride = await resolveWorkingFolderWorkingDirectory(
-    params.working_folder,
-  );
-
-  const inflightId = params.inflightId ?? crypto.randomUUID();
-  const nowIso = new Date().toISOString();
-  createInflight({
-    conversationId,
-    inflightId,
-    provider: 'codex',
-    model: modelId,
-    source: params.source,
-    command: params.command,
-    userTurn: { content: params.instruction, createdAt: nowIso },
-    externalSignal: params.signal,
-  });
-
-  append({
-    level: 'info',
-    message: 'DEV-0000021[T2] agents.inflight created',
-    timestamp: nowIso,
-    source: 'server',
-    context: {
+    const inflightId = params.inflightId ?? crypto.randomUUID();
+    activeInflightId = inflightId;
+    const nowIso = new Date().toISOString();
+    createInflight({
       conversationId,
       inflightId,
       provider: 'codex',
       model: modelId,
       source: params.source,
-      userTurnCreatedAt: nowIso,
-    },
-  });
+      command: params.command,
+      userTurn: { content: params.instruction, createdAt: nowIso },
+      externalSignal: params.signal,
+    });
 
-  publishUserTurn({
-    conversationId,
-    inflightId,
-    content: params.instruction,
-    createdAt: nowIso,
-  });
+    consumePendingInstructionStop(inflightId);
 
-  append({
-    level: 'info',
-    message: 'DEV-0000021[T2] agents.ws user_turn published',
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: {
-      conversationId,
-      inflightId,
-      createdAt: nowIso,
-      contentLen: params.instruction.length,
-    },
-  });
-
-  const bridge = attachChatStreamBridge({
-    conversationId,
-    inflightId,
-    provider: 'codex',
-    model: modelId,
-    chat,
-  });
-
-  const responder = new McpResponder();
-  chat.on('analysis', (ev: ChatAnalysisEvent) => responder.handle(ev));
-  chat.on('tool-result', (ev: ChatToolResultEvent) => responder.handle(ev));
-  chat.on('final', (ev: ChatFinalEvent) => responder.handle(ev));
-  chat.on('error', (ev) => responder.handle(ev));
-
-  try {
     append({
       level: 'info',
-      message: 'DEV-0000021[T2] agents.chat.run flags include inflightId',
+      message: 'DEV-0000021[T2] agents.inflight created',
+      timestamp: nowIso,
+      source: 'server',
+      context: {
+        conversationId,
+        inflightId,
+        provider: 'codex',
+        model: modelId,
+        source: params.source,
+        userTurnCreatedAt: nowIso,
+      },
+    });
+
+    publishUserTurn({
+      conversationId,
+      inflightId,
+      content: params.instruction,
+      createdAt: nowIso,
+    });
+
+    append({
+      level: 'info',
+      message: 'DEV-0000021[T2] agents.ws user_turn published',
       timestamp: new Date().toISOString(),
       source: 'server',
       context: {
         conversationId,
         inflightId,
-        flagsInflightId: inflightId,
-        provider: 'codex',
-        model: modelId,
-        source: params.source,
+        createdAt: nowIso,
+        contentLen: params.instruction.length,
       },
     });
 
-    await chat.run(
-      params.instruction,
-      {
-        provider: 'codex',
-        inflightId,
-        threadId,
-        useConfigDefaults: true,
-        runtimeConfig,
-        ...(workingDirectoryOverride !== undefined
-          ? { workingDirectoryOverride }
-          : {}),
-        disableSystemContext: true,
-        systemPrompt,
-        signal: getInflight(conversationId)?.abortController.signal,
-        source: params.source,
-        ...(params.command ? { command: params.command } : {}),
-      },
+    const bridge = attachChatStreamBridge({
       conversationId,
-      modelId,
-    );
-  } finally {
-    bridge.cleanup();
-    const leftover = getInflight(conversationId);
-    if (leftover && leftover.inflightId === inflightId) {
-      cleanupInflight({ conversationId, inflightId });
-    }
-  }
+      inflightId,
+      provider: 'codex',
+      model: modelId,
+      chat,
+    });
 
-  const transientReconnectCount = responder.getTransientReconnectCount();
-  if (transientReconnectCount > 0) {
-    baseLogger.warn(
-      {
-        agentName: params.agentName,
+    const responder = new McpResponder();
+    chat.on('analysis', (ev: ChatAnalysisEvent) => responder.handle(ev));
+    chat.on('tool-result', (ev: ChatToolResultEvent) => responder.handle(ev));
+    chat.on('final', (ev: ChatFinalEvent) => responder.handle(ev));
+    chat.on('error', (ev) => responder.handle(ev));
+
+    let runError: unknown;
+    try {
+      append({
+        level: 'info',
+        message: 'DEV-0000021[T2] agents.chat.run flags include inflightId',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          conversationId,
+          inflightId,
+          flagsInflightId: inflightId,
+          provider: 'codex',
+          model: modelId,
+          source: params.source,
+        },
+      });
+
+      consumePendingInstructionStop(inflightId);
+
+      await chat.run(
+        params.instruction,
+        {
+          provider: 'codex',
+          inflightId,
+          threadId,
+          useConfigDefaults: true,
+          runtimeConfig,
+          ...(workingDirectoryOverride !== undefined
+            ? { workingDirectoryOverride }
+            : {}),
+          disableSystemContext: true,
+          systemPrompt,
+          ...(managesInstructionLifecycle
+            ? { deferInflightCleanup: true }
+            : {}),
+          signal: getInflight(conversationId)?.abortController.signal,
+          source: params.source,
+          ...(params.command ? { command: params.command } : {}),
+        },
         conversationId,
         modelId,
-        commandName: params.command?.name,
-        stepIndex: params.command?.stepIndex,
-        totalSteps: params.command?.totalSteps,
-        transientReconnectCount,
-        transientReconnectLastMessage:
-          responder.getTransientReconnectLastMessage(),
-      },
-      'transient reconnect events observed during agent run',
-    );
-  }
+      );
+    } catch (err) {
+      runError = err;
+      throw err;
+    } finally {
+      bridge.cleanup();
+      if (managesInstructionLifecycle) {
+        const inflightState = getInflight(conversationId);
+        const activeInflight =
+          inflightState && inflightState.inflightId === inflightId
+            ? inflightState
+            : undefined;
+        const cancelled = Boolean(
+          activeInflight?.abortController.signal.aborted,
+        );
+        const errorMessage =
+          runError instanceof Error ? runError.message : undefined;
 
-  const { segments } = responder.toResult(modelId, conversationId);
-  return {
-    agentName: params.agentName,
-    conversationId,
-    modelId,
-    segments,
-  };
+        bridge.finalize({
+          fallback: {
+            status: cancelled ? 'stopped' : 'failed',
+            threadId: null,
+            ...(cancelled || !errorMessage
+              ? {}
+              : {
+                  error: {
+                    code: 'PROVIDER_ERROR',
+                    message: errorMessage,
+                  },
+                }),
+          },
+        });
+        finalizeInstructionRuntime();
+      } else {
+        const leftover = getInflight(conversationId);
+        if (leftover && leftover.inflightId === inflightId) {
+          cleanupInflight({ conversationId, inflightId });
+        }
+      }
+    }
+
+    const transientReconnectCount = responder.getTransientReconnectCount();
+    if (transientReconnectCount > 0) {
+      baseLogger.warn(
+        {
+          agentName: params.agentName,
+          conversationId,
+          modelId,
+          commandName: params.command?.name,
+          stepIndex: params.command?.stepIndex,
+          totalSteps: params.command?.totalSteps,
+          transientReconnectCount,
+          transientReconnectLastMessage:
+            responder.getTransientReconnectLastMessage(),
+        },
+        'transient reconnect events observed during agent run',
+      );
+    }
+
+    const { segments } = responder.toResult(modelId, conversationId);
+    return {
+      agentName: params.agentName,
+      conversationId,
+      modelId,
+      segments,
+    };
+  } catch (err) {
+    finalizeInstructionRuntime();
+    throw err;
+  }
 }
 
 export type AgentCommandSummary = {

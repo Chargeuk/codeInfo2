@@ -1376,6 +1376,51 @@ sequenceDiagram
   Note over UI,Route: Same conversation is reusable after terminal stop cleanup finishes
 ```
 
+## Story 0000043 Task 5: normal agent runs finalize stop through shared runtime cleanup
+
+- Normal agent instruction runs now hold the conversation `runToken` until their own finalization path completes instead of releasing the conversation lock outside the runtime cleanup path.
+- Conversation-only stop without a usable client `inflightId` can now bind to the active normal run by registering a token-bound pending cancel when the run owns the conversation but has not published an inflight target yet.
+- `runAgentInstructionUnlocked(...)` now re-checks pending cancel immediately after inflight creation and again before `chat.run(...)` begins useful work, passes the inflight `AbortSignal` into the agent runtime, and falls back to one stopped or failed terminal outcome if the provider path never emits its own terminal event.
+- The same finalization path clears inflight state, pending-cancel state, and active lock ownership in order, including a direct-cleanup fallback if the primary cleanup callback throws, so same-conversation reuse happens after confirmed stop instead of leaving a stale `RUN_IN_PROGRESS`.
+
+```mermaid
+sequenceDiagram
+  participant UI as Client
+  participant Route as startAgentInstruction
+  participant WS as cancel_inflight
+  participant Lock as runLock
+  participant Runtime as runAgentInstructionUnlocked
+  participant IR as inflightRegistry
+  participant Agent as ChatInterface.run
+
+  UI->>Route: POST /agents/:agentName/run
+  Route->>Lock: tryAcquireConversationLock(conversationId)
+  Lock-->>Route: runToken
+  Route-->>UI: 202 started { conversationId, inflightId }
+  par startup-race stop
+    UI->>WS: cancel_inflight { conversationId }
+    WS->>Lock: getActiveRunOwnership(conversationId)
+    WS->>IR: registerPendingConversationCancel(runToken)
+  and runtime start
+    Route->>Runtime: runAgentInstructionUnlocked(..., runToken)
+    Runtime->>IR: createInflight(conversationId, inflightId)
+    Runtime->>IR: bind and consume pending cancel
+    Runtime->>IR: abortInflight(conversationId, inflightId)
+    Runtime->>Agent: chat.run(... signal)
+  end
+  alt stop won
+    Agent-->>Runtime: abort/error path
+    Runtime-->>UI: turn_final(status=stopped)
+  else normal completion
+    Agent-->>Runtime: final/complete events
+    Runtime-->>UI: turn_final(status=ok)
+  end
+  Runtime->>IR: cleanupInflight(conversationId, inflightId)
+  Runtime->>IR: cleanupPendingConversationCancel(runToken, inflightId)
+  Runtime->>Lock: releaseConversationLock(conversationId, runToken)
+  Note over UI,Route: Same conversation can start again after stop cleanup completes
+```
+
 ## Story 0000038 Task 5: ingest listing status/phase normalization and active overlay precedence
 
 - External listing status contract for `/ingest/roots` and classic MCP `ListIngestedRepositories` is now normalized from internal ingest states:

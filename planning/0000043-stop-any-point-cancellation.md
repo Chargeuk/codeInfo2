@@ -653,7 +653,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 5. Integrate Stop Ownership Into Agent Instruction Runs
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -675,30 +675,37 @@ Wire the new cancellation ownership model into normal agent instruction runs onl
 
 #### Subtasks
 
-1. [ ] Read the story sections `Cancellation Targeting`, `Event Outcomes`, and `Edge Cases and Failure Modes`.
-2. [ ] Update `server/src/agents/service.ts` so normal agent runs observe pending cancel before useful work starts, propagate `AbortSignal` through provider or runtime APIs that already support it, and reuse the shared inflight finalization and cleanup helpers when publishing the correct final stopped outcome. Files (read/edit): `server/src/agents/service.ts`; files to read: `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`. Docs to use while doing this subtask: Node.js `AbortController` docs and OpenAI JavaScript/Node library docs.
-3. [ ] Keep `server/src/routes/agentsRun.ts` aligned with the documented response and conflict behavior so the route remains stable while the runtime logic changes underneath it. Files (read/edit): `server/src/routes/agentsRun.ts`; files to read: `server/src/agents/service.ts`. Docs to use while doing this subtask: OpenAI JavaScript/Node library docs where relevant to preserved runtime assumptions.
-4. [ ] Ensure active ownership and pending-cancel cleanup happen in the same finalization path used by normal agent runs. Files (read/edit): `server/src/agents/service.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`.
-5. [ ] Add or update an integration test in `server/src/test/integration/agents-run-ws-cancel.test.ts` that stops a normal agent instruction run before the client has a usable `inflightId` and proves the final outcome is `stopped`. Purpose: cover the early-stop happy path for normal agent runs.
-6. [ ] Add or update an integration test in `server/src/test/integration/agents-run-ws-cancel.test.ts` that sends duplicate stop requests for the same normal agent run and proves the final event is emitted once. Purpose: cover normal-agent stop idempotence.
-7. [ ] Add or update a unit or integration test in `server/src/test/unit/mcp-agents-router-run.test.ts` or `server/src/test/integration/agents-run-ws-cancel.test.ts` that forces cleanup failure during stop finalization and proves runtime state is still released. Purpose: cover cleanup fallback for normal agent runs.
-8. [ ] Add or update an integration test in `server/src/test/integration/agents-run-ws-cancel.test.ts` that starts a new normal agent run on the same conversation after confirmed stop and proves there is no stale `RUN_IN_PROGRESS` conflict. Purpose: cover conversation reuse for normal agent runs.
-9. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a normal agent stop-lifecycle section and a Mermaid `sequenceDiagram` that shows route start, runtime ownership, startup-race stop, abort propagation into agent execution, terminal stopped publication, and cleanup before same-conversation reuse.
-10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
-11. [ ] Update this plan file’s `Implementation notes` for Task 5 after the implementation and tests are complete.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Read the story sections `Cancellation Targeting`, `Event Outcomes`, and `Edge Cases and Failure Modes`.
+2. [x] Update `server/src/agents/service.ts` so normal agent runs observe pending cancel before useful work starts, propagate `AbortSignal` through provider or runtime APIs that already support it, and reuse the shared inflight finalization and cleanup helpers when publishing the correct final stopped outcome. Files (read/edit): `server/src/agents/service.ts`; files to read: `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`. Docs to use while doing this subtask: Node.js `AbortController` docs and OpenAI JavaScript/Node library docs.
+3. [x] Keep `server/src/routes/agentsRun.ts` aligned with the documented response and conflict behavior so the route remains stable while the runtime logic changes underneath it. Files (read/edit): `server/src/routes/agentsRun.ts`; files to read: `server/src/agents/service.ts`. Docs to use while doing this subtask: OpenAI JavaScript/Node library docs where relevant to preserved runtime assumptions.
+4. [x] Ensure active ownership and pending-cancel cleanup happen in the same finalization path used by normal agent runs. Files (read/edit): `server/src/agents/service.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`.
+5. [x] Add or update an integration test in `server/src/test/integration/agents-run-ws-cancel.test.ts` that stops a normal agent instruction run before the client has a usable `inflightId` and proves the final outcome is `stopped`. Purpose: cover the early-stop happy path for normal agent runs.
+6. [x] Add or update an integration test in `server/src/test/integration/agents-run-ws-cancel.test.ts` that sends duplicate stop requests for the same normal agent run and proves the final event is emitted once. Purpose: cover normal-agent stop idempotence.
+7. [x] Add or update a unit or integration test in `server/src/test/unit/mcp-agents-router-run.test.ts` or `server/src/test/integration/agents-run-ws-cancel.test.ts` that forces cleanup failure during stop finalization and proves runtime state is still released. Purpose: cover cleanup fallback for normal agent runs.
+8. [x] Add or update an integration test in `server/src/test/integration/agents-run-ws-cancel.test.ts` that starts a new normal agent run on the same conversation after confirmed stop and proves there is no stale `RUN_IN_PROGRESS` conflict. Purpose: cover conversation reuse for normal agent runs.
+9. [x] Update `design.md`. Files (read/edit): `design.md`. Add a normal agent stop-lifecycle section and a Mermaid `sequenceDiagram` that shows route start, runtime ownership, startup-race stop, abort propagation into agent execution, terminal stopped publication, and cleanup before same-conversation reuse.
+10. [x] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
+11. [x] Update this plan file’s `Implementation notes` for Task 5 after the implementation and tests are complete.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Use because this task changes server agent execution code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit` - Use because this task changes server node:test agent stop behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use because server Cucumber coverage must still pass after agent stop behavior changes. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
+1. [x] `npm run build:summary:server` - Use because this task changes server agent execution code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes server node:test agent stop behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use because server Cucumber coverage must still pass after agent stop behavior changes. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Subtask 1: Re-read the Task 5 contract sections and the completed Task 1 to Task 4 notes before editing so the normal agent run changes reuse the shared ownership, pending-cancel, and finalization model without pulling command-run behavior into this task.
+- Subtasks 2-4: Updated `server/src/agents/service.ts` so normal instruction runs capture the active `runToken`, consume token-bound pending cancel before useful work, propagate the inflight abort signal into `chat.run(...)`, and release inflight, pending-cancel, and lock ownership from one finalization path; `server/src/routes/agentsRun.ts` stayed response-compatible, so no route payload or conflict-contract change was needed.
+- Subtasks 5-8: Extended `server/src/test/integration/agents-run-ws-cancel.test.ts` with startup-race conversation-only stop, duplicate stop idempotence, cleanup fallback, and same-conversation reuse coverage for normal instruction runs.
+- Subtasks 9-10: Documented the normal agent stop lifecycle and startup-race pending-cancel binding in `design.md`; no files were added or removed, so `projectStructure.md` did not need changes.
+- Subtask 12: `format:check` initially failed on `server/src/agents/service.ts` and `server/src/test/integration/agents-run-ws-cancel.test.ts`, so I reordered the touched imports and ran Prettier on those files; `lint --workspaces` now exits cleanly and only reports the repository’s pre-existing import-order warning baseline.
+- Testing step 1: `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`.
+- Testing step 2: A targeted wrapper run first exposed that normal agent runs were still letting `ChatInterface.run(...)` clean up inflight state before the new stop finalizer inspected the abort signal, which produced `failed` instead of `stopped`; after switching normal instruction runs to `deferInflightCleanup: true`, the targeted integration file passed and the full `npm run test:summary:server:unit` wrapper passed cleanly with `tests run: 996`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 3 and Subtask 11: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 68`, `failed: 0`, and `agent_action: skip_log`; this note closes out the final Task 5 implementation record before commit tracking is added.
 
 ---
 

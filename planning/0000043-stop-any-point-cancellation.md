@@ -188,6 +188,64 @@ None. Repository and external research are sufficient to task this story.
   - `Turn.status` already supports `'stopped'`, which is sufficient for the persistent terminal state;
   - do not persist transient pending-cancel or active-run ownership data unless the story scope later expands to require restart-safe cancellation semantics.
 
+## Cancellation Targeting
+
+- Stop targeting follows one deterministic order for this story:
+  - if `cancel_inflight` includes both `conversationId` and `inflightId`, treat it as an explicit target request for that one run;
+  - if `cancel_inflight` includes only `conversationId`, treat it as a conversation-only request for the run token that currently owns that conversation;
+  - if there is no active run token for that conversation, the request is a no-op.
+
+- Explicit-target behavior:
+  - if the provided `inflightId` matches the active run for that conversation, cancel that run;
+  - if the provided `inflightId` does not match the active run for that conversation, keep the existing invalid-target failure behavior rather than silently converting it into a conversation-only cancel.
+
+- Conversation-only behavior:
+  - if a run is active, bind the stop request to that run token and later to its `inflightId` when available;
+  - if no run is active, do not create pending-cancel state and do not emit a terminal websocket event.
+
+- Replacement-run protection:
+  - a stop request may only affect the run token that owned the conversation when the request was accepted;
+  - it must never fall through and cancel a later replacement run that started after the earlier stop request.
+
+## Event Outcomes
+
+- Explicit target matches active run:
+  - exactly one terminal `turn_final` is published for that run;
+  - the terminal status is `stopped`.
+
+- Explicit target does not match an active run:
+  - keep the existing explicit-target invalid behavior;
+  - the client receives one failed terminal outcome rather than a silent no-op.
+
+- Conversation-only stop with active run:
+  - the client enters `stopping`;
+  - the server binds the request to the active run token;
+  - exactly one terminal `turn_final` with `status: 'stopped'` is eventually published for that run.
+
+- Conversation-only stop with no active run:
+  - no terminal websocket event is published;
+  - no local stopped or failed bubble is invented;
+  - the page clears `stopping` and returns to ready state.
+
+## UI State Contract
+
+- UI states for this story are:
+  - `idle`: no active run and no stop pending;
+  - `active`: a run is in progress;
+  - `stopping`: the user has pressed Stop and the page is waiting for the stop outcome for that targeted run;
+  - terminal states remain the existing run result states driven by `turn_final`.
+
+- Transition rules:
+  - `active -> stopping` happens immediately when the user presses Stop;
+  - `stopping -> terminal stopped` happens only when the matching `turn_final` with `status: 'stopped'` arrives for the targeted active run;
+  - `stopping -> idle` is allowed only for the documented conversation-only no-active-run path;
+  - the UI must not transition directly from `active` to a terminal stopped state based only on the user click.
+
+- UI rendering rules:
+  - while in `stopping`, show that cancellation is in progress and keep duplicate stop actions from starting independent stop attempts;
+  - if the no-op path is reached, clear `stopping` quietly and re-enable controls without rendering a fake stopped or failed terminal bubble;
+  - if an explicit invalid target is sent, preserve the current explicit-target error behavior rather than presenting it as a successful stop.
+
 ## Research Findings
 
 - Repository behavior today:

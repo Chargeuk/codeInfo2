@@ -287,7 +287,7 @@ The story should be implementable by a junior developer without extra stakeholde
 
 ### 1. MCP Tool Description Contract
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `none yet`
 
 #### Overview
@@ -315,7 +315,7 @@ Self-contained reminder for every subtask in this task: keep `https://modelconte
 6. [x] File-structure documentation follow-through. Location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md). Description and purpose: if this task ends up adding or removing any tracked test file while using the fallback path described above, update `projectStructure.md` only after all file add/remove work in this task is finished and make sure the document lists every tracked file added or removed by Task 1. If no files were added or removed, record that `projectStructure.md` stayed unchanged on purpose.
 7. [x] Record in this task’s Implementation notes that the description change affects `tools/list` metadata only, list the exact stable phrases used by the happy-path metadata regression, and explain why they were chosen instead of a full-text snapshot.
 8. [x] Manual Playwright-MCP log contract for Task 1. Expected browser-console outcome later: zero matches for the prefix `[DEV-0000044][T1]` and zero browser `error` entries caused by this story, because Task 1 only changes MCP metadata and server-side tests. Do not add any new client/runtime log line such as `[DEV-0000044][T1] event=mcp_tool_description_contract_aligned result=success`. Record this expected zero-match outcome in Implementation notes so the final Playwright check has a concrete pass/fail rule.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -323,8 +323,8 @@ Wrapper-only policy: do not attempt to run builds or tests without using the wra
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts. This preserves tokens while keeping full diagnostics available.
 
 1. [x] `npm run build:summary:server` - Use because this task changes server code and server tests. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` - Use for server `node:test` unit/integration coverage because server behavior and server test expectations change in this task. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber coverage because this task changes server-exposed MCP metadata and final server-side wrapper validation should still pass at the task level. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+2. [x] `npm run test:summary:server:unit` - Use for server `node:test` unit/integration coverage because server behavior and server test expectations change in this task. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use for server Cucumber coverage because this task changes server-exposed MCP metadata and final server-side wrapper validation should still pass at the task level. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -337,6 +337,9 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - No tracked files were added or removed in Task 1, so `projectStructure.md` intentionally stayed unchanged.
 - Recorded the Manual Playwright expectation for later story validation: zero `[DEV-0000044][T1]` browser-console entries and zero browser `error` entries caused by Task 1, because this task changes metadata and server-side tests only.
 - `npm run build:summary:server` passed cleanly with `agent_action: skip_log`; no build-log inspection was needed.
+- `npm run lint --workspaces` completed with existing repo-wide import-order warnings outside Task 1; `npm run format:check --workspaces` initially failed on `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, so I ran `npx prettier --write` on that file plus the Task 1 touched files and then reran `format:check` to a clean pass.
+- `npm run test:summary:server:unit` passed cleanly with 1017/1017 tests passing and `agent_action: skip_log`; no unit-test log inspection was needed.
+- `npm run test:summary:server:cucumber` passed cleanly with 68/68 tests passing and `agent_action: skip_log`; no cucumber-log inspection was needed.
 
 ---
 

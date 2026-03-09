@@ -1439,7 +1439,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 ### 17. Re-Run Final Verification And Acceptance Check After Review Fixes
 
 - Task Status: `__done__`
-- Git Commits: `894cc9f8 - DEV-[0000043] - Re-run final stop acceptance after review fixes`
+- Git Commits: `894cc9f8 - DEV-[0000043] - Re-run final stop acceptance after review fixes`; `1b849789 - DEV-[0000043] - Record Task 17 commit tracking`
 
 #### Overview
 

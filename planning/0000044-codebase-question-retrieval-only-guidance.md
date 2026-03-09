@@ -28,6 +28,8 @@ For this story, "relevant surfaces" is intentionally concrete. At minimum, the i
 
 - `server/src/mcp2/tools/codebaseQuestion.ts`;
 - `AGENTS.md`;
+- `docs/developer-reference.md`;
+- `usefulCommands.txt.md`;
 - `codex_agents/planning_agent/system_prompt.txt`;
 - `codex_agents/vllm_agent/system_prompt.txt`;
 - `codex_agents/lmstudio_agent/system_prompt.txt`;
@@ -39,9 +41,15 @@ For this story, "relevant surfaces" is intentionally concrete. At minimum, the i
 - `codex_agents/vllm_agent/commands/kadshow_improve_plan.json`;
 - `codex_agents/tasking_agent/commands/task_up.json`.
 
-If additional prompt or command files are found during implementation that also describe `codebase_question` or `code_info` as a reasoning authority, those files are in scope too. Unrelated prompts that do not mention repository-question MCP usage are not part of this story.
+If additional prompt or command files are found during implementation that also describe `codebase_question` or `code_info` as a reasoning authority, those files are in scope too. Unrelated prompts that do not mention repository-question MCP usage are not part of this story. The current `codex_agents/tasking_agent/system_prompt.txt` conversation-id instruction should be reviewed for consistency, but it only needs changing if the surrounding wording starts implying that `code_info` should reason on the agent's behalf.
 
 This story is intentionally guidance-only. The user has decided that there should be no runtime prompt rejection, no semantic classifier, and no hard enforcement in server code beyond the wording of the existing tool description and prompt files. The output of this story is therefore consistency and clarity, not a new validation layer.
+
+Research note for scoping:
+
+- MCP tool descriptions and annotations are effectively hints to clients and models, so concise wording matters even though the protocol itself does not enforce behavior.
+- OpenAI tool-calling guidance also recommends concise, explicit tool descriptions because the model uses that wording to decide when and how to call a tool.
+- That means this story should tighten wording and add lightweight regression checks for the wording contract, but it should not expand into runtime validation or large prompt-governance machinery.
 
 ### Acceptance Criteria
 
@@ -50,12 +58,15 @@ This story is intentionally guidance-only. The user has decided that there shoul
 - The `codebase_question` MCP tool description no longer reads like a general "ask the repo expert to solve this for me" interface.
 - `AGENTS.md` explicitly documents that `code_info` usage is retrieval-first: use it to gather evidence, then inspect the codebase directly and reason from that evidence.
 - `AGENTS.md` explicitly says `code_info` is not a replacement for code reading, implementation design, risk assessment, or code review performed by the working model.
+- `docs/developer-reference.md` includes a short developer-facing note explaining that `codebase_question` reduces repository search cost but does not replace direct source inspection or reasoning by the working model.
+- `usefulCommands.txt.md` is updated anywhere it currently teaches a human operator to use `code_info` as if it should scope the story, design the implementation, or certify correctness on the operator's behalf.
 - The planning-oriented system prompts in `codex_agents/planning_agent/system_prompt.txt`, `codex_agents/vllm_agent/system_prompt.txt`, and `codex_agents/lmstudio_agent/system_prompt.txt` stop telling the agent to use repository-question MCP tooling to "come up with suggestions" or otherwise design the solution on the tool's behalf.
 - The planning-oriented command files in `codex_agents/planning_agent/commands/improve_plan.json`, `codex_agents/lmstudio_agent/commands/improve_plan.json`, `codex_agents/lmstudio_agent/commands/kadshow_improve_plan.json`, `codex_agents/vllm_agent/commands/improve_plan.json`, and `codex_agents/vllm_agent/commands/kadshow_improve_plan.json` are updated so repository-question MCP usage is described as evidence gathering, source discovery, and fact finding rather than plan authorship, solution design, coverage judgment, or architecture sign-off.
 - The tasking-oriented command file `codex_agents/tasking_agent/commands/task_up.json` is updated so repository-question MCP usage is described as finding existing code, contracts, and evidence, while the tasking agent remains responsible for deciding what to change in the plan.
 - The research-oriented prompt in `codex_agents/research_agent/system_prompt.txt` may still encourage broad research, but it frames `code_info` as one retrieval source among others rather than as the authority that decides the final answer.
 - Across all updated prompt and command surfaces, wording that asks the tool to decide how to fix an issue, confirm that coverage is sufficient, ensure that edge cases are fully handled, or judge whether a plan is correct is removed or rewritten so that responsibility stays with the calling agent.
 - The wording across the MCP tool description, `AGENTS.md`, and the in-scope `codex_agents` files is internally consistent enough that a reader would come away with one clear rule: `codebase_question`/`code_info` helps gather repository evidence, but the working agent must inspect code and reason for itself.
+- A lightweight regression check is added for the MCP tool definition so a future change to `tools/list` cannot silently broaden the `codebase_question` description back into a general problem-solving tool description.
 - No server-side prompt rejection, heuristic blocking, or runtime validation is introduced for this story.
 - The public MCP method name remains `codebase_question`.
 - Existing REST and MCP request and response shapes remain unchanged for this story.
@@ -68,6 +79,7 @@ This story is intentionally guidance-only. The user has decided that there shoul
 - Changing answer payload shapes, websocket messages, or transcript rendering.
 - Reworking unrelated agent instructions that do not mention repository-search MCP usage.
 - Converting every mention of `code_info` in the repository into a long policy explanation if the current wording is already compatible with the retrieval-only rule.
+- Adding a heavy prompt-linting or semantic-analysis system for prompt text consistency.
 - Changing model selection, provider routing, or token budgeting behavior.
 - Adding new MCP repository-search tools beyond clarifying the role of the existing one.
 
@@ -99,10 +111,14 @@ Wording that should be removed or rewritten in this story:
   - do not rely on it to decide how to fix an issue or whether coverage/risk is acceptable;
   - the caller must inspect source files and reason from evidence.
 - Update `AGENTS.md` to mirror the same rule in repository-specific instructions.
+- Add or update a short note in `docs/developer-reference.md` so the retrieval-only contract is documented outside prompt files as well.
+- Review `usefulCommands.txt.md` alongside the `codex_agents` prompts so helper text shown to humans does not keep the old "ask code_info to solve it" framing alive.
 - Review the in-scope prompt files listed above first, because those are the concrete surfaces already known to contain ambiguous wording.
 - Normalize planning-agent wording so it says the MCP tool helps gather repository evidence, while the planning agent still scopes the story and proposes the implementation details.
 - Normalize research-agent wording so repository-search MCP usage is one evidence source in a wider investigation, not the authority that decides the root cause or final fix.
 - Review command JSON files that currently instruct agents to ask the MCP tool broad advisory questions and rewrite them so they ask for evidence, then direct the agent to continue with manual inspection and its own reasoning.
 - When rewriting prompts, prefer short, concrete wording over long policy prose so the prompts remain readable while still enforcing the retrieval-only intent.
+- Add one lightweight server-side regression test around `tools/list` or the tool-definition helper so the `codebase_question` description is checked for the retrieval-only contract without introducing large prompt-text test snapshots.
+- Prompt and command file consistency can be verified by direct file review in this story; do not add a broad repo-wide prompt validator unless implementation uncovers a concrete repeated failure mode that cannot be managed by the scoped file updates above.
 - Keep the wording consistent across all surfaces so there is one authoritative mental model for the tool.
 - Do not add runtime checks or error paths in this story. The user has explicitly chosen guidance over enforcement.

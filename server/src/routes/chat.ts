@@ -12,18 +12,6 @@ import {
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
 import {
-  resolveCodexCapabilities,
-  type CodexCapabilityResolution,
-} from '../codex/capabilityResolver.js';
-import {
-  resolveRuntimeProviderSelection,
-  type ChatDefaultProvider,
-} from '../config/chatDefaults.js';
-import {
-  RuntimeConfigResolutionError,
-  resolveChatRuntimeConfig,
-} from '../config/runtimeConfig.js';
-import {
   abortInflight,
   bindPendingConversationCancelToInflight,
   cleanupPendingConversationCancel,
@@ -39,6 +27,18 @@ import {
   memoryConversations,
   shouldUseMemoryPersistence,
 } from '../chat/memoryPersistence.js';
+import {
+  resolveCodexCapabilities,
+  type CodexCapabilityResolution,
+} from '../codex/capabilityResolver.js';
+import {
+  resolveRuntimeProviderSelection,
+  type ChatDefaultProvider,
+} from '../config/chatDefaults.js';
+import {
+  RuntimeConfigResolutionError,
+  resolveChatRuntimeConfig,
+} from '../config/runtimeConfig.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 import { ConversationModel, type Conversation } from '../mongo/conversation.js';
@@ -478,6 +478,14 @@ export function createChatRouter({
 
     const ownership = getActiveRunOwnership(conversationId);
     if (!ownership) {
+      releaseConversationLockFn(conversationId);
+      baseLogger.error(
+        {
+          requestId,
+          conversationId,
+        },
+        'chat.run.ownership_missing_after_lock',
+      );
       return res.status(500).json({
         status: 'error',
         code: 'RUN_STATE_UNAVAILABLE',

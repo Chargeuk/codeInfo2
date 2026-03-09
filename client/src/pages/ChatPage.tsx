@@ -400,6 +400,7 @@ export default function ChatPage() {
         if (targetEvent.type === 'inflight_snapshot') {
           serverVisibleInflightIdRef.current = targetEvent.inflight.inflightId;
         } else if (
+          targetEvent.type !== 'turn_final' &&
           'inflightId' in targetEvent &&
           typeof targetEvent.inflightId === 'string'
         ) {
@@ -489,6 +490,7 @@ export default function ChatPage() {
         if (event.type === 'inflight_snapshot') {
           serverVisibleInflightIdRef.current = event.inflight.inflightId;
         } else if (
+          event.type !== 'turn_final' &&
           'inflightId' in event &&
           typeof event.inflightId === 'string'
         ) {

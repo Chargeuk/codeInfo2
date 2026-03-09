@@ -456,4 +456,82 @@ describe('Chat page stop control', () => {
     );
     expect(await screen.findByTestId('chat-input')).toBeEnabled();
   });
+
+  it('keeps explicit stop targeting on the active run after a stale older turn_final arrives', async () => {
+    let runIndex = 0;
+    const harness = setupChatWsHarness({
+      mockFetch,
+      chatFetch: (body) => {
+        runIndex += 1;
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              status: 'started',
+              conversationId: body.conversationId,
+              inflightId: `i${runIndex}`,
+              provider: 'lmstudio',
+              model: 'm1',
+            }),
+            {
+              status: 202,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        );
+      },
+    });
+    const user = userEvent.setup();
+
+    renderChatPage();
+
+    const { sendButton } = await startChatTurn(user, 'First run');
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    expect(conversationId).toBeTruthy();
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId: 'i1',
+      assistantText: '',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId: 'i1',
+      status: 'ok',
+    });
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+
+    await startChatTurn(user, 'Second run');
+    await waitFor(() => expect(harness.chatBodies.length).toBe(2));
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId: 'i2',
+      assistantText: '',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId: 'i1',
+      status: 'failed',
+      error: {
+        code: 'INFLIGHT_NOT_FOUND',
+        message: 'Stale stop request ignored for the replacement run',
+      },
+    });
+
+    await act(async () => {
+      await user.click(await screen.findByTestId('chat-stop'));
+    });
+
+    const cancelMessage = await findLatestCancel();
+    expect(cancelMessage).toEqual(
+      expect.objectContaining({
+        type: 'cancel_inflight',
+        conversationId,
+        inflightId: 'i2',
+      }),
+    );
+  });
 });

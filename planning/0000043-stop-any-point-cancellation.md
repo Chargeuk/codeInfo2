@@ -453,10 +453,11 @@ Update the websocket cancel handler so it follows the story’s targeting and ou
 7. [ ] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that proves `cancel_ack.requestId` matches the initiating conversation-only no-op request. Purpose: cover request correlation for the no-op ack path.
 8. [ ] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that sends a malformed `cancel_inflight` payload and proves validation rejects it without stop side effects. Purpose: cover malformed websocket input.
 9. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that sends duplicate websocket stop requests for the same run and proves the terminal outcome is emitted once. Purpose: cover websocket-level stop idempotence.
-10. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a short websocket stop-contract section and a Mermaid `sequenceDiagram` that shows `cancel_inflight` with and without `inflightId`, the explicit invalid-target path, the conversation-only no-active-run `cancel_ack.result === 'noop'` path, and the successful active-run path ending in `turn_final.status === 'stopped'`.
-11. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-12. [ ] Update this plan file’s `Implementation notes` for Task 1 after the implementation and tests are complete.
-13. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+10. [ ] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that sends conversation-only `cancel_inflight` while an agent command run is active and proves the command-run abort path still fires without emitting an invalid-target terminal failure. Purpose: cover command-run compatibility for conversation-only stop before Task 6 replaces the runtime path.
+11. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a short websocket stop-contract section and a Mermaid `sequenceDiagram` that shows `cancel_inflight` with and without `inflightId`, the explicit invalid-target path, the conversation-only no-active-run `cancel_ack.result === 'noop'` path, and the successful active-run path ending in `turn_final.status === 'stopped'`.
+12. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+13. [ ] Update this plan file’s `Implementation notes` for Task 1 after the implementation and tests are complete.
+14. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -868,11 +869,13 @@ Update the shared client stop state machine so the frontend can represent `stopp
 5. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves shared stream state enters `stopping` and preserves a distinct `stopped` terminal status when the matching final event arrives. Purpose: cover the shared stream happy path.
 6. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves `cancel_ack.result === 'noop'` clears `stopping` without inventing a terminal bubble. Purpose: cover shared no-op recovery.
 7. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves explicit invalid-target failure and duplicate terminal events do not regress stream state. Purpose: cover shared error handling and idempotence.
-8. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves unmounts, remounts, or reconnects while `stopping` is pending reconcile correctly when late events arrive. Purpose: cover shared navigation and reconnect corner cases.
-9. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a shared stop-state section and a Mermaid `flowchart` that shows `running -> stopping -> stopped`, the conversation-only no-op recovery path back to ready after `cancel_ack.result === 'noop'`, and the stale-event or invalid-target paths that must not invent a terminal state.
-10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-11. [ ] Update this plan file’s `Implementation notes` for Task 9 after the implementation and tests are complete.
-12. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+8. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves a stale `cancel_ack` with a non-matching `requestId` does not clear the current `stopping` state. Purpose: cover no-op ack correlation and stale-event protection.
+9. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves calling the shared stop path no longer appends the immediate local `Generation stopped` status bubble before a terminal server event arrives. Purpose: cover removal of the fake local stopped path.
+10. [ ] Add or update a client hook test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that proves unmounts, remounts, or reconnects while `stopping` is pending reconcile correctly when late events arrive. Purpose: cover shared navigation and reconnect corner cases.
+11. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a shared stop-state section and a Mermaid `flowchart` that shows `running -> stopping -> stopped`, the conversation-only no-op recovery path back to ready after `cancel_ack.result === 'noop'`, and the stale-event or invalid-target paths that must not invent a terminal state.
+12. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+13. [ ] Update this plan file’s `Implementation notes` for Task 9 after the implementation and tests are complete.
+14. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -917,12 +920,13 @@ Update Chat page stop controls and local UX so Chat uses the shared stopping con
 3. [ ] Update Chat page stored-turn mapping and assistant status chips so persisted `Turn.status === 'stopped'` remains visibly `Stopped` after reload instead of being collapsed to `Complete`.
 4. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat shows the visible stopping UX and disables duplicate stop actions while cancellation is pending. Purpose: cover the Chat page happy path.
 5. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves `cancel_ack.result === 'noop'` returns Chat to ready state without a fake terminal bubble. Purpose: cover the Chat page no-op path.
-6. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat waits for terminal stopped synchronization and allows same-conversation reuse after confirmed stop. Purpose: cover the Chat page finalization path.
-7. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves persisted `Turn.status === 'stopped'` renders visibly stopped after reload. Purpose: cover Chat stopped hydration.
-8. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat recovers correctly if the page unmounts or the active conversation changes while `stopping` is still pending. Purpose: cover Chat navigation corner cases.
-9. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-10. [ ] Update this plan file’s `Implementation notes` for Task 10 after the implementation and tests are complete.
-11. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+6. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat sends `cancel_inflight` with `conversationId` and no `inflightId` when Stop is clicked before the page has stored the active `inflightId`. Purpose: cover the Chat startup-race conversation-only stop path.
+7. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat waits for terminal stopped synchronization and allows same-conversation reuse after confirmed stop. Purpose: cover the Chat page finalization path.
+8. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves persisted `Turn.status === 'stopped'` renders visibly stopped after reload. Purpose: cover Chat stopped hydration.
+9. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat recovers correctly if the page unmounts or the active conversation changes while `stopping` is still pending. Purpose: cover Chat navigation corner cases.
+10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+11. [ ] Update this plan file’s `Implementation notes` for Task 10 after the implementation and tests are complete.
+12. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -967,12 +971,13 @@ Update Agents page stop controls and local UX so both normal runs and command ru
 3. [ ] Update Agents page stored-turn mapping and assistant status chips so persisted `Turn.status === 'stopped'` remains visibly `Stopped` after reload instead of being collapsed to `Complete`.
 4. [ ] Add or update a page test in `client/src/test/agentsPage.commandsRun.abort.test.tsx` that proves Agents shows the visible stopping UX and disables duplicate stop actions while cancellation is pending. Purpose: cover the Agents page happy path.
 5. [ ] Add or update a page test in `client/src/test/agentsPage.commandsRun.abort.test.tsx` that proves `cancel_ack.result === 'noop'` returns Agents to ready state without a fake terminal bubble. Purpose: cover the Agents page no-op path.
-6. [ ] Add or update a page test in `client/src/test/agentsPage.commandsRun.abort.test.tsx` that proves Agents waits for terminal stopped synchronization and allows same-conversation reuse after confirmed stop. Purpose: cover the Agents page finalization path.
-7. [ ] Add or update a page test in `client/src/test/agentsPage.statusChip.test.tsx` that proves persisted `Turn.status === 'stopped'` renders visibly stopped after reload. Purpose: cover Agents stopped hydration.
-8. [ ] Add or update a page test in `client/src/test/agentsPage.commandsRun.abort.test.tsx` that proves Agents recovers correctly if the page unmounts or the active conversation changes while `stopping` is still pending. Purpose: cover Agents navigation corner cases.
-9. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-10. [ ] Update this plan file’s `Implementation notes` for Task 11 after the implementation and tests are complete.
-11. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+6. [ ] Add or update a page test in `client/src/test/agentsPage.commandsRun.abort.test.tsx` that proves Agents sends `cancel_inflight` with `conversationId` and no `inflightId` when Stop is clicked for a command run before the page has stored a client-visible `inflightId`. Purpose: cover the Agents command-run startup-race conversation-only stop path.
+7. [ ] Add or update a page test in `client/src/test/agentsPage.commandsRun.abort.test.tsx` that proves Agents waits for terminal stopped synchronization and allows same-conversation reuse after confirmed stop. Purpose: cover the Agents page finalization path.
+8. [ ] Add or update a page test in `client/src/test/agentsPage.statusChip.test.tsx` that proves persisted `Turn.status === 'stopped'` renders visibly stopped after reload. Purpose: cover Agents stopped hydration.
+9. [ ] Add or update a page test in `client/src/test/agentsPage.commandsRun.abort.test.tsx` that proves Agents recovers correctly if the page unmounts or the active conversation changes while `stopping` is still pending. Purpose: cover Agents navigation corner cases.
+10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+11. [ ] Update this plan file’s `Implementation notes` for Task 11 after the implementation and tests are complete.
+12. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 
@@ -1020,13 +1025,14 @@ Update Flows page stop controls and local UX so flow runs use the shared stoppin
 3. [ ] Update Flows page stored-turn mapping and assistant status chips so persisted `Turn.status === 'stopped'` remains visibly `Stopped` after reload instead of being collapsed to `Complete`.
 4. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves Flows shows the visible stopping UX and disables duplicate stop actions while cancellation is pending. Purpose: cover the Flows page happy path.
 5. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves `cancel_ack.result === 'noop'` returns Flows to ready state without a fake terminal bubble. Purpose: cover the Flows page no-op path.
-6. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves Flows waits for terminal stopped synchronization and allows same-conversation reuse after confirmed stop. Purpose: cover the Flows page finalization path.
-7. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves persisted `Turn.status === 'stopped'` renders visibly stopped after reload. Purpose: cover Flows stopped hydration.
-8. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves Flows recovers correctly if the page unmounts or the active conversation changes while `stopping` is still pending. Purpose: cover Flows navigation corner cases.
-9. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a Flows page stop UX section and a Mermaid `flowchart` that shows user stop action, shared `stopping` UI, no-op recovery after `cancel_ack.result === 'noop'`, terminal `Stopped` rendering after `turn_final.status === 'stopped'`, and same-conversation reuse after confirmation.
-10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
-11. [ ] Update this plan file’s `Implementation notes` for Task 12 after the implementation and tests are complete.
-12. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
+6. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves Flows sends `cancel_inflight` with `conversationId` and no `inflightId` when Stop is clicked before the page has stored the active flow `inflightId`. Purpose: cover the Flows startup-race conversation-only stop path.
+7. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves Flows waits for terminal stopped synchronization and allows same-conversation reuse after confirmed stop. Purpose: cover the Flows page finalization path.
+8. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves persisted `Turn.status === 'stopped'` renders visibly stopped after reload. Purpose: cover Flows stopped hydration.
+9. [ ] Add or update a page test in `client/src/test/flowsPage.stop.test.tsx` that proves Flows recovers correctly if the page unmounts or the active conversation changes while `stopping` is still pending. Purpose: cover Flows navigation corner cases.
+10. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a Flows page stop UX section and a Mermaid `flowchart` that shows user stop action, shared `stopping` UI, no-op recovery after `cancel_ack.result === 'noop'`, terminal `Stopped` rendering after `turn_final.status === 'stopped'`, and same-conversation reuse after confirmation.
+11. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done.
+12. [ ] Update this plan file’s `Implementation notes` for Task 12 after the implementation and tests are complete.
+13. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.
 
 #### Testing
 

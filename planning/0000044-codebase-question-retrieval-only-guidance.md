@@ -567,7 +567,7 @@ No wrapper build or automated test run is required for this task because it chan
 
 ### 7. Research Prompt Retrieval Boundary Review
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `none yet`
 
 #### Overview
@@ -588,11 +588,11 @@ Review the research-agent prompt and only change it if the file still implies th
 
 Self-contained reminder for every subtask in this task: keep `https://platform.openai.com/docs/guides/function-calling`, `https://platform.openai.com/docs/guides/tools-connectors-mcp`, `https://context7.com/docs/api-guide`, `https://deepwiki.com`, `https://llms.mui.com/material-ui/6.4.12/llms.txt`, and `https://modelcontextprotocol.io/docs/learn/server-concepts` open while working. Current repo evidence says this file may already be acceptable, so record a no-change decision if the search terms below do not show authority-style wording.
 
-1. [ ] Read the documentation links above, then inspect [codex_agents/research_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/research_agent/system_prompt.txt). Identify the exact sentence that talks about using `code_info`, DeepWiki, Context7, MUI, and web search, and confirm whether it already reads as broad research guidance rather than authority delegation. Junior copy/paste snippet for this subtask: `sed -n '1,80p' codex_agents/research_agent/system_prompt.txt`, `rg -n 'code_info|DeepWiki|Context7|MUI|web' codex_agents/research_agent/system_prompt.txt`.
-2. [ ] Only if the file still implies that `code_info` decides the answer, update [codex_agents/research_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/research_agent/system_prompt.txt) so it still permits broad research across the codebase, libraries, and the web, while explicitly treating `code_info` as a repository-evidence tool rather than the authority that decides the answer. Reuse the same stable phrase set from Task 1 and `AGENTS.md` where it fits, and keep the rest of the research-agent prompt structure and scope intact. If no edit is needed, record that decision in Implementation notes instead of forcing prompt churn.
-3. [ ] Search the file for `code_info`, `100% confident`, `double check`, `come up with suggestions`, `judge whether`, and `confirm correctness`, plus any wording that could still imply the tool decides the answer. Record in Implementation notes whether the file was left unchanged or edited, which search terms were used, and why that choice matched the actual file contents.
-4. [ ] Manual Playwright-MCP log contract for Task 7. Expected browser-console outcome later: zero matches for the prefix `[DEV-0000044][T7]` and zero browser `error` entries caused by this story, because Task 7 only reviews or lightly edits prompt text. Do not add any new client/runtime log line such as `[DEV-0000044][T7] event=research_prompt_boundary_checked result=success`. Record this expected zero-match outcome in Implementation notes.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Read the documentation links above, then inspect [codex_agents/research_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/research_agent/system_prompt.txt). Identify the exact sentence that talks about using `code_info`, DeepWiki, Context7, MUI, and web search, and confirm whether it already reads as broad research guidance rather than authority delegation. Junior copy/paste snippet for this subtask: `sed -n '1,80p' codex_agents/research_agent/system_prompt.txt`, `rg -n 'code_info|DeepWiki|Context7|MUI|web' codex_agents/research_agent/system_prompt.txt`.
+2. [x] Only if the file still implies that `code_info` decides the answer, update [codex_agents/research_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/research_agent/system_prompt.txt) so it still permits broad research across the codebase, libraries, and the web, while explicitly treating `code_info` as a repository-evidence tool rather than the authority that decides the answer. Reuse the same stable phrase set from Task 1 and `AGENTS.md` where it fits, and keep the rest of the research-agent prompt structure and scope intact. If no edit is needed, record that decision in Implementation notes instead of forcing prompt churn.
+3. [x] Search the file for `code_info`, `100% confident`, `double check`, `come up with suggestions`, `judge whether`, and `confirm correctness`, plus any wording that could still imply the tool decides the answer. Record in Implementation notes whether the file was left unchanged or edited, which search terms were used, and why that choice matched the actual file contents.
+4. [x] Manual Playwright-MCP log contract for Task 7. Expected browser-console outcome later: zero matches for the prefix `[DEV-0000044][T7]` and zero browser `error` entries caused by this story, because Task 7 only reviews or lightly edits prompt text. Do not add any new client/runtime log line such as `[DEV-0000044][T7] event=research_prompt_boundary_checked result=success`. Record this expected zero-match outcome in Implementation notes.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -601,7 +601,11 @@ No wrapper build or automated test run is required for this task because it chan
 
 #### Implementation notes
 
-- Pending.
+- Set Task 7 to `__in_progress__`, inspected `codex_agents/research_agent/system_prompt.txt`, and confirmed the current `code_info` sentence reads as broad research workflow guidance rather than tool-authority wording.
+- Left `codex_agents/research_agent/system_prompt.txt` unchanged because the file tells the research agent to use `code_info`, DeepWiki, Context7, MUI, and web search to investigate, not to let `code_info` decide the answer.
+- Searched the file for `code_info`, `100% confident`, `double check`, `come up with suggestions`, `judge whether`, and `confirm correctness`; only the operational `code_info` research sentence matched, which supports the no-change decision.
+- Recorded the Manual Playwright expectation for later story validation: zero `[DEV-0000044][T7]` browser-console entries and zero browser `error` entries caused by Task 7, because this task only reviews prompt text.
+- `npm run format:check --workspaces` passed cleanly; `npm run lint --workspaces` completed with the same existing repo-wide import-order warnings outside Task 7 and did not surface any Task 7-specific failures.
 
 ---
 

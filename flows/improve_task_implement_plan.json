@@ -84,7 +84,7 @@
             {
               "role": "user",
               "content": [
-                "Please check the last commit AND re-read the next plan to be worked on, even if you have read it before. You MUST double-check to see if tasks have been added to it or if anything has changed. You must ensure you fully understand the plan and its remaining tasks before proceeding. You MUST read the plan and CANNOT assume you understand it from before. You MUST read the whole plan again even if you have read it before. Once you have done this, give me a summary of the remaining work."
+                "Please check the last commit AND re-read the plan you are working on, even if you have read it before. You MUST double-check to see if tasks have been added to it by another agent or if anything has changed. You must ensure you fully understand the plan and its remaining tasks before proceeding. You MUST read the plan and CANNOT assume you understand it from before. You MUST read the whole plan again even if you have read it before. Once you have done this, give me a summary of the remaining work."
               ]
             }
           ]

@@ -434,13 +434,9 @@ Update the websocket cancel handler so it follows the story’s targeting and ou
 
 #### Documentation Locations
 
-- `planning/0000043-stop-any-point-cancellation.md`
-- `server/src/ws/types.ts`
-- `server/src/ws/server.ts`
-- `server/src/test/unit/ws-server.test.ts`
-- `server/src/test/unit/ws-chat-stream.test.ts`
-- `client/src/hooks/useChatWs.ts`
-- Node.js AbortController notes in this plan’s `Research Findings` section
+- `ws` server documentation: DeepWiki `websockets/ws`
+- Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
+- TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions
 
 #### Subtasks
 
@@ -484,12 +480,8 @@ Introduce the runtime-only active-run ownership state the story depends on by ex
 
 #### Documentation Locations
 
-- `planning/0000043-stop-any-point-cancellation.md`
-- `server/src/agents/runLock.ts`
-- `server/src/test/unit/ws-chat-stream.test.ts`
-- `server/src/routes/chat.ts`
-- `server/src/agents/service.ts`
-- `server/src/flows/service.ts`
+- Node.js `crypto.randomUUID()`: https://nodejs.org/api/crypto.html#cryptorandomuuidoptions
+- TypeScript object and type alias guidance: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
 
 #### Subtasks
 
@@ -531,10 +523,8 @@ Introduce the runtime-only pending-cancel state the story depends on by extendin
 
 #### Documentation Locations
 
-- `planning/0000043-stop-any-point-cancellation.md`
-- `server/src/chat/inflightRegistry.ts`
-- `server/src/test/unit/ws-chat-stream.test.ts`
-- `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`
+- Node.js `Map` and in-memory runtime-state patterns: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
+- TypeScript object and type alias guidance: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
 
 #### Subtasks
 
@@ -577,12 +567,9 @@ Wire the extended cancellation ownership model into chat runs only. This task sh
 
 #### Documentation Locations
 
-- `planning/0000043-stop-any-point-cancellation.md`
-- `server/src/routes/chat.ts`
-- `server/src/chat/chatStreamBridge.ts`
-- `server/src/chat/interfaces/ChatInterface.ts`
-- `server/src/test/unit/ws-chat-stream.test.ts`
-- `server/src/test/integration/chat-tools-wire.test.ts`
+- Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
+- OpenAI Node SDK docs: Context7 `/openai/openai-node`
+- `ws` event transport reference: DeepWiki `websockets/ws`
 
 #### Subtasks
 
@@ -626,11 +613,8 @@ Wire the new cancellation ownership model into normal agent instruction runs onl
 
 #### Documentation Locations
 
-- `planning/0000043-stop-any-point-cancellation.md`
-- `server/src/agents/service.ts`
-- `server/src/routes/agentsRun.ts`
-- `server/src/test/integration/agents-run-ws-cancel.test.ts`
-- `server/src/test/unit/mcp-agents-router-run.test.ts`
+- Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
+- OpenAI Node SDK docs: Context7 `/openai/openai-node`
 
 #### Subtasks
 
@@ -674,11 +658,8 @@ Wire the new cancellation ownership model into agent command-list execution only
 
 #### Documentation Locations
 
-- `planning/0000043-stop-any-point-cancellation.md`
-- `server/src/agents/commandsRunner.ts`
-- `server/src/routes/agentsCommands.ts`
-- `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`
-- `server/src/test/unit/agent-commands-runner-retry.test.ts`
+- Node.js `AbortSignal.any()` and `throwIfAborted()`: https://nodejs.org/api/globals.html#class-abortcontroller
+- Node.js timers/promises abort behavior: https://nodejs.org/api/timers.html
 
 #### Subtasks
 
@@ -722,11 +703,8 @@ Wire the new cancellation ownership model into flow execution only. This task sh
 
 #### Documentation Locations
 
-- `planning/0000043-stop-any-point-cancellation.md`
-- `server/src/flows/service.ts`
-- `server/src/routes/flowsRun.ts`
-- `server/src/test/integration/flows.run.loop.test.ts`
-- `server/src/test/integration/flows.run.command.test.ts`
+- Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
+- OpenAI Node SDK docs: Context7 `/openai/openai-node`
 
 #### Subtasks
 
@@ -770,10 +748,9 @@ Extend the shared websocket client layer so it can send conversation-only stop r
 
 #### Documentation Locations
 
-- `planning/0000043-stop-any-point-cancellation.md`
-- `client/src/hooks/useChatWs.ts`
-- `client/src/test/useChatWs.test.ts`
-- `client/src/test/support/mockChatWs.ts`
+- React docs on custom hooks: Context7 `/reactjs/react.dev`
+- TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions
+- Browser WebSocket event model: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
 #### Subtasks
 
@@ -815,10 +792,8 @@ Update the shared client stop state machine so the frontend can represent `stopp
 
 #### Documentation Locations
 
-- `planning/0000043-stop-any-point-cancellation.md`
-- `client/src/hooks/useChatStream.ts`
-- `client/src/hooks/useConversationTurns.ts`
-- `client/src/test/useChatStream.inflightMismatch.test.tsx`
+- React docs on `useState`, `useRef`, and state updates: Context7 `/reactjs/react.dev`
+- TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions
 
 #### Subtasks
 
@@ -860,10 +835,9 @@ Update Chat page stop controls and local UX so Chat uses the shared stopping con
 
 #### Documentation Locations
 
-- `planning/0000043-stop-any-point-cancellation.md`
-- `client/src/pages/ChatPage.tsx`
-- `client/src/hooks/useConversationTurns.ts`
-- `client/src/test/chatPage.stop.test.tsx`
+- React docs on event handlers and state updates: Context7 `/reactjs/react.dev`
+- MUI `Chip` API: use MUI MCP tool with `@mui/material` 6.x `chip.md`
+- MUI `CircularProgress` API: use MUI MCP tool with `@mui/material` 6.x `circular-progress.md`
 
 #### Subtasks
 
@@ -905,11 +879,9 @@ Update Agents page stop controls and local UX so both normal runs and command ru
 
 #### Documentation Locations
 
-- `planning/0000043-stop-any-point-cancellation.md`
-- `client/src/pages/AgentsPage.tsx`
-- `client/src/hooks/useConversationTurns.ts`
-- `client/src/test/agentsPage.commandsRun.abort.test.tsx`
-- `client/src/test/agentsPage.statusChip.test.tsx`
+- React docs on event handlers and state updates: Context7 `/reactjs/react.dev`
+- MUI `Chip` API: use MUI MCP tool with `@mui/material` 6.x `chip.md`
+- MUI `CircularProgress` API: use MUI MCP tool with `@mui/material` 6.x `circular-progress.md`
 
 #### Subtasks
 
@@ -952,10 +924,9 @@ Update Flows page stop controls and local UX so flow runs use the shared stoppin
 
 #### Documentation Locations
 
-- `planning/0000043-stop-any-point-cancellation.md`
-- `client/src/pages/FlowsPage.tsx`
-- `client/src/hooks/useConversationTurns.ts`
-- `client/src/test/flowsPage.stop.test.tsx`
+- React docs on event handlers and state updates: Context7 `/reactjs/react.dev`
+- MUI `Chip` API: use MUI MCP tool with `@mui/material` 6.x `chip.md`
+- MUI `CircularProgress` API: use MUI MCP tool with `@mui/material` 6.x `circular-progress.md`
 
 #### Subtasks
 
@@ -997,10 +968,8 @@ Update the repository documentation to match the implemented stop behavior and p
 
 #### Documentation Locations
 
-- `planning/0000043-stop-any-point-cancellation.md`
-- `README.md`
-- `design.md`
-- `projectStructure.md`
+- Markdown reference: https://www.markdownguide.org/basic-syntax/
+- Pull request writing reference: https://docs.github.com/en/pull-requests
 
 #### Subtasks
 
@@ -1039,10 +1008,8 @@ Verify the full story end-to-end against the acceptance criteria. This task must
 
 #### Documentation Locations
 
-- `planning/0000043-stop-any-point-cancellation.md`
-- Docker/Compose wrapper commands in the repository root `package.json`
-- Playwright documentation and the local `e2e/` test suite
-- `test-results/screenshots/`
+- Playwright screenshots and assertions: https://playwright.dev/docs/screenshots
+- Docker Compose build and up workflow: https://docs.docker.com/compose/
 
 #### Subtasks
 

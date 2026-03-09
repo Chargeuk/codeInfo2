@@ -17,6 +17,8 @@ The second missing need is reusable long-form markdown input. Current command an
 
 This story adds both capabilities, but keeps them within the existing synchronous runner model. It does not introduce paused execution or user-interactive waiting. Each new step must run to a terminal outcome before the runner decides what to do next.
 
+For commands, this story keeps the existing top-level `Description + items[]` file shape for backward compatibility. The new behavior is added by expanding command items into a discriminated union of executable item types rather than by replacing command files with a new `steps[]` shape.
+
 For markdown files, the user has chosen a repository-level folder named `codeinfo_markdown`, similar to repository `flows` support. Markdown files must be resolved using deterministic repository priority rules instead of ad hoc relative paths:
 
 - same source repository as the running flow or repository-scoped command;
@@ -25,6 +27,8 @@ For markdown files, the user has chosen a repository-level folder named `codeinf
 
 For local-only command execution where there is no separate repository source, the same-source and codeInfo2 repository collapse to the same location in the codeInfo2 repository.
 
+Within `codeinfo_markdown`, this story supports safe relative subpaths such as `architecture/auth/login.md`. Absolute paths, `..` traversal, and any lookup that escapes the resolved `codeinfo_markdown` root remain forbidden.
+
 For re-ingest steps, the story reuses the server’s existing blocking re-ingest behavior. The step must wait until ingest finishes with a terminal status such as completed, cancelled, or error before the runner may continue. If re-ingest fails, the command or flow still continues to the next step, but the step result must be recorded in a structured way so users and later debugging can see exactly what happened.
 
 This story deliberately excludes user-input waiting. That will be handled in a later story because it requires a new paused/resumable run state rather than a normal synchronous step.
@@ -32,6 +36,7 @@ This story deliberately excludes user-input waiting. That will be handled in a l
 ### Acceptance Criteria
 
 - Command JSON supports a step that triggers repository re-ingest.
+- Command JSON keeps the existing top-level `Description + items[]` shape for backward compatibility.
 - Flow JSON supports a step that triggers repository re-ingest.
 - The re-ingest step accepts a repository identifier that maps to an already ingested repository root.
 - The re-ingest step waits for a terminal ingest result before the runner is allowed to start the next step.
@@ -46,6 +51,7 @@ This story deliberately excludes user-input waiting. That will be handled in a l
   - but never both.
 - Markdown file contents are read as UTF-8 and passed through verbatim with no trimming, line rewriting, whitespace cleanup, or prompt reformatting before they are sent to the AI agent.
 - Markdown files are resolved from `codeinfo_markdown`.
+- `codeinfo_markdown` references may use safe relative subpaths under the folder.
 - Repository-scoped markdown resolution order is:
   - same source repository first;
   - codeInfo2 repository second;
@@ -71,25 +77,12 @@ This story deliberately excludes user-input waiting. That will be handled in a l
 
 ### Questions
 
-1. Should command JSON stay on the current `Description + items[]` shape, or should this story introduce a new command `steps[]` shape that looks more like flows?
-Why this is important:
-Changing the top-level command shape would affect backward compatibility, schema validation, loader behavior, runner behavior, existing command files, and any documentation that already assumes the current format. This is the biggest structural choice in this story because it decides whether Story 0000045 is an additive change or a schema-migration story.
-Best answer:
-Keep the existing `Description + items[]` command shape and expand command items into a discriminated union so commands can support additional executable item types such as `message`, `reingest`, and markdown-backed `llm` without replacing the top-level file format.
-Why this is the best answer:
-It is the lowest-risk path, it preserves existing command files, it avoids an unnecessary migration, and it keeps this story focused on adding capability rather than redesigning the whole command format. Flows already have their own step schema, so commands do not need to become structurally identical in order to gain the same features.
-
-2. Should `codeinfo_markdown` support only flat file names, or should it allow safe relative subpaths under that folder?
-Why this is important:
-This decision controls how scalable the markdown library becomes. Flat names are simpler to validate, but they become awkward once a repository has many reusable markdown files. Safe relative subpaths add more flexibility, but they need clear path-traversal rules and consistent lookup behavior.
-Best answer:
-Allow safe relative subpaths under `codeinfo_markdown`, for example `architecture/auth/login.md`, while forbidding absolute paths, `..` traversal, and any lookup that escapes the resolved `codeinfo_markdown` root.
-Why this is the best answer:
-It keeps the lookup safe while making the folder genuinely useful as a repository-level markdown library. A flat-only rule would likely become a limitation quickly and force another story later. Safe subpaths give users enough structure to organize markdown inputs properly without opening the door to arbitrary filesystem access.
+None. The command-file compatibility and markdown-path decisions are now fixed for this story.
 
 ## Implementation Ideas
 
 - Extend `server/src/agents/commandsSchema.ts` and `server/src/flows/flowSchema.ts` with new step shapes that remain explicitly typed and mutually exclusive where required.
+- Keep command files on `Description + items[]` and evolve `items` into the executable union instead of introducing a new top-level command `steps[]` migration.
 - Reuse `server/src/ingest/reingestService.ts` for blocking re-ingest execution instead of reimplementing polling logic in command or flow runners.
 - Introduce one shared markdown resolution helper so commands and flows do not drift.
 - Base repository ordering on the existing deterministic flow repository ordering in `server/src/flows/service.ts`.

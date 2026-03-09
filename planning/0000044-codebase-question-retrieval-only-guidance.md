@@ -312,16 +312,15 @@ Self-contained reminder for every subtask in this task: keep `https://modelconte
 5. [ ] Test type: `node:test` unit availability-path regression review. Location: [server/src/test/unit/mcp2-router-list-unavailable.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/mcp2-router-list-unavailable.test.ts) plus any matching files under `server/src/test`. Description and purpose: run a direct text search for `codebase_question` in `server/src/test`, re-check the unavailable-path test, and confirm the story did not change availability behavior, tool naming, or other test assumptions. There are no existing server tests that assert on description wording today, so record that this review is guarding behavior and naming consistency rather than rewriting old description assertions.
 6. [ ] File-structure documentation follow-through. Location: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md). Description and purpose: if this task ends up adding or removing any tracked test file while using the fallback path described above, update `projectStructure.md` only after all file add/remove work in this task is finished and make sure the document lists every tracked file added or removed by Task 1. If no files were added or removed, record that `projectStructure.md` stayed unchanged on purpose.
 7. [ ] Record in this task’s Implementation notes that the description change affects `tools/list` metadata only, list the exact stable phrases used by the happy-path metadata regression, and explain why they were chosen instead of a full-text snapshot.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Wrapper-only policy: do not attempt to run builds or tests without using the wrapper commands listed below.
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts. This preserves tokens while keeping full diagnostics available.
 
-1. [ ] `npm run lint --workspaces` - Run after all subtasks are complete so the server text and test updates still satisfy repository linting rules.
-2. [ ] `npm run format:check --workspaces` - Run after all subtasks are complete so formatting regressions are caught before wrapper builds and tests.
-3. [ ] `npm run build:summary:server` - This task changes server TypeScript and server test code, so server build validation is required.
-4. [ ] `npm run test:summary:server:unit` - This task changes an existing `node:test` suite and must prove the full server unit/integration wrapper still passes.
+1. [ ] `npm run build:summary:server` - This task changes server TypeScript and server test code, so server build validation is required.
+2. [ ] `npm run test:summary:server:unit` - This task changes an existing `node:test` suite and must prove the full server unit/integration wrapper still passes.
 
 #### Implementation notes
 
@@ -353,12 +352,10 @@ Self-contained reminder for every subtask in this task: keep `https://modelconte
 2. [ ] Review [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md) against the final Task 1 MCP wording. Only update the file if it still diverges from the retrieval-first boundary after Task 1 is complete; otherwise leave it unchanged and record in Implementation notes that it was already aligned enough. If an edit is needed, keep the existing onboarding flow and conversation-id rules intact and treat the file as the human-facing canonical wording source that later prompt tasks should mirror.
 3. [ ] Add or update a short note in [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) explaining that `codebase_question` reduces repository-search cost but does not replace source inspection, implementation design, risk assessment, or review by the working model. Reuse the stable phrases from Task 1 and the updated `AGENTS.md` wording instead of inventing new synonyms.
 4. [ ] Run repository searches for `code_info`, `codebase_question`, `repository facts`, and `inspect the local code directly` across [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md) and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md). In the same pass, compare the final `AGENTS.md` wording side by side with the Task 1 MCP description and record in Implementation notes whether `AGENTS.md` stayed unchanged or was minimally edited, plus why that leaves the two surfaces aligned enough.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-No wrapper build or automated test run is required for this task because it changes only markdown/text guidance files. Validation for this task is the wording search and file review completed in the subtasks above plus the repository checks below. Full wrapper regression is deferred to the final story task.
-
-1. [ ] `npm run lint --workspaces` - Run after all subtasks are complete so the markdown guidance changes still satisfy repository linting rules.
-2. [ ] `npm run format:check --workspaces` - Run after all subtasks are complete so markdown formatting regressions are caught before the task is marked done.
+No wrapper build or automated test run is required for this task because it changes only markdown/text guidance files. Validation for this task is the wording search and file review completed in the subtasks above. Full wrapper regression is deferred to the final story task.
 
 #### Implementation notes
 
@@ -391,12 +388,10 @@ Self-contained reminder for every subtask in this task: keep `https://modelconte
 1. [ ] Read the documentation links above, then inspect [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md) alongside the updated [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). Confirm which entries currently ask `code_info` to make the plan, certify correctness, or make the operator `100% confident`. Junior copy/paste snippet for this subtask: `sed -n '1,120p' usefulCommands.txt.md`, `rg -n '100% confident|double check your thoughts|double-check your thoughts|code_info' usefulCommands.txt.md AGENTS.md`.
 2. [ ] Rewrite only the relevant entries in [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md) so they reuse the stable Task 1 / `AGENTS.md` retrieval-first wording instead of asking `code_info` to decide the answer. Keep the file’s command-library purpose and overall structure intact.
 3. [ ] Search [usefulCommands.txt.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/usefulCommands.txt.md) for `100% confident`, `double check your thoughts`, `double-check your thoughts`, `come up with suggestions`, and `code_info`. Record in Implementation notes which phrases were removed, which were rewritten, and which remaining `code_info` mentions are intentionally operational-only.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-No wrapper build or automated test run is required for this task because it changes helper-text only. Validation for this task is the wording search and file review completed in the subtasks above plus the repository checks below. Full wrapper regression is deferred to the final story task.
-
-1. [ ] `npm run lint --workspaces` - Run after all subtasks are complete so the helper-text changes still satisfy repository linting rules.
-2. [ ] `npm run format:check --workspaces` - Run after all subtasks are complete so formatting regressions are caught before the task is marked done.
+No wrapper build or automated test run is required for this task because it changes helper-text only. Validation for this task is the wording search and file review completed in the subtasks above. Full wrapper regression is deferred to the final story task.
 
 #### Implementation notes
 
@@ -430,12 +425,10 @@ Self-contained reminder for every subtask in this task: keep `https://platform.o
 2. [ ] Update all three planning system prompts in the same edit pass so they tell the agent to use `code_info` to gather repository evidence, current implementations, and candidate files, then inspect those files directly and reason for itself. Reuse the same stable phrase set and responsibility boundary established in Task 1 and the updated `AGENTS.md` wording rather than inventing per-file variants. Keep the broader planning-agent role, KISS instructions, and question-asking behavior unchanged.
 3. [ ] After editing, compare the three files side by side and confirm the retrieval-only sentence stays materially identical across all variants so the family does not drift.
 4. [ ] Search these three files for `come up with suggestions`, `100% confident`, `double-check your thoughts`, and `code_info` and record in Implementation notes which wording was changed and which operational wording stayed unchanged.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-No wrapper build or automated test run is required for this task because it changes prompt text only. Validation for this task is the side-by-side comparison and wording searches completed in the subtasks above plus the repository checks below. Full wrapper regression is deferred to the final story task.
-
-1. [ ] `npm run lint --workspaces` - Run after all subtasks are complete so the prompt edits still satisfy repository linting rules.
-2. [ ] `npm run format:check --workspaces` - Run after all subtasks are complete so formatting regressions are caught before the task is marked done.
+No wrapper build or automated test run is required for this task because it changes prompt text only. Validation for this task is the side-by-side comparison and wording searches completed in the subtasks above. Full wrapper regression is deferred to the final story task.
 
 #### Implementation notes
 
@@ -468,15 +461,14 @@ Self-contained reminder for every subtask in this task: keep `https://platform.o
 1. [ ] Read the documentation links above, then inspect [codex_agents/planning_agent/commands/improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/planning_agent/commands/improve_plan.json), [codex_agents/lmstudio_agent/commands/improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/lmstudio_agent/commands/improve_plan.json), and [codex_agents/vllm_agent/commands/improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/vllm_agent/commands/improve_plan.json). Confirm which strings currently use phrases such as `100% confident`, `double check your thoughts`, `double-check your thoughts`, and `ensure all edge cases and failure modes are covered`, or otherwise ask `code_info` to ensure correctness or coverage. Junior copy/paste snippet for this subtask: `sed -n '1,120p' codex_agents/planning_agent/commands/improve_plan.json`, `sed -n '1,120p' codex_agents/lmstudio_agent/commands/improve_plan.json`, `sed -n '1,120p' codex_agents/vllm_agent/commands/improve_plan.json`, `rg -n '100% confident|double check|double-check|ensure all edge cases|code_info' codex_agents/planning_agent/commands/improve_plan.json codex_agents/lmstudio_agent/commands/improve_plan.json codex_agents/vllm_agent/commands/improve_plan.json`.
 2. [ ] Update the three `improve_plan.json` files so any `code_info` instruction is phrased as finding repository facts, existing implementations, contracts, and candidate files for the planning agent to reason about. Reuse the same stable phrase set from Task 1 and `AGENTS.md` where it fits, and do not rewrite unrelated command steps or rename command entries.
 3. [ ] Search the three standard command files for `100% confident`, `double check your thoughts`, `double-check your thoughts`, `come up with suggestions`, `ensure all edge cases`, and `code_info`. Record in Implementation notes which strings were rewritten and confirm that the three standard variants still match each other after editing.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-No wrapper build or automated test run is required for this task because it changes command-template text only. Validation for this task is the wording search plus the JSON and repository checks below. Full wrapper regression is deferred to the final story task.
+No wrapper build or automated test run is required for this task because it changes command-template text only. Validation for this task is the wording search plus the JSON checks below. Full wrapper regression is deferred to the final story task.
 
 1. [ ] Test type: direct JSON parse validation. Location: [codex_agents/planning_agent/commands/improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/planning_agent/commands/improve_plan.json). Description and purpose: run `node -e \"JSON.parse(require('fs').readFileSync('codex_agents/planning_agent/commands/improve_plan.json', 'utf8'));\"` and record in Implementation notes that the planning-agent command file still parses cleanly after the wording edit.
 2. [ ] Test type: direct JSON parse validation. Location: [codex_agents/lmstudio_agent/commands/improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/lmstudio_agent/commands/improve_plan.json). Description and purpose: run `node -e \"JSON.parse(require('fs').readFileSync('codex_agents/lmstudio_agent/commands/improve_plan.json', 'utf8'));\"` and record in Implementation notes that the LM Studio command file still parses cleanly after the wording edit.
 3. [ ] Test type: direct JSON parse validation. Location: [codex_agents/vllm_agent/commands/improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/vllm_agent/commands/improve_plan.json). Description and purpose: run `node -e \"JSON.parse(require('fs').readFileSync('codex_agents/vllm_agent/commands/improve_plan.json', 'utf8'));\"` and record in Implementation notes that the vLLM command file still parses cleanly after the wording edit.
-4. [ ] `npm run lint --workspaces` - Run after all subtasks are complete so the JSON wording changes still satisfy repository linting rules.
-5. [ ] `npm run format:check --workspaces` - Run after all subtasks are complete so formatting regressions are caught before the task is marked done.
 
 #### Implementation notes
 
@@ -509,14 +501,13 @@ Self-contained reminder for every subtask in this task: keep `https://platform.o
 1. [ ] Read the documentation links above, then inspect [codex_agents/lmstudio_agent/commands/kadshow_improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/lmstudio_agent/commands/kadshow_improve_plan.json) and [codex_agents/vllm_agent/commands/kadshow_improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/vllm_agent/commands/kadshow_improve_plan.json). Confirm which strings currently use phrases such as `100% confident`, `double check your thoughts`, `double-check your thoughts`, and `ensure all edge cases and failure modes are covered`, or otherwise ask `code_info` to ensure correctness or coverage. Junior copy/paste snippet for this subtask: `sed -n '1,120p' codex_agents/lmstudio_agent/commands/kadshow_improve_plan.json`, `sed -n '1,120p' codex_agents/vllm_agent/commands/kadshow_improve_plan.json`, `rg -n '100% confident|double check|double-check|ensure all edge cases|code_info' codex_agents/lmstudio_agent/commands/kadshow_improve_plan.json codex_agents/vllm_agent/commands/kadshow_improve_plan.json`.
 2. [ ] Update both `kadshow_improve_plan.json` files in the same edit pass so they reuse the same Task 1 / `AGENTS.md` wording patterns as the standard `improve_plan.json` family. Preserve their command structure and only change the strings that assign reasoning authority or certainty to the tool.
 3. [ ] Search both `kadshow` command files for `100% confident`, `double check your thoughts`, `double-check your thoughts`, `come up with suggestions`, `ensure all edge cases`, and `code_info`. Record in Implementation notes which strings were rewritten and confirm that the two variants still match each other after editing.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-No wrapper build or automated test run is required for this task because it changes command-template text only. Validation for this task is the wording search plus the JSON and repository checks below. Full wrapper regression is deferred to the final story task.
+No wrapper build or automated test run is required for this task because it changes command-template text only. Validation for this task is the wording search plus the JSON checks below. Full wrapper regression is deferred to the final story task.
 
 1. [ ] Test type: direct JSON parse validation. Location: [codex_agents/lmstudio_agent/commands/kadshow_improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/lmstudio_agent/commands/kadshow_improve_plan.json). Description and purpose: run `node -e \"JSON.parse(require('fs').readFileSync('codex_agents/lmstudio_agent/commands/kadshow_improve_plan.json', 'utf8'));\"` and record in Implementation notes that the LM Studio `kadshow` command file still parses cleanly after the wording edit.
 2. [ ] Test type: direct JSON parse validation. Location: [codex_agents/vllm_agent/commands/kadshow_improve_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/vllm_agent/commands/kadshow_improve_plan.json). Description and purpose: run `node -e \"JSON.parse(require('fs').readFileSync('codex_agents/vllm_agent/commands/kadshow_improve_plan.json', 'utf8'));\"` and record in Implementation notes that the vLLM `kadshow` command file still parses cleanly after the wording edit.
-3. [ ] `npm run lint --workspaces` - Run after all subtasks are complete so the JSON wording changes still satisfy repository linting rules.
-4. [ ] `npm run format:check --workspaces` - Run after all subtasks are complete so formatting regressions are caught before the task is marked done.
 
 #### Implementation notes
 
@@ -550,12 +541,10 @@ Self-contained reminder for every subtask in this task: keep `https://platform.o
 1. [ ] Read the documentation links above, then inspect [codex_agents/research_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/research_agent/system_prompt.txt). Identify the exact sentence that talks about using `code_info`, DeepWiki, Context7, MUI, and web search, and confirm whether it already reads as broad research guidance rather than authority delegation. Junior copy/paste snippet for this subtask: `sed -n '1,80p' codex_agents/research_agent/system_prompt.txt`, `rg -n 'code_info|DeepWiki|Context7|MUI|web' codex_agents/research_agent/system_prompt.txt`.
 2. [ ] Only if the file still implies that `code_info` decides the answer, update [codex_agents/research_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/research_agent/system_prompt.txt) so it still permits broad research across the codebase, libraries, and the web, while explicitly treating `code_info` as a repository-evidence tool rather than the authority that decides the answer. Reuse the same stable phrase set from Task 1 and `AGENTS.md` where it fits, and keep the rest of the research-agent prompt structure and scope intact. If no edit is needed, record that decision in Implementation notes instead of forcing prompt churn.
 3. [ ] Search the file for `code_info`, `100% confident`, `double check`, `come up with suggestions`, `judge whether`, and `confirm correctness`, plus any wording that could still imply the tool decides the answer. Record in Implementation notes whether the file was left unchanged or edited, which search terms were used, and why that choice matched the actual file contents.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-No wrapper build or automated test run is required for this task because it changes prompt text only. Validation for this task is the targeted wording search and file review completed in the subtasks above plus the repository checks below. Full wrapper regression is deferred to the final story task.
-
-1. [ ] `npm run lint --workspaces` - Run after all subtasks are complete so the prompt review or edit still satisfies repository linting rules.
-2. [ ] `npm run format:check --workspaces` - Run after all subtasks are complete so formatting regressions are caught before the task is marked done.
+No wrapper build or automated test run is required for this task because it changes prompt text only. Validation for this task is the targeted wording search and file review completed in the subtasks above. Full wrapper regression is deferred to the final story task.
 
 #### Implementation notes
 
@@ -590,13 +579,12 @@ Self-contained reminder for every subtask in this task: keep `https://platform.o
 2. [ ] Update every affected copy inside [codex_agents/tasking_agent/commands/task_up.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/tasking_agent/commands/task_up.json) so `code_info` is used to find existing code, existing contracts, reusable implementations, and repository evidence. Reuse the same stable phrase set from Task 1 and the updated `AGENTS.md` wording where it fits. Keep responsibility for deciding what to change, what to reuse, whether assumptions are valid, whether the plan has gaps, and how to break down the work with the tasking agent itself.
 3. [ ] Re-read [codex_agents/tasking_agent/system_prompt.txt](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/tasking_agent/system_prompt.txt) after the `task_up.json` edit. If it still only contains operational conversation-id guidance, leave it unchanged and record that decision in Implementation notes. Only edit it if it directly assigns reasoning or correctness decisions to `code_info`.
 4. [ ] Search `task_up.json` and `tasking_agent/system_prompt.txt` for `code_info`, `100% confident`, `double check`, `double-check`, `check if all the changes needed`, `check if any of the logic planned`, `ensure all edge cases`, `judge whether`, `confirm correctness`, and `decide what to change`. Record which wording changed, which search terms returned no matches, and which operational wording intentionally stayed.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-No wrapper build or automated test run is required for this task because it changes command-template text only. Validation for this task is the wording search, operational-wording review, and repository checks below. Full wrapper regression is deferred to the final story task.
+No wrapper build or automated test run is required for this task because it changes command-template text only. Validation for this task is the wording search, operational-wording review, and JSON check below. Full wrapper regression is deferred to the final story task.
 
 1. [ ] Test type: direct JSON parse validation. Location: [codex_agents/tasking_agent/commands/task_up.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex_agents/tasking_agent/commands/task_up.json). Description and purpose: run `node -e \"JSON.parse(require('fs').readFileSync('codex_agents/tasking_agent/commands/task_up.json', 'utf8'));\"` and record in Implementation notes that the tasking command file still parses cleanly after the wording edit so a quote or escape regression cannot break tasking-command loading.
-2. [ ] `npm run lint --workspaces` - Run after all subtasks are complete so the tasking command edits still satisfy repository linting rules.
-3. [ ] `npm run format:check --workspaces` - Run after all subtasks are complete so formatting regressions are caught before the task is marked done.
 
 #### Implementation notes
 
@@ -636,19 +624,18 @@ Self-contained reminder for every subtask in this task: keep `https://docs.npmjs
 6. [ ] Document review: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md). Description and purpose: confirm the repository file-map document does not need changes unless tracked files were added or removed during implementation, or update it if the final implemented scope changed the tracked file tree. Any such update must include every tracked file added or removed across the story, not just a partial list. Record the explicit keep-as-is or updated decision in Implementation notes.
 7. [ ] Scope confirmation outside markdown docs. Description and purpose: confirm no `client/`, MUI, compose, websocket, REST, or Mongo-facing files needed changes as part of this story and record that keep-as-is decision in Implementation notes so the final closeout does not leave those boundaries implicit.
 8. [ ] Add a concise final story summary in this plan’s Implementation notes describing which file groups were updated, which phrases were removed, where the regression check lives, and any intentionally unchanged files that were reviewed.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 Wrapper-only policy: do not attempt to run builds or tests without using the wrapper commands listed below.
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts. This preserves tokens while keeping full diagnostics available.
 
-1. [ ] `npm run lint --workspaces` - Run after all subtasks are complete so the final story state still satisfies repository linting rules.
-2. [ ] `npm run format:check --workspaces` - Run after all subtasks are complete so formatting regressions are caught before final wrapper validation.
-3. [ ] `npm run build:summary:server` - Mandatory because this story changes server TypeScript and a server test.
-4. [ ] `npm run build:summary:client` - Mandatory for final regression even though no client runtime files changed, because prompt/helper text is consumed from the same repository and final whole-repo validation should prove the client workspace still builds.
-5. [ ] `npm run test:summary:server:unit` - Mandatory because this story adds or updates the lightweight `node:test` regression for the published MCP tool description.
-6. [ ] `npm run test:summary:server:cucumber` - Mandatory for final regression because the story changes server-exposed wording and should prove the broader server wrapper suite still passes.
-7. [ ] `npm run test:summary:client` - Mandatory for final regression to prove no repository-wide tooling or shared workspace regressions were introduced by the text-and-test changes.
-8. [ ] Do not run Playwright-MCP, `npm run compose:build:summary`, `npm run compose:up`, or `npm run compose:down` for this story unless an earlier implementation task unexpectedly introduces a GUI-visible or compose-visible behavior change. If that happens, add those wrapper steps before marking this task complete and record why the extra runtime validation became necessary.
+1. [ ] `npm run build:summary:server` - Mandatory because this story changes server TypeScript and a server test.
+2. [ ] `npm run build:summary:client` - Mandatory for final regression even though no client runtime files changed, because prompt/helper text is consumed from the same repository and final whole-repo validation should prove the client workspace still builds.
+3. [ ] `npm run test:summary:server:unit` - Mandatory because this story adds or updates the lightweight `node:test` regression for the published MCP tool description.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory for final regression because the story changes server-exposed wording and should prove the broader server wrapper suite still passes.
+5. [ ] `npm run test:summary:client` - Mandatory for final regression to prove no repository-wide tooling or shared workspace regressions were introduced by the text-and-test changes.
+6. [ ] Do not run Playwright-MCP, `npm run compose:build:summary`, `npm run compose:up`, or `npm run compose:down` for this story unless an earlier implementation task unexpectedly introduces a GUI-visible or compose-visible behavior change. If that happens, add those wrapper steps before marking this task complete and record why the extra runtime validation became necessary.
 
 #### Implementation notes
 

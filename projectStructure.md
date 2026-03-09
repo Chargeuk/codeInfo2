@@ -731,6 +731,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ 0000035-15-chat-user-markdown-parity.png â€” Task 15 chat user markdown parity revalidation capture
 â”‚  â”œâ”€ 0000035-15-agents-raw-input-parity.png â€” Task 15 agents raw-input parity revalidation capture
 â”‚  â”œâ”€ 0000035-15-agents-user-markdown-parity.png â€” Task 15 agents user markdown parity revalidation capture
+â”‚  â”œâ”€ task10-chat-stop-stopped.png â€” Story 0000043 Task 10 Chat stop UX verification capture showing the final visible `Stopped` state
 â”‚  â””â”€ 0000035-15-general-regression.png â€” Task 15 overall regression revalidation capture
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores
@@ -1443,6 +1444,35 @@ Modified files (story-wide traceability):
 Task notes:
 
 - Task 10 closeout check confirmed every story-touched tracked file from `git diff --name-only 3401898d..HEAD` has a matching purpose entry in this document.
+
+## Story 0000043 Task 10 structural verification ledger
+
+Added files:
+
+- None (tracked source tree).
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/pages/ChatPage.tsx` — Chat page stop dispatch now uses server-visible inflight identity, renders `stopping` and `stopped`, and emits the Task 10 browser debug markers.
+- `client/src/test/chatPage.stop.test.tsx` — Chat stop page coverage now exercises stopping UX, no-op recovery, startup-race conversation-only cancel, stopped finalization, stopped hydration, and conversation-switch recovery.
+- `client/src/test/chatPage.stream.test.tsx` — older stopped-final transcript expectation updated to the final visible `Stopped` chip contract.
+- `client/src/test/chatPage.newConversation.test.tsx` — new-conversation cancellation coverage now accepts the documented conversation-only cancel path when no server-visible inflight id exists yet.
+- `client/src/test/support/mockChatWs.ts` — shared websocket harness allows delayed `/chat` start responses for startup-race stop coverage.
+- `design.md` — Story 43 Task 10 Chat stop UX flow and browser-visible marker expectations documented.
+- `planning/0000043-stop-any-point-cancellation.md` — Task 10 implementation and verification status updated in sequence.
+- `projectStructure.md` — screenshot artifact index and Task 10 structural ledger synchronized with the Chat stop UX work.
+
+Task notes:
+
+- Task 10 updates existing Chat page, test, and story documentation files in place and refreshes the ignored `playwright-output-local/` artifact index with the reviewed Chat stop screenshot.
 
 ## Story 0000042 Task 8 structural verification ledger
 

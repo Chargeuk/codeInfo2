@@ -86,6 +86,10 @@ export function setupChatWsHarness(params: {
   health?: JsonPayload;
   conversations?: JsonPayload;
   turns?: JsonPayload;
+  chatFetch?: (
+    body: Record<string, unknown>,
+    opts?: RequestInit,
+  ) => MockFetchReturn;
   fallbackFetch?: ChatHarnessFetch;
 }) {
   const chatBodies: JsonPayload[] = [];
@@ -140,6 +144,10 @@ export function setupChatWsHarness(params: {
           typeof body.conversationId === 'string' ? body.conversationId : null;
         lastInflightId =
           typeof body.inflightId === 'string' ? body.inflightId : 'i1';
+
+        if (params.chatFetch) {
+          return params.chatFetch(body, opts);
+        }
 
         return mockJsonResponse(
           {

@@ -830,7 +830,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 8. Add Shared Client WebSocket Stop Acknowledgement Handling
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `afcd2601 - DEV-[0000043] - Add shared websocket stop acknowledgement handling`
 
 #### Overview
@@ -964,7 +964,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 10. Align Chat Stop UX With The Shared State Contract
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -987,34 +987,52 @@ Update Chat page stop controls and local UX so Chat uses the shared stopping con
 
 #### Subtasks
 
-1. [ ] Read the story sections `Surface identity timing`, `UI State Contract`, and `Edge Cases and Failure Modes`.
-2. [ ] Update `client/src/pages/ChatPage.tsx` so Chat uses `stopping` instead of an immediate local terminal stopped state and removes the current `if (activeConversationId && currentInflightId)` gate so Stop still sends `cancelInflight(conversationId, undefined)` when `inflightId` is not yet available. Files (read/edit): `client/src/pages/ChatPage.tsx`; files to read: `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`. Docs to use while doing this subtask: React event-handler docs, Jest docs, MUI `Chip` docs, and MUI `CircularProgress` docs.
-3. [ ] Update Chat page stored-turn mapping and assistant status chips so persisted `Turn.status === 'stopped'` remains visibly `Stopped` after reload instead of being collapsed to `Complete`. Files (read/edit): `client/src/pages/ChatPage.tsx`; files to read: `server/src/mongo/turn.ts`, `server/src/routes/conversations.ts`. Docs to use while doing this subtask: MUI `Chip` docs and Jest docs.
-4. [ ] In `client/src/pages/ChatPage.tsx`, add browser-visible `console.info` lines for Chat stop UX using these exact prefixes and payload expectations so the browser check can assert them reliably: `[stop-debug][chat-ui] stop-clicked` with `{ conversationId, inflightId }` when the user clicks Stop, `[stop-debug][chat-ui] stopping-visible` with `{ conversationId }` when the Chat page renders the stopping state, and `[stop-debug][chat-ui] stopped-visible` with `{ conversationId, turnId }` when the Chat page renders a persisted or live stopped state. Do not log `stopped-visible` for the no-op recovery path. Files (read/edit): `client/src/pages/ChatPage.tsx`; files to read: `client/src/hooks/useChatStream.ts`, `client/src/test/chatPage.stop.test.tsx`. Docs to use while doing this subtask: React event-handler docs, MUI `Chip` docs, and Jest docs.
-5. [ ] Replace the current `client/src/test/chatPage.stop.test.tsx` coverage that expects an immediate `Generation stopped` success bubble with a page test that proves Chat shows the visible stopping UX and disables duplicate stop actions while cancellation is pending. Purpose: remove contradictory legacy Chat stop coverage and cover the Chat page happy path.
-6. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves `cancel_ack.result === 'noop'` returns Chat to ready state without a fake terminal bubble. Purpose: cover the Chat page no-op path.
-7. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat sends `cancel_inflight` with `conversationId` and no `inflightId` when Stop is clicked before the page has stored the active `inflightId`. Purpose: cover the Chat startup-race conversation-only stop path.
-8. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat waits for terminal stopped synchronization and allows same-conversation reuse after confirmed stop. Purpose: cover the Chat page finalization path.
-9. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves persisted `Turn.status === 'stopped'` renders visibly stopped after reload. Purpose: cover Chat stopped hydration.
-10. [ ] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat recovers correctly if the page unmounts or the active conversation changes while `stopping` is still pending. Purpose: cover Chat navigation corner cases.
-11. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
-12. [ ] Update this plan file’s `Implementation notes` for Task 10 after the implementation and tests are complete.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Read the story sections `Surface identity timing`, `UI State Contract`, and `Edge Cases and Failure Modes`.
+2. [x] Update `client/src/pages/ChatPage.tsx` so Chat uses `stopping` instead of an immediate local terminal stopped state and removes the current `if (activeConversationId && currentInflightId)` gate so Stop still sends `cancelInflight(conversationId, undefined)` when `inflightId` is not yet available. Files (read/edit): `client/src/pages/ChatPage.tsx`; files to read: `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`. Docs to use while doing this subtask: React event-handler docs, Jest docs, MUI `Chip` docs, and MUI `CircularProgress` docs.
+3. [x] Update Chat page stored-turn mapping and assistant status chips so persisted `Turn.status === 'stopped'` remains visibly `Stopped` after reload instead of being collapsed to `Complete`. Files (read/edit): `client/src/pages/ChatPage.tsx`; files to read: `server/src/mongo/turn.ts`, `server/src/routes/conversations.ts`. Docs to use while doing this subtask: MUI `Chip` docs and Jest docs.
+4. [x] In `client/src/pages/ChatPage.tsx`, add browser-visible `console.info` lines for Chat stop UX using these exact prefixes and payload expectations so the browser check can assert them reliably: `[stop-debug][chat-ui] stop-clicked` with `{ conversationId, inflightId }` when the user clicks Stop, `[stop-debug][chat-ui] stopping-visible` with `{ conversationId }` when the Chat page renders the stopping state, and `[stop-debug][chat-ui] stopped-visible` with `{ conversationId, turnId }` when the Chat page renders a persisted or live stopped state. Do not log `stopped-visible` for the no-op recovery path. Files (read/edit): `client/src/pages/ChatPage.tsx`; files to read: `client/src/hooks/useChatStream.ts`, `client/src/test/chatPage.stop.test.tsx`. Docs to use while doing this subtask: React event-handler docs, MUI `Chip` docs, and Jest docs.
+5. [x] Replace the current `client/src/test/chatPage.stop.test.tsx` coverage that expects an immediate `Generation stopped` success bubble with a page test that proves Chat shows the visible stopping UX and disables duplicate stop actions while cancellation is pending. Purpose: remove contradictory legacy Chat stop coverage and cover the Chat page happy path.
+6. [x] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves `cancel_ack.result === 'noop'` returns Chat to ready state without a fake terminal bubble. Purpose: cover the Chat page no-op path.
+7. [x] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat sends `cancel_inflight` with `conversationId` and no `inflightId` when Stop is clicked before the page has stored the active `inflightId`. Purpose: cover the Chat startup-race conversation-only stop path.
+8. [x] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat waits for terminal stopped synchronization and allows same-conversation reuse after confirmed stop. Purpose: cover the Chat page finalization path.
+9. [x] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves persisted `Turn.status === 'stopped'` renders visibly stopped after reload. Purpose: cover Chat stopped hydration.
+10. [x] Add or update a page test in `client/src/test/chatPage.stop.test.tsx` that proves Chat recovers correctly if the page unmounts or the active conversation changes while `stopping` is still pending. Purpose: cover Chat navigation corner cases.
+11. [x] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
+12. [x] Update this plan file’s `Implementation notes` for Task 10 after the implementation and tests are complete.
+13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] `npm run build:summary:client` - Use because this task changes Chat page front-end behavior. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
-2. [ ] `npm run test:summary:client` - Use because this task changes Jest-covered Chat page stop UX. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end through the dockerized app. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm Chat stop UX. In the browser console, assert `[stop-debug][chat-ui] stop-clicked` appears with the active `conversationId` and the current `inflightId` or an omitted `inflightId` during the startup-race path, then `[stop-debug][chat-ui] stopping-visible` appears for the same conversation. Take a screenshot that shows the Chat stop UI being validated and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`; the agent must review that screenshot to confirm the Stop button, visible status chip or spinner, assistant bubble state, and final stopped or recovered-ready rendering all match the exercised path. Expected outcome: for a real stop, `[stop-debug][chat-ui] stopped-visible` appears once with the same `conversationId` and a non-empty `turnId`; for a no-op recovery path, `[stop-debug][chat-ui] stopped-visible` must not appear. The screenshot must show the expected Chat GUI state, and there must be no unexpected browser-console errors.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use because this task changes Chat page front-end behavior. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+2. [x] `npm run test:summary:client` - Use because this task changes Jest-covered Chat page stop UX. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - Use because this task is testable from the front end through the dockerized app. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm Chat stop UX. In the browser console, assert `[stop-debug][chat-ui] stop-clicked` appears with the active `conversationId` and the current `inflightId` or an omitted `inflightId` during the startup-race path, then `[stop-debug][chat-ui] stopping-visible` appears for the same conversation. Take a screenshot that shows the Chat stop UI being validated and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`; the agent must review that screenshot to confirm the Stop button, visible status chip or spinner, assistant bubble state, and final stopped or recovered-ready rendering all match the exercised path. Expected outcome: for a real stop, `[stop-debug][chat-ui] stopped-visible` appears once with the same `conversationId` and a non-empty `turnId`; for a no-op recovery path, `[stop-debug][chat-ui] stopped-visible` must not appear. The screenshot must show the expected Chat GUI state, and there must be no unexpected browser-console errors.
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Subtask 1: Re-read the Chat page task and the Task 8/Task 9 blocker answers so this task fixes visible Chat stop UX and conversation-only stop dispatch without weakening the shared websocket or stream-hook contracts.
+- Subtask 2: Updated `ChatPage.tsx` so Stop always dispatches `cancel_inflight` for the active conversation using the server-visible `inflightSnapshot?.inflightId`, forwards `cancel_ack` into `useChatStream`, and keeps provider/conversation switches from entering the shared `stopping` state.
+- Subtask 3: Preserved persisted `Turn.status === 'stopped'` in `ChatPage.tsx` hydration and rendered stopped assistant chips as `Stopped` instead of falling back to the generic processing state.
+- Subtask 4: Added the required `[stop-debug][chat-ui]` console markers for stop click, visible stopping, and visible stopped rendering, with per-conversation and per-turn dedupe so manual browser checks can assert them reliably.
+- Subtask 5: Replaced the old immediate-success Chat stop coverage with a page test that asserts the visible stopping UI and duplicate-stop disable path while cancellation is pending.
+- Subtask 6: Added Chat no-op recovery coverage that waits for `cancel_ack.result === 'noop'` and proves the page returns to ready state without rendering a fake stopped bubble.
+- Subtask 7: Added startup-race Chat coverage that asserts the page sends `cancel_inflight` with `conversationId` and no `inflightId` before the page has a server-confirmed inflight snapshot.
+- Subtask 8: Added Chat finalization coverage that waits for a real `turn_final.status === 'stopped'` before the page shows `Stopped` and allows the same conversation to send again.
+- Subtask 9: Added stopped-hydration coverage that loads a persisted `Turn.status === 'stopped'` conversation and verifies the Chat status chip renders `Stopped` after reload.
+- Subtask 10: Added a Chat navigation recovery test that switches conversations while `stopping` is pending and verifies stale no-op recovery for the old conversation does not leak stopped UI into the new one.
+- Subtask 11: Updated `projectStructure.md` because Task 10 refreshed the ignored `playwright-output-local/` artifact index with the reviewed Chat stop screenshot and otherwise modified existing Chat files in place.
+- Subtask 12: Closed the Task 10 implementation notes after the Chat page code, Jest coverage, browser verification, screenshot review, and hygiene pass were all complete.
+- Subtask 13: `npm run lint --workspaces` finished with only the repo’s existing warning baseline; `npm run format:check --workspaces` initially failed on three touched client test files, so those files were formatted with Prettier and the full format check rerun passed.
+- Testing 1: `npm run build:summary:client` passed cleanly with zero warnings after the Chat page stop UX changes, so the task can proceed to the Jest wrapper without reading the build log.
+- Testing 2: The first full client test run exposed startup-race inflight targeting and older Chat expectation mismatches; after moving Chat page stop targeting onto server-visible inflight ids and aligning the legacy Chat tests, the full rerun of `npm run test:summary:client` passed with `515` tests and `0` failures.
+- Testing 3: `npm run compose:build:summary` passed cleanly after the Chat page and harness updates, so the manual browser verification can run against rebuilt images without opening the compose build log.
+- Testing 4: Brought the dockerized stack up cleanly with `npm run compose:up` before the manual Chat stop verification run.
+- Testing 5: Manual Playwright-MCP validation against `http://host.docker.internal:5001/chat` exercised a real LM Studio stop path and showed `[stop-debug][chat-ui] stop-clicked`, `[stop-debug][chat-ui] stopping-visible`, and `[stop-debug][chat-ui] stopped-visible` for the same conversation with no browser-console errors; the reviewed screenshot was saved to `playwright-output-local/task10-chat-stop-stopped.png` and shows the final visible `Stopped` chip in Chat.
+- Testing 6: Shut the dockerized stack down cleanly with `npm run compose:down` after the manual Chat stop verification completed.
 
 ---
 

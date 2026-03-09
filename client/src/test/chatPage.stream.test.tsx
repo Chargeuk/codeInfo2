@@ -404,7 +404,7 @@ describe('Chat WS streaming UI', () => {
       ).toHaveTextContent('Complete');
       expect(
         within(olderBubbleNode).getByTestId('status-chip'),
-      ).toHaveTextContent('Processing');
+      ).toHaveTextContent('Stopped');
       expect(
         within(newerBubbleNode).getByText('Second reply'),
       ).toBeInTheDocument();

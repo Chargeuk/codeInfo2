@@ -1871,23 +1871,21 @@ describe('useChatStream inflight mismatch handling', () => {
 
   it('does not enter stopping when send starts a new run', async () => {
     const conversationId = 'send-does-not-stop';
-    const fetchSpy = jest
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            status: 'started',
-            conversationId,
-            inflightId: 'i1',
-            provider: 'codex',
-            model: 'm1',
-          }),
-          {
-            status: 202,
-            headers: { 'content-type': 'application/json' },
-          },
-        ),
-      );
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: 'started',
+          conversationId,
+          inflightId: 'i1',
+          provider: 'codex',
+          model: 'm1',
+        }),
+        {
+          status: 202,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    );
     const consoleInfoSpy = jest
       .spyOn(console, 'info')
       .mockImplementation(() => {});

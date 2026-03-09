@@ -32,6 +32,12 @@ For this story, the words below have precise meanings:
 - conversation-only stop: a `cancel_inflight` request that contains `conversationId` but no `inflightId`;
 - terminal stopped confirmation: the matching `turn_final` event for that run with `status: 'stopped'`.
 
+Research-backed scoping constraints for this story:
+
+- the repository currently uses a simple per-conversation lock, not a queue; a second run either becomes the active run or fails immediately with `RUN_IN_PROGRESS`, so this story only needs to handle cancellation of work that actually became active;
+- Node.js cancellation is cooperative; aborting a signal does not preempt arbitrary synchronous code in the middle of execution, so this story must promise cancellation at the next abort-aware async boundary or explicit cancellation checkpoint, not instant interruption of every line of work;
+- when a child process or provider runtime supports abort signals, the story should use that support, but it must not promise full recursive teardown of unrelated descendant processes unless the existing runtime already guarantees it.
+
 This story is intentionally about stop correctness and run ownership, not about redesigning the transcript UI. The key requirement is that Stop becomes authoritative across the full client-server lifecycle, including the race where a run exists server-side before the client has enough local state to identify it precisely.
 
 ### Acceptance Criteria
@@ -50,11 +56,18 @@ This story is intentionally about stop correctness and run ownership, not about 
 - The websocket stop request remains `cancel_inflight`:
   - when `inflightId` is known, the client sends both `conversationId` and `inflightId`;
   - when `inflightId` is not yet known, the client still sends `cancel_inflight` with `conversationId` only.
+- The story does not introduce queued-stop behavior:
+  - if a second run never became active because the conversation lock rejected it with `RUN_IN_PROGRESS`, this story does not add cancellation semantics for that rejected start attempt;
+  - stop behavior only applies to the run that actually became active for the conversation.
 - After Stop is requested, no further agent command step may start and no retry may be scheduled for that cancelled run.
 - After Stop is requested, no further flow step may continue executing for the cancelled run.
 - Cancellation checkpoints are explicit:
   - command execution must check cancellation before starting each next step and before scheduling a retry;
   - flow execution must check cancellation before starting each next step or loop iteration that would continue work for the cancelled run.
+- Cancellation timing is defined realistically:
+  - when the current operation already supports `AbortSignal`, the stop path must trigger that abort signal immediately;
+  - when the current operation is custom logic that does not support signal-based interruption, the stop path must complete at the next explicit cancellation check;
+  - this story does not require arbitrary synchronous work to stop in the middle of a single uninterrupted CPU-bound section.
 - After Stop is requested and the server confirms termination, the same conversation may be used again without returning `409 RUN_IN_PROGRESS` from the cancelled prior run.
 - The stop contract is server-authoritative:
   - the client may show a transient stopping state immediately;
@@ -95,10 +108,26 @@ This story is intentionally about stop correctness and run ownership, not about 
 - Reworking unrelated websocket event schemas unless a minimal contract addition is required for correct stop ownership.
 - Fixing unrelated transcript rendering, hydration, or sidebar selection bugs that are not necessary to make Stop reliable.
 - Supporting multiple simultaneous interactive runs for one conversation.
+- Adding cancellation semantics for run attempts that never became active because they were rejected up front with `RUN_IN_PROGRESS`.
+- Guaranteeing forced recursive teardown of every descendant OS process beyond the abort behavior already exposed by the current provider or runtime integrations.
 
 ### Questions
 
-None. Initial investigation is sufficient to task this story.
+None. Repository and external research are sufficient to task this story.
+
+## Research Findings
+
+- Repository behavior today:
+  - interactive runs are guarded by a simple per-conversation lock, so there is one active run at most and no built-in queued runner to cancel later;
+  - websocket tests already prove that conversation-only `cancel_inflight` is accepted and currently behaves as a no-op when there is no active run, rather than emitting `INFLIGHT_NOT_FOUND`.
+
+- External behavior that constrains this story:
+  - `AbortSignal.any(...)` in Node.js combines cancellation sources, but cancellation remains cooperative and must be observed by the code or API doing the work;
+  - `abortSignal.throwIfAborted()` is available for explicit checkpoints, which makes it suitable for command and flow step boundaries;
+  - Node.js child-process abort support behaves like sending a kill signal to the child process, but platform/runtime behavior does not guarantee recursive teardown of every descendant process tree by default.
+
+- Remaining unknowns after research:
+  - none that block tasking or implementation for this story, provided the implementation stays within the scoped guarantees above.
 
 ## Implementation Ideas
 
@@ -139,11 +168,13 @@ None. Initial investigation is sufficient to task this story.
   - retry scheduling must stop once cancellation is requested;
   - a command start request cancelled during the pre-inflight race must not proceed to later steps just because the first step has not surfaced yet.
   - repeated stop requests for the same command run must remain harmless and must not turn the final status into `failed`.
+  - where command execution uses APIs that accept `AbortSignal`, the existing combined signal should be passed through rather than relying only on outer loop checks.
 
 - Flow runs need equivalent handling:
   - cancellation must stop the currently active flow run even if the UI has not yet received the step inflight id;
   - flow step transitions and late websocket events from a cancelled flow must not re-bind the UI to that stopped run;
-  - cancellation should be checked before each next step or loop iteration so work does not continue after stop has been requested.
+  - cancellation should be checked before each next step or loop iteration so work does not continue after stop has been requested;
+  - long-running custom flow logic should use explicit `signal.aborted` or `throwIfAborted()` checks at step boundaries because abort is cooperative, not preemptive.
 
 - Protocol scope for this story is intentionally narrow:
   - keep the existing start payloads and the existing `cancel_inflight` websocket message;

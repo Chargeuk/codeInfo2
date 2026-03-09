@@ -51,7 +51,11 @@ import useChatStream, {
   ToolCitation,
   ToolCall,
 } from '../hooks/useChatStream';
-import useChatWs, { type ChatWsServerEvent } from '../hooks/useChatWs';
+import useChatWs, {
+  type ChatWsCancelAckEvent,
+  type ChatWsServerEvent,
+  type ChatWsTranscriptEvent,
+} from '../hooks/useChatWs';
 import useConversationTurns, {
   StoredTurn,
 } from '../hooks/useConversationTurns';
@@ -390,7 +394,9 @@ export default function ChatPage() {
     },
     onEvent: (event: ChatWsServerEvent) => {
       if (mongoConnected === false) return;
-      const forwardRealtimeEvent = (targetEvent: ChatWsServerEvent) => {
+      const forwardRealtimeEvent = (
+        targetEvent: ChatWsTranscriptEvent | ChatWsCancelAckEvent,
+      ) => {
         if (targetEvent.type === 'inflight_snapshot') {
           serverVisibleInflightIdRef.current = targetEvent.inflight.inflightId;
         } else if (
@@ -479,7 +485,7 @@ export default function ChatPage() {
     );
     if (!enabled) return;
     (window as unknown as { __chatTest?: unknown }).__chatTest = {
-      handleWsEvent: (event: ChatWsServerEvent) => {
+      handleWsEvent: (event: ChatWsTranscriptEvent | ChatWsCancelAckEvent) => {
         if (event.type === 'inflight_snapshot') {
           serverVisibleInflightIdRef.current = event.inflight.inflightId;
         } else if (

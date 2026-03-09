@@ -1536,6 +1536,26 @@ flowchart TD
   I --> C
 ```
 
+## Story 0000043 Task 12: Flows page stop UX follows the shared stop contract
+
+- `FlowsPage` now uses the same page-layer stop pattern as Chat and Agents: the stop button sends `cancelInflight(conversationId, inflightId?)` with the current server-visible inflight id when known and conversation-only cancel during the startup race.
+- Non-user reset and navigation paths no longer call the shared `stop()` helper, so switching flow selection, clearing hidden conversations, or remounting the page does not create phantom `stopping` UI.
+- Persisted `Turn.status === 'stopped'` now hydrates into a visible `Stopped` chip instead of collapsing into `Complete`, and live flow stop requests render `Stopping` until the shared hook reconciles either a no-op `cancel_ack.result === 'noop'` or a real `turn_final.status === 'stopped'`.
+- The page emits stable browser debug markers for stop click, visible stopping, and visible stopped state so the dockerized manual verification can assert the page-level stop contract directly.
+
+```mermaid
+flowchart TD
+  A[User clicks Flow Stop] --> B[FlowsPage sends cancelInflight conversationId inflightId?]
+  B --> C[useChatStream enters stopping]
+  C --> D[FlowsPage shows Stopping button state and warning chip]
+  D --> E{Next matching server event}
+  E -- cancel_ack result=noop --> F[Clear stopping state without stopped bubble]
+  F --> G[Run and Stop controls return to ready]
+  E -- turn_final status=stopped --> H[Assistant turn streamStatus becomes stopped]
+  H --> I[FlowsPage renders Stopped chip and stopped-visible log]
+  I --> J[Same conversation can run again]
+```
+
 ## Story 0000038 Task 5: ingest listing status/phase normalization and active overlay precedence
 
 - External listing status contract for `/ingest/roots` and classic MCP `ListIngestedRepositories` is now normalized from internal ingest states:

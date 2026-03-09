@@ -276,6 +276,7 @@ The story should be implementable by a junior developer without extra stakeholde
 13. For non-MUI API or SDK questions, consult Context7 first when it is available. If Context7 or DeepWiki is unavailable for a relevant library or repository, use the official documentation URLs already listed in the task and record the tool outage in Implementation notes. MUI docs were checked for this story and found no component-level relevance.
 14. Minimum junior workflow for any subtask in this story: open the exact files named in the subtask with `sed -n '1,220p' <file>`, search for the named phrases with `rg -n '<phrase>' <file>`, make the smallest possible wording-only edit, then confirm the final scope with `git diff -- <file>`. If a subtask names more than one file, run the same pattern for each named file before editing.
 15. Keep this stable phrase set in front of you while working any wording-edit subtask: `repository facts`, `likely file locations`, `summaries of existing implementations`, `current contracts`, `evidence-gathering`, `inspect source files directly after retrieval`, and `do its own reasoning`. The goal is to reuse this responsibility boundary consistently, not to invent broader or more authoritative wording.
+16. Keep `Documentation Locations` external-only. Repository file paths, repository searches, and exact files to read or edit belong in the subtasks, not in the documentation list. If this story is re-tasked again later, preserve that separation.
 
 ## Tasks
 

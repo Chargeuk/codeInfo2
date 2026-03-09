@@ -482,7 +482,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 2. Add Active Run Ownership Runtime State
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -504,27 +504,34 @@ Introduce the runtime-only active-run ownership state the story depends on by ex
 
 #### Subtasks
 
-1. [ ] Read the story sections `Run lifecycle boundaries`, `Contracts And Storage Shapes`, `Cancellation Targeting`, and `Edge Cases and Failure Modes`.
-2. [ ] Extend the existing `tryAcquireConversationLock` and `releaseConversationLock` flow in `server/src/agents/runLock.ts` with lightweight ownership metadata instead of introducing a separate lock manager. Files (read/edit): `server/src/agents/runLock.ts`. Docs to use while doing this subtask: Node.js `crypto.randomUUID()` docs and TypeScript everyday-types docs.
-3. [ ] Ensure the ownership metadata is exposed through the smallest helper surface needed by chat, agent, and flow start paths and does not require duplicated ownership tracking in feature-specific files. Files (read/edit): `server/src/agents/runLock.ts`; files to read for call sites: `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`. Docs to use while doing this subtask: TypeScript everyday-types docs.
-4. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves an ownership token is created when a conversation lock is acquired and cleared when the lock is released. Purpose: cover the active-run ownership happy path.
-5. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves a later replacement run gets a fresh ownership token and never inherits stale ownership. Purpose: cover replacement-run protection at the ownership layer.
-6. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a short section describing active-run ownership in the conversation lock and a Mermaid `flowchart` that shows lock acquisition, `runToken` creation, active ownership during execution, and guaranteed ownership release during cleanup.
-7. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
-8. [ ] Update this plan file’s `Implementation notes` for Task 2 after the implementation and tests are complete.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Read the story sections `Run lifecycle boundaries`, `Contracts And Storage Shapes`, `Cancellation Targeting`, and `Edge Cases and Failure Modes`.
+2. [x] Extend the existing `tryAcquireConversationLock` and `releaseConversationLock` flow in `server/src/agents/runLock.ts` with lightweight ownership metadata instead of introducing a separate lock manager. Files (read/edit): `server/src/agents/runLock.ts`. Docs to use while doing this subtask: Node.js `crypto.randomUUID()` docs and TypeScript everyday-types docs.
+3. [x] Ensure the ownership metadata is exposed through the smallest helper surface needed by chat, agent, and flow start paths and does not require duplicated ownership tracking in feature-specific files. Files (read/edit): `server/src/agents/runLock.ts`; files to read for call sites: `server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`. Docs to use while doing this subtask: TypeScript everyday-types docs.
+4. [x] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves an ownership token is created when a conversation lock is acquired and cleared when the lock is released. Purpose: cover the active-run ownership happy path.
+5. [x] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that proves a later replacement run gets a fresh ownership token and never inherits stale ownership. Purpose: cover replacement-run protection at the ownership layer.
+6. [x] Update `design.md`. Files (read/edit): `design.md`. Add a short section describing active-run ownership in the conversation lock and a Mermaid `flowchart` that shows lock acquisition, `runToken` creation, active ownership during execution, and guaranteed ownership release during cleanup.
+7. [x] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
+8. [x] Update this plan file’s `Implementation notes` for Task 2 after the implementation and tests are complete.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Use because this task changes server runtime lock behavior. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit` - Use because this task changes server node:test runtime ownership behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use because server stop behavior must still pass the existing Cucumber suite after runtime lock changes. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
+1. [x] `npm run build:summary:server` - Use because this task changes server runtime lock behavior. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes server node:test runtime ownership behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use because server stop behavior must still pass the existing Cucumber suite after runtime lock changes. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Subtask 1: Re-read the lifecycle, storage-shape, targeting, and edge-case sections plus the completed Task 1 notes so Task 2 stays limited to lock ownership metadata and does not pull pending-cancel or page behavior forward.
+- Subtasks 2-3: Replaced bare lock membership with runtime ownership metadata in `server/src/agents/runLock.ts`, keeping acquisition boolean-compatible for current callers while exposing only `getActiveRunOwnership(...)` plus optional expected-token release protection for later tasks.
+- Subtasks 4-5: Added ownership-layer tests in `server/src/test/unit/ws-chat-stream.test.ts` for lock acquisition/cleanup and for stale-release protection when a later replacement run gets a fresh token.
+- Subtasks 6-7: Documented the ownership lifecycle in `design.md`; no files were added or removed, so `projectStructure.md` did not need changes.
+- Testing step 1: `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`.
+- Testing step 2: `npm run test:summary:server:unit` passed cleanly with `tests run: 985`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 68`, `failed: 0`, and `agent_action: skip_log`.
+- Subtasks 8-9: Updated the Task 2 notes after all implementation and wrapper checks completed; `format:check` passed cleanly and lint still reports only the pre-existing repo-wide import-order warnings while exiting successfully.
 
 ---
 

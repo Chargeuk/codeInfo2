@@ -7,6 +7,11 @@ import express from 'express';
 import request from 'supertest';
 
 import {
+  getActiveRunOwnership,
+  releaseConversationLock,
+  tryAcquireConversationLock,
+} from '../../agents/runLock.js';
+import {
   appendAssistantDelta,
   cleanupInflight,
   createInflight,
@@ -204,6 +209,55 @@ afterEach(() => {
   memoryConversations.clear();
   memoryTurns.clear();
   resetStore();
+});
+
+test('conversation lock acquisition creates ownership metadata and release clears it', () => {
+  const conversationId = 'run-lock-ownership-happy-path';
+
+  assert.equal(tryAcquireConversationLock(conversationId), true);
+
+  const ownership = getActiveRunOwnership(conversationId);
+  assert.ok(ownership);
+  assert.equal(typeof ownership.runToken, 'string');
+  assert.equal(ownership.runToken.length > 0, true);
+  assert.equal(typeof ownership.startedAt, 'string');
+
+  assert.equal(
+    releaseConversationLock(conversationId, ownership.runToken),
+    true,
+  );
+  assert.equal(getActiveRunOwnership(conversationId), null);
+});
+
+test('replacement run gets a fresh ownership token and stale release does not clear it', () => {
+  const conversationId = 'run-lock-ownership-replacement';
+
+  assert.equal(tryAcquireConversationLock(conversationId), true);
+  const firstOwnership = getActiveRunOwnership(conversationId);
+  assert.ok(firstOwnership);
+
+  assert.equal(
+    releaseConversationLock(conversationId, firstOwnership.runToken),
+    true,
+  );
+  assert.equal(getActiveRunOwnership(conversationId), null);
+
+  assert.equal(tryAcquireConversationLock(conversationId), true);
+  const secondOwnership = getActiveRunOwnership(conversationId);
+  assert.ok(secondOwnership);
+  assert.notEqual(secondOwnership.runToken, firstOwnership.runToken);
+
+  assert.equal(
+    releaseConversationLock(conversationId, firstOwnership.runToken),
+    false,
+  );
+  assert.deepEqual(getActiveRunOwnership(conversationId), secondOwnership);
+
+  assert.equal(
+    releaseConversationLock(conversationId, secondOwnership.runToken),
+    true,
+  );
+  assert.equal(getActiveRunOwnership(conversationId), null);
 });
 
 test('transcript seq increases monotonically per conversation stream', async () => {

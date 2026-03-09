@@ -1287,6 +1287,29 @@ sequenceDiagram
   end
 ```
 
+## Story 0000043 Task 2: active-run ownership lives in the conversation lock
+
+- The conversation lock now owns lightweight runtime metadata rather than bare set membership.
+- Each successful lock acquisition creates a fresh `runToken` and `startedAt` timestamp for the one active run on that conversation.
+- Ownership remains runtime-only and is not persisted or published over websocket.
+- Lock release can optionally verify an expected `runToken` so a stale cleanup path does not clear a newer replacement run.
+
+```mermaid
+flowchart TD
+  A[tryAcquireConversationLock conversationId] --> B{Lock already held?}
+  B -- yes --> C[Return false and keep current ownership]
+  B -- no --> D[Create runToken with crypto.randomUUID]
+  D --> E[Store startedAt timestamp]
+  E --> F[Return lock acquired]
+  F --> G[Active run executes with ownership metadata]
+  G --> H{releaseConversationLock called}
+  H --> I{expectedRunToken provided?}
+  I -- no --> J[Clear ownership and unlock conversation]
+  I -- yes --> K{expectedRunToken matches active runToken?}
+  K -- yes --> J
+  K -- no --> L[Keep newer ownership intact and return false]
+```
+
 ## Story 0000038 Task 5: ingest listing status/phase normalization and active overlay precedence
 
 - External listing status contract for `/ingest/roots` and classic MCP `ListIngestedRepositories` is now normalized from internal ingest states:

@@ -29,6 +29,8 @@ Persisting waiting state in conversation flags solves an important reliability p
 
 This story introduces one new step type for both command JSON and flow JSON. The step shows a custom message to the user, waits for content, captures the exact raw user input, and then resumes execution. It does not overload the existing `llm` type. The new type is intentionally separate because the system behavior is different enough to need its own contracts and stored state.
 
+When the user submits content, that content becomes the instruction for the paused step itself. In other words, this step behaves as a human-supplied `llm` step: the run pauses, the user provides the raw text for that step, the agent executes the step using that submitted content, and then the workflow continues normally to the next step. This story does not introduce a general-purpose variable-substitution system.
+
 ### Acceptance Criteria
 
 - Command JSON supports a dedicated user-input wait step.
@@ -45,7 +47,9 @@ This story introduces one new step type for both command JSON and flow JSON. The
   - the custom user-facing prompt message.
 - If the user reloads the page while the run is waiting, the application can recover and show that the conversation is still waiting for input.
 - When the user submits content, that content is captured as raw text and made available to the resumed workflow without trimming or line rewriting.
+- When the user submits content, that content becomes the instruction for the paused step itself.
 - After the user submits content successfully, the waiting state is cleared and the command or flow resumes from the next correct execution point.
+- This story does not require a general-purpose variable-substitution mechanism for workflow steps.
 - Existing stop/cancel behavior remains coherent while a run is waiting for input.
 - A command or flow cannot accidentally resume from the wrong conversation or the wrong paused step.
 - This story does not require websocket to be the canonical resume submission mechanism.
@@ -62,24 +66,14 @@ This story introduces one new step type for both command JSON and flow JSON. The
 
 ### Questions
 
-1. What exactly should the submitted user content do once the user resumes a paused command or flow?
-Why this is important:
-This is the defining behavioral question for the whole story. Without answering it, the server and client cannot agree on what “resume” means. The submitted text could be treated as a plain data capture, as the prompt for an AI step, or as input for a future variable-substitution system. Each option implies different schema shapes, stored-state requirements, resume behavior, and testing.
-Best answer:
-Treat the wait step as a human-supplied `llm` step:
-  - the workflow pauses when it reaches the step;
-  - the user submits raw content;
-  - that content becomes the instruction for the paused step;
-  - the agent executes that step using the submitted content;
-  - the workflow then continues normally to the next step.
-Why this is the best answer:
-It is the cleanest fit with the current product. It does not require a general-purpose variable system, it keeps the user-input step concept easy for a junior developer to understand, and it maps naturally onto the existing idea of “a workflow step produces an instruction that the agent runs.” It also keeps Story 0000047 focused on paused/resumed execution instead of expanding into a broader workflow-language feature set.
+None. The submitted-content behavior is now fixed for this story.
 
 ## Implementation Ideas
 
 - Introduce a dedicated step type such as `userInput` in both command and flow schemas instead of overloading `llm`.
 - Add a persisted waiting-state shape under conversation flags so the server can recover paused runs after refresh or reconnect.
 - Define one REST endpoint for submitting user content and resuming the paused run.
+- Treat the resumed content as the instruction for the paused step itself rather than as generic data for later substitution.
 - Publish websocket events that announce:
   - the run has entered waiting-for-input state;
   - the run has resumed;

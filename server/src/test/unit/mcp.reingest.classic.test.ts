@@ -86,6 +86,32 @@ function createApp(result: ReingestResult) {
   app.use(
     '/',
     createMcpRouter({
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            id: 'repo-a',
+            description: null,
+            containerPath: '/data/repo-a',
+            hostPath: '/host/repo-a',
+            lastIngestAt: '2025-01-01T00:00:00.000Z',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'embed-model',
+            embeddingDimensions: 768,
+            model: 'embed-model',
+            modelId: 'embed-model',
+            lock: {
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'embed-model',
+              embeddingDimensions: 768,
+              lockedModelId: 'embed-model',
+              modelId: 'embed-model',
+            },
+            counts: { files: 1, chunks: 2, embedded: 2 },
+            lastError: null,
+          },
+        ],
+        lockedModelId: 'embed-model',
+      }),
       runReingestRepository: async () => result,
     }),
   );
@@ -148,6 +174,118 @@ test('classic MCP success/cancel/error errorCode constraints', async () => {
       assert.equal(parsed.errorCode, null);
     }
   }
+});
+
+test('classic MCP canonicalizes reingest sourceId selectors before dispatch', async () => {
+  let capturedArgs: unknown;
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/',
+    createMcpRouter({
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            id: 'repo-a',
+            description: null,
+            containerPath: '/data/repo-a',
+            hostPath: '/host/repo-a',
+            lastIngestAt: '2025-01-01T00:00:00.000Z',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'embed-model',
+            embeddingDimensions: 768,
+            model: 'embed-model',
+            modelId: 'embed-model',
+            lock: {
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'embed-model',
+              embeddingDimensions: 768,
+              lockedModelId: 'embed-model',
+              modelId: 'embed-model',
+            },
+            counts: { files: 1, chunks: 2, embedded: 2 },
+            lastError: null,
+          },
+        ],
+        lockedModelId: 'embed-model',
+      }),
+      runReingestRepository: async (args) => {
+        capturedArgs = args;
+        return { ok: true, value: terminalCompleted } as ReingestResult;
+      },
+    }),
+  );
+
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 2.1,
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/host/repo-a' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(capturedArgs, { sourceId: '/data/repo-a' });
+});
+
+test('classic MCP leaves unresolved reingest selectors unchanged', async () => {
+  let capturedArgs: unknown;
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/',
+    createMcpRouter({
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            id: 'repo-a',
+            description: null,
+            containerPath: '/data/repo-a',
+            hostPath: '/host/repo-a',
+            lastIngestAt: '2025-01-01T00:00:00.000Z',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'embed-model',
+            embeddingDimensions: 768,
+            model: 'embed-model',
+            modelId: 'embed-model',
+            lock: {
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'embed-model',
+              embeddingDimensions: 768,
+              lockedModelId: 'embed-model',
+              modelId: 'embed-model',
+            },
+            counts: { files: 1, chunks: 2, embedded: 2 },
+            lastError: null,
+          },
+        ],
+        lockedModelId: 'embed-model',
+      }),
+      runReingestRepository: async (args) => {
+        capturedArgs = args;
+        return { ok: true, value: terminalCompleted } as ReingestResult;
+      },
+    }),
+  );
+
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 2.2,
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/host/missing' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(capturedArgs, { sourceId: '/host/missing' });
 });
 
 test('classic MCP uses JSON-RPC envelope for pre-run validation errors', async () => {

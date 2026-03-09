@@ -41,8 +41,9 @@ import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { dispatchJsonRpc } from '../mcpCommon/dispatch.js';
 import { isObject } from '../mcpCommon/guards.js';
-import { createKeepAliveController } from '../mcpCommon/keepAlive.js';
 import { jsonRpcError, jsonRpcResult } from '../mcpCommon/jsonRpc.js';
+import { createKeepAliveController } from '../mcpCommon/keepAlive.js';
+import { resolveRepositorySelector } from '../mcpCommon/repositorySelector.js';
 
 type JsonRpcRequest = {
   jsonrpc?: unknown;
@@ -82,6 +83,41 @@ type Deps = {
   generateLockedQueryEmbedding?: ToolDeps['generateLockedQueryEmbedding'];
   runReingestRepository: typeof runReingestRepository;
 };
+
+type RepositoryField = 'repository' | 'sourceId';
+
+async function canonicalizeRepositorySelectorArgs(
+  args: unknown,
+  field: RepositoryField,
+  target: 'id' | 'containerPath',
+  listRepos: typeof listIngestedRepositories,
+) {
+  if (!isObject(args)) {
+    return args;
+  }
+
+  const rawSelector = args[field];
+  if (typeof rawSelector !== 'string' || rawSelector.trim().length === 0) {
+    return args;
+  }
+
+  let repo = null;
+  try {
+    repo = await resolveRepositorySelector(rawSelector, {
+      listIngestedRepositories: listRepos,
+    });
+  } catch {
+    return args;
+  }
+  if (!repo) {
+    return args;
+  }
+
+  return {
+    ...args,
+    [field]: target === 'id' ? repo.id : repo.containerPath,
+  };
+}
 
 const PROTOCOL_VERSION = '2024-11-05';
 
@@ -352,7 +388,7 @@ const baseToolDefinitions = [
         sourceId: {
           type: 'string',
           description:
-            'Absolute normalized containerPath of an already ingested repository root',
+            'Repository selector for the ingested root. Supports repository id (case-insensitive), mounted container path, or host path; MCP canonicalizes to the normalized container path before execution.',
         },
       },
     },
@@ -395,7 +431,8 @@ const baseToolDefinitions = [
         query: { type: 'string' },
         repository: {
           type: 'string',
-          description: 'Optional repo id to scope results',
+          description:
+            'Optional repository selector to scope results. Supports repository id (case-insensitive), mounted container path, or host path.',
         },
         limit: {
           type: 'integer',
@@ -470,7 +507,11 @@ const astToolDefinitions = [
       additionalProperties: false,
       required: ['repository'],
       properties: {
-        repository: { type: 'string' },
+        repository: {
+          type: 'string',
+          description:
+            'Repository selector. Supports repository id (case-insensitive), mounted container path, or host path.',
+        },
         kinds: { type: 'array', items: { type: 'string' } },
         limit: { type: 'integer', minimum: 1, maximum: 200 },
       },
@@ -492,7 +533,11 @@ const astToolDefinitions = [
       additionalProperties: false,
       required: ['repository'],
       properties: {
-        repository: { type: 'string' },
+        repository: {
+          type: 'string',
+          description:
+            'Repository selector. Supports repository id (case-insensitive), mounted container path, or host path.',
+        },
         symbolId: { type: 'string' },
         name: { type: 'string' },
         kind: { type: 'string' },
@@ -517,7 +562,11 @@ const astToolDefinitions = [
       additionalProperties: false,
       required: ['repository'],
       properties: {
-        repository: { type: 'string' },
+        repository: {
+          type: 'string',
+          description:
+            'Repository selector. Supports repository id (case-insensitive), mounted container path, or host path.',
+        },
         symbolId: { type: 'string' },
         name: { type: 'string' },
         kind: { type: 'string' },
@@ -540,7 +589,11 @@ const astToolDefinitions = [
       additionalProperties: false,
       required: ['repository', 'symbolId'],
       properties: {
-        repository: { type: 'string' },
+        repository: {
+          type: 'string',
+          description:
+            'Repository selector. Supports repository id (case-insensitive), mounted container path, or host path.',
+        },
         symbolId: { type: 'string' },
         depth: { type: 'integer', minimum: 1 },
       },
@@ -762,8 +815,14 @@ export function createMcpRouter(
             }
 
             if (toolCall.name === 'VectorSearch') {
+              const resolvedArgs = await canonicalizeRepositorySelectorArgs(
+                args,
+                'repository',
+                'id',
+                resolved.listIngestedRepositories,
+              );
               const validated = resolved.validateVectorSearch(
-                args as Record<string, unknown>,
+                resolvedArgs as Record<string, unknown>,
               );
               const payload = await resolved.vectorSearch(validated, {
                 getRootsCollection: resolved.getRootsCollection,
@@ -803,6 +862,12 @@ export function createMcpRouter(
             }
 
             if (toolCall.name === 'reingest_repository') {
+              const resolvedArgs = await canonicalizeRepositorySelectorArgs(
+                args,
+                'sourceId',
+                'containerPath',
+                resolved.listIngestedRepositories,
+              );
               append({
                 level: 'info',
                 source: 'server',
@@ -815,7 +880,7 @@ export function createMcpRouter(
                 },
               });
 
-              const result = await resolved.runReingestRepository(args);
+              const result = await resolved.runReingestRepository(resolvedArgs);
               if (!result.ok) {
                 append({
                   level: 'info',
@@ -857,8 +922,14 @@ export function createMcpRouter(
             }
 
             if (toolCall.name === 'AstListSymbols') {
+              const resolvedArgs = await canonicalizeRepositorySelectorArgs(
+                args,
+                'repository',
+                'id',
+                resolved.listIngestedRepositories,
+              );
               const validated = resolved.validateAstListSymbols(
-                args as Record<string, unknown>,
+                resolvedArgs as Record<string, unknown>,
               );
               const payload = await resolved.astListSymbols(validated);
               baseLogger.info(
@@ -876,8 +947,14 @@ export function createMcpRouter(
             }
 
             if (toolCall.name === 'AstFindDefinition') {
+              const resolvedArgs = await canonicalizeRepositorySelectorArgs(
+                args,
+                'repository',
+                'id',
+                resolved.listIngestedRepositories,
+              );
               const validated = resolved.validateAstFindDefinition(
-                args as Record<string, unknown>,
+                resolvedArgs as Record<string, unknown>,
               );
               const payload = await resolved.astFindDefinition(validated);
               baseLogger.info(
@@ -897,8 +974,14 @@ export function createMcpRouter(
             }
 
             if (toolCall.name === 'AstFindReferences') {
+              const resolvedArgs = await canonicalizeRepositorySelectorArgs(
+                args,
+                'repository',
+                'id',
+                resolved.listIngestedRepositories,
+              );
               const validated = resolved.validateAstFindReferences(
-                args as Record<string, unknown>,
+                resolvedArgs as Record<string, unknown>,
               );
               const payload = await resolved.astFindReferences(validated);
               baseLogger.info(
@@ -918,8 +1001,14 @@ export function createMcpRouter(
             }
 
             if (toolCall.name === 'AstCallGraph') {
+              const resolvedArgs = await canonicalizeRepositorySelectorArgs(
+                args,
+                'repository',
+                'id',
+                resolved.listIngestedRepositories,
+              );
               const validated = resolved.validateAstCallGraph(
-                args as Record<string, unknown>,
+                resolvedArgs as Record<string, unknown>,
               );
               const payload = await resolved.astCallGraph(validated);
               baseLogger.info(

@@ -19,6 +19,8 @@ Users want one predictable outcome:
 
 There is also a related environment-key problem for Context7. Current template content contains a Context7 API key argument in config data. The user wants Context7 to be driven by a new environment variable named `CODEINFO_CONTEXT7_API_KEY`. When runtime config is read, any Context7 MCP args that are missing an API key should be overlaid in memory with that env value. The user has explicitly chosen an in-memory overlay, not repeated on-disk config rewriting.
 
+For this story, a placeholder key value of `REPLACE_WITH_CONTEXT7_API_KEY` is treated as “no usable key configured.” If `CODEINFO_CONTEXT7_API_KEY` is set to a non-empty value, runtime config should overlay that value in memory. If `CODEINFO_CONTEXT7_API_KEY` is missing or empty, runtime config should fall back to the no-key form `args = ['-y', '@upstash/context7-mcp']`, which still works with the provider’s limited unauthenticated allowance.
+
 This story therefore unifies four closely related behaviors:
 
 - model-list resolution;
@@ -50,6 +52,9 @@ The scope of this story is runtime-config correctness and consistency. It is not
 - The canonical in-code templates are the source of truth for first-time file creation and do not depend on runtime access to files such as `codex/chat/config copy.toml`, `codex/config.toml`, or `config.toml.example`.
 - Missing-file bootstrap does not overwrite existing user-edited config files.
 - Runtime config loading applies `CODEINFO_CONTEXT7_API_KEY` as an in-memory overlay for Context7 MCP args when a Context7 server definition exists and no API key argument is already present.
+- Runtime config loading treats `--api-key REPLACE_WITH_CONTEXT7_API_KEY` as equivalent to no usable key being present.
+- If a Context7 definition contains the placeholder key and `CODEINFO_CONTEXT7_API_KEY` is set to a non-empty value, runtime config overlays that env key in memory.
+- If a Context7 definition contains the placeholder key and `CODEINFO_CONTEXT7_API_KEY` is missing or empty, runtime config uses the no-key argument form `args = ['-y', '@upstash/context7-mcp']`.
 - Runtime config loading does not rewrite config files on disk just to apply `CODEINFO_CONTEXT7_API_KEY`.
 - The Context7 overlay applies consistently to the relevant config-reading paths used by chat and agent runtime config loading.
 - The resulting runtime config still preserves unrelated MCP-server args and unrelated config values.
@@ -67,16 +72,7 @@ The scope of this story is runtime-config correctness and consistency. It is not
 
 ### Questions
 
-1. Should the runtime Context7 overlay treat `REPLACE_WITH_CONTEXT7_API_KEY` as equivalent to “no API key supplied” when deciding whether to inject `CODEINFO_CONTEXT7_API_KEY`?
-Why this is important:
-The repository already contains template-style Context7 args that use `REPLACE_WITH_CONTEXT7_API_KEY`. If the runtime overlay only checks for the presence of `--api-key` and ignores the placeholder value, the overlay can silently fail to do the useful thing users expect. That would leave the runtime behaving as if a key were configured when in practice the config still contains a placeholder.
-Best answer:
-Yes. Treat both of the following cases as “no usable key supplied”:
-  - no `--api-key` argument exists;
-  - `--api-key REPLACE_WITH_CONTEXT7_API_KEY` exists.
-If a real explicit key is already present in config args, leave it unchanged.
-Why this is the best answer:
-It matches user intent, preserves explicit user configuration when present, and makes the overlay robust against the exact placeholder pattern already used in current config content. It also avoids surprising behavior where a placeholder blocks the environment-driven runtime key from being applied.
+None. The placeholder-key handling and empty-env fallback behavior are now fixed for this story.
 
 ## Implementation Ideas
 
@@ -86,7 +82,9 @@ It matches user intent, preserves explicit user configuration when present, and 
 - Replace reliance on external runtime template files with one canonical in-code base template and one canonical in-code chat template.
 - Update bootstrap helpers in `server/src/config/runtimeConfig.ts` and `server/src/config/codexConfig.ts` so first-run creation is deterministic and non-destructive.
 - Apply the Context7 API-key overlay during runtime config read/normalization, not during repeated writes.
-- Detect existing `--api-key` args before overlaying anything so explicit user-provided keys still win.
+- Detect existing real `--api-key` args before overlaying anything so explicit user-provided keys still win.
+- Treat `REPLACE_WITH_CONTEXT7_API_KEY` as a placeholder, not as a real configured key.
+- When the placeholder is present and `CODEINFO_CONTEXT7_API_KEY` is empty, strip the placeholder key args and fall back to the unauthenticated `['-y', '@upstash/context7-mcp']` argument form.
 - Add tests for:
   - model list includes chat-config model when env list omits it;
   - chat-config model is default in web and MCP surfaces;

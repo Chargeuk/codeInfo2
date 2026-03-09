@@ -1,11 +1,14 @@
 import { runReingestRepository } from '../../ingest/reingestService.js';
+import { listIngestedRepositories } from '../../lmstudio/toolService.js';
 import { append } from '../../logStore.js';
+import { resolveRepositorySelector } from '../../mcpCommon/repositorySelector.js';
 import { InvalidParamsError } from '../errors.js';
 
 export const REINGEST_REPOSITORY_TOOL_NAME = 'reingest_repository';
 
 export type ReingestRepositoryDeps = {
   runReingestRepository?: typeof runReingestRepository;
+  listIngestedRepositories?: typeof listIngestedRepositories;
 };
 
 export class ReingestRepositoryToolError extends Error {
@@ -33,7 +36,7 @@ export function reingestRepositoryDefinition() {
         sourceId: {
           type: 'string',
           description:
-            'Absolute normalized containerPath of an already ingested repository root',
+            'Repository selector for the ingested root. Supports repository id (case-insensitive), mounted container path, or host path; MCP canonicalizes to the normalized container path before execution.',
         },
       },
     },
@@ -56,7 +59,33 @@ export async function runReingestRepositoryTool(
   });
 
   const runReingest = deps.runReingestRepository ?? runReingestRepository;
-  const result = await runReingest(args);
+  let resolvedArgs = args;
+  if (
+    args &&
+    typeof args === 'object' &&
+    !Array.isArray(args) &&
+    typeof (args as { sourceId?: unknown }).sourceId === 'string'
+  ) {
+    try {
+      const repo = await resolveRepositorySelector(
+        (args as { sourceId: string }).sourceId,
+        {
+          listIngestedRepositories:
+            deps.listIngestedRepositories ?? listIngestedRepositories,
+        },
+      );
+      if (repo) {
+        resolvedArgs = {
+          ...(args as Record<string, unknown>),
+          sourceId: repo.containerPath,
+        };
+      }
+    } catch {
+      resolvedArgs = args;
+    }
+  }
+
+  const result = await runReingest(resolvedArgs);
 
   if (!result.ok) {
     if (result.error.code === -32602) {

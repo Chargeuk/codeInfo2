@@ -182,7 +182,7 @@ export class ChatInterfaceCodex extends ChatInterface {
       buildCodexOptions({ codexHome, runtimeConfig }),
     );
 
-    const systemContext = disableSystemContext ? '' : SYSTEM_CONTEXT.trim();
+    const systemContext = disableSystemContext ? '' : SYSTEM_CONTEXT;
     const agentSystemPrompt = (systemPrompt ?? '').trim();
 
     const promptSections: string[] = [];

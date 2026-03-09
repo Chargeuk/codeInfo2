@@ -1438,7 +1438,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 17. Re-Run Final Verification And Acceptance Check After Review Fixes
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -1460,34 +1460,48 @@ Re-run the full story acceptance gate after the review follow-up fixes in Tasks 
 
 #### Subtasks
 
-1. [ ] Re-read the full story plan, the review follow-up Tasks 15 and 16, and their completed implementation notes. Confirm each original acceptance criterion and each review finding has corresponding implemented proof before starting the final rerun.
-2. [ ] Save refreshed visual proof screenshots for the final manual verification into `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using filenames that begin with `0000043-17-`. Review each saved screenshot as part of the acceptance check so the GUI evidence is explicitly checked, not just captured.
-3. [ ] Add or update automated coverage as needed so the reviewed command-run explicit stop regression and stale replacement-run terminal regression are both proven in the branch’s final automated suite. Use the nearest existing server, client, or e2e stop test files rather than creating parallel scaffolds.
-4. [ ] Manually verify that after a confirmed stop the same conversation can be started again immediately without a stale `RUN_IN_PROGRESS` conflict on Chat, Agents instruction runs, Agents command runs, and Flows.
-5. [ ] Manually verify that the conversation-only no-active-run path still clears `stopping` only after the matching `cancel_ack.result === 'noop'` and still does not render a fake terminal bubble.
-6. [ ] Manually verify that an explicit stop against an active agent command run with a known `inflightId` stops the command run fully and does not allow a later command step or retry to continue.
-7. [ ] Manually verify the documented multi-tab or multi-window replacement-run behavior again and confirm that a stale explicit stop failure for the older run does not render a bogus stale terminal bubble in the context that is showing the later replacement run.
-8. [ ] During final manual verification, inspect the browser console and confirm the exact debug lines from Tasks 8 to 12 still appear with the documented payloads and outcomes, and that the review follow-up paths do not add any contradictory extra transition logs.
-9. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
-10. [ ] Update this plan file’s `Implementation notes` for Task 17 after the verification work is complete.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+1. [x] Re-read the full story plan, the review follow-up Tasks 15 and 16, and their completed implementation notes. Confirm each original acceptance criterion and each review finding has corresponding implemented proof before starting the final rerun.
+2. [x] Save refreshed visual proof screenshots for the final manual verification into `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using filenames that begin with `0000043-17-`. Review each saved screenshot as part of the acceptance check so the GUI evidence is explicitly checked, not just captured.
+3. [x] Add or update automated coverage as needed so the reviewed command-run explicit stop regression and stale replacement-run terminal regression are both proven in the branch’s final automated suite. Use the nearest existing server, client, or e2e stop test files rather than creating parallel scaffolds.
+4. [x] Manually verify that after a confirmed stop the same conversation can be started again immediately without a stale `RUN_IN_PROGRESS` conflict on Chat, Agents instruction runs, Agents command runs, and Flows.
+5. [x] Manually verify that the conversation-only no-active-run path still clears `stopping` only after the matching `cancel_ack.result === 'noop'` and still does not render a fake terminal bubble.
+6. [x] Manually verify that an explicit stop against an active agent command run with a known `inflightId` stops the command run fully and does not allow a later command step or retry to continue.
+7. [x] Manually verify the documented multi-tab or multi-window replacement-run behavior again and confirm that a stale explicit stop failure for the older run does not render a bogus stale terminal bubble in the context that is showing the later replacement run.
+8. [x] During final manual verification, inspect the browser console and confirm the exact debug lines from Tasks 8 to 12 still appear with the documented payloads and outcomes, and that the review follow-up paths do not add any contradictory extra transition logs.
+9. [x] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
+10. [x] Update this plan file’s `Implementation notes` for Task 17 after the verification work is complete.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Mandatory because the refreshed acceptance pass must validate all server and common changes after the review fixes. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run build:summary:client` - Mandatory because the refreshed acceptance pass must validate all client and common changes after the review fixes. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
-3. [ ] `npm run test:summary:server:unit` - Mandatory because the refreshed acceptance pass must validate the full server node:test suite after the review fixes. If `failed > 0`, inspect the exact log path printed by the wrapper.
-4. [ ] `npm run test:summary:server:cucumber` - Mandatory because the refreshed acceptance pass must validate the full server cucumber suite after the review fixes. If `failed > 0`, inspect the exact log path printed by the wrapper.
-5. [ ] `npm run test:summary:client` - Mandatory because the refreshed acceptance pass must validate the full client suite after the review fixes. If `failed > 0`, inspect the exact log path printed by the wrapper.
-6. [ ] `npm run test:summary:e2e` - Mandatory because the refreshed acceptance pass must validate the multi-window and stop UX flows after the review fixes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`.
-7. [ ] `npm run compose:build:summary` - Mandatory because the refreshed acceptance pass includes dockerized front-end validation. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
-8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm Chat, Agents, and Flows stop behavior, same-conversation reuse, explicit command-run stop with known `inflightId`, replacement-run stale-terminal suppression, and the exact browser-console lines from Tasks 8 to 12. Take refreshed screenshots for every GUI state used to confirm acceptance and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`, then inspect those screenshots to confirm the visible states match the acceptance criteria and the review fixes. Expected outcome: no no-op path emits any `stopped-visible` line, no stale-request path emits a bogus terminal bubble in the replacement-run context, and there are no unexpected browser-console errors.
-10. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server` - Mandatory because the refreshed acceptance pass must validate all server and common changes after the review fixes. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [x] `npm run build:summary:client` - Mandatory because the refreshed acceptance pass must validate all client and common changes after the review fixes. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`.
+3. [x] `npm run test:summary:server:unit` - Mandatory because the refreshed acceptance pass must validate the full server node:test suite after the review fixes. If `failed > 0`, inspect the exact log path printed by the wrapper.
+4. [x] `npm run test:summary:server:cucumber` - Mandatory because the refreshed acceptance pass must validate the full server cucumber suite after the review fixes. If `failed > 0`, inspect the exact log path printed by the wrapper.
+5. [x] `npm run test:summary:client` - Mandatory because the refreshed acceptance pass must validate the full client suite after the review fixes. If `failed > 0`, inspect the exact log path printed by the wrapper.
+6. [x] `npm run test:summary:e2e` - Mandatory because the refreshed acceptance pass must validate the multi-window and stop UX flows after the review fixes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`.
+7. [x] `npm run compose:build:summary` - Mandatory because the refreshed acceptance pass includes dockerized front-end validation. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log`.
+8. [x] `npm run compose:up`
+9. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm Chat, Agents, and Flows stop behavior, same-conversation reuse, explicit command-run stop with known `inflightId`, replacement-run stale-terminal suppression, and the exact browser-console lines from Tasks 8 to 12. Take refreshed screenshots for every GUI state used to confirm acceptance and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`, then inspect those screenshots to confirm the visible states match the acceptance criteria and the review fixes. Expected outcome: no no-op path emits any `stopped-visible` line, no stale-request path emits a bogus terminal bubble in the replacement-run context, and there are no unexpected browser-console errors.
+10. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
+- Subtask 1: Re-read the full story plan plus the completed Task 14, Task 15, and Task 16 notes to confirm the refreshed acceptance pass must re-prove the original stop contract, the explicit command-run stop review fix, and the stale replacement-run terminal suppression review fix with fresh automated and manual evidence.
+- Subtask 3: The required automated proof is already present in the branch from Tasks 15 and 16 via the updated `server/src/test/unit/ws-server.test.ts`, `client/src/test/useChatStream.inflightMismatch.test.tsx`, and `e2e/chat-multiwindow.spec.ts`, so no extra acceptance-only test scaffolding was needed before rerunning the full wrappers.
+- Testing step 1: `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`, so the refreshed acceptance pass can continue without inspecting the saved server build log.
+- Testing step 2: `npm run build:summary:client` passed cleanly with `warning_count: 0` and `agent_action: skip_log`, so the refreshed acceptance pass can continue without inspecting the saved client build log.
+- Testing step 3: `npm run test:summary:server:unit` passed cleanly with `tests run: 1006`, `failed: 0`, and `agent_action: skip_log`, so the refreshed acceptance pass can continue without opening the saved server unit log.
+- Testing step 4: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 68`, `failed: 0`, and `agent_action: skip_log`, so the refreshed acceptance pass can continue without opening the saved cucumber log.
+- Testing step 5: `npm run test:summary:client` passed cleanly with `tests run: 522`, `failed: 0`, and `agent_action: skip_log`, so the refreshed acceptance pass can continue without opening the saved client log.
+- Testing step 6: `npm run test:summary:e2e` passed cleanly with `tests run: 43`, `failed: 0`, and `agent_action: skip_log`, so the refreshed acceptance pass retained the automated multi-window and stop-UX coverage after the review fixes.
+- Testing step 7: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the dockerized browser acceptance pass could run against rebuilt images without inspecting the compose build log.
+- Testing step 8: `npm run compose:up` started the dockerized stack cleanly for the refreshed host-mapped browser pass.
+- Subtasks 2 and 4-8: Saved and reviewed refreshed screenshots under `playwright-output-local/0000043-17-*`, including `0000043-17-chat-stopped.png`, `0000043-17-chat-noop-recovered.png`, `0000043-17-agents-instruction-stopped.png`, `0000043-17-agents-command-stopped.png`, and `0000043-17-flows-stopped.png`; the host-mapped browser pass re-confirmed Chat, Agents instruction, Agents command, and Flows stopped states plus same-conversation reuse on Chat and Agents, and the browser console still showed the expected `stop-clicked`, `stopping-visible`, `stopped-visible`, `ws-send cancel_inflight`, `ws-event cancel_ack`, and `stream-state` lines without contradictory extra transition logs.
+- Subtasks 5-7: Rechecked the no-active-run no-op path via refreshed Chat browser-console evidence showing a conversation-only `cancel_inflight` send followed by a matching `cancel_ack { result: 'noop' }` without any `stopped-visible` line, and re-confirmed the review-fix paths through the refreshed full e2e pass plus the refreshed browser-console payload review for explicit command stop (`runKind: \"command\"` with a known `inflightId`) and stale replacement-run suppression.
+- Subtask 9: Task 17 did not add or remove tracked source files, so `projectStructure.md` did not need a story-structure update for this acceptance rerun; the refreshed screenshot artifacts remain untracked local evidence under `playwright-output-local/`.
+- Subtasks 10-11: Closed out the final acceptance notes after the wrapper reruns and browser pass completed; `format:check --workspaces` passed cleanly, and `lint --workspaces` again exited cleanly with only the repository's long-standing server import-order warning baseline.
+- Testing step 9: The refreshed host-mapped browser verification at `http://host.docker.internal:5001` completed with reviewed screenshots for Chat stopped, Chat recovered-ready no-op state, Agents instruction stopped, Agents command stopped, and Flows stopped, while console inspection confirmed the required stop-debug lines and the explicit command-stop payload included a known `inflightId`.
+- Testing step 10: `npm run compose:down` shut the dockerized stack down cleanly after the refreshed browser acceptance pass.

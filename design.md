@@ -1453,6 +1453,39 @@ flowchart TD
   O --> P[releaseConversationLock(conversationId, runToken)]
 ```
 
+## Story 0000043 Task 7: flow runs stop at step, loop, and nested handoff boundaries
+
+- `startFlowRun(...)` now captures the active conversation `runToken` immediately after the flow lock is acquired, keeps that ownership through the background flow execution, and clears pending-cancel plus lock ownership from the same final runtime cleanup path.
+- `runFlowInstruction(...)` now binds and consumes token-bound pending cancel immediately after inflight creation, passes the shared inflight `AbortSignal` into `chat.run(...)` with deferred inflight cleanup, and falls back to direct cleanup if the primary flow cleanup callback throws.
+- Flow command steps now have a pre-handoff stop checkpoint: if a pending cancel exists before nested command item execution begins, the flow emits one stopped terminal turn for the command step and never launches the nested agent work.
+- Loop and multi-step continuation still stop cooperatively through the current inflight signal, but later iterations and follow-on command items do not continue after a stopped terminal outcome has been confirmed.
+
+```mermaid
+flowchart TD
+  A[Flow route acquires conversation lock] --> B[Capture runToken]
+  B --> C[Background flow execution starts]
+  C --> D{Next flow step}
+  D --> E[Create step inflight]
+  E --> F[Bind and consume pending cancel for runToken]
+  F --> G{Pending cancel consumed?}
+  G -- yes --> H[Abort inflight and finalize step as stopped]
+  G -- no --> I{Step is command handoff?}
+  I -- yes --> J{Pending cancel before nested handoff?}
+  J -- yes --> K[Emit stopped command step without launching nested agent]
+  J -- no --> L[Launch nested command item agent run with inflight AbortSignal]
+  I -- no --> M[Run LLM or break step with inflight AbortSignal]
+  L --> N{Stopped or failed?}
+  M --> N
+  H --> N
+  K --> N
+  N -- yes --> O[Persist resume state for last completed step only]
+  O --> P[Cleanup inflight with direct fallback if callback throws]
+  P --> Q[Clear pending cancel for runToken]
+  Q --> R[Release conversation lock with runToken]
+  N -- no --> S[Persist completed step and advance to next step or loop iteration]
+  S --> D
+```
+
 ## Story 0000038 Task 5: ingest listing status/phase normalization and active overlay precedence
 
 - External listing status contract for `/ingest/roots` and classic MCP `ListIngestedRepositories` is now normalized from internal ingest states:

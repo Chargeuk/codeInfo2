@@ -10,13 +10,14 @@ import supertest from 'supertest';
 import type WebSocket from 'ws';
 
 import { loadAgentCommandFile } from '../../agents/commandsLoader.js';
+import { registerPendingConversationCancel } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
-import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { startFlowRun } from '../../flows/service.js';
+import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
@@ -32,14 +33,23 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 class ScriptedChat extends ChatInterface {
   async execute(
     message: string,
-    _flags: Record<string, unknown>,
+    flags: Record<string, unknown>,
     conversationId: string,
     _model: string,
   ) {
     void _model;
+    const signal = (flags as { signal?: AbortSignal }).signal;
+    if (signal?.aborted) {
+      this.emit('error', { type: 'error', message: 'aborted' });
+      return;
+    }
     const delayedMatch = message.match(/^__delay:(\d+)::([\s\S]*)$/);
     if (delayedMatch) {
       await delay(Number(delayedMatch[1]));
+      if (signal?.aborted) {
+        this.emit('error', { type: 'error', message: 'aborted' });
+        return;
+      }
     }
     const response = delayedMatch ? delayedMatch[2] : 'ok';
     this.emit('thread', { type: 'thread', threadId: conversationId });
@@ -988,5 +998,140 @@ test('flow run rejects path traversal attempts', async () => {
       .post('/flows/..%2Fescape/run')
       .send({})
       .expect(404);
+  });
+});
+
+test('conversation-only stop prevents nested command handoff from starting', async () => {
+  await withFlowServer(async ({ wsUrl, tmpDir }) => {
+    const conversationId = 'flow-command-stop-before-handoff';
+    const flowName = 'command-stop-check';
+    await fs.writeFile(
+      path.join(tmpDir, `${flowName}.json`),
+      JSON.stringify({
+        description: 'stop before command handoff',
+        steps: [
+          {
+            type: 'command',
+            agentType: 'planning_agent',
+            identifier: 'stop-check',
+            commandName: 'improve_plan',
+          },
+        ],
+      }),
+    );
+    sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+    const startedPromise = startFlowRun({
+      flowName,
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new ScriptedChat(),
+      onOwnershipReady: ({ runToken }) => {
+        registerPendingConversationCancel({
+          conversationId,
+          runToken,
+        });
+      },
+    });
+    await startedPromise;
+
+    const final = await waitForEvent({
+      ws: wsUrl,
+      predicate: (
+        event: unknown,
+      ): event is { type: 'turn_final'; status: string } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          status?: string;
+        };
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.status === 'stopped'
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    assert.equal(final.status, 'stopped');
+    await delay(250);
+
+    const flowConversation = memoryConversations.get(conversationId);
+    const flowFlags = (flowConversation?.flags ?? {}) as {
+      flow?: { agentConversations?: Record<string, string> };
+    };
+    assert.equal(
+      flowFlags.flow?.agentConversations?.['planning_agent:stop-check'],
+      undefined,
+    );
+
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+  });
+});
+
+test('no stale flow continuation resumes after confirmed stop', async () => {
+  await withFlowServer(async ({ wsUrl }) => {
+    const conversationId = 'flow-command-stop-no-resume';
+    sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+    const events: Array<{ type?: string; conversationId?: string }> = [];
+    wsUrl.on('message', (raw) => {
+      const parsed = JSON.parse(String(raw)) as {
+        type?: string;
+        conversationId?: string;
+      };
+      events.push(parsed);
+    });
+
+    const startedPromise = startFlowRun({
+      flowName: 'command-step',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new ScriptedChat(),
+      onOwnershipReady: ({ runToken }) => {
+        registerPendingConversationCancel({
+          conversationId,
+          runToken,
+        });
+      },
+    });
+    await startedPromise;
+
+    await waitForEvent({
+      ws: wsUrl,
+      predicate: (
+        event: unknown,
+      ): event is { type: 'turn_final'; status: string } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          status?: string;
+        };
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.status === 'stopped'
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    const turnCountAfterStop = memoryTurns.get(conversationId)?.length ?? 0;
+    await delay(300);
+
+    const finals = events.filter(
+      (event) =>
+        event.type === 'turn_final' && event.conversationId === conversationId,
+    );
+    assert.equal(finals.length, 1);
+    assert.equal(
+      memoryTurns.get(conversationId)?.length ?? 0,
+      turnCountAfterStop,
+    );
+
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
   });
 });

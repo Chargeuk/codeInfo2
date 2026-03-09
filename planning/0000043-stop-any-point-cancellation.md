@@ -769,7 +769,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 7. Integrate Stop Ownership Into Flow Runs
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -792,32 +792,39 @@ Wire the new cancellation ownership model into flow execution only. This task sh
 
 #### Subtasks
 
-1. [ ] Read the story sections `Cancellation checkpoints are explicit`, `Edge Cases and Failure Modes`, and the flow bullets in `Implementation Ideas`.
-2. [ ] Update `server/src/flows/service.ts` so flow runs check cancellation before the first step, before each next step or loop iteration, before any nested tool or agent handoff that would continue the cancelled flow, and pass `AbortSignal` into any existing abort-capable downstream call sites using the current flow abort and finalization path. Files (read/edit): `server/src/flows/service.ts`; files to read: `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`. Docs to use while doing this subtask: Node.js `AbortController` docs and OpenAI JavaScript/Node library docs.
-3. [ ] Keep `server/src/routes/flowsRun.ts` aligned with the documented route contract and conflict behavior while the internal stop behavior changes. Files (read/edit): `server/src/routes/flowsRun.ts`; files to read: `server/src/flows/service.ts`.
-4. [ ] Ensure flow finalization still emits the correct single terminal stopped outcome and ignores late flow events after finalization. Files (read/edit): `server/src/flows/service.ts`; files to read: `server/src/ws/server.ts`, `server/src/chat/inflightRegistry.ts`.
-5. [ ] Add or update an integration test in `server/src/test/integration/flows.run.loop.test.ts` that cancels a flow during the startup race and proves the run still terminalizes as stopped. Purpose: cover the early-stop happy path for flows.
-6. [ ] Add or update an integration test in `server/src/test/integration/flows.run.loop.test.ts` that sends duplicate stop requests for the same flow run and proves the final event is emitted once. Purpose: cover flow stop idempotence.
-7. [ ] Add or update an integration test in `server/src/test/integration/flows.run.loop.test.ts` that forces cleanup failure during flow stop finalization and proves runtime state is still released. Purpose: cover flow cleanup fallback.
-8. [ ] Add or update an integration test in `server/src/test/integration/flows.run.loop.test.ts` that requests stop during a looped or multi-step flow and proves later iterations do not continue. Purpose: cover flow loop boundary cancellation.
-9. [ ] Add or update an integration test in `server/src/test/integration/flows.run.command.test.ts` that requests stop before a nested tool or agent handoff and proves the handoff does not start. Purpose: cover nested handoff cancellation.
-10. [ ] Add or update an integration test in `server/src/test/integration/flows.run.command.test.ts` that proves no stale flow continuation resumes after confirmed stop. Purpose: cover post-stop continuation suppression.
-11. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a flow stop section and a Mermaid `flowchart` that shows flow start, active ownership, stop checks before the first step, before each later step or loop iteration, before nested handoffs, and final stopped cleanup so the flow cancellation boundaries are explicit.
-12. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
-13. [ ] Update this plan file’s `Implementation notes` for Task 7 after the implementation and tests are complete.
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Read the story sections `Cancellation checkpoints are explicit`, `Edge Cases and Failure Modes`, and the flow bullets in `Implementation Ideas`.
+2. [x] Update `server/src/flows/service.ts` so flow runs check cancellation before the first step, before each next step or loop iteration, before any nested tool or agent handoff that would continue the cancelled flow, and pass `AbortSignal` into any existing abort-capable downstream call sites using the current flow abort and finalization path. Files (read/edit): `server/src/flows/service.ts`; files to read: `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`. Docs to use while doing this subtask: Node.js `AbortController` docs and OpenAI JavaScript/Node library docs.
+3. [x] Keep `server/src/routes/flowsRun.ts` aligned with the documented route contract and conflict behavior while the internal stop behavior changes. Files (read/edit): `server/src/routes/flowsRun.ts`; files to read: `server/src/flows/service.ts`.
+4. [x] Ensure flow finalization still emits the correct single terminal stopped outcome and ignores late flow events after finalization. Files (read/edit): `server/src/flows/service.ts`; files to read: `server/src/ws/server.ts`, `server/src/chat/inflightRegistry.ts`.
+5. [x] Add or update an integration test in `server/src/test/integration/flows.run.loop.test.ts` that cancels a flow during the startup race and proves the run still terminalizes as stopped. Purpose: cover the early-stop happy path for flows.
+6. [x] Add or update an integration test in `server/src/test/integration/flows.run.loop.test.ts` that sends duplicate stop requests for the same flow run and proves the final event is emitted once. Purpose: cover flow stop idempotence.
+7. [x] Add or update an integration test in `server/src/test/integration/flows.run.loop.test.ts` that forces cleanup failure during flow stop finalization and proves runtime state is still released. Purpose: cover flow cleanup fallback.
+8. [x] Add or update an integration test in `server/src/test/integration/flows.run.loop.test.ts` that requests stop during a looped or multi-step flow and proves later iterations do not continue. Purpose: cover flow loop boundary cancellation.
+9. [x] Add or update an integration test in `server/src/test/integration/flows.run.command.test.ts` that requests stop before a nested tool or agent handoff and proves the handoff does not start. Purpose: cover nested handoff cancellation.
+10. [x] Add or update an integration test in `server/src/test/integration/flows.run.command.test.ts` that proves no stale flow continuation resumes after confirmed stop. Purpose: cover post-stop continuation suppression.
+11. [x] Update `design.md`. Files (read/edit): `design.md`. Add a flow stop section and a Mermaid `flowchart` that shows flow start, active ownership, stop checks before the first step, before each later step or loop iteration, before nested handoffs, and final stopped cleanup so the flow cancellation boundaries are explicit.
+12. [x] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
+13. [x] Update this plan file’s `Implementation notes` for Task 7 after the implementation and tests are complete.
+14. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Use because this task changes server flow execution code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit` - Use because this task changes server node:test flow stop behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use because server Cucumber coverage must still pass after flow stop changes. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
+1. [x] `npm run build:summary:server` - Use because this task changes server flow execution code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes server node:test flow stop behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use because server Cucumber coverage must still pass after flow stop changes. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Subtask 1: Re-read the Task 7 flow-only contract sections and the completed Task 1 to Task 6 notes before editing so the flow runtime changes reuse the shared ownership, pending-cancel, and cleanup model instead of introducing a flow-specific stop protocol.
+- Subtasks 2-4: Updated `server/src/flows/service.ts` so flow runs capture the active `runToken`, bind and consume pending cancel immediately after inflight creation, pass the shared inflight `AbortSignal` into `chat.run(...)` with deferred inflight cleanup, and release pending-cancel state plus the conversation lock from one final cleanup path; `server/src/routes/flowsRun.ts` stayed route-compatible, so no response or conflict-contract change was needed there.
+- Subtasks 5-10: Extended `server/src/test/integration/flows.run.loop.test.ts` with startup-race stop, duplicate stop idempotence, cleanup fallback, and loop-boundary cancellation coverage, and extended `server/src/test/integration/flows.run.command.test.ts` with deterministic nested-handoff and post-stop continuation suppression coverage using token-bound pending cancel registration at the ownership boundary.
+- Subtasks 11-12: Documented the flow stop lifecycle and nested handoff checkpoint model in `design.md`; no files were added or removed, so `projectStructure.md` did not need changes.
+- Subtask 14: `format:check` initially failed on the two touched flow integration files, so I ran Prettier on the touched Task 7 files and reran both hygiene checks; `lint --workspaces` still exits cleanly with only the repository’s pre-existing import-order warning baseline and no new Task 7 warnings.
+- Testing step 1: `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`.
+- Testing step 2: Targeted wrapper reruns for `server/src/test/integration/flows.run.loop.test.ts` and `server/src/test/integration/flows.run.command.test.ts` were used to shake out the cooperative-abort test double and the deterministic nested-handoff stop coverage, and the final full `npm run test:summary:server:unit` wrapper then passed cleanly with `tests run: 1004`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 68`, `failed: 0`, and `agent_action: skip_log`.
 
 ---
 

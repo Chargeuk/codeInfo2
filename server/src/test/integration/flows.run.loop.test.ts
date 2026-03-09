@@ -9,6 +9,8 @@ import express from 'express';
 import supertest from 'supertest';
 import type WebSocket from 'ws';
 
+import { getActiveRunOwnership } from '../../agents/runLock.js';
+import { getInflight } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
@@ -72,6 +74,16 @@ const fixturesDir = path.resolve(
 const withFlowServer = async (
   responder: (message: string) => string,
   task: (params: { baseUrl: string; wsUrl: WebSocket }) => Promise<void>,
+  options?: {
+    cleanupInflightFn?: (params: {
+      conversationId: string;
+      inflightId?: string;
+    }) => void;
+    releaseConversationLockFn?: (
+      conversationId: string,
+      expectedRunToken?: string,
+    ) => boolean;
+  },
 ) => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
@@ -88,6 +100,8 @@ const withFlowServer = async (
         startFlowRun({
           ...params,
           chatFactory: () => new ScriptedChat(responder),
+          cleanupInflightFn: options?.cleanupInflightFn,
+          releaseConversationLockFn: options?.releaseConversationLockFn,
         }),
     }),
   );
@@ -149,6 +163,23 @@ const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
   });
+};
+
+const waitForRuntimeCleanup = async (
+  conversationId: string,
+  timeoutMs = 4000,
+) => {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (
+      !getInflight(conversationId) &&
+      !getActiveRunOwnership(conversationId)
+    ) {
+      return;
+    }
+    await delay(25);
+  }
+  throw new Error('Timed out waiting for flow runtime cleanup');
 };
 
 const expectNoTerminalFinal = async (
@@ -784,4 +815,252 @@ test('aborted flow step is not retried', async () => {
   } else {
     process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
   }
+});
+
+test('startup-race conversation-only stop still terminalizes a flow as stopped', async () => {
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Say hello from a flow step.')) {
+        return '__delay:1000::Flow agent response';
+      }
+      return 'ok';
+    },
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-startup-stop-conv';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+      await supertest(baseUrl)
+        .post('/flows/llm-basic/run')
+        .send({ conversationId })
+        .expect(202);
+
+      sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
+
+      const final = await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const e = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'stopped'
+          );
+        },
+        timeoutMs: 5000,
+      });
+
+      assert.equal(final.status, 'stopped');
+      await waitForRuntimeCleanup(conversationId);
+      cleanupMemory(conversationId);
+    },
+  );
+});
+
+test('duplicate flow stop requests emit one terminal stopped event', async () => {
+  const events: Array<{ type?: string; conversationId?: string }> = [];
+
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Say hello from a flow step.')) {
+        return '__delay:1000::Flow agent response';
+      }
+      return 'ok';
+    },
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-duplicate-stop-conv';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+      wsUrl.on('message', (raw) => {
+        const parsed = JSON.parse(String(raw)) as {
+          type?: string;
+          conversationId?: string;
+        };
+        events.push(parsed);
+      });
+
+      await supertest(baseUrl)
+        .post('/flows/llm-basic/run')
+        .send({ conversationId })
+        .expect(202);
+
+      sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
+      sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
+
+      await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const e = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'stopped'
+          );
+        },
+        timeoutMs: 5000,
+      });
+
+      await delay(200);
+
+      const finals = events.filter(
+        (event) =>
+          event.type === 'turn_final' &&
+          event.conversationId === conversationId,
+      );
+      assert.equal(finals.length, 1);
+      await waitForRuntimeCleanup(conversationId);
+      cleanupMemory(conversationId);
+    },
+  );
+});
+
+test('flow stop cleanup fallback still releases runtime state', async () => {
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Say hello from a flow step.')) {
+        return '__delay:1000::Flow agent response';
+      }
+      return 'ok';
+    },
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-cleanup-fallback-conv';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+      await supertest(baseUrl)
+        .post('/flows/llm-basic/run')
+        .send({ conversationId })
+        .expect(202);
+
+      sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
+
+      await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const e = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'stopped'
+          );
+        },
+        timeoutMs: 5000,
+      });
+
+      await waitForRuntimeCleanup(conversationId);
+
+      await supertest(baseUrl)
+        .post('/flows/llm-basic/run')
+        .send({ conversationId })
+        .expect(202);
+
+      await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const e = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'ok'
+          );
+        },
+        timeoutMs: 5000,
+      });
+
+      cleanupMemory(conversationId);
+    },
+    {
+      cleanupInflightFn: ({ conversationId: cleanupConversationId }) => {
+        if (cleanupConversationId === 'flow-cleanup-fallback-conv') {
+          throw new Error('forced cleanup failure');
+        }
+      },
+    },
+  );
+});
+
+test('flow stop during a looped flow prevents later iterations from continuing', async () => {
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Exit inner loop?')) {
+        return '{"answer":"yes"}';
+      }
+      if (message.includes('Exit outer loop?')) {
+        return '__delay:1000::{"answer":"no"}';
+      }
+      return 'ok';
+    },
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-loop-stop-boundary-conv';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+      await supertest(baseUrl)
+        .post('/flows/loop-break/run')
+        .send({ conversationId })
+        .expect(202);
+
+      await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' && turn.content.includes('Exit outer loop?'),
+          ),
+        4000,
+      );
+
+      sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
+
+      await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const e = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'stopped'
+          );
+        },
+        timeoutMs: 5000,
+      });
+
+      await delay(250);
+      const turns = memoryTurns.get(conversationId) ?? [];
+      const outerBreakTurns = turns.filter(
+        (turn) =>
+          turn.role === 'user' && turn.content.includes('Exit outer loop?'),
+      );
+      assert.equal(outerBreakTurns.length, 1);
+      await waitForRuntimeCleanup(conversationId);
+      cleanupMemory(conversationId);
+    },
+  );
 });

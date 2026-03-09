@@ -8,6 +8,7 @@ import { loadAgentCommandFile } from '../agents/commandsLoader.js';
 import { resolveAgentRuntimeExecutionConfig } from '../agents/config.js';
 import { discoverAgents } from '../agents/discovery.js';
 import {
+  getActiveRunOwnership,
   releaseConversationLock,
   tryAcquireConversationLock,
 } from '../agents/runLock.js';
@@ -16,7 +17,11 @@ import { isTransientReconnect } from '../agents/transientReconnect.js';
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { getChatInterface, UnsupportedProviderError } from '../chat/factory.js';
 import {
+  abortInflight,
+  bindPendingConversationCancelToInflight,
+  cleanupPendingConversationCancel,
   cleanupInflight,
+  consumePendingConversationCancel,
   createInflight,
   getInflight,
   markInflightPersisted,
@@ -35,6 +40,7 @@ import {
   shouldUseMemoryPersistence,
   updateMemoryConversationMeta,
 } from '../chat/memoryPersistence.js';
+import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
@@ -50,7 +56,6 @@ import {
   updateConversationFlowState,
   updateConversationThreadId,
 } from '../mongo/repo.js';
-import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
 import type {
   TurnCommandMetadata,
   Turn,
@@ -690,6 +695,8 @@ const runFlowInstruction = async (params: {
   attempt?: number;
   onThreadId: (threadId: string) => void;
   command?: TurnCommandMetadata;
+  runToken?: string;
+  cleanupInflightFn?: typeof cleanupInflight;
 }): Promise<FlowInstructionResult> => {
   const createdAtIso = new Date().toISOString();
   createInflight({
@@ -770,8 +777,34 @@ const runFlowInstruction = async (params: {
 
   const inflightSignal = getInflight(params.flowConversationId)?.abortController
     .signal;
+  const cleanupInflightFn = params.cleanupInflightFn ?? cleanupInflight;
+  const consumePendingFlowStop = () => {
+    if (!params.runToken) return false;
+    const boundPending = bindPendingConversationCancelToInflight({
+      conversationId: params.flowConversationId,
+      runToken: params.runToken,
+      inflightId: params.inflightId,
+    });
+    if (!boundPending.ok) {
+      return boundPending.reason !== 'PENDING_CANCEL_NOT_FOUND';
+    }
+
+    const pendingCancel = consumePendingConversationCancel({
+      conversationId: params.flowConversationId,
+      runToken: params.runToken,
+      inflightId: params.inflightId,
+    });
+    if (!pendingCancel) return false;
+
+    return abortInflight({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+    }).ok;
+  };
 
   try {
+    consumePendingFlowStop();
+
     await chat.run(
       params.instruction,
       {
@@ -785,6 +818,7 @@ const runFlowInstruction = async (params: {
           : {}),
         disableSystemContext: true,
         systemPrompt: params.systemPrompt,
+        deferInflightCleanup: true,
         signal: inflightSignal,
         source: params.source,
         skipPersistence: true,
@@ -947,10 +981,31 @@ const runFlowInstruction = async (params: {
     });
   }
 
-  cleanupInflight({
-    conversationId: params.flowConversationId,
-    inflightId: params.inflightId,
-  });
+  try {
+    cleanupInflightFn({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+    });
+  } catch (cleanupError) {
+    baseLogger.error(
+      {
+        flowConversationId: params.flowConversationId,
+        inflightId: params.inflightId,
+        cleanupError,
+      },
+      'flows instruction cleanup failed; falling back to direct runtime cleanup',
+    );
+    cleanupInflight({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+    });
+  } finally {
+    cleanupPendingConversationCancel({
+      conversationId: params.flowConversationId,
+      runToken: params.runToken,
+      inflightId: params.inflightId,
+    });
+  }
 
   return result;
 };
@@ -1047,6 +1102,95 @@ const emitFailedFlowStep = async (params: {
         code: params.errorCode,
         message: params.message,
       },
+    },
+  });
+  bridge.cleanup();
+
+  cleanupInflight({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+  });
+};
+
+const emitStoppedFlowStep = async (params: {
+  flowConversationId: string;
+  inflightId: string;
+  instruction: string;
+  modelId: string;
+  source: 'REST' | 'MCP';
+  command?: TurnCommandMetadata;
+}) => {
+  const createdAtIso = new Date().toISOString();
+  createInflight({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    provider: 'codex',
+    model: params.modelId,
+    source: params.source,
+    command: params.command,
+    userTurn: { content: params.instruction, createdAt: createdAtIso },
+  });
+
+  publishUserTurn({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    content: params.instruction,
+    createdAt: createdAtIso,
+  });
+
+  const bridge = attachChatStreamBridge({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    provider: 'codex',
+    model: params.modelId,
+    chat: createNoopChat(),
+    deferFinal: true,
+  });
+
+  const userCreatedAt = new Date(createdAtIso);
+  const userPersisted = await persistFlowTurn({
+    conversationId: params.flowConversationId,
+    role: 'user',
+    content: params.instruction,
+    model: params.modelId,
+    provider: 'codex',
+    source: params.source,
+    status: 'ok',
+    toolCalls: null,
+    command: params.command,
+    createdAt: userCreatedAt,
+  });
+
+  const assistantCreatedAt = new Date();
+  const assistantPersisted = await persistFlowTurn({
+    conversationId: params.flowConversationId,
+    role: 'assistant',
+    content: 'Stopped',
+    model: params.modelId,
+    provider: 'codex',
+    source: params.source,
+    status: 'stopped',
+    toolCalls: null,
+    command: params.command,
+    createdAt: assistantCreatedAt,
+  });
+
+  markInflightPersisted({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    role: 'user',
+    turnId: userPersisted.turnId,
+  });
+  markInflightPersisted({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    role: 'assistant',
+    turnId: assistantPersisted.turnId,
+  });
+
+  bridge.finalize({
+    fallback: {
+      status: 'stopped',
     },
   });
   bridge.cleanup();
@@ -1750,6 +1894,9 @@ async function runFlowUnlocked(params: {
   resumeState?: FlowResumeState | null;
   resumeStepPath?: number[];
   customTitle?: string;
+  runToken: string;
+  cleanupInflightFn?: typeof cleanupInflight;
+  releaseConversationLockFn?: typeof releaseConversationLock;
 }) {
   const discovered = await discoverAgents();
   const agentByName = new Map(discovered.map((agent) => [agent.name, agent]));
@@ -1757,6 +1904,7 @@ async function runFlowUnlocked(params: {
   const loopStack: LoopFrame[] = [];
   const maxStepAttempts = getFlowAndCommandRetries();
   let stepInflightId = params.inflightId;
+  let finalizedFlowRuntime = false;
   const resumeStepPath = params.resumeStepPath ?? null;
   let lastCompletedStepPath =
     resumeStepPath ?? params.resumeState?.stepPath ?? [];
@@ -1769,6 +1917,50 @@ async function runFlowUnlocked(params: {
       );
     });
   }
+  const cleanupInflightFn = params.cleanupInflightFn ?? cleanupInflight;
+  const releaseConversationLockFn =
+    params.releaseConversationLockFn ?? releaseConversationLock;
+
+  const finalizeFlowRuntime = () => {
+    if (finalizedFlowRuntime) return;
+    finalizedFlowRuntime = true;
+
+    const inflightState = getInflight(params.conversationId);
+    const activeInflight =
+      inflightState && inflightState.inflightId === stepInflightId
+        ? inflightState
+        : undefined;
+
+    try {
+      if (activeInflight) {
+        cleanupInflightFn({
+          conversationId: params.conversationId,
+          inflightId: stepInflightId,
+        });
+      }
+    } catch (cleanupError) {
+      baseLogger.error(
+        {
+          flowName: params.flowName,
+          conversationId: params.conversationId,
+          inflightId: stepInflightId,
+          cleanupError,
+        },
+        'flows runtime cleanup failed; falling back to direct runtime cleanup',
+      );
+      cleanupInflight({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+      });
+    } finally {
+      cleanupPendingConversationCancel({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+        inflightId: stepInflightId,
+      });
+      releaseConversationLockFn(params.conversationId, params.runToken);
+    }
+  };
 
   const runInstruction = async (instructionParams: {
     agentType: string;
@@ -1857,6 +2049,8 @@ async function runFlowUnlocked(params: {
         postProcess: instructionParams.postProcess,
         command: instructionParams.command,
         attempt,
+        runToken: params.runToken,
+        cleanupInflightFn,
         onResult: (candidate) => {
           if (
             candidate.status === 'failed' &&
@@ -2088,7 +2282,29 @@ async function runFlowUnlocked(params: {
       },
     });
 
+    const stopCommandBeforeHandoff = async (): Promise<boolean> => {
+      const pendingCancel = consumePendingConversationCancel({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+      });
+      if (!pendingCancel) return false;
+
+      const modelId = await getAgentModelId(agent.configPath);
+      await emitStoppedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction: `Command: ${step.commandName}`,
+        modelId,
+        source: params.source,
+        command,
+      });
+      return true;
+    };
+
     for (let attempt = 1; attempt <= maxStepAttempts; attempt += 1) {
+      if (await stopCommandBeforeHandoff()) {
+        return 'stopped';
+      }
       const commandLoad = await resolveFlowCommandForAgent({
         step,
         context: params.repositoryContext,
@@ -2145,6 +2361,9 @@ async function runFlowUnlocked(params: {
       }
 
       for (const item of commandLoad.command.items) {
+        if (await stopCommandBeforeHandoff()) {
+          return 'stopped';
+        }
         const instruction = joinMessageContent(item.content);
         const result = await runInstruction({
           agentType: step.agentType,
@@ -2365,8 +2584,12 @@ async function runFlowUnlocked(params: {
     return 'ok';
   };
 
-  const outcome = await runSteps(params.flow.steps, [], resumeStepPath);
-  if (outcome !== 'ok') return;
+  try {
+    const outcome = await runSteps(params.flow.steps, [], resumeStepPath);
+    if (outcome !== 'ok') return;
+  } finally {
+    finalizeFlowRuntime();
+  }
 }
 
 export async function startFlowRun(
@@ -2384,6 +2607,12 @@ export async function startFlowRun(
       'A run is already in progress for this conversation.',
     );
   }
+  const ownership = getActiveRunOwnership(conversationId);
+  if (!ownership) {
+    releaseConversationLock(conversationId);
+    throw new Error('Conversation run ownership could not be resolved.');
+  }
+  const { runToken } = ownership;
 
   let flow: FlowFile;
   let modelId = FALLBACK_MODEL_ID;
@@ -2391,6 +2620,8 @@ export async function startFlowRun(
   let repositoryContext: FlowCommandRepositoryContext | null = null;
 
   try {
+    await params.onOwnershipReady?.({ conversationId, runToken });
+
     let flowsRoot = flowsDirForRun();
     const listRepos =
       params.listIngestedRepositories ?? listIngestedRepositories;
@@ -2532,7 +2763,8 @@ export async function startFlowRun(
 
     await resolveWorkingFolderWorkingDirectory(params.working_folder);
   } catch (err) {
-    releaseConversationLock(conversationId);
+    cleanupPendingConversationCancel({ conversationId, runToken });
+    releaseConversationLock(conversationId, runToken);
     throw err;
   }
 
@@ -2568,6 +2800,9 @@ export async function startFlowRun(
         resumeState,
         resumeStepPath,
         customTitle: params.customTitle,
+        runToken,
+        cleanupInflightFn: params.cleanupInflightFn,
+        releaseConversationLockFn: params.releaseConversationLockFn,
       });
     } catch (err) {
       if ((err as FlowRunError | undefined)?.code) {
@@ -2582,7 +2817,10 @@ export async function startFlowRun(
         );
       }
     } finally {
-      releaseConversationLock(conversationId);
+      cleanupPendingConversationCancel({ conversationId, runToken });
+      const releaseConversationLockFn =
+        params.releaseConversationLockFn ?? releaseConversationLock;
+      releaseConversationLockFn(conversationId, runToken);
     }
   })();
 

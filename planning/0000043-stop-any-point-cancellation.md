@@ -107,7 +107,8 @@ This story is intentionally about stop correctness and run ownership, not about 
 - Existing UI affordances remain consistent:
   - Stop remains visible while a stop is pending;
   - send/execute controls remain disabled only for the currently active or stopping run, not permanently after the stop finishes;
-  - once the matching `turn_final` with `status: 'stopped'` arrives, the conversation is immediately usable again from the same tab without refresh.
+  - once the matching `turn_final` with `status: 'stopped'` arrives, the conversation is immediately usable again from the same tab without refresh;
+  - for the documented conversation-only no-active-run path, the conversation remains usable and the controls re-enable as soon as the page clears `stopping`.
 - Automated coverage is added or updated for:
   - agent command stop before `inflightId` is known;
   - normal agent instruction stop before `inflightId` is known;
@@ -117,7 +118,8 @@ This story is intentionally about stop correctness and run ownership, not about 
   - conversation-only stop with no active run behaves as a no-op and does not emit `INFLIGHT_NOT_FOUND`;
   - no new command retry/step starts after cancellation;
   - no new flow step/loop iteration starts after cancellation;
-  - the UI remains `stopping` until the matching `turn_final` reports `status: 'stopped'`;
+  - for active cancellation paths, the UI remains `stopping` until the matching `turn_final` reports `status: 'stopped'`;
+  - for the documented no-active-run no-op path, the UI clears `stopping` without waiting for a terminal websocket event;
   - no stale `RUN_IN_PROGRESS` conflict after a confirmed stop.
 
 ### Out Of Scope
@@ -246,12 +248,12 @@ None. Repository and external research are sufficient to task this story.
 - Update the client stop flow without changing the overall page architecture:
   - `client/src/hooks/useChatWs.ts` already supports `cancelInflight(conversationId, inflightId?)`; keep that API but make sure pages always send `conversationId` and include `inflightId` when known;
   - `client/src/hooks/useChatStream.ts` should remain the place that guards against stale or mismatched late events, including duplicate `turn_final` replays;
-  - `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx` should all switch from immediate local stopped state to an immediate local `stopping` state that only becomes final when the matching `turn_final` arrives.
+  - `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx` should all switch from immediate local stopped state to an immediate local `stopping` state that only becomes final when the matching `turn_final` arrives, except for the documented no-active-run no-op path, which returns to ready state without a terminal bubble.
 
 - Keep the user-facing stop behavior identical across Chat, Agents, and Flows:
   - Stop should remain visible while the stop request is pending, but duplicate clicks should not create multiple independent stop attempts;
-  - send or execute controls should stay disabled only while the run is active or stopping, then recover immediately after the matching stopped final event;
-  - no page should claim success locally before the server has confirmed the stop result for the same run.
+  - send or execute controls should stay disabled only while the run is active or stopping, then recover immediately after the matching stopped final event or the documented no-active-run no-op recovery;
+  - no page should claim success locally before the server has confirmed the stop result for the same run, and no page should invent a fake terminal success event for the no-op path.
 
 - Expand automated coverage around the existing high-risk tests instead of inventing a brand-new test strategy:
   - server coverage should primarily extend `server/src/test/unit/ws-server.test.ts`, `server/src/test/unit/ws-chat-stream.test.ts`, `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`, `server/src/test/integration/agents-run-ws-cancel.test.ts`, and the flow integration suites under `server/src/test/integration/flows.run.*.test.ts`;

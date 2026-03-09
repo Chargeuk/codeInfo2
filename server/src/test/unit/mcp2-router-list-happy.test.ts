@@ -33,11 +33,32 @@ test('tools/list returns tool definitions when Codex is available', async () => 
   try {
     const payload = { jsonrpc: '2.0', id: 10, method: 'tools/list' };
     const body = await postJson(port, payload);
+    const tool = body.result.tools.find(
+      (entry: { name: string }) => entry.name === 'codebase_question',
+    ) as {
+      name: string;
+      description: string;
+      inputSchema: {
+        required: string[];
+        properties: Record<string, unknown>;
+      };
+    };
 
     assert.ok(body.result.tools);
     assert.equal(Array.isArray(body.result.tools), true);
-    assert.equal(body.result.tools[0].name, 'codebase_question');
-    assert.ok(body.result.tools[0].inputSchema);
+    assert.equal(tool.name, 'codebase_question');
+    assert.ok(tool.inputSchema);
+    assert.match(tool.description, /repository facts/i);
+    assert.match(tool.description, /likely file locations/i);
+    assert.match(tool.description, /summaries of existing implementations/i);
+    assert.match(tool.description, /current contracts/i);
+    assert.match(tool.description, /inspect .*source files directly/i);
+    assert.match(tool.description, /do your own reasoning/i);
+    assert.deepEqual(tool.inputSchema.required, ['question']);
+    assert.ok(tool.inputSchema.properties.question);
+    assert.ok(tool.inputSchema.properties.conversationId);
+    assert.ok(tool.inputSchema.properties.provider);
+    assert.ok(tool.inputSchema.properties.model);
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
     server.close();

@@ -346,6 +346,14 @@ export type WsTurnFinalEvent = {
   timing?: TurnTimingMetadata;
 };
 
+export type WsCancelAckEvent = {
+  protocolVersion: WsProtocolVersion;
+  type: 'cancel_ack';
+  requestId: string;
+  conversationId: string;
+  result: 'noop';
+};
+
 export type WsServerEvent =
   | WsSidebarConversationUpsertEvent
   | WsSidebarConversationDeleteEvent
@@ -357,4 +365,5 @@ export type WsServerEvent =
   | WsAnalysisDeltaEvent
   | WsToolEventEvent
   | WsStreamWarningEvent
-  | WsTurnFinalEvent;
+  | WsTurnFinalEvent
+  | WsCancelAckEvent;

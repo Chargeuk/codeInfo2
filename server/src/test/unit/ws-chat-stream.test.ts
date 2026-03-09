@@ -646,12 +646,102 @@ test('cancel_inflight with invalid inflightId yields turn_final failed INFLIGHT_
 
     assert.equal(final.status, 'failed');
     assert.equal(final.error?.code, 'INFLIGHT_NOT_FOUND');
-    assert.ok(
+    assert.equal(
       query({
         text: `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED conversationId=${conversationId}`,
-      }).length > 0,
+      }).length,
+      0,
     );
   } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('duplicate websocket stop requests emit one terminal outcome for the same run', async () => {
+  const server = await startServer({
+    chatFactory: buildChatFactory({
+      withAnalysis: false,
+      withTools: false,
+      delayMs: 50,
+    }),
+  });
+  const conversationId = 'ws-cancel-duplicate-final';
+
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  const seenFinals: WsTranscriptEvent[] = [];
+  const onMessage = (raw: unknown) => {
+    if (
+      !(raw instanceof Buffer) &&
+      typeof raw !== 'string' &&
+      !Array.isArray(raw) &&
+      !(raw instanceof ArrayBuffer)
+    ) {
+      return;
+    }
+    const text =
+      typeof raw === 'string'
+        ? raw
+        : Array.isArray(raw)
+          ? Buffer.concat(raw).toString('utf8')
+          : raw instanceof ArrayBuffer
+            ? Buffer.from(raw).toString('utf8')
+            : raw.toString('utf8');
+    const parsed = JSON.parse(text) as WsTranscriptEvent;
+    if (
+      parsed.type === 'turn_final' &&
+      parsed.conversationId === conversationId
+    ) {
+      seenFinals.push(parsed);
+    }
+  };
+  ws.on('message', onMessage);
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await delay(10);
+
+    const res = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'lmstudio',
+        model: 'm',
+        conversationId,
+        message: 'Hello',
+      })
+      .expect(202);
+
+    const inflightId = res.body.inflightId as string;
+
+    sendJson(ws, {
+      type: 'cancel_inflight',
+      conversationId,
+      inflightId,
+    });
+    sendJson(ws, {
+      type: 'cancel_inflight',
+      conversationId,
+      inflightId,
+    });
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    assert.equal(final.status, 'stopped');
+    await delay(200);
+    assert.equal(seenFinals.length, 1);
+  } finally {
+    ws.off('message', onMessage);
     await closeWs(ws);
     await stopServer(server);
   }

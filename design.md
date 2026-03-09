@@ -1244,6 +1244,49 @@ sequenceDiagram
   end
 ```
 
+## Story 0000043 Task 1: websocket stop contract with explicit no-op acknowledgement
+
+- `cancel_inflight` remains the client stop message and still requires `conversationId` while keeping `inflightId` optional.
+- Explicit `{ conversationId, inflightId }` requests keep the existing invalid-target failure behavior when the inflight id does not match the active run.
+- Conversation-only `{ conversationId }` requests first try the legacy command-run abort path, then abort the current inflight run when one exists, and only emit `cancel_ack { result: 'noop' }` when there is no active run for that conversation.
+- `cancel_ack` is non-terminal and request-correlated; successful active cancellations still complete through the existing `turn_final.status === 'stopped'` path.
+
+```mermaid
+sequenceDiagram
+  participant UI as Client
+  participant WS as WebSocket /ws
+  participant CR as Commands Runner
+  participant IR as Inflight Registry
+  participant Run as Active Run
+
+  UI->>WS: cancel_inflight(conversationId, inflightId?)
+  WS->>WS: validate request and log receipt
+
+  alt inflightId provided
+    WS->>IR: abortInflight(conversationId, inflightId)
+    alt explicit target matches active run
+      IR-->>Run: abort signal
+      Run-->>UI: turn_final(status=stopped)
+    else explicit target missing or stale
+      WS-->>UI: turn_final(status=failed, error.code=INFLIGHT_NOT_FOUND)
+    end
+  else inflightId omitted
+    WS->>CR: abortAgentCommandRun(conversationId)
+    alt active command run found
+      CR-->>Run: abort signal
+      Run-->>UI: existing terminal stop path
+    else no active command run
+      WS->>IR: abortInflightByConversation(conversationId)
+      alt active inflight run found
+        IR-->>Run: abort signal
+        Run-->>UI: turn_final(status=stopped)
+      else no active run
+        WS-->>UI: cancel_ack(requestId, conversationId, result=noop)
+      end
+    end
+  end
+```
+
 ## Story 0000038 Task 5: ingest listing status/phase normalization and active overlay precedence
 
 - External listing status contract for `/ingest/roots` and classic MCP `ListIngestedRepositories` is now normalized from internal ingest states:

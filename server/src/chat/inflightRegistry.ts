@@ -193,6 +193,28 @@ export function abortInflight(params: {
   };
 }
 
+export function abortInflightByConversation(
+  conversationId: string,
+):
+  | { ok: true; inflightId: string; signal: AbortSignal; startedAt: string }
+  | { ok: false; reason: 'INFLIGHT_NOT_FOUND' } {
+  const state = inflightByConversationId.get(conversationId);
+  if (!state) return { ok: false, reason: 'INFLIGHT_NOT_FOUND' };
+  const cancelled = abortInflight({
+    conversationId,
+    inflightId: state.inflightId,
+  });
+  if (!cancelled.ok) {
+    return { ok: false, reason: 'INFLIGHT_NOT_FOUND' };
+  }
+  return {
+    ok: true,
+    inflightId: state.inflightId,
+    signal: cancelled.signal,
+    startedAt: cancelled.startedAt,
+  };
+}
+
 export function cleanupInflight(params: {
   conversationId: string;
   inflightId?: string;

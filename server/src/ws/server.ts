@@ -6,6 +6,7 @@ import WebSocket, { type RawData, WebSocketServer } from 'ws';
 import { abortAgentCommandRun } from '../agents/commandsRunner.js';
 
 import {
+  abortInflightByConversation,
   abortInflight,
   bumpSeq,
   snapshotInflight,
@@ -33,6 +34,7 @@ import {
   parseClientMessage,
   type WsAssistantDeltaEvent,
   type WsAnalysisDeltaEvent,
+  type WsCancelAckEvent,
   type WsClientMessage,
   type WsInflightSnapshotEvent,
   type WsStreamWarningEvent,
@@ -293,6 +295,21 @@ export function publishTurnFinal(params: {
   }
 
   broadcastConversation(params.conversationId, event);
+}
+
+function publishCancelAck(params: {
+  ws: WebSocket;
+  requestId: string;
+  conversationId: string;
+}) {
+  const event: WsCancelAckEvent = {
+    protocolVersion: WS_PROTOCOL_VERSION,
+    type: 'cancel_ack',
+    requestId: params.requestId,
+    conversationId: params.conversationId,
+    result: 'noop',
+  };
+  safeSend(params.ws, event);
 }
 
 export function broadcastIngestUpdate(status: IngestJobStatus) {
@@ -563,47 +580,64 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
           'chat.stream.cancel',
         );
 
-        append({
-          level: 'info',
-          message: abortRequestedMessage,
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          requestId: message.requestId,
-          context: {
-            connectionId,
-            conversationId: message.conversationId,
-          },
-        });
-        baseLogger.info(
-          {
+        const logAbortRequested = () => {
+          append({
+            level: 'info',
+            message: abortRequestedMessage,
+            timestamp: new Date().toISOString(),
+            source: 'server',
             requestId: message.requestId,
-            connectionId,
-            conversationId: message.conversationId,
-          },
-          abortRequestedMessage,
-        );
-        abortAgentCommandRun(message.conversationId);
+            context: {
+              connectionId,
+              conversationId: message.conversationId,
+            },
+          });
+          baseLogger.info(
+            {
+              requestId: message.requestId,
+              connectionId,
+              conversationId: message.conversationId,
+            },
+            abortRequestedMessage,
+          );
+        };
 
-        if (!message.inflightId) {
+        if (message.inflightId) {
+          const cancelled = abortInflight({
+            conversationId: message.conversationId,
+            inflightId: message.inflightId,
+          });
+          if (!cancelled.ok) {
+            publishTurnFinal({
+              conversationId: message.conversationId,
+              inflightId: message.inflightId,
+              status: 'failed',
+              threadId: null,
+              error: {
+                code: 'INFLIGHT_NOT_FOUND',
+                message: 'No active in-flight run found for conversation.',
+              },
+            });
+          }
           return;
         }
 
-        const cancelled = abortInflight({
-          conversationId: message.conversationId,
-          inflightId: message.inflightId,
-        });
-        if (!cancelled.ok) {
-          publishTurnFinal({
-            conversationId: message.conversationId,
-            inflightId: message.inflightId,
-            status: 'failed',
-            threadId: null,
-            error: {
-              code: 'INFLIGHT_NOT_FOUND',
-              message: 'No active in-flight run found for conversation.',
-            },
-          });
+        logAbortRequested();
+
+        if (abortAgentCommandRun(message.conversationId)) {
+          return;
         }
+
+        const cancelled = abortInflightByConversation(message.conversationId);
+        if (cancelled.ok) {
+          return;
+        }
+
+        publishCancelAck({
+          ws,
+          requestId: message.requestId,
+          conversationId: message.conversationId,
+        });
         return;
       }
       case 'unknown':

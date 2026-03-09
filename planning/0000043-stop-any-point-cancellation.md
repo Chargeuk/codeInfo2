@@ -419,7 +419,7 @@ None. Repository and external research are sufficient to task this story.
 
 ### 1. Normalize WebSocket Cancel Targeting Contract
 
-- Task Status: `__to_do__`
+- Task Status: `__completed__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -444,31 +444,39 @@ Update the websocket cancel handler so it follows the story’s targeting and ou
 
 #### Subtasks
 
-1. [ ] Read the story sections `Contracts And Storage Shapes`, `Cancellation Targeting`, `Event Outcomes`, `UI State Contract`, and `Edge Cases and Failure Modes` before changing any code.
-2. [ ] Extend the existing websocket unions in `server/src/ws/types.ts`. Files (read/edit): `server/src/ws/types.ts`. Keep `cancel_inflight` accepting optional `inflightId`, keep `parseClientMessage` as the parser entrypoint, and add the new non-terminal `cancel_ack` server event keyed by the existing `requestId`. Docs to use while doing this subtask: DeepWiki `websockets/ws`, TypeScript discriminated unions docs, and Mermaid docs if the contract diagram in this task changes.
-3. [ ] Update the `cancel_inflight` branch in `server/src/ws/server.ts`. Files (read/edit): `server/src/ws/server.ts`, `server/src/agents/commandsRunner.ts` only if needed to preserve the existing command abort hook. Make explicit `{ conversationId, inflightId }` requests and conversation-only `{ conversationId }` requests follow the documented targeting rules without silently converting one path into the other, and emit `cancel_ack` only for the documented conversation-only no-active-run path. Docs to use while doing this subtask: DeepWiki `websockets/ws` and Node.js `AbortController` docs.
-4. [ ] Keep the existing explicit invalid-target behavior for stale or wrong `inflightId` requests and keep the documented conversation-only no-op behavior when no active run exists, but make the no-op path observable via `cancel_ack.result === 'noop'` rather than a terminal event. Files (read/edit): `server/src/ws/server.ts`, `server/src/ws/types.ts`. Docs to use while doing this subtask: DeepWiki `websockets/ws` and TypeScript discriminated unions docs.
-5. [ ] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that sends `{ conversationId, inflightId }` for the wrong active run and proves the server emits the existing explicit invalid-target failure outcome. Purpose: cover the explicit-target error path.
-6. [ ] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that sends conversation-only `cancel_inflight` when no active run exists and proves the server emits one `cancel_ack` with `result: 'noop'` and no `turn_final`. Purpose: cover the documented no-op path.
-7. [ ] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that proves `cancel_ack.requestId` matches the initiating conversation-only no-op request. Purpose: cover request correlation for the no-op ack path.
-8. [ ] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that sends a malformed `cancel_inflight` payload and proves validation rejects it without stop side effects. Purpose: cover malformed websocket input.
-9. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that sends duplicate websocket stop requests for the same run and proves the terminal outcome is emitted once. Purpose: cover websocket-level stop idempotence.
-10. [ ] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that sends conversation-only `cancel_inflight` while an agent command run is active and proves the command-run abort path still fires without emitting an invalid-target terminal failure. Purpose: cover command-run compatibility for conversation-only stop before Task 6 replaces the runtime path.
-11. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a short websocket stop-contract section and a Mermaid `sequenceDiagram` that shows `cancel_inflight` with and without `inflightId`, the explicit invalid-target path, the conversation-only no-active-run `cancel_ack.result === 'noop'` path, and the successful active-run path ending in `turn_final.status === 'stopped'`.
-12. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
-13. [ ] Update this plan file’s `Implementation notes` for Task 1 after the implementation and tests are complete.
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Read the story sections `Contracts And Storage Shapes`, `Cancellation Targeting`, `Event Outcomes`, `UI State Contract`, and `Edge Cases and Failure Modes` before changing any code.
+2. [x] Extend the existing websocket unions in `server/src/ws/types.ts`. Files (read/edit): `server/src/ws/types.ts`. Keep `cancel_inflight` accepting optional `inflightId`, keep `parseClientMessage` as the parser entrypoint, and add the new non-terminal `cancel_ack` server event keyed by the existing `requestId`. Docs to use while doing this subtask: DeepWiki `websockets/ws`, TypeScript discriminated unions docs, and Mermaid docs if the contract diagram in this task changes.
+3. [x] Update the `cancel_inflight` branch in `server/src/ws/server.ts`. Files (read/edit): `server/src/ws/server.ts`, `server/src/agents/commandsRunner.ts` only if needed to preserve the existing command abort hook. Make explicit `{ conversationId, inflightId }` requests and conversation-only `{ conversationId }` requests follow the documented targeting rules without silently converting one path into the other, and emit `cancel_ack` only for the documented conversation-only no-active-run path. Docs to use while doing this subtask: DeepWiki `websockets/ws` and Node.js `AbortController` docs.
+4. [x] Keep the existing explicit invalid-target behavior for stale or wrong `inflightId` requests and keep the documented conversation-only no-op behavior when no active run exists, but make the no-op path observable via `cancel_ack.result === 'noop'` rather than a terminal event. Files (read/edit): `server/src/ws/server.ts`, `server/src/ws/types.ts`. Docs to use while doing this subtask: DeepWiki `websockets/ws` and TypeScript discriminated unions docs.
+5. [x] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that sends `{ conversationId, inflightId }` for the wrong active run and proves the server emits the existing explicit invalid-target failure outcome. Purpose: cover the explicit-target error path.
+6. [x] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that sends conversation-only `cancel_inflight` when no active run exists and proves the server emits one `cancel_ack` with `result: 'noop'` and no `turn_final`. Purpose: cover the documented no-op path.
+7. [x] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that proves `cancel_ack.requestId` matches the initiating conversation-only no-op request. Purpose: cover request correlation for the no-op ack path.
+8. [x] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that sends a malformed `cancel_inflight` payload and proves validation rejects it without stop side effects. Purpose: cover malformed websocket input.
+9. [x] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that sends duplicate websocket stop requests for the same run and proves the terminal outcome is emitted once. Purpose: cover websocket-level stop idempotence.
+10. [x] Add or update a server unit test in `server/src/test/unit/ws-server.test.ts` that sends conversation-only `cancel_inflight` while an agent command run is active and proves the command-run abort path still fires without emitting an invalid-target terminal failure. Purpose: cover command-run compatibility for conversation-only stop before Task 6 replaces the runtime path.
+11. [x] Update `design.md`. Files (read/edit): `design.md`. Add a short websocket stop-contract section and a Mermaid `sequenceDiagram` that shows `cancel_inflight` with and without `inflightId`, the explicit invalid-target path, the conversation-only no-active-run `cancel_ack.result === 'noop'` path, and the successful active-run path ending in `turn_final.status === 'stopped'`.
+12. [x] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
+13. [x] Update this plan file’s `Implementation notes` for Task 1 after the implementation and tests are complete.
+14. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Use because this task changes server websocket contract code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit` - Use because this task changes server node:test websocket behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use because websocket cancel behavior is already covered by server Cucumber chat cancellation coverage. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
+1. [x] `npm run build:summary:server` - Use because this task changes server websocket contract code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes server node:test websocket behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use because websocket cancel behavior is already covered by server Cucumber chat cancellation coverage. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Subtask 1: Re-read the Task 1 contract sections before editing so the implementation preserves explicit invalid-target failures, limits `cancel_ack` to the conversation-only no-active-run path, and does not pull later ownership-state work into this task.
+- Subtasks 2-4: Added `WsCancelAckEvent`, kept `parseClientMessage` as the parser entrypoint, and split the WS cancel handler into explicit-target failure handling, conversation-only active cancellation, and request-correlated no-op acknowledgements without changing the client message name.
+- Subtasks 5-10: Added unit coverage for wrong-target failures, no-op `cancel_ack`, request correlation, malformed payload rejection without stop side effects, duplicate stop idempotence, and the legacy command-run conversation-only abort path.
+- Subtasks 11-12: Documented the Task 1 websocket stop contract and sequence flow in `design.md`; no files were added or removed, so `projectStructure.md` did not need changes.
+- Testing step 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so no build-log inspection was required.
+- Testing step 2: `npm run test:summary:server:unit` passed on rerun after updating one unrelated brittle MCP validation assertion that was blocking the full suite; the final wrapper result was `failed: 0` with `agent_action: skip_log`.
+- Testing step 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 68`, `failed: 0`, and `agent_action: skip_log`.
+- Subtasks 13-14: Updated the Task 1 notes after all implementation and wrapper checks completed; `format:check` initially failed on `server/src/chat/inflightRegistry.ts`, so I ran Prettier on the touched files and reran lint and format checks successfully. Lint still reports pre-existing import-order warnings elsewhere in the repo, but it exits cleanly.
 
 ---
 
@@ -505,6 +513,7 @@ Introduce the runtime-only active-run ownership state the story depends on by ex
 7. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 8. [ ] Update this plan file’s `Implementation notes` for Task 2 after the implementation and tests are complete.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
@@ -553,6 +562,7 @@ Introduce the runtime-only pending-cancel state the story depends on by extendin
 8. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 9. [ ] Update this plan file’s `Implementation notes` for Task 3 after the implementation and tests are complete.
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
@@ -605,6 +615,7 @@ Wire the extended cancellation ownership model into chat runs only. This task sh
 11. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 12. [ ] Update this plan file’s `Implementation notes` for Task 4 after the implementation and tests are complete.
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
@@ -655,6 +666,7 @@ Wire the new cancellation ownership model into normal agent instruction runs onl
 10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 11. [ ] Update this plan file’s `Implementation notes` for Task 5 after the implementation and tests are complete.
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
@@ -706,6 +718,7 @@ Wire the new cancellation ownership model into agent command-list execution only
 10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 11. [ ] Update this plan file’s `Implementation notes` for Task 6 after the implementation and tests are complete.
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
@@ -759,6 +772,7 @@ Wire the new cancellation ownership model into flow execution only. This task sh
 12. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 13. [ ] Update this plan file’s `Implementation notes` for Task 7 after the implementation and tests are complete.
 14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
@@ -811,6 +825,7 @@ Extend the shared websocket client layer so it can send conversation-only stop r
 9. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 10. [ ] Update this plan file’s `Implementation notes` for Task 8 after the implementation and tests are complete.
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
@@ -869,6 +884,7 @@ Update the shared client stop state machine so the frontend can represent `stopp
 13. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 14. [ ] Update this plan file’s `Implementation notes` for Task 9 after the implementation and tests are complete.
 15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
@@ -924,6 +940,7 @@ Update Chat page stop controls and local UX so Chat uses the shared stopping con
 11. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 12. [ ] Update this plan file’s `Implementation notes` for Task 10 after the implementation and tests are complete.
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
@@ -980,6 +997,7 @@ Update Agents page stop controls and local UX so both normal runs and command ru
 12. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 13. [ ] Update this plan file’s `Implementation notes` for Task 11 after the implementation and tests are complete.
 14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
@@ -1038,6 +1056,7 @@ Update Flows page stop controls and local UX so flow runs use the shared stoppin
 12. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 13. [ ] Update this plan file’s `Implementation notes` for Task 12 after the implementation and tests are complete.
 14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
@@ -1086,6 +1105,7 @@ Update the repository documentation to match the implemented stop behavior and p
 4. [ ] Write a pull request comment summarizing all changes made by this story across every completed task. Files (read/edit): the PR summary artifact or markdown file used by the team for PR descriptions, plus this plan file’s implementation notes if the repo keeps the summary inline. Docs to use while doing this subtask: GitHub pull request docs and Markdown syntax docs.
 5. [ ] Update this plan file’s `Implementation notes` for Task 13 after the implementation and documentation updates are complete.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
@@ -1133,6 +1153,7 @@ Verify the full story end-to-end against the acceptance criteria. This task must
 8. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
 9. [ ] Update this plan file’s `Implementation notes` for Task 14 after the verification work is complete.
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.

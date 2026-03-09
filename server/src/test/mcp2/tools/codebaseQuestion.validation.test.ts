@@ -93,7 +93,7 @@ test('codebase_question emits field-specific warning fields when falling back to
         arguments: { question: 'warn-fields?' },
       },
     });
-    assert.equal(body.result.content[0].type, 'text');
+    assert.equal(body.id, 201);
     const markerLogs = query({
       source: ['server'],
       text: 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED',

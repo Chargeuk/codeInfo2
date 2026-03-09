@@ -336,6 +336,16 @@ None. Repository and external research are sufficient to task this story.
   - `abortSignal.throwIfAborted()` is available for explicit checkpoints, which makes it suitable for command and flow step boundaries;
   - Node.js child-process abort support behaves like sending a kill signal to the child process, but platform/runtime behavior does not guarantee recursive teardown of every descendant process tree by default.
 
+- Version validation for this repository:
+  - client dependencies in scope are React `19.2.0`, MUI Material `6.4.1`, and TypeScript `5.9.3`;
+  - server dependencies in scope are Node `>=22`, `ws` `8.18.3`, Mongoose `9.0.1`, and TypeScript `5.6.3`;
+  - these versions already support the planned primitives for this story:
+    - React `useState` and `useRef` are sufficient for the shared `stopping` state and ref-backed inflight tracking with no compatibility workaround;
+    - MUI `Chip` and `CircularProgress` already support the current status-chip pattern, so the story should extend the existing chip rendering instead of replacing components;
+    - `ws` supports the current `WebSocketServer({ noServer: true })` pattern and transport of additional JSON event variants, so the story should extend the existing message union instead of changing transport libraries;
+    - Mongoose already persists `Turn.status` with enum support for `'ok' | 'stopped' | 'failed'`, so no schema migration or persistence-shape change is required;
+    - Node `>=22` already supports `AbortSignal.any(...)` and `abortSignal.throwIfAborted()`, so no abort polyfill or version guard is required.
+
 - Remaining unknowns after research:
   - none that block tasking or implementation for this story, provided the implementation stays within the scoped guarantees above.
 
@@ -345,6 +355,12 @@ None. Repository and external research are sufficient to task this story.
   - do not add parallel websocket contract infrastructure, duplicate lock infrastructure, or separate cancellation state modules if the existing helpers can be extended safely;
   - prefer extending the current websocket type unions, `parseClientMessage`, `publish*` helpers, `tryAcquireConversationLock` / `releaseConversationLock`, `createInflight` / `getInflight` / `markInflightFinal` / `cleanupInflight`, and the shared `useChatWs` / `useChatStream` flow before creating new abstractions;
   - when a task adds new behavior, it should name the existing helper or test it is extending instead of describing the work as brand-new infrastructure.
+
+- Version-appropriate implementation guardrails:
+  - do not add Node compatibility fallbacks for `AbortSignal.any(...)` or `abortSignal.throwIfAborted()` because the repository already requires Node `>=22`;
+  - do not plan a Mongo or Mongoose schema migration for `Turn.status` because the current schema already supports `'stopped'`;
+  - do not replace the current MUI `Chip` / `CircularProgress` status UI with a new component family because the installed MUI version already supports the needed props and color variants;
+  - do not change websocket libraries or add an RPC wrapper because the installed `ws` version already supports the current `noServer` upgrade flow and custom JSON event payloads.
 
 - Shape the implementation around the existing websocket contract, not a new transport:
   - keep `cancel_inflight` as the stop message and keep `turn_final` as the terminal result event;

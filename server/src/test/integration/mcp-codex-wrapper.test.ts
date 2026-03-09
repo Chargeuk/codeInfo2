@@ -3,15 +3,18 @@ import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import test from 'node:test';
 import type {
+  CodexOptions,
   ThreadEvent,
   ThreadOptions as CodexThreadOptions,
   TurnOptions as CodexTurnOptions,
 } from '@openai/codex-sdk';
 
-import { handleRpc } from '../../mcp2/router.js';
-import { runCodebaseQuestion } from '../../mcp2/tools/codebaseQuestion.js';
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import { resolveChatDefaults } from '../../config/chatDefaults.js';
+import { RuntimeConfigResolutionError } from '../../config/runtimeConfig.js';
+import { handleRpc } from '../../mcp2/router.js';
+import { runCodebaseQuestion } from '../../mcp2/tools/codebaseQuestion.js';
+import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
 import {
   getCodexDetection,
   setCodexDetection,
@@ -214,6 +217,49 @@ test('MCP codebase_question uses shared resolver defaults for thread options', a
   }
 });
 
+test('MCP codebase_question passes resolved chat runtime config to Codex', async () => {
+  const prev = getCodexDetection();
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const mockCodex = new MockCodex();
+  let capturedOptions: CodexOptions | undefined;
+  const runtimeConfig = {
+    model: 'openai/gpt-oss-20b',
+    model_provider: 'vllm',
+    model_providers: {
+      vllm: {
+        name: 'vLLM Local',
+        base_url: 'http://localhost:8000/v1',
+        wire_api: 'responses',
+      },
+    },
+  };
+
+  try {
+    await runCodebaseQuestion(
+      { question: 'Use runtime config please' },
+      {
+        codexFactory: (options?: CodexOptions) => {
+          capturedOptions = options;
+          return mockCodex;
+        },
+        chatRuntimeConfigResolver: async () => ({
+          config: runtimeConfig,
+          warnings: [],
+        }),
+      },
+    );
+
+    assert.deepEqual(capturedOptions?.config, runtimeConfig);
+  } finally {
+    setCodexDetection(prev);
+  }
+});
+
 async function postJson(port: number, body: unknown) {
   const response = await fetch(`http://127.0.0.1:${port}`, {
     method: 'POST',
@@ -248,6 +294,58 @@ test('MCP JSON-RPC error shape remains stable for invalid params', async () => {
     assert.equal(response.error.message, 'Invalid params');
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    server.close();
+  }
+});
+
+test('MCP JSON-RPC returns a typed tool error when chat runtime config resolution fails', async () => {
+  const prev = getCodexDetection();
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+  setToolDeps({
+    chatRuntimeConfigResolver: async () => {
+      throw new RuntimeConfigResolutionError({
+        code: 'RUNTIME_CONFIG_INVALID',
+        configPath: '/tmp/codeinfo-chat-config.toml',
+        surface: 'chat',
+        message: 'chat runtime config is invalid',
+      });
+    },
+  });
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const response = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 100,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: { question: 'Hello' },
+      },
+    });
+
+    assert.equal(response.jsonrpc, '2.0');
+    assert.equal(response.id, 100);
+    assert.equal(response.error.code, -32002);
+    assert.equal(response.error.message, 'CODE_INFO_CHAT_CONFIG_INVALID');
+    assert.deepEqual(response.error.data, {
+      code: 'RUNTIME_CONFIG_INVALID',
+      surface: 'chat',
+      configPath: '/tmp/codeinfo-chat-config.toml',
+    });
+  } finally {
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    setCodexDetection(prev);
     server.close();
   }
 });

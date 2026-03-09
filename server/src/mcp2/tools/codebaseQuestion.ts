@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
 import { LMStudioClient } from '@lmstudio/sdk';
-import type { ThreadOptions } from '@openai/codex-sdk';
+import type { CodexOptions, ThreadOptions } from '@openai/codex-sdk';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 
@@ -24,13 +24,17 @@ import type {
   ChatToolResultEvent,
 } from '../../chat/interfaces/ChatInterface.js';
 import { McpResponder } from '../../chat/responders/McpResponder.js';
+import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import {
   resolveChatDefaults,
   resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
   type ChatDefaultProvider,
 } from '../../config/chatDefaults.js';
-import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
+import {
+  RuntimeConfigResolutionError,
+  resolveChatRuntimeConfig,
+} from '../../config/runtimeConfig.js';
 import { append } from '../../logStore.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
@@ -47,6 +51,7 @@ import {
   ArchivedConversationError,
   InvalidParamsError,
   ProviderUnavailableError,
+  ToolExecutionError,
 } from '../errors.js';
 
 export const CODEBASE_QUESTION_TOOL_NAME = 'codebase_question';
@@ -128,12 +133,15 @@ function logSummaryContractRead(params: {
 }
 
 export type CodebaseQuestionDeps = {
-  codexFactory?: () => import('../../chat/interfaces/ChatInterfaceCodex.js').CodexLike;
+  codexFactory?: (
+    options?: CodexOptions,
+  ) => import('../../chat/interfaces/ChatInterfaceCodex.js').CodexLike;
   clientFactory?: (baseUrl: string) => import('@lmstudio/sdk').LMStudioClient;
   toolFactory?: (opts: Record<string, unknown>) => {
     tools: ReadonlyArray<unknown>;
   };
   chatFactory?: typeof getChatInterface;
+  chatRuntimeConfigResolver?: typeof resolveChatRuntimeConfig;
 };
 
 const preferMemoryPersistence = process.env.NODE_ENV === 'test';
@@ -424,6 +432,25 @@ export async function runCodebaseQuestion(
   const codexWorkingDirectory =
     process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data';
   const codexDefaults = codexCapabilities.defaults;
+  let chatRuntimeConfig: CodexOptions['config'] | undefined;
+
+  if (executionProvider === 'codex') {
+    const runtimeConfigResolver =
+      deps.chatRuntimeConfigResolver ?? resolveChatRuntimeConfig;
+    try {
+      const { config } = await runtimeConfigResolver();
+      chatRuntimeConfig = config as CodexOptions['config'];
+    } catch (err) {
+      if (err instanceof RuntimeConfigResolutionError) {
+        throw new ToolExecutionError(-32002, 'CODE_INFO_CHAT_CONFIG_INVALID', {
+          code: err.code,
+          surface: err.surface,
+          configPath: err.configPath,
+        });
+      }
+      throw err;
+    }
+  }
 
   const threadOpts: ThreadOptions = {
     model: executionModel,
@@ -501,6 +528,7 @@ export async function runCodebaseQuestion(
         {
           provider: executionProvider,
           threadId: activeThreadId,
+          runtimeConfig: chatRuntimeConfig,
           codexFlags: threadOpts,
           signal: getInflight(resolvedConversationId)?.abortController.signal,
           source: 'MCP',

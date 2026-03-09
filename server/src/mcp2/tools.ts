@@ -2,6 +2,7 @@ import {
   ArchivedConversationError,
   InvalidParamsError,
   ProviderUnavailableError,
+  ToolExecutionError,
   ToolNotFoundError,
 } from './errors.js';
 import {
@@ -26,6 +27,7 @@ export {
   ToolNotFoundError,
   ArchivedConversationError,
   ProviderUnavailableError,
+  ToolExecutionError,
   ReingestRepositoryToolError,
 };
 

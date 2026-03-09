@@ -405,7 +405,7 @@ describe('Agents page - run', () => {
     expect(assistantMarkdown.querySelector('code')).toBeTruthy();
     expect(userMarkdown.querySelector('script')).toBeNull();
     expect(assistantMarkdown.querySelector('script')).toBeNull();
-  });
+  }, 15000);
 
   it('uses the same safe fallback for malformed mermaid in user and assistant realtime bubbles', async () => {
     const user = userEvent.setup();

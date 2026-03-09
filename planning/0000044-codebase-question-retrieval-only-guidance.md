@@ -106,19 +106,57 @@ Wording that should be removed or rewritten in this story:
 
 ## Implementation Ideas
 
-- Update the `codebase_question` description in `server/src/mcp2/tools/codebaseQuestion.ts` so it explicitly says:
-  - use it for repository facts, file locations, implementation summaries, and likely code areas;
-  - do not rely on it to decide how to fix an issue or whether coverage/risk is acceptable;
-  - the caller must inspect source files and reason from evidence.
-- Update `AGENTS.md` to mirror the same rule in repository-specific instructions.
+### 1. Update the MCP tool definition first
+
+- Edit `server/src/mcp2/tools/codebaseQuestion.ts` in `codebaseQuestionDefinition()` so the description becomes the canonical wording source for the story.
+- Keep the change small and explicit:
+  - say the tool is for repository facts, likely file locations, implementation summaries, current contracts, and similar evidence-gathering work;
+  - say the caller must inspect source files directly after retrieval and do its own reasoning;
+  - remove wording that makes the tool sound like a repository expert that should decide the fix.
+- Keep the tool shape stable while doing this work:
+  - do not rename the tool;
+  - do not change `inputSchema`;
+  - do not add runtime validation logic just because the wording is being tightened.
+
+### 2. Align the repository-level guidance
+
+- Update `AGENTS.md` immediately after the MCP tool description so the repo instructions match the tool wording.
 - Add or update a short note in `docs/developer-reference.md` so the retrieval-only contract is documented outside prompt files as well.
-- Review `usefulCommands.txt.md` alongside the `codex_agents` prompts so helper text shown to humans does not keep the old "ask code_info to solve it" framing alive.
-- Review the in-scope prompt files listed above first, because those are the concrete surfaces already known to contain ambiguous wording.
-- Normalize planning-agent wording so it says the MCP tool helps gather repository evidence, while the planning agent still scopes the story and proposes the implementation details.
-- Normalize research-agent wording so repository-search MCP usage is one evidence source in a wider investigation, not the authority that decides the root cause or final fix.
-- Review command JSON files that currently instruct agents to ask the MCP tool broad advisory questions and rewrite them so they ask for evidence, then direct the agent to continue with manual inspection and its own reasoning.
-- When rewriting prompts, prefer short, concrete wording over long policy prose so the prompts remain readable while still enforcing the retrieval-only intent.
-- Add one lightweight server-side regression test around `tools/list` or the tool-definition helper so the `codebase_question` description is checked for the retrieval-only contract without introducing large prompt-text test snapshots.
-- Prompt and command file consistency can be verified by direct file review in this story; do not add a broad repo-wide prompt validator unless implementation uncovers a concrete repeated failure mode that cannot be managed by the scoped file updates above.
-- Keep the wording consistent across all surfaces so there is one authoritative mental model for the tool.
-- Do not add runtime checks or error paths in this story. The user has explicitly chosen guidance over enforcement.
+- Review `usefulCommands.txt.md` in the same pass, because it duplicates planning/tasking helper prompts for human operators and can otherwise keep the old "ask code_info to solve it" framing alive.
+- Keep these repo-level wording changes concise. The goal is one clear rule that matches the tool description, not a long policy essay.
+
+### 3. Update the prompt families together to avoid drift
+
+- Treat the planning system prompts as one coordinated group:
+  - `codex_agents/planning_agent/system_prompt.txt`
+  - `codex_agents/vllm_agent/system_prompt.txt`
+  - `codex_agents/lmstudio_agent/system_prompt.txt`
+- Replace phrases like "come up with suggestions" with retrieval-first language such as "research what is already implemented" or "gather repository evidence."
+- Review `codex_agents/research_agent/system_prompt.txt` in the same pass so it still allows broad research but keeps `code_info` as one evidence source rather than the authority that decides the answer.
+- Review `codex_agents/tasking_agent/system_prompt.txt` for consistency, but only change it if its surrounding wording starts implying that `code_info` should reason on behalf of the tasking agent. The current conversation-id instruction is not itself the problem.
+
+### 4. Update duplicated command JSON files in grouped passes
+
+- Treat these command files as a high-risk duplication set and update them together so the wording does not drift:
+  - `codex_agents/planning_agent/commands/improve_plan.json`
+  - `codex_agents/lmstudio_agent/commands/improve_plan.json`
+  - `codex_agents/vllm_agent/commands/improve_plan.json`
+- Treat the `kadshow` variants as their own small duplication set and update them together:
+  - `codex_agents/lmstudio_agent/commands/kadshow_improve_plan.json`
+  - `codex_agents/vllm_agent/commands/kadshow_improve_plan.json`
+- Update `codex_agents/tasking_agent/commands/task_up.json` separately, because it needs tasking-specific wording:
+  - keep `code_info` focused on finding existing code, contracts, and evidence;
+  - keep decision-making about plan changes, missing work, and reuse choices with the tasking agent itself.
+- When editing JSON prompt content, prefer small wording substitutions over large rewrites so the original command intent stays intact while the responsibility boundary becomes clear.
+
+### 5. Add one lightweight regression check
+
+- Use `server/src/test/unit/mcp2-router-list-happy.test.ts` as the first-choice test location, because it already exercises `tools/list` and sees the published tool definition that clients consume.
+- Add a small assertion on the `codebase_question` description rather than a full-text snapshot. The goal is to lock the retrieval-only contract, not to make wording maintenance fragile.
+- If `tools/list` assertions become awkward, the fallback is a focused test near `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`, but router-level coverage is preferable because it validates the surfaced MCP contract.
+
+### 6. Keep the implementation intentionally lightweight
+
+- Prompt and command file consistency can be verified by direct file review in this story; do not introduce a broad repo-wide prompt validator unless implementation uncovers a concrete repeated failure mode that cannot be managed by the scoped file updates above.
+- Do not add runtime prompt rejection, heuristic filtering, semantic analysis, or CI machinery just to enforce wording.
+- Keep the final wording short and concrete because MCP/OpenAI tool guidance both rely on descriptions as hints that shape model behavior. Overlong policy prose would make the story noisier without making the contract clearer.

@@ -1114,8 +1114,8 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 12. Align Flows Stop UX With The Shared State Contract
 
-- Task Status: `__in_progress__`
-- Git Commits: `__to_do__`
+- Task Status: `__done__`
+- Git Commits: `9e263bf7 - DEV-[0000043] - Align Flows stop UX with shared state contract`
 
 #### Overview
 

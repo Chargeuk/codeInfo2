@@ -160,6 +160,35 @@ Useful repository searches for completion review:
 - search for remaining problem phrasing such as `come up with suggestions`, `100% confident`, `double-check your thoughts`, and wording that asks `code_info` to ensure coverage or correctness;
 - search for `code_info` and `codebase_question` in the in-scope directories to confirm no overlooked prompt or helper file still frames the tool as the decision-maker.
 
+## Tasking Readiness Notes
+
+This story is intended to be easy to split into implementation tasks later without creating overlap or drift.
+
+Natural work boundaries for later tasking:
+
+- MCP tool definition and its lightweight regression check should stay together, because the description text and the `tools/list` assertion protect the same contract.
+- Repository-level guidance files should stay together, because `AGENTS.md`, `docs/developer-reference.md`, and `usefulCommands.txt.md` all explain the rule at a human-operator level.
+- The three planning-oriented system prompts should be updated as one coordinated set so they do not drift from each other.
+- The duplicated `improve_plan.json` files should be updated together, the duplicated `kadshow_improve_plan.json` files should be updated together, and `task_up.json` should stay separate because its wording is tasking-specific.
+- The final consistency review should verify terminology, phrase removal, and the retrieval-only boundary across all updated surfaces before the story is considered done.
+
+Dependencies and sequencing expectations for later tasking:
+
+- Update the MCP tool description first so it acts as the canonical wording source for the rest of the story.
+- Update repository docs and helper text before or alongside prompt rewrites so there is always one visible written reference for the desired wording.
+- Update duplicated prompt families in grouped passes rather than file-by-file over time.
+- Leave schema, transport, storage, and runtime behavior untouched throughout; this is wording alignment work, not behavior work.
+
+## Developer Guardrails
+
+The story should be implementable by a junior developer without extra stakeholder decisions if these guardrails are followed:
+
+- Work from the repository root unless a command explicitly needs a different path.
+- Treat this as text-and-test work only. Do not add new APIs, new persistence, new runtime flags, or new prompt-enforcement code.
+- When a file uses `code_info`, decide whether it is legacy naming for the same repository-question tool or a purely operational instruction. If it is purely operational, it may stay unchanged.
+- When rewriting wording, prefer small substitutions that preserve the file's original purpose. Do not rewrite whole prompts when only the repository-tool responsibility boundary needs changing.
+- When validating the story, use the completion checks plus the lightweight MCP tool-description regression check rather than inventing extra validation machinery.
+
 ## Implementation Ideas
 
 ### 1. Update the MCP tool definition first

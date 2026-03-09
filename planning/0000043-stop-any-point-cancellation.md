@@ -434,9 +434,9 @@ Update the websocket cancel handler so it follows the story’s targeting and ou
 
 #### Documentation Locations
 
-- `ws` server documentation: DeepWiki `websockets/ws`
-- Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
-- TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions
+- `ws` server documentation: DeepWiki `websockets/ws` — use this to confirm that extending the existing JSON message protocol with one extra server event is normal `ws` usage and does not require a transport redesign.
+- Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller — use this to confirm how abort signals behave when the stop request reaches an active run.
+- TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions — use this to keep websocket event typing safe when adding `cancel_ack`.
 
 #### Subtasks
 
@@ -480,8 +480,8 @@ Introduce the runtime-only active-run ownership state the story depends on by ex
 
 #### Documentation Locations
 
-- Node.js `crypto.randomUUID()`: https://nodejs.org/api/crypto.html#cryptorandomuuidoptions
-- TypeScript object and type alias guidance: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+- Node.js `crypto.randomUUID()`: https://nodejs.org/api/crypto.html#cryptorandomuuidoptions — use this to create stable per-run ownership tokens without inventing a custom ID format.
+- TypeScript object and type alias guidance: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html — use this to model the ownership metadata shape cleanly inside the existing lock module.
 
 #### Subtasks
 
@@ -523,8 +523,8 @@ Introduce the runtime-only pending-cancel state the story depends on by extendin
 
 #### Documentation Locations
 
-- Node.js `Map` and in-memory runtime-state patterns: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
-- TypeScript object and type alias guidance: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+- JavaScript `Map` reference: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map — use this because the pending-cancel state is in-memory runtime state and should stay lightweight.
+- TypeScript object and type alias guidance: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html — use this to model pending-cancel entries beside the existing inflight types without creating a second registry abstraction.
 
 #### Subtasks
 
@@ -567,9 +567,9 @@ Wire the extended cancellation ownership model into chat runs only. This task sh
 
 #### Documentation Locations
 
-- Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
-- OpenAI Node SDK docs: Context7 `/openai/openai-node`
-- `ws` event transport reference: DeepWiki `websockets/ws`
+- Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller — use this to confirm the abort semantics chat runs can rely on.
+- OpenAI JavaScript/Node library docs: https://platform.openai.com/docs/libraries/javascript — use this to verify server-side SDK expectations when a provider call is given an abortable request path.
+- `ws` event transport reference: DeepWiki `websockets/ws` — use this to confirm the final `turn_final` event remains a normal custom JSON event over the existing socket.
 
 #### Subtasks
 
@@ -613,8 +613,8 @@ Wire the new cancellation ownership model into normal agent instruction runs onl
 
 #### Documentation Locations
 
-- Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
-- OpenAI Node SDK docs: Context7 `/openai/openai-node`
+- Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller — use this to confirm the cancellation behavior agent instruction runs can rely on.
+- OpenAI JavaScript/Node library docs: https://platform.openai.com/docs/libraries/javascript — use this to verify the server-side SDK assumptions for normal agent instruction execution.
 
 #### Subtasks
 
@@ -658,8 +658,8 @@ Wire the new cancellation ownership model into agent command-list execution only
 
 #### Documentation Locations
 
-- Node.js `AbortSignal.any()` and `throwIfAborted()`: https://nodejs.org/api/globals.html#class-abortcontroller
-- Node.js timers/promises abort behavior: https://nodejs.org/api/timers.html
+- Node.js `AbortSignal.any()` and `throwIfAborted()`: https://nodejs.org/api/globals.html#class-abortcontroller — use this to confirm the combined-signal and checkpoint pattern for command retries and backoff.
+- Node.js timers/promises abort behavior: https://nodejs.org/api/timers.html — use this to verify how retry/backoff delays should stop once cancellation is requested.
 
 #### Subtasks
 
@@ -703,8 +703,8 @@ Wire the new cancellation ownership model into flow execution only. This task sh
 
 #### Documentation Locations
 
-- Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
-- OpenAI Node SDK docs: Context7 `/openai/openai-node`
+- Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller — use this to confirm the cooperative abort behavior flow execution can rely on.
+- OpenAI JavaScript/Node library docs: https://platform.openai.com/docs/libraries/javascript — use this to verify the server-side SDK assumptions for flow steps that call model-backed work.
 
 #### Subtasks
 
@@ -748,9 +748,9 @@ Extend the shared websocket client layer so it can send conversation-only stop r
 
 #### Documentation Locations
 
-- React docs on custom hooks: Context7 `/reactjs/react.dev`
-- TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions
-- Browser WebSocket event model: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- React docs on custom hooks: Context7 `/reactjs/react.dev` — use this to confirm the shared websocket hook continues to be the correct abstraction point.
+- TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions — use this when extending the websocket event union with `cancel_ack`.
+- Browser WebSocket event model: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket — use this to verify the browser-side send/receive event behavior that `useChatWs` wraps.
 
 #### Subtasks
 
@@ -792,8 +792,8 @@ Update the shared client stop state machine so the frontend can represent `stopp
 
 #### Documentation Locations
 
-- React docs on `useState`, `useRef`, and state updates: Context7 `/reactjs/react.dev`
-- TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions
+- React docs on `useState`, `useRef`, and state updates: Context7 `/reactjs/react.dev` — use this to confirm the shared stop-state and ref-backed inflight tracking model in `useChatStream`.
+- TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions — use this when preserving `stopped` as a distinct terminal status in shared client types.
 
 #### Subtasks
 
@@ -835,9 +835,9 @@ Update Chat page stop controls and local UX so Chat uses the shared stopping con
 
 #### Documentation Locations
 
-- React docs on event handlers and state updates: Context7 `/reactjs/react.dev`
-- MUI `Chip` API: use MUI MCP tool with `@mui/material` 6.x `chip.md`
-- MUI `CircularProgress` API: use MUI MCP tool with `@mui/material` 6.x `circular-progress.md`
+- React docs on event handlers and state updates: Context7 `/reactjs/react.dev` — use this to keep the Chat page stop handler aligned with React state update rules.
+- MUI `Chip` API: use MUI MCP tool with `@mui/material` 6.x `chip.md` — use this because Chat renders terminal stop state through the existing chip component rather than a new UI primitive.
+- MUI `CircularProgress` API: use MUI MCP tool with `@mui/material` 6.x `circular-progress.md` — use this because Chat already uses the spinner path for in-progress status rendering.
 
 #### Subtasks
 
@@ -879,9 +879,9 @@ Update Agents page stop controls and local UX so both normal runs and command ru
 
 #### Documentation Locations
 
-- React docs on event handlers and state updates: Context7 `/reactjs/react.dev`
-- MUI `Chip` API: use MUI MCP tool with `@mui/material` 6.x `chip.md`
-- MUI `CircularProgress` API: use MUI MCP tool with `@mui/material` 6.x `circular-progress.md`
+- React docs on event handlers and state updates: Context7 `/reactjs/react.dev` — use this to keep the Agents page stop handlers aligned with React state update rules.
+- MUI `Chip` API: use MUI MCP tool with `@mui/material` 6.x `chip.md` — use this because Agents renders terminal stop state through the existing chip component rather than a new UI primitive.
+- MUI `CircularProgress` API: use MUI MCP tool with `@mui/material` 6.x `circular-progress.md` — use this because Agents already uses the spinner path for in-progress status rendering.
 
 #### Subtasks
 
@@ -924,9 +924,9 @@ Update Flows page stop controls and local UX so flow runs use the shared stoppin
 
 #### Documentation Locations
 
-- React docs on event handlers and state updates: Context7 `/reactjs/react.dev`
-- MUI `Chip` API: use MUI MCP tool with `@mui/material` 6.x `chip.md`
-- MUI `CircularProgress` API: use MUI MCP tool with `@mui/material` 6.x `circular-progress.md`
+- React docs on event handlers and state updates: Context7 `/reactjs/react.dev` — use this to keep the Flows page stop handler aligned with React state update rules.
+- MUI `Chip` API: use MUI MCP tool with `@mui/material` 6.x `chip.md` — use this because Flows renders terminal stop state through the existing chip component rather than a new UI primitive.
+- MUI `CircularProgress` API: use MUI MCP tool with `@mui/material` 6.x `circular-progress.md` — use this because Flows already uses the spinner path for in-progress status rendering.
 
 #### Subtasks
 
@@ -968,8 +968,8 @@ Update the repository documentation to match the implemented stop behavior and p
 
 #### Documentation Locations
 
-- Markdown reference: https://www.markdownguide.org/basic-syntax/
-- Pull request writing reference: https://docs.github.com/en/pull-requests
+- Markdown reference: https://www.markdownguide.org/basic-syntax/ — use this to keep README, design, and projectStructure updates consistently formatted.
+- GitHub pull request documentation: https://docs.github.com/en/pull-requests — use this to shape the requested PR summary in a format reviewers can follow.
 
 #### Subtasks
 
@@ -1008,8 +1008,9 @@ Verify the full story end-to-end against the acceptance criteria. This task must
 
 #### Documentation Locations
 
-- Playwright screenshots and assertions: https://playwright.dev/docs/screenshots
-- Docker Compose build and up workflow: https://docs.docker.com/compose/
+- Playwright screenshots and assertions: https://playwright.dev/docs/screenshots — use this because the task requires saved visual proof for the stop UX.
+- Docker Compose overview and file reference: https://docs.docker.com/compose/ — use this for the build and startup verification steps that rely on the existing Compose wrappers.
+- Cucumber guides, especially continuous integration: https://cucumber.io/docs/guides/continuous-integration/ — use this because the task explicitly runs the server cucumber suite as part of the acceptance gate.
 
 #### Subtasks
 

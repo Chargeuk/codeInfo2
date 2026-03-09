@@ -1319,7 +1319,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 ### 15. Fix Explicit Stop Propagation For Active Agent Command Runs
 
 - Task Status: `__done__`
-- Git Commits: `__to_do__`
+- Git Commits: `534cf218 - DEV-[0000043] - Propagate explicit command stop to runner`
 
 #### Overview
 

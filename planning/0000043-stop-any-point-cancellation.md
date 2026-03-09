@@ -830,7 +830,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 8. Add Shared Client WebSocket Stop Acknowledgement Handling
 
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits: `afcd2601 - DEV-[0000043] - Add shared websocket stop acknowledgement handling`
 
 #### Overview
@@ -895,7 +895,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 9. Add Shared Client Stop State And Reconciliation Logic
 
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits: `1c867b1a - DEV-[0000043] - Add shared client stop-state reconciliation`
 
 #### Overview
@@ -964,7 +964,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 10. Align Chat Stop UX With The Shared State Contract
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `c45d2ab2 - DEV-[0000043] - Align Chat stop UX with shared state contract`
 
 #### Overview

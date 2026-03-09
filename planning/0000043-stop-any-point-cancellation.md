@@ -594,7 +594,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 ### 4. Integrate Stop Ownership Into Chat Runs
 
 - Task Status: `__done__`
-- Git Commits: `__to_do__`
+- Git Commits: `52f278b8 - DEV-[0000043] - Integrate stop ownership into chat runs`
 
 #### Overview
 

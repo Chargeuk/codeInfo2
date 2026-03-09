@@ -1062,9 +1062,9 @@ Update the repository documentation to match the implemented stop behavior and p
 
 #### Subtasks
 
-1. [ ] Ensure `README.md` is updated with any stop-behavior or command changes introduced by this story.
-2. [ ] Ensure `design.md` is updated with any architecture or state-flow changes introduced by this story, including the Mermaid diagrams added by the architecture and flow tasks so the final design documentation matches the implemented stop lifecycle end to end.
-3. [ ] Ensure `projectStructure.md` is updated with any files or folders added, removed, or materially repurposed by this story.
+1. [ ] Update markdown document `README.md`. Document name: `README.md`. Location: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md`. Description: document the shipped stop behavior, including conversation-only stop during the startup race, the no-op `cancel_ack.result === 'noop'` path, and the rule that successful real stop is confirmed by `turn_final.status === 'stopped'`. Purpose: keep the top-level product behavior and operator-facing usage notes aligned with the implemented stop contract.
+2. [ ] Update markdown document `design.md`. Document name: `design.md`. Location: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md`. Description: consolidate the architecture and state-flow changes from this story, including the Mermaid diagrams added by the architecture and flow tasks so the documented stop lifecycle matches the final implementation end to end. Purpose: keep the architecture reference accurate for future implementation and debugging work.
+3. [ ] Update markdown document `projectStructure.md`. Document name: `projectStructure.md`. Location: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md`. Description: record any files or folders added, removed, or materially repurposed by this story, including any new tests, helpers, or documentation files created while implementing the stop lifecycle changes. Purpose: keep the repository structure map synchronized with the final file layout delivered by the story.
 4. [ ] Write a pull request comment summarizing all changes made by this story across every completed task.
 5. [ ] Update this plan file’s `Implementation notes` for Task 13 after the implementation and documentation updates are complete.
 6. [ ] Run `npm run lint` and `npm run format:check`, then fix any issues before considering the task complete.

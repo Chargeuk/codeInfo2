@@ -1684,8 +1684,14 @@ export default function AgentsPage() {
   ]);
 
   const selectedAgent = agents.find((a) => a.name === selectedAgentName);
+  const hasVisibleStoppedRun =
+    liveStoppedMarker !== null &&
+    liveStoppedMarker.conversationId === activeConversationId &&
+    !isStopping;
   const isRunActive =
-    startPending || isStreaming || status === 'sending' || isStopping;
+    startPending ||
+    ((isStreaming || status === 'sending') && !hasVisibleStoppedRun) ||
+    isStopping;
   const controlsDisabled =
     agentsLoading || !!agentsError || !selectedAgentName || persistenceLoading;
   const submitDisabledForRun = isRunActive;

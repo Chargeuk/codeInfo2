@@ -735,6 +735,13 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ task11-agents-command-stop-bubble.png â€” Story 0000043 Task 11 Agents command stop verification capture showing the visible `Stopped` state
 â”‚  â”œâ”€ task11-agents-instruction-stop-bubble.png â€” Story 0000043 Task 11 Agents instruction stop verification capture showing the visible `Stopped` state
 â”‚  â”œâ”€ task12-flows-stop-stopped.png â€” Story 0000043 Task 12 Flows stop verification capture showing the visible `Stopped` state
+â”‚  â”œâ”€ 0000043-14-chat-stopped.png â€” Story 0000043 Task 14 final Chat stopped-state acceptance capture
+â”‚  â”œâ”€ 0000043-14-chat-noop-recovered.png â€” Story 0000043 Task 14 final Chat no-op recovery acceptance capture
+â”‚  â”œâ”€ 0000043-14-agents-instruction-stopped.png â€” Story 0000043 Task 14 final Agents instruction stopped-state acceptance capture
+â”‚  â”œâ”€ 0000043-14-agents-command-stopped.png â€” Story 0000043 Task 14 final Agents command stopped-state acceptance capture
+â”‚  â”œâ”€ 0000043-14-flows-stopped.png â€” Story 0000043 Task 14 final Flows stopped-state acceptance capture
+â”‚  â”œâ”€ 0000043-14-chat-multiwindow-a.png â€” Story 0000043 Task 14 multi-window source-tab acceptance capture after the first stop
+â”‚  â”œâ”€ 0000043-14-chat-multiwindow-b.png â€” Story 0000043 Task 14 multi-window replacement-run acceptance capture showing the later run still active
 â”‚  â””â”€ 0000035-15-general-regression.png â€” Task 15 overall regression revalidation capture
 â”œâ”€ test-results/
 â”‚  â”œâ”€ pr-comments/
@@ -1557,6 +1564,31 @@ Modified files (implementation traceability):
 Task notes:
 
 - Task 13 adds the story PR summary artifact under `test-results/pr-comments/` and keeps the rest of the documentation updates in place within the existing repo docs.
+
+## Story 0000043 Task 14 structural verification ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/pages/AgentsPage.tsx` — command-run stop reconciliation now treats a live stopped marker as terminal for the page controls so the same conversation can be started again immediately after a confirmed stopped command run.
+- `e2e/chat-multiwindow.spec.ts` — final acceptance coverage now includes a stale-stop multi-window regression proving a replacement run in another context is not cancelled by the older stop target.
+- `projectStructure.md` — Task 14 screenshot index and final acceptance ledger synchronized with the multi-surface manual evidence.
+- `planning/0000043-stop-any-point-cancellation.md` — Task 14 acceptance status, implementation notes, and final wrapper/manual evidence recorded in sequence.
+
+Task notes:
+
+- Task 14 adds no tracked files, but it refreshes the final acceptance evidence by saving and reviewing the Story 0000043 Task 14 screenshots under `playwright-output-local/` and tightening the final Agents command-stop reuse behavior to match the acceptance contract.
 
 ## Story 0000042 Task 8 structural verification ledger
 

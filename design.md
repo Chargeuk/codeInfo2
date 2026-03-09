@@ -1333,6 +1333,49 @@ flowchart TD
   J --> K[Replacement run starts without inheriting stale cancel]
 ```
 
+## Story 0000043 Task 4: chat stop reuses shared ownership and cleanup
+
+- Chat start keeps the existing `202 started` route contract, but the runtime now captures the active `runToken` and re-checks pending cancel after inflight creation and again before provider execution starts.
+- Chat execution passes the shared inflight `AbortSignal` into provider-capable paths and pre-checks that signal before `execute(...)` begins meaningful work, so a startup-race stop can still finish as `turn_final.status === 'stopped'`.
+- Chat route finalization is now the single runtime cleanup path for chat: it falls back to one stopped or failed terminal outcome when the provider never emits a terminal event, then clears inflight state, pending-cancel state, and the conversation lock in a fixed order.
+- Same-conversation reuse depends on that cleanup path completing, so duplicate stops and cleanup-failure fallback must never leak lock ownership or pending cancel into the next chat run.
+
+```mermaid
+sequenceDiagram
+  participant UI as Client
+  participant Route as POST /chat
+  participant IR as Inflight Registry
+  participant Chat as ChatInterface.run
+  participant Bridge as Chat Stream Bridge
+  participant Provider as Provider Runtime
+
+  UI->>Route: start chat
+  Route->>Route: acquire conversation lock and runToken
+  Route->>IR: createInflight(conversationId, inflightId)
+  Route->>IR: consume pending cancel for runToken if present
+  Route-->>UI: 202 started with inflightId
+  Route->>Bridge: attach stream bridge
+  Route->>Chat: run(... signal, deferInflightCleanup=true)
+  Chat->>Chat: signal.throwIfAborted()
+  alt startup-race stop already won
+    Chat-->>Route: abort before provider work
+    Route->>Bridge: finalize fallback status=stopped
+  else provider work proceeds
+    Chat->>Provider: execute with AbortSignal
+    alt stop arrives during provider work
+      Provider-->>Bridge: error(aborted)
+      Bridge-->>UI: turn_final(status=stopped)
+    else normal completion
+      Provider-->>Bridge: complete/final events
+      Bridge-->>UI: turn_final(status=ok)
+    end
+  end
+  Route->>IR: cleanupInflight(conversationId, inflightId)
+  Route->>IR: cleanup pending cancel for runToken
+  Route->>Route: releaseConversationLock(conversationId, runToken)
+  Note over UI,Route: Same conversation is reusable after terminal stop cleanup finishes
+```
+
 ## Story 0000038 Task 5: ingest listing status/phase normalization and active overlay precedence
 
 - External listing status contract for `/ingest/roots` and classic MCP `ListIngestedRepositories` is now normalized from internal ingest states:

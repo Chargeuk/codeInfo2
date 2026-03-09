@@ -892,6 +892,65 @@ test('duplicate websocket stop requests emit one terminal outcome for the same r
   }
 });
 
+test('conversation-only stop during startup race still finishes chat as stopped', async () => {
+  const server = await startServer({
+    chatFactory: buildChatFactory({
+      withAnalysis: false,
+      withTools: false,
+      delayMs: 75,
+    }),
+  });
+  const conversationId = 'ws-chat-startup-race-stop';
+
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const startPromise = fetch(`${server.baseUrl}/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        model: 'm',
+        conversationId,
+        message: 'Hello',
+      }),
+    });
+
+    const deadline = Date.now() + 3000;
+    while (Date.now() < deadline) {
+      if (getInflight(conversationId)) break;
+      await delay(10);
+    }
+    assert.ok(getInflight(conversationId));
+
+    sendJson(ws, { type: 'cancel_inflight', conversationId });
+
+    const res = await startPromise;
+    assert.equal(res.status, 202);
+    const body = (await res.json()) as { inflightId: string };
+    const inflightId = body.inflightId;
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    assert.equal(final.status, 'stopped');
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
 test('streams user turn over WS at run start', async () => {
   const server = await startServer({
     chatFactory: buildChatFactory({
@@ -1064,6 +1123,20 @@ test('late assistant update after finalization does not emit duplicate assistant
   const conversationId = 'ws-late-delta-ignored-1';
 
   const ws = await connectWs({ baseUrl: server.baseUrl });
+  const seenFinals: WsTranscriptEvent[] = [];
+  const onMessage = (raw: unknown) => {
+    if (!(raw instanceof Buffer) && typeof raw !== 'string') return;
+    const parsed = JSON.parse(
+      typeof raw === 'string' ? raw : raw.toString('utf8'),
+    ) as WsTranscriptEvent;
+    if (
+      parsed.type === 'turn_final' &&
+      parsed.conversationId === conversationId
+    ) {
+      seenFinals.push(parsed);
+    }
+  };
+  ws.on('message', onMessage);
   try {
     sendJson(ws, { type: 'subscribe_conversation', conversationId });
     const res = await request(server.httpServer)
@@ -1098,7 +1171,11 @@ test('late assistant update after finalization does not emit duplicate assistant
       );
     });
     assert.equal(assistantDeltaEvents.length, 2);
+    await delay(100);
+    assert.equal(seenFinals.length, 1);
+    assert.equal(getInflight(conversationId), undefined);
   } finally {
+    ws.off('message', onMessage);
     await closeWs(ws);
     await stopServer(server);
   }

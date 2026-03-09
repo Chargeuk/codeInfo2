@@ -593,7 +593,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 4. Integrate Stop Ownership Into Chat Runs
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -616,31 +616,38 @@ Wire the extended cancellation ownership model into chat runs only. This task sh
 
 #### Subtasks
 
-1. [ ] Read the story sections `Event Outcomes`, `UI State Contract`, `Edge Cases and Failure Modes`, and the chat-specific notes in `Implementation Ideas`.
-2. [ ] Update `server/src/routes/chat.ts` so chat runs check for pending cancel before meaningful work starts, immediately after inflight creation, and in the finalization path. Files (read/edit): `server/src/routes/chat.ts`; files to read: `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`. Docs to use while doing this subtask: Node.js `AbortController` docs.
-3. [ ] Update `server/src/chat/chatStreamBridge.ts` or `server/src/chat/interfaces/ChatInterface.ts` only where necessary to keep cancelled chat runs emitting one terminal `turn_final.status === 'stopped'`, propagating `AbortSignal` through provider APIs that already support it, and reusing `markInflightFinal`, `isInflightFinalized`, and `publishFinalOnce` for late-event protection. Files (read/edit): `server/src/chat/chatStreamBridge.ts`, `server/src/chat/interfaces/ChatInterface.ts`; files to read: `server/src/ws/server.ts`, `server/src/chat/inflightRegistry.ts`. Docs to use while doing this subtask: OpenAI JavaScript/Node library docs, Node.js `AbortController` docs, DeepWiki `websockets/ws`.
-4. [ ] Ensure chat cleanup reuses `cleanupInflight` and `releaseConversationLock` so inflight state, active ownership, and pending-cancel state are released in one safe path even when stop happens near finalization or the primary cleanup path throws. Files (read/edit): `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterface.ts`. Docs to use while doing this subtask: Node.js `AbortController` docs.
-5. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that stops a chat run during the startup race before the client-visible `inflightId` is usable and proves the run still finishes as `stopped`. Purpose: cover the early-stop happy path for chat.
-6. [ ] Add or update a server integration test in `server/src/test/integration/chat-tools-wire.test.ts` that sends duplicate stop requests for the same chat run and proves the final event is emitted once. Purpose: cover chat stop idempotence.
-7. [ ] Add or update a server integration test in `server/src/test/integration/chat-tools-wire.test.ts` that forces cleanup failure during chat stop finalization and proves inflight state, ownership, and pending-cancel state are still released. Purpose: cover chat cleanup fallback.
-8. [ ] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that delivers late provider events after chat has already terminalized and proves the run does not reopen. Purpose: cover chat late-event suppression.
-9. [ ] Add or update a server integration test in `server/src/test/integration/chat-tools-wire.test.ts` that starts a new chat run on the same conversation after confirmed stop and proves there is no stale `RUN_IN_PROGRESS` conflict. Purpose: cover chat conversation reuse.
-10. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a chat stop-lifecycle section and a Mermaid `sequenceDiagram` that shows chat run start, startup-race stop, pending-cancel consumption, provider abort propagation, single `turn_final.status === 'stopped'`, and cleanup plus same-conversation reuse.
-11. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
-12. [ ] Update this plan file’s `Implementation notes` for Task 4 after the implementation and tests are complete.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Read the story sections `Event Outcomes`, `UI State Contract`, `Edge Cases and Failure Modes`, and the chat-specific notes in `Implementation Ideas`.
+2. [x] Update `server/src/routes/chat.ts` so chat runs check for pending cancel before meaningful work starts, immediately after inflight creation, and in the finalization path. Files (read/edit): `server/src/routes/chat.ts`; files to read: `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`. Docs to use while doing this subtask: Node.js `AbortController` docs.
+3. [x] Update `server/src/chat/chatStreamBridge.ts` or `server/src/chat/interfaces/ChatInterface.ts` only where necessary to keep cancelled chat runs emitting one terminal `turn_final.status === 'stopped'`, propagating `AbortSignal` through provider APIs that already support it, and reusing `markInflightFinal`, `isInflightFinalized`, and `publishFinalOnce` for late-event protection. Files (read/edit): `server/src/chat/chatStreamBridge.ts`, `server/src/chat/interfaces/ChatInterface.ts`; files to read: `server/src/ws/server.ts`, `server/src/chat/inflightRegistry.ts`. Docs to use while doing this subtask: OpenAI JavaScript/Node library docs, Node.js `AbortController` docs, DeepWiki `websockets/ws`.
+4. [x] Ensure chat cleanup reuses `cleanupInflight` and `releaseConversationLock` so inflight state, active ownership, and pending-cancel state are released in one safe path even when stop happens near finalization or the primary cleanup path throws. Files (read/edit): `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterface.ts`. Docs to use while doing this subtask: Node.js `AbortController` docs.
+5. [x] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that stops a chat run during the startup race before the client-visible `inflightId` is usable and proves the run still finishes as `stopped`. Purpose: cover the early-stop happy path for chat.
+6. [x] Add or update a server integration test in `server/src/test/integration/chat-tools-wire.test.ts` that sends duplicate stop requests for the same chat run and proves the final event is emitted once. Purpose: cover chat stop idempotence.
+7. [x] Add or update a server integration test in `server/src/test/integration/chat-tools-wire.test.ts` that forces cleanup failure during chat stop finalization and proves inflight state, ownership, and pending-cancel state are still released. Purpose: cover chat cleanup fallback.
+8. [x] Add or update a server unit test in `server/src/test/unit/ws-chat-stream.test.ts` that delivers late provider events after chat has already terminalized and proves the run does not reopen. Purpose: cover chat late-event suppression.
+9. [x] Add or update a server integration test in `server/src/test/integration/chat-tools-wire.test.ts` that starts a new chat run on the same conversation after confirmed stop and proves there is no stale `RUN_IN_PROGRESS` conflict. Purpose: cover chat conversation reuse.
+10. [x] Update `design.md`. Files (read/edit): `design.md`. Add a chat stop-lifecycle section and a Mermaid `sequenceDiagram` that shows chat run start, startup-race stop, pending-cancel consumption, provider abort propagation, single `turn_final.status === 'stopped'`, and cleanup plus same-conversation reuse.
+11. [x] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
+12. [x] Update this plan file’s `Implementation notes` for Task 4 after the implementation and tests are complete.
+13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Use because this task changes server chat execution code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit` - Use because this task changes server node:test chat stop behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use because chat cancellation is already covered by server Cucumber scenarios and must still pass after this task. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
+1. [x] `npm run build:summary:server` - Use because this task changes server chat execution code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes server node:test chat stop behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use because chat cancellation is already covered by server Cucumber scenarios and must still pass after this task. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Subtask 1: Re-read the event-outcome, UI-state, edge-case, and chat implementation-idea sections plus the completed Task 1 to Task 3 notes so Task 4 can consume the shared websocket contract, lock ownership, and pending-cancel model without pulling agent or flow work forward.
+- Subtasks 2-4: Updated `server/src/routes/chat.ts` to capture the active `runToken`, consume any matching pending cancel after inflight creation and before provider execution, defer chat inflight cleanup to the route finalization path, and use one cleanup path that falls back to direct runtime cleanup before releasing the conversation lock with expected-token protection; `server/src/chat/interfaces/ChatInterface.ts` now pre-checks `AbortSignal` and supports chat-only deferred inflight cleanup.
+- Subtasks 5-9: Added chat stop coverage in `server/src/test/unit/ws-chat-stream.test.ts` for the startup-race conversation-only stop path and late-event suppression, and in `server/src/test/integration/chat-tools-wire.test.ts` for duplicate stop idempotence, cleanup fallback, and same-conversation reuse after confirmed stop.
+- Subtasks 10-11: Documented the chat stop lifecycle in `design.md`; no files were added or removed, so `projectStructure.md` did not need changes for Task 4.
+- Subtask 13: `lint` initially failed on one unused route import and two unused integration-test type imports, and `format:check` flagged `server/src/routes/chat.ts`; those local issues were fixed and the hygiene commands now pass while lint still reports only the repo’s existing import-order warning baseline.
+- Testing step 1: `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`.
+- Testing step 2: the first full `npm run test:summary:server:unit` run exposed one regression in `server/src/test/unit/chat-interface-base.test.ts` after the new pre-execute abort check, so `ChatInterface.run` was updated to persist and swallow already-aborted external-signal runs as stopped instead of rethrowing `AbortError`; the rerun then passed with `tests run: 992`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 68`, `failed: 0`, and `agent_action: skip_log`.
 
 ---
 

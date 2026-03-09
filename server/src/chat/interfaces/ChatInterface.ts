@@ -204,6 +204,10 @@ export abstract class ChatInterface extends EventEmitter {
     const source = ((flags ?? {}) as { source?: TurnSource }).source ?? 'REST';
     const provider =
       ((flags ?? {}) as { provider?: string }).provider ?? 'unknown';
+    const deferInflightCleanup = Boolean(
+      (flags ?? {}) &&
+        (flags as { deferInflightCleanup?: boolean }).deferInflightCleanup,
+    );
     const requestId =
       typeof (flags as { requestId?: unknown })?.requestId === 'string'
         ? ((flags as { requestId?: string }).requestId as string)
@@ -334,6 +338,7 @@ export abstract class ChatInterface extends EventEmitter {
     }
 
     try {
+      externalSignal?.throwIfAborted();
       await this.execute(message, flags, conversationId, model);
     } catch (err) {
       executionError = err;
@@ -412,12 +417,22 @@ export abstract class ChatInterface extends EventEmitter {
         });
       }
 
-      if (inflightId && userPersisted && assistantPersisted) {
+      if (
+        inflightId &&
+        userPersisted &&
+        assistantPersisted &&
+        !deferInflightCleanup
+      ) {
         cleanupInflight({ conversationId, inflightId });
       }
     }
 
-    if (executionError) {
+    const swallowedAbort =
+      externalSignal?.aborted &&
+      executionError instanceof Error &&
+      executionError.name === 'AbortError';
+
+    if (executionError && !swallowedAbort) {
       throw executionError;
     }
   }

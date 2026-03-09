@@ -5,6 +5,7 @@ import type { CodexOptions } from '@openai/codex-sdk';
 import { Router, json } from 'express';
 
 import {
+  getActiveRunOwnership,
   releaseConversationLock,
   tryAcquireConversationLock,
 } from '../agents/runLock.js';
@@ -23,10 +24,13 @@ import {
   resolveChatRuntimeConfig,
 } from '../config/runtimeConfig.js';
 import {
+  abortInflight,
+  bindPendingConversationCancelToInflight,
+  cleanupPendingConversationCancel,
   cleanupInflight,
+  consumePendingConversationCancel,
   createInflight,
   getInflight,
-  isInflightFinalized,
 } from '../chat/inflightRegistry.js';
 import type { ChatInterface } from '../chat/interfaces/ChatInterface.js';
 import type { CodexLike } from '../chat/interfaces/ChatInterfaceCodex.js';
@@ -120,6 +124,8 @@ export function createChatRouter({
   toolFactory,
   chatFactory = getChatInterface,
   codexCapabilityResolver = resolveCodexCapabilities,
+  cleanupInflightFn = cleanupInflight,
+  releaseConversationLockFn = releaseConversationLock,
 }: {
   clientFactory: ClientFactory;
   codexFactory?: CodexFactory;
@@ -128,6 +134,8 @@ export function createChatRouter({
   codexCapabilityResolver?: (options: {
     consumer: 'chat_models' | 'chat_validation';
   }) => Promise<CodexCapabilityResolution>;
+  cleanupInflightFn?: typeof cleanupInflight;
+  releaseConversationLockFn?: typeof releaseConversationLock;
 }) {
   const router = Router();
   const { maxClientBytes } = resolveLogConfig();
@@ -468,6 +476,16 @@ export function createChatRouter({
       });
     }
 
+    const ownership = getActiveRunOwnership(conversationId);
+    if (!ownership) {
+      return res.status(500).json({
+        status: 'error',
+        code: 'RUN_STATE_UNAVAILABLE',
+        message: 'Conversation run ownership could not be resolved.',
+      });
+    }
+    const { runToken } = ownership;
+
     const inflightId =
       typeof requestedInflightId === 'string' && requestedInflightId.length > 0
         ? requestedInflightId
@@ -481,6 +499,28 @@ export function createChatRouter({
       source: 'REST',
       userTurn: { content: message, createdAt: now.toISOString() },
     });
+
+    const consumePendingChatStop = () => {
+      const boundPending = bindPendingConversationCancelToInflight({
+        conversationId,
+        runToken,
+        inflightId,
+      });
+      if (!boundPending.ok) {
+        return boundPending.reason !== 'PENDING_CANCEL_NOT_FOUND';
+      }
+
+      const pendingCancel = consumePendingConversationCancel({
+        conversationId,
+        runToken,
+        inflightId,
+      });
+      if (!pendingCancel) return false;
+
+      return abortInflight({ conversationId, inflightId }).ok;
+    };
+
+    consumePendingChatStop();
 
     publishUserTurn({
       conversationId,
@@ -497,7 +537,7 @@ export function createChatRouter({
         toolFactory,
       });
     } catch (err) {
-      releaseConversationLock(conversationId);
+      releaseConversationLockFn(conversationId, runToken);
       cleanupInflight({ conversationId, inflightId });
 
       if (err instanceof UnsupportedProviderError) {
@@ -553,7 +593,10 @@ export function createChatRouter({
     });
 
     void (async () => {
+      let runError: unknown;
       try {
+        consumePendingChatStop();
+
         if (executionProvider === 'codex') {
           const activeThreadId =
             threadId ??
@@ -569,6 +612,7 @@ export function createChatRouter({
               codexFlags: effectiveCodexFlags,
               requestId,
               inflightId,
+              deferInflightCleanup: true,
               signal: getInflight(conversationId)?.abortController.signal,
               source: 'REST',
             },
@@ -589,6 +633,7 @@ export function createChatRouter({
             requestId,
             baseUrl,
             inflightId,
+            deferInflightCleanup: true,
             signal: getInflight(conversationId)?.abortController.signal,
             history: historyForRun,
             source: 'REST',
@@ -597,6 +642,7 @@ export function createChatRouter({
           executionModel,
         );
       } catch (err) {
+        runError = err;
         baseLogger.error(
           {
             requestId,
@@ -610,18 +656,57 @@ export function createChatRouter({
         );
       } finally {
         bridge.cleanup();
+        const inflightState = getInflight(conversationId);
+        const activeInflight =
+          inflightState && inflightState.inflightId === inflightId
+            ? inflightState
+            : undefined;
+        const cancelled = Boolean(
+          activeInflight?.abortController.signal.aborted,
+        );
+        const errorMessage =
+          runError instanceof Error ? runError.message : undefined;
 
-        // Defensive cleanup: if the provider failed to emit a terminal event,
-        // avoid leaving in-flight state behind. Finalised runs keep inflight
-        // until persistence completes.
-        const leftover = getInflight(conversationId);
-        if (leftover && leftover.inflightId === inflightId) {
-          if (!isInflightFinalized(conversationId)) {
-            cleanupInflight({ conversationId, inflightId });
+        bridge.finalize({
+          fallback: {
+            status: cancelled ? 'stopped' : 'failed',
+            threadId: null,
+            ...(cancelled || !errorMessage
+              ? {}
+              : {
+                  error: {
+                    code: 'PROVIDER_ERROR',
+                    message: errorMessage,
+                  },
+                }),
+          },
+        });
+
+        try {
+          if (activeInflight) {
+            cleanupInflightFn({ conversationId, inflightId });
           }
+        } catch (cleanupError) {
+          baseLogger.error(
+            {
+              requestId,
+              provider: executionProvider,
+              model: executionModel,
+              conversationId,
+              inflightId,
+              cleanupError,
+            },
+            'chat cleanup failed; falling back to direct runtime cleanup',
+          );
+          cleanupInflight({ conversationId, inflightId });
+        } finally {
+          cleanupPendingConversationCancel({
+            conversationId,
+            runToken,
+            inflightId,
+          });
+          releaseConversationLockFn(conversationId, runToken);
         }
-
-        releaseConversationLock(conversationId);
       }
     })();
   });

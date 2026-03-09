@@ -288,7 +288,7 @@ The story should be implementable by a junior developer without extra stakeholde
 ### 1. MCP Tool Description Contract
 
 - Task Status: `__done__`
-- Git Commits: `none yet`
+- Git Commits: `e264d306`
 
 #### Overview
 

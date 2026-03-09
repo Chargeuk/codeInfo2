@@ -711,7 +711,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 6. Integrate Stop Ownership Into Agent Command Runs
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -734,30 +734,36 @@ Wire the new cancellation ownership model into agent command-list execution only
 
 #### Subtasks
 
-1. [ ] Read the story sections `Surface identity timing`, `Edge Cases and Failure Modes`, and the agent-command bullets in `Implementation Ideas`.
-2. [ ] Update `server/src/agents/commandsRunner.ts` so pending cancel is checked before the first step, before each later step, before each retry/backoff boundary, and any existing abort-capable command execution path receives the combined `AbortSignal` through the current abort-chain helpers rather than a new stop mechanism. Files (read/edit): `server/src/agents/commandsRunner.ts`; files to read: `server/src/agents/service.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`. Docs to use while doing this subtask: Node.js `AbortSignal.any()` and `throwIfAborted()` docs, Node.js timers/promises docs.
-3. [ ] Keep `server/src/routes/agentsCommands.ts` aligned with the documented response contract where `conversationId` may exist before any client-visible `inflightId`. Files (read/edit): `server/src/routes/agentsCommands.ts`; files to read: `client/src/api/agents.ts`, `client/src/pages/AgentsPage.tsx`.
-4. [ ] Ensure duplicate stop requests remain idempotent for command runs and do not restart steps or leave stale command abort state behind. Files (read/edit): `server/src/agents/commandsRunner.ts`.
-5. [ ] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` that cancels an agent command run before the first step begins and proves the run does not continue into step execution. Purpose: cover the startup-race happy path for command runs.
-6. [ ] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` that sends duplicate stop requests for the same command run and proves the stop path remains idempotent. Purpose: cover duplicate-stop handling for command runs.
-7. [ ] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` that forces cleanup failure during command-run stop finalization and proves runtime state is still released. Purpose: cover cleanup fallback for command runs.
-8. [ ] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-retry.test.ts` that requests stop while retry or backoff is pending and proves no later retry starts. Purpose: cover retry suppression after stop.
-9. [ ] Update `design.md`. Files (read/edit): `design.md`. Add a command-run stop section and a Mermaid `flowchart` that shows stop checks before the first step, before later steps, during retry or backoff wait, and during cleanup so the cancellation boundaries are documented exactly.
-10. [ ] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
-11. [ ] Update this plan file’s `Implementation notes` for Task 6 after the implementation and tests are complete.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Read the story sections `Surface identity timing`, `Edge Cases and Failure Modes`, and the agent-command bullets in `Implementation Ideas`.
+2. [x] Update `server/src/agents/commandsRunner.ts` so pending cancel is checked before the first step, before each later step, before each retry/backoff boundary, and any existing abort-capable command execution path receives the combined `AbortSignal` through the current abort-chain helpers rather than a new stop mechanism. Files (read/edit): `server/src/agents/commandsRunner.ts`; files to read: `server/src/agents/service.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`. Docs to use while doing this subtask: Node.js `AbortSignal.any()` and `throwIfAborted()` docs, Node.js timers/promises docs.
+3. [x] Keep `server/src/routes/agentsCommands.ts` aligned with the documented response contract where `conversationId` may exist before any client-visible `inflightId`. Files (read/edit): `server/src/routes/agentsCommands.ts`; files to read: `client/src/api/agents.ts`, `client/src/pages/AgentsPage.tsx`.
+4. [x] Ensure duplicate stop requests remain idempotent for command runs and do not restart steps or leave stale command abort state behind. Files (read/edit): `server/src/agents/commandsRunner.ts`.
+5. [x] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` that cancels an agent command run before the first step begins and proves the run does not continue into step execution. Purpose: cover the startup-race happy path for command runs.
+6. [x] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` that sends duplicate stop requests for the same command run and proves the stop path remains idempotent. Purpose: cover duplicate-stop handling for command runs.
+7. [x] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` that forces cleanup failure during command-run stop finalization and proves runtime state is still released. Purpose: cover cleanup fallback for command runs.
+8. [x] Add or update a server unit test in `server/src/test/unit/agent-commands-runner-retry.test.ts` that requests stop while retry or backoff is pending and proves no later retry starts. Purpose: cover retry suppression after stop.
+9. [x] Update `design.md`. Files (read/edit): `design.md`. Add a command-run stop section and a Mermaid `flowchart` that shows stop checks before the first step, before later steps, during retry or backoff wait, and during cleanup so the cancellation boundaries are documented exactly.
+10. [x] If this task adds or removes any files, update `projectStructure.md` after those file changes are complete and before marking the task done, and ensure that task’s `projectStructure.md` entry lists every file added and every file removed by this task.
+11. [x] Update this plan file’s `Implementation notes` for Task 6 after the implementation and tests are complete.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Use because this task changes server command-run logic. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
-2. [ ] `npm run test:summary:server:unit` - Use because this task changes server node:test command-run stop behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use because server Cucumber coverage must still pass after command-run stop changes. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
+1. [x] `npm run build:summary:server` - Use because this task changes server command-run logic. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes server node:test command-run stop behavior. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use because server Cucumber coverage must still pass after command-run stop changes. If `failed > 0`, inspect the exact log path printed by the wrapper, diagnose with targeted wrapper reruns if needed, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Subtask 1: Re-read the Task 6 command-run contract and the completed Task 1 to Task 5 notes before editing so the command-run work preserves conversation-only stop, uses the shared ownership and pending-cancel model, and does not regress the newly-stable normal instruction path.
+- Subtasks 2-4: Updated `server/src/agents/commandsRunner.ts` and `server/src/agents/service.ts` so command runs carry the active `runToken`, consume pending cancel before step execution and before retry/backoff can resume, keep the existing conversation-only stop controller path, and release lock ownership plus pending-cancel state with token-aware cleanup; `server/src/routes/agentsCommands.ts` stayed response-compatible, so no route payload change was required.
+- Subtasks 5-8: Extended the existing command-run unit coverage with startup-race pending-cancel stop before step 1, duplicate-stop idempotence, cleanup fallback with release failure, and stop during retry backoff so no later retry starts.
+- Subtasks 9-10: Documented the command-run cancellation checkpoints in `design.md`; no files were added or removed, so `projectStructure.md` did not need changes.
+- Testing step 1: `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`.
+- Testing step 2: Targeted wrapper reruns for `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` and `server/src/test/unit/agent-commands-runner-retry.test.ts` passed cleanly after the command-runner patch, and the full `npm run test:summary:server:unit` wrapper then passed with `tests run: 998`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 3, Subtask 11, and Subtask 12: `format:check` initially failed on `server/src/test/unit/agent-commands-runner-retry.test.ts`, so I ran Prettier on that file and reran `npm run format:check --workspaces` successfully; `lint --workspaces` still exits cleanly with only the repository’s pre-existing import-order warning baseline, and the final `npm run test:summary:server:cucumber` wrapper passed with `tests run: 68`, `failed: 0`, and `agent_action: skip_log`.
 
 ---
 

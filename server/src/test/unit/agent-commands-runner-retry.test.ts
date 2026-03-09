@@ -4,7 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { mock } from 'node:test';
 
-import { runAgentCommandRunner } from '../../agents/commandsRunner.js';
+import {
+  abortAgentCommandRun,
+  runAgentCommandRunner,
+} from '../../agents/commandsRunner.js';
+import { AbortError } from '../../agents/retry.js';
 
 async function writeCommandFile(params: {
   agentHome: string;
@@ -150,6 +154,75 @@ test('command runner sanitizes and truncates retry context text', async () => {
       false,
     );
     assert.equal(secondAttemptInstruction.length < 500, true);
+  } finally {
+    if (previousRetries === undefined) {
+      delete process.env.FLOW_AND_COMMAND_RETRIES;
+    } else {
+      process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('command runner does not start another retry after stop during backoff wait', async () => {
+  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
+  process.env.FLOW_AND_COMMAND_RETRIES = '3';
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agent-commands-runner-retry-stop-'),
+  );
+  const conversationId = 'c-command-retry-backoff-stop';
+
+  try {
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    await writeCommandFile({
+      agentHome,
+      commandName: 'retry-stop',
+      jsonText: JSON.stringify({
+        Description: 'Retry stop command',
+        items: [{ type: 'message', role: 'user', content: ['s1'] }],
+      }),
+    });
+
+    let attempts = 0;
+    let releaseSleepAbort: (() => void) | undefined;
+    const sleepStarted = new Promise<void>((resolve) => {
+      releaseSleepAbort = resolve;
+    });
+
+    const runPromise = runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'retry-stop',
+      conversationId,
+      source: 'REST',
+      sleep: async (_ms, signal) => {
+        releaseSleepAbort?.();
+        await new Promise<void>((resolve, reject) => {
+          if (signal?.aborted) {
+            reject(new AbortError());
+            return;
+          }
+          signal?.addEventListener('abort', () => reject(new AbortError()), {
+            once: true,
+          });
+        });
+      },
+      runAgentInstructionUnlocked: async () => {
+        attempts += 1;
+        throw new Error('retryable failure');
+      },
+    });
+
+    await sleepStarted;
+    abortAgentCommandRun(conversationId);
+
+    await assert.rejects(
+      runPromise,
+      (err) =>
+        err instanceof AbortError || (err as Error).name === 'AbortError',
+    );
+    assert.equal(attempts, 1);
   } finally {
     if (previousRetries === undefined) {
       delete process.env.FLOW_AND_COMMAND_RETRIES;

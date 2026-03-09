@@ -494,6 +494,12 @@ export async function startAgentCommand(params: {
       'A run is already in progress for this conversation.',
     );
   }
+  const ownership = getActiveRunOwnership(conversationId);
+  if (!ownership) {
+    releaseConversationLock(conversationId);
+    throw new Error('Conversation run ownership could not be resolved.');
+  }
+  const { runToken } = ownership;
 
   let backgroundScheduled = false;
   let modelId = 'gpt-5.1-codex-max';
@@ -622,6 +628,7 @@ export async function startAgentCommand(params: {
               chatFactory: params.chatFactory,
             }),
           lockAlreadyHeld: true,
+          runToken,
         });
       } catch (err) {
         baseLogger.error(
@@ -639,7 +646,8 @@ export async function startAgentCommand(params: {
     };
   } finally {
     if (!backgroundScheduled) {
-      releaseConversationLock(conversationId);
+      cleanupPendingConversationCancel({ conversationId, runToken });
+      releaseConversationLock(conversationId, runToken);
     }
   }
 }

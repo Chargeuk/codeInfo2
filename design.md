@@ -1421,6 +1421,38 @@ sequenceDiagram
   Note over UI,Route: Same conversation can start again after stop cleanup completes
 ```
 
+## Story 0000043 Task 6: command runs stop at step and retry checkpoints
+
+- Command-list execution now carries the active conversation `runToken` into `runAgentCommandRunner(...)` so startup-race conversation-only stop can register a token-bound pending cancel before the command-run abort-controller map exists.
+- The command runner consumes pending cancel immediately after it creates the per-conversation abort controller, re-checks stop before the first step and before each later step, and re-checks again before retry or backoff waits can resume work.
+- The existing conversation-based `abortAgentCommandRun(conversationId)` path remains the live stop mechanism once a command run is active, so command starts still work without a client-visible `inflightId`.
+- Command-run cleanup now releases pending-cancel state and the conversation lock with the expected `runToken`, which prevents stale stop or stale cleanup from affecting a replacement run on the same conversation.
+
+```mermaid
+flowchart TD
+  A[Command route owns conversation lock] --> B[Resolve runToken]
+  B --> C[Create command abort controller and combined AbortSignal]
+  C --> D{Pending cancel registered for runToken?}
+  D -- yes --> E[Consume pending cancel and abort controller]
+  D -- no --> F[Enter command step loop]
+  E --> Z[Skip step execution and cleanup runtime state]
+  F --> G{Signal aborted before step?}
+  G -- yes --> Z
+  G -- no --> H[Start next command step]
+  H --> I{Retry needed?}
+  I -- no --> J[Advance to next step]
+  I -- yes --> K{Signal aborted before backoff wait?}
+  K -- yes --> Z
+  K -- no --> L[Sleep with abort-aware retry signal]
+  L --> M{Signal aborted during wait?}
+  M -- yes --> Z
+  M -- no --> H
+  J --> G
+  Z --> N[Delete command abort controller]
+  N --> O[cleanupPendingConversationCancel(conversationId, runToken)]
+  O --> P[releaseConversationLock(conversationId, runToken)]
+```
+
 ## Story 0000038 Task 5: ingest listing status/phase normalization and active overlay precedence
 
 - External listing status contract for `/ingest/roots` and classic MCP `ListIngestedRepositories` is now normalized from internal ingest states:

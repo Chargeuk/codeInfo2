@@ -771,6 +771,7 @@ Extend the shared websocket client layer so it can send conversation-only stop r
 #### Documentation Locations
 
 - React docs on custom hooks: Context7 `/reactjs/react.dev` — use this to confirm the shared websocket hook continues to be the correct abstraction point.
+- Jest docs: Context7 `/jestjs/jest` — use this because the planned client hook tests in this task run through the existing Jest-based client test harness.
 - TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions — use this when extending the websocket event union with `cancel_ack`.
 - Browser WebSocket event model: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket — use this to verify the browser-side send/receive event behavior that `useChatWs` wraps.
 
@@ -817,6 +818,7 @@ Update the shared client stop state machine so the frontend can represent `stopp
 #### Documentation Locations
 
 - React docs on `useState`, `useRef`, and state updates: Context7 `/reactjs/react.dev` — use this to confirm the shared stop-state and ref-backed inflight tracking model in `useChatStream`.
+- Jest docs: Context7 `/jestjs/jest` — use this because the shared hook coverage in this task is implemented in the existing Jest client test suite.
 - TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions — use this when preserving `stopped` as a distinct terminal status in shared client types.
 
 #### Subtasks
@@ -863,6 +865,7 @@ Update Chat page stop controls and local UX so Chat uses the shared stopping con
 #### Documentation Locations
 
 - React docs on event handlers and state updates: Context7 `/reactjs/react.dev` — use this to keep the Chat page stop handler aligned with React state update rules.
+- Jest docs: Context7 `/jestjs/jest` — use this because Chat page tests in this task are implemented in the existing Jest client test suite.
 - MUI `Chip` API: use MUI MCP tool with `@mui/material` 6.x `chip.md` — use this because Chat renders terminal stop state through the existing chip component rather than a new UI primitive.
 - MUI `CircularProgress` API: use MUI MCP tool with `@mui/material` 6.x `circular-progress.md` — use this because Chat already uses the spinner path for in-progress status rendering.
 
@@ -911,6 +914,7 @@ Update Agents page stop controls and local UX so both normal runs and command ru
 #### Documentation Locations
 
 - React docs on event handlers and state updates: Context7 `/reactjs/react.dev` — use this to keep the Agents page stop handlers aligned with React state update rules.
+- Jest docs: Context7 `/jestjs/jest` — use this because Agents page tests in this task are implemented in the existing Jest client test suite.
 - MUI `Chip` API: use MUI MCP tool with `@mui/material` 6.x `chip.md` — use this because Agents renders terminal stop state through the existing chip component rather than a new UI primitive.
 - MUI `CircularProgress` API: use MUI MCP tool with `@mui/material` 6.x `circular-progress.md` — use this because Agents already uses the spinner path for in-progress status rendering.
 
@@ -960,6 +964,7 @@ Update Flows page stop controls and local UX so flow runs use the shared stoppin
 #### Documentation Locations
 
 - React docs on event handlers and state updates: Context7 `/reactjs/react.dev` — use this to keep the Flows page stop handler aligned with React state update rules.
+- Jest docs: Context7 `/jestjs/jest` — use this because Flows page tests in this task are implemented in the existing Jest client test suite.
 - MUI `Chip` API: use MUI MCP tool with `@mui/material` 6.x `chip.md` — use this because Flows renders terminal stop state through the existing chip component rather than a new UI primitive.
 - MUI `CircularProgress` API: use MUI MCP tool with `@mui/material` 6.x `circular-progress.md` — use this because Flows already uses the spinner path for in-progress status rendering.
 

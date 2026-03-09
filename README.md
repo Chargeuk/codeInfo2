@@ -196,6 +196,15 @@ codex_agents/<agentName>/
 - Ingest workspace for embedding repositories, monitoring ingest progress, and managing re-embed/remove operations.
 - Logs workspace for live server/client log inspection and filtering.
 
+## Shared Stop Behavior
+
+- Chat, Agents, command runs, and Flows now use the same server-authoritative stop contract.
+- The client always sends `cancel_inflight` with `conversationId` and includes `inflightId` only when that server-visible inflight id is already known.
+- During the startup race, conversation-only stop is valid; this is the supported path when the run already owns the conversation but the page has not yet stored a usable `inflightId`.
+- If no active run exists for that conversation, the server emits non-terminal `cancel_ack.result === 'noop'` correlated by `requestId`; the UI clears `stopping` from that ack and must not invent a fake stopped bubble.
+- A real active stop is confirmed only when websocket delivery reaches `turn_final.status === 'stopped'`.
+- The visible stop UX is aligned across pages: while a stop is pending the transcript stays in `stopping`, and after a confirmed stop persisted turns hydrate back into a visible `Stopped` state.
+
 ## Common Usage
 
 1. Start the local stack: `npm run compose:local`.

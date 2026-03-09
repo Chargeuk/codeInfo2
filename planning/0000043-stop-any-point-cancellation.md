@@ -830,7 +830,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 8. Add Shared Client WebSocket Stop Acknowledgement Handling
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `afcd2601 - DEV-[0000043] - Add shared websocket stop acknowledgement handling`
 
 #### Overview
@@ -1184,7 +1184,7 @@ Do not attempt to run builds or tests directly; use the summary wrappers only. O
 
 ### 13. Update Documentation And PR Summary
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -1207,22 +1207,29 @@ Update the repository documentation to match the implemented stop behavior and p
 
 #### Subtasks
 
-1. [ ] Update markdown document `README.md`. Document name: `README.md`. Location: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md`. Description: document the shipped stop behavior, including conversation-only stop during the startup race, the no-op `cancel_ack.result === 'noop'` path, and the rule that successful real stop is confirmed by `turn_final.status === 'stopped'`. Purpose: keep the top-level product behavior and operator-facing usage notes aligned with the implemented stop contract.
-2. [ ] Update markdown document `design.md`. Document name: `design.md`. Location: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md`. Description: consolidate the architecture and state-flow changes from this story, including the Mermaid diagrams added by the architecture and flow tasks so the documented stop lifecycle matches the final implementation end to end. Purpose: keep the architecture reference accurate for future implementation and debugging work.
-3. [ ] Update markdown document `projectStructure.md`. Document name: `projectStructure.md`. Location: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md`. Description: record any files or folders added, removed, or materially repurposed by this story, including any new tests, helpers, or documentation files created while implementing the stop lifecycle changes. Purpose: keep the repository structure map synchronized with the final file layout delivered by the story.
-4. [ ] Write a pull request comment summarizing all changes made by this story across every completed task. Files (read/edit): the PR summary artifact or markdown file used by the team for PR descriptions, plus this plan file’s implementation notes if the repo keeps the summary inline. Docs to use while doing this subtask: GitHub pull request docs and Markdown syntax docs.
-5. [ ] Update this plan file’s `Implementation notes` for Task 13 after the implementation and documentation updates are complete.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Update markdown document `README.md`. Document name: `README.md`. Location: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md`. Description: document the shipped stop behavior, including conversation-only stop during the startup race, the no-op `cancel_ack.result === 'noop'` path, and the rule that successful real stop is confirmed by `turn_final.status === 'stopped'`. Purpose: keep the top-level product behavior and operator-facing usage notes aligned with the implemented stop contract.
+2. [x] Update markdown document `design.md`. Document name: `design.md`. Location: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md`. Description: consolidate the architecture and state-flow changes from this story, including the Mermaid diagrams added by the architecture and flow tasks so the documented stop lifecycle matches the final implementation end to end. Purpose: keep the architecture reference accurate for future implementation and debugging work.
+3. [x] Update markdown document `projectStructure.md`. Document name: `projectStructure.md`. Location: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md`. Description: record any files or folders added, removed, or materially repurposed by this story, including any new tests, helpers, or documentation files created while implementing the stop lifecycle changes. Purpose: keep the repository structure map synchronized with the final file layout delivered by the story.
+4. [x] Write a pull request comment summarizing all changes made by this story across every completed task. Files (read/edit): the PR summary artifact or markdown file used by the team for PR descriptions, plus this plan file’s implementation notes if the repo keeps the summary inline. Docs to use while doing this subtask: GitHub pull request docs and Markdown syntax docs.
+5. [x] Update this plan file’s `Implementation notes` for Task 13 after the implementation and documentation updates are complete.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Do not attempt to run builds or tests directly; use the summary wrappers only. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] No wrapper-based testing is required for this documentation-only task because it does not change executable code.
+1. [x] No wrapper-based testing is required for this documentation-only task because it does not change executable code.
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Task start: marked Task 13 `__in_progress__` before beginning the documentation-only updates so the remaining plan state matches active work.
+- Subtask 1: updated `README.md` with one shared stop-contract section covering startup-race conversation-only stop, request-correlated `cancel_ack.result === 'noop'` recovery, and the rule that only `turn_final.status === 'stopped'` confirms a real active stop.
+- Subtask 2: consolidated `design.md` with the missing Chat and Agents page stop-UX sections plus one final end-to-end lifecycle summary so the story now documents the shared contract from websocket send through page-visible stopped or no-op recovery outcomes.
+- Subtask 3: updated `projectStructure.md` with the missing Story 43 Task 11-13 ledgers, the later stop-verification screenshots, and the new PR-summary artifact entry so the structure map now matches the files actually produced by the story.
+- Subtask 4: added `test-results/pr-comments/0000043-summary.md` as the ready-to-post PR summary artifact covering the server contract, shared client stop state, page UX alignment, existing verification evidence, and the remaining story closeout items.
+- Subtask 5: this Task 13 notes section now reflects the completed doc sync work and points the PR summary output at the new `test-results/pr-comments/0000043-summary.md` artifact instead of leaving reviewers to infer where the story summary lives.
+- Subtask 6: `npm run lint --workspaces` still exits successfully with the repository’s long-standing server import-order warning baseline, and `npm run format:check --workspaces` passed cleanly without further edits.
+- Testing step 1: no wrapper-based test run was required for this documentation-only task; the required validation for this task was limited to the explicit `lint` and `format:check` commands above.
 
 ---
 

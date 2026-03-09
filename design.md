@@ -1536,6 +1536,41 @@ flowchart TD
   I --> C
 ```
 
+## Story 0000043 Task 10: Chat page stop UX now mirrors shared stop reconciliation
+
+- `ChatPage` now sends `cancelInflight(conversationId, inflightId?)` using the current server-visible inflight id when one exists and omits `inflightId` during the startup race instead of blocking the stop request locally.
+- The page renders `Stopping` while the shared hook is waiting for server reconciliation and renders persisted or live `Turn.status === 'stopped'` as a visible `Stopped` chip rather than falling back to `Processing`.
+- Browser-visible markers are page-scoped and deterministic: Chat emits one `stop-clicked`, one `stopping-visible`, and one `stopped-visible` line for the exercised active-stop path.
+
+```mermaid
+flowchart TD
+  A[User clicks Chat Stop] --> B[ChatPage sends cancelInflight conversationId inflightId?]
+  B --> C[useChatStream enters stopping]
+  C --> D[ChatPage renders Stopping state]
+  D --> E{Next matching server event}
+  E -- cancel_ack result=noop --> F[Clear stopping without stopped bubble]
+  F --> G[Chat controls return to ready state]
+  E -- turn_final status=stopped --> H[Assistant turn streamStatus becomes stopped]
+  H --> I[ChatPage renders Stopped chip and stopped-visible log]
+```
+
+## Story 0000043 Task 11: Agents page uses the same stop contract for instruction and command runs
+
+- `AgentsPage` now applies the same page-layer stop rules to both normal instruction runs and command-list runs: stop always sends `conversationId` and includes `inflightId` only when a server-visible inflight id is already known.
+- Persisted stopped turns now stay visibly `Stopped` after reload, and non-user resets or conversation changes clear page-local stop markers without inventing phantom `stopping` state.
+- Browser-visible markers include `runKind` so manual verification can distinguish the instruction and command paths while still using the same shared stop-state machine underneath.
+
+```mermaid
+flowchart TD
+  A[User clicks Agents Stop] --> B[AgentsPage sends cancelInflight conversationId inflightId? runKind]
+  B --> C[useChatStream enters stopping]
+  C --> D[AgentsPage renders Stopping state]
+  D --> E{Next matching server event}
+  E -- cancel_ack result=noop --> F[Clear stopping and keep transcript non-terminal]
+  E -- turn_final status=stopped --> G[Render Stopped transcript state]
+  G --> H[Same conversation can run again]
+```
+
 ## Story 0000043 Task 12: Flows page stop UX follows the shared stop contract
 
 - `FlowsPage` now uses the same page-layer stop pattern as Chat and Agents: the stop button sends `cancelInflight(conversationId, inflightId?)` with the current server-visible inflight id when known and conversation-only cancel during the startup race.
@@ -1554,6 +1589,45 @@ flowchart TD
   E -- turn_final status=stopped --> H[Assistant turn streamStatus becomes stopped]
   H --> I[FlowsPage renders Stopped chip and stopped-visible log]
   I --> J[Same conversation can run again]
+```
+
+## Story 0000043 Task 13: final stop lifecycle summary
+
+- The shipped contract is now consistent across Chat, Agents, command runs, and Flows:
+  - stop always targets the active conversation;
+  - `inflightId` is optional and is only sent when the page knows the current server-visible inflight id;
+  - conversation-only startup-race stop is valid;
+  - `cancel_ack.result === 'noop'` is request-correlated and non-terminal;
+  - a real stop is confirmed only by `turn_final.status === 'stopped'`.
+- Runtime ownership is server-authoritative: the conversation lock owns the active `runToken`, the inflight registry owns token-bound pending-cancel state, and cleanup clears inflight state, pending cancel, and lock ownership in that order so same-conversation reuse works immediately after a confirmed stop.
+- Client state is shared and page-specific only at the rendering layer: `useChatWs` handles websocket send or receive transport, `useChatStream` owns `stopping` plus no-op reconciliation, and Chat, Agents, and Flows render the visible `Stopping` or `Stopped` states plus page-scoped debug markers.
+
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant Page as Chat | Agents | Flows page
+  participant Stream as useChatStream
+  participant WS as useChatWs / WebSocket
+  participant Server as stop contract + runtime ownership
+
+  User->>Page: click Stop
+  Page->>WS: cancelInflight(conversationId, inflightId?)
+  Page->>Page: console.info stop-clicked
+  WS->>Server: cancel_inflight(requestId, conversationId, inflightId?)
+  Stream->>Stream: streamStatus = stopping
+  Page->>Page: console.info stopping-visible
+
+  alt no active run
+    Server-->>WS: cancel_ack(requestId, conversationId, result=noop)
+    WS->>Page: console.info ws-event cancel_ack
+    WS-->>Stream: cancel_ack
+    Stream->>Stream: clear stopping when requestId matches
+  else active run confirmed stopped
+    Server-->>WS: turn_final(status=stopped)
+    WS-->>Stream: turn_final
+    Stream->>Stream: streamStatus = stopped
+    Page->>Page: console.info stopped-visible
+  end
 ```
 
 ## Story 0000038 Task 5: ingest listing status/phase normalization and active overlay precedence

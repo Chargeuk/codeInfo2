@@ -560,6 +560,7 @@ export async function runReingestStepLifecycle(params: {
 
 - Task Status: `__done__`
 - Git Commits:
+  - `ca664dc2` - Task 1 implementation: command schema union support for `message.markdownFile` and `reingest`, plus required tests, logging, and verification updates.
 
 #### Overview
 

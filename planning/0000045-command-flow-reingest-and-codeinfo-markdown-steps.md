@@ -196,6 +196,29 @@ For re-ingest steps, emit and persist a `tool-result` style payload using the ex
 }
 ```
 
+The full wrapper contract for that payload should look like this when it moves through the existing tool-event / `Turn.toolCalls` path:
+
+```json
+{
+  "type": "tool-result",
+  "name": "reingest_repository",
+  "stage": "success",
+  "result": {
+    "kind": "reingest_step_result",
+    "stepType": "reingest",
+    "sourceId": "/workspace/repository",
+    "status": "completed",
+    "operation": "reembed",
+    "runId": "ingest-123",
+    "files": 10,
+    "chunks": 42,
+    "embedded": 42,
+    "errorCode": null
+  },
+  "error": null
+}
+```
+
 That payload should travel through the existing shapes rather than a new bespoke one:
 
 - live websocket publication via the existing `tool_event` event shape;
@@ -205,10 +228,15 @@ That payload should travel through the existing shapes rather than a new bespoke
 Status rules for these existing outer shapes:
 
 - The nested re-ingest payload keeps the terminal re-ingest status `completed | cancelled | error`.
+- The outer tool-event wrapper uses:
+  - `name: "reingest_repository"` for every re-ingest step result;
+  - `stage: "success"` when the nested re-ingest status is `completed`;
+  - `stage: "error"` when the nested re-ingest status is `cancelled` or `error`.
 - The outer `Turn.status` and outer `turn_final.status` continue to use the existing run-level enum `ok | stopped | failed`.
 - A non-fatal re-ingest terminal result therefore does not require a new outer status value. If the overall command or flow continues, the outer run-level status remains on the existing path and the detailed re-ingest outcome lives inside the nested structured payload.
+- When a re-ingest step reaches a terminal result and the overall command or flow is still continuing normally, any persisted step turn and any `turn_final` event for that step stay on the existing success path (`ok`) and rely on the nested structured payload for the detailed `completed | cancelled | error` outcome.
 
-Markdown-backed steps do not require a new persisted storage shape. They reuse the existing instruction/turn pipeline, with the loaded markdown becoming the instruction string that is executed, streamed, and persisted through the normal turn content and command metadata paths.
+Markdown-backed steps do not require a new persisted storage shape. They reuse the existing instruction/turn pipeline, with the loaded markdown becoming the instruction string that is executed, streamed, and persisted through the normal turn content and command metadata paths. Story 45 does not add a separate `markdownSource`, `markdownFileContents`, or similar persisted field beyond that normal execution path.
 
 ### Acceptance Criteria
 
@@ -230,6 +258,7 @@ Markdown-backed steps do not require a new persisted storage shape. They reuse t
 - The structured re-ingest result records at least the step type, sourceId, terminal status, ingest run id, and any available error code.
 - Re-ingest step execution is single-attempt. It does not participate in AI retry prompt injection and does not automatically trigger a second re-ingest run after a terminal result.
 - Story 45 does not add a new top-level websocket event type, a new websocket protocol version, or a new Mongo collection for workflow step results.
+- Story 45 does not add a new top-level conversation `flags` key for these synchronous steps.
 - Re-ingest step results are carried inside the existing tool-event / `Turn.toolCalls` path as structured nested data rather than through a bespoke top-level message contract.
 - Existing outer run-level statuses remain unchanged:
   - `Turn.status` stays `ok | stopped | failed`;

@@ -488,10 +488,9 @@ Update the command JSON parsing layer so Story 45's new command item shapes are 
 
 #### Documentation Locations
 
-- Story contract source: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
-- Command schema implementation: [commandsSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsSchema.ts)
-- Existing schema tests: [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts)
-- Zod documentation for unions and refinements: https://zod.dev
+- Zod documentation: https://zod.dev/
+- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html
+- Node.js test runner documentation: https://nodejs.org/api/test.html
 
 #### Critical Task Rules
 
@@ -543,11 +542,9 @@ Update the flow JSON parsing layer so Story 45's new flow step shapes are accept
 
 #### Documentation Locations
 
-- Story contract source: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
-- Flow schema implementation: [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts)
-- Flow execution types and helpers: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts)
-- Existing schema tests: [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts)
-- Zod documentation for unions and refinements: https://zod.dev
+- Zod documentation: https://zod.dev/
+- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html
+- Node.js test runner documentation: https://nodejs.org/api/test.html
 
 #### Critical Task Rules
 
@@ -600,11 +597,10 @@ Create the shared markdown-file lookup and decoding helper that all later markdo
 
 #### Documentation Locations
 
-- Story markdown rules: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
-- Existing repository ordering logic: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts)
 - Node.js path documentation: https://nodejs.org/api/path.html
-- Node.js `fs` documentation: https://nodejs.org/api/fs.html
+- Node.js file system documentation: https://nodejs.org/api/fs.html
 - Node.js `util.TextDecoder` documentation: https://nodejs.org/api/util.html#class-utiltextdecoder
+- Node.js test runner documentation: https://nodejs.org/api/test.html
 
 #### Critical Task Rules
 
@@ -663,10 +659,9 @@ Teach the direct command runner to execute markdown-backed `message` items witho
 
 #### Documentation Locations
 
-- Command runner implementation: [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts)
-- Command loader: [commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts)
-- Existing command runner tests: [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts)
-- Story markdown rules: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
+- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html
+- Node.js test runner documentation: https://nodejs.org/api/test.html
+- npm workspaces documentation: https://docs.npmjs.com/cli/v7/using-npm/workspaces
 
 #### Critical Task Rules
 
@@ -721,10 +716,9 @@ Teach the flow runner to execute markdown-backed `llm` steps using the shared ma
 
 #### Documentation Locations
 
-- Flow execution implementation: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts)
-- Flow schema and types: [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts)
-- Existing flow integration tests: [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts)
-- Story markdown rules: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
+- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html
+- Node.js test runner documentation: https://nodejs.org/api/test.html
+- npm workspaces documentation: https://docs.npmjs.com/cli/v7/using-npm/workspaces
 
 #### Critical Task Rules
 
@@ -773,10 +767,9 @@ Make flow command steps execute command `message` items through the same markdow
 
 #### Documentation Locations
 
-- Flow command-step execution: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts)
-- Direct command runner: [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts)
-- Existing flow command tests: [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts)
-- Story repository-ordering rules: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
+- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html
+- Node.js test runner documentation: https://nodejs.org/api/test.html
+- npm workspaces documentation: https://docs.npmjs.com/cli/v7/using-npm/workspaces
 
 #### Critical Task Rules
 
@@ -834,11 +827,9 @@ Implement the shared runtime helper or code path that converts re-ingest termina
 
 #### Documentation Locations
 
-- Story runtime contract: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
-- Current inflight tool-event type: [inflightRegistry.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts)
-- Current chat tool-result type: [ChatInterface.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/interfaces/ChatInterface.ts)
-- Turn persistence shape: [turn.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mongo/turn.ts)
-- Existing flow tool-call persistence path: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts)
+- Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html
+- Node.js test runner documentation: https://nodejs.org/api/test.html
+- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html
 
 #### Critical Task Rules
 
@@ -894,12 +885,9 @@ Implement the shared non-agent runtime lifecycle that direct commands and dedica
 
 #### Documentation Locations
 
-- Story runtime contract: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
-- Inflight state helpers: [inflightRegistry.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts)
-- WebSocket publish helpers: [server.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ws/server.ts)
-- Chat bridge: [chatStreamBridge.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/chatStreamBridge.ts)
-- Existing synthetic flow-step pattern: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts)
-- Turn persistence shape: [turn.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mongo/turn.ts)
+- Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html
+- Node.js test runner documentation: https://nodejs.org/api/test.html
+- npm workspaces documentation: https://docs.npmjs.com/cli/v7/using-npm/workspaces
 
 #### Critical Task Rules
 
@@ -955,10 +943,9 @@ Teach the direct command runner to execute `reingest` items once, record their s
 
 #### Documentation Locations
 
-- Direct command execution: [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts)
-- Blocking re-ingest service: [reingestService.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/reingestService.ts)
-- Existing direct command tests: [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts)
-- Existing re-ingest service tests: [reingestService.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingestService.test.ts)
+- Node.js test runner documentation: https://nodejs.org/api/test.html
+- Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html
+- npm workspaces documentation: https://docs.npmjs.com/cli/v7/using-npm/workspaces
 
 #### Critical Task Rules
 
@@ -1017,10 +1004,9 @@ Teach the flow runner to execute dedicated `reingest` steps and to respect Story
 
 #### Documentation Locations
 
-- Flow execution implementation: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts)
-- Blocking re-ingest service: [reingestService.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/reingestService.ts)
-- Existing flow error tests: [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts)
-- Story edge cases: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
+- Node.js test runner documentation: https://nodejs.org/api/test.html
+- Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html
+- npm workspaces documentation: https://docs.npmjs.com/cli/v7/using-npm/workspaces
 
 #### Critical Task Rules
 
@@ -1082,10 +1068,9 @@ Finish Story 45’s parity work by making flow-owned command files execute `rein
 
 #### Documentation Locations
 
-- Flow command-step execution: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts)
-- Direct command execution: [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts)
-- Existing flow command integration tests: [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts)
-- Story re-ingest contract: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
+- Node.js test runner documentation: https://nodejs.org/api/test.html
+- Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html
+- npm workspaces documentation: https://docs.npmjs.com/cli/v7/using-npm/workspaces
 
 #### Critical Task Rules
 
@@ -1137,10 +1122,9 @@ Update the permanent documentation after the implementation tasks are complete s
 
 #### Documentation Locations
 
-- Permanent repo documentation: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
-- Permanent repo documentation: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-- Repository structure file: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
-- Story source of truth: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
+- Mermaid documentation: https://mermaid.js.org/intro/
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Docker Compose documentation: https://docs.docker.com/compose/
 
 #### Critical Task Rules
 
@@ -1183,12 +1167,10 @@ Verify the complete story against the acceptance criteria after all earlier task
 
 #### Documentation Locations
 
-- Story acceptance criteria: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
-- Docker/Compose workflow: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md)
-- Playwright documentation: https://playwright.dev/docs/intro
-- Permanent repo documentation: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
-- Permanent repo documentation: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
-- Repository structure file: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
+- Playwright introduction: https://playwright.dev/docs/intro
+- Playwright Docker guidance: https://playwright.dev/docs/docker
+- Docker Compose documentation: https://docs.docker.com/compose/
+- Node.js test runner documentation: https://nodejs.org/api/test.html
 
 #### Critical Task Rules
 

@@ -4,8 +4,8 @@ import path from 'node:path';
 
 import type { CodexOptions } from '@openai/codex-sdk';
 
-import type { AgentCommandFile } from '../agents/commandsSchema.js';
 import { loadAgentCommandFile } from '../agents/commandsLoader.js';
+import type { AgentCommandFile } from '../agents/commandsSchema.js';
 import { resolveAgentRuntimeExecutionConfig } from '../agents/config.js';
 import { discoverAgents } from '../agents/discovery.js';
 import {
@@ -391,7 +391,7 @@ const loadFlowFile = async (params: {
     throw error;
   });
 
-  const parsed = parseFlowFile(jsonText);
+  const parsed = parseFlowFile(jsonText, { flowName: params.flowName });
   if (!parsed.ok) {
     throw toFlowRunError('FLOW_INVALID');
   }
@@ -1514,6 +1514,9 @@ const findFirstAgentStep = (
 
 const hasUnsupportedStep = (steps: FlowStep[]): boolean => {
   for (const step of steps) {
+    if (step.type === 'reingest') {
+      return true;
+    }
     if (step.type === 'startLoop' && hasUnsupportedStep(step.steps)) {
       return true;
     }
@@ -2155,6 +2158,12 @@ async function runFlowUnlocked(params: {
     step: FlowLlmStep,
     command: TurnCommandMetadata,
   ): Promise<TurnStatus> => {
+    if (!('messages' in step)) {
+      throw toFlowRunError(
+        'UNSUPPORTED_STEP',
+        'Flow llm.markdownFile execution is not supported yet',
+      );
+    }
     for (const message of step.messages) {
       const instruction = joinMessageContent(message.content);
       const result = await runInstruction({

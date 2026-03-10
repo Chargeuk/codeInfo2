@@ -1824,11 +1824,36 @@ flowchart LR
 - Top-level shape: `{ description?: string, steps: FlowStep[] }` with optional `label` fields for UI display.
 - Supported step types:
   - `startLoop`: `{ type, label?, steps: FlowStep[] }` (steps must be non-empty).
-  - `llm`: `{ type, label?, agentType, identifier, messages: { role: 'user', content: string[] }[] }`.
+  - `llm`: `{ type, label?, agentType, identifier, messages: { role: 'user', content: string[] }[] }` or `{ type, label?, agentType, identifier, markdownFile }`.
   - `break`: `{ type, label?, agentType, identifier, question, breakOn: 'yes' | 'no' }`.
   - `command`: `{ type, label?, agentType, identifier, commandName }`.
+  - `reingest`: `{ type, label?, sourceId }`.
 - All objects are `.strict()` and use trimmed non-empty strings; unknown keys or empty/whitespace-only values fail validation.
+- Story 45 schema rules for new flow shapes:
+  - `llm` must contain exactly one instruction source: `messages` or `markdownFile`.
+  - `llm` with both sources, or with neither source, fails validation.
+  - `markdownFile` must be a trimmed non-empty string at schema time.
+  - `reingest` is schema-valid with `sourceId` plus optional `label`.
+  - Reingest-only flow files are allowed by the schema so later runtime tasks can add execution support without changing the file contract again.
+- Task 2 of Story 45 updates only the schema contract and parser observability. Runtime execution for `llm.markdownFile` and dedicated `reingest` steps is wired in later Story 45 tasks, so parse support intentionally lands before run support.
 - `/flows` listings (added later in the story) surface invalid JSON/schema as `disabled: true` entries with error text.
+
+```mermaid
+flowchart TD
+  A[Flow file] --> B{Step type}
+  B --> C[startLoop]
+  B --> D[llm with messages]
+  B --> E[llm with markdownFile]
+  B --> F[break]
+  B --> G[command]
+  B --> H[reingest]
+  D --> I{Exactly one instruction source?}
+  E --> I
+  I -- yes --> J[Schema accepts step]
+  I -- no --> K[Schema rejects flow]
+  H --> L[sourceId required]
+  L --> J
+```
 
 ## Flows (discovery + list)
 

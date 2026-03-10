@@ -109,7 +109,7 @@ export async function discoverFlows(params?: {
         continue;
       }
 
-      const parsed = parseFlowFile(jsonText);
+      const parsed = parseFlowFile(jsonText, { flowName: name });
       summaries.push(
         buildSummary({
           name,

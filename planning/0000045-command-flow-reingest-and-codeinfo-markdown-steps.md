@@ -642,7 +642,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 
 ### 2. Add Flow Schema Support For `markdownFile` And `reingest`
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -686,36 +686,45 @@ const FlowLlmStepSchema = z
 
 #### Subtasks
 
-1. [ ] Read the Story 45 flow contract, then read the existing flow schema file and flow schema tests before making any edits. Confirm exactly where `llm`, `command`, `break`, `startLoop`, and the discriminated union are currently defined.
-2. [ ] Update [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts) so the flow step union supports:
+1. [x] Read the Story 45 flow contract, then read the existing flow schema file and flow schema tests before making any edits. Confirm exactly where `llm`, `command`, `break`, `startLoop`, and the discriminated union are currently defined.
+2. [x] Update [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts) so the flow step union supports:
    - `llm` steps with exactly one of `messages` or `markdownFile`;
    - `reingest` steps with `sourceId` and optional `label`;
    - unchanged `command`, `break`, and `startLoop` steps.
-3. [ ] Update flow-side type aliases and schema consumers that currently assume flow steps only include the existing four step types. At minimum, inspect and fix affected TypeScript narrowing in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so the expanded step union compiles cleanly before runtime work begins.
-4. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the happy path where an `llm` step uses `messages`. Purpose: prove the existing flow LLM contract still parses after schema expansion.
-5. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the happy path where an `llm` step uses `markdownFile`. Purpose: prove the new markdown-backed flow LLM step shape is accepted.
-6. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the happy path where a step uses `{ "type": "reingest", "sourceId": "..." }`. Purpose: prove the new flow re-ingest step shape is accepted.
-7. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for a flow whose executable steps are all `reingest`. Purpose: prove schema validation allows reingest-only flows before runtime work starts.
-8. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for invalid `llm.markdownFile: ""`. Purpose: prove empty-string markdown references are rejected instead of being treated as missing or valid.
-9. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the XOR error case where `messages` and `markdownFile` are both present. Purpose: prove the parser rejects flow LLM steps with two instruction sources.
-10. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the XOR error case where `messages` and `markdownFile` are both absent. Purpose: prove the parser rejects flow LLM steps with no instruction source.
-11. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for strict-schema rejection of unknown keys, including an unexpected extra key on a `reingest` step. Purpose: prove the parser remains strict for the new flow step shapes.
-12. [ ] Add one observable server log line in [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts) for successful parsing of Story 45 flow steps. Use the exact message `DEV-0000045:T2:flow_schema_step_parsed` and include `context` with `flowName`, `stepIndex`, `stepType`, `label`, and `instructionSource` (`messages`, `markdownFile`, or `reingest`). Purpose: give the final Manual Playwright-MCP check one stable log line that proves a flow using the new `llm.markdownFile` or dedicated `reingest` shapes parsed through the updated flow schema.
-13. [ ] Update document [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md). Location: repository root. Description: add the final Story 45 flow-file contract for `llm.markdownFile` and the dedicated `reingest` step shape, and add or refresh Mermaid diagrams that show those step variants using Context7 Mermaid docs as the syntax reference. Purpose: keep the permanent architecture/design reference aligned with the supported flow schema.
-14. [ ] Update this story file’s Task 2 `Implementation notes` section after the code and tests for this task are complete.
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+3. [x] Update flow-side type aliases and schema consumers that currently assume flow steps only include the existing four step types. At minimum, inspect and fix affected TypeScript narrowing in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so the expanded step union compiles cleanly before runtime work begins.
+4. [x] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the happy path where an `llm` step uses `messages`. Purpose: prove the existing flow LLM contract still parses after schema expansion.
+5. [x] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the happy path where an `llm` step uses `markdownFile`. Purpose: prove the new markdown-backed flow LLM step shape is accepted.
+6. [x] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the happy path where a step uses `{ "type": "reingest", "sourceId": "..." }`. Purpose: prove the new flow re-ingest step shape is accepted.
+7. [x] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for a flow whose executable steps are all `reingest`. Purpose: prove schema validation allows reingest-only flows before runtime work starts.
+8. [x] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for invalid `llm.markdownFile: ""`. Purpose: prove empty-string markdown references are rejected instead of being treated as missing or valid.
+9. [x] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the XOR error case where `messages` and `markdownFile` are both present. Purpose: prove the parser rejects flow LLM steps with two instruction sources.
+10. [x] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the XOR error case where `messages` and `markdownFile` are both absent. Purpose: prove the parser rejects flow LLM steps with no instruction source.
+11. [x] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for strict-schema rejection of unknown keys, including an unexpected extra key on a `reingest` step. Purpose: prove the parser remains strict for the new flow step shapes.
+12. [x] Add one observable server log line in [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts) for successful parsing of Story 45 flow steps. Use the exact message `DEV-0000045:T2:flow_schema_step_parsed` and include `context` with `flowName`, `stepIndex`, `stepType`, `label`, and `instructionSource` (`messages`, `markdownFile`, or `reingest`). Purpose: give the final Manual Playwright-MCP check one stable log line that proves a flow using the new `llm.markdownFile` or dedicated `reingest` shapes parsed through the updated flow schema.
+13. [x] Update document [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md). Location: repository root. Description: add the final Story 45 flow-file contract for `llm.markdownFile` and the dedicated `reingest` step shape, and add or refresh Mermaid diagrams that show those step variants using Context7 Mermaid docs as the syntax reference. Purpose: keep the permanent architecture/design reference aligned with the supported flow schema.
+14. [x] Update this story file’s Task 2 `Implementation notes` section after the code and tests for this task are complete.
+15. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Use only the summary wrappers listed below. Do not attempt to run builds or tests without a wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+1. [x] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
 - 
+- Read the Story 45 flow contract plus the current flow schema, flow schema tests, flow service, and design doc context; confirmed `FlowLlmStepSchema`, `flowStepUnionSchema()`, and `parseFlowFile(...)` are the current schema anchors and the flow runner still assumes `llm` steps always expose `messages`.
+- Expanded the flow schema so `llm` accepts exactly one of `messages` or `markdownFile`, added the dedicated `reingest` step shape, and kept the top-level `{ description, steps }` contract plus existing `command`, `break`, and `startLoop` shapes intact.
+- Updated flow-side parsing consumers to pass `flowName` into `parseFlowFile(...)` for the required Task 2 observability and tightened flow service narrowing so the widened step union compiles cleanly without starting the later runtime behavior.
+- Added the required flow schema coverage for message-backed LLM steps, markdown-backed LLM steps, dedicated re-ingest steps, reingest-only flows, XOR failures, empty markdown paths, and strict extra-key rejection; also added the required `DEV-0000045:T2:flow_schema_step_parsed` parse log.
+- Updated `design.md` to document the Story 45 flow-file schema contract and added a Mermaid flowchart for the new `llm.markdownFile` and `reingest` step variants; Context7 Mermaid lookup was unavailable in this environment, so the update used the existing Mermaid syntax style already present in the repo.
+- Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; both passed with the repository’s standing import-order warning baseline and no new Task 2-specific lint or formatting issues after reordering the added flow service import.
+- Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the schema and service typing updates built cleanly.
+- Testing step 2 passed via `npm run test:summary:server:unit` with `tests run: 1030`, `failed: 0`, and `agent_action: skip_log`, so the full server unit suite stayed green after the flow schema expansion.
+- Testing step 3 passed via `npm run test:summary:server:cucumber` with `tests run: 68`, `failed: 0`, and `agent_action: skip_log`, so the existing cucumber suite stayed green after the flow schema expansion.
 
 ---
 
@@ -1038,7 +1047,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 
 #### Implementation notes
 
-- 
+-
 
 ---
 
@@ -1117,7 +1126,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 
 #### Implementation notes
 
-- 
+-
 
 ---
 

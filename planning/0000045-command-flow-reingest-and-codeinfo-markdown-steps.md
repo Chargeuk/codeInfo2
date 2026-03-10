@@ -121,7 +121,8 @@ Rules for flow steps:
 4. For each candidate, look for `<candidate-root>/codeinfo_markdown/<markdownFile>`.
 5. If the file is missing in that candidate, move to the next candidate.
 6. If the file exists but cannot be read, is invalid UTF-8, or fails path validation for that candidate, fail the step immediately instead of silently falling through to another repository.
-7. Use the first successfully read file and pass its bytes through as UTF-8 text exactly as read.
+7. If no candidate contains the file, fail the step with a clear markdown-file-not-found error instead of silently producing an empty instruction.
+8. Use the first successfully read file and pass its bytes through as UTF-8 text exactly as read.
 
 For direct command execution outside a flow, codeInfo2 is the only repository root consulted. For flow-owned command execution, the same-source and codeInfo2 roots may collapse to the same checkout when the flow itself is running from codeInfo2.
 
@@ -142,6 +143,8 @@ Once a re-ingest step starts, it must always finish with a structured terminal r
 ```
 
 The exact storage location can follow the existing command/flow run result patterns, but the information above must be recorded in a structured form for later inspection. Terminal statuses of `completed`, `cancelled`, and `error` are non-fatal to the overall command or flow once the step has started. By contrast, invalid step configuration should still fail validation before the run starts.
+
+This story distinguishes between a re-ingest step that never starts and one that starts but reaches a non-happy terminal outcome. Validation failures, unknown `sourceId` values, busy/locked ingest state, and other service rejections that happen before a terminal re-ingest payload exists fail the current command or flow step immediately. The non-fatal continuation rule applies only after the blocking re-ingest call has been accepted and a structured terminal result can be recorded.
 
 The existing blocking re-ingest service already collapses ingest status `skipped` into terminal step status `completed`. This story keeps that behavior instead of introducing a fourth public terminal step status.
 
@@ -308,6 +311,21 @@ Markdown-backed steps do not require a new persisted storage shape. They reuse t
 - `markdownFile` content is executed as one user instruction string. This story does not expand a markdown file into multiple user messages or additional prompt structure.
 - This story does not add paused execution, resumable workflow state, or user-input waiting.
 
+### Edge Cases And Failure Modes
+
+- Schema XOR failures: a command `message` item or flow `llm` step that provides both instruction sources, or neither instruction source, fails schema validation before any run begins.
+- Unsafe markdown paths: empty paths, absolute paths, `..` traversal, or any normalized path that escapes `codeinfo_markdown` fail immediately with a clear validation error.
+- Markdown missing everywhere: when the requested `markdownFile` does not exist in any candidate repository, the step fails with a clear not-found error. The runner must never substitute an empty string or silently skip the step.
+- Candidate exists but cannot be used: if a higher-priority repository contains the target file but the file cannot be read or decoded as strict UTF-8, the step fails immediately. The resolver must not fall through to a lower-priority repository in that case because that would hide a broken same-name file.
+- Deterministic duplicate names: if multiple repositories have the same `sourceLabel` or the same markdown file path, the resolver must still choose deterministically using the existing case-insensitive label-then-path ordering already used by flow repository resolution.
+- Direct command repository scope: direct command runs do not have a flow-owned repository context, so `markdownFile` lookup stays codeInfo2-only even if another ingested repository also contains a matching file.
+- Flow-owned command parity: commands executed inside a flow must reuse the parent flow repository context and produce the same markdown and re-ingest behavior as direct command execution. Story 45 must not leave separate per-item logic in `commandsRunner.ts` and flow command execution that can drift over time.
+- Re-ingest never starts: invalid `sourceId`, repository not currently re-ingestable, busy/locked ingest state, unsupported arguments, or other service rejections before a re-ingest terminal payload exists fail the current step immediately. These are not non-fatal terminal re-ingest outcomes.
+- Re-ingest reaches a terminal error-like outcome: timeout, missing run status after launch, unknown terminal state, explicit cancelled, or explicit error must be normalized into the structured re-ingest result payload, recorded through the existing tool-event and `Turn.toolCalls` paths, and then allow the command or flow to continue.
+- Cancellation during blocking re-ingest: current ingest waiting code does not accept an abort signal, so Story 45 should not promise mid-step interruption of the blocking wait. If cancellation is requested while a re-ingest step is waiting, the request is observed after the blocking call returns and before the next step starts.
+- Unexpected thrown exceptions: if markdown resolution or the blocking re-ingest path throws an unexpected exception instead of returning a structured result, the outer command or flow should fail with a clear error because the runner cannot safely invent a trustworthy terminal step payload.
+- Outer run status versus nested re-ingest status: a recorded re-ingest terminal result of `cancelled` or `error` should map to the nested tool-result payload and outer tool-event stage, but it must not by itself rewrite outer `Turn.status` or websocket `turn_final.status` away from the normal run-level contract when the workflow continues successfully.
+
 ### Out Of Scope
 
 - Any step that waits for the user to type content during an active run.
@@ -445,4 +463,9 @@ The existing test layout already provides most of the right extension points, so
   - flow `llm` step with `markdownFile`;
   - flow command step executing a command file that contains `markdownFile` and `reingest` items;
   - non-fatal continuation after `completed`, `cancelled`, and `error` re-ingest outcomes.
+- Add explicit regression coverage for the most failure-prone branches called out in `Edge Cases And Failure Modes`, especially:
+  - markdown missing in every candidate repository;
+  - higher-priority markdown file exists but is unreadable or invalid UTF-8;
+  - pre-start re-ingest rejection versus post-start terminal `error` result;
+  - cancellation requested while a blocking re-ingest step is already waiting.
 - Reuse temporary test directories and existing fixture patterns (`server/src/test/fixtures/flows`, temp `codex_agents/.../commands` folders) instead of adding a large permanent fixture set up front.

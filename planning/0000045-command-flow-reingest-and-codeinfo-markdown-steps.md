@@ -17,7 +17,7 @@ The second missing need is reusable long-form markdown input. Current command an
 
 This story adds both capabilities, but keeps them within the existing synchronous runner model. It does not introduce paused execution or user-interactive waiting. Each new step must run to a terminal outcome before the runner decides what to do next.
 
-For commands, this story keeps the existing top-level `Description + items[]` file shape for backward compatibility. The new behavior is added by expanding command items into a discriminated union of executable item types rather than by replacing command files with a new `steps[]` shape.
+For commands, this story keeps the existing top-level `Description + items[]` file shape for backward compatibility. To keep the implementation simple, the existing command `message` item continues to be the command-side LLM step. This story does not add a second command item type that means "run an LLM step". Instead, it adds one new command item type for re-ingest and extends the existing `message` item so it can load its instruction from either `content` or `markdownFile`.
 
 For markdown files, the user has chosen a repository-level folder named `codeinfo_markdown`, similar to repository `flows` support. Markdown files must be resolved using deterministic repository priority rules instead of ad hoc relative paths:
 
@@ -33,44 +33,155 @@ For re-ingest steps, the story reuses the server’s existing blocking re-ingest
 
 This story deliberately excludes user-input waiting. That will be handled in a later story because it requires a new paused/resumable run state rather than a normal synchronous step.
 
+### Concrete Contracts
+
+The following concrete contracts define the intended output of this story. They are here so a junior developer can see the target shapes and behaviors before any tasking is created.
+
+#### Command File Contract
+
+Command files keep the current top-level shape:
+
+```json
+{
+  "Description": "Refresh the repository index and run the review prompt.",
+  "items": [
+    {
+      "type": "reingest",
+      "sourceId": "/workspace/repository"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "architecture/review.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": ["Summarize the main risks in three bullets."]
+    }
+  ]
+}
+```
+
+Rules for command items:
+
+- `Description` keeps its existing capital `D` field name.
+- `items` stays the executable array. This story does not rename it to `steps`.
+- `message` remains the existing command LLM item shape.
+- A `message` item must contain exactly one instruction source:
+  - `content: string[]`; or
+  - `markdownFile: string`.
+- A `message` item must never contain both `content` and `markdownFile`.
+- `role` remains fixed to `user` for command `message` items.
+- A new `reingest` item is added with the shape `{ "type": "reingest", "sourceId": "<absolute-ingested-root>" }`.
+
+#### Flow File Contract
+
+Flow files keep the current top-level shape:
+
+```json
+{
+  "description": "Refresh the repository index and run the review prompt.",
+  "steps": [
+    {
+      "type": "reingest",
+      "label": "Refresh repository index",
+      "sourceId": "/workspace/repository"
+    },
+    {
+      "type": "llm",
+      "label": "Architecture review",
+      "agentType": "planning_agent",
+      "identifier": "architecture-review",
+      "markdownFile": "architecture/review.md"
+    }
+  ]
+}
+```
+
+Rules for flow steps:
+
+- Existing `llm`, `command`, `break`, and `startLoop` shapes stay valid unless this story explicitly extends them.
+- A flow `llm` step must contain exactly one instruction source:
+  - `messages: FlowMessage[]`; or
+  - `markdownFile: string`.
+- A flow `llm` step must never contain both `messages` and `markdownFile`.
+- A new `reingest` flow step is added with the shape `{ "type": "reingest", "sourceId": "<absolute-ingested-root>", "label"?: string }`.
+
+#### Markdown Resolution Contract
+
+`markdownFile` is always a path relative to a repository-level `codeinfo_markdown` folder. The resolver behavior is:
+
+1. Validate the requested path.
+2. Reject empty values, absolute paths, `..` traversal, and any normalized path that would escape `codeinfo_markdown`.
+3. Build candidate repositories in this order:
+   - same source repository as the running flow or repository-scoped command;
+   - the codeInfo2 repository;
+   - other ingested repositories sorted case-insensitively by source label and then by full source path.
+4. For each candidate, look for `<candidate-root>/codeinfo_markdown/<markdownFile>`.
+5. If the file is missing in that candidate, move to the next candidate.
+6. If the file exists but cannot be read, is invalid UTF-8, or fails path validation for that candidate, fail the step immediately instead of silently falling through to another repository.
+7. Use the first successfully read file and pass its bytes through as UTF-8 text exactly as read.
+
+For local-only command execution where there is no separate repository source, "same source repository" and "codeInfo2 repository" mean the same codeInfo2 checkout, so no ambiguous ordering is introduced.
+
+#### Re-Ingest Step Result Contract
+
+The re-ingest step uses the same `sourceId` contract as the existing blocking re-ingest service: it is the exact absolute repository root path of an already ingested repository, not a display label and not a relative path.
+
+Once a re-ingest step starts, it must always finish with a structured terminal result that includes at least:
+
+```json
+{
+  "stepType": "reingest",
+  "sourceId": "/workspace/repository",
+  "status": "completed",
+  "runId": "ingest-run-id",
+  "errorCode": null
+}
+```
+
+The exact storage location can follow the existing command/flow run result patterns, but the information above must be recorded in a structured form for later inspection. Terminal statuses of `completed`, `cancelled`, and `error` are non-fatal to the overall command or flow once the step has started. By contrast, invalid step configuration should still fail validation before the run starts.
+
 ### Acceptance Criteria
 
-- Command JSON supports a step that triggers repository re-ingest.
-- Command JSON keeps the existing top-level `Description + items[]` shape for backward compatibility.
-- Flow JSON supports a step that triggers repository re-ingest.
-- The re-ingest step accepts a repository identifier that maps to an already ingested repository root.
-- The re-ingest step waits for a terminal ingest result before the runner is allowed to start the next step.
-- Re-ingest terminal outcomes of `completed`, `cancelled`, and `error` are all handled explicitly.
-- A re-ingest failure does not stop the overall command or flow run.
-- A re-ingest step records structured output that includes the terminal status and identifying metadata such as repository id/source id, ingest run id, and any available error code.
-- Command JSON supports an `llm`-style step that uses a markdown file reference instead of the existing message-array content.
-- Flow JSON supports an `llm`-style step that uses a markdown file reference instead of the existing message-array content.
-- For command JSON and flow JSON, the `llm` step enforces XOR validation:
-  - either the markdown-file field is provided;
-  - or the message-array field is provided;
-  - but never both.
-- Markdown file contents are read as UTF-8 and passed through verbatim with no trimming, line rewriting, whitespace cleanup, or prompt reformatting before they are sent to the AI agent.
-- Markdown files are resolved from `codeinfo_markdown`.
-- `codeinfo_markdown` references may use safe relative subpaths under the folder.
-- Repository-scoped markdown resolution order is:
+- Command JSON keeps the existing top-level shape `{ "Description": string, "items": [...] }`. This story does not replace command files with a top-level `steps` array.
+- Command JSON adds exactly one new executable item type for this story: `{ "type": "reingest", "sourceId": "<absolute-ingested-root>" }`.
+- Command JSON keeps the existing `message` item for LLM execution and extends that item so it accepts exactly one instruction source:
+  - `content: string[]`; or
+  - `markdownFile: string`.
+- A command `message` item that provides both `content` and `markdownFile`, or neither of them, fails schema validation.
+- Flow JSON keeps the existing top-level shape `{ "description"?: string, "steps": [...] }`.
+- Flow JSON adds exactly one new executable step type for this story: `{ "type": "reingest", "sourceId": "<absolute-ingested-root>", "label"?: string }`.
+- Flow JSON keeps the existing `llm` step shape and extends it so it accepts exactly one instruction source:
+  - `messages: FlowMessage[]`; or
+  - `markdownFile: string`.
+- A flow `llm` step that provides both `messages` and `markdownFile`, or neither of them, fails schema validation.
+- The `sourceId` field used by re-ingest steps means the exact absolute root path of an already ingested repository, matching the current blocking re-ingest service contract.
+- When a command or flow reaches a re-ingest step, the runner does not start the next step until the blocking re-ingest call has reached one of the terminal statuses `completed`, `cancelled`, or `error`.
+- Once a re-ingest step has started successfully, any of the terminal statuses `completed`, `cancelled`, or `error` is recorded as a structured step result and does not stop the rest of the command or flow from continuing.
+- The structured re-ingest result records at least the step type, sourceId, terminal status, ingest run id, and any available error code.
+- Markdown file contents are read from UTF-8 files and passed to the AI agent verbatim, with no trimming, newline rewriting, whitespace cleanup, or prompt reformatting.
+- `markdownFile` values are always resolved under a repository-level `codeinfo_markdown` directory and may include safe relative subpaths such as `architecture/auth/login.md`.
+- Absolute paths, empty paths, `..` traversal, and any normalized path that would escape `codeinfo_markdown` fail validation with a clear step error.
+- Markdown resolution order for repository-scoped execution is deterministic:
   - same source repository first;
   - codeInfo2 repository second;
-  - other ingested repositories last in deterministic case-insensitive source-label order with case-insensitive source-path tie-break.
-- If the same-source repository contains the requested markdown file, that file wins even if the same file name exists elsewhere.
-- If the same-source repository does not contain the requested markdown file, the resolver falls back to codeInfo2 and then to other repositories using the deterministic order above.
-- Local-only command execution behaves predictably when no repository source is selected:
-  - it resolves `codeinfo_markdown` from the codeInfo2 repository;
-  - it does not invent an ambiguous repository order.
-- Invalid markdown-file references produce clear step failures.
-- Invalid same-source markdown files or read failures fail fast for that candidate rather than silently pretending the file was read successfully.
-- Existing message-array `llm` behavior continues to work for commands and flows when no markdown-file field is used.
-- This story does not add any paused or resumable workflow state.
+  - other ingested repositories last, sorted case-insensitively by source label and then by full source path.
+- If the requested markdown file is missing in the same-source repository, the resolver falls back to codeInfo2 and then to the sorted list of other repositories.
+- If a candidate repository contains the requested markdown file but the file cannot be read successfully, the step fails immediately instead of silently falling through to a lower-priority repository.
+- Local-only command execution resolves `codeinfo_markdown` from the codeInfo2 repository and does not invent a separate same-source repository.
+- Existing command `message` behavior using `content: string[]` continues to work unchanged when `markdownFile` is not used.
+- Existing flow `llm` behavior using `messages: FlowMessage[]` continues to work unchanged when `markdownFile` is not used.
+- This story does not add paused execution, resumable workflow state, or user-input waiting.
 
 ### Out Of Scope
 
 - Any step that waits for the user to type content during an active run.
 - REST or websocket contracts for paused or resumable command/flow execution.
+- Accepting repository display labels or fuzzy repository names in re-ingest steps. This story uses exact ingested repository root `sourceId` values only.
 - Free-form filesystem-relative markdown lookup outside of `codeinfo_markdown`.
+- Adding a second command-only LLM step type when the existing command `message` item already covers that responsibility.
 - Replacing existing flow command-resolution behavior with a new global resolver order beyond the markdown resolution needed by this story.
 - Adding new command or flow step types unrelated to re-ingest or markdown-backed `llm`.
 - Changing agent instruction semantics outside of what is required to pass verbatim markdown content.
@@ -81,23 +192,34 @@ None. The command-file compatibility and markdown-path decisions are now fixed f
 
 ## Implementation Ideas
 
-- Extend `server/src/agents/commandsSchema.ts` and `server/src/flows/flowSchema.ts` with new step shapes that remain explicitly typed and mutually exclusive where required.
-- Keep command files on `Description + items[]` and evolve `items` into the executable union instead of introducing a new top-level command `steps[]` migration.
+- Extend `server/src/agents/commandsSchema.ts` so command `items` become a discriminated union of:
+  - existing `message` items, now with XOR validation between `content` and `markdownFile`;
+  - new `reingest` items.
+- Extend `server/src/flows/flowSchema.ts` with:
+  - existing `llm` steps, now with XOR validation between `messages` and `markdownFile`;
+  - new `reingest` steps;
+  - unchanged `command`, `break`, and `startLoop` steps.
+- Keep command files on `Description + items[]` and evolve `items` in place instead of introducing a new top-level command `steps[]` migration.
 - Reuse `server/src/ingest/reingestService.ts` for blocking re-ingest execution instead of reimplementing polling logic in command or flow runners.
-- Introduce one shared markdown resolution helper so commands and flows do not drift.
+- Introduce one shared markdown resolution helper so commands and flows do not drift. That helper should:
+  - validate safe relative `markdownFile` paths;
+  - build candidate repositories using the existing deterministic flow repository ordering;
+  - continue on missing files only;
+  - fail immediately on read or decode errors once a candidate file exists;
+  - return the exact UTF-8 text without trimming.
 - Base repository ordering on the existing deterministic flow repository ordering in `server/src/flows/service.ts`.
-- Define a concrete `codeinfo_markdown` file-reference contract:
-  - safe relative paths only, not absolute paths or arbitrary path traversal;
-  - resolved under `<repo>/codeinfo_markdown`;
-  - same-source/codeInfo2/other fallback in deterministic order.
-- Keep the existing message-array path untouched for backward compatibility.
+- Keep the existing command `message.content` path and flow `llm.messages` path untouched for backward compatibility.
 - For flows, integrate the new behavior into the existing step execution loop in `server/src/flows/service.ts`.
 - For commands, extend the current command runner in `server/src/agents/commandsRunner.ts` while preserving start-step, retry, and cancellation behavior.
+- Reuse the existing conversation/run result patterns so re-ingest step outcomes are visible in a structured way without inventing a second bespoke status system.
 - Add tests for:
-  - schema XOR validation;
+  - command schema validation for `message.content` XOR `message.markdownFile`;
+  - flow schema validation for `llm.messages` XOR `llm.markdownFile`;
   - verbatim markdown pass-through;
   - same-source markdown success;
   - codeInfo2 fallback;
   - deterministic other-repository fallback;
+  - fail-fast behavior when a higher-priority repository contains the file but reading it fails;
   - blocking re-ingest continuation after completed/cancelled/error outcomes;
-  - non-fatal re-ingest failure continuation.
+  - non-fatal re-ingest terminal-status continuation;
+  - pre-run validation failure for invalid re-ingest `sourceId` values.

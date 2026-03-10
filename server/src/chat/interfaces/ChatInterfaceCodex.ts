@@ -191,6 +191,10 @@ export class ChatInterfaceCodex extends ChatInterface {
     if (!threadId && agentSystemPrompt)
       promptSections.push(`System:\n${agentSystemPrompt}`);
 
+    if (!disableSystemContext && message?.trim().length) {
+      message = `${message}\n- YOU MUST follow the 'VectorSearch-first protocol' UNLESS this is an allowed exception where direct access and/or Python is a better fit. Provide the full path to each file that you reference to generate your answer.`;
+    }
+
     const prompt =
       !threadId && promptSections.length
         ? `${promptSections.join('\n\n')}\n\nUser:\n${message}`

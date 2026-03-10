@@ -1223,7 +1223,7 @@ Verify the complete story against the acceptance criteria after all earlier task
 
 - Playwright introduction: https://playwright.dev/docs/intro - use for the manual and automated browser validation flow required in this final task.
 - Playwright Docker guidance: https://playwright.dev/docs/docker - use for understanding how browser validation behaves inside the compose-driven environment.
-- Cucumber continuous integration guide: https://cucumber.io/docs/guides/continuous-integration/ - use for the cucumber validation run because this task executes the existing cucumber suite and relies on its exit-status-based pass/fail behavior.
+- Cucumber guides: https://cucumber.io/docs/guides/ - use as the required starting point for the cucumber validation run because this task executes the existing cucumber suite and relies on the official guides set for behavior and workflow expectations.
 - Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose build/up/down validation sequence required in this final task.
 - Node.js test runner documentation: https://nodejs.org/api/test.html - use for the full server unit validation run that is part of the final acceptance check.
 - npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped build and validation commands listed in this task.

@@ -5,6 +5,12 @@ import path from 'node:path';
 import { afterEach, describe, test } from 'node:test';
 
 import { runAgentCommandRunner } from '../../agents/commandsRunner.js';
+import {
+  __resetMarkdownFileResolverDepsForTests,
+  __setMarkdownFileResolverDepsForTests,
+} from '../../flows/markdownFileResolver.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
+import { query, resetStore } from '../../logStore.js';
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -21,6 +27,68 @@ function deferred<T>(): Deferred<T> {
   });
   return { promise, resolve, reject };
 }
+
+const buildRepoEntry = (params: {
+  id: string;
+  containerPath: string;
+}): RepoEntry => ({
+  id: params.id,
+  description: null,
+  containerPath: params.containerPath,
+  hostPath: params.containerPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model',
+  embeddingDimensions: 768,
+  modelId: 'model',
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
+
+async function writeMarkdownFile(params: {
+  repoRoot: string;
+  relativePath: string;
+  content: string | Uint8Array;
+}): Promise<string> {
+  const filePath = path.join(
+    params.repoRoot,
+    'codeinfo_markdown',
+    params.relativePath,
+  );
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, params.content);
+  return filePath;
+}
+
+async function createMarkdownHarness(baseDir: string) {
+  const codeInfo2Root = path.join(baseDir, 'codeinfo2');
+  const agentsHome = path.join(codeInfo2Root, 'codex_agents');
+  const agentHome = path.join(agentsHome, 'a1');
+  const sourceRepo = path.join(baseDir, 'repo-source');
+  const otherRepo = path.join(baseDir, 'repo-other');
+  const thirdRepo = path.join(baseDir, 'repo-third');
+
+  await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+  await fs.mkdir(sourceRepo, { recursive: true });
+  await fs.mkdir(otherRepo, { recursive: true });
+  await fs.mkdir(thirdRepo, { recursive: true });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  __resetMarkdownFileResolverDepsForTests();
+  __setMarkdownFileResolverDepsForTests({
+    listIngestedRepositories: async () =>
+      ({
+        repos: [
+          buildRepoEntry({ id: 'Source Repo', containerPath: sourceRepo }),
+          buildRepoEntry({ id: 'Other Repo', containerPath: otherRepo }),
+          buildRepoEntry({ id: 'Third Repo', containerPath: thirdRepo }),
+        ],
+      }) as never,
+  });
+
+  return { codeInfo2Root, agentHome, sourceRepo, otherRepo, thirdRepo };
+}
+
 async function writeCommandFile(params: {
   agentHome: string;
   commandName: string;
@@ -37,8 +105,17 @@ async function writeCommandFile(params: {
 
 describe('agent commands runner (v1)', () => {
   let tmpDir: string | null = null;
+  let previousAgentsHome: string | undefined;
 
   afterEach(async () => {
+    __resetMarkdownFileResolverDepsForTests();
+    resetStore();
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    previousAgentsHome = undefined;
     if (tmpDir) {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }
@@ -778,5 +855,357 @@ describe('agent commands runner (v1)', () => {
         }),
       (err) => (err as { code?: string }).code === 'COMMAND_INVALID',
     );
+  });
+
+  test('markdownFile message items load one markdown instruction and execute once', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+    const harness = await createMarkdownHarness(tmpDir);
+    await writeCommandFile({
+      agentHome: harness.agentHome,
+      commandName: 'markdown-once',
+      jsonText: JSON.stringify({
+        Description: 'Markdown once',
+        items: [{ type: 'message', role: 'user', markdownFile: 'once.md' }],
+      }),
+    });
+    await writeMarkdownFile({
+      repoRoot: harness.codeInfo2Root,
+      relativePath: 'once.md',
+      content: '# Heading\n\nBody',
+    });
+
+    const instructions: string[] = [];
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome: harness.agentHome,
+      commandName: 'markdown-once',
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        instructions.push(params.instruction);
+        return { modelId: 'm1' };
+      },
+    });
+
+    assert.deepEqual(instructions, ['# Heading\n\nBody']);
+    const logs = query({
+      text: 'DEV-0000045:T4:direct_command_markdown_message_loaded',
+    });
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0]?.context?.resolvedSourceId, harness.codeInfo2Root);
+  });
+
+  test('markdownFile instructions are passed through verbatim', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+    const harness = await createMarkdownHarness(tmpDir);
+    const markdown = '  # Title\n\n- first item\n- second item\n';
+    await writeCommandFile({
+      agentHome: harness.agentHome,
+      commandName: 'markdown-verbatim',
+      jsonText: JSON.stringify({
+        Description: 'Markdown verbatim',
+        items: [{ type: 'message', role: 'user', markdownFile: 'verbatim.md' }],
+      }),
+    });
+    await writeMarkdownFile({
+      repoRoot: harness.codeInfo2Root,
+      relativePath: 'verbatim.md',
+      content: markdown,
+    });
+
+    let seenInstruction = '';
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome: harness.agentHome,
+      commandName: 'markdown-verbatim',
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        seenInstruction = params.instruction;
+        return { modelId: 'm1' };
+      },
+    });
+
+    assert.equal(seenInstruction, markdown);
+  });
+
+  test('multiple markdownFile items execute in order', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+    const harness = await createMarkdownHarness(tmpDir);
+    await writeCommandFile({
+      agentHome: harness.agentHome,
+      commandName: 'markdown-multi',
+      jsonText: JSON.stringify({
+        Description: 'Markdown multi',
+        items: [
+          { type: 'message', role: 'user', markdownFile: 'one.md' },
+          { type: 'message', role: 'user', markdownFile: 'two.md' },
+        ],
+      }),
+    });
+    await writeMarkdownFile({
+      repoRoot: harness.codeInfo2Root,
+      relativePath: 'one.md',
+      content: 'first markdown',
+    });
+    await writeMarkdownFile({
+      repoRoot: harness.codeInfo2Root,
+      relativePath: 'two.md',
+      content: 'second markdown',
+    });
+
+    const instructions: string[] = [];
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome: harness.agentHome,
+      commandName: 'markdown-multi',
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        instructions.push(params.instruction);
+        return { modelId: 'm1' };
+      },
+    });
+
+    assert.deepEqual(instructions, ['first markdown', 'second markdown']);
+  });
+
+  test('markdownFile and inline content items can be mixed without changing inline behavior', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+    const harness = await createMarkdownHarness(tmpDir);
+    await writeCommandFile({
+      agentHome: harness.agentHome,
+      commandName: 'markdown-mixed',
+      jsonText: JSON.stringify({
+        Description: 'Markdown mixed',
+        items: [
+          { type: 'message', role: 'user', markdownFile: 'mixed.md' },
+          {
+            type: 'message',
+            role: 'user',
+            content: ['inline one', 'inline two'],
+          },
+        ],
+      }),
+    });
+    await writeMarkdownFile({
+      repoRoot: harness.codeInfo2Root,
+      relativePath: 'mixed.md',
+      content: 'markdown mixed',
+    });
+
+    const instructions: string[] = [];
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome: harness.agentHome,
+      commandName: 'markdown-mixed',
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        instructions.push(params.instruction);
+        return { modelId: 'm1' };
+      },
+    });
+
+    assert.deepEqual(instructions, [
+      'markdown mixed',
+      'inline one\ninline two',
+    ]);
+  });
+
+  test('sourceId same-source markdown wins over codeInfo2 fallback', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+    const harness = await createMarkdownHarness(tmpDir);
+    await writeCommandFile({
+      agentHome: harness.agentHome,
+      commandName: 'markdown-source-wins',
+      jsonText: JSON.stringify({
+        Description: 'Markdown source wins',
+        items: [{ type: 'message', role: 'user', markdownFile: 'source.md' }],
+      }),
+    });
+    await writeMarkdownFile({
+      repoRoot: harness.codeInfo2Root,
+      relativePath: 'source.md',
+      content: 'codeinfo2 markdown',
+    });
+    await writeMarkdownFile({
+      repoRoot: harness.sourceRepo,
+      relativePath: 'source.md',
+      content: 'source markdown',
+    });
+
+    let seenInstruction = '';
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome: harness.agentHome,
+      commandName: 'markdown-source-wins',
+      source: 'REST',
+      sourceId: harness.sourceRepo,
+      runAgentInstructionUnlocked: async (params) => {
+        seenInstruction = params.instruction;
+        return { modelId: 'm1' };
+      },
+    });
+
+    assert.equal(seenInstruction, 'source markdown');
+  });
+
+  test('sourceId falls back to codeInfo2 when same-source markdown is missing', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+    const harness = await createMarkdownHarness(tmpDir);
+    await writeCommandFile({
+      agentHome: harness.agentHome,
+      commandName: 'markdown-source-fallback',
+      jsonText: JSON.stringify({
+        Description: 'Markdown source fallback',
+        items: [{ type: 'message', role: 'user', markdownFile: 'fallback.md' }],
+      }),
+    });
+    await writeMarkdownFile({
+      repoRoot: harness.codeInfo2Root,
+      relativePath: 'fallback.md',
+      content: 'codeinfo2 fallback markdown',
+    });
+
+    let seenInstruction = '';
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome: harness.agentHome,
+      commandName: 'markdown-source-fallback',
+      source: 'REST',
+      sourceId: harness.sourceRepo,
+      runAgentInstructionUnlocked: async (params) => {
+        seenInstruction = params.instruction;
+        return { modelId: 'm1' };
+      },
+    });
+
+    assert.equal(seenInstruction, 'codeinfo2 fallback markdown');
+  });
+
+  test('missing markdown files fail clearly', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+    const harness = await createMarkdownHarness(tmpDir);
+    await writeCommandFile({
+      agentHome: harness.agentHome,
+      commandName: 'markdown-missing',
+      jsonText: JSON.stringify({
+        Description: 'Markdown missing',
+        items: [{ type: 'message', role: 'user', markdownFile: 'missing.md' }],
+      }),
+    });
+
+    await assert.rejects(
+      () =>
+        runAgentCommandRunner({
+          agentName: 'a1',
+          agentHome: harness.agentHome,
+          commandName: 'markdown-missing',
+          source: 'REST',
+          runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
+        }),
+      /was not found in any codeinfo_markdown repository candidate/,
+    );
+  });
+
+  test('undecodable markdown bytes surface as command failures', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+    const harness = await createMarkdownHarness(tmpDir);
+    await writeCommandFile({
+      agentHome: harness.agentHome,
+      commandName: 'markdown-invalid-utf8',
+      jsonText: JSON.stringify({
+        Description: 'Markdown invalid utf8',
+        items: [{ type: 'message', role: 'user', markdownFile: 'bad.md' }],
+      }),
+    });
+    await writeMarkdownFile({
+      repoRoot: harness.codeInfo2Root,
+      relativePath: 'bad.md',
+      content: Uint8Array.from([0xc3, 0x28]),
+    });
+
+    await assert.rejects(
+      () =>
+        runAgentCommandRunner({
+          agentName: 'a1',
+          agentHome: harness.agentHome,
+          commandName: 'markdown-invalid-utf8',
+          source: 'REST',
+          runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
+        }),
+      /Invalid UTF-8 markdown content/,
+    );
+  });
+
+  test('unexpected resolver failures surface as clear command errors', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+    const harness = await createMarkdownHarness(tmpDir);
+    await writeCommandFile({
+      agentHome: harness.agentHome,
+      commandName: 'markdown-resolver-explosion',
+      jsonText: JSON.stringify({
+        Description: 'Markdown resolver explosion',
+        items: [{ type: 'message', role: 'user', markdownFile: 'boom.md' }],
+      }),
+    });
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () => {
+        throw new Error('resolver exploded');
+      },
+    });
+
+    await assert.rejects(
+      () =>
+        runAgentCommandRunner({
+          agentName: 'a1',
+          agentHome: harness.agentHome,
+          commandName: 'markdown-resolver-explosion',
+          source: 'REST',
+          runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
+        }),
+      /resolver exploded/,
+    );
+  });
+
+  test('inline content message execution remains unchanged after markdown support', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+    const harness = await createMarkdownHarness(tmpDir);
+    await writeCommandFile({
+      agentHome: harness.agentHome,
+      commandName: 'inline-still-works',
+      jsonText: JSON.stringify({
+        Description: 'Inline still works',
+        items: [{ type: 'message', role: 'user', content: ['alpha', 'beta'] }],
+      }),
+    });
+
+    let seenInstruction = '';
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome: harness.agentHome,
+      commandName: 'inline-still-works',
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        seenInstruction = params.instruction;
+        return { modelId: 'm1' };
+      },
+    });
+
+    assert.equal(seenInstruction, 'alpha\nbeta');
   });
 });

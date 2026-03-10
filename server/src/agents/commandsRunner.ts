@@ -8,6 +8,7 @@ import {
   getInflight,
 } from '../chat/inflightRegistry.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
+import { resolveMarkdownFileWithMetadata } from '../flows/markdownFileResolver.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
@@ -60,6 +61,7 @@ export type RunAgentCommandRunnerParams = {
   conversationId?: string;
   commandsRoot?: string;
   commandFilePath?: string;
+  sourceId?: string;
   lockAlreadyHeld?: boolean;
   working_folder?: string;
   signal?: AbortSignal;
@@ -241,8 +243,38 @@ export async function runAgentCommandRunner(
           `Command item type ${item.type} is not executable until Story 45 runtime tasks are implemented.`,
         );
       }
-      const originalInstruction =
-        'content' in item ? item.content.join('\n') : item.markdownFile;
+      const resolvedInstruction =
+        'content' in item
+          ? {
+              instruction: item.content.join('\n'),
+              markdownFile: undefined,
+              resolvedSourceId: undefined,
+            }
+          : await resolveMarkdownFileWithMetadata({
+              markdownFile: item.markdownFile,
+              sourceId: params.sourceId,
+            }).then((resolved) => ({
+              instruction: resolved.content,
+              markdownFile: item.markdownFile,
+              resolvedSourceId: resolved.resolvedSourceId,
+            }));
+      const originalInstruction = resolvedInstruction.instruction;
+
+      if (resolvedInstruction.markdownFile) {
+        append({
+          level: 'info',
+          message: 'DEV-0000045:T4:direct_command_markdown_message_loaded',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            commandName,
+            itemIndex: i,
+            markdownFile: resolvedInstruction.markdownFile,
+            resolvedSourceId: resolvedInstruction.resolvedSourceId,
+            instructionLength: originalInstruction.length,
+          },
+        });
+      }
 
       const stepMeta = {
         name: commandName,

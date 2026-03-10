@@ -1,5 +1,28 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000045 Task 4 structural change ledger
+
+Added files:
+
+- `server/src/test/integration/commands.markdown-file.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/agents/service.ts`
+- `server/src/flows/markdownFileResolver.ts`
+- `server/src/test/unit/agent-commands-runner.test.ts`
+
 ## Story 0000045 Task 3 structural change ledger
 
 Added files:

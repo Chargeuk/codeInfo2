@@ -14,6 +14,13 @@ export type MarkdownFileResolutionParams = {
   flowSourceId?: string;
 };
 
+export type ResolvedMarkdownFile = {
+  content: string;
+  resolvedSourceId: string;
+  resolvedRepositoryLabel: string;
+  resolvedPath: string;
+};
+
 type SourceCandidate = {
   sourceId: string;
   sourceLabel: string;
@@ -197,9 +204,9 @@ const decodeUtf8Strict = (bytes: Uint8Array) => {
 const isMissingFileError = (error: unknown) =>
   (error as { code?: string }).code === 'ENOENT';
 
-export async function resolveMarkdownFile(
+export async function resolveMarkdownFileWithMetadata(
   params: MarkdownFileResolutionParams,
-): Promise<string> {
+): Promise<ResolvedMarkdownFile> {
   const normalizedMarkdownFile = normalizeMarkdownFile(params.markdownFile);
   const resolutionScope = getResolutionScope(params);
   const sameSourceId = params.flowSourceId?.trim() || params.sourceId?.trim();
@@ -242,12 +249,24 @@ export async function resolveMarkdownFile(
         resolvedPath,
       },
     });
-    return content;
+    return {
+      content,
+      resolvedSourceId: candidate.sourceId,
+      resolvedRepositoryLabel: candidate.sourceLabel,
+      resolvedPath,
+    };
   }
 
   throw new Error(
     `markdownFile ${normalizedMarkdownFile} was not found in any codeinfo_markdown repository candidate`,
   );
+}
+
+export async function resolveMarkdownFile(
+  params: MarkdownFileResolutionParams,
+): Promise<string> {
+  const resolved = await resolveMarkdownFileWithMetadata(params);
+  return resolved.content;
 }
 
 export function __setMarkdownFileResolverDepsForTests(

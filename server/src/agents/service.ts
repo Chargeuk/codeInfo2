@@ -85,6 +85,10 @@ export type RunAgentInstructionResult = {
   segments: unknown[];
 };
 
+type AgentServiceDeps = {
+  listIngestedRepositories: typeof listIngestedRepositories;
+};
+
 type InstructionRuntimeCleanupFn = typeof cleanupInflight;
 type InstructionReleaseLockFn = typeof releaseConversationLock;
 
@@ -116,6 +120,19 @@ const T07_SUCCESS_LOG =
   '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=success';
 const T07_ERROR_LOG =
   '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=error';
+const agentServiceDeps: AgentServiceDeps = {
+  listIngestedRepositories,
+};
+
+export function __setAgentServiceDepsForTests(
+  overrides: Partial<AgentServiceDeps>,
+) {
+  Object.assign(agentServiceDeps, overrides);
+}
+
+export function __resetAgentServiceDepsForTests() {
+  agentServiceDeps.listIngestedRepositories = listIngestedRepositories;
+}
 
 function logTransitiveContractRead(params: {
   consumer: string;
@@ -515,7 +532,8 @@ export async function startAgentCommand(params: {
     let commandFilePath = path.join(commandsDir, commandName + '.json');
 
     if (sourceId) {
-      const ingestRoots = await listIngestedRepositories()
+      const ingestRoots = await agentServiceDeps
+        .listIngestedRepositories()
         .then((result) => result.repos)
         .catch(() => null);
       const matchingRoot = ingestRoots?.find(
@@ -596,7 +614,7 @@ export async function startAgentCommand(params: {
       firstItem?.type === 'message'
         ? 'content' in firstItem
           ? firstItem.content.join('\n')
-          : firstItem.markdownFile
+          : ''
         : '';
     const title =
       firstInstruction.trim().slice(0, 80) || 'Command: ' + commandName;
@@ -625,6 +643,7 @@ export async function startAgentCommand(params: {
           commandName,
           startStep,
           conversationId,
+          sourceId,
           working_folder: params.working_folder,
           signal: undefined,
           source: params.source,
@@ -717,7 +736,8 @@ export async function runAgentCommand(params: {
   let commandFilePath: string | undefined;
 
   if (sourceId) {
-    const ingestRoots = await listIngestedRepositories()
+    const ingestRoots = await agentServiceDeps
+      .listIngestedRepositories()
       .then((result) => result.repos)
       .catch(() => null);
     const matchingRoot = ingestRoots?.find(
@@ -769,6 +789,7 @@ export async function runAgentCommand(params: {
     commandName: params.commandName,
     startStep,
     conversationId: params.conversationId,
+    sourceId,
     working_folder: params.working_folder,
     signal: params.signal,
     source: params.source,

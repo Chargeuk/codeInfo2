@@ -477,51 +477,38 @@ The existing test layout already provides most of the right extension points, so
 
 # Tasks
 
-### 1. Add Command And Flow Schema Support For `markdownFile` And `reingest`
+### 1. Add Command Schema Support For `markdownFile` And `reingest`
 
 - Task Status: `__to_do__`
 - Git Commits:
 
 #### Overview
 
-Update the JSON parsing layer so Story 45's new command items and flow steps are accepted or rejected correctly before any runtime behavior changes are attempted. This task is only about schema contracts and schema-focused tests, which makes it the safest first implementation step for the story.
+Update the command JSON parsing layer so Story 45's new command item shapes are accepted or rejected correctly before any runtime behavior changes are attempted. This task is only about command-file schema contracts and command-schema-focused tests, which keeps the first implementation step small and easy to verify.
 
 #### Documentation Locations
 
 - Story contract source: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
 - Command schema implementation: [commandsSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsSchema.ts)
-- Flow schema implementation: [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts)
 - Existing schema tests: [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts)
-- Existing schema tests: [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts)
 - Zod documentation for unions and refinements: https://zod.dev
 
 #### Subtasks
 
-1. [ ] Read the Story 45 command and flow contracts, then read the existing schema files and schema tests before making any edits. Confirm exactly where `message`, `llm`, and the flow-step discriminated union are currently defined.
+1. [ ] Read the Story 45 command contract, then read the existing command schema file and command schema tests before making any edits. Confirm exactly where `message` items are currently defined and how command files are validated.
 2. [ ] Update [commandsSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsSchema.ts) so command `items` become a discriminated union that supports:
    - `message` items with exactly one of `content` or `markdownFile`;
    - `reingest` items with `sourceId`;
    - the existing top-level `{ Description, items }` contract with no renaming.
-3. [ ] Update [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts) so the flow step union supports:
-   - `llm` steps with exactly one of `messages` or `markdownFile`;
-   - `reingest` steps with `sourceId` and optional `label`;
-   - unchanged `command`, `break`, and `startLoop` steps.
-4. [ ] Update execution-adjacent type aliases and schema consumers that currently assume command items always expose `content` or that flow steps only include the existing four step types. At minimum, inspect and fix affected TypeScript narrowing in [agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) and [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so the schema expansion compiles cleanly before runtime work begins.
-5. [ ] Extend [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts) with positive and negative coverage for:
+3. [ ] Update command-side type aliases and schema consumers that currently assume command items always expose `content`. At minimum, inspect and fix affected TypeScript narrowing in [agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) and [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) so the command schema expansion compiles cleanly before runtime work begins.
+4. [ ] Extend [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts) with positive and negative coverage for:
    - `message.content`;
    - `message.markdownFile`;
    - `reingest`;
    - both/neither XOR failures;
    - unexpected extra keys.
-6. [ ] Extend [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) with matching positive and negative coverage for:
-   - `llm.messages`;
-   - `llm.markdownFile`;
-   - `reingest`;
-   - flows that contain only `reingest` steps;
-   - both/neither XOR failures;
-   - unexpected extra keys.
-7. [ ] Update this story file’s Task 1 `Implementation notes` section after the code and tests for this task are complete.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+5. [ ] Update this story file’s Task 1 `Implementation notes` section after the code and tests for this task are complete.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -530,8 +517,7 @@ Update the JSON parsing layer so Story 45's new command items and flow steps are
 3. [ ] `npm run compose:build:summary` - required to prove the updated schema code still builds in the containerized path.
 4. [ ] `npm run compose:up` - required so later tasks inherit a known-good stack after the schema change.
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-schema.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flows-schema.test.ts`
-7. [ ] `npm run compose:down`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -539,7 +525,57 @@ Update the JSON parsing layer so Story 45's new command items and flow steps are
 
 ---
 
-### 2. Add The Shared Markdown Resolver And Its Safety Rules
+### 2. Add Flow Schema Support For `markdownFile` And `reingest`
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Update the flow JSON parsing layer so Story 45's new flow step shapes are accepted or rejected correctly before any runtime behavior changes are attempted. This task is only about flow-file schema contracts and flow-schema-focused tests, which keeps the work small and easy to verify.
+
+#### Documentation Locations
+
+- Story contract source: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
+- Flow schema implementation: [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts)
+- Flow execution types and helpers: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts)
+- Existing schema tests: [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts)
+- Zod documentation for unions and refinements: https://zod.dev
+
+#### Subtasks
+
+1. [ ] Read the Story 45 flow contract, then read the existing flow schema file and flow schema tests before making any edits. Confirm exactly where `llm`, `command`, `break`, `startLoop`, and the discriminated union are currently defined.
+2. [ ] Update [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts) so the flow step union supports:
+   - `llm` steps with exactly one of `messages` or `markdownFile`;
+   - `reingest` steps with `sourceId` and optional `label`;
+   - unchanged `command`, `break`, and `startLoop` steps.
+3. [ ] Update flow-side type aliases and schema consumers that currently assume flow steps only include the existing four step types. At minimum, inspect and fix affected TypeScript narrowing in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so the expanded step union compiles cleanly before runtime work begins.
+4. [ ] Extend [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) with positive and negative coverage for:
+   - `llm.messages`;
+   - `llm.markdownFile`;
+   - `reingest`;
+   - flows that contain only `reingest` steps;
+   - both/neither XOR failures;
+   - unexpected extra keys.
+5. [ ] Update this story file’s Task 2 `Implementation notes` section after the code and tests for this task are complete.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server` - required because this task changes server TypeScript schemas and parser logic.
+2. [ ] `npm run build:summary:client` - required because server contract type changes can still reveal shared-package or workspace regressions.
+3. [ ] `npm run compose:build:summary` - required to prove the updated schema code still builds in the containerized path.
+4. [ ] `npm run compose:up` - required so later tasks inherit a known-good stack after the schema change.
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flows-schema.test.ts`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 3. Add The Shared Markdown Resolver And Its Safety Rules
 
 - Task Status: `__to_do__`
 - Git Commits:
@@ -577,7 +613,7 @@ Create the shared markdown-file lookup and decoding helper that all later markdo
    - invalid UTF-8 failure;
    - path traversal rejection.
 5. [ ] If this task adds a new resolver file or test file, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after those file additions are complete.
-6. [ ] Update this story file’s Task 2 `Implementation notes` section after the code and tests for this task are complete.
+6. [ ] Update this story file’s Task 3 `Implementation notes` section after the code and tests for this task are complete.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
@@ -595,14 +631,14 @@ Create the shared markdown-file lookup and decoding helper that all later markdo
 
 ---
 
-### 3. Support `message.markdownFile` In Direct Agent Command Runs
+### 4. Support `message.markdownFile` In Direct Agent Command Runs
 
 - Task Status: `__to_do__`
 - Git Commits:
 
 #### Overview
 
-Teach the direct command runner to execute markdown-backed `message` items without changing flow behavior yet. This task is only about direct command `message.markdownFile` execution, preserving the existing retry logic for AI instruction steps and reusing the shared resolver from Task 2.
+Teach the direct command runner to execute markdown-backed `message` items without changing flow behavior yet. This task is only about direct command `message.markdownFile` execution, preserving the existing retry logic for AI instruction steps and reusing the shared resolver from Task 3.
 
 #### Documentation Locations
 
@@ -627,7 +663,7 @@ Teach the direct command runner to execute markdown-backed `message` items witho
    - the existing `content` path still behaves unchanged.
 5. [ ] Update direct-command startup metadata paths in [agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) so command title generation, first-step inspection, and any pre-run assumptions remain safe when the first command item uses `markdownFile` or `reingest` instead of `content`.
 6. [ ] If this task adds direct-command markdown fixtures under temporary agent command folders or permanent fixtures, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) if the permanent repo structure changes.
-7. [ ] Update this story file’s Task 3 `Implementation notes` section after the code and tests for this task are complete.
+7. [ ] Update this story file’s Task 4 `Implementation notes` section after the code and tests for this task are complete.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
@@ -646,7 +682,7 @@ Teach the direct command runner to execute markdown-backed `message` items witho
 
 ---
 
-### 4. Support `llm.markdownFile` In Flow Steps
+### 5. Support `llm.markdownFile` In Flow Steps
 
 - Task Status: `__to_do__`
 - Git Commits:
@@ -673,7 +709,7 @@ Teach the flow runner to execute markdown-backed `llm` steps using the shared ma
    - a higher-priority unreadable markdown file fails the step instead of falling through to a lower-priority repository;
    - deterministic duplicate-label fallback still chooses the repository ordered by case-insensitive label and then full source path;
    - missing, undecodable, or unexpectedly thrown markdown-resolution errors fail the step clearly.
-5. [ ] Update this story file’s Task 4 `Implementation notes` section after the code and tests for this task are complete.
+5. [ ] Update this story file’s Task 5 `Implementation notes` section after the code and tests for this task are complete.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
@@ -691,7 +727,7 @@ Teach the flow runner to execute markdown-backed `llm` steps using the shared ma
 
 ---
 
-### 5. Reuse Command `message` Item Execution Inside Flow Command Steps
+### 6. Reuse Command `message` Item Execution Inside Flow Command Steps
 
 - Task Status: `__to_do__`
 - Git Commits:
@@ -729,7 +765,7 @@ Make flow command steps execute command `message` items through the same markdow
    - retryable `message` item failures inside a flow command step use the same retry behavior and retry-prompt injection as direct commands;
    - the flow command path does not drift from the direct command `message` behavior.
 7. [ ] If this task introduces a shared command-item execution module, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
-8. [ ] Update this story file’s Task 5 `Implementation notes` section after the code and tests for this task are complete.
+8. [ ] Update this story file’s Task 6 `Implementation notes` section after the code and tests for this task are complete.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
@@ -747,14 +783,14 @@ Make flow command steps execute command `message` items through the same markdow
 
 ---
 
-### 6. Add Shared Re-Ingest Tool-Result Recording
+### 7. Add Shared Re-Ingest Result Payload Builder
 
 - Task Status: `__to_do__`
 - Git Commits:
 
 #### Overview
 
-Implement the shared runtime helper or code path that converts re-ingest terminal outcomes into the exact live and persisted `tool-result` shapes required by Story 45. This task is only about message contracts and storage shapes for re-ingest results, and it must land before any task that starts executing `reingest` steps.
+Implement the shared runtime helper or code path that converts re-ingest terminal outcomes into the exact nested payload and wrapper shapes required by Story 45. This task is only about payload contracts and shape-focused tests, which keeps the work small and easy to verify before any runtime lifecycle code is added.
 
 #### Documentation Locations
 
@@ -766,7 +802,7 @@ Implement the shared runtime helper or code path that converts re-ingest termina
 
 #### Subtasks
 
-1. [ ] Read the current `ToolEvent`, `ChatToolResultEvent`, and `Turn.toolCalls` shapes before adding any new helper or payload builder.
+1. [ ] Read the current `ToolEvent`, `ChatToolResultEvent`, and `Turn.toolCalls` shapes before adding any new payload builder.
 2. [ ] Add one shared re-ingest result builder or equivalent shared path that:
    - converts a terminal re-ingest outcome into the nested `reingest_step_result` payload;
    - wraps it in the existing `tool-result` shape for live events and persisted tool calls;
@@ -774,25 +810,16 @@ Implement the shared runtime helper or code path that converts re-ingest termina
    - keeps the existing Mongoose turn schema untouched because [turn.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mongo/turn.ts) already stores `toolCalls` as `Schema.Types.Mixed`;
    - includes a stable `callId`;
    - preserves distinct `callId` values when multiple re-ingest results are recorded in one run.
-3. [ ] Base the shared non-agent step emission path on the existing runtime pieces that already exist instead of creating a parallel lifecycle. Reuse:
-   - [createInflight()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts);
-   - [appendToolEvent()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts) together with [publishToolEvent()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ws/server.ts);
-   - [publishUserTurn()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ws/server.ts);
-   - [attachChatStreamBridge()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/chatStreamBridge.ts);
-   - [markInflightPersisted()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts) and [markInflightFinal()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts);
-   - the existing synthetic-turn pattern in [flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) (`createNoopChat`, `persistFlowTurn`, and manual user/assistant persistence) as the source pattern to extract from when a shared helper is needed.
-   Extract only the minimal common code required so direct commands and dedicated flow reingest steps share one lifecycle. Do not import or depend on private flow-only helpers from `flows/service.ts` without first moving them to an explicitly shared module.
-4. [ ] Keep this task shared-path-only. Do not yet wire direct command or flow `reingest` execution to call the helper.
-5. [ ] Add unit coverage for the helper or shared path. Include:
+3. [ ] Keep this task payload-only. Do not yet add inflight creation, synthetic user turns, assistant turn finalization, or direct/flow re-ingest execution wiring.
+4. [ ] Add unit coverage for the payload builder or shared path. Include:
    - `completed`, `cancelled`, and `error` terminal outcomes;
    - outer `stage` mapping;
    - nested payload fields;
    - compatibility with the existing live `tool-result` wrapper shape and persisted `Turn.toolCalls` wrapper shape;
-   - inflight creation before tool-event append/publish and final persistence with populated `toolCalls`;
    - distinct `callId` values for multiple results.
-6. [ ] If this task adds a new shared helper file or test file, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
-7. [ ] Update this story file’s Task 6 `Implementation notes` section after the code and tests for this task are complete.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+5. [ ] If this task adds a new shared helper file or test file, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
+6. [ ] Update this story file’s Task 7 `Implementation notes` section after the code and tests for this task are complete.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -809,14 +836,68 @@ Implement the shared runtime helper or code path that converts re-ingest termina
 
 ---
 
-### 7. Support `reingest` Items In Direct Agent Command Runs
+### 8. Add Shared Non-Agent Re-Ingest Turn Lifecycle
 
 - Task Status: `__to_do__`
 - Git Commits:
 
 #### Overview
 
-Teach the direct command runner to execute `reingest` items once, record their structured result, and continue or fail according to Story 45’s direct-command rules. This task is only about direct command `reingest` items and must reuse the shared result-recording contract from Task 6.
+Implement the shared non-agent runtime lifecycle that direct commands and dedicated flow steps will use when they need to record re-ingest work without running an LLM turn. This task is only about inflight creation, user/assistant turn lifecycle, tool-event publication, and persistence reuse, which makes it independently testable before re-ingest execution is wired in.
+
+#### Documentation Locations
+
+- Story runtime contract: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
+- Inflight state helpers: [inflightRegistry.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts)
+- WebSocket publish helpers: [server.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ws/server.ts)
+- Chat bridge: [chatStreamBridge.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/chatStreamBridge.ts)
+- Existing synthetic flow-step pattern: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts)
+- Turn persistence shape: [turn.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mongo/turn.ts)
+
+#### Subtasks
+
+1. [ ] Read the existing synthetic flow-step lifecycle in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), including `createNoopChat`, `persistFlowTurn`, and manual user/assistant persistence, before extracting or creating any shared helper.
+2. [ ] Base the shared non-agent step emission path on the existing runtime pieces that already exist instead of creating a parallel lifecycle. Reuse:
+   - [createInflight()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts);
+   - [appendToolEvent()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts) together with [publishToolEvent()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ws/server.ts);
+   - [publishUserTurn()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ws/server.ts);
+   - [attachChatStreamBridge()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/chatStreamBridge.ts);
+   - [markInflightPersisted()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts) and [markInflightFinal()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts);
+   - the existing synthetic-turn pattern in [flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) (`createNoopChat`, `persistFlowTurn`, and manual user/assistant persistence) as the source pattern to extract from when a shared helper is needed.
+   Extract only the minimal common code required so direct commands and dedicated flow reingest steps share one lifecycle. Do not import or depend on private flow-only helpers from `flows/service.ts` without first moving them to an explicitly shared module.
+3. [ ] Keep this task lifecycle-only. Do not yet wire direct command or flow `reingest` execution to call the helper.
+4. [ ] Add unit coverage for the shared lifecycle helper or extracted path. Include:
+   - inflight creation before tool-event append/publish and final persistence with populated `toolCalls`;
+   - user-turn publication, assistant-turn finalization, and `Turn.toolCalls` persistence using the payload builder from Task 7;
+   - normal `Turn.status` / `turn_final.status` handling while detailed re-ingest outcome remains nested;
+   - compatibility with both memory persistence and Mongo persistence paths.
+5. [ ] If this task adds a new shared helper file or test file, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
+6. [ ] Update this story file’s Task 8 `Implementation notes` section after the code and tests for this task are complete.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/reingest-step-lifecycle.test.ts`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 9. Support `reingest` Items In Direct Agent Command Runs
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Teach the direct command runner to execute `reingest` items once, record their structured result, and continue or fail according to Story 45’s direct-command rules. This task is only about direct command `reingest` items and must reuse the shared payload and lifecycle work from Tasks 7 and 8.
 
 #### Documentation Locations
 
@@ -831,7 +912,7 @@ Teach the direct command runner to execute `reingest` items once, record their s
 2. [ ] Update [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) so `reingest` items:
    - execute once and do not participate in AI retry prompt injection;
    - use the exact `sourceId` contract already enforced by [reingestService.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/reingestService.ts);
-   - record terminal outcomes through the shared re-ingest result contract from Task 6;
+   - record terminal outcomes through the shared re-ingest result contract from Task 7;
    - normalize any accepted blocking-service `skipped` outcome to the public terminal step status `completed`;
    - continue after terminal `completed`, `cancelled`, or `error` outcomes;
    - observe stop/cancel requests only after the blocking re-ingest call returns and before the next command item starts;
@@ -844,8 +925,8 @@ Teach the direct command runner to execute `reingest` items once, record their s
    - a stop/cancel request raised during the blocking wait prevents the next command item from starting after the re-ingest returns;
    - pre-start failures and unexpected thrown exceptions stop the command clearly.
 4. [ ] Add or update direct integration coverage for a command file that mixes `reingest` and `message` items so the execution order is proven end to end. Include a case with multiple `reingest` items in one direct command run and prove their recorded `callId` values stay distinct.
-5. [ ] Reuse the shared non-agent step emission path from Task 6 so direct-command `reingest` items produce live `tool_event` updates, inflight snapshots, persisted `toolCalls`, and normal assistant turn finalization without inventing a separate direct-command-only persistence shape.
-6. [ ] Update this story file’s Task 7 `Implementation notes` section after the code and tests for this task are complete.
+5. [ ] Reuse the shared non-agent step emission path from Task 8 so direct-command `reingest` items produce live `tool_event` updates, inflight snapshots, persisted `toolCalls`, and normal assistant turn finalization without inventing a separate direct-command-only persistence shape.
+6. [ ] Update this story file’s Task 9 `Implementation notes` section after the code and tests for this task are complete.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
@@ -864,7 +945,7 @@ Teach the direct command runner to execute `reingest` items once, record their s
 
 ---
 
-### 8. Support Dedicated Flow `reingest` Steps
+### 10. Support Dedicated Flow `reingest` Steps
 
 - Task Status: `__to_do__`
 - Git Commits:
@@ -889,14 +970,14 @@ Teach the flow runner to execute dedicated `reingest` steps and to respect Story
    - reusing the existing `FALLBACK_MODEL_ID` path already present in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) when no agent-config-derived model is available because the flow contains no agent steps, rather than inventing a new model-resolution source.
 3. [ ] Add a dedicated flow `reingest` execution path in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) that:
    - calls the blocking re-ingest service once;
-   - records terminal outcomes through the shared re-ingest result contract from Task 6;
+   - records terminal outcomes through the shared re-ingest result contract from Task 7;
    - normalizes any accepted blocking-service `skipped` outcome to the public terminal step status `completed`;
    - continues after terminal `completed`, `cancelled`, or `error` outcomes;
    - fails the current run for pre-start validation/service refusal paths;
    - observes stop/cancel requests only after the blocking re-ingest call returns and before the next flow step starts;
    - fails the current flow clearly if the re-ingest path throws an unexpected exception before a trustworthy terminal result can be recorded;
    - keeps outer run status and nested re-ingest result status distinct.
-4. [ ] Reuse the shared non-agent step emission path from Task 6 so dedicated flow `reingest` steps create inflight state, publish `tool_event` updates, and persist assistant turns with populated `toolCalls` instead of the current `toolCalls: null` fallback path used by synthetic failed/stopped flow steps.
+4. [ ] Reuse the shared non-agent step emission path from Task 8 so dedicated flow `reingest` steps create inflight state, publish `tool_event` updates, and persist assistant turns with populated `toolCalls` instead of the current `toolCalls: null` fallback path used by synthetic failed/stopped flow steps.
 5. [ ] Extend [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) to prove:
    - post-start `error` and `cancelled` outcomes are recorded but non-fatal;
    - accepted `skipped` outcomes are recorded as terminal `completed`;
@@ -904,7 +985,7 @@ Teach the flow runner to execute dedicated `reingest` steps and to respect Story
    - a stop/cancel request raised during the blocking wait prevents the next flow step from starting after the re-ingest returns;
    - timeout, missing-run, or unknown terminal results become nested `error` outcomes instead of crashing the run;
    - a flow that contains only `reingest` steps starts successfully and uses the fallback flow model metadata path.
-6. [ ] Update this story file’s Task 8 `Implementation notes` section after the code and tests for this task are complete.
+6. [ ] Update this story file’s Task 10 `Implementation notes` section after the code and tests for this task are complete.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
@@ -922,7 +1003,7 @@ Teach the flow runner to execute dedicated `reingest` steps and to respect Story
 
 ---
 
-### 9. Reuse `reingest` Item Execution Inside Flow Command Steps
+### 11. Reuse `reingest` Item Execution Inside Flow Command Steps
 
 - Task Status: `__to_do__`
 - Git Commits:
@@ -940,7 +1021,7 @@ Finish Story 45’s parity work by making flow-owned command files execute `rein
 
 #### Subtasks
 
-1. [ ] Compare the direct command `reingest` path from Task 7 with the flow command-item path from Task 5 before making changes.
+1. [ ] Compare the direct command `reingest` path from Task 9 with the flow command-item path from Task 6 before making changes.
 2. [ ] Update the shared command-item execution path so flow-owned command files can execute `reingest` items with the same behavior as direct commands:
    - one attempt only;
    - structured `tool-result` recording;
@@ -952,7 +1033,7 @@ Finish Story 45’s parity work by making flow-owned command files execute `rein
    - multiple re-ingest results in one run keep distinct `callId` values;
    - a stop/cancel request raised during the blocking wait prevents later command items or later flow steps from starting after the current re-ingest returns;
    - the shared flow command-item executor preserves direct-command retry semantics for `message` items and single-attempt semantics for `reingest` items within the same command file.
-4. [ ] Update this story file’s Task 9 `Implementation notes` section after the code and tests for this task are complete.
+4. [ ] Update this story file’s Task 11 `Implementation notes` section after the code and tests for this task are complete.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
@@ -970,7 +1051,7 @@ Finish Story 45’s parity work by making flow-owned command files execute `rein
 
 ---
 
-### 10. Update Documentation And Project Structure For Story 45
+### 12. Update Documentation And Project Structure For Story 45
 
 - Task Status: `__to_do__`
 - Git Commits:
@@ -991,7 +1072,7 @@ Update the permanent documentation after the implementation tasks are complete s
 1. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) with any user-facing explanation needed for command/flow `reingest` and markdown-backed steps, including any new repository folder expectations such as `codeinfo_markdown`.
 2. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) so the command/flow architecture, tool-result contract, repository resolution behavior, and the reuse of existing websocket/persistence contracts match the final implementation. State clearly that Story 45 does not add paused execution, resumable state, or a new websocket protocol surface.
 3. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) to list any new helper files, test files, or fixture directories added by Story 45.
-4. [ ] Update this story file’s Task 10 `Implementation notes` section after the documentation updates are complete.
+4. [ ] Update this story file’s Task 12 `Implementation notes` section after the documentation updates are complete.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
@@ -1009,7 +1090,7 @@ Update the permanent documentation after the implementation tasks are complete s
 
 ---
 
-### 11. Final Validation And Acceptance Check
+### 13. Final Validation And Acceptance Check
 
 - Task Status: `__to_do__`
 - Git Commits:
@@ -1037,7 +1118,7 @@ Verify the complete story against the acceptance criteria after all earlier task
 6. [ ] Ensure [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) is fully up to date for Story 45, including any diagrams added during implementation.
 7. [ ] Ensure [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) is fully up to date for Story 45.
 8. [ ] Create a pull-request summary comment covering all Story 45 changes and save or record it in the normal repo workflow location used by the team.
-9. [ ] Update this story file’s Task 11 `Implementation notes` section after the full validation pass is complete.
+9. [ ] Update this story file’s Task 13 `Implementation notes` section after the full validation pass is complete.
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
@@ -1055,7 +1136,7 @@ Verify the complete story against the acceptance criteria after all earlier task
    - a flow `llm` step that uses `markdownFile`;
    - a direct command or flow step that records a non-fatal re-ingest terminal result;
    - correct UI stability while those server-side behaviors run.
-   Save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/test-results/screenshots/` using names that start with `0000045-task11-`.
+   Save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/test-results/screenshots/` using names that start with `0000045-task13-`.
 10. [ ] `npm run compose:down`
 
 #### Implementation notes

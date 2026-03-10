@@ -1,5 +1,26 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000045 Task 3 structural change ledger
+
+Added files:
+
+- `server/src/flows/markdownFileResolver.ts`
+- `server/src/test/unit/markdown-file-resolver.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+- `server/src/flows/service.ts`
+
 ## Story 0000039 Task 1 structural change ledger
 
 Added files:

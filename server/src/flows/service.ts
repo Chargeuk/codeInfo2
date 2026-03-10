@@ -78,6 +78,10 @@ import {
   type FlowStep,
 } from './flowSchema.js';
 import type { FlowResumeState } from './flowState.js';
+import {
+  compareSourceCandidates,
+  normalizeSourceLabel,
+} from './markdownFileResolver.js';
 import type {
   FlowAgentState,
   FlowChatFactory,
@@ -1630,30 +1634,6 @@ type FlowCommandCandidate = {
 };
 
 const normalizeAsciiLower = (value: string) => value.toLowerCase();
-
-const normalizeSourceLabel = (params: {
-  sourceId: string;
-  sourceLabel?: string;
-}) => {
-  const trimmed = params.sourceLabel?.trim();
-  if (trimmed) return trimmed;
-  return path.posix.basename(params.sourceId.replace(/\\/g, '/'));
-};
-
-const compareSourceCandidates = (
-  left: { sourceId: string; sourceLabel: string },
-  right: { sourceId: string; sourceLabel: string },
-) => {
-  const leftLabel = normalizeAsciiLower(left.sourceLabel);
-  const rightLabel = normalizeAsciiLower(right.sourceLabel);
-  if (leftLabel < rightLabel) return -1;
-  if (leftLabel > rightLabel) return 1;
-  const leftPath = normalizeAsciiLower(left.sourceId);
-  const rightPath = normalizeAsciiLower(right.sourceId);
-  if (leftPath < rightPath) return -1;
-  if (leftPath > rightPath) return 1;
-  return 0;
-};
 
 const buildFlowCommandCandidates = (params: {
   context: FlowCommandRepositoryContext;

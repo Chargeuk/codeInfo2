@@ -159,6 +159,57 @@ The following points come from direct inspection of the current repository plus 
 - Node.js string decoding does not guarantee that invalid UTF-8 bytes will throw during normal `'utf8'` reads. If this story promises that invalid UTF-8 markdown fails clearly, the implementation must read raw bytes and decode them with strict UTF-8 error handling instead of relying on permissive string conversion.
 - Flow repository ordering already exists in the codebase and is deterministic. This story should reuse that ordering logic rather than inventing a second repository-priority implementation for markdown loading.
 
+### Runtime Message And Storage Contracts
+
+This story does not need new top-level websocket event types, a new websocket protocol version, a new Mongo collection, or a new top-level conversation storage object. The current repository already has reusable structures for command metadata, mixed tool-call payloads, timing metadata, and conversation flags.
+
+Contracts that remain unchanged:
+
+- `server/src/mongo/turn.ts`
+  - `Turn.status` stays `ok | stopped | failed`.
+  - `Turn.command` remains the existing command/flow metadata object.
+  - `Turn.toolCalls` remains the existing mixed payload slot for structured tool-style data.
+  - `Turn.timing` remains the place for elapsed blocking duration when it is useful to persist it.
+- `server/src/mongo/conversation.ts`
+  - `Conversation.flags` remains the existing mixed object.
+  - Story 45 does not add a new top-level `flags` key because the story stays synchronous and does not introduce paused/resumable state.
+- `server/src/ws/types.ts`
+  - `tool_event`, `inflight_snapshot`, `turn_final`, `ingest_snapshot`, and `ingest_update` remain the websocket surfaces used by this story.
+  - Story 45 does not add a new websocket event type just for re-ingest or markdown-backed steps.
+
+The one runtime contract that should be defined up front is the structured re-ingest result payload carried inside the existing tool-event / toolCalls shape.
+
+For re-ingest steps, emit and persist a `tool-result` style payload using the existing event/storage path. The nested `result` payload should contain:
+
+```json
+{
+  "kind": "reingest_step_result",
+  "stepType": "reingest",
+  "sourceId": "/workspace/repository",
+  "status": "completed",
+  "operation": "reembed",
+  "runId": "ingest-123",
+  "files": 10,
+  "chunks": 42,
+  "embedded": 42,
+  "errorCode": null
+}
+```
+
+That payload should travel through the existing shapes rather than a new bespoke one:
+
+- live websocket publication via the existing `tool_event` event shape;
+- inflight snapshots via the existing `inflight_snapshot.inflight.toolEvents` shape;
+- persisted turn storage via the existing `Turn.toolCalls` field, using the same general `{ calls: [...] }` container already used for tool results.
+
+Status rules for these existing outer shapes:
+
+- The nested re-ingest payload keeps the terminal re-ingest status `completed | cancelled | error`.
+- The outer `Turn.status` and outer `turn_final.status` continue to use the existing run-level enum `ok | stopped | failed`.
+- A non-fatal re-ingest terminal result therefore does not require a new outer status value. If the overall command or flow continues, the outer run-level status remains on the existing path and the detailed re-ingest outcome lives inside the nested structured payload.
+
+Markdown-backed steps do not require a new persisted storage shape. They reuse the existing instruction/turn pipeline, with the loaded markdown becoming the instruction string that is executed, streamed, and persisted through the normal turn content and command metadata paths.
+
 ### Acceptance Criteria
 
 - Command JSON keeps the existing top-level shape `{ "Description": string, "items": [...] }`. This story does not replace command files with a top-level `steps` array.
@@ -178,6 +229,12 @@ The following points come from direct inspection of the current repository plus 
 - Once a re-ingest step has started successfully, any of the terminal statuses `completed`, `cancelled`, or `error` is recorded as a structured step result and does not stop the rest of the command or flow from continuing.
 - The structured re-ingest result records at least the step type, sourceId, terminal status, ingest run id, and any available error code.
 - Re-ingest step execution is single-attempt. It does not participate in AI retry prompt injection and does not automatically trigger a second re-ingest run after a terminal result.
+- Story 45 does not add a new top-level websocket event type, a new websocket protocol version, or a new Mongo collection for workflow step results.
+- Re-ingest step results are carried inside the existing tool-event / `Turn.toolCalls` path as structured nested data rather than through a bespoke top-level message contract.
+- Existing outer run-level statuses remain unchanged:
+  - `Turn.status` stays `ok | stopped | failed`;
+  - websocket `turn_final.status` stays `ok | stopped | failed`;
+  - detailed re-ingest terminal outcomes stay inside the nested structured re-ingest result payload.
 - Markdown file contents are read from UTF-8 files and passed to the AI agent verbatim, with no trimming, newline rewriting, whitespace cleanup, or prompt reformatting.
 - Invalid UTF-8 markdown bytes fail with a clear step error rather than being silently replaced or normalized.
 - `markdownFile` values are always resolved under a repository-level `codeinfo_markdown` directory and may include safe relative subpaths such as `architecture/auth/login.md`.
@@ -200,6 +257,8 @@ The following points come from direct inspection of the current repository plus 
 
 - Any step that waits for the user to type content during an active run.
 - REST or websocket contracts for paused or resumable command/flow execution.
+- A new websocket event family or websocket protocol version just for Story 45 step results.
+- A new Mongo collection or standalone persisted document type just for re-ingest or markdown-backed step data.
 - Accepting repository display labels or fuzzy repository names in re-ingest steps. This story uses exact ingested repository root `sourceId` values only.
 - Adding a new direct-command REST or MCP contract that supplies repository `sourceId` just to support cross-repository markdown lookup.
 - Free-form filesystem-relative markdown lookup outside of `codeinfo_markdown`.
@@ -298,8 +357,9 @@ The implementation should reuse existing command/turn/flow result patterns befor
   - final result fields such as `runId`, counters, and `errorCode`.
 - Record re-ingest results in a structured form that fits the current server conventions:
   - preserve existing command metadata where it already exists;
-  - surface enough structured data for logs, debugging, and later UI inspection;
-  - avoid creating a brand-new persistence model unless current turn/run metadata truly cannot carry the required information.
+  - emit the structured result through the existing `tool_event` / inflight tool-event path;
+  - persist the same structured result through the existing `Turn.toolCalls` container rather than creating a new top-level turn field or collection;
+  - surface enough structured data for logs, debugging, and later UI inspection without schema churn.
 - Keep invalid step configuration as pre-run validation failure, but once a re-ingest step starts successfully, treat terminal outcomes as non-fatal to the rest of the command or flow.
 
 ### 7. Tests, Fixtures, And Regression Coverage

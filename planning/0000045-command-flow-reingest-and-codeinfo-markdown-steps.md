@@ -547,6 +547,7 @@ Update the flow JSON parsing layer so Story 45's new flow step shapes are accept
 
 - Zod documentation: https://zod.dev/ - use for discriminated unions, strict object parsing, and XOR validation between `messages` and `markdownFile`.
 - TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html - use for updating the expanded flow-step union and downstream narrowing in runtime code.
+- Context7 Mermaid documentation: resolve the Mermaid library in Context7 before editing any Mermaid syntax for this task - use it as the primary syntax reference for any `design.md` diagram updates tied to the new flow contracts.
 - Node.js test runner documentation: https://nodejs.org/api/test.html - use for extending the existing `node:test` flow schema coverage.
 - npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
 - Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
@@ -574,8 +575,9 @@ Update the flow JSON parsing layer so Story 45's new flow step shapes are accept
 9. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the XOR error case where `messages` and `markdownFile` are both present. Purpose: prove the parser rejects flow LLM steps with two instruction sources.
 10. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the XOR error case where `messages` and `markdownFile` are both absent. Purpose: prove the parser rejects flow LLM steps with no instruction source.
 11. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for strict-schema rejection of unknown keys, including an unexpected extra key on a `reingest` step. Purpose: prove the parser remains strict for the new flow step shapes.
-12. [ ] Update this story file’s Task 2 `Implementation notes` section after the code and tests for this task are complete.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+12. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) so the documented flow-file contract includes `llm.markdownFile` and the dedicated `reingest` step shape. Add or update Mermaid diagrams that show the new flow step variants, using Context7 Mermaid docs as the syntax reference.
+13. [ ] Update this story file’s Task 2 `Implementation notes` section after the code and tests for this task are complete.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -734,6 +736,7 @@ Teach the flow runner to execute markdown-backed `llm` steps using the shared ma
 #### Documentation Locations
 
 - TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html - use for handling flow `llm` steps that now branch between `messages` and `markdownFile`.
+- Context7 Mermaid documentation: resolve the Mermaid library in Context7 before editing any Mermaid syntax for this task - use it as the primary syntax reference for any `design.md` diagram updates tied to flow `llm.markdownFile` behavior.
 - Node.js test runner documentation: https://nodejs.org/api/test.html - use for the integration tests that prove flow markdown execution and fallback ordering.
 - npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
 - Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
@@ -760,8 +763,9 @@ Teach the flow runner to execute markdown-backed `llm` steps using the shared ma
 11. [ ] Add one integration test in [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) for an undecodable markdown file. Purpose: prove invalid markdown bytes surface as a clear flow-step failure.
 12. [ ] Add one integration test in [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) for an unexpected markdown-resolver exception. Purpose: prove unexpected loader failures surface as clear flow-step errors.
 13. [ ] Add one integration test in [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) where a successful `llm.markdownFile` step is followed by a later step. Purpose: prove the happy-path flow sequence continues after markdown execution.
-14. [ ] Update this story file’s Task 5 `Implementation notes` section after the code and tests for this task are complete.
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+14. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) so the flow execution architecture documents `llm.markdownFile`, repository fallback order, and the one-instruction execution path. Add or update a Mermaid diagram for this flow step behavior using Context7 Mermaid docs as the syntax reference.
+15. [ ] Update this story file’s Task 5 `Implementation notes` section after the code and tests for this task are complete.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -790,6 +794,7 @@ Make flow command steps execute command `message` items through the same markdow
 #### Documentation Locations
 
 - TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html - use for shared command-item helpers that must narrow message-item variants safely in both direct-command and flow-command paths.
+- Context7 Mermaid documentation: resolve the Mermaid library in Context7 before editing any Mermaid syntax for this task - use it as the primary syntax reference for any `design.md` diagram updates tied to shared flow-command execution.
 - Node.js test runner documentation: https://nodejs.org/api/test.html - use for the flow-command integration tests extended in this task.
 - npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
 - Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
@@ -823,8 +828,9 @@ Make flow command steps execute command `message` items through the same markdow
 12. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) comparing message-item resolution and execution behavior with the direct-command path. Purpose: prove the shared helper does not drift from direct-command semantics.
 13. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for surrounding retry behavior after the shared-helper refactor. Purpose: prove the flow command-step retry model and direct-command retry model remain unchanged where they already existed.
 14. [ ] If this task introduces a shared command-item execution module, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
-15. [ ] Update this story file’s Task 6 `Implementation notes` section after the code and tests for this task are complete.
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+15. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) so the architecture explains the shared command-item execution path used by direct commands and flow command steps. Add or update a Mermaid diagram for this shared flow-command execution path using Context7 Mermaid docs as the syntax reference.
+16. [ ] Update this story file’s Task 6 `Implementation notes` section after the code and tests for this task are complete.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -854,6 +860,7 @@ Implement the shared runtime helper or code path that converts re-ingest termina
 
 - Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html - use for confirming that `Schema.Types.Mixed` is the correct existing persistence slot for nested `toolCalls` payloads.
 - `ws` package documentation: https://github.com/websockets/ws/blob/master/doc/ws.md - use for understanding the underlying WebSocket server behavior that the repo’s publish helpers sit on top of.
+- Context7 Mermaid documentation: resolve the Mermaid library in Context7 before editing any Mermaid syntax for this task - use it as the primary syntax reference for any `design.md` diagram updates tied to re-ingest result flow.
 - Node.js test runner documentation: https://nodejs.org/api/test.html - use for the payload-builder unit tests extended in this task.
 - TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html - use for shaping the shared payload builder types and wrapper contracts.
 - npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
@@ -884,8 +891,9 @@ Implement the shared runtime helper or code path that converts re-ingest termina
 8. [ ] Add one unit test in [reingest-tool-result.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-tool-result.test.ts) for compatibility with the persisted `Turn.toolCalls` shape. Purpose: prove Story 45 reuses the current persisted wrapper contract instead of inventing a new one.
 9. [ ] Add one unit test in [reingest-tool-result.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-tool-result.test.ts) for multiple results with distinct `callId` values. Purpose: prove separate re-ingest events remain distinguishable within one run.
 10. [ ] If this task adds a new shared helper file or test file, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
-11. [ ] Update this story file’s Task 7 `Implementation notes` section after the code and tests for this task are complete.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+11. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) so the runtime contract and architecture document the shared re-ingest result payload, wrapper reuse, and persistence path. Add or update a Mermaid diagram showing the result flow through websocket, inflight, and persisted turn layers, using Context7 Mermaid docs as the syntax reference.
+12. [ ] Update this story file’s Task 7 `Implementation notes` section after the code and tests for this task are complete.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -915,6 +923,7 @@ Implement the shared non-agent runtime lifecycle that direct commands and dedica
 
 - Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html - use for confirming that assistant-turn `toolCalls` persistence continues to use the existing mixed schema slot.
 - `ws` package documentation: https://github.com/websockets/ws/blob/master/doc/ws.md - use for understanding the underlying WebSocket server behavior that the repo’s publish helpers sit on top of.
+- Context7 Mermaid documentation: resolve the Mermaid library in Context7 before editing any Mermaid syntax for this task - use it as the primary syntax reference for any `design.md` diagram updates tied to the shared non-agent lifecycle.
 - Node.js test runner documentation: https://nodejs.org/api/test.html - use for the lifecycle-focused unit tests extended in this task.
 - npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
 - Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
@@ -948,8 +957,9 @@ Implement the shared non-agent runtime lifecycle that direct commands and dedica
 11. [ ] Add one unit test in [reingest-step-lifecycle.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-step-lifecycle.test.ts) for Mongo persistence. Purpose: prove the persisted assistant turn keeps the same structured `toolCalls` payload in the Mongo-backed path.
 12. [ ] Add one unit test in [reingest-step-lifecycle.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-step-lifecycle.test.ts) for live-event ordering where `tool_event` is published before final assistant-turn completion. Purpose: prove the websocket/inflight lifecycle order matches the intended runtime contract.
 13. [ ] If this task adds a new shared helper file or test file, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
-14. [ ] Update this story file’s Task 8 `Implementation notes` section after the code and tests for this task are complete.
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+14. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) so the architecture documents the shared non-agent re-ingest lifecycle, including inflight creation, tool-event publication, assistant finalization, and persistence. Add or update a Mermaid sequence diagram for this lifecycle using Context7 Mermaid docs as the syntax reference.
+15. [ ] Update this story file’s Task 8 `Implementation notes` section after the code and tests for this task are complete.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -1050,6 +1060,7 @@ Teach the flow runner to execute dedicated `reingest` steps and to respect Story
 - Node.js test runner documentation: https://nodejs.org/api/test.html - use for the flow integration tests that prove dedicated `reingest` step behavior.
 - Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html - use for confirming that dedicated flow-step reingest results persist through the existing mixed `toolCalls` slot.
 - `ws` package documentation: https://github.com/websockets/ws/blob/master/doc/ws.md - use for understanding the underlying WebSocket server behavior that the repo’s publish helpers sit on top of.
+- Context7 Mermaid documentation: resolve the Mermaid library in Context7 before editing any Mermaid syntax for this task - use it as the primary syntax reference for any `design.md` diagram updates tied to dedicated flow re-ingest steps.
 - npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
 - Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
 
@@ -1090,8 +1101,9 @@ Teach the flow runner to execute dedicated `reingest` steps and to respect Story
 15. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for an unknown terminal result becoming a nested `error` outcome. Purpose: prove unknown terminal states stay structured and do not crash the run.
 16. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for a flow that contains only `reingest` steps. Purpose: prove reingest-only flows start successfully and use the fallback flow model metadata path.
 17. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for multiple dedicated `reingest` steps targeting the same `sourceId` with distinct `callId` values. Purpose: prove repeated flow-step re-ingest results remain distinguishable.
-18. [ ] Update this story file’s Task 10 `Implementation notes` section after the code and tests for this task are complete.
-19. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+18. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) so the architecture documents the dedicated flow `reingest` step, including pre-start fatal failures, post-start non-fatal terminal outcomes, and reingest-only flow startup. Add or update a Mermaid diagram for this flow-step behavior using Context7 Mermaid docs as the syntax reference.
+19. [ ] Update this story file’s Task 10 `Implementation notes` section after the code and tests for this task are complete.
+20. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -1122,6 +1134,7 @@ Finish Story 45’s parity work by making flow-owned command files execute `rein
 - Node.js test runner documentation: https://nodejs.org/api/test.html - use for the flow-command integration tests that prove `reingest` item parity.
 - Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html - use for confirming that flow-command-step reingest results persist through the existing mixed `toolCalls` slot.
 - `ws` package documentation: https://github.com/websockets/ws/blob/master/doc/ws.md - use for understanding the underlying WebSocket server behavior that the repo’s publish helpers sit on top of.
+- Context7 Mermaid documentation: resolve the Mermaid library in Context7 before editing any Mermaid syntax for this task - use it as the primary syntax reference for any `design.md` diagram updates tied to flow-command re-ingest parity.
 - npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
 - Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
 
@@ -1148,8 +1161,9 @@ Finish Story 45’s parity work by making flow-owned command files execute `rein
 8. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for stop/cancel during the blocking wait. Purpose: prove later command items or later flow steps do not start after the current re-ingest returns when cancellation is pending.
 9. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for surrounding retry behavior with `message` items after the shared executor change. Purpose: prove existing retry behavior for message execution remains intact.
 10. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for single-attempt behavior of `reingest` items in the same command file. Purpose: prove re-ingest items do not participate in message retry behavior.
-11. [ ] Update this story file’s Task 11 `Implementation notes` section after the code and tests for this task are complete.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+11. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) so the architecture documents flow-command re-ingest parity with direct commands, including shared executor boundaries and mixed command-item behavior. Add or update a Mermaid diagram for this flow-command path using Context7 Mermaid docs as the syntax reference.
+12. [ ] Update this story file’s Task 11 `Implementation notes` section after the code and tests for this task are complete.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -1177,7 +1191,8 @@ Update the permanent documentation after the implementation tasks are complete s
 
 #### Documentation Locations
 
-- Mermaid documentation: https://mermaid.js.org/intro/ - use if design diagrams need updating so the syntax in `design.md` stays valid.
+- Context7 Mermaid documentation: resolve the Mermaid library in Context7 before editing any Mermaid syntax for this task - use it as the primary syntax reference for `design.md` diagram updates.
+- Mermaid documentation: https://mermaid.js.org/intro/ - use as a secondary reference if Context7 is unavailable when validating `design.md` diagram syntax.
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/ - use for the markdown formatting of README and design updates introduced by this story.
 - Docker Compose documentation: https://docs.docker.com/compose/ - use for documenting the compose-based validation workflow accurately in permanent repo docs.
 
@@ -1191,7 +1206,7 @@ Update the permanent documentation after the implementation tasks are complete s
 #### Subtasks
 
 1. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) with any user-facing explanation needed for command/flow `reingest` and markdown-backed steps, including any new repository folder expectations such as `codeinfo_markdown`.
-2. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) so the command/flow architecture, tool-result contract, repository resolution behavior, and the reuse of existing websocket/persistence contracts match the final implementation. State clearly that Story 45 does not add paused execution, resumable state, or a new websocket protocol surface.
+2. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) so the command/flow architecture, tool-result contract, repository resolution behavior, and the reuse of existing websocket/persistence contracts match the final implementation. State clearly that Story 45 does not add paused execution, resumable state, or a new websocket protocol surface, and add or refresh any Mermaid diagrams required to show the final architecture using Context7 Mermaid docs as the primary syntax reference.
 3. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) to list any new helper files, test files, or fixture directories added by Story 45.
 4. [ ] Update this story file’s Task 12 `Implementation notes` section after the documentation updates are complete.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.

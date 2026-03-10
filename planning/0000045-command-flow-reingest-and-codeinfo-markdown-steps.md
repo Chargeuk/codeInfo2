@@ -493,6 +493,13 @@ Update the command JSON parsing layer so Story 45's new command item shapes are 
 - Existing schema tests: [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts)
 - Zod documentation for unions and refinements: https://zod.dev
 
+#### Critical Task Rules
+
+- The top-level command-file contract must stay `{ Description, items }`. Do not rename `Description` to `description` and do not rename `items` to `steps`. Re-read the command contract in [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md) before editing [commandsSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsSchema.ts).
+- `message` stays the existing command LLM item. After this task it must allow exactly one instruction source: `content: string[]` or `markdownFile: string`. Both present or both missing must fail validation in [commandsSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsSchema.ts) and in [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts).
+- Add one new item shape only: `{ "type": "reingest", "sourceId": "<absolute-ingested-root>" }`. `role` must remain fixed to `user` for `message` items. Do not add a second command item type for LLM execution.
+- Existing evidence in [commandsSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsSchema.ts) shows `AgentCommandMessageItemSchema`, `AgentCommandFileSchema`, and `parseAgentCommandFile(...)` are the current command schema anchors. Start there, then update downstream type narrowing in [agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) and [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) so they no longer assume every command item has `content`.
+
 #### Subtasks
 
 1. [ ] Read the Story 45 command contract, then read the existing command schema file and command schema tests before making any edits. Confirm exactly where `message` items are currently defined and how command files are validated.
@@ -541,6 +548,13 @@ Update the flow JSON parsing layer so Story 45's new flow step shapes are accept
 - Flow execution types and helpers: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts)
 - Existing schema tests: [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts)
 - Zod documentation for unions and refinements: https://zod.dev
+
+#### Critical Task Rules
+
+- The flow-file contract must stay `{ description, steps }`. Existing `command`, `break`, and `startLoop` step shapes remain valid unless Story 45 explicitly extends them. Re-read the flow contract in [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md) before editing [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts).
+- `llm` must allow exactly one instruction source: `messages: FlowMessage[]` or `markdownFile: string`. Both present or both missing must fail validation in [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts) and in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts).
+- Add one new flow step shape only: `{ "type": "reingest", "sourceId": "<absolute-ingested-root>", "label"?: string }`. This task is schema-only, so do not implement runtime behavior here.
+- Existing evidence in [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts) shows `FlowLlmStepSchema`, `FlowCommandStepSchema`, `FlowStepSchema`, `flowStepUnionSchema()`, and `parseFlowFile(...)` are the current flow schema anchors. Update TypeScript narrowing in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so later runtime tasks compile cleanly even for flows containing only `reingest` steps.
 
 #### Subtasks
 
@@ -591,6 +605,13 @@ Create the shared markdown-file lookup and decoding helper that all later markdo
 - Node.js path documentation: https://nodejs.org/api/path.html
 - Node.js `fs` documentation: https://nodejs.org/api/fs.html
 - Node.js `util.TextDecoder` documentation: https://nodejs.org/api/util.html#class-utiltextdecoder
+
+#### Critical Task Rules
+
+- `markdownFile` is always relative to a repository-level `codeinfo_markdown` folder. Reject empty values, absolute paths, `..` traversal, and any normalized path that escapes the resolved `codeinfo_markdown` root. Re-read the markdown resolution contract in [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md) before writing the helper.
+- Repository lookup order must be deterministic: same-source repository first, then codeInfo2, then other ingested repositories sorted by case-insensitive label and then full source path. Missing files fall through to the next candidate; unreadable files, invalid UTF-8, or unsafe-path failures in a higher-priority candidate must fail immediately.
+- Direct command runs use codeInfo2 only. Flow `llm` steps and flow-owned command steps may use same-source plus fallback ordering. This distinction must be enforced by the shared resolver instead of by scattered call-site logic.
+- Existing evidence in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) shows the repository ordering logic already exists there. Reuse that logic or extract it cleanly; do not invent a second ordering algorithm. Keep decoding strict by reading bytes first and decoding with a fatal UTF-8 path documented at https://nodejs.org/api/util.html#class-utiltextdecoder.
 
 #### Subtasks
 
@@ -647,6 +668,13 @@ Teach the direct command runner to execute markdown-backed `message` items witho
 - Existing command runner tests: [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts)
 - Story markdown rules: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
 
+#### Critical Task Rules
+
+- This task is direct-command `message.markdownFile` only. Do not add `reingest` execution here and do not change flow behavior here. The instruction contract remains: one command `message` item becomes one user instruction string.
+- Existing evidence in [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) shows `runAgentCommandRunner(...)` is the execution entry point and already uses `runWithRetry(...)` for message execution. Keep that retry path for `message` items; only change how the instruction string is produced.
+- Inline `content` keeps the current `content.join('\\n')` behavior. `markdownFile` must load exactly one markdown file through the shared resolver from Task 3 and pass the markdown through verbatim as one instruction string. For direct commands outside a flow, the resolver scope is codeInfo2-only.
+- Startup metadata also needs protection in [agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts), because the current command-start code inspects early items. Keep this simple: do not resolve markdown just to generate a prettier title. A generic fallback title is acceptable when the first item has no inline `content`.
+
 #### Subtasks
 
 1. [ ] Read [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) and the existing runner tests before changing direct command execution.
@@ -698,6 +726,13 @@ Teach the flow runner to execute markdown-backed `llm` steps using the shared ma
 - Existing flow integration tests: [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts)
 - Story markdown rules: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
 
+#### Critical Task Rules
+
+- This task is flow `llm.markdownFile` only. Do not add `reingest` behavior and do not modify flow-owned command-step execution here. The `llm` instruction contract remains one step -> one instruction execution.
+- Existing evidence in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) shows `runLlmStep(...)` is the current execution anchor and today iterates `step.messages`. Add the `markdownFile` branch there so one markdown file resolves to one user instruction string executed once.
+- Keep current `messages` behavior unchanged for existing flows, including current retry behavior and current persistence of successful or failed agent turns. This task should only add the alternate instruction source, not change the surrounding flow-turn lifecycle.
+- The markdown lookup rules from Task 3 must be repeated here: same-source repository first, then codeInfo2, then deterministic fallback repositories; unreadable higher-priority files fail fast; direct markdown bytes must pass through verbatim after strict UTF-8 decoding.
+
 #### Subtasks
 
 1. [ ] Read the current `runLlmStep(...)` path in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) and the existing flow execution tests before making changes.
@@ -742,6 +777,13 @@ Make flow command steps execute command `message` items through the same markdow
 - Direct command runner: [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts)
 - Existing flow command tests: [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts)
 - Story repository-ordering rules: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
+
+#### Critical Task Rules
+
+- This task is flow-owned command execution for `message` items only. Do not add `reingest` items here. The goal is to share message-item behavior, not to rewrite the whole flow command-step runner.
+- Existing evidence shows [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) owns direct-command item execution and [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) owns flow command-step orchestration. Do not call `runAgentCommandRunner(...)` directly from the flow runner, because lock ownership and outer orchestration differ. Extract only the minimum shared helper needed for message-item preparation and dispatch.
+- Keep retry behavior where it already lives: direct commands stay on the current `commandsRunner.ts` retry path, and flow command steps stay on their current outer flow-step retry path. The shared helper should centralize message-item resolution and execution, not retry policy.
+- Repeat the repository rule inside this task: when a command runs inside a flow, `markdownFile` resolution uses the parent flow’s same-source repository first, then codeInfo2, then deterministic fallback repositories. A higher-priority unreadable markdown file must fail instead of silently falling through.
 
 #### Subtasks
 
@@ -798,6 +840,13 @@ Implement the shared runtime helper or code path that converts re-ingest termina
 - Turn persistence shape: [turn.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mongo/turn.ts)
 - Existing flow tool-call persistence path: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts)
 
+#### Critical Task Rules
+
+- This task is payload-contract work only. Do not wire runtime execution yet. The output must fit the existing `tool-result` event/container shapes instead of adding new websocket events, new Mongo collections, or new top-level conversation flags.
+- The nested result payload must match Story 45 exactly: `kind: "reingest_step_result"`, `stepType: "reingest"`, `sourceId`, terminal `status`, `operation`, `runId`, counters, and `errorCode`. Re-copy that payload from [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md) before coding.
+- Existing evidence in [inflightRegistry.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts), [ChatInterface.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/interfaces/ChatInterface.ts), and [turn.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mongo/turn.ts) shows the current wrapper shapes already exist. Reuse those exact wrappers for live tool events and persisted `Turn.toolCalls`.
+- `Turn.toolCalls` already uses `Schema.Types.Mixed` in [turn.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mongo/turn.ts), so this task should not add or change Mongo schema fields. Focus on generating correctly shaped data, including distinct stable `callId` values.
+
 #### Subtasks
 
 1. [ ] Read the current `ToolEvent`, `ChatToolResultEvent`, and `Turn.toolCalls` shapes before adding any new payload builder.
@@ -852,6 +901,13 @@ Implement the shared non-agent runtime lifecycle that direct commands and dedica
 - Existing synthetic flow-step pattern: [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts)
 - Turn persistence shape: [turn.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mongo/turn.ts)
 
+#### Critical Task Rules
+
+- This task is lifecycle reuse only. Do not wire direct command or flow `reingest` execution yet. The goal is one shared non-agent turn lifecycle that can later be called by both direct commands and dedicated flow steps.
+- Existing evidence in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) shows the current synthetic flow-step pattern uses `createNoopChat`, `persistFlowTurn(...)`, manual user/assistant turn persistence, and `markInflightPersisted(...)`. Treat that as the extraction source pattern, not as a second lifecycle to copy.
+- Existing evidence in [inflightRegistry.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts), [server.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ws/server.ts), and [chatStreamBridge.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/chatStreamBridge.ts) shows the runtime pieces to reuse are `createInflight(...)`, `appendToolEvent(...)`, `publishToolEvent(...)`, `publishUserTurn(...)`, `attachChatStreamBridge(...)`, `markInflightPersisted(...)`, and `markInflightFinal(...)`.
+- Do not depend on private flow-only helpers from [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) unless you first move the minimal needed code into an explicitly shared module. The final lifecycle must still emit the Task 7 payload shape and persist it through the existing `Turn.toolCalls` path in [turn.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mongo/turn.ts).
+
 #### Subtasks
 
 1. [ ] Read the existing synthetic flow-step lifecycle in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), including `createNoopChat`, `persistFlowTurn`, and manual user/assistant persistence, before extracting or creating any shared helper.
@@ -903,6 +959,13 @@ Teach the direct command runner to execute `reingest` items once, record their s
 - Blocking re-ingest service: [reingestService.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/reingestService.ts)
 - Existing direct command tests: [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts)
 - Existing re-ingest service tests: [reingestService.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingestService.test.ts)
+
+#### Critical Task Rules
+
+- This task is direct-command `reingest` only. Do not change dedicated flow `reingest` steps here. Reuse the shared payload builder from Task 7 and the shared non-agent lifecycle from Task 8 instead of inventing a direct-command-only persistence path.
+- Existing evidence in [reingestService.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/reingestService.ts) shows `runReingestRepository(...)` is the blocking re-ingest source of truth. Reuse its current `sourceId` validation, terminal payload fields, and internal `skipped` -> public `completed` mapping.
+- The runtime rule must be repeated here because juniors may read only this task: pre-start failures are fatal to the current command; once the blocking call has been accepted and returns a terminal result, `completed`, `cancelled`, and `error` are all recorded as structured non-fatal step results and the command continues unless a stop/cancel is pending before the next item.
+- Existing evidence in [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) shows message items currently run through retry-aware execution. `reingest` items must execute once, without retry prompt injection, and any unexpected thrown exception before a trustworthy terminal result exists must fail the command clearly.
 
 #### Subtasks
 
@@ -958,6 +1021,13 @@ Teach the flow runner to execute dedicated `reingest` steps and to respect Story
 - Blocking re-ingest service: [reingestService.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/reingestService.ts)
 - Existing flow error tests: [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts)
 - Story edge cases: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
+
+#### Critical Task Rules
+
+- This task is dedicated flow `reingest` steps only. Do not add `reingest` items inside flow-owned command files here. Reuse the shared payload builder from Task 7 and the shared non-agent lifecycle from Task 8.
+- Existing evidence in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) shows the flow runner currently assumes agent-oriented startup in places and contains `FALLBACK_MODEL_ID` for non-agent metadata. Flows containing only `reingest` steps must still start successfully by reusing that existing fallback model path instead of inventing a new metadata source.
+- Repeat the runtime rule inside this task: pre-start validation or service-refusal failures stop the flow; once a blocking re-ingest has started and returns a terminal result, `completed`, `cancelled`, and `error` are recorded as structured nested results and are non-fatal to later steps unless a stop/cancel is pending before the next step.
+- Existing evidence in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) already covers fatal and validation-style flow failures. Extend that file rather than creating a second unrelated integration test structure.
 
 #### Subtasks
 
@@ -1017,6 +1087,13 @@ Finish Story 45’s parity work by making flow-owned command files execute `rein
 - Existing flow command integration tests: [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts)
 - Story re-ingest contract: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
 
+#### Critical Task Rules
+
+- This task finishes command-step parity by adding `reingest` item support inside commands that are executed from flows. Reuse the shared command-item path from Task 6 plus the shared payload/lifecycle work from Tasks 7 and 8. Do not widen this into a broader retry-model refactor.
+- Existing evidence in [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) shows the direct-command version of this logic will exist after Task 9. Mirror the same step semantics: single attempt only, structured tool-result recording, fatal pre-start failures, non-fatal terminal post-start outcomes.
+- Existing evidence in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) shows flow command steps still have their own surrounding orchestration. Preserve that current outer retry behavior while keeping `reingest` items themselves single-attempt.
+- Extend the existing command-step integration file [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts), because it already covers repository ordering, load failures, traversal rejection, and stop behavior for flow-owned command execution.
+
 #### Subtasks
 
 1. [ ] Compare the direct command `reingest` path from Task 9 with the flow command-item path from Task 6 before making changes.
@@ -1065,6 +1142,13 @@ Update the permanent documentation after the implementation tasks are complete s
 - Repository structure file: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
 - Story source of truth: [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
 
+#### Critical Task Rules
+
+- This task is documentation-only. Do not introduce runtime behavior changes while updating docs. Re-read the accepted Story 45 contracts in [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md) and document only what the implementation actually does.
+- [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) must explain the user-facing file formats and folder expectations, especially `codeinfo_markdown`, direct-command codeInfo2-only markdown lookup, and flow-owned repository-aware fallback lookup.
+- [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) must explain the architecture choices: reusing existing websocket events, existing `Turn.toolCalls` persistence, existing blocking `reingestService`, and the fact that Story 45 does not add paused execution, resumable state, or a new protocol surface.
+- [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) must list every new helper, test file, and permanent fixture directory introduced by this story so later juniors can discover them quickly.
+
 #### Subtasks
 
 1. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) with any user-facing explanation needed for command/flow `reingest` and markdown-backed steps, including any new repository folder expectations such as `codeinfo_markdown`.
@@ -1105,6 +1189,13 @@ Verify the complete story against the acceptance criteria after all earlier task
 - Permanent repo documentation: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md)
 - Permanent repo documentation: [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md)
 - Repository structure file: [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md)
+
+#### Critical Task Rules
+
+- This final task must verify the finished story, not add new behavior. If a missing implementation is discovered here, stop final validation, reopen the appropriate earlier task, and complete that implementation there before returning to Task 13.
+- Re-check the full acceptance criteria in [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md), including direct-command markdown support, flow `llm.markdownFile`, dedicated/direct/flow-command `reingest`, structured tool-result persistence, deterministic repository ordering, and the no-new-paused-state rule.
+- Use the wrapper-first build and test workflow from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). Do not replace the listed wrappers with raw commands unless wrapper diagnosis is required.
+- The manual Playwright check must confirm the server-side Story 45 behavior does not break the current UI. Save screenshots to the exact directory already named in this task so reviewers can inspect the final validation evidence later.
 
 #### Subtasks
 

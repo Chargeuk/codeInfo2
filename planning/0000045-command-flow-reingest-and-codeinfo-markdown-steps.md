@@ -614,6 +614,7 @@ const AgentCommandMessageItemSchema = z
 9. [ ] Add one unit test in [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts) for the XOR error case where `content` and `markdownFile` are both absent. Purpose: prove the parser rejects command messages with no instruction source.
 10. [ ] Add one unit test in [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts) for strict-schema rejection of unknown keys, including an unexpected extra key on a `reingest` item. Purpose: prove the parser remains strict for the new item shapes.
 11. [ ] Update this story file’s Task 1 `Implementation notes` section after the code and tests for this task are complete.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -694,6 +695,7 @@ const FlowLlmStepSchema = z
 11. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for strict-schema rejection of unknown keys, including an unexpected extra key on a `reingest` step. Purpose: prove the parser remains strict for the new flow step shapes.
 12. [ ] Update document [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md). Location: repository root. Description: add the final Story 45 flow-file contract for `llm.markdownFile` and the dedicated `reingest` step shape, and add or refresh Mermaid diagrams that show those step variants using Context7 Mermaid docs as the syntax reference. Purpose: keep the permanent architecture/design reference aligned with the supported flow schema.
 13. [ ] Update this story file’s Task 2 `Implementation notes` section after the code and tests for this task are complete.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -783,6 +785,7 @@ export async function resolveMarkdownFile(params: {
 20. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for normalized escape-attempt rejection. Purpose: prove paths that normalize outside `codeinfo_markdown` are still rejected.
 21. [ ] Update document [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after all file additions or removals in this task are finished. Location: repository root. Description: record every file path added or removed by this task, including the new shared markdown resolver module created in Subtask 2, the new unit test file [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts), and any replaced or deleted helper file path if the repository-ordering logic is moved rather than reused in place. Purpose: keep the repository structure reference accurate for later developers and make the full file-level impact of this task discoverable.
 22. [ ] Update this story file’s Task 3 `Implementation notes` section after the code and tests for this task are complete.
+23. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -863,6 +866,7 @@ const instruction =
 18. [ ] Update direct-command startup metadata paths in [agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) so command title generation, first-step inspection, and any pre-run assumptions remain safe when the first command item uses `markdownFile` or `reingest` instead of `content`. Keep this intentionally simple: do not resolve markdown files at command-start time just to improve the title; a generic `Command: <name>` fallback is acceptable when no inline content exists yet.
 19. [ ] Update document [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after all file additions or removals in this task are finished. Location: repository root. Description: record every file path added or removed by this task, including the direct-command markdown integration test file [commands.markdown-file.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/commands.markdown-file.test.ts), any permanent fixture directory created for those tests, and any helper file created or removed to support direct-command markdown execution. Purpose: keep the repository structure reference accurate for later developers and make the full file-level impact of this task discoverable.
 20. [ ] Update this story file’s Task 4 `Implementation notes` section after the code and tests for this task are complete.
+21. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -939,6 +943,7 @@ if (step.type === 'llm' && 'markdownFile' in step) {
 13. [ ] Add one integration test in [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) where a successful `llm.markdownFile` step is followed by a later step. Purpose: prove the happy-path flow sequence continues after markdown execution.
 14. [ ] Update document [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md). Location: repository root. Description: document flow `llm.markdownFile` execution, repository fallback ordering, and the one-instruction execution path, and add or refresh the Mermaid diagram for this flow-step behavior using Context7 Mermaid docs as the syntax reference. Purpose: keep the permanent flow architecture documentation aligned with the implemented runtime behavior.
 15. [ ] Update this story file’s Task 5 `Implementation notes` section after the code and tests for this task are complete.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1022,6 +1027,7 @@ export async function executeCommandItem(params: {
 14. [ ] Update document [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after all file additions or removals in this task are finished. Location: repository root. Description: record every file path added or removed by this task, including the exact shared command-item execution module path created by Subtask 2 if extraction produces a new file, any companion test file added for that shared helper, and any superseded helper file removed during the extraction. Purpose: keep the repository structure reference accurate after shared execution code is introduced and make the full file-level impact of this task discoverable.
 15. [ ] Update document [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md). Location: repository root. Description: explain the shared command-item execution path used by direct commands and flow command steps, and add or refresh the Mermaid diagram for this shared flow-command path using Context7 Mermaid docs as the syntax reference. Purpose: keep the permanent architecture documentation aligned with the intended shared execution design.
 16. [ ] Update this story file’s Task 6 `Implementation notes` section after the code and tests for this task are complete.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1102,6 +1108,7 @@ export function buildReingestToolResult(params: {
 10. [ ] Update document [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after all file additions or removals in this task are finished. Location: repository root. Description: record every file path added or removed by this task, including the shared re-ingest result builder file created in Subtask 2, the new unit test file [reingest-tool-result.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-tool-result.test.ts), and any removed superseded helper file if an older payload-builder location is replaced. Purpose: keep the repository structure reference accurate after shared runtime files are introduced and make the full file-level impact of this task discoverable.
 11. [ ] Update document [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md). Location: repository root. Description: document the shared re-ingest result payload, wrapper reuse, and persistence path, and add or refresh the Mermaid diagram showing result flow through websocket, inflight, and persisted turn layers using Context7 Mermaid docs as the syntax reference. Purpose: keep the permanent runtime contract documentation aligned with the implemented result flow.
 12. [ ] Update this story file’s Task 7 `Implementation notes` section after the code and tests for this task are complete.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1189,6 +1196,7 @@ export async function runReingestStepLifecycle(params: {
 14. [ ] Update document [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after all file additions or removals in this task are finished. Location: repository root. Description: record every file path added or removed by this task, including the shared non-agent lifecycle helper created by Subtask 2, the new unit test file [reingest-step-lifecycle.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-step-lifecycle.test.ts), and any removed superseded helper file if lifecycle code is moved out of an older location. Purpose: keep the repository structure reference accurate after shared runtime files are introduced and make the full file-level impact of this task discoverable.
 15. [ ] Update document [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md). Location: repository root. Description: document the shared non-agent re-ingest lifecycle, including inflight creation, tool-event publication, assistant finalization, caller-supplied metadata/model inputs, and persistence, and add or refresh the Mermaid sequence diagram for that lifecycle using Context7 Mermaid docs as the syntax reference. Purpose: keep the permanent architecture documentation aligned with the implemented runtime lifecycle.
 16. [ ] Update this story file’s Task 8 `Implementation notes` section after the code and tests for this task are complete.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1276,6 +1284,7 @@ await runReingestStepLifecycle({ conversationId, modelId, command, toolResult })
 19. [ ] Reuse `runReingestStepLifecycle(params)` from [reingestStepLifecycle.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/reingestStepLifecycle.ts) so direct-command `reingest` items produce live `tool_event` updates, inflight snapshots, persisted `toolCalls`, and normal assistant turn finalization without inventing a separate direct-command-only persistence shape.
 20. [ ] Update document [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after all file additions or removals in this task are finished. Location: repository root. Description: record every file path added or removed by this task, including the direct-command re-ingest integration test file [commands.reingest.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/commands.reingest.test.ts), any permanent fixture directory created for those tests, and any helper file created or removed to support direct-command re-ingest execution. Purpose: keep the repository structure reference accurate for later developers and make the full file-level impact of this task discoverable.
 21. [ ] Update this story file’s Task 9 `Implementation notes` section after the code and tests for this task are complete.
+22. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1371,6 +1380,7 @@ async function runReingestStep(step: FlowReingestStep): Promise<void> {
 19. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for multiple dedicated `reingest` steps targeting the same `sourceId` with distinct `callId` values. Purpose: prove repeated flow-step re-ingest results remain distinguishable.
 20. [ ] Update document [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md). Location: repository root. Description: document the dedicated flow `reingest` step, including pre-start fatal failures, post-start non-fatal terminal outcomes, reingest-only flow startup, and non-agent flow-step metadata shape, and add or refresh the Mermaid diagram for this flow-step behavior using Context7 Mermaid docs as the syntax reference. Purpose: keep the permanent flow architecture documentation aligned with the implemented dedicated re-ingest step behavior.
 21. [ ] Update this story file’s Task 10 `Implementation notes` section after the code and tests for this task are complete.
+22. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1447,6 +1457,7 @@ if (item.type === 'reingest') {
 10. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for single-attempt behavior of `reingest` items in the same command file. Purpose: prove re-ingest items do not participate in message retry behavior.
 11. [ ] Update document [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md). Location: repository root. Description: document flow-command re-ingest parity with direct commands, including shared executor boundaries and mixed command-item behavior, and add or refresh the Mermaid diagram for this flow-command path using Context7 Mermaid docs as the syntax reference. Purpose: keep the permanent architecture documentation aligned with the final parity design.
 12. [ ] Update this story file’s Task 11 `Implementation notes` section after the code and tests for this task are complete.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1499,6 +1510,7 @@ Update the permanent documentation after the implementation tasks are complete s
 2. [ ] Update document [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md). Location: repository root. Description: document the final command/flow architecture, tool-result contract, repository resolution behavior, reuse of existing websocket and persistence contracts, the absence of paused execution or a new protocol surface, and refresh any Mermaid diagrams required to show the final architecture using Context7 Mermaid docs as the primary syntax reference. Purpose: keep the permanent architecture reference aligned with the final Story 45 implementation.
 3. [ ] Update document [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md). Location: repository root. Description: list every new helper file, test file, and permanent fixture directory added by Story 45 in the correct repository sections. Purpose: keep the repository structure reference accurate and discoverable for later developers.
 4. [ ] Update this story file’s Task 12 `Implementation notes` section after the documentation updates are complete.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1555,6 +1567,7 @@ Verify the complete story against the acceptance criteria after all earlier task
 4. [ ] Ensure [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) is fully up to date for Story 45.
 5. [ ] Create a pull-request summary comment covering all Story 45 changes and save or record it in the normal repo workflow location used by the team.
 6. [ ] Update this story file’s Task 13 `Implementation notes` section after the full validation pass is complete.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 

@@ -33,6 +33,12 @@ test('tools/list returns tool definitions when Codex is available', async () => 
   try {
     const payload = { jsonrpc: '2.0', id: 10, method: 'tools/list' };
     const body = await postJson(port, payload);
+    assert.ok(body.result, 'expected tools/list response to include a result');
+    assert.ok(
+      Array.isArray(body.result.tools),
+      'expected tools/list response to include a tools array',
+    );
+
     const tool = body.result.tools.find(
       (entry: { name: string }) => entry.name === 'codebase_question',
     ) as {
@@ -42,10 +48,9 @@ test('tools/list returns tool definitions when Codex is available', async () => 
         required: string[];
         properties: Record<string, unknown>;
       };
-    };
+    } | undefined;
 
-    assert.ok(body.result.tools);
-    assert.equal(Array.isArray(body.result.tools), true);
+    assert.ok(tool, 'expected codebase_question tool to be present');
     assert.equal(tool.name, 'codebase_question');
     assert.ok(tool.inputSchema);
     assert.match(tool.description, /repository facts/i);

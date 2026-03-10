@@ -711,21 +711,26 @@ Make flow command steps execute command `message` items through the same markdow
 
 1. [ ] Read the current flow command-step execution loop in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) and compare it to the direct command path in [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts).
 2. [ ] Do not call [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) directly from flow execution. Instead, extract a shared command-item execution helper that both call sites can use while preserving their different lock ownership and outer step orchestration responsibilities.
-3. [ ] Make that shared command-item execution helper retry-aware for `message` items so flow command steps keep parity with direct commands for:
+3. [ ] Reuse the existing retry utilities instead of inventing new retry logic. The shared command-item execution helper should call:
+   - [runWithRetry()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/retry.ts);
+   - [delayWithAbort()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/retry.ts) when a custom sleep function is not required;
+   - [formatRetryInstruction()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/utils/retryContext.ts);
+   - the existing flow-and-command retry-count config path already used by direct commands.
+4. [ ] Make that shared command-item execution helper retry-aware for `message` items so flow command steps keep parity with direct commands for:
    - `content` items;
    - `markdownFile` items;
    - retry prompt injection and retry attempt limits;
    - repository-context-aware resolution when a command is executed from inside a flow.
-4. [ ] Keep this task focused on `message` items only. Do not add `reingest` item execution in this task.
-5. [ ] Extend [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) to prove:
+5. [ ] Keep this task focused on `message` items only. Do not add `reingest` item execution in this task.
+6. [ ] Extend [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) to prove:
    - a flow command step can execute a command file containing `message.markdownFile`;
    - the parent flow repository context is used for same-source and fallback resolution;
    - a higher-priority unreadable markdown file in the parent flow context fails fast instead of silently falling through;
    - retryable `message` item failures inside a flow command step use the same retry behavior and retry-prompt injection as direct commands;
    - the flow command path does not drift from the direct command `message` behavior.
-6. [ ] If this task introduces a shared command-item execution module, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
-7. [ ] Update this story file’s Task 5 `Implementation notes` section after the code and tests for this task are complete.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+7. [ ] If this task introduces a shared command-item execution module, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
+8. [ ] Update this story file’s Task 5 `Implementation notes` section after the code and tests for this task are complete.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -768,11 +773,14 @@ Implement the shared runtime helper or code path that converts re-ingest termina
    - reuses the existing `tool_event`, `inflight_snapshot.inflight.toolEvents`, and `Turn.toolCalls` contracts instead of introducing a new websocket event type, new top-level conversation flag, or new persisted collection;
    - includes a stable `callId`;
    - preserves distinct `callId` values when multiple re-ingest results are recorded in one run.
-3. [ ] Add the shared non-agent step emission path that re-ingest execution will use to:
-   - create inflight state before any `tool_event` is appended or published;
-   - publish the synthetic user turn text for the re-ingest step;
-   - finalize and persist assistant turn data with `toolCalls` populated from the structured re-ingest result;
-   - keep `Turn.status` / `turn_final.status` on the normal run-level contract while the nested re-ingest status lives inside the tool-result payload.
+3. [ ] Base the shared non-agent step emission path on the existing runtime pieces that already exist instead of creating a parallel lifecycle. Reuse:
+   - [createInflight()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts);
+   - [appendToolEvent()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts) together with [publishToolEvent()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ws/server.ts);
+   - [publishUserTurn()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ws/server.ts);
+   - [attachChatStreamBridge()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/chatStreamBridge.ts);
+   - [markInflightPersisted()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts) and [markInflightFinal()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts);
+   - the existing synthetic-turn pattern in [flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) (`createNoopChat`, `persistFlowTurn`, and manual user/assistant persistence) as the source pattern to extract from when a shared helper is needed.
+   Extract only the minimal common code required so direct commands and dedicated flow reingest steps share one lifecycle.
 4. [ ] Keep this task shared-path-only. Do not yet wire direct command or flow `reingest` execution to call the helper.
 5. [ ] Add unit coverage for the helper or shared path. Include:
    - `completed`, `cancelled`, and `error` terminal outcomes;
@@ -877,7 +885,7 @@ Teach the flow runner to execute dedicated `reingest` steps and to respect Story
 2. [ ] Update flow startup and validation paths in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so flows containing `reingest` steps remain runnable. This includes:
    - allowing `reingest` in any helper or guard that currently assumes only `llm`, `break`, `command`, and `startLoop` exist;
    - supporting flows whose only executable steps are `reingest`;
-   - using a safe fallback flow `modelId` when no agent-config-derived model is available because the flow contains no agent steps.
+   - reusing the existing `FALLBACK_MODEL_ID` path already present in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) when no agent-config-derived model is available because the flow contains no agent steps, rather than inventing a new model-resolution source.
 3. [ ] Add a dedicated flow `reingest` execution path in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) that:
    - calls the blocking re-ingest service once;
    - records terminal outcomes through the shared re-ingest result contract from Task 6;

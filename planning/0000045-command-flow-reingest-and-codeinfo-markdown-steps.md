@@ -509,15 +509,15 @@ Update the command JSON parsing layer so Story 45's new command item shapes are 
    - `reingest` items with `sourceId`;
    - the existing top-level `{ Description, items }` contract with no renaming.
 3. [ ] Update command-side type aliases and schema consumers that currently assume command items always expose `content`. At minimum, inspect and fix affected TypeScript narrowing in [agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) and [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) so the command schema expansion compiles cleanly before runtime work begins.
-4. [ ] Extend [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts) with positive and negative coverage for:
-   - `message.content`;
-   - `message.markdownFile`;
-   - `reingest`;
-   - empty-string `markdownFile` rejection;
-   - both/neither XOR failures;
-   - unexpected extra keys, including unknown keys on `reingest` items.
-5. [ ] Update this story file’s Task 1 `Implementation notes` section after the code and tests for this task are complete.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+4. [ ] Add one unit test in [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts) for the happy path where a `message` item uses `content`. Purpose: prove the existing inline-content command contract still parses after the schema change.
+5. [ ] Add one unit test in [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts) for the happy path where a `message` item uses `markdownFile`. Purpose: prove the new markdown-backed command message shape is accepted.
+6. [ ] Add one unit test in [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts) for the happy path where an item uses `{ "type": "reingest", "sourceId": "..." }`. Purpose: prove the new command re-ingest item shape is accepted.
+7. [ ] Add one unit test in [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts) for invalid `message.markdownFile: ""`. Purpose: prove empty-string markdown references are rejected instead of being treated as missing or valid.
+8. [ ] Add one unit test in [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts) for the XOR error case where `content` and `markdownFile` are both present. Purpose: prove the parser rejects command messages with two instruction sources.
+9. [ ] Add one unit test in [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts) for the XOR error case where `content` and `markdownFile` are both absent. Purpose: prove the parser rejects command messages with no instruction source.
+10. [ ] Add one unit test in [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts) for strict-schema rejection of unknown keys, including an unexpected extra key on a `reingest` item. Purpose: prove the parser remains strict for the new item shapes.
+11. [ ] Update this story file’s Task 1 `Implementation notes` section after the code and tests for this task are complete.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -566,16 +566,16 @@ Update the flow JSON parsing layer so Story 45's new flow step shapes are accept
    - `reingest` steps with `sourceId` and optional `label`;
    - unchanged `command`, `break`, and `startLoop` steps.
 3. [ ] Update flow-side type aliases and schema consumers that currently assume flow steps only include the existing four step types. At minimum, inspect and fix affected TypeScript narrowing in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so the expanded step union compiles cleanly before runtime work begins.
-4. [ ] Extend [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) with positive and negative coverage for:
-   - `llm.messages`;
-   - `llm.markdownFile`;
-   - `reingest`;
-   - flows that contain only `reingest` steps;
-   - empty-string `markdownFile` rejection;
-   - both/neither XOR failures;
-   - unexpected extra keys, including unknown keys on `reingest` steps.
-5. [ ] Update this story file’s Task 2 `Implementation notes` section after the code and tests for this task are complete.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+4. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the happy path where an `llm` step uses `messages`. Purpose: prove the existing flow LLM contract still parses after schema expansion.
+5. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the happy path where an `llm` step uses `markdownFile`. Purpose: prove the new markdown-backed flow LLM step shape is accepted.
+6. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the happy path where a step uses `{ "type": "reingest", "sourceId": "..." }`. Purpose: prove the new flow re-ingest step shape is accepted.
+7. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for a flow whose executable steps are all `reingest`. Purpose: prove schema validation allows reingest-only flows before runtime work starts.
+8. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for invalid `llm.markdownFile: ""`. Purpose: prove empty-string markdown references are rejected instead of being treated as missing or valid.
+9. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the XOR error case where `messages` and `markdownFile` are both present. Purpose: prove the parser rejects flow LLM steps with two instruction sources.
+10. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for the XOR error case where `messages` and `markdownFile` are both absent. Purpose: prove the parser rejects flow LLM steps with no instruction source.
+11. [ ] Add one unit test in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for strict-schema rejection of unknown keys, including an unexpected extra key on a `reingest` step. Purpose: prove the parser remains strict for the new flow step shapes.
+12. [ ] Update this story file’s Task 2 `Implementation notes` section after the code and tests for this task are complete.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -627,21 +627,25 @@ Create the shared markdown-file lookup and decoding helper that all later markdo
    - continues on missing files only;
    - fails immediately when a higher-priority candidate contains the file but it cannot be read or decoded.
 3. [ ] Implement strict UTF-8 decoding in that resolver using a byte-first Node path rather than permissive string reads. Read raw bytes first, then decode with a strict decoder (`TextDecoder` with `fatal: true` or an equivalent strict Buffer-based path) so invalid bytes fail clearly instead of being silently replaced.
-4. [ ] Add focused unit coverage for the new resolver helper. Include:
-   - direct-command codeInfo2-only lookup;
-   - same-source flow lookup;
-   - codeInfo2 fallback;
-   - deterministic other-repo fallback;
-   - valid root-level and nested-subpath lookups under `codeinfo_markdown`;
-   - valid UTF-8 markdown containing non-ASCII characters being returned verbatim;
-   - deterministic tie-breaking when multiple fallback repositories share the same case-insensitive source label and file path names differ only by repository path;
-   - all-candidates-missing failure;
-   - unreadable-file fail-fast behavior, including an explicit permission/read-error case rather than only file-missing coverage;
-   - invalid UTF-8 failure;
-   - path traversal rejection.
-5. [ ] If this task adds a new resolver file or test file, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after those file additions are complete.
-6. [ ] Update this story file’s Task 3 `Implementation notes` section after the code and tests for this task are complete.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+4. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for direct-command codeInfo2-only lookup. Purpose: prove direct command runs resolve markdown from the codeInfo2 repository without consulting other sources.
+5. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for same-source flow lookup. Purpose: prove flow-owned markdown resolution prefers the parent flow repository first.
+6. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for codeInfo2 fallback after same-source miss. Purpose: prove the documented fallback order is used.
+7. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for deterministic other-repository fallback. Purpose: prove fallback reaches non-codeInfo2 repositories only after the higher-priority candidates miss.
+8. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for a valid root-level markdown lookup such as `file.md`. Purpose: prove files directly inside `codeinfo_markdown` are accepted.
+9. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for a valid nested-subpath lookup such as `subdir/file.md`. Purpose: prove safe nested paths are accepted when they stay inside `codeinfo_markdown`.
+10. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for valid UTF-8 markdown containing non-ASCII characters that is returned verbatim. Purpose: prove strict decoding still preserves valid Unicode content unchanged.
+11. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for deterministic tie-breaking when fallback repositories share the same case-insensitive source label. Purpose: prove path ordering is used as the stable final tie-breaker.
+12. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for the all-candidates-missing error path. Purpose: prove the resolver fails clearly instead of returning an empty instruction.
+13. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for a higher-priority unreadable file. Purpose: prove unreadable content blocks fallback instead of being silently skipped.
+14. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for an explicit permission/read error such as `EACCES` or `EPERM`. Purpose: prove permission failures are surfaced clearly as fail-fast resolver errors.
+15. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for invalid UTF-8 failure. Purpose: prove strict decoding rejects invalid bytes instead of replacing them silently.
+16. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for empty-path rejection. Purpose: prove blank markdown paths are rejected before any file read occurs.
+17. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for absolute-path rejection. Purpose: prove absolute markdown paths cannot escape the repository contract.
+18. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for `..` traversal rejection. Purpose: prove parent-directory traversal is blocked before candidate resolution begins.
+19. [ ] Add one unit test in [markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) for normalized escape-attempt rejection. Purpose: prove paths that normalize outside `codeinfo_markdown` are still rejected.
+20. [ ] If this task adds a new resolver file or test file, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after those file additions are complete.
+21. [ ] Update this story file’s Task 3 `Implementation notes` section after the code and tests for this task are complete.
+22. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -689,18 +693,18 @@ Teach the direct command runner to execute markdown-backed `message` items witho
    - resolve one markdown file into one instruction string when `markdownFile` is used;
    - use codeInfo2-only repository scope for direct commands that are not running inside a flow.
 3. [ ] Keep the existing retry path for message-based agent instruction execution. This task must not add `reingest` execution yet and must not change retry-prompt behavior for `message` items.
-4. [ ] Extend [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) to prove:
-   - a markdown-backed direct command executes exactly one instruction;
-   - the loaded markdown is passed through verbatim;
-   - multiple `message.markdownFile` items in one direct command run execute in order and remain distinct instructions;
-   - a direct command that mixes `message.markdownFile` and `message.content` items preserves item ordering and keeps the existing inline-content behavior;
-   - a markdown file not found or not decodable fails the command step clearly;
-   - an unexpected markdown-resolver exception fails the command clearly instead of being swallowed or converted into empty content;
-   - the existing `content` path still behaves unchanged.
-5. [ ] Update direct-command startup metadata paths in [agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) so command title generation, first-step inspection, and any pre-run assumptions remain safe when the first command item uses `markdownFile` or `reingest` instead of `content`. Keep this intentionally simple: do not resolve markdown files at command-start time just to improve the title; a generic `Command: <name>` fallback is acceptable when no inline content exists yet.
-6. [ ] If this task adds direct-command markdown fixtures under temporary agent command folders or permanent fixtures, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) if the permanent repo structure changes.
-7. [ ] Update this story file’s Task 4 `Implementation notes` section after the code and tests for this task are complete.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+4. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for the happy path where one direct command item uses `message.markdownFile`. Purpose: prove the runner loads one markdown instruction and executes it once.
+5. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) proving the loaded markdown is passed through verbatim. Purpose: prove the runner does not trim, split, or rewrite markdown content before sending it to the agent.
+6. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for multiple `message.markdownFile` items in one direct command run. Purpose: prove each markdown item becomes its own instruction and execution order is preserved.
+7. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for a direct command that mixes `message.markdownFile` and `message.content`. Purpose: prove inline-content behavior stays unchanged when mixed with markdown-backed items.
+8. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for the error path where a markdown file is missing. Purpose: prove direct command execution fails clearly instead of silently continuing with empty content.
+9. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for the error path where a markdown file is undecodable. Purpose: prove invalid markdown bytes surface as a clear command failure.
+10. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for an unexpected resolver exception. Purpose: prove unexpected markdown-loader failures surface as clear command errors.
+11. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for the existing inline `content` path after the markdown change. Purpose: prove the original direct-command message behavior remains intact.
+12. [ ] Update direct-command startup metadata paths in [agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) so command title generation, first-step inspection, and any pre-run assumptions remain safe when the first command item uses `markdownFile` or `reingest` instead of `content`. Keep this intentionally simple: do not resolve markdown files at command-start time just to improve the title; a generic `Command: <name>` fallback is acceptable when no inline content exists yet.
+13. [ ] If this task adds direct-command markdown fixtures under temporary agent command folders or permanent fixtures, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) if the permanent repo structure changes.
+14. [ ] Update this story file’s Task 4 `Implementation notes` section after the code and tests for this task are complete.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -746,16 +750,18 @@ Teach the flow runner to execute markdown-backed `llm` steps using the shared ma
 1. [ ] Read the current `runLlmStep(...)` path in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) and the existing flow execution tests before making changes.
 2. [ ] Update the flow runner so an `llm` step with `markdownFile` resolves exactly one markdown file into one instruction string and executes it once through the existing agent-turn path.
 3. [ ] Keep the current `messages` array behavior unchanged for existing flow `llm` steps, including current retry behavior and current turn persistence for successful and failed agent turns.
-4. [ ] Extend [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) to prove:
-   - same-source markdown resolution works for a flow `llm` step;
-   - the loaded markdown is passed through verbatim as one instruction string;
-   - fallback to codeInfo2 or other repositories follows the documented deterministic order;
-   - a higher-priority unreadable markdown file fails the step instead of falling through to a lower-priority repository;
-   - deterministic duplicate-label fallback still chooses the repository ordered by case-insensitive label and then full source path;
-   - missing, undecodable, or unexpectedly thrown markdown-resolution errors fail the step clearly;
-   - a flow can continue to a later step after a successful `llm.markdownFile` step, proving the happy-path sequencing works end to end.
-5. [ ] Update this story file’s Task 5 `Implementation notes` section after the code and tests for this task are complete.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+4. [ ] Add one integration test in [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) for same-source markdown resolution in an `llm.markdownFile` step. Purpose: prove the parent flow repository is the first lookup candidate.
+5. [ ] Add one integration test in [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) proving loaded markdown is passed through verbatim as one instruction string. Purpose: prove flow `llm` markdown content is not rewritten before execution.
+6. [ ] Add one integration test in [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) for fallback to codeInfo2 after a same-source miss. Purpose: prove the first fallback candidate in the documented repository order is applied correctly.
+7. [ ] Add one integration test in [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) for fallback to another ingested repository after same-source and codeInfo2 misses. Purpose: prove the final fallback tier in the documented repository order is applied correctly.
+8. [ ] Add one integration test in [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) for a higher-priority unreadable markdown file. Purpose: prove flow execution fails fast instead of falling through to a lower-priority repository.
+9. [ ] Add one integration test in [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) for duplicate-label fallback ordering. Purpose: prove same-label repositories still resolve deterministically by full path.
+10. [ ] Add one integration test in [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) for a missing markdown file. Purpose: prove flow execution fails clearly instead of producing an empty instruction.
+11. [ ] Add one integration test in [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) for an undecodable markdown file. Purpose: prove invalid markdown bytes surface as a clear flow-step failure.
+12. [ ] Add one integration test in [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) for an unexpected markdown-resolver exception. Purpose: prove unexpected loader failures surface as clear flow-step errors.
+13. [ ] Add one integration test in [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) where a successful `llm.markdownFile` step is followed by a later step. Purpose: prove the happy-path flow sequence continues after markdown execution.
+14. [ ] Update this story file’s Task 5 `Implementation notes` section after the code and tests for this task are complete.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -808,17 +814,17 @@ Make flow command steps execute command `message` items through the same markdow
    - `markdownFile` items;
    - repository-context-aware resolution when a command is executed from inside a flow.
 5. [ ] Keep this task focused on `message` items only. Do not add `reingest` item execution in this task.
-6. [ ] Extend [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) to prove:
-   - a flow command step can execute a command file containing `message.markdownFile`;
-   - a single flow-owned command file can execute multiple `message.markdownFile` items in order;
-   - a single flow-owned command file can mix `message.markdownFile` and `message.content` items without changing existing inline-content behavior;
-   - the parent flow repository context is used for same-source and fallback resolution;
-   - a higher-priority unreadable markdown file in the parent flow context fails fast instead of silently falling through;
-   - the flow command path does not drift from the direct command `message` behavior for message-item resolution and execution;
-   - the existing surrounding retry behavior for direct commands and flow command steps remains intact unless a smaller safe refactor is unavoidable.
-7. [ ] If this task introduces a shared command-item execution module, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
-8. [ ] Update this story file’s Task 6 `Implementation notes` section after the code and tests for this task are complete.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+6. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for a flow command step whose command file contains one `message.markdownFile` item. Purpose: prove flow-owned commands can execute markdown-backed message items at all.
+7. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for multiple `message.markdownFile` items in one flow-owned command file. Purpose: prove item ordering and repeated markdown resolution both work.
+8. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for a command file that mixes `message.markdownFile` and `message.content`. Purpose: prove inline-content behavior remains unchanged inside flow-owned command execution.
+9. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for same-source repository context use. Purpose: prove flow-owned commands check the parent flow repository before fallback candidates.
+10. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for fallback repository context use after a same-source miss. Purpose: prove flow-owned commands follow the documented repository fallback order.
+11. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for a higher-priority unreadable markdown file. Purpose: prove the command step fails fast instead of silently falling through.
+12. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) comparing message-item resolution and execution behavior with the direct-command path. Purpose: prove the shared helper does not drift from direct-command semantics.
+13. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for surrounding retry behavior after the shared-helper refactor. Purpose: prove the flow command-step retry model and direct-command retry model remain unchanged where they already existed.
+14. [ ] If this task introduces a shared command-item execution module, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
+15. [ ] Update this story file’s Task 6 `Implementation notes` section after the code and tests for this task are complete.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -871,15 +877,15 @@ Implement the shared runtime helper or code path that converts re-ingest termina
    - includes a stable `callId`;
    - preserves distinct `callId` values when multiple re-ingest results are recorded in one run.
 3. [ ] Keep this task payload-only. Do not yet add inflight creation, synthetic user turns, assistant turn finalization, or direct/flow re-ingest execution wiring.
-4. [ ] Add unit coverage for the payload builder or shared path. Include:
-   - `completed`, `cancelled`, and `error` terminal outcomes;
-   - outer `stage` mapping;
-   - nested payload fields;
-   - compatibility with the existing live `tool-result` wrapper shape and persisted `Turn.toolCalls` wrapper shape;
-   - distinct `callId` values for multiple results.
-5. [ ] If this task adds a new shared helper file or test file, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
-6. [ ] Update this story file’s Task 7 `Implementation notes` section after the code and tests for this task are complete.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+4. [ ] Add one unit test in [reingest-tool-result.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-tool-result.test.ts) for a terminal `completed` re-ingest outcome. Purpose: prove the builder creates the expected nested payload and outer success wrapper for the normal happy path.
+5. [ ] Add one unit test in [reingest-tool-result.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-tool-result.test.ts) for a terminal `cancelled` re-ingest outcome. Purpose: prove cancellation is preserved as structured data without changing the wrapper contract.
+6. [ ] Add one unit test in [reingest-tool-result.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-tool-result.test.ts) for a terminal `error` re-ingest outcome. Purpose: prove error results keep the expected payload fields and stage mapping.
+7. [ ] Add one unit test in [reingest-tool-result.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-tool-result.test.ts) for compatibility with the existing live `tool-result` event shape. Purpose: prove Story 45 reuses the current websocket wrapper contract instead of inventing a new one.
+8. [ ] Add one unit test in [reingest-tool-result.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-tool-result.test.ts) for compatibility with the persisted `Turn.toolCalls` shape. Purpose: prove Story 45 reuses the current persisted wrapper contract instead of inventing a new one.
+9. [ ] Add one unit test in [reingest-tool-result.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-tool-result.test.ts) for multiple results with distinct `callId` values. Purpose: prove separate re-ingest events remain distinguishable within one run.
+10. [ ] If this task adds a new shared helper file or test file, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
+11. [ ] Update this story file’s Task 7 `Implementation notes` section after the code and tests for this task are complete.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -932,15 +938,18 @@ Implement the shared non-agent runtime lifecycle that direct commands and dedica
    - the existing synthetic-turn pattern in [flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) (`createNoopChat`, `persistFlowTurn`, and manual user/assistant persistence) as the source pattern to extract from when a shared helper is needed.
    Extract only the minimal common code required so direct commands and dedicated flow reingest steps share one lifecycle. Do not import or depend on private flow-only helpers from `flows/service.ts` without first moving them to an explicitly shared module.
 3. [ ] Keep this task lifecycle-only. Do not yet wire direct command or flow `reingest` execution to call the helper.
-4. [ ] Add unit coverage for the shared lifecycle helper or extracted path. Include:
-   - inflight creation before tool-event append/publish and final persistence with populated `toolCalls`;
-   - user-turn publication, assistant-turn finalization, and `Turn.toolCalls` persistence using the payload builder from Task 7;
-   - normal `Turn.status` / `turn_final.status` handling while detailed re-ingest outcome remains nested;
-   - compatibility with both memory persistence and Mongo persistence paths, with explicit assertions that the memory-backed path also retains the structured `toolCalls` payload;
-   - live-event ordering that publishes the re-ingest `tool_event` before the final assistant-turn completion event for the same lifecycle.
-5. [ ] If this task adds a new shared helper file or test file, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
-6. [ ] Update this story file’s Task 8 `Implementation notes` section after the code and tests for this task are complete.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+4. [ ] Add one unit test in [reingest-step-lifecycle.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-step-lifecycle.test.ts) for inflight creation before tool-event append/publish and final persistence. Purpose: prove the shared lifecycle initializes runtime state in the correct order.
+5. [ ] Add one unit test in [reingest-step-lifecycle.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-step-lifecycle.test.ts) for user-turn publication. Purpose: prove the shared non-agent lifecycle still emits the expected user-turn event.
+6. [ ] Add one unit test in [reingest-step-lifecycle.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-step-lifecycle.test.ts) for assistant-turn finalization. Purpose: prove the shared non-agent lifecycle still emits the expected assistant-turn completion state.
+7. [ ] Add one unit test in [reingest-step-lifecycle.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-step-lifecycle.test.ts) for `Turn.toolCalls` persistence using the Task 7 payload builder. Purpose: prove the structured re-ingest payload is persisted through the standard turn contract.
+8. [ ] Add one unit test in [reingest-step-lifecycle.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-step-lifecycle.test.ts) for normal outer `Turn.status` handling while the detailed re-ingest outcome remains nested. Purpose: prove outer assistant status and nested re-ingest result status stay distinct in persisted turns.
+9. [ ] Add one unit test in [reingest-step-lifecycle.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-step-lifecycle.test.ts) for normal outer `turn_final.status` handling while the detailed re-ingest outcome remains nested. Purpose: prove websocket final-status reporting stays distinct from nested re-ingest result status.
+10. [ ] Add one unit test in [reingest-step-lifecycle.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-step-lifecycle.test.ts) for memory persistence. Purpose: prove the memory-backed path retains the structured `toolCalls` payload instead of dropping it.
+11. [ ] Add one unit test in [reingest-step-lifecycle.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-step-lifecycle.test.ts) for Mongo persistence. Purpose: prove the persisted assistant turn keeps the same structured `toolCalls` payload in the Mongo-backed path.
+12. [ ] Add one unit test in [reingest-step-lifecycle.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-step-lifecycle.test.ts) for live-event ordering where `tool_event` is published before final assistant-turn completion. Purpose: prove the websocket/inflight lifecycle order matches the intended runtime contract.
+13. [ ] If this task adds a new shared helper file or test file, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
+14. [ ] Update this story file’s Task 8 `Implementation notes` section after the code and tests for this task are complete.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -993,19 +1002,22 @@ Teach the direct command runner to execute `reingest` items once, record their s
    - observe stop/cancel requests only after the blocking re-ingest call returns and before the next command item starts;
    - fail immediately for pre-start validation/service refusal paths;
    - fail the command clearly if the re-ingest path throws an unexpected exception before a trustworthy terminal result can be recorded.
-3. [ ] Extend [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) to prove:
-   - `reingest` items bypass retry prompt injection;
-   - terminal `completed`, `cancelled`, and `error` outcomes are recorded and allow the next item to run;
-   - accepted `skipped` outcomes are recorded as terminal `completed`;
-   - a stop/cancel request raised during the blocking wait prevents the next command item from starting after the re-ingest returns;
-   - malformed or unknown `sourceId` values fail as pre-start errors before any later command item starts;
-   - busy/locked pre-start re-ingest rejections stop the command clearly;
-   - pre-start failures and unexpected thrown exceptions stop the command clearly.
-4. [ ] Add or update direct integration coverage for a command file that mixes `reingest` and `message` items so the execution order is proven end to end. Include a case with multiple `reingest` items in one direct command run and prove their recorded `callId` values stay distinct.
-5. [ ] Extend that direct integration coverage so one direct command run mixes `reingest`, `message.markdownFile`, and `message.content` items, proving end-to-end ordering and non-fatal continuation through the whole mixed-item sequence.
-6. [ ] Reuse the shared non-agent step emission path from Task 8 so direct-command `reingest` items produce live `tool_event` updates, inflight snapshots, persisted `toolCalls`, and normal assistant turn finalization without inventing a separate direct-command-only persistence shape.
-7. [ ] Update this story file’s Task 9 `Implementation notes` section after the code and tests for this task are complete.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+3. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) proving `reingest` items bypass retry prompt injection. Purpose: prove re-ingest execution stays single-attempt and does not reuse message retry instructions.
+4. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for a terminal `completed` outcome. Purpose: prove a successful re-ingest result is recorded and the next command item runs.
+5. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for a terminal `cancelled` outcome. Purpose: prove a cancelled re-ingest result is still recorded as a non-fatal step result.
+6. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for a terminal `error` outcome. Purpose: prove an accepted terminal error remains non-fatal once the step has started.
+7. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for accepted `skipped` outcomes recorded as public `completed`. Purpose: prove the direct-command path keeps the existing status normalization contract.
+8. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for stop/cancel during the blocking wait. Purpose: prove the next command item does not start after re-ingest returns when cancellation is pending.
+9. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for a malformed `sourceId` value. Purpose: prove syntactically invalid re-ingest input fails as a pre-start error before later items begin.
+10. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for an unknown `sourceId` value. Purpose: prove well-formed but non-ingested repository paths fail as a pre-start error before later items begin.
+11. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for busy/locked pre-start re-ingest rejection. Purpose: prove service-level refusal stops the direct command clearly.
+12. [ ] Add one unit test in [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) for unexpected thrown exceptions before a trustworthy terminal result exists. Purpose: prove non-contract exceptions fail the command clearly.
+13. [ ] Add one integration test in [commands.reingest.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/commands.reingest.test.ts) for a command file that mixes one `reingest` item and one `message` item. Purpose: prove end-to-end execution order across re-ingest and message steps.
+14. [ ] Add one integration test in [commands.reingest.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/commands.reingest.test.ts) for multiple `reingest` items in one direct command run with distinct `callId` values. Purpose: prove repeated re-ingest results remain distinguishable.
+15. [ ] Add one integration test in [commands.reingest.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/commands.reingest.test.ts) for a mixed run containing `reingest`, `message.markdownFile`, and `message.content`. Purpose: prove the full mixed-item happy path preserves ordering and non-fatal continuation.
+16. [ ] Reuse the shared non-agent step emission path from Task 8 so direct-command `reingest` items produce live `tool_event` updates, inflight snapshots, persisted `toolCalls`, and normal assistant turn finalization without inventing a separate direct-command-only persistence shape.
+17. [ ] Update this story file’s Task 9 `Implementation notes` section after the code and tests for this task are complete.
+18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -1064,18 +1076,21 @@ Teach the flow runner to execute dedicated `reingest` steps and to respect Story
    - fails the current flow clearly if the re-ingest path throws an unexpected exception before a trustworthy terminal result can be recorded;
    - keeps outer run status and nested re-ingest result status distinct.
 4. [ ] Reuse the shared non-agent step emission path from Task 8 so dedicated flow `reingest` steps create inflight state, publish `tool_event` updates, and persist assistant turns with populated `toolCalls` instead of the current `toolCalls: null` fallback path used by synthetic failed/stopped flow steps.
-5. [ ] Extend [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) to prove:
-   - post-start `error` and `cancelled` outcomes are recorded but non-fatal;
-   - accepted `skipped` outcomes are recorded as terminal `completed`;
-   - malformed or unknown `sourceId` values fail as pre-start errors before any later step starts;
-   - busy/locked pre-start re-ingest rejections stop the flow;
-   - pre-start failures and unexpected thrown exceptions stop the flow;
-   - a stop/cancel request raised during the blocking wait prevents the next flow step from starting after the re-ingest returns;
-   - timeout, missing-run, or unknown terminal results become nested `error` outcomes instead of crashing the run;
-   - a flow that contains only `reingest` steps starts successfully and uses the fallback flow model metadata path;
-   - multiple dedicated `reingest` steps in one flow run keep distinct `callId` values even when they target the same `sourceId`.
-6. [ ] Update this story file’s Task 10 `Implementation notes` section after the code and tests for this task are complete.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+5. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for a post-start terminal `error` outcome. Purpose: prove an accepted terminal error result is recorded but does not stop the rest of the flow.
+6. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for a post-start terminal `cancelled` outcome. Purpose: prove a cancelled re-ingest result is still recorded as a non-fatal step result.
+7. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for accepted `skipped` outcomes recorded as public `completed`. Purpose: prove the dedicated flow-step path keeps the status normalization contract.
+8. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for a malformed `sourceId` value. Purpose: prove syntactically invalid re-ingest input fails as a pre-start error before later steps begin.
+9. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for an unknown `sourceId` value. Purpose: prove well-formed but non-ingested repository paths fail as a pre-start error before later steps begin.
+10. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for busy/locked pre-start re-ingest rejection. Purpose: prove service-level refusal stops the flow clearly.
+11. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for unexpected thrown exceptions before a trustworthy terminal result exists. Purpose: prove non-contract exceptions fail the current flow.
+12. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for stop/cancel during the blocking wait. Purpose: prove the next flow step does not start after re-ingest returns when cancellation is pending.
+13. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for a timeout result becoming a nested `error` outcome. Purpose: prove timeout handling stays structured and does not crash the run.
+14. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for a missing-run result becoming a nested `error` outcome. Purpose: prove missing post-launch status stays structured and does not crash the run.
+15. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for an unknown terminal result becoming a nested `error` outcome. Purpose: prove unknown terminal states stay structured and do not crash the run.
+16. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for a flow that contains only `reingest` steps. Purpose: prove reingest-only flows start successfully and use the fallback flow model metadata path.
+17. [ ] Add one integration test in [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) for multiple dedicated `reingest` steps targeting the same `sourceId` with distinct `callId` values. Purpose: prove repeated flow-step re-ingest results remain distinguishable.
+18. [ ] Update this story file’s Task 10 `Implementation notes` section after the code and tests for this task are complete.
+19. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -1124,15 +1139,16 @@ Finish Story 45’s parity work by making flow-owned command files execute `rein
    - structured `tool-result` recording;
    - pre-start failure handling;
    - continuation after terminal `completed`, `cancelled`, or `error`.
-3. [ ] Extend [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) to prove:
-   - a flow command step can execute a command file containing `reingest`;
-   - structured results are recorded through the existing tool-event and turn-storage paths;
-   - multiple re-ingest results in one run keep distinct `callId` values;
-   - one flow-owned command file can mix `reingest`, `message.markdownFile`, and `message.content` items while preserving item order and non-fatal continuation after terminal re-ingest results;
-   - a stop/cancel request raised during the blocking wait prevents later command items or later flow steps from starting after the current re-ingest returns;
-   - the shared flow command-item executor preserves the current surrounding retry behavior while still keeping `reingest` items single-attempt within the same command file.
-4. [ ] Update this story file’s Task 11 `Implementation notes` section after the code and tests for this task are complete.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+3. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for a flow command step whose command file contains `reingest`. Purpose: prove flow-owned commands can execute re-ingest items at all.
+4. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for live `tool_event` recording of a flow-command re-ingest result. Purpose: prove the flow-command re-ingest path reuses the current live runtime contract.
+5. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for persisted turn-storage recording of a flow-command re-ingest result. Purpose: prove the flow-command re-ingest path reuses the current persisted runtime contract.
+6. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for multiple re-ingest results with distinct `callId` values. Purpose: prove repeated flow-command re-ingest results remain distinguishable.
+7. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for a mixed command file containing `reingest`, `message.markdownFile`, and `message.content`. Purpose: prove mixed-item ordering and non-fatal continuation inside flow-owned command execution.
+8. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for stop/cancel during the blocking wait. Purpose: prove later command items or later flow steps do not start after the current re-ingest returns when cancellation is pending.
+9. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for surrounding retry behavior with `message` items after the shared executor change. Purpose: prove existing retry behavior for message execution remains intact.
+10. [ ] Add one integration test in [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) for single-attempt behavior of `reingest` items in the same command file. Purpose: prove re-ingest items do not participate in message retry behavior.
+11. [ ] Update this story file’s Task 11 `Implementation notes` section after the code and tests for this task are complete.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 

@@ -560,8 +560,6 @@ export async function runReingestStepLifecycle(params: {
 
 - Task Status: `__done__`
 - Git Commits:
-  - `84e7fb5a` - `DEV-[45] - add shared markdown file resolver`
-  - `1b6e3148` - Task 2 implementation: flow schema union support for `llm.markdownFile` and dedicated `reingest`, plus required tests, logging, design updates, and verification notes.
   - `ca664dc2` - Task 1 implementation: command schema union support for `message.markdownFile` and `reingest`, plus required tests, logging, and verification updates.
 
 #### Overview
@@ -646,6 +644,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 
 - Task Status: `__done__`
 - Git Commits:
+  - `1b6e3148` - Task 2 implementation: flow schema union support for `llm.markdownFile` and dedicated `reingest`, plus required tests, logging, design updates, and verification notes.
 
 #### Overview
 
@@ -734,6 +733,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 
 - Task Status: `__done__`
 - Git Commits:
+  - `84e7fb5a` - Task 3 implementation: shared markdown resolver, resolver unit coverage, project-structure updates, and verification notes.
 
 #### Overview
 

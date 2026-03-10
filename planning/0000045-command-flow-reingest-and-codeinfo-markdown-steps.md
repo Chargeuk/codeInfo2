@@ -565,7 +565,7 @@ Create the shared markdown-file lookup and decoding helper that all later markdo
    - builds candidate repositories in the documented same-source, codeInfo2, other-repos order;
    - continues on missing files only;
    - fails immediately when a higher-priority candidate contains the file but it cannot be read or decoded.
-3. [ ] Implement strict UTF-8 decoding in that resolver so invalid bytes fail clearly instead of being silently replaced.
+3. [ ] Implement strict UTF-8 decoding in that resolver using a byte-first Node path rather than permissive string reads. Read raw bytes first, then decode with a strict decoder (`TextDecoder` with `fatal: true` or an equivalent strict Buffer-based path) so invalid bytes fail clearly instead of being silently replaced.
 4. [ ] Add focused unit coverage for the new resolver helper. Include:
    - direct-command codeInfo2-only lookup;
    - same-source flow lookup;
@@ -771,6 +771,7 @@ Implement the shared runtime helper or code path that converts re-ingest termina
    - converts a terminal re-ingest outcome into the nested `reingest_step_result` payload;
    - wraps it in the existing `tool-result` shape for live events and persisted tool calls;
    - reuses the existing `tool_event`, `inflight_snapshot.inflight.toolEvents`, and `Turn.toolCalls` contracts instead of introducing a new websocket event type, new top-level conversation flag, or new persisted collection;
+   - keeps the existing Mongoose turn schema untouched because [turn.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mongo/turn.ts) already stores `toolCalls` as `Schema.Types.Mixed`;
    - includes a stable `callId`;
    - preserves distinct `callId` values when multiple re-ingest results are recorded in one run.
 3. [ ] Base the shared non-agent step emission path on the existing runtime pieces that already exist instead of creating a parallel lifecycle. Reuse:
@@ -780,7 +781,7 @@ Implement the shared runtime helper or code path that converts re-ingest termina
    - [attachChatStreamBridge()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/chatStreamBridge.ts);
    - [markInflightPersisted()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts) and [markInflightFinal()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts);
    - the existing synthetic-turn pattern in [flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) (`createNoopChat`, `persistFlowTurn`, and manual user/assistant persistence) as the source pattern to extract from when a shared helper is needed.
-   Extract only the minimal common code required so direct commands and dedicated flow reingest steps share one lifecycle.
+   Extract only the minimal common code required so direct commands and dedicated flow reingest steps share one lifecycle. Do not import or depend on private flow-only helpers from `flows/service.ts` without first moving them to an explicitly shared module.
 4. [ ] Keep this task shared-path-only. Do not yet wire direct command or flow `reingest` execution to call the helper.
 5. [ ] Add unit coverage for the helper or shared path. Include:
    - `completed`, `cancelled`, and `error` terminal outcomes;

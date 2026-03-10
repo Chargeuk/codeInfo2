@@ -1523,12 +1523,12 @@ Verify the complete story against the acceptance criteria after all earlier task
 - This final task must verify the finished story, not add new behavior. If a missing implementation is discovered here, stop final validation, reopen the appropriate earlier task, and complete that implementation there before returning to Task 13.
 - Re-check the full acceptance criteria in [0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md), including direct-command markdown support, flow `llm.markdownFile`, dedicated/direct/flow-command `reingest`, structured tool-result persistence, deterministic repository ordering, and the no-new-paused-state rule.
 - Use the wrapper-first build and test workflow from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). Do not replace the listed wrappers with raw commands unless wrapper diagnosis is required.
-- The manual Playwright check must confirm the server-side Story 45 behavior does not break the current UI. Save screenshots to the exact directory already named in this task so reviewers can inspect the final validation evidence later.
+- The manual Playwright check must confirm the server-side Story 45 behavior does not break the current UI. Save screenshots to the exact directory named in this task, because `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` is mapped in `docker-compose.local.yml`, and review those screenshots as part of acceptance instead of treating capture alone as sufficient evidence.
 
 #### Required Files For This Task
 
 - Read before starting validation: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md), [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and the full Story 45 acceptance criteria in this file
-- Save validation evidence under: [test-results/screenshots](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/test-results/screenshots)
+- Save validation evidence under: [playwright-output-local](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local)
 
 #### Subtasks
 
@@ -1564,8 +1564,10 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
    - `DEV-0000045:T9:direct_command_reingest_recorded` during a direct command that mixes `reingest`, `message.markdownFile`, and `message.content`. Expected outcome: the log row shows the direct command `sourceId`, terminal `status`, and `continuedToNextItem: true` for non-fatal terminal outcomes, proving direct-command re-ingest recording and continuation worked.
    - `DEV-0000045:T10:flow_reingest_step_recorded` during a flow that mixes `llm.markdownFile`, a dedicated `reingest` step, and a later step. Expected outcome: the log row shows the flow `stepIndex`, `status`, and `continuedToNextStep: true` for non-fatal terminal outcomes, proving dedicated flow-step re-ingest recording and continuation worked.
    - `DEV-0000045:T11:flow_command_reingest_recorded` during a flow command step whose command file contains `reingest`. Expected outcome: the log row shows `flowName`, `commandName`, `itemIndex`, `status`, and `continuedToNextItem: true` for non-fatal terminal outcomes, proving flow-owned command files reached final re-ingest parity with direct commands.
+   - Take a screenshot of the Logs page after the full Story 45 run has emitted the expected log lines. Expected outcome: the screenshot shows the relevant `DEV-0000045:T1` through `DEV-0000045:T11` rows clearly enough for the agent to verify message text and visible context values, and the page layout remains readable without broken styling or clipped controls.
+   - Take screenshots of every GUI state that can confirm Story 45 acceptance from the front end, including the screen used to start the direct command run, the screen used to start the flow run, and the final visible state after each run completes. Expected outcome: the agent can inspect those screenshots and confirm the UI remained stable, showed the expected run surfaces, and did not regress while the new server-side behavior executed.
    - Confirm the browser debug console stays free of unexpected errors during all of the above runs and that the UI remains stable while logs stream in, including the Logs page and the normal command/flow screens.
-   Save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/test-results/screenshots/` using names that start with `0000045-task13-`.
+   - Save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/` using names that start with `0000045-task13-`, then review those saved images as part of the acceptance decision. Do not leave screenshot review implicit.
 10. [ ] `npm run compose:down`
 
 #### Implementation notes

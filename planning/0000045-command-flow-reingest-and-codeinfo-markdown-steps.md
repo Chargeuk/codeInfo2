@@ -202,6 +202,7 @@ The live websocket / inflight wrapper should reuse the existing tool-event shape
 ```json
 {
   "type": "tool-result",
+  "callId": "reingest-step-1",
   "name": "reingest_repository",
   "stage": "success",
   "result": {
@@ -228,6 +229,7 @@ The persisted turn-storage wrapper should reuse the existing `Turn.toolCalls` co
   "calls": [
     {
       "type": "tool-result",
+      "callId": "reingest-step-1",
       "name": "reingest_repository",
       "stage": "success",
       "result": {
@@ -253,6 +255,7 @@ These payloads should travel through the existing shapes rather than a new bespo
 - live websocket publication via the existing `tool_event` event shape;
 - inflight snapshots via the existing `inflight_snapshot.inflight.toolEvents` shape;
 - persisted turn storage via the existing `Turn.toolCalls` field, using the same general `{ calls: [...] }` container already used for tool results.
+- every emitted or persisted re-ingest `tool-result` includes a `callId` because the current runtime `ToolEvent` and persisted tool-call shapes already require it. The implementation may synthesize that `callId` for workflow-owned re-ingest steps, but it must stay unique within the assistant turn and stable across the live event and persisted copy of the same result.
 
 Status rules for these existing outer shapes:
 
@@ -322,6 +325,7 @@ Markdown-backed steps do not require a new persisted storage shape. They reuse t
 - Flow-owned command parity: commands executed inside a flow must reuse the parent flow repository context and produce the same markdown and re-ingest behavior as direct command execution. Story 45 must not leave separate per-item logic in `commandsRunner.ts` and flow command execution that can drift over time.
 - Re-ingest never starts: invalid `sourceId`, repository not currently re-ingestable, busy/locked ingest state, unsupported arguments, or other service rejections before a re-ingest terminal payload exists fail the current step immediately. These are not non-fatal terminal re-ingest outcomes.
 - Re-ingest reaches a terminal error-like outcome: timeout, missing run status after launch, unknown terminal state, explicit cancelled, or explicit error must be normalized into the structured re-ingest result payload, recorded through the existing tool-event and `Turn.toolCalls` paths, and then allow the command or flow to continue.
+- Multiple re-ingest results in one run: if a command or flow produces more than one re-ingest result in the same assistant turn, each emitted and persisted `tool-result` must keep its own distinct `callId`. The implementation must not key these payloads only by tool name or later results will overwrite earlier ones.
 - Cancellation during blocking re-ingest: current ingest waiting code does not accept an abort signal, so Story 45 should not promise mid-step interruption of the blocking wait. If cancellation is requested while a re-ingest step is waiting, the request is observed after the blocking call returns and before the next step starts.
 - Unexpected thrown exceptions: if markdown resolution or the blocking re-ingest path throws an unexpected exception instead of returning a structured result, the outer command or flow should fail with a clear error because the runner cannot safely invent a trustworthy terminal step payload.
 - Outer run status versus nested re-ingest status: a recorded re-ingest terminal result of `cancelled` or `error` should map to the nested tool-result payload and outer tool-event stage, but it must not by itself rewrite outer `Turn.status` or websocket `turn_final.status` away from the normal run-level contract when the workflow continues successfully.
@@ -467,5 +471,6 @@ The existing test layout already provides most of the right extension points, so
   - markdown missing in every candidate repository;
   - higher-priority markdown file exists but is unreadable or invalid UTF-8;
   - pre-start re-ingest rejection versus post-start terminal `error` result;
+  - distinct `callId` values when multiple re-ingest results are recorded in one run;
   - cancellation requested while a blocking re-ingest step is already waiting.
 - Reuse temporary test directories and existing fixture patterns (`server/src/test/fixtures/flows`, temp `codex_agents/.../commands` folders) instead of adding a large permanent fixture set up front.

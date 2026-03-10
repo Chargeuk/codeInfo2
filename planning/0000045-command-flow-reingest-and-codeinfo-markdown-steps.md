@@ -488,9 +488,11 @@ Update the command JSON parsing layer so Story 45's new command item shapes are 
 
 #### Documentation Locations
 
-- Zod documentation: https://zod.dev/
-- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html
-- Node.js test runner documentation: https://nodejs.org/api/test.html
+- Zod documentation: https://zod.dev/ - use for discriminated unions, strict object parsing, and `superRefine`-style XOR validation between `content` and `markdownFile`.
+- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html - use for updating command-item types so narrowed branches compile after schema expansion.
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for extending the existing `node:test` schema coverage in the server unit tests.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
 
 #### Critical Task Rules
 
@@ -542,9 +544,11 @@ Update the flow JSON parsing layer so Story 45's new flow step shapes are accept
 
 #### Documentation Locations
 
-- Zod documentation: https://zod.dev/
-- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html
-- Node.js test runner documentation: https://nodejs.org/api/test.html
+- Zod documentation: https://zod.dev/ - use for discriminated unions, strict object parsing, and XOR validation between `messages` and `markdownFile`.
+- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html - use for updating the expanded flow-step union and downstream narrowing in runtime code.
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for extending the existing `node:test` flow schema coverage.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
 
 #### Critical Task Rules
 
@@ -597,10 +601,12 @@ Create the shared markdown-file lookup and decoding helper that all later markdo
 
 #### Documentation Locations
 
-- Node.js path documentation: https://nodejs.org/api/path.html
-- Node.js file system documentation: https://nodejs.org/api/fs.html
-- Node.js `util.TextDecoder` documentation: https://nodejs.org/api/util.html#class-utiltextdecoder
-- Node.js test runner documentation: https://nodejs.org/api/test.html
+- Node.js path documentation: https://nodejs.org/api/path.html - use for safe relative-path validation, normalization, and escape prevention under `codeinfo_markdown`.
+- Node.js file system documentation: https://nodejs.org/api/fs.html - use for reading markdown files as raw bytes and handling file-missing versus file-read failures correctly.
+- Node.js `util.TextDecoder` documentation: https://nodejs.org/api/util.html#class-utiltextdecoder - use for strict UTF-8 decoding with fatal error handling so invalid bytes fail clearly.
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for writing the resolver-focused `node:test` unit coverage in this task.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
 
 #### Critical Task Rules
 
@@ -659,9 +665,10 @@ Teach the direct command runner to execute markdown-backed `message` items witho
 
 #### Documentation Locations
 
-- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html
-- Node.js test runner documentation: https://nodejs.org/api/test.html
-- npm workspaces documentation: https://docs.npmjs.com/cli/v7/using-npm/workspaces
+- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html - use for narrowing between command `message` items that carry `content` versus `markdownFile`.
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for the direct-command unit and integration tests extended in this task.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
 
 #### Critical Task Rules
 
@@ -716,9 +723,10 @@ Teach the flow runner to execute markdown-backed `llm` steps using the shared ma
 
 #### Documentation Locations
 
-- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html
-- Node.js test runner documentation: https://nodejs.org/api/test.html
-- npm workspaces documentation: https://docs.npmjs.com/cli/v7/using-npm/workspaces
+- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html - use for handling flow `llm` steps that now branch between `messages` and `markdownFile`.
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for the integration tests that prove flow markdown execution and fallback ordering.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
 
 #### Critical Task Rules
 
@@ -767,9 +775,10 @@ Make flow command steps execute command `message` items through the same markdow
 
 #### Documentation Locations
 
-- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html
-- Node.js test runner documentation: https://nodejs.org/api/test.html
-- npm workspaces documentation: https://docs.npmjs.com/cli/v7/using-npm/workspaces
+- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html - use for shared command-item helpers that must narrow message-item variants safely in both direct-command and flow-command paths.
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for the flow-command integration tests extended in this task.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
 
 #### Critical Task Rules
 
@@ -827,9 +836,12 @@ Implement the shared runtime helper or code path that converts re-ingest termina
 
 #### Documentation Locations
 
-- Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html
-- Node.js test runner documentation: https://nodejs.org/api/test.html
-- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html
+- Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html - use for confirming that `Schema.Types.Mixed` is the correct existing persistence slot for nested `toolCalls` payloads.
+- `ws` package documentation: https://github.com/websockets/ws/blob/master/doc/ws.md - use for understanding the underlying WebSocket server behavior that the repo’s publish helpers sit on top of.
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for the payload-builder unit tests extended in this task.
+- TypeScript union and narrowing documentation: https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html - use for shaping the shared payload builder types and wrapper contracts.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
 
 #### Critical Task Rules
 
@@ -885,9 +897,11 @@ Implement the shared non-agent runtime lifecycle that direct commands and dedica
 
 #### Documentation Locations
 
-- Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html
-- Node.js test runner documentation: https://nodejs.org/api/test.html
-- npm workspaces documentation: https://docs.npmjs.com/cli/v7/using-npm/workspaces
+- Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html - use for confirming that assistant-turn `toolCalls` persistence continues to use the existing mixed schema slot.
+- `ws` package documentation: https://github.com/websockets/ws/blob/master/doc/ws.md - use for understanding the underlying WebSocket server behavior that the repo’s publish helpers sit on top of.
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for the lifecycle-focused unit tests extended in this task.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
 
 #### Critical Task Rules
 
@@ -943,9 +957,11 @@ Teach the direct command runner to execute `reingest` items once, record their s
 
 #### Documentation Locations
 
-- Node.js test runner documentation: https://nodejs.org/api/test.html
-- Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html
-- npm workspaces documentation: https://docs.npmjs.com/cli/v7/using-npm/workspaces
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for the direct-command unit and integration tests that prove `reingest` behavior.
+- Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html - use for confirming that direct-command reingest results persist through the existing mixed `toolCalls` slot.
+- `ws` package documentation: https://github.com/websockets/ws/blob/master/doc/ws.md - use for understanding the underlying WebSocket server behavior that the repo’s publish helpers sit on top of.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
 
 #### Critical Task Rules
 
@@ -1004,9 +1020,11 @@ Teach the flow runner to execute dedicated `reingest` steps and to respect Story
 
 #### Documentation Locations
 
-- Node.js test runner documentation: https://nodejs.org/api/test.html
-- Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html
-- npm workspaces documentation: https://docs.npmjs.com/cli/v7/using-npm/workspaces
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for the flow integration tests that prove dedicated `reingest` step behavior.
+- Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html - use for confirming that dedicated flow-step reingest results persist through the existing mixed `toolCalls` slot.
+- `ws` package documentation: https://github.com/websockets/ws/blob/master/doc/ws.md - use for understanding the underlying WebSocket server behavior that the repo’s publish helpers sit on top of.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
 
 #### Critical Task Rules
 
@@ -1068,9 +1086,11 @@ Finish Story 45’s parity work by making flow-owned command files execute `rein
 
 #### Documentation Locations
 
-- Node.js test runner documentation: https://nodejs.org/api/test.html
-- Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html
-- npm workspaces documentation: https://docs.npmjs.com/cli/v7/using-npm/workspaces
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for the flow-command integration tests that prove `reingest` item parity.
+- Mongoose SchemaTypes documentation: https://mongoosejs.com/docs/schematypes.html - use for confirming that flow-command-step reingest results persist through the existing mixed `toolCalls` slot.
+- `ws` package documentation: https://github.com/websockets/ws/blob/master/doc/ws.md - use for understanding the underlying WebSocket server behavior that the repo’s publish helpers sit on top of.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose wrapper verification steps that build and start the stack during testing.
 
 #### Critical Task Rules
 
@@ -1122,9 +1142,9 @@ Update the permanent documentation after the implementation tasks are complete s
 
 #### Documentation Locations
 
-- Mermaid documentation: https://mermaid.js.org/intro/
-- Markdown Guide: https://www.markdownguide.org/basic-syntax/
-- Docker Compose documentation: https://docs.docker.com/compose/
+- Mermaid documentation: https://mermaid.js.org/intro/ - use if design diagrams need updating so the syntax in `design.md` stays valid.
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ - use for the markdown formatting of README and design updates introduced by this story.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for documenting the compose-based validation workflow accurately in permanent repo docs.
 
 #### Critical Task Rules
 
@@ -1167,10 +1187,12 @@ Verify the complete story against the acceptance criteria after all earlier task
 
 #### Documentation Locations
 
-- Playwright introduction: https://playwright.dev/docs/intro
-- Playwright Docker guidance: https://playwright.dev/docs/docker
-- Docker Compose documentation: https://docs.docker.com/compose/
-- Node.js test runner documentation: https://nodejs.org/api/test.html
+- Playwright introduction: https://playwright.dev/docs/intro - use for the manual and automated browser validation flow required in this final task.
+- Playwright Docker guidance: https://playwright.dev/docs/docker - use for understanding how browser validation behaves inside the compose-driven environment.
+- Cucumber continuous integration guide: https://cucumber.io/docs/guides/continuous-integration/ - use for the cucumber validation run because this task executes the existing cucumber suite and relies on its exit-status-based pass/fail behavior.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose build/up/down validation sequence required in this final task.
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for the full server unit validation run that is part of the final acceptance check.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped build and validation commands listed in this task.
 
 #### Critical Task Rules
 

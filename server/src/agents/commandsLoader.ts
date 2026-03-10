@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import path from 'node:path';
 
 import type { AgentCommandFile } from './commandsSchema.js';
 import { parseAgentCommandFile } from './commandsSchema.js';
@@ -13,7 +14,9 @@ export async function loadAgentCommandFile(params: {
     .catch(() => null);
   if (!jsonText) return { ok: false };
 
-  return parseAgentCommandFile(jsonText);
+  return parseAgentCommandFile(jsonText, {
+    commandName: path.parse(params.filePath).name,
+  });
 }
 
 export async function loadAgentCommandSummary(params: {

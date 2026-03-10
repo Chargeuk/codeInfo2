@@ -1,11 +1,13 @@
 import { z } from 'zod';
 
+import { append } from '../logStore.js';
+
 const trimmedNonEmptyString = z
   .string()
   .transform((value) => value.trim())
   .refine((value) => value.length > 0);
 
-const AgentCommandMessageItemSchema = z
+const AgentCommandMessageContentItemSchema = z
   .object({
     type: z.literal('message'),
     role: z.literal('user'),
@@ -13,18 +15,50 @@ const AgentCommandMessageItemSchema = z
   })
   .strict();
 
-const AgentCommandFileSchema = z
+const AgentCommandMessageMarkdownFileItemSchema = z
   .object({
-    Description: trimmedNonEmptyString,
-    items: z.array(AgentCommandMessageItemSchema).min(1),
+    type: z.literal('message'),
+    role: z.literal('user'),
+    markdownFile: trimmedNonEmptyString,
   })
   .strict();
 
-export type AgentCommandItem = z.infer<typeof AgentCommandMessageItemSchema>;
+const AgentCommandMessageItemSchema = z.union([
+  AgentCommandMessageContentItemSchema,
+  AgentCommandMessageMarkdownFileItemSchema,
+]);
+
+const AgentCommandReingestItemSchema = z
+  .object({
+    type: z.literal('reingest'),
+    sourceId: trimmedNonEmptyString,
+  })
+  .strict();
+
+const AgentCommandItemSchema = z.union([
+  AgentCommandMessageItemSchema,
+  AgentCommandReingestItemSchema,
+]);
+
+const AgentCommandFileSchema = z
+  .object({
+    Description: trimmedNonEmptyString,
+    items: z.array(AgentCommandItemSchema).min(1),
+  })
+  .strict();
+
+export type AgentCommandMessageItem = z.infer<
+  typeof AgentCommandMessageItemSchema
+>;
+export type AgentCommandReingestItem = z.infer<
+  typeof AgentCommandReingestItemSchema
+>;
+export type AgentCommandItem = z.infer<typeof AgentCommandItemSchema>;
 export type AgentCommandFile = z.infer<typeof AgentCommandFileSchema>;
 
 export function parseAgentCommandFile(
   jsonText: string,
+  metadata?: { commandName?: string },
 ): { ok: true; command: AgentCommandFile } | { ok: false } {
   let raw: unknown;
   try {
@@ -35,6 +69,28 @@ export function parseAgentCommandFile(
 
   const parsed = AgentCommandFileSchema.safeParse(raw);
   if (!parsed.success) return { ok: false };
+
+  const commandName = metadata?.commandName?.trim() || '(unknown)';
+  for (const [itemIndex, item] of parsed.data.items.entries()) {
+    const instructionSource =
+      item.type === 'message'
+        ? 'markdownFile' in item
+          ? 'markdownFile'
+          : 'content'
+        : 'reingest';
+    append({
+      level: 'info',
+      message: 'DEV-0000045:T1:command_schema_item_parsed',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        commandName,
+        itemIndex,
+        itemType: item.type,
+        instructionSource,
+      },
+    });
+  }
 
   return { ok: true, command: parsed.data };
 }

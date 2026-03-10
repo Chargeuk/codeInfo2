@@ -236,7 +236,13 @@ export async function runAgentCommandRunner(
       if (combinedSignal.aborted) break;
 
       const item = command.items[i];
-      const originalInstruction = item.content.join('\n');
+      if (item.type !== 'message') {
+        throw new Error(
+          `Command item type ${item.type} is not executable until Story 45 runtime tasks are implemented.`,
+        );
+      }
+      const originalInstruction =
+        'content' in item ? item.content.join('\n') : item.markdownFile;
 
       const stepMeta = {
         name: commandName,

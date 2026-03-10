@@ -591,7 +591,13 @@ export async function startAgentCommand(params: {
     modelId =
       configuredModelId ?? existingConversation?.model ?? 'gpt-5.1-codex-max';
 
-    const firstInstruction = parsed.command.items[0]?.content?.join('\n') ?? '';
+    const firstItem = parsed.command.items[0];
+    const firstInstruction =
+      firstItem?.type === 'message'
+        ? 'content' in firstItem
+          ? firstItem.content.join('\n')
+          : firstItem.markdownFile
+        : '';
     const title =
       firstInstruction.trim().slice(0, 80) || 'Command: ' + commandName;
 

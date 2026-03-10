@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import type { CodexOptions } from '@openai/codex-sdk';
 
+import type { AgentCommandFile } from '../agents/commandsSchema.js';
 import { loadAgentCommandFile } from '../agents/commandsLoader.js';
 import { resolveAgentRuntimeExecutionConfig } from '../agents/config.js';
 import { discoverAgents } from '../agents/discovery.js';
@@ -1599,7 +1600,7 @@ type LoadCommandResult =
   | {
       ok: true;
       commandName: string;
-      command: { items: Array<{ content: string[] }> };
+      command: AgentCommandFile;
       sourceId: string;
       sourceLabel: string;
       sourceRank: 'same_source' | 'codeinfo2' | 'other';
@@ -2364,7 +2365,15 @@ async function runFlowUnlocked(params: {
         if (await stopCommandBeforeHandoff()) {
           return 'stopped';
         }
-        const instruction = joinMessageContent(item.content);
+        if (item.type !== 'message') {
+          throw new Error(
+            `Flow command item type ${item.type} is not executable until Story 45 runtime tasks are implemented.`,
+          );
+        }
+        const instruction =
+          'content' in item
+            ? joinMessageContent(item.content)
+            : item.markdownFile;
         const result = await runInstruction({
           agentType: step.agentType,
           identifier: step.identifier,

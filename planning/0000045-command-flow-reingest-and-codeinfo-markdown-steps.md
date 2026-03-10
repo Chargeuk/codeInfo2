@@ -216,46 +216,118 @@ None. The command-file compatibility and markdown-path decisions are now fixed f
 
 ## Implementation Ideas
 
-- Extend `server/src/agents/commandsSchema.ts` so command `items` become a discriminated union of:
-  - existing `message` items, now with XOR validation between `content` and `markdownFile`;
-  - new `reingest` items.
-- Extend `server/src/flows/flowSchema.ts` with:
-  - existing `llm` steps, now with XOR validation between `messages` and `markdownFile`;
+### 1. Schema Surface And Parsing
+
+The schema work should stay close to the existing file shapes instead of introducing a second migration.
+
+- Update `server/src/agents/commandsSchema.ts` so command `items` become a discriminated union of:
+  - existing `message` items, extended to allow exactly one of `content` or `markdownFile`;
+  - new `reingest` items with `sourceId`.
+- Update `server/src/flows/flowSchema.ts` so the flow step union gains:
+  - existing `llm` steps, extended to allow exactly one of `messages` or `markdownFile`;
   - new `reingest` steps;
   - unchanged `command`, `break`, and `startLoop` steps.
-- Because this repository is on `zod` `3.25.76`, implement XOR validation with explicit schema refinement or object unions rather than relying on `z.xor`.
-- Keep command files on `Description + items[]` and evolve `items` in place instead of introducing a new top-level command `steps[]` migration.
-- Reuse `server/src/ingest/reingestService.ts` for blocking re-ingest execution instead of reimplementing polling logic in command or flow runners.
-- Introduce one shared markdown resolution helper so commands and flows do not drift. That helper should:
-  - validate safe relative `markdownFile` paths;
-  - build candidate repositories using the existing deterministic flow repository ordering;
+- Keep the existing command top-level shape `{ Description, items }` and the existing flow top-level shape `{ description?, steps }`.
+- Because the repository is on `zod` `3.25.76`, implement the XOR rules with explicit object unions and/or `superRefine` instead of relying on `z.xor`.
+- Keep `server/src/agents/commandsLoader.ts` and flow file loading behavior simple: parsing should remain responsible for schema validation, while file-content resolution for `markdownFile` should happen at execution time.
+
+### 2. Shared Markdown Resolver
+
+This story needs one shared server-side helper for file lookup and decoding so direct commands, flow `llm` steps, and flow-invoked commands all behave the same way.
+
+- Add one shared markdown resolver helper in the server codebase, ideally near the existing flow repository-resolution logic, for example `server/src/flows/markdownResolver.ts`.
+- That helper should:
+  - validate that `markdownFile` is a safe relative path under `codeinfo_markdown`;
+  - reject empty paths, absolute paths, `..` traversal, and any normalized path that escapes the root;
+  - build candidate repositories using the existing deterministic ordering already present in `server/src/flows/service.ts`;
   - continue on missing files only;
-  - fail immediately on read or decode errors once a candidate file exists;
-  - decode markdown with strict UTF-8 handling so invalid bytes raise a clear error;
-  - return the exact UTF-8 text without trimming.
-- Base repository ordering on the existing deterministic flow repository ordering in `server/src/flows/service.ts`.
-- Thread repository context into command markdown resolution only where that context already exists:
+  - fail immediately once a candidate file exists but cannot be read or decoded;
+  - read bytes and decode with strict UTF-8 handling so invalid bytes fail clearly;
+  - return the exact file text without trimming, newline rewriting, or markdown-specific preprocessing.
+- Repository context should be threaded into this helper only where that context already exists:
   - direct command runs use codeInfo2 only;
+  - flow `llm` steps use the current flow repository context;
   - flow-invoked commands reuse the parent flow repository context.
-- Keep the existing command `message.content` path and flow `llm.messages` path untouched for backward compatibility.
-- For flows, integrate the new behavior into the existing step execution loop in `server/src/flows/service.ts`.
-- For flow `llm` markdown support, resolve the file into one instruction string and run it once through the existing agent-turn execution path.
-- For commands, extend the current command runner in `server/src/agents/commandsRunner.ts` while preserving start-step, retry, and cancellation behavior for AI message steps only.
-- For command and flow re-ingest steps, bypass AI retry prompt injection and execute one blocking re-ingest call per step.
-- Reuse the existing conversation/run result patterns so re-ingest step outcomes are visible in a structured way without inventing a second bespoke status system.
-- Add tests for:
-  - command schema validation for `message.content` XOR `message.markdownFile`;
-  - flow schema validation for `llm.messages` XOR `llm.markdownFile`;
-  - direct-command markdown resolution from codeInfo2 when no repository context exists;
-  - flow-invoked command markdown resolution using the parent flow repository context;
-  - verbatim markdown pass-through;
-  - invalid UTF-8 markdown failure;
-  - same-source markdown success;
+
+### 3. Command Execution Path
+
+Direct command execution already has the right outer structure in `server/src/agents/commandsRunner.ts`. The work here is mainly about branching per item type without breaking existing retry and stop behavior for AI instruction steps.
+
+- Keep the current sequential `for` loop and existing step metadata (`stepIndex`, `totalSteps`, `command.name`) intact.
+- For `message` items:
+  - preserve the existing `content.join('\\n')` path for backward compatibility;
+  - add a `markdownFile` branch that resolves one markdown file into one instruction string and then calls the existing `runAgentInstructionUnlocked(...)` path once.
+- For `reingest` items:
+  - bypass AI retry prompt injection and do not route through `runWithRetry`;
+  - call `server/src/ingest/reingestService.ts` once with the declared `sourceId`;
+  - record the terminal result in a structured way and then continue to the next command item.
+- The runner signature will likely need one small extension so command execution can optionally receive repository context from flows without inventing a new REST/MCP surface for direct commands.
+
+### 4. Flow Execution Path
+
+The flow runner already has a step dispatcher in `server/src/flows/service.ts`, and that is the right place to keep step-type behavior explicit.
+
+- Extend the flow execution loop so it recognizes the new `reingest` step type alongside `llm`, `break`, `command`, and `startLoop`.
+- Extend `runLlmStep(...)` so the `markdownFile` branch resolves one markdown file into one instruction string and sends it once through the existing agent-turn execution path.
+- Add a dedicated `runReingestStep(...)` helper that wraps the blocking re-ingest service and returns a non-fatal terminal outcome for `completed`, `cancelled`, or `error`.
+- Keep the existing flow resume and loop bookkeeping unchanged. This story should add new step behavior, not new pause/resume machinery.
+
+### 5. Shared Command-Item Execution Between Direct Commands And Flow Command Steps
+
+Direct commands and flow command steps cannot drift here. Current repository evidence shows that flow command steps do not delegate to `runAgentCommandRunner(...)`; instead, `server/src/flows/service.ts` loads the command file and iterates `command.items` itself.
+
+- Extract a shared command-item execution helper, or otherwise centralize the per-item behavior, so both of these call sites use the same logic:
+  - `server/src/agents/commandsRunner.ts`;
+  - flow command execution inside `server/src/flows/service.ts`.
+- That shared behavior should cover:
+  - `message.content` execution;
+  - `message.markdownFile` execution;
+  - `reingest` item execution;
+  - repository-context-aware markdown resolution;
+  - structured result recording for non-message items.
+- Keeping this logic shared is important because Story 45 changes command items themselves, not just direct command execution.
+
+### 6. Re-Ingest Result Recording
+
+The implementation should reuse existing command/turn/flow result patterns before inventing a new persistence shape.
+
+- Reuse `server/src/ingest/reingestService.ts` as the single source of truth for:
+  - `sourceId` validation;
+  - blocking wait behavior;
+  - terminal status mapping, including internal `skipped` -> public `completed`;
+  - final result fields such as `runId`, counters, and `errorCode`.
+- Record re-ingest results in a structured form that fits the current server conventions:
+  - preserve existing command metadata where it already exists;
+  - surface enough structured data for logs, debugging, and later UI inspection;
+  - avoid creating a brand-new persistence model unless current turn/run metadata truly cannot carry the required information.
+- Keep invalid step configuration as pre-run validation failure, but once a re-ingest step starts successfully, treat terminal outcomes as non-fatal to the rest of the command or flow.
+
+### 7. Tests, Fixtures, And Regression Coverage
+
+The existing test layout already provides most of the right extension points, so the rough implementation plan should target those files rather than inventing a parallel test structure.
+
+- Extend existing unit schema tests:
+  - `server/src/test/unit/agent-commands-schema.test.ts`;
+  - `server/src/test/unit/flows-schema.test.ts`.
+- Extend command runner unit coverage:
+  - `server/src/test/unit/agent-commands-runner.test.ts`;
+  - existing retry-focused runner tests if they need assertions for the non-retryable `reingest` branch.
+- Reuse existing re-ingest service unit coverage in `server/src/test/unit/reingestService.test.ts` for the terminal contract, especially `skipped` -> `completed`.
+- Add focused unit coverage for the new markdown resolver helper, including:
+  - direct-command codeInfo2 resolution;
+  - flow same-source resolution;
   - codeInfo2 fallback;
-  - deterministic other-repository fallback;
-  - fail-fast behavior when a higher-priority repository contains the file but reading it fails;
-  - blocking re-ingest continuation after completed/cancelled/error outcomes;
-  - non-fatal re-ingest terminal-status continuation;
-  - underlying ingest `skipped` status surfacing as step status `completed`;
-  - re-ingest step executes only once and does not trigger retry prompt injection;
-  - pre-run validation failure for invalid re-ingest `sourceId` values.
+  - deterministic other-repo fallback;
+  - fail-fast on read/decode errors;
+  - invalid UTF-8 failure;
+  - path traversal rejection.
+- Extend integration coverage around existing flow execution tests, especially:
+  - `server/src/test/integration/flows.run.basic.test.ts`;
+  - `server/src/test/integration/flows.run.command.test.ts`;
+  - `server/src/test/integration/flows.run.errors.test.ts`.
+- Add dedicated integration coverage where it keeps the behavior clearer than overloading broad existing tests:
+  - direct command run with `markdownFile`;
+  - flow `llm` step with `markdownFile`;
+  - flow command step executing a command file that contains `markdownFile` and `reingest` items;
+  - non-fatal continuation after `completed`, `cancelled`, and `error` re-ingest outcomes.
+- Reuse temporary test directories and existing fixture patterns (`server/src/test/fixtures/flows`, temp `codex_agents/.../commands` folders) instead of adding a large permanent fixture set up front.

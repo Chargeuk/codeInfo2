@@ -593,7 +593,7 @@ export function codebaseQuestionDefinition() {
   return {
     name: CODEBASE_QUESTION_TOOL_NAME,
     description:
-      'Ask a repository question about the codebase that will be answered by an LLM with access to a vectorised codebase. You MUST use this tool if the user asks you a question about the codebase they are in; returns a final answer segment plus conversationId and modelId for follow-ups.',
+      'Retrieve repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering context from the indexed codebase. After retrieval, inspect the relevant source files directly and do your own reasoning before deciding what to change. Returns a final answer segment plus conversationId and modelId for follow-ups.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,

@@ -10,7 +10,7 @@
         {
           "role": "user",
           "content": [
-            "Please tell me the next plan that has not yet been fully executed - this can be determined by looking for plans containing either: `1. No tasks within the plan.` OR `2. Tasks that are not yet moved to the status of completed.` The lowest indexed story that meets one of these two criteria will be the story we will be working on. Confirm to me what story that is, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
+            "Please tell me the next plan that has not yet been fully executed - this can be determined by looking for plans containing either: `1. No tasks within the plan.` OR `2. Tasks that are not yet moved to the status of completed.` The lowest indexed story that meets one of these two criteria will be the story we will be working on. Follow the repository onboarding and research-order rules, including using code_info first for local repository questions when it is relevant to confirming the next plan, then inspect the planning files directly. Confirm to me what story that is, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
           ]
         }
       ]
@@ -24,7 +24,7 @@
         {
           "role": "user",
           "content": [
-            "Please tell me the next plan that has not yet been fully executed - this can be determined by looking for plans containing either: `1. No tasks within the plan.` OR `2. Some or all tasks that are not yet moved to the status of completed.` The lowest indexed story that meets one of these two criteria will be the story we will be working on. Confirm to me what story that is, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
+            "Please tell me the next plan that has not yet been fully executed - this can be determined by looking for plans containing either: `1. No tasks within the plan.` OR `2. Some or all tasks that are not yet moved to the status of completed.` The lowest indexed story that meets one of these two criteria will be the story we will be working on. Follow the repository onboarding and research-order rules, including using code_info first for local repository questions when it is relevant to confirming the next plan, then inspect the planning files directly. Confirm to me what story that is, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
           ]
         }
       ]

@@ -130,6 +130,7 @@ Use this document for API contracts, protocol details, and advanced runtime beha
   - Express `POST /mcp` (ingest tooling: `ListIngestedRepositories`, `VectorSearch`, `reingest_repository`).
   - MCP v2 JSON-RPC server on `MCP_PORT` (tooling: `codebase_question`, `reingest_repository`, documented under **MCP v2 tools** below).
     Their response conventions differ and must remain stable; shared MCP infrastructure lives under `server/src/mcpCommon/`.
+- Retrieval boundary: treat `codebase_question` / `code_info` as a repository-search helper for repository facts, likely file locations, summaries of existing implementations, and current contracts. After retrieval, inspect the relevant source files directly and do your own reasoning; the tool reduces search cost, but it does not replace implementation design, risk assessment, or review by the working model.
 - Config: `config.toml.example` seeds `[mcp_servers]` entries `codeinfo_host` and `codeinfo_docker` pointing at the URLs above when the server first runs.
 - Required methods: `initialize` → `tools/list` → `tools/call`.
 - Quick smoke (host):

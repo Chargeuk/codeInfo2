@@ -267,9 +267,7 @@ export class ChatInterfaceLMStudio extends ChatInterface {
       (newestTurnEnd?.role === 'user' && newestTurnEnd.content === message);
 
     const chatHistory = [
-      ...(SYSTEM_CONTEXT
-        ? [{ role: 'system', content: SYSTEM_CONTEXT }]
-        : []),
+      ...(SYSTEM_CONTEXT ? [{ role: 'system', content: SYSTEM_CONTEXT }] : []),
       ...storedTurns.map((turn) => ({
         role: turn.role,
         content: turn.content,

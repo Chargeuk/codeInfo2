@@ -513,8 +513,9 @@ Update the command JSON parsing layer so Story 45's new command item shapes are 
    - `message.content`;
    - `message.markdownFile`;
    - `reingest`;
+   - empty-string `markdownFile` rejection;
    - both/neither XOR failures;
-   - unexpected extra keys.
+   - unexpected extra keys, including unknown keys on `reingest` items.
 5. [ ] Update this story file’s Task 1 `Implementation notes` section after the code and tests for this task are complete.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
@@ -570,8 +571,9 @@ Update the flow JSON parsing layer so Story 45's new flow step shapes are accept
    - `llm.markdownFile`;
    - `reingest`;
    - flows that contain only `reingest` steps;
+   - empty-string `markdownFile` rejection;
    - both/neither XOR failures;
-   - unexpected extra keys.
+   - unexpected extra keys, including unknown keys on `reingest` steps.
 5. [ ] Update this story file’s Task 2 `Implementation notes` section after the code and tests for this task are complete.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
@@ -630,9 +632,11 @@ Create the shared markdown-file lookup and decoding helper that all later markdo
    - same-source flow lookup;
    - codeInfo2 fallback;
    - deterministic other-repo fallback;
+   - valid root-level and nested-subpath lookups under `codeinfo_markdown`;
+   - valid UTF-8 markdown containing non-ASCII characters being returned verbatim;
    - deterministic tie-breaking when multiple fallback repositories share the same case-insensitive source label and file path names differ only by repository path;
    - all-candidates-missing failure;
-   - unreadable-file fail-fast behavior;
+   - unreadable-file fail-fast behavior, including an explicit permission/read-error case rather than only file-missing coverage;
    - invalid UTF-8 failure;
    - path traversal rejection.
 5. [ ] If this task adds a new resolver file or test file, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after those file additions are complete.
@@ -688,6 +692,8 @@ Teach the direct command runner to execute markdown-backed `message` items witho
 4. [ ] Extend [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts) to prove:
    - a markdown-backed direct command executes exactly one instruction;
    - the loaded markdown is passed through verbatim;
+   - multiple `message.markdownFile` items in one direct command run execute in order and remain distinct instructions;
+   - a direct command that mixes `message.markdownFile` and `message.content` items preserves item ordering and keeps the existing inline-content behavior;
    - a markdown file not found or not decodable fails the command step clearly;
    - an unexpected markdown-resolver exception fails the command clearly instead of being swallowed or converted into empty content;
    - the existing `content` path still behaves unchanged.
@@ -742,10 +748,12 @@ Teach the flow runner to execute markdown-backed `llm` steps using the shared ma
 3. [ ] Keep the current `messages` array behavior unchanged for existing flow `llm` steps, including current retry behavior and current turn persistence for successful and failed agent turns.
 4. [ ] Extend [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) to prove:
    - same-source markdown resolution works for a flow `llm` step;
+   - the loaded markdown is passed through verbatim as one instruction string;
    - fallback to codeInfo2 or other repositories follows the documented deterministic order;
    - a higher-priority unreadable markdown file fails the step instead of falling through to a lower-priority repository;
    - deterministic duplicate-label fallback still chooses the repository ordered by case-insensitive label and then full source path;
-   - missing, undecodable, or unexpectedly thrown markdown-resolution errors fail the step clearly.
+   - missing, undecodable, or unexpectedly thrown markdown-resolution errors fail the step clearly;
+   - a flow can continue to a later step after a successful `llm.markdownFile` step, proving the happy-path sequencing works end to end.
 5. [ ] Update this story file’s Task 5 `Implementation notes` section after the code and tests for this task are complete.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
@@ -802,6 +810,8 @@ Make flow command steps execute command `message` items through the same markdow
 5. [ ] Keep this task focused on `message` items only. Do not add `reingest` item execution in this task.
 6. [ ] Extend [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) to prove:
    - a flow command step can execute a command file containing `message.markdownFile`;
+   - a single flow-owned command file can execute multiple `message.markdownFile` items in order;
+   - a single flow-owned command file can mix `message.markdownFile` and `message.content` items without changing existing inline-content behavior;
    - the parent flow repository context is used for same-source and fallback resolution;
    - a higher-priority unreadable markdown file in the parent flow context fails fast instead of silently falling through;
    - the flow command path does not drift from the direct command `message` behavior for message-item resolution and execution;
@@ -926,7 +936,8 @@ Implement the shared non-agent runtime lifecycle that direct commands and dedica
    - inflight creation before tool-event append/publish and final persistence with populated `toolCalls`;
    - user-turn publication, assistant-turn finalization, and `Turn.toolCalls` persistence using the payload builder from Task 7;
    - normal `Turn.status` / `turn_final.status` handling while detailed re-ingest outcome remains nested;
-   - compatibility with both memory persistence and Mongo persistence paths.
+   - compatibility with both memory persistence and Mongo persistence paths, with explicit assertions that the memory-backed path also retains the structured `toolCalls` payload;
+   - live-event ordering that publishes the re-ingest `tool_event` before the final assistant-turn completion event for the same lifecycle.
 5. [ ] If this task adds a new shared helper file or test file, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
 6. [ ] Update this story file’s Task 8 `Implementation notes` section after the code and tests for this task are complete.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
@@ -987,11 +998,14 @@ Teach the direct command runner to execute `reingest` items once, record their s
    - terminal `completed`, `cancelled`, and `error` outcomes are recorded and allow the next item to run;
    - accepted `skipped` outcomes are recorded as terminal `completed`;
    - a stop/cancel request raised during the blocking wait prevents the next command item from starting after the re-ingest returns;
+   - malformed or unknown `sourceId` values fail as pre-start errors before any later command item starts;
+   - busy/locked pre-start re-ingest rejections stop the command clearly;
    - pre-start failures and unexpected thrown exceptions stop the command clearly.
 4. [ ] Add or update direct integration coverage for a command file that mixes `reingest` and `message` items so the execution order is proven end to end. Include a case with multiple `reingest` items in one direct command run and prove their recorded `callId` values stay distinct.
-5. [ ] Reuse the shared non-agent step emission path from Task 8 so direct-command `reingest` items produce live `tool_event` updates, inflight snapshots, persisted `toolCalls`, and normal assistant turn finalization without inventing a separate direct-command-only persistence shape.
-6. [ ] Update this story file’s Task 9 `Implementation notes` section after the code and tests for this task are complete.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
+5. [ ] Extend that direct integration coverage so one direct command run mixes `reingest`, `message.markdownFile`, and `message.content` items, proving end-to-end ordering and non-fatal continuation through the whole mixed-item sequence.
+6. [ ] Reuse the shared non-agent step emission path from Task 8 so direct-command `reingest` items produce live `tool_event` updates, inflight snapshots, persisted `toolCalls`, and normal assistant turn finalization without inventing a separate direct-command-only persistence shape.
+7. [ ] Update this story file’s Task 9 `Implementation notes` section after the code and tests for this task are complete.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
 #### Testing
 
@@ -1053,10 +1067,13 @@ Teach the flow runner to execute dedicated `reingest` steps and to respect Story
 5. [ ] Extend [flows.run.errors.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts) to prove:
    - post-start `error` and `cancelled` outcomes are recorded but non-fatal;
    - accepted `skipped` outcomes are recorded as terminal `completed`;
+   - malformed or unknown `sourceId` values fail as pre-start errors before any later step starts;
+   - busy/locked pre-start re-ingest rejections stop the flow;
    - pre-start failures and unexpected thrown exceptions stop the flow;
    - a stop/cancel request raised during the blocking wait prevents the next flow step from starting after the re-ingest returns;
    - timeout, missing-run, or unknown terminal results become nested `error` outcomes instead of crashing the run;
-   - a flow that contains only `reingest` steps starts successfully and uses the fallback flow model metadata path.
+   - a flow that contains only `reingest` steps starts successfully and uses the fallback flow model metadata path;
+   - multiple dedicated `reingest` steps in one flow run keep distinct `callId` values even when they target the same `sourceId`.
 6. [ ] Update this story file’s Task 10 `Implementation notes` section after the code and tests for this task are complete.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 
@@ -1111,6 +1128,7 @@ Finish Story 45’s parity work by making flow-owned command files execute `rein
    - a flow command step can execute a command file containing `reingest`;
    - structured results are recorded through the existing tool-event and turn-storage paths;
    - multiple re-ingest results in one run keep distinct `callId` values;
+   - one flow-owned command file can mix `reingest`, `message.markdownFile`, and `message.content` items while preserving item order and non-fatal continuation after terminal re-ingest results;
    - a stop/cancel request raised during the blocking wait prevents later command items or later flow steps from starting after the current re-ingest returns;
    - the shared flow command-item executor preserves the current surrounding retry behavior while still keeping `reingest` items single-attempt within the same command file.
 4. [ ] Update this story file’s Task 11 `Implementation notes` section after the code and tests for this task are complete.
@@ -1227,6 +1245,8 @@ Verify the complete story against the acceptance criteria after all earlier task
 9. [ ] Use Playwright against the running stack to perform a manual end-to-end check for:
    - a direct command that uses `message.markdownFile`;
    - a flow `llm` step that uses `markdownFile`;
+   - a direct command that mixes `reingest`, `message.markdownFile`, and `message.content` items in one run;
+   - a flow that mixes `llm.markdownFile`, a dedicated `reingest` step, and a command step;
    - a direct command or flow step that records a non-fatal re-ingest terminal result;
    - correct UI stability while those server-side behaviors run.
    Save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/test-results/screenshots/` using names that start with `0000045-task13-`.

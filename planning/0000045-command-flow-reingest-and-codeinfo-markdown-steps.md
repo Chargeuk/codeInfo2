@@ -661,7 +661,7 @@ Teach the direct command runner to execute markdown-backed `message` items witho
    - a markdown file not found or not decodable fails the command step clearly;
    - an unexpected markdown-resolver exception fails the command clearly instead of being swallowed or converted into empty content;
    - the existing `content` path still behaves unchanged.
-5. [ ] Update direct-command startup metadata paths in [agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) so command title generation, first-step inspection, and any pre-run assumptions remain safe when the first command item uses `markdownFile` or `reingest` instead of `content`.
+5. [ ] Update direct-command startup metadata paths in [agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) so command title generation, first-step inspection, and any pre-run assumptions remain safe when the first command item uses `markdownFile` or `reingest` instead of `content`. Keep this intentionally simple: do not resolve markdown files at command-start time just to improve the title; a generic `Command: <name>` fallback is acceptable when no inline content exists yet.
 6. [ ] If this task adds direct-command markdown fixtures under temporary agent command folders or permanent fixtures, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) if the permanent repo structure changes.
 7. [ ] Update this story file’s Task 4 `Implementation notes` section after the code and tests for this task are complete.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
@@ -734,7 +734,7 @@ Teach the flow runner to execute markdown-backed `llm` steps using the shared ma
 
 #### Overview
 
-Make flow command steps execute command `message` items through the same markdown-aware logic as direct commands. This task is only about flow-owned command execution for `message` items, so it can be tested independently before any `reingest` item work starts.
+Make flow command steps execute command `message` items through the same markdown-aware logic as direct commands. This task is only about flow-owned command execution for `message` items, so it can be tested independently before any `reingest` item work starts. Keep the change narrow: share message-item resolution and dispatch logic, but do not rework the surrounding flow command-step retry model unless the implementation proves it is strictly necessary.
 
 #### Documentation Locations
 
@@ -747,23 +747,21 @@ Make flow command steps execute command `message` items through the same markdow
 
 1. [ ] Read the current flow command-step execution loop in [service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) and compare it to the direct command path in [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts).
 2. [ ] Do not call [commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts) directly from flow execution. Instead, extract a shared command-item execution helper that both call sites can use while preserving their different lock ownership and outer step orchestration responsibilities.
-3. [ ] Reuse the existing retry utilities instead of inventing new retry logic. The shared command-item execution helper should call:
-   - [runWithRetry()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/retry.ts);
-   - [delayWithAbort()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/retry.ts) when a custom sleep function is not required;
-   - [formatRetryInstruction()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/utils/retryContext.ts);
-   - the existing flow-and-command retry-count config path already used by direct commands.
-4. [ ] Make that shared command-item execution helper retry-aware for `message` items so flow command steps keep parity with direct commands for:
+3. [ ] Keep the existing outer retry behavior on each caller unchanged unless implementation proves otherwise:
+   - direct commands continue to use the current `commandsRunner.ts` retry path;
+   - flow command steps continue to use their current outer flow-step retry path;
+   - the shared helper should focus on message-item instruction preparation and execution dispatch, not on rewriting the surrounding retry model.
+4. [ ] Make that shared command-item execution helper handle the shared `message`-item behavior for:
    - `content` items;
    - `markdownFile` items;
-   - retry prompt injection and retry attempt limits;
    - repository-context-aware resolution when a command is executed from inside a flow.
 5. [ ] Keep this task focused on `message` items only. Do not add `reingest` item execution in this task.
 6. [ ] Extend [flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts) to prove:
    - a flow command step can execute a command file containing `message.markdownFile`;
    - the parent flow repository context is used for same-source and fallback resolution;
    - a higher-priority unreadable markdown file in the parent flow context fails fast instead of silently falling through;
-   - retryable `message` item failures inside a flow command step use the same retry behavior and retry-prompt injection as direct commands;
-   - the flow command path does not drift from the direct command `message` behavior.
+   - the flow command path does not drift from the direct command `message` behavior for message-item resolution and execution;
+   - the existing surrounding retry behavior for direct commands and flow command steps remains intact unless a smaller safe refactor is unavoidable.
 7. [ ] If this task introduces a shared command-item execution module, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after the file is added.
 8. [ ] Update this story file’s Task 6 `Implementation notes` section after the code and tests for this task are complete.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
@@ -1010,7 +1008,7 @@ Teach the flow runner to execute dedicated `reingest` steps and to respect Story
 
 #### Overview
 
-Finish Story 45’s parity work by making flow-owned command files execute `reingest` items through the same single-attempt and structured-result behavior as direct commands. This task is only about `reingest` items inside flow command steps, which keeps the final command-parity work isolated and testable.
+Finish Story 45’s parity work by making flow-owned command files execute `reingest` items through the same single-attempt and structured-result behavior as direct commands. This task is only about `reingest` items inside flow command steps, which keeps the final command-parity work isolated and testable. Keep this narrow as well: reuse the shared command-item execution path, but do not widen the story into a broader retry-model refactor.
 
 #### Documentation Locations
 
@@ -1032,7 +1030,7 @@ Finish Story 45’s parity work by making flow-owned command files execute `rein
    - structured results are recorded through the existing tool-event and turn-storage paths;
    - multiple re-ingest results in one run keep distinct `callId` values;
    - a stop/cancel request raised during the blocking wait prevents later command items or later flow steps from starting after the current re-ingest returns;
-   - the shared flow command-item executor preserves direct-command retry semantics for `message` items and single-attempt semantics for `reingest` items within the same command file.
+   - the shared flow command-item executor preserves the current surrounding retry behavior while still keeping `reingest` items single-attempt within the same command file.
 4. [ ] Update this story file’s Task 11 `Implementation notes` section after the code and tests for this task are complete.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the repo’s fix commands and resolve any remaining issues before marking the task done.
 

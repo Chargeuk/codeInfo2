@@ -21,11 +21,9 @@ For commands, this story keeps the existing top-level `Description + items[]` fi
 
 For markdown files, the user has chosen a repository-level folder named `codeinfo_markdown`, similar to repository `flows` support. Markdown files must be resolved using deterministic repository priority rules instead of ad hoc relative paths:
 
-- same source repository as the running flow or repository-scoped command;
+- same source repository as the running flow or a command executed from inside that flow;
 - then the codeInfo2 repository;
 - then other ingested repositories sorted by case-insensitive source label and then case-insensitive full source path.
-
-For local-only command execution where there is no separate repository source, the same-source and codeInfo2 repository collapse to the same location in the codeInfo2 repository.
 
 Current repository evidence shows that direct command runs do not currently carry a repository `sourceId` the way flows do. To keep this story small and aligned with the existing runner contracts, direct command execution resolves `markdownFile` from the codeInfo2 repository only. Repository-aware command markdown fallback is supported when a command is executed from inside a flow, because the flow already owns the repository context and deterministic repository ordering.
 
@@ -117,7 +115,7 @@ Rules for flow steps:
 1. Validate the requested path.
 2. Reject empty values, absolute paths, `..` traversal, and any normalized path that would escape `codeinfo_markdown`.
 3. Build candidate repositories in this order:
-   - same source repository as the running flow or repository-scoped command;
+   - same source repository as the running flow or a command executed from inside that flow;
    - the codeInfo2 repository;
    - other ingested repositories sorted case-insensitively by source label and then by full source path.
 4. For each candidate, look for `<candidate-root>/codeinfo_markdown/<markdownFile>`.
@@ -125,7 +123,7 @@ Rules for flow steps:
 6. If the file exists but cannot be read, is invalid UTF-8, or fails path validation for that candidate, fail the step immediately instead of silently falling through to another repository.
 7. Use the first successfully read file and pass its bytes through as UTF-8 text exactly as read.
 
-For local-only command execution where there is no separate repository source, "same source repository" and "codeInfo2 repository" mean the same codeInfo2 checkout, so no ambiguous ordering is introduced.
+For direct command execution outside a flow, codeInfo2 is the only repository root consulted. For flow-owned command execution, the same-source and codeInfo2 roots may collapse to the same checkout when the flow itself is running from codeInfo2.
 
 #### Re-Ingest Step Result Contract
 
@@ -196,7 +194,7 @@ For re-ingest steps, emit and persist a `tool-result` style payload using the ex
 }
 ```
 
-The full wrapper contract for that payload should look like this when it moves through the existing tool-event / `Turn.toolCalls` path:
+The live websocket / inflight wrapper should reuse the existing tool-event shape:
 
 ```json
 {
@@ -215,11 +213,39 @@ The full wrapper contract for that payload should look like this when it moves t
     "embedded": 42,
     "errorCode": null
   },
-  "error": null
+  "errorTrimmed": null,
+  "errorFull": null
 }
 ```
 
-That payload should travel through the existing shapes rather than a new bespoke one:
+The persisted turn-storage wrapper should reuse the existing `Turn.toolCalls` container shape:
+
+```json
+{
+  "calls": [
+    {
+      "type": "tool-result",
+      "name": "reingest_repository",
+      "stage": "success",
+      "result": {
+        "kind": "reingest_step_result",
+        "stepType": "reingest",
+        "sourceId": "/workspace/repository",
+        "status": "completed",
+        "operation": "reembed",
+        "runId": "ingest-123",
+        "files": 10,
+        "chunks": 42,
+        "embedded": 42,
+        "errorCode": null
+      },
+      "error": null
+    }
+  ]
+}
+```
+
+These payloads should travel through the existing shapes rather than a new bespoke one:
 
 - live websocket publication via the existing `tool_event` event shape;
 - inflight snapshots via the existing `inflight_snapshot.inflight.toolEvents` shape;
@@ -259,7 +285,7 @@ Markdown-backed steps do not require a new persisted storage shape. They reuse t
 - Re-ingest step execution is single-attempt. It does not participate in AI retry prompt injection and does not automatically trigger a second re-ingest run after a terminal result.
 - Story 45 does not add a new top-level websocket event type, a new websocket protocol version, or a new Mongo collection for workflow step results.
 - Story 45 does not add a new top-level conversation `flags` key for these synchronous steps.
-- Re-ingest step results are carried inside the existing tool-event / `Turn.toolCalls` path as structured nested data rather than through a bespoke top-level message contract.
+- Re-ingest step results are carried inside the existing tool-event and `Turn.toolCalls` paths as structured nested data rather than through a bespoke top-level message contract.
 - Existing outer run-level statuses remain unchanged:
   - `Turn.status` stays `ok | stopped | failed`;
   - websocket `turn_final.status` stays `ok | stopped | failed`;

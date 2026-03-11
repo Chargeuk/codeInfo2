@@ -1766,7 +1766,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 
 ### 15. Re-Validate Story 45 After Review Fixes
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1793,27 +1793,31 @@ Re-run the full Story 45 acceptance validation after the review-driven fixes are
 
 #### Subtasks
 
-1. [ ] Re-read the full Story 45 acceptance criteria and confirm Task 14 is marked done before starting this validation rerun.
-2. [ ] Re-run the full wrapper validation for the reopened Story 45 scope and confirm the full server suite still completes cleanly.
-3. [ ] Re-check the manual acceptance evidence needed for Story 45, including the direct-command rejection/failure behavior addressed by the review fix.
-4. [ ] Update this story file’s Task 15 `Implementation notes` section after the full validation rerun is complete.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Re-read the full Story 45 acceptance criteria and confirm Task 14 is marked done before starting this validation rerun.
+2. [x] Re-run the full wrapper validation for the reopened Story 45 scope and confirm the full server suite still completes cleanly.
+3. [x] Re-check the manual acceptance evidence needed for Story 45, including the direct-command rejection/failure behavior addressed by the review fix.
+4. [x] Update this story file’s Task 15 `Implementation notes` section after the full validation rerun is complete.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Use only the summary wrappers listed below. Do not attempt to run builds or tests without a wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run test:summary:server:unit`
-3. [ ] `npm run test:summary:server:cucumber`
-4. [ ] `npm run build:summary:client`
-5. [ ] `npm run test:summary:client`
-6. [ ] `npm run test:summary:e2e`
-7. [ ] `npm run compose:build:summary`
-8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP acceptance rerun
-10. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server`
+2. [x] `npm run test:summary:server:unit`
+3. [x] `npm run test:summary:server:cucumber`
+4. [x] `npm run build:summary:client`
+5. [x] `npm run test:summary:client`
+6. [x] `npm run test:summary:e2e`
+7. [x] `npm run compose:build:summary`
+8. [x] `npm run compose:up`
+9. [x] Manual Playwright-MCP acceptance rerun
+10. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Subtasks 1-5: Re-read the full Story 45 acceptance criteria plus the Task 14 follow-up rules before rerunning validation, then completed the full wrapper validation sweep and final lint/format checks without reopening any earlier implementation tasks.
+- Testing 1-7: `npm run build:summary:server`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run build:summary:client`, `npm run test:summary:client`, `npm run test:summary:e2e`, and `npm run compose:build:summary` all passed cleanly during the Task 15 rerun; the wrapper evidence was `1137` server unit tests passed with `0` failures, `68` server cucumber tests passed with `0` failures, and `523` client tests passed with `0` failures.
+- Testing 8-9 / Subtask 3: `npm run compose:up` brought the validation stack up cleanly, and the manual Playwright-MCP rerun confirmed that read-only `/agents`, `/flows`, and `/logs` browsing did not emit Story 45 T1/T2 parser logs before execution, while an invalid direct-command `reingest` run failed visibly in the UI with `sourceId must match an existing ingested repository root exactly` instead of hanging after the background `202` start response.
+- Testing 9 / Subtask 3: Saved browser evidence under `playwright-output-local`, including `0000045-task15-logs-no-noise.png`, `0000045-task15-agents-start.png`, `0000045-task15-agents-complete.png`, and `0000045-task15-flows-start.png`; the only browser-console issue observed during the rerun was the same transient `404` for `/conversations/<id>/turns`, so no new Story 45 regression was identified.
+- Testing 10: `npm run compose:down` completed cleanly after the manual acceptance rerun, and the temporary local-only validation fixtures created for Task 15 (`codex_agents/coding_agent/commands/0000045_task15_reingest_rejection.json` and `flows-sandbox/0000045_task15_parser_gate.json`) were used only for acceptance evidence and should not be committed with the story ledger.

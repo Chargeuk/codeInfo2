@@ -2016,6 +2016,58 @@ sequenceDiagram
   Bridge->>Inflight: markInflightFinal(status=ok)
   Life->>Inflight: cleanupInflight
 ```
+- Story 45 Task 10 wires dedicated flow `{ type: "reingest", sourceId, label? }` steps into `server/src/flows/service.ts` without changing the existing outer flow-run contract.
+- Flow startup now treats dedicated `reingest` steps as runnable executable steps:
+  - flows whose executable steps are all `reingest` still start successfully;
+  - when no agent-backed step exists, `startFlowRun(...)` reuses the existing `FALLBACK_MODEL_ID` path instead of inventing a new model source.
+- Dedicated flow re-ingest steps use non-agent flow metadata:
+  - persisted and live `turn.command` stays `{ name: "flow", stepIndex, totalSteps, loopDepth, label? }`;
+  - `agentType` and `identifier` stay absent for these steps instead of being backfilled with fake values.
+- Dedicated flow re-ingest outcome rules are split by phase:
+  - pre-start validation and refusal failures such as malformed `sourceId`, unknown repositories, and busy locks are fatal to the current flow step and stop later steps from running;
+  - once `runReingestRepository(...)` accepts the request and returns a terminal contract result, `completed`, `cancelled`, and `error` are all recorded through the shared Task 7/8 tool-result + lifecycle path and do not fail the outer flow by themselves.
+- Accepted `skipped` outcomes stay normalized to the public terminal status `completed` because the shared re-ingest service already performs that mapping before the flow runtime records the result.
+- Stop requests are still delayed around the blocking wait: a cancel arriving during the wait is observed only after the re-ingest call returns and before the next flow step begins.
+- The dedicated flow path logs `DEV-0000045:T10:flow_reingest_step_recorded` once a terminal result has been published, including whether execution continued to the next step.
+
+```mermaid
+flowchart TD
+  A[Flow step = reingest] --> B[runReingestRepository once]
+  B --> C{Accepted?}
+  C -- no --> D[emit failed flow step]
+  D --> E[outer flow status = failed]
+  C -- yes --> F[buildReingestToolResult]
+  F --> G[runReingestStepLifecycle]
+  G --> H{pending cancel after wait?}
+  H -- yes --> I[outer flow status = stopped]
+  H -- no --> J[continue to next flow step]
+  J --> K[nested result status = completed or cancelled or error]
+```
+
+```mermaid
+sequenceDiagram
+  participant Flow as flows/service
+  participant Reingest as reingestService
+  participant Builder as reingestToolResult
+  participant Life as reingestStepLifecycle
+  participant Next as next step
+
+  Flow->>Reingest: runReingestRepository({sourceId})
+  alt pre-start refusal or thrown error
+    Reingest-->>Flow: error / refusal
+    Flow-->>Flow: emit failed flow step
+  else accepted terminal result
+    Reingest-->>Flow: completed / cancelled / error
+    Flow->>Builder: buildReingestToolResult(callId, outcome)
+    Builder-->>Flow: ChatToolResultEvent
+    Flow->>Life: publish + persist synthetic turns
+    alt cancel pending after blocking wait
+      Flow-->>Flow: stop before next step
+    else continue
+      Flow->>Next: run later flow step
+    end
+  end
+```
 - Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
 - Flow turns attach `turn.command` metadata with `{ name: 'flow', stepIndex, totalSteps, loopDepth, agentType, identifier, label }` (label defaults to the step type) and log `flows.turn.metadata_attached`.
 - Per-agent thread reuse is tracked in memory by `agentType:identifier`, while the flow conversation stores the merged transcript.

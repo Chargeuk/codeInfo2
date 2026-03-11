@@ -17,8 +17,8 @@ export type TurnCommandMetadata =
       stepIndex: number;
       totalSteps: number;
       loopDepth: number;
-      agentType: string;
-      identifier: string;
+      agentType?: string;
+      identifier?: string;
       label: string;
     };
 

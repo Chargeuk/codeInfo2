@@ -140,3 +140,73 @@ test('omitting command keeps existing behavior', async () => {
     );
   }
 });
+
+test('stores + returns flow metadata without agentType or identifier', async () => {
+  const stored: Array<Record<string, unknown>> = [];
+
+  const originalCreate = TurnModel.create;
+  const originalFind = TurnModel.find;
+  const originalUpdate = ConversationModel.findByIdAndUpdate;
+
+  (TurnModel as unknown as Record<string, unknown>).create = async (
+    doc: Record<string, unknown>,
+  ) => {
+    stored.push(doc);
+    return doc;
+  };
+
+  (TurnModel as unknown as Record<string, unknown>).find = () => ({
+    sort: () => ({
+      limit: () => ({
+        lean: async () => stored,
+      }),
+    }),
+  });
+
+  (ConversationModel as unknown as Record<string, unknown>).findByIdAndUpdate =
+    () => ({
+      exec: async () => null,
+    });
+
+  try {
+    const command: TurnCommandMetadata = {
+      name: 'flow',
+      stepIndex: 1,
+      totalSteps: 2,
+      loopDepth: 0,
+      label: 'reingest',
+    };
+
+    await appendTurn({
+      conversationId: 'c3',
+      role: 'assistant',
+      content: 'recorded',
+      model: 'm1',
+      provider: 'codex',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      command,
+    });
+
+    const { items } = await listTurns({ conversationId: 'c3', limit: 10 });
+    assert.equal(items.length, 1);
+    assert.deepEqual(items[0].command, command);
+  } finally {
+    restore(
+      TurnModel as unknown as Record<string, unknown>,
+      'create',
+      originalCreate,
+    );
+    restore(
+      TurnModel as unknown as Record<string, unknown>,
+      'find',
+      originalFind,
+    );
+    restore(
+      ConversationModel as unknown as Record<string, unknown>,
+      'findByIdAndUpdate',
+      originalUpdate,
+    );
+  }
+});

@@ -42,7 +42,10 @@ import {
   shouldUseMemoryPersistence,
   updateMemoryConversationMeta,
 } from '../chat/memoryPersistence.js';
+import { runReingestStepLifecycle } from '../chat/reingestStepLifecycle.js';
+import { buildReingestToolResult } from '../chat/reingestToolResult.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
+import { runReingestRepository } from '../ingest/reingestService.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
@@ -75,6 +78,7 @@ import {
   type FlowBreakStep,
   type FlowCommandStep,
   type FlowLlmStep,
+  type FlowReingestStep,
   type FlowStartLoopStep,
   type FlowStep,
 } from './flowSchema.js';
@@ -102,6 +106,34 @@ const T07_ERROR_LOG =
 const DEV_0000040_T11_FLOW_RESOLUTION_ORDER =
   'DEV_0000040_T11_FLOW_RESOLUTION_ORDER';
 const agentConversationState = new Map<string, FlowAgentState>();
+
+type FlowServiceDeps = {
+  runReingestRepository: typeof runReingestRepository;
+  buildReingestToolResult: typeof buildReingestToolResult;
+  runReingestStepLifecycle: typeof runReingestStepLifecycle;
+  createCallId: () => string;
+};
+
+const defaultFlowServiceDeps: FlowServiceDeps = {
+  runReingestRepository,
+  buildReingestToolResult,
+  runReingestStepLifecycle,
+  createCallId: () => crypto.randomUUID(),
+};
+
+const flowServiceDeps: FlowServiceDeps = {
+  ...defaultFlowServiceDeps,
+};
+
+export function __setFlowServiceDepsForTests(
+  overrides: Partial<FlowServiceDeps>,
+) {
+  Object.assign(flowServiceDeps, overrides);
+}
+
+export function __resetFlowServiceDepsForTests() {
+  Object.assign(flowServiceDeps, defaultFlowServiceDeps);
+}
 
 const toFlowRunError = (code: FlowRunErrorCode, reason?: string) =>
   ({ code, reason }) satisfies FlowRunError;
@@ -360,6 +392,12 @@ const flowsDirForRun = () => {
   return path.resolve('flows');
 };
 
+const codeInfo2RootForRun = () => {
+  const agentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  if (agentsHome) return path.resolve(agentsHome, '..');
+  return path.resolve('codex_agents', '..');
+};
+
 const resolveFlowFilePath = (flowName: string, flowsRoot: string) => {
   if (!isSafeFlowName(flowName)) {
     throw toFlowRunError('FLOW_NOT_FOUND', 'Invalid flow name');
@@ -538,7 +576,7 @@ const joinMessageContent = (content: string[]) => content.join('\n');
 type FlowTurnCommandMetadata = Extract<TurnCommandMetadata, { name: 'flow' }>;
 
 const buildFlowCommandMetadata = (params: {
-  step: FlowLlmStep | FlowBreakStep | FlowCommandStep;
+  step: FlowLlmStep | FlowBreakStep | FlowCommandStep | FlowReingestStep;
   stepIndex: number;
   totalSteps: number;
   loopDepth: number;
@@ -550,9 +588,13 @@ const buildFlowCommandMetadata = (params: {
     stepIndex: params.stepIndex,
     totalSteps: params.totalSteps,
     loopDepth: params.loopDepth,
-    agentType: params.step.agentType,
-    identifier: params.step.identifier,
     label,
+    ...('agentType' in params.step
+      ? {
+          agentType: params.step.agentType,
+          identifier: params.step.identifier,
+        }
+      : {}),
   };
 };
 
@@ -1518,18 +1560,6 @@ const findFirstAgentStep = (
   return undefined;
 };
 
-const hasUnsupportedStep = (steps: FlowStep[]): boolean => {
-  for (const step of steps) {
-    if (step.type === 'reingest') {
-      return true;
-    }
-    if (step.type === 'startLoop' && hasUnsupportedStep(step.steps)) {
-      return true;
-    }
-  }
-  return false;
-};
-
 const validateCommandSteps = async (
   steps: FlowStep[],
   agentByName: Map<string, { home: string }>,
@@ -1874,6 +1904,7 @@ async function runFlowUnlocked(params: {
   repositoryContext: FlowCommandRepositoryContext;
   conversationId: string;
   inflightId: string;
+  modelId: string;
   workingDirectoryOverride?: string;
   source: 'REST' | 'MCP';
   chatFactory?: FlowChatFactory;
@@ -2452,6 +2483,88 @@ async function runFlowUnlocked(params: {
     return 'failed';
   };
 
+  const runReingestStep = async (
+    step: FlowReingestStep,
+    command: TurnCommandMetadata,
+  ): Promise<TurnStatus> => {
+    const instruction = `Reingest repository: ${step.sourceId}`;
+    let result;
+    try {
+      result = await flowServiceDeps.runReingestRepository({
+        sourceId: step.sourceId,
+      });
+    } catch (error) {
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        source: params.source,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Dedicated flow reingest failed unexpectedly',
+        errorCode: 'INVALID_REQUEST',
+        command,
+      });
+      return 'failed';
+    }
+
+    if (!result.ok) {
+      const message =
+        result.error.data.fieldErrors[0]?.message?.trim() ||
+        `${result.error.message}: ${result.error.data.code}`;
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        source: params.source,
+        message,
+        errorCode: 'INVALID_REQUEST',
+        command,
+      });
+      return 'failed';
+    }
+
+    const callId = flowServiceDeps.createCallId();
+    const toolResult = flowServiceDeps.buildReingestToolResult({
+      callId,
+      outcome: result.value,
+    });
+
+    await flowServiceDeps.runReingestStepLifecycle({
+      conversationId: params.conversationId,
+      modelId: params.modelId,
+      source: params.source,
+      command,
+      toolResult,
+    });
+
+    const pendingCancel = consumePendingConversationCancel({
+      conversationId: params.conversationId,
+      runToken: params.runToken,
+    });
+    const continuedToNextStep = !pendingCancel;
+    append({
+      level: 'info',
+      message: 'DEV-0000045:T10:flow_reingest_step_recorded',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        stepIndex: command.stepIndex,
+        label: 'label' in command ? command.label : undefined,
+        sourceId: result.value.sourceId,
+        status: result.value.status,
+        callId,
+        continuedToNextStep,
+      },
+    });
+
+    return pendingCancel ? 'stopped' : 'ok';
+  };
+
   const runStartLoopStep = async (
     step: FlowStartLoopStep,
     nextPath: number[],
@@ -2648,6 +2761,41 @@ async function runFlowUnlocked(params: {
         continue;
       }
 
+      if (step.type === 'reingest') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            agentType: command.agentType,
+          },
+        });
+        const status = await runReingestStep(step, command);
+        if (shouldStopAfter(status)) {
+          await persistFlowResumeState({
+            conversationId: params.conversationId,
+            stepPath: lastCompletedStepPath,
+            loopStack,
+          });
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        await persistFlowResumeState({
+          conversationId: params.conversationId,
+          stepPath: lastCompletedStepPath,
+          loopStack,
+        });
+        continue;
+      }
+
       throw toFlowRunError(
         'UNSUPPORTED_STEP',
         'Flow step type not supported yet',
@@ -2742,12 +2890,6 @@ export async function startFlowRun(
     if (!flow.steps.length) {
       throw toFlowRunError('NO_STEPS', 'Flow has no steps');
     }
-    if (hasUnsupportedStep(flow.steps)) {
-      throw toFlowRunError(
-        'UNSUPPORTED_STEP',
-        'Only llm, startLoop, break, and command steps are supported in this flow run',
-      );
-    }
 
     const existingConversation = await getConversation(conversationId);
     if (existingConversation?.archivedAt) {
@@ -2777,28 +2919,26 @@ export async function startFlowRun(
     hydrateFlowAgentState(resumeState);
 
     const firstAgentStep = findFirstAgentStep(flow.steps);
-    if (!firstAgentStep) {
-      throw toFlowRunError('UNSUPPORTED_STEP', 'No agent steps found');
-    }
-
     const discovered = await discoverAgents();
     const agentByName = new Map(discovered.map((item) => [item.name, item]));
-    const agent = agentByName.get(firstAgentStep.agentType);
-    if (!agent) {
-      throw toFlowRunError(
-        'AGENT_NOT_FOUND',
-        `Agent ${firstAgentStep.agentType} not found`,
-      );
+    if (firstAgentStep) {
+      const agent = agentByName.get(firstAgentStep.agentType);
+      if (!agent) {
+        throw toFlowRunError(
+          'AGENT_NOT_FOUND',
+          `Agent ${firstAgentStep.agentType} not found`,
+        );
+      }
+
+      const detection = refreshCodexDetection();
+      if (!detection.available) {
+        throw toFlowRunError('CODEX_UNAVAILABLE', detection.reason);
+      }
+
+      modelId = await getAgentModelId(agent.configPath);
     }
 
-    const detection = refreshCodexDetection();
-    if (!detection.available) {
-      throw toFlowRunError('CODEX_UNAVAILABLE', detection.reason);
-    }
-
-    modelId = await getAgentModelId(agent.configPath);
-
-    const codeInfo2Root = path.resolve(agent.home, '..', '..');
+    const codeInfo2Root = codeInfo2RootForRun();
     repositoryContext = {
       flowName,
       flowSourceId: sourceRepo?.containerPath
@@ -2867,6 +3007,7 @@ export async function startFlowRun(
         repositoryContext,
         conversationId,
         inflightId,
+        modelId,
         workingDirectoryOverride,
         source: params.source,
         chatFactory: params.chatFactory,

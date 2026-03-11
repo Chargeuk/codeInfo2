@@ -559,7 +559,7 @@ export async function runReingestStepLifecycle(params: {
 ### 1. Add Command Schema Support For `markdownFile` And `reingest`
 
 - Task Status: `__done__`
-- Git Commits: `64dc2dd9`
+- Git Commits:
   - `849b09e3` - Fix the Story 45 review follow-up runtime gap for background direct-command re-ingest failures, gate the parser-level T1/T2 logs behind explicit execution/validation opt-ins, align T2 step numbering with 1-based runtime metadata, and add the focused regression coverage plus Task 14 validation updates.
   - `e0826031` - `DEV-[45] - add flow command reingest parity`
   - `9c0aab42` - `DEV-[45] - record task 11 implementation commit`
@@ -648,7 +648,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 ### 2. Add Flow Schema Support For `markdownFile` And `reingest`
 
 - Task Status: `__done__`
-- Git Commits:
+- Git Commits: `64dc2dd9`, `76c74715`
   - `1b6e3148` - Task 2 implementation: flow schema union support for `llm.markdownFile` and dedicated `reingest`, plus required tests, logging, design updates, and verification notes.
 
 #### Overview

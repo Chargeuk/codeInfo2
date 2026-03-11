@@ -1959,6 +1959,25 @@ flowchart TD
 - `commandsRunner.ts` still owns direct-command lock lifetime and retry behavior; it now uses the shared helper only to prepare one final instruction string before the existing `runWithRetry(...)` path executes the nested agent run.
 - `flows/service.ts` still owns flow command-step command-file loading, stop handoff, failure persistence, and outer step retry behavior; it now delegates each flow-owned `message` item to the shared helper with the parent flow repository as `flowSourceId` so same-source markdown lookup matches the direct-command contract.
 - Task 6 remains `message`-only. Command `reingest` items stay guarded until the later Story 45 runtime tasks land.
+- Story 45 Task 7 adds `server/src/chat/reingestToolResult.ts` as the shared payload builder for terminal re-ingest outcomes. It returns the existing `ChatToolResultEvent` wrapper instead of publishing websocket events or persisting turns directly, so later runtime tasks can reuse one canonical nested `reingest_step_result` contract without adding a new protocol surface.
+- The builder contract is:
+  - nested payload: `{ kind: "reingest_step_result", stepType: "reingest", sourceId, status, operation, runId, files, chunks, embedded, errorCode }`
+  - outer wrapper: `{ type: "tool-result", callId, name: "reingest_repository", stage, result, error: null }`
+  - stage mapping: `completed -> "success"`, `cancelled|error -> "error"`
+- The existing bridge and persistence layers remain responsible for adaptation:
+  - `chatStreamBridge.ts` converts the `ChatToolResultEvent` into the live websocket/inflight `ToolEvent` shape;
+  - `ChatInterface.persistAssistantTurn(...)` keeps persisting tool results through the existing `Turn.toolCalls = { calls: [...] }` assistant-turn envelope.
+
+```mermaid
+flowchart LR
+  A[Reingest terminal outcome] --> B[buildReingestToolResult]
+  B --> C[ChatToolResultEvent]
+  C --> D[chatStreamBridge adapts to ToolEvent]
+  D --> E[inflight.toolEvents]
+  D --> F[WS tool_event publication]
+  C --> G[ChatInterface persistAssistantTurn]
+  G --> H[Turn.toolCalls = { calls: [tool-result] }]
+```
 - Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
 - Flow turns attach `turn.command` metadata with `{ name: 'flow', stepIndex, totalSteps, loopDepth, agentType, identifier, label }` (label defaults to the step type) and log `flows.turn.metadata_attached`.
 - Per-agent thread reuse is tracked in memory by `agentType:identifier`, while the flow conversation stores the merged transcript.

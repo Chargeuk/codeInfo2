@@ -1,5 +1,26 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000045 Task 7 structural change ledger
+
+Added files:
+
+- `server/src/chat/reingestToolResult.ts`
+- `server/src/test/unit/reingest-tool-result.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+
 ## Story 0000045 Task 6 structural change ledger
 
 Added files:
@@ -1033,6 +1054,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚           â”œâ”€ mcp-ingested-repositories.test.ts â€” supertest coverage for classic MCP ListIngestedRepositories lock parity
 â”‚           â”œâ”€ mcp.keepalive.helper.test.ts â€” unit coverage for shared keepalive helper lifecycle and write-after-close protection
 â”‚           â”œâ”€ mcp.reingest.classic.test.ts â€” unit coverage for classic MCP `reingest_repository` tools/list + tools/call success/error contracts
+â”‚           â”œâ”€ reingest-tool-result.test.ts â€” unit coverage for the shared structured re-ingest tool-result builder, wrapper compatibility, and distinct `callId` preservation
 â”‚           â”œâ”€ reingestService.test.ts â€” unit coverage for `reingest_repository` validation, success mapping, unknown root retry guidance, and busy contracts
 â”‚           â”œâ”€ mcp-unsupported-provider.test.ts — MCP tools/call unsupported provider error path
 â”‚           â””â”€ tools-vector-search.test.ts â€” supertest coverage for /tools/vector-search
@@ -1174,6 +1196,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/ws/server.ts — `/ws` upgrade handler + ping/pong heartbeat + message dispatch
 - server/src/chat/inflightRegistry.ts — in-memory active-run registry (assistantText/think/toolEvents/seq + AbortController) with replacement-aware final text and idempotent finalization guards
 - server/src/chat/chatStreamBridge.ts — shared bridge wiring ChatInterface events to inflight updates + WS transcript publishing with single-shot terminal publish semantics
+- server/src/chat/reingestToolResult.ts — shared Story 45 builder that converts terminal re-ingest outcomes into the nested `reingest_step_result` payload inside the existing `ChatToolResultEvent` wrapper
 - server/src/test/unit/ws-server.test.ts — unit coverage for `/ws` connection and protocol gating
 - server/src/test/support/wsClient.ts — shared WebSocket test helper (connect/sendJson/waitForEvent/close) used by Cucumber + node:test
 - server/src/test/unit/ws-chat-stream.test.ts — unit coverage for WS transcript sequencing, catch-up snapshots, cancellation errors, stale/late delta guards, unsubscribe behavior, and inflight cleanup
@@ -1312,6 +1335,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - `server/src/agents/config.ts`
 - `server/src/agents/service.ts`
 - `server/src/chat/factory.ts`
+- `server/src/chat/reingestToolResult.ts`
 - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
 - `server/src/config/codexConfig.ts`
 - `server/src/config/codexEnvDefaults.ts`
@@ -1333,6 +1357,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - `server/src/test/steps/chat_cancellation.steps.ts`
 - `server/src/test/steps/chat_stream.steps.ts`
 - `server/src/test/unit/agents-authSeed.test.ts`
+- `server/src/test/unit/reingest-tool-result.test.ts`
 - `server/src/test/unit/agents-config-defaults.test.ts`
 - `server/src/test/unit/chat-codex-reasoning-delta.test.ts`
 - `server/src/test/unit/chatModels.codex.test.ts`

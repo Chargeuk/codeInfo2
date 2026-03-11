@@ -15,7 +15,7 @@
         }
       ]
     },
-     {
+    {
       "type": "llm",
       "label": "Explain Next Coding Work",
       "agentType": "coding_agent",
@@ -152,6 +152,20 @@
           "identifier": "planner",
           "question": "Re-read the plan that was being worked on and check the last 3 git commits. Is the plan that was being worked on now complete? You MUST re-read the plan and check the last 3 git commits before giving your answer, as the plan probably has changes made by other agents since you last looked at it. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
           "breakOn": "yes"
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "Push",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "If possible, git push the branch."
+          ]
         }
       ]
     }

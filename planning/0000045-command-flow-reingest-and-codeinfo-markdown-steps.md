@@ -561,6 +561,7 @@ export async function runReingestStepLifecycle(params: {
 - Task Status: `__done__`
 - Git Commits:
   - `e0826031` - `DEV-[45] - add flow command reingest parity`
+  - `9c0aab42` - `DEV-[45] - record task 11 implementation commit`
   - `8547ad72` - `DEV-[45] - support direct command reingest items`
   - `3ec6ba42` - `DEV-[45] - record task 9 implementation commit`
   - `ca664dc2` - Task 1 implementation: command schema union support for `message.markdownFile` and `reingest`, plus required tests, logging, and verification updates.

@@ -560,6 +560,7 @@ export async function runReingestStepLifecycle(params: {
 
 - Task Status: `__done__`
 - Git Commits:
+  - `e380c4bd` - Task 5 implementation: flow `llm.markdownFile` runtime execution, integration coverage, design notes, and validation results.
   - `26234ef2` - `DEV-[45] - support direct command markdown message items`
   - `ca664dc2` - Task 1 implementation: command schema union support for `message.markdownFile` and `reingest`, plus required tests, logging, and verification updates.
 

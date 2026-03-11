@@ -1375,6 +1375,11 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 
 - Task Status: `__done__`
 - Git Commits:
+  - `8cfb8072` - Task 10 checkpoint after dedicated flow `reingest` runtime, metadata, and core integration coverage were implemented.
+  - `77eb97f2` - Added the initial Task 10 validation blocker notes after isolating the full-wrapper hang away from the dedicated flow reingest runtime.
+  - `33bf7018` - Extended the Task 10 blocker notes with stronger evidence from isolated late-suite validation.
+  - `d111fab0` - Refined the blocker handoff toward active-handle and wrapper-exit investigation after the late Codex-backed path.
+  - `b2539591` - Finalized Task 10 by fixing the unrelated late-suite MCP test handle leaks and closing the full server-unit wrapper step.
 
 #### Overview
 

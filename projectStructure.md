@@ -1,5 +1,73 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000045 final helper and test inventory
+
+Added helper files:
+
+- `server/src/agents/commandItemExecutor.ts`
+- `server/src/chat/reingestStepLifecycle.ts`
+- `server/src/chat/reingestToolResult.ts`
+- `server/src/flows/markdownFileResolver.ts`
+
+Added Story 45 test files:
+
+- `server/src/test/integration/commands.markdown-file.test.ts`
+- `server/src/test/integration/commands.reingest.test.ts`
+- `server/src/test/unit/markdown-file-resolver.test.ts`
+- `server/src/test/unit/reingest-step-lifecycle.test.ts`
+- `server/src/test/unit/reingest-tool-result.test.ts`
+
+Permanent fixture directories added by Story 45:
+
+- None. Story 45 documents a repository-level `codeinfo_markdown/` convention for local and ingested repositories, but it does not add a committed fixture directory under the `codeInfo2` repository itself.
+
+## Story 0000045 Task 11 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+- `server/src/agents/commandItemExecutor.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+
+## Story 0000045 Task 10 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+- `server/src/flows/service.ts`
+- `server/src/mongo/turn.ts`
+- `server/src/test/integration/flows.run.errors.test.ts`
+- `server/src/test/unit/turn-command-metadata.test.ts`
+
 ## Story 0000045 Task 9 structural change ledger
 
 Added files:

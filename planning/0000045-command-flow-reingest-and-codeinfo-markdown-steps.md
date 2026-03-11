@@ -1562,7 +1562,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 
 ### 12. Update Documentation And Project Structure For Story 45
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1591,12 +1591,12 @@ Update the permanent documentation after the implementation tasks are complete s
 
 #### Subtasks
 
-1. [ ] Update document [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md). Location: repository root. Description: add the user-facing explanation for command and flow `reingest`, markdown-backed steps, the `codeinfo_markdown` folder expectations, and direct-command markdown lookup using the existing optional `sourceId` when present. Purpose: give developers and operators one clear entry point for the new Story 45 file formats and usage rules.
-2. [ ] Update document [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md). Location: repository root. Description: document the final command/flow architecture, tool-result contract, repository resolution behavior, reuse of existing websocket and persistence contracts, the absence of paused execution or a new protocol surface, and the observable Story 45 server log messages added in Tasks 1 through 11, and refresh any Mermaid diagrams required to show the final architecture using Context7 Mermaid docs as the primary syntax reference. Purpose: keep the permanent architecture reference aligned with the final Story 45 implementation and give reviewers one place to see what each validation log line proves.
-3. [ ] Update document [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md). Location: repository root. Description: list every new helper file, test file, and permanent fixture directory added by Story 45 in the correct repository sections. Purpose: keep the repository structure reference accurate and discoverable for later developers.
-4. [ ] Perform one manual documentation sanity read of the changed README, design, and project-structure sections to confirm they describe the final Story 45 behavior consistently and do not contradict the runtime contracts.
-5. [ ] Update this story file’s Task 12 `Implementation notes` section after the documentation updates are complete.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Update document [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md). Location: repository root. Description: add the user-facing explanation for command and flow `reingest`, markdown-backed steps, the `codeinfo_markdown` folder expectations, and direct-command markdown lookup using the existing optional `sourceId` when present. Purpose: give developers and operators one clear entry point for the new Story 45 file formats and usage rules.
+2. [x] Update document [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md). Location: repository root. Description: document the final command/flow architecture, tool-result contract, repository resolution behavior, reuse of existing websocket and persistence contracts, the absence of paused execution or a new protocol surface, and the observable Story 45 server log messages added in Tasks 1 through 11, and refresh any Mermaid diagrams required to show the final architecture using Context7 Mermaid docs as the primary syntax reference. Purpose: keep the permanent architecture reference aligned with the final Story 45 implementation and give reviewers one place to see what each validation log line proves.
+3. [x] Update document [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md). Location: repository root. Description: list every new helper file, test file, and permanent fixture directory added by Story 45 in the correct repository sections. Purpose: keep the repository structure reference accurate and discoverable for later developers.
+4. [x] Perform one manual documentation sanity read of the changed README, design, and project-structure sections to confirm they describe the final Story 45 behavior consistently and do not contradict the runtime contracts.
+5. [x] Update this story file’s Task 12 `Implementation notes` section after the documentation updates are complete.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1604,7 +1604,12 @@ No wrapper-based build or test steps are required for this documentation-only ta
 
 #### Implementation notes
 
-- 
+- Subtask 1: Updated `README.md` with a user-facing Story 45 section covering command and flow file shapes, `codeinfo_markdown`, blocking re-ingest, and the direct-command versus flow-owned markdown lookup rules.
+- Subtask 2: Added a final Story 45 architecture reference to `design.md` covering shared markdown resolution, shared re-ingest payload/lifecycle reuse, the no-new-paused-state boundary, and a permanent `DEV-0000045:T1` through `T11` log reference table; Context7 Mermaid lookup was unavailable because the session API key is invalid, so the final diagram follows the repository's existing Mermaid style.
+- Subtask 3: Updated `projectStructure.md` with the missing Task 10 and Task 11 ledgers plus a consolidated Story 45 helper/test inventory and a note that Story 45 adds no committed fixture directory under the repository.
+- Subtask 4: Manually re-read the changed README, design, and project-structure sections together and confirmed they now describe the same Story 45 contracts for markdown lookup order, structured re-ingest results, and the no-new-protocol/no-paused-state boundary.
+- Subtask 5: Recorded the Task 12 implementation notes immediately after the documentation edits so later reviewers can see exactly which permanent docs were refreshed and why.
+- Subtask 6: `npm run lint --workspaces` exited cleanly at the repository's existing 42-warning baseline and `npm run format:check --workspaces` passed cleanly, so the final Story 45 documentation updates did not introduce lint or formatting regressions.
 
 ---
 

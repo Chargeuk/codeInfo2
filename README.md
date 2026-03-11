@@ -214,6 +214,78 @@ codex_agents/<agentName>/
 5. Use **Flows** (`/flows`) for repeatable multi-step automations.
 6. Use **Ingest** (`/ingest`) before repository-aware answers if a repo is not indexed yet.
 
+## Story 45 Workflow Files
+
+Story 45 extends command and flow JSON files with repository-aware markdown loading and blocking re-ingest steps without adding a new paused or resumable workflow mode.
+
+- Command files keep the existing top-level shape `{ "Description": string, "items": [...] }`.
+- Flow files keep the existing top-level shape `{ "description"?: string, "steps": [...] }`.
+- Command `message` items and flow `llm` steps now accept exactly one instruction source:
+  - inline content/messages; or
+  - `markdownFile`, resolved as one verbatim instruction string.
+- Commands, dedicated flow steps, and flow-owned command files can now run `{ "type": "reingest", "sourceId": "<absolute-ingested-root>" }`.
+- Re-ingest stays synchronous and blocking inside the runner. Once a re-ingest request has started, terminal `completed`, `cancelled`, and `error` outcomes are recorded as structured results and later workflow items can continue.
+
+### `codeinfo_markdown` folder
+
+- `markdownFile` is always relative to a repository-level `codeinfo_markdown/` directory.
+- Safe nested paths such as `architecture/review.md` are supported.
+- Empty paths, absolute paths, `..` traversal, and normalized escapes outside `codeinfo_markdown/` are rejected.
+- Markdown bytes are read and decoded as strict UTF-8, then passed to the agent exactly as read. The server does not trim, split, or reinterpret the markdown into multiple messages.
+
+### Repository lookup order
+
+- Direct commands launched with a repository `sourceId` look for markdown in that same source repository first, then the local `codeInfo2` checkout, then other ingested repositories sorted by case-insensitive label and full path.
+- Direct commands launched without a repository `sourceId` resolve from the local `codeInfo2` checkout first.
+- Flow `llm.markdownFile` steps and flow-owned command files use the parent flow repository as the same-source candidate, then fall back to local `codeInfo2`, then the same deterministic sorted ingested-repository list.
+- A missing file falls through to the next repository candidate. If a higher-priority candidate contains the file but it is unreadable or invalid UTF-8, the step fails immediately instead of silently falling through.
+
+### Example command file
+
+```json
+{
+  "Description": "Refresh the repository index and run the review prompt.",
+  "items": [
+    {
+      "type": "reingest",
+      "sourceId": "/workspace/repository"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "architecture/review.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": ["Summarize the main risks in three bullets."]
+    }
+  ]
+}
+```
+
+### Example flow file
+
+```json
+{
+  "description": "Refresh the repository index and run the review prompt.",
+  "steps": [
+    {
+      "type": "reingest",
+      "label": "Refresh repository index",
+      "sourceId": "/workspace/repository"
+    },
+    {
+      "type": "llm",
+      "label": "Architecture review",
+      "agentType": "planning_agent",
+      "identifier": "architecture-review",
+      "markdownFile": "architecture/review.md"
+    }
+  ]
+}
+```
+
 ## Agents Workspace Behavior Notes
 
 - Command start-step execution:

@@ -1181,6 +1181,8 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 - Task Status: `__done__`
 - Git Commits:
   - `e644ce3b` - Task 8 implementation: shared non-agent re-ingest lifecycle helper, lifecycle unit coverage, Story 45 Task 8 docs, and final wrapper validation.
+  - `b4d9b64a` - Task 8 bookkeeping: recorded the implementation commit in the Task 8 Git Commits ledger after the runtime, tests, and docs were complete.
+  - `5b33df58` - Task 8 bookkeeping fix: corrected the Git Commits ledger placement so the Task 8 implementation hash appears under Task 8 instead of Task 1.
 
 #### Overview
 

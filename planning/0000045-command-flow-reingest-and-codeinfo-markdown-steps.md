@@ -560,6 +560,7 @@ export async function runReingestStepLifecycle(params: {
 
 - Task Status: `__done__`
 - Git Commits:
+  - `372ed2a9` - `DEV-[45] - share command message execution for flow command steps`
   - `ca664dc2` - Task 1 implementation: command schema union support for `message.markdownFile` and `reingest`, plus required tests, logging, and verification updates.
 
 #### Overview

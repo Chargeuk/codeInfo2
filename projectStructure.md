@@ -1,5 +1,27 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000045 Task 9 structural change ledger
+
+Added files:
+
+- `server/src/test/integration/commands.reingest.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/agents/service.ts`
+- `server/src/test/unit/agent-commands-runner.test.ts`
+
 ## Story 0000045 Task 8 structural change ledger
 
 Added files:
@@ -1090,6 +1112,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚        |  â”œâ”€ flows.run.loop.test.ts â€” integration coverage for flow run loop + break
 â”‚        |  â”œâ”€ flows.turn-metadata.test.ts â€” integration coverage for flow command metadata
 â”‚        |  â””â”€ tools-ast.test.ts â€” integration coverage for AST REST tool routes
+â”‚        |  â”œâ”€ commands.reingest.test.ts â€” integration coverage for direct-command re-ingest bootstrap, repeated `callId` handling, and mixed re-ingest/message runs
 â”‚        |  â”œâ”€ chat-tools-wire.test.ts â€” chat route wiring (POST /chat 202 + WS bridge) with mocked LM Studio tools
 â”‚        |  â”œâ”€ chat-vectorsearch-locked-model.test.ts â€” chat run error/success flows when vector search lock/embedding availability changes
 â”‚        |  â”œâ”€ chat-codex.test.ts — Codex chat run flow, thread reuse, availability gating, and terminal dedupe regressions
@@ -1189,6 +1212,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/agent-commands-loader.test.ts — unit coverage for loading command summaries from disk (valid/invalid/missing)
 - server/src/test/unit/agent-commands-list.test.ts — unit coverage for listing agent commands from `commands/` (missing folder, filtering, sorting, no-cache, and `stepCount` semantics for valid/invalid entries)
 - server/src/test/unit/agent-commands-runner.test.ts — unit coverage for command execution runner (sequential steps, abort stop, lock behavior, `startStep` defaults/boundaries/offsets, and deterministic `INVALID_START_STEP` failures)
+- server/src/test/integration/commands.reingest.test.ts — integration coverage for direct-command Story 45 `reingest` bootstrap, structured tool-call persistence, repeated `callId` handling, and mixed re-ingest/message ordering
 - server/src/test/unit/agent-commands-runner-retry.test.ts — unit coverage for transient reconnect retry behavior in the command runner
 - server/src/test/unit/flow-command-retries-config.test.ts — unit coverage for shared flow/command retry-budget parsing behavior
 - server/src/test/unit/agent-commands-runner-abort-retry.test.ts — unit coverage that retries stop immediately when aborted

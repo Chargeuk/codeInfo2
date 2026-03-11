@@ -446,6 +446,115 @@ function isSafeAgentCommandName(raw: string): boolean {
   return true;
 }
 
+const FALLBACK_COMMAND_MODEL_ID = 'gpt-5.1-codex-max';
+
+function buildCommandConversationTitle(params: {
+  commandName: string;
+  parsedCommand:
+    | Awaited<ReturnType<typeof loadAgentCommandFile>>
+    | { ok: false };
+  startIndex: number;
+}): string {
+  if (!params.parsedCommand.ok) {
+    return `Command: ${params.commandName}`;
+  }
+
+  const startItem = params.parsedCommand.command.items[params.startIndex];
+  if (
+    startItem?.type === 'message' &&
+    'content' in startItem &&
+    Array.isArray(startItem.content)
+  ) {
+    const title = startItem.content.join('\n').trim().slice(0, 80);
+    if (title.length > 0) return title;
+  }
+
+  return `Command: ${params.commandName}`;
+}
+
+async function prepareDirectCommandBootstrap(params: {
+  agentName: string;
+  commandName: string;
+  agentHome: string;
+  configPath: string;
+  conversationId: string;
+  commandFilePath: string;
+  startStep: number;
+  source: 'REST' | 'MCP';
+}): Promise<{
+  initialModelId: string;
+}> {
+  const parsed = await loadAgentCommandFile({
+    filePath: params.commandFilePath,
+  }).catch(() => ({ ok: false }) as const);
+  if (!parsed.ok) {
+    return { initialModelId: FALLBACK_COMMAND_MODEL_ID };
+  }
+
+  const remainingItems = parsed.command.items.slice(params.startStep - 1);
+  const needsSyntheticBootstrap = remainingItems.some(
+    (item) => item.type === 'reingest',
+  );
+
+  const existingConversation = await getConversation(params.conversationId);
+  if (existingConversation?.archivedAt) {
+    throw toRunAgentError('CONVERSATION_ARCHIVED');
+  }
+  if (
+    existingConversation &&
+    (existingConversation.agentName ?? '') !== params.agentName
+  ) {
+    throw toRunAgentError('AGENT_MISMATCH');
+  }
+
+  let configuredModelId: string | undefined;
+  try {
+    const resolved = await resolveAgentRuntimeExecutionConfig({
+      configPath: params.configPath,
+      entrypoint: 'agents.service',
+    });
+    configuredModelId = resolved.modelId;
+  } catch (error) {
+    const code =
+      error instanceof RuntimeConfigResolutionError
+        ? error.code
+        : 'UNKNOWN_ERROR';
+    console.error(
+      `${T06_ERROR_LOG} surface=agents.run source=${params.source} code=${code}`,
+    );
+    if (params.source === 'MCP') {
+      console.error(
+        `${T07_ERROR_LOG} surface=mcp.agents.run source=${params.source} code=${code}`,
+      );
+    }
+    throw error;
+  }
+  const initialModelId =
+    configuredModelId ??
+    existingConversation?.model ??
+    FALLBACK_COMMAND_MODEL_ID;
+
+  if (!needsSyntheticBootstrap || existingConversation) {
+    return { initialModelId };
+  }
+
+  const title = buildCommandConversationTitle({
+    commandName: params.commandName,
+    parsedCommand: parsed,
+    startIndex: params.startStep - 1,
+  });
+
+  await ensureAgentConversation({
+    conversationId: params.conversationId,
+    agentName: params.agentName,
+    modelId: initialModelId,
+    title,
+    source: params.source,
+  });
+
+  return { initialModelId };
+}
+
 export async function startAgentCommand(params: {
   agentName: string;
   commandName: string;
@@ -647,6 +756,7 @@ export async function startAgentCommand(params: {
           working_folder: params.working_folder,
           signal: undefined,
           source: params.source,
+          initialModelId: modelId,
           runAgentInstructionUnlocked: (runParams) =>
             runAgentInstructionUnlocked({
               ...runParams,
@@ -703,6 +813,7 @@ export async function runAgentCommand(params: {
       ? params.sourceId.trim()
       : undefined;
   const startStep = params.startStep ?? 1;
+  const conversationId = params.conversationId ?? crypto.randomUUID();
 
   append({
     level: 'info',
@@ -781,6 +892,20 @@ export async function runAgentCommand(params: {
     },
   });
 
+  const resolvedCommandFilePath =
+    commandFilePath ??
+    path.join(agent.home, 'commands', `${params.commandName}.json`);
+  const { initialModelId } = await prepareDirectCommandBootstrap({
+    agentName: params.agentName,
+    commandName: params.commandName.trim(),
+    agentHome: agent.home,
+    configPath: agent.configPath,
+    conversationId,
+    commandFilePath: resolvedCommandFilePath,
+    startStep,
+    source: params.source,
+  });
+
   return await runAgentCommandRunner({
     agentName: params.agentName,
     agentHome: agent.home,
@@ -788,11 +913,12 @@ export async function runAgentCommand(params: {
     commandFilePath,
     commandName: params.commandName,
     startStep,
-    conversationId: params.conversationId,
+    conversationId,
     sourceId,
     working_folder: params.working_folder,
     signal: params.signal,
     source: params.source,
+    initialModelId,
     runAgentInstructionUnlocked: (runParams) =>
       runAgentInstructionUnlocked({
         ...runParams,

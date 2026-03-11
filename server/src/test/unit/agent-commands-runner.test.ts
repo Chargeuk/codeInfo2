@@ -4,11 +4,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, test } from 'node:test';
 
-import { runAgentCommandRunner } from '../../agents/commandsRunner.js';
+import {
+  __resetAgentCommandRunnerDepsForTests,
+  __setAgentCommandRunnerDepsForTests,
+  runAgentCommandRunner,
+} from '../../agents/commandsRunner.js';
 import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
+import type { ReingestError } from '../../ingest/reingestService.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
 
@@ -44,6 +49,96 @@ const buildRepoEntry = (params: {
   counts: { files: 0, chunks: 0, embedded: 0 },
   lastError: null,
 });
+
+const buildReingestSuccess = (
+  overrides: Partial<{
+    status: 'completed' | 'cancelled' | 'error';
+    errorCode: string | null;
+    sourceId: string;
+    runId: string;
+  }> = {},
+) => ({
+  status: 'completed' as const,
+  operation: 'reembed' as const,
+  runId: 'run-123',
+  sourceId: '/repo/source-a',
+  durationMs: 100,
+  files: 3,
+  chunks: 7,
+  embedded: 7,
+  errorCode: null,
+  ...overrides,
+});
+
+const buildReingestError = (params: {
+  message: 'INVALID_PARAMS' | 'NOT_FOUND' | 'BUSY';
+  code: 'INVALID_SOURCE_ID' | 'NOT_FOUND' | 'BUSY';
+  fieldMessage: string;
+}): ReingestError => {
+  if (params.message === 'INVALID_PARAMS') {
+    return {
+      code: -32602,
+      message: 'INVALID_PARAMS',
+      data: {
+        tool: 'reingest_repository',
+        code: 'INVALID_SOURCE_ID',
+        retryable: true,
+        retryMessage: 'retry',
+        reingestableRepositoryIds: [],
+        reingestableSourceIds: [],
+        fieldErrors: [
+          {
+            field: 'sourceId',
+            reason: 'unknown_root',
+            message: params.fieldMessage,
+          },
+        ],
+      },
+    };
+  }
+
+  if (params.message === 'NOT_FOUND') {
+    return {
+      code: 404,
+      message: 'NOT_FOUND',
+      data: {
+        tool: 'reingest_repository',
+        code: 'NOT_FOUND',
+        retryable: true,
+        retryMessage: 'retry',
+        reingestableRepositoryIds: [],
+        reingestableSourceIds: [],
+        fieldErrors: [
+          {
+            field: 'sourceId',
+            reason: 'unknown_root',
+            message: params.fieldMessage,
+          },
+        ],
+      },
+    };
+  }
+
+  return {
+    code: 429,
+    message: 'BUSY',
+    data: {
+      tool: 'reingest_repository',
+      code: 'BUSY',
+      retryable: true,
+      retryMessage: 'retry',
+      reingestableRepositoryIds: [],
+      reingestableSourceIds: [],
+      fieldErrors: [
+        {
+          field: 'sourceId',
+          reason: 'busy',
+          message: params.fieldMessage,
+        },
+      ],
+    },
+  };
+};
 
 async function writeMarkdownFile(params: {
   repoRoot: string;
@@ -108,6 +203,7 @@ describe('agent commands runner (v1)', () => {
   let previousAgentsHome: string | undefined;
 
   afterEach(async () => {
+    __resetAgentCommandRunnerDepsForTests();
     __resetMarkdownFileResolverDepsForTests();
     resetStore();
     if (previousAgentsHome === undefined) {
@@ -783,6 +879,563 @@ describe('agent commands runner (v1)', () => {
 
     assert.equal(second.conversationId, 'c1');
     assert.deepEqual(secondCalls, [1, 2, 3]);
+  });
+
+  test('reingest items stay single-attempt while later message steps can still retry', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-then-message',
+      jsonText: JSON.stringify({
+        Description: 'Reingest then message',
+        items: [
+          { type: 'reingest', sourceId: '/repo/source-a' },
+          { type: 'message', role: 'user', content: ['hello'] },
+        ],
+      }),
+    });
+
+    let reingestCalls = 0;
+    let lifecycleCalls = 0;
+    const seenInstructions: string[] = [];
+
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => {
+        reingestCalls += 1;
+        return { ok: true, value: buildReingestSuccess() };
+      },
+      runReingestStepLifecycle: async () => {
+        lifecycleCalls += 1;
+      },
+    });
+
+    let messageAttempts = 0;
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'reingest-then-message',
+      initialModelId: 'agent-model-1',
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        seenInstructions.push(params.instruction);
+        messageAttempts += 1;
+        if (messageAttempts === 1) {
+          throw new Error('first failure');
+        }
+        return { modelId: 'agent-model-1' };
+      },
+    });
+
+    assert.equal(reingestCalls, 1);
+    assert.equal(lifecycleCalls, 1);
+    assert.equal(seenInstructions.length, 2);
+    assert.equal(seenInstructions[0], 'hello');
+    assert.match(seenInstructions[1], /Your previous attempt .* failed/i);
+  });
+
+  test('terminal completed reingest outcomes are recorded and execution continues', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-completed',
+      jsonText: JSON.stringify({
+        Description: 'Reingest completed',
+        items: [
+          { type: 'reingest', sourceId: '/repo/source-a' },
+          { type: 'message', role: 'user', content: ['after'] },
+        ],
+      }),
+    });
+
+    const lifecycleStatuses: string[] = [];
+    const messageSteps: number[] = [];
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => ({
+        ok: true,
+        value: buildReingestSuccess({ status: 'completed' }),
+      }),
+      buildReingestToolResult: ({ callId, outcome }) => ({
+        type: 'tool-result',
+        callId,
+        name: 'reingest_repository',
+        stage: 'success',
+        result: {
+          kind: 'reingest_step_result',
+          stepType: 'reingest',
+          sourceId: outcome.sourceId,
+          status: outcome.status,
+          operation: outcome.operation,
+          runId: outcome.runId,
+          files: outcome.files,
+          chunks: outcome.chunks,
+          embedded: outcome.embedded,
+          errorCode: outcome.errorCode,
+        },
+        error: null,
+      }),
+      runReingestStepLifecycle: async (params) => {
+        lifecycleStatuses.push(
+          (params.toolResult.result as { status: string }).status,
+        );
+      },
+    });
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'reingest-completed',
+      initialModelId: 'agent-model-1',
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        messageSteps.push(params.command?.stepIndex ?? -1);
+        return { modelId: 'agent-model-1' };
+      },
+    });
+
+    assert.deepEqual(lifecycleStatuses, ['completed']);
+    assert.deepEqual(messageSteps, [2]);
+  });
+
+  test('terminal cancelled reingest outcomes remain non-fatal once started', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-cancelled',
+      jsonText: JSON.stringify({
+        Description: 'Reingest cancelled',
+        items: [
+          { type: 'reingest', sourceId: '/repo/source-a' },
+          { type: 'message', role: 'user', content: ['after'] },
+        ],
+      }),
+    });
+
+    const lifecycleStatuses: string[] = [];
+    const messageSteps: number[] = [];
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => ({
+        ok: true,
+        value: buildReingestSuccess({ status: 'cancelled' }),
+      }),
+      buildReingestToolResult: ({ callId, outcome }) => ({
+        type: 'tool-result',
+        callId,
+        name: 'reingest_repository',
+        stage: 'error',
+        result: {
+          kind: 'reingest_step_result',
+          stepType: 'reingest',
+          sourceId: outcome.sourceId,
+          status: outcome.status,
+          operation: outcome.operation,
+          runId: outcome.runId,
+          files: outcome.files,
+          chunks: outcome.chunks,
+          embedded: outcome.embedded,
+          errorCode: outcome.errorCode,
+        },
+        error: null,
+      }),
+      runReingestStepLifecycle: async (params) => {
+        lifecycleStatuses.push(
+          (params.toolResult.result as { status: string }).status,
+        );
+      },
+    });
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'reingest-cancelled',
+      initialModelId: 'agent-model-1',
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        messageSteps.push(params.command?.stepIndex ?? -1);
+        return { modelId: 'agent-model-1' };
+      },
+    });
+
+    assert.deepEqual(lifecycleStatuses, ['cancelled']);
+    assert.deepEqual(messageSteps, [2]);
+  });
+
+  test('terminal error reingest outcomes remain non-fatal once started', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-error',
+      jsonText: JSON.stringify({
+        Description: 'Reingest error',
+        items: [
+          { type: 'reingest', sourceId: '/repo/source-a' },
+          { type: 'message', role: 'user', content: ['after'] },
+        ],
+      }),
+    });
+
+    const lifecycleStatuses: string[] = [];
+    const messageSteps: number[] = [];
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => ({
+        ok: true,
+        value: buildReingestSuccess({
+          status: 'error',
+          errorCode: 'WAIT_TIMEOUT',
+        }),
+      }),
+      buildReingestToolResult: ({ callId, outcome }) => ({
+        type: 'tool-result',
+        callId,
+        name: 'reingest_repository',
+        stage: 'error',
+        result: {
+          kind: 'reingest_step_result',
+          stepType: 'reingest',
+          sourceId: outcome.sourceId,
+          status: outcome.status,
+          operation: outcome.operation,
+          runId: outcome.runId,
+          files: outcome.files,
+          chunks: outcome.chunks,
+          embedded: outcome.embedded,
+          errorCode: outcome.errorCode,
+        },
+        error: null,
+      }),
+      runReingestStepLifecycle: async (params) => {
+        lifecycleStatuses.push(
+          (params.toolResult.result as { status: string }).status,
+        );
+      },
+    });
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'reingest-error',
+      initialModelId: 'agent-model-1',
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        messageSteps.push(params.command?.stepIndex ?? -1);
+        return { modelId: 'agent-model-1' };
+      },
+    });
+
+    assert.deepEqual(lifecycleStatuses, ['error']);
+    assert.deepEqual(messageSteps, [2]);
+  });
+
+  test('accepted skipped outcomes stay on the public completed path', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-skipped-normalized',
+      jsonText: JSON.stringify({
+        Description: 'Reingest normalized',
+        items: [{ type: 'reingest', sourceId: '/repo/source-a' }],
+      }),
+    });
+
+    const lifecycleStatuses: string[] = [];
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => ({
+        ok: true,
+        value: buildReingestSuccess({ status: 'completed' }),
+      }),
+      buildReingestToolResult: ({ callId, outcome }) => ({
+        type: 'tool-result',
+        callId,
+        name: 'reingest_repository',
+        stage: 'success',
+        result: {
+          kind: 'reingest_step_result',
+          stepType: 'reingest',
+          sourceId: outcome.sourceId,
+          status: outcome.status,
+          operation: outcome.operation,
+          runId: outcome.runId,
+          files: outcome.files,
+          chunks: outcome.chunks,
+          embedded: outcome.embedded,
+          errorCode: outcome.errorCode,
+        },
+        error: null,
+      }),
+      runReingestStepLifecycle: async (params) => {
+        lifecycleStatuses.push(
+          (params.toolResult.result as { status: string }).status,
+        );
+      },
+    });
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'reingest-skipped-normalized',
+      initialModelId: 'agent-model-1',
+      source: 'REST',
+      runAgentInstructionUnlocked: async () => ({ modelId: 'agent-model-1' }),
+    });
+
+    assert.deepEqual(lifecycleStatuses, ['completed']);
+  });
+
+  test('stop during the blocking wait prevents the next item from starting', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-stop',
+      jsonText: JSON.stringify({
+        Description: 'Reingest stop',
+        items: [
+          { type: 'reingest', sourceId: '/repo/source-a' },
+          { type: 'message', role: 'user', content: ['after'] },
+        ],
+      }),
+    });
+
+    const wait = deferred<{
+      ok: true;
+      value: ReturnType<typeof buildReingestSuccess>;
+    }>();
+    const controller = new AbortController();
+    const messageSteps: number[] = [];
+
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => wait.promise,
+      runReingestStepLifecycle: async () => undefined,
+    });
+
+    const run = runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'reingest-stop',
+      initialModelId: 'agent-model-1',
+      source: 'REST',
+      signal: controller.signal,
+      runAgentInstructionUnlocked: async (params) => {
+        messageSteps.push(params.command?.stepIndex ?? -1);
+        return { modelId: 'agent-model-1' };
+      },
+    });
+
+    controller.abort();
+    wait.resolve({ ok: true, value: buildReingestSuccess() });
+    await run;
+
+    assert.deepEqual(messageSteps, []);
+  });
+
+  test('malformed sourceId failures stop before later items begin', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-bad-source',
+      jsonText: JSON.stringify({
+        Description: 'Reingest bad source',
+        items: [
+          { type: 'reingest', sourceId: '/repo/source-a' },
+          { type: 'message', role: 'user', content: ['after'] },
+        ],
+      }),
+    });
+
+    let messageCalls = 0;
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => ({
+        ok: false,
+        error: buildReingestError({
+          message: 'INVALID_PARAMS',
+          code: 'INVALID_SOURCE_ID',
+          fieldMessage: 'sourceId must be an absolute path',
+        }),
+      }),
+    });
+
+    await assert.rejects(
+      async () =>
+        runAgentCommandRunner({
+          agentName: 'a1',
+          agentHome,
+          commandName: 'reingest-bad-source',
+          initialModelId: 'agent-model-1',
+          source: 'REST',
+          runAgentInstructionUnlocked: async () => {
+            messageCalls += 1;
+            return { modelId: 'agent-model-1' };
+          },
+        }),
+      (err) =>
+        (err as { code?: string; reason?: string }).code ===
+          'COMMAND_INVALID' &&
+        (err as { code?: string; reason?: string }).reason ===
+          'sourceId must be an absolute path',
+    );
+
+    assert.equal(messageCalls, 0);
+  });
+
+  test('unknown sourceId failures stop before later items begin', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-missing-source',
+      jsonText: JSON.stringify({
+        Description: 'Reingest missing source',
+        items: [
+          { type: 'reingest', sourceId: '/repo/source-a' },
+          { type: 'message', role: 'user', content: ['after'] },
+        ],
+      }),
+    });
+
+    let messageCalls = 0;
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => ({
+        ok: false,
+        error: buildReingestError({
+          message: 'NOT_FOUND',
+          code: 'NOT_FOUND',
+          fieldMessage:
+            'sourceId must match an existing ingested repository root exactly',
+        }),
+      }),
+    });
+
+    await assert.rejects(
+      async () =>
+        runAgentCommandRunner({
+          agentName: 'a1',
+          agentHome,
+          commandName: 'reingest-missing-source',
+          initialModelId: 'agent-model-1',
+          source: 'REST',
+          runAgentInstructionUnlocked: async () => {
+            messageCalls += 1;
+            return { modelId: 'agent-model-1' };
+          },
+        }),
+      (err) =>
+        (err as { code?: string; reason?: string }).code ===
+          'COMMAND_INVALID' &&
+        (err as { code?: string; reason?: string }).reason ===
+          'sourceId must match an existing ingested repository root exactly',
+    );
+
+    assert.equal(messageCalls, 0);
+  });
+
+  test('busy reingest refusals stop the direct command clearly', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-busy',
+      jsonText: JSON.stringify({
+        Description: 'Reingest busy',
+        items: [
+          { type: 'reingest', sourceId: '/repo/source-a' },
+          { type: 'message', role: 'user', content: ['after'] },
+        ],
+      }),
+    });
+
+    let messageCalls = 0;
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => ({
+        ok: false,
+        error: buildReingestError({
+          message: 'BUSY',
+          code: 'BUSY',
+          fieldMessage:
+            'reingest is currently locked by another ingest operation',
+        }),
+      }),
+    });
+
+    await assert.rejects(
+      async () =>
+        runAgentCommandRunner({
+          agentName: 'a1',
+          agentHome,
+          commandName: 'reingest-busy',
+          initialModelId: 'agent-model-1',
+          source: 'REST',
+          runAgentInstructionUnlocked: async () => {
+            messageCalls += 1;
+            return { modelId: 'agent-model-1' };
+          },
+        }),
+      (err) =>
+        (err as { code?: string; reason?: string }).code ===
+          'COMMAND_INVALID' &&
+        (err as { code?: string; reason?: string }).reason ===
+          'reingest is currently locked by another ingest operation',
+    );
+
+    assert.equal(messageCalls, 0);
+  });
+
+  test('unexpected thrown exceptions before a terminal result fail the command clearly', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-throws',
+      jsonText: JSON.stringify({
+        Description: 'Reingest throws',
+        items: [{ type: 'reingest', sourceId: '/repo/source-a' }],
+      }),
+    });
+
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => {
+        throw new Error('unexpected reingest failure');
+      },
+    });
+
+    await assert.rejects(
+      async () =>
+        runAgentCommandRunner({
+          agentName: 'a1',
+          agentHome,
+          commandName: 'reingest-throws',
+          initialModelId: 'agent-model-1',
+          source: 'REST',
+          runAgentInstructionUnlocked: async () => ({
+            modelId: 'agent-model-1',
+          }),
+        }),
+      /unexpected reingest failure/,
+    );
   });
 
   test('lock is per-conversation and does not block other conversations', async () => {

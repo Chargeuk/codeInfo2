@@ -14,7 +14,9 @@ import {
   cleanupPendingConversationCancel,
   consumePendingConversationCancel,
   getInflight,
+  markInflightPersisted,
 } from '../chat/inflightRegistry.js';
+import { ChatInterface } from '../chat/interfaces/ChatInterface.js';
 import type {
   ChatAnalysisEvent,
   ChatFinalEvent,
@@ -22,7 +24,9 @@ import type {
 } from '../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
+  recordMemoryTurn,
   shouldUseMemoryPersistence,
+  updateMemoryConversationMeta,
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
 import { RuntimeConfigResolutionError } from '../config/runtimeConfig.js';
@@ -36,8 +40,12 @@ import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { ConversationModel } from '../mongo/conversation.js';
 import type { Conversation } from '../mongo/conversation.js';
-import { createConversation } from '../mongo/repo.js';
-import type { TurnCommandMetadata } from '../mongo/turn.js';
+import {
+  appendTurn,
+  createConversation,
+  updateConversationMeta,
+} from '../mongo/repo.js';
+import type { Turn, TurnCommandMetadata, TurnSource } from '../mongo/turn.js';
 import { refreshCodexDetection } from '../providers/codexDetection.js';
 import { publishUserTurn } from '../ws/server.js';
 
@@ -272,6 +280,167 @@ async function ensureAgentConversation(params: {
     flags: {},
     lastMessageAt: now,
   });
+}
+
+class NoopChat extends ChatInterface {
+  async execute(): Promise<void> {
+    return undefined;
+  }
+}
+
+async function persistSyntheticAgentTurn(params: {
+  conversationId: string;
+  role: 'user' | 'assistant';
+  content: string;
+  model: string;
+  provider: string;
+  source: TurnSource;
+  status: Turn['status'];
+  toolCalls: Record<string, unknown> | null;
+  command: TurnCommandMetadata;
+  createdAt: Date;
+}): Promise<{ turnId?: string }> {
+  if (shouldUseMemoryPersistence()) {
+    recordMemoryTurn({
+      conversationId: params.conversationId,
+      role: params.role,
+      content: params.content,
+      model: params.model,
+      provider: params.provider,
+      source: params.source,
+      toolCalls: params.toolCalls,
+      status: params.status,
+      command: params.command,
+      createdAt: params.createdAt,
+    } as Turn);
+    updateMemoryConversationMeta(params.conversationId, {
+      lastMessageAt: params.createdAt,
+      model: params.model,
+    });
+    return {};
+  }
+
+  const turn = await appendTurn({
+    conversationId: params.conversationId,
+    role: params.role,
+    content: params.content,
+    model: params.model,
+    provider: params.provider,
+    source: params.source,
+    toolCalls: params.toolCalls,
+    status: params.status,
+    command: params.command,
+    createdAt: params.createdAt,
+  });
+
+  await updateConversationMeta({
+    conversationId: params.conversationId,
+    lastMessageAt: params.createdAt,
+    model: params.model,
+  });
+
+  const turnId =
+    turn && typeof turn === 'object' && '_id' in (turn as object)
+      ? String((turn as { _id?: unknown })._id ?? '')
+      : undefined;
+  return turnId?.length ? { turnId } : {};
+}
+
+async function emitFailedAgentCommandStep(params: {
+  conversationId: string;
+  inflightId: string;
+  instruction: string;
+  modelId: string;
+  source: 'REST' | 'MCP';
+  message: string;
+  errorCode?: string;
+  command: TurnCommandMetadata;
+}): Promise<void> {
+  const createdAtIso = new Date().toISOString();
+  createInflight({
+    conversationId: params.conversationId,
+    inflightId: params.inflightId,
+    provider: 'codex',
+    model: params.modelId,
+    source: params.source,
+    command: params.command,
+    userTurn: { content: params.instruction, createdAt: createdAtIso },
+  });
+
+  const bridge = attachChatStreamBridge({
+    conversationId: params.conversationId,
+    inflightId: params.inflightId,
+    provider: 'codex',
+    model: params.modelId,
+    chat: new NoopChat(),
+    deferFinal: true,
+  });
+
+  try {
+    publishUserTurn({
+      conversationId: params.conversationId,
+      inflightId: params.inflightId,
+      content: params.instruction,
+      createdAt: createdAtIso,
+    });
+
+    const userCreatedAt = new Date(createdAtIso);
+    const userPersisted = await persistSyntheticAgentTurn({
+      conversationId: params.conversationId,
+      role: 'user',
+      content: params.instruction,
+      model: params.modelId,
+      provider: 'codex',
+      source: params.source,
+      status: 'ok',
+      toolCalls: null,
+      command: params.command,
+      createdAt: userCreatedAt,
+    });
+
+    const assistantCreatedAt = new Date();
+    const assistantPersisted = await persistSyntheticAgentTurn({
+      conversationId: params.conversationId,
+      role: 'assistant',
+      content: params.message,
+      model: params.modelId,
+      provider: 'codex',
+      source: params.source,
+      status: 'failed',
+      toolCalls: null,
+      command: params.command,
+      createdAt: assistantCreatedAt,
+    });
+
+    markInflightPersisted({
+      conversationId: params.conversationId,
+      inflightId: params.inflightId,
+      role: 'user',
+      turnId: userPersisted.turnId,
+    });
+    markInflightPersisted({
+      conversationId: params.conversationId,
+      inflightId: params.inflightId,
+      role: 'assistant',
+      turnId: assistantPersisted.turnId,
+    });
+
+    bridge.finalize({
+      fallback: {
+        status: 'failed',
+        error: {
+          code: params.errorCode,
+          message: params.message,
+        },
+      },
+    });
+  } finally {
+    bridge.cleanup();
+    cleanupInflight({
+      conversationId: params.conversationId,
+      inflightId: params.inflightId,
+    });
+  }
 }
 
 export async function startAgentInstruction(
@@ -757,6 +926,18 @@ export async function startAgentCommand(params: {
           signal: undefined,
           source: params.source,
           initialModelId: modelId,
+          onPrestartFailure: async (failure) => {
+            await emitFailedAgentCommandStep({
+              conversationId,
+              inflightId: crypto.randomUUID(),
+              instruction: failure.instruction,
+              modelId,
+              source: params.source,
+              message: failure.message,
+              errorCode: failure.errorCode,
+              command: failure.command,
+            });
+          },
           runAgentInstructionUnlocked: (runParams) =>
             runAgentInstructionUnlocked({
               ...runParams,

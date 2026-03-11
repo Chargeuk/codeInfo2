@@ -1704,3 +1704,115 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 - Subtask 7: Re-ran `npm run lint --workspaces` back to the repository's standing 42-warning baseline, then reran `npm run format:check --workspaces` to a clean pass after the final Task 13 edits and screenshot bookkeeping.
 - Testing 9: The manual Playwright-MCP acceptance pass succeeded after fixing the compose-only validation setup, and the direct command plus flow transcripts both showed the expected markdown-backed and re-ingest-backed completion states while the Logs page remained readable with the Story 45 marker filter applied.
 - Testing 10: `npm run compose:down` completed cleanly and removed the Task 13 validation stack containers plus the `codeinfo2_internal` network, closing the final acceptance environment without lingering compose resources.
+
+---
+
+### 14. Close Review Follow-Up Runtime And Parser Logging Gaps
+
+- Task Status: `__done__`
+- Git Commits:
+
+#### Overview
+
+Address the follow-up issues found during Story 45 code review without widening the feature scope. This task covers one runtime correctness fix for background direct-command failures plus two parser-log quality fixes: keep parser logs out of read-only discovery/summary paths, and make the flow-schema parse log step numbering match the 1-based runtime metadata convention.
+
+#### Documentation Locations
+
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for the unit and integration tests added for the follow-up fixes.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose-aware validation steps when wrappers are rerun.
+
+#### Critical Task Rules
+
+- Fix the background direct-command failure path without inventing a new websocket event type or persistence shape. Reuse the existing user-turn, assistant-turn, inflight, and `turn_final` contract already used elsewhere in the repo.
+- Keep Story 45 parser observability available for execution and explicit validation paths, but stop emitting the per-item/per-step T1/T2 info logs from read-only discovery and summary paths.
+- The `DEV-0000045:T2:flow_schema_step_parsed` log should use the same 1-based step numbering convention as persisted/runtime flow metadata so the log can be correlated with later runtime evidence.
+- Do not reopen the Story 45 runtime contract beyond these review findings.
+
+#### Required Files For This Task
+
+- Read first: [agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts), [agents/commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts), [agents/commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts), [agents/commandsSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsSchema.ts), [flows/flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts), [flows/discovery.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/discovery.ts)
+- Edit in this task: [planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md), [agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts), [agents/commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts), [agents/commandsLoader.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsLoader.ts), [agents/commandsSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsSchema.ts), [flows/flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts), [flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), [flows/discovery.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/discovery.ts), [agent-commands-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-schema.test.ts), [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts), [commands.reingest.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/commands.reingest.test.ts)
+
+#### Subtasks
+
+1. [x] Re-read the reviewed `commandsSchema.ts`, `flowSchema.ts`, `commandsRunner.ts`, and `agents/service.ts` paths plus the related discovery/summary loaders before changing behavior.
+2. [x] Update the direct-command background failure path so a `startAgentCommand(...)` run that fails before a normal step lifecycle begins still emits a terminal failure outcome through the existing websocket and persistence contracts instead of only logging the background exception.
+3. [x] Cover that background failure fix with integration tests for at least one pre-start `reingest` rejection path and the expected terminal websocket/persistence outcome.
+4. [x] Change the Story 45 T1 command-schema parse log so it only emits in explicit execution or validation paths, not during read-only command discovery/summary parsing.
+5. [x] Change the Story 45 T2 flow-schema parse log so it only emits in explicit execution or validation paths, not during flow discovery/listing.
+6. [x] Update the T2 log context so `stepIndex` is 1-based and matches the runtime/persisted flow step numbering convention.
+7. [x] Add unit tests covering the default no-log parser behavior for command and flow schema parsing, plus the explicit opt-in log behavior and the 1-based T2 step numbering.
+8. [x] Update this story file’s Task 14 `Implementation notes` section after the fix and tests for this task are complete.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Use only the summary wrappers listed below. Do not attempt to run builds or tests without a wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [x] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Subtasks 1-7: Re-read the reviewed parser, loader, runner, and service paths before patching, then added opt-in parser logging in `commandsSchema.ts`/`flowSchema.ts`, execution-only log enablement in `commandsRunner.ts`/`flows/service.ts`, and a background direct-command failure lifecycle in `agents/service.ts` so rejected `reingest` steps now publish persisted failed turns plus a terminal `turn_final` event instead of only surfacing as a background log.
+- Subtasks 3 and 7: Added focused regression coverage in `commands.reingest.test.ts`, `agent-commands-schema.test.ts`, and `flows-schema.test.ts`; the only adjustment needed was subscribing the websocket client before starting the background command so the new terminal failure event could not race the test harness.
+- Testing 1 and 3 / Subtask 9: `npm run build:summary:server` passed cleanly, `npm run test:summary:server:cucumber` passed cleanly, `npm run lint --workspaces` returned the repository's standing 42-warning baseline with no new errors, and `npm run format:check --workspaces` passed cleanly.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with 1137 tests run and 0 failures after the follow-up fixes, so Task 14 now has full wrapper coverage across the required server build, node:test, and cucumber paths.
+
+---
+
+### 15. Re-Validate Story 45 After Review Fixes
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Re-run the full Story 45 acceptance validation after the review-driven fixes are complete. This task exists so the reopened work forces a complete story re-check rather than relying only on targeted regression tests.
+
+#### Documentation Locations
+
+- Playwright introduction: https://playwright.dev/docs/intro - use for the manual browser validation flow required in this final follow-up task.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose build/up/down validation sequence required in this task.
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for the full server unit validation run that is part of this acceptance re-check.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped build and validation commands listed in this task.
+
+#### Critical Task Rules
+
+- This task must verify the reopened Story 45 work, not add new behavior. If another issue is discovered here, stop final validation, reopen the appropriate earlier follow-up task, and complete that implementation there before returning to this task.
+- Re-check the full Story 45 acceptance criteria, including the review-fix expectations for background direct-command terminal failure handling and the reduced parser-log noise in read-only paths.
+- Use the wrapper-first build and test workflow from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). Do not replace the listed wrappers with raw commands unless wrapper diagnosis is required.
+
+#### Required Files For This Task
+
+- Read before starting validation: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md), [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and the full Story 45 acceptance criteria in this file
+- Save validation evidence under: [playwright-output-local](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local)
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 45 acceptance criteria and confirm Task 14 is marked done before starting this validation rerun.
+2. [ ] Re-run the full wrapper validation for the reopened Story 45 scope and confirm the full server suite still completes cleanly.
+3. [ ] Re-check the manual acceptance evidence needed for Story 45, including the direct-command rejection/failure behavior addressed by the review fix.
+4. [ ] Update this story file’s Task 15 `Implementation notes` section after the full validation rerun is complete.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Use only the summary wrappers listed below. Do not attempt to run builds or tests without a wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run test:summary:server:unit`
+3. [ ] `npm run test:summary:server:cucumber`
+4. [ ] `npm run build:summary:client`
+5. [ ] `npm run test:summary:client`
+6. [ ] `npm run test:summary:e2e`
+7. [ ] `npm run compose:build:summary`
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP acceptance rerun
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 

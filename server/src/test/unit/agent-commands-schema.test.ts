@@ -2,8 +2,43 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 import { parseAgentCommandFile } from '../../agents/commandsSchema.js';
+import { query, resetStore } from '../../logStore.js';
 
 describe('agent command schema (v1)', () => {
+  test('does not emit Story 45 parse logs unless explicitly requested', () => {
+    resetStore();
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [{ type: 'message', role: 'user', content: ['x'] }],
+    });
+
+    const parsed = parseAgentCommandFile(json, { commandName: 'sample' });
+    assert.equal(parsed.ok, true);
+    assert.equal(
+      query({ text: 'DEV-0000045:T1:command_schema_item_parsed' }).length,
+      0,
+    );
+  });
+
+  test('emits Story 45 parse logs when explicitly requested', () => {
+    resetStore();
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [{ type: 'reingest', sourceId: '/tmp/repo' }],
+    });
+
+    const parsed = parseAgentCommandFile(json, {
+      commandName: 'sample',
+      emitSchemaParseLogs: true,
+    });
+    assert.equal(parsed.ok, true);
+
+    const logs = query({ text: 'DEV-0000045:T1:command_schema_item_parsed' });
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0]?.context?.commandName, 'sample');
+    assert.equal(logs[0]?.context?.itemIndex, 0);
+  });
+
   test('valid command JSON parses as ok: true', () => {
     const json = JSON.stringify({
       Description: 'A command',

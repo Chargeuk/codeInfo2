@@ -2,8 +2,49 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 import { parseFlowFile } from '../../flows/flowSchema.js';
+import { query, resetStore } from '../../logStore.js';
 
 describe('flow schema (v1)', () => {
+  test('does not emit Story 45 parse logs unless explicitly requested', () => {
+    resetStore();
+    const json = JSON.stringify({
+      steps: [{ type: 'reingest', sourceId: '/tmp/repo' }],
+    });
+
+    const parsed = parseFlowFile(json, { flowName: 'sample' });
+    assert.equal(parsed.ok, true);
+    assert.equal(
+      query({ text: 'DEV-0000045:T2:flow_schema_step_parsed' }).length,
+      0,
+    );
+  });
+
+  test('emits Story 45 parse logs with 1-based step indexes when requested', () => {
+    resetStore();
+    const json = JSON.stringify({
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'main',
+          messages: [{ role: 'user', content: ['Hello'] }],
+        },
+        { type: 'reingest', sourceId: '/tmp/repo' },
+      ],
+    });
+
+    const parsed = parseFlowFile(json, {
+      flowName: 'sample',
+      emitSchemaParseLogs: true,
+    });
+    assert.equal(parsed.ok, true);
+
+    const logs = query({ text: 'DEV-0000045:T2:flow_schema_step_parsed' });
+    assert.equal(logs.length, 2);
+    assert.equal(logs[0]?.context?.stepIndex, 1);
+    assert.equal(logs[1]?.context?.stepIndex, 2);
+  });
+
   test('valid flow JSON parses as ok: true', () => {
     const json = JSON.stringify({
       description: 'Sample flow',

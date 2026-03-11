@@ -58,7 +58,7 @@ export type AgentCommandFile = z.infer<typeof AgentCommandFileSchema>;
 
 export function parseAgentCommandFile(
   jsonText: string,
-  metadata?: { commandName?: string },
+  metadata?: { commandName?: string; emitSchemaParseLogs?: boolean },
 ): { ok: true; command: AgentCommandFile } | { ok: false } {
   let raw: unknown;
   try {
@@ -70,26 +70,28 @@ export function parseAgentCommandFile(
   const parsed = AgentCommandFileSchema.safeParse(raw);
   if (!parsed.success) return { ok: false };
 
-  const commandName = metadata?.commandName?.trim() || '(unknown)';
-  for (const [itemIndex, item] of parsed.data.items.entries()) {
-    const instructionSource =
-      item.type === 'message'
-        ? 'markdownFile' in item
-          ? 'markdownFile'
-          : 'content'
-        : 'reingest';
-    append({
-      level: 'info',
-      message: 'DEV-0000045:T1:command_schema_item_parsed',
-      timestamp: new Date().toISOString(),
-      source: 'server',
-      context: {
-        commandName,
-        itemIndex,
-        itemType: item.type,
-        instructionSource,
-      },
-    });
+  if (metadata?.emitSchemaParseLogs) {
+    const commandName = metadata.commandName?.trim() || '(unknown)';
+    for (const [itemIndex, item] of parsed.data.items.entries()) {
+      const instructionSource =
+        item.type === 'message'
+          ? 'markdownFile' in item
+            ? 'markdownFile'
+            : 'content'
+          : 'reingest';
+      append({
+        level: 'info',
+        message: 'DEV-0000045:T1:command_schema_item_parsed',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          commandName,
+          itemIndex,
+          itemType: item.type,
+          instructionSource,
+        },
+      });
+    }
   }
 
   return { ok: true, command: parsed.data };

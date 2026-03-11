@@ -444,7 +444,10 @@ const loadFlowFile = async (params: {
     throw error;
   });
 
-  const parsed = parseFlowFile(jsonText, { flowName: params.flowName });
+  const parsed = parseFlowFile(jsonText, {
+    flowName: params.flowName,
+    emitSchemaParseLogs: true,
+  });
   if (!parsed.ok) {
     throw toFlowRunError('FLOW_INVALID');
   }

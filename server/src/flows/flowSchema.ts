@@ -158,7 +158,7 @@ const FlowFileSchema: z.ZodTypeAny = z
 
 export function parseFlowFile(
   jsonText: string,
-  metadata?: { flowName?: string },
+  metadata?: { flowName?: string; emitSchemaParseLogs?: boolean },
 ): { ok: true; flow: FlowFile } | { ok: false } {
   let raw: unknown;
   try {
@@ -170,28 +170,30 @@ export function parseFlowFile(
   const parsed = FlowFileSchema.safeParse(raw);
   if (!parsed.success) return { ok: false };
 
-  const flowName = metadata?.flowName?.trim() || '(unknown)';
-  for (const [stepIndex, step] of parsed.data.steps.entries()) {
-    if (step.type !== 'llm' && step.type !== 'reingest') continue;
-    const instructionSource =
-      step.type === 'llm'
-        ? 'messages' in step
-          ? 'messages'
-          : 'markdownFile'
-        : 'reingest';
-    append({
-      level: 'info',
-      message: 'DEV-0000045:T2:flow_schema_step_parsed',
-      timestamp: new Date().toISOString(),
-      source: 'server',
-      context: {
-        flowName,
-        stepIndex,
-        stepType: step.type,
-        label: step.label ?? null,
-        instructionSource,
-      },
-    });
+  if (metadata?.emitSchemaParseLogs) {
+    const flowName = metadata.flowName?.trim() || '(unknown)';
+    for (const [stepIndex, step] of parsed.data.steps.entries()) {
+      if (step.type !== 'llm' && step.type !== 'reingest') continue;
+      const instructionSource =
+        step.type === 'llm'
+          ? 'messages' in step
+            ? 'messages'
+            : 'markdownFile'
+          : 'reingest';
+      append({
+        level: 'info',
+        message: 'DEV-0000045:T2:flow_schema_step_parsed',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName,
+          stepIndex: stepIndex + 1,
+          stepType: step.type,
+          label: step.label ?? null,
+          instructionSource,
+        },
+      });
+    }
   }
 
   return { ok: true, flow: parsed.data };

@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+
+import express from 'express';
 
 import {
   __resetAgentCommandRunnerDepsForTests,
@@ -22,6 +25,13 @@ import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
+import { attachWs } from '../../ws/server.js';
+import {
+  closeWs,
+  connectWs,
+  sendJson,
+  waitForEvent,
+} from '../support/wsClient.js';
 
 class CapturingChat extends ChatInterface {
   constructor(private readonly messages: string[]) {
@@ -273,6 +283,131 @@ test('startAgentCommand bootstraps the same synthetic contract for a reingest-on
       'call-start-only',
     );
   } finally {
+    __resetAgentCommandRunnerDepsForTests();
+    __resetAgentServiceDepsForTests();
+    __resetMarkdownFileResolverDepsForTests();
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    memoryConversations.clear();
+    memoryTurns.clear();
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('startAgentCommand emits a terminal failure outcome when a reingest precheck rejects in the background runner', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'commands-reingest-'),
+  );
+  const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
+  const agentsHome = path.join(codeInfo2Root, 'codex_agents');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const agentHome = await writeAgentScaffold({
+    agentsHome,
+    agentName: 'coding_agent',
+    codexHome,
+  });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+
+  const app = express();
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'reingest-precheck-fails-conversation';
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(agentHome, 'commands'),
+      commandName: 'reingest-precheck-fails',
+      items: [{ type: 'reingest', sourceId: '/repo/source-a' }],
+    });
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => ({
+        ok: false,
+        error: {
+          code: 429,
+          message: 'BUSY',
+          data: {
+            tool: 'reingest_repository',
+            code: 'BUSY',
+            retryable: true,
+            retryMessage: 'retry later',
+            reingestableRepositoryIds: ['codeinfo2'],
+            reingestableSourceIds: ['/repo/source-a'],
+            fieldErrors: [
+              {
+                field: 'sourceId',
+                reason: 'busy',
+                message: 'Repository is already being re-ingested',
+              },
+            ],
+          },
+        },
+      }),
+    });
+
+    sendJson(ws, {
+      type: 'subscribe_conversation',
+      conversationId,
+    });
+
+    const finalPromise = waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'turn_final';
+        conversationId: string;
+        status: string;
+        error?: { code?: string; message?: string };
+      } => {
+        const payload = event as {
+          type?: string;
+          conversationId?: string;
+        };
+        return (
+          payload.type === 'turn_final' &&
+          payload.conversationId === conversationId
+        );
+      },
+      timeoutMs: 8_000,
+    });
+
+    const result = await startAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'reingest-precheck-fails',
+      conversationId,
+      source: 'REST',
+    });
+
+    const final = await finalPromise;
+
+    await waitForMemoryTurns(result.conversationId, 2);
+
+    const turns = memoryTurns.get(result.conversationId) ?? [];
+    assert.equal(final.status, 'failed');
+    assert.equal(final.error?.code, 'COMMAND_INVALID');
+    assert.equal(
+      final.error?.message,
+      'Repository is already being re-ingested',
+    );
+    assert.equal(turns.length, 2);
+    assert.equal(turns[0]?.role, 'user');
+    assert.equal(turns[0]?.content, 'Re-ingest repository /repo/source-a');
+    assert.equal(turns[1]?.role, 'assistant');
+    assert.equal(turns[1]?.status, 'failed');
+    assert.equal(turns[1]?.content, 'Repository is already being re-ingested');
+  } finally {
+    await closeWs(ws);
+    await wsHandle.close();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     __resetAgentCommandRunnerDepsForTests();
     __resetAgentServiceDepsForTests();
     __resetMarkdownFileResolverDepsForTests();

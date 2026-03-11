@@ -77,6 +77,12 @@ export type RunAgentCommandRunnerParams = {
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
   releaseConversationLockFn?: typeof releaseConversationLock;
   runToken?: string;
+  onPrestartFailure?: (params: {
+    command: { name: string; stepIndex: number; totalSteps: number };
+    instruction: string;
+    message: string;
+    errorCode?: string;
+  }) => Promise<void>;
   runAgentInstructionUnlocked: (params: {
     agentName: string;
     instruction: string;
@@ -174,7 +180,10 @@ export async function runAgentCommandRunner(
     throw toCommandRunnerError('COMMAND_NOT_FOUND');
   }
 
-  const parsed = await loadAgentCommandFile({ filePath });
+  const parsed = await loadAgentCommandFile({
+    filePath,
+    emitSchemaParseLogs: true,
+  });
   if (!parsed.ok) {
     throw toCommandRunnerError('COMMAND_INVALID');
   }
@@ -291,6 +300,12 @@ export async function runAgentCommandRunner(
         });
 
         if (!result.ok) {
+          await params.onPrestartFailure?.({
+            command: stepMeta,
+            instruction: `Re-ingest repository ${item.sourceId}`,
+            message: reingestPrestartReason(result.error),
+            errorCode: 'COMMAND_INVALID',
+          });
           throw toCommandRunnerError(
             'COMMAND_INVALID',
             reingestPrestartReason(result.error),

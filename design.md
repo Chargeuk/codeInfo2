@@ -1835,24 +1835,36 @@ flowchart LR
   - `markdownFile` must be a trimmed non-empty string at schema time.
   - `reingest` is schema-valid with `sourceId` plus optional `label`.
   - Reingest-only flow files are allowed by the schema so later runtime tasks can add execution support without changing the file contract again.
-- Task 2 of Story 45 updates only the schema contract and parser observability. Runtime execution for `llm.markdownFile` and dedicated `reingest` steps is wired in later Story 45 tasks, so parse support intentionally lands before run support.
+- Story 45 Task 5 wires runtime execution for `llm.markdownFile` steps only:
+  - one `llm.markdownFile` step resolves one markdown file and executes it as one user instruction string;
+  - `messages`-backed `llm` steps keep their existing retry and persistence behavior unchanged;
+  - resolution order is flow source repo first, then local `codeInfo2`, then other ingested repos sorted by case-insensitive label and full path;
+  - missing files are the only fall-through condition, while unreadable or invalid higher-priority files fail the step immediately;
+  - dedicated `reingest` steps and flow command-item markdown execution remain runtime work for later Story 45 tasks.
 - `/flows` listings (added later in the story) surface invalid JSON/schema as `disabled: true` entries with error text.
 
 ```mermaid
 flowchart TD
-  A[Flow file] --> B{Step type}
-  B --> C[startLoop]
-  B --> D[llm with messages]
-  B --> E[llm with markdownFile]
-  B --> F[break]
-  B --> G[command]
-  B --> H[reingest]
-  D --> I{Exactly one instruction source?}
-  E --> I
-  I -- yes --> J[Schema accepts step]
-  I -- no --> K[Schema rejects flow]
-  H --> L[sourceId required]
-  L --> J
+  A[Flow llm step] --> B{Instruction source}
+  B --> C[messages[]]
+  B --> D[markdownFile]
+  C --> E[Join content with newline]
+  D --> F{Flow source repo has file?}
+  F -- yes --> G[Load markdown bytes]
+  F -- no --> H{codeInfo2 has file?}
+  H -- yes --> G
+  H -- no --> I[Try sorted fallback repos]
+  I --> G
+  G --> J{Strict UTF-8 decode ok?}
+  J -- yes --> K[Execute one instruction]
+  J -- no --> L[Persist failed flow step]
+  F -. unreadable .-> L
+  H -. unreadable .-> L
+  I -. unreadable .-> L
+  E --> K
+  K --> M{More steps remain?}
+  M -- yes --> N[Continue flow]
+  M -- no --> O[Finish flow]
 ```
 
 ## Flows (discovery + list)

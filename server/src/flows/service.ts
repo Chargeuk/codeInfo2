@@ -81,6 +81,7 @@ import type { FlowResumeState } from './flowState.js';
 import {
   compareSourceCandidates,
   normalizeSourceLabel,
+  resolveMarkdownFileWithMetadata,
 } from './markdownFileResolver.js';
 import type {
   FlowAgentState,
@@ -2138,23 +2139,68 @@ async function runFlowUnlocked(params: {
     step: FlowLlmStep,
     command: TurnCommandMetadata,
   ): Promise<TurnStatus> => {
-    if (!('messages' in step)) {
-      throw toFlowRunError(
-        'UNSUPPORTED_STEP',
-        'Flow llm.markdownFile execution is not supported yet',
-      );
+    if ('messages' in step) {
+      for (const message of step.messages) {
+        const instruction = joinMessageContent(message.content);
+        const result = await runInstruction({
+          agentType: step.agentType,
+          identifier: step.identifier,
+          instruction,
+          command,
+        });
+        if (shouldStopAfter(result.status)) return result.status;
+      }
+      return 'ok';
     }
-    for (const message of step.messages) {
-      const instruction = joinMessageContent(message.content);
-      const result = await runInstruction({
-        agentType: step.agentType,
-        identifier: step.identifier,
-        instruction,
+
+    let resolved;
+    try {
+      resolved = await resolveMarkdownFileWithMetadata({
+        markdownFile: step.markdownFile,
+        flowSourceId: params.repositoryContext.flowSourceId,
+      });
+    } catch (error) {
+      const agent = agentByName.get(step.agentType);
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to resolve flow llm markdownFile';
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction: `Markdown file: ${step.markdownFile}`,
+        modelId: agent
+          ? await getAgentModelId(agent.configPath)
+          : FALLBACK_MODEL_ID,
+        source: params.source,
+        message,
+        errorCode: 'INVALID_REQUEST',
         command,
       });
-      if (shouldStopAfter(result.status)) return result.status;
+      return 'failed';
     }
-    return 'ok';
+
+    append({
+      level: 'info',
+      message: 'DEV-0000045:T5:flow_llm_markdown_loaded',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        stepIndex: command.stepIndex,
+        markdownFile: step.markdownFile,
+        resolvedSourceId: resolved.resolvedSourceId,
+        instructionLength: resolved.content.length,
+      },
+    });
+
+    const result = await runInstruction({
+      agentType: step.agentType,
+      identifier: step.identifier,
+      instruction: resolved.content,
+      command,
+    });
+    return result.status;
   };
 
   const runBreakStep = async (

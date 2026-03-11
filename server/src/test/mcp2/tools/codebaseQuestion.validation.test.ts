@@ -33,9 +33,20 @@ const makeCodexFactory = () => ({
   }),
 });
 
+type JsonRpcHttpResponse = {
+  id?: number | string | null;
+  result?: {
+    content: Array<{ type: string; text: string }>;
+  };
+  error?: {
+    code: number;
+    message: string;
+  };
+};
+
 async function postJson(port: number, body: unknown) {
   const payload = JSON.stringify(body);
-  return await new Promise<any>((resolve, reject) => {
+  return await new Promise<JsonRpcHttpResponse>((resolve, reject) => {
     const req = http.request({
       host: '127.0.0.1',
       port,
@@ -113,6 +124,7 @@ test('codebase_question validation returns -32602 when question is missing', asy
 
     const body = await postJson(port, payload);
 
+    assert.ok(body.error);
     assert.equal(body.error.code, -32602);
     assert.equal(body.error.message, 'Invalid params');
   } finally {
@@ -200,6 +212,7 @@ test('codebase_question validation rejects invalid provider values deterministic
         arguments: { question: 'invalid provider?', provider: 'bad-provider' },
       },
     });
+    assert.ok(body.error);
     assert.equal(body.error.code, -32602);
     assert.equal(body.error.message, 'Invalid params');
   } finally {

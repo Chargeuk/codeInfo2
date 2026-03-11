@@ -103,6 +103,17 @@ class MockCodex {
   }
 }
 
+type JsonRpcHttpResponse = {
+  id?: number | string | null;
+  result?: {
+    content: Array<{ type: string; text: string }>;
+  };
+  error?: {
+    code: number;
+    message: string;
+  };
+};
+
 const makeLmStudioClientFactory = () => () =>
   ({
     system: {
@@ -134,7 +145,7 @@ async function withTempCodexHome(chatToml: string): Promise<{
 
 async function postJson(port: number, body: unknown) {
   const payload = JSON.stringify(body);
-  return await new Promise<any>((resolve, reject) => {
+  return await new Promise<JsonRpcHttpResponse>((resolve, reject) => {
     const req = http.request({
       host: '127.0.0.1',
       port,
@@ -206,6 +217,7 @@ test('codebase_question returns answer-only payloads and preserves conversationI
       },
     });
 
+    assert.ok(firstCall.result);
     assert.equal(firstCall.result.content[0].type, 'text');
     const firstPayload = JSON.parse(firstCall.result.content[0].text);
     const defaults = resolveChatDefaults({ requestProvider: 'codex' });
@@ -231,6 +243,7 @@ test('codebase_question returns answer-only payloads and preserves conversationI
       },
     });
 
+    assert.ok(secondCall.result);
     const secondPayload = JSON.parse(secondCall.result.content[0].text);
     assert.equal(secondPayload.conversationId, 'thread-abc');
     assert.equal(mockCodex.lastResumeId, 'thread-abc');
@@ -337,6 +350,7 @@ test('codebase_question returns an empty answer segment when no answer emitted',
       },
     });
 
+    assert.ok(response.result);
     const payload = JSON.parse(response.result.content[0].text);
     assert.deepEqual(
       payload.segments.map((s: { type: string }) => s.type),
@@ -430,6 +444,7 @@ test('codebase_question parity fixture aligns MCP defaults with REST resolver ex
         arguments: { question: 'Parity?' },
       },
     });
+    assert.ok(result.result);
     assert.equal(result.result.content[0].type, 'text');
     const markerLogs = query({
       source: ['server'],

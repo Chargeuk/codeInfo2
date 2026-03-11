@@ -2068,6 +2068,56 @@ sequenceDiagram
     end
   end
 ```
+- Story 45 Task 11 finishes flow-command parity by allowing flow-owned command files to execute `{ type: "reingest", sourceId }` items through the shared `server/src/agents/commandItemExecutor.ts` path.
+- Shared command-item execution now has two stable boundaries:
+  - `message` items still resolve inline `content` or `markdownFile` into one instruction string and hand execution back to the caller’s existing retry model;
+  - `reingest` items execute exactly once, build the shared `reingest_step_result` wrapper, and publish/persist it through `server/src/chat/reingestStepLifecycle.ts` without entering message retry.
+- `server/src/flows/service.ts` keeps ownership of the outer flow-command orchestration:
+  - command-file discovery, flow-step failure mapping, and flow-command retry policy still live there;
+  - pending cancellation is only observed after the blocking re-ingest call returns, so later command items and later flow steps do not start once stop is pending;
+  - outer flow status remains on the existing `ok|failed|stopped` contract while nested re-ingest status stays inside `Turn.toolCalls`.
+- Mixed flow-owned command files preserve item ordering across `reingest`, `message.markdownFile`, and inline `message.content`.
+- The observable Task 11 proof point is `DEV-0000045:T11:flow_command_reingest_recorded`, which confirms a flow-owned command reached the final shared re-ingest parity path and records whether execution continued to the next command item.
+
+```mermaid
+flowchart TD
+  A[Flow step = command] --> B[flows/service.ts loads command file]
+  B --> C{Current command item type}
+  C -- message --> D[commandItemExecutor resolves content or markdownFile]
+  D --> E[flows/service.ts executes message with existing flow-command retry]
+  C -- reingest --> F[commandItemExecutor calls runReingestRepository once]
+  F --> G[buildReingestToolResult]
+  G --> H[runReingestStepLifecycle]
+  H --> I{return status, callId, continuedToNextItem, stopAfter}
+  I --> J{pending cancel after blocking wait?}
+  J -- yes --> K[stop later command items and later flow steps]
+  J -- no --> L[continue to next command item or next flow step]
+```
+
+```mermaid
+sequenceDiagram
+  participant Flow as flows/service
+  participant Exec as commandItemExecutor
+  participant Reingest as reingestService
+  participant Builder as reingestToolResult
+  participant Life as reingestStepLifecycle
+
+  Flow->>Exec: executeCommandItem(reingest item, flow context)
+  Exec->>Reingest: runReingestRepository({sourceId})
+  alt pre-start refusal or thrown error
+    Reingest-->>Exec: error / refusal
+    Exec-->>Flow: throw fatal command-step error
+    Flow-->>Flow: fail current command step
+  else accepted terminal result
+    Reingest-->>Exec: completed / cancelled / error
+    Exec->>Builder: buildReingestToolResult(callId, outcome)
+    Builder-->>Exec: ChatToolResultEvent
+    Exec->>Life: publish + persist synthetic turns
+    Life-->>Exec: nested tool result recorded
+    Exec-->>Flow: status + continuedToNextItem + stopAfter
+    Flow-->>Flow: check stop before later items / later steps
+  end
+```
 - Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
 - Flow turns attach `turn.command` metadata with `{ name: 'flow', stepIndex, totalSteps, loopDepth, agentType, identifier, label }` (label defaults to the step type) and log `flows.turn.metadata_attached`.
 - Per-agent thread reuse is tracked in memory by `agentType:identifier`, while the flow conversation stores the merged transcript.

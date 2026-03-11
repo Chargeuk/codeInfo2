@@ -45,7 +45,10 @@ import {
 import { runReingestStepLifecycle } from '../chat/reingestStepLifecycle.js';
 import { buildReingestToolResult } from '../chat/reingestToolResult.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
-import { runReingestRepository } from '../ingest/reingestService.js';
+import {
+  runReingestRepository,
+  type ReingestError,
+} from '../ingest/reingestService.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
@@ -152,6 +155,12 @@ const isSafeCommandName = (raw: string): boolean => {
   if (name.includes('/') || name.includes('\\')) return false;
   if (name.includes('..')) return false;
   return true;
+};
+
+const reingestPrestartReason = (error: ReingestError): string => {
+  const fieldMessage = error.data.fieldErrors[0]?.message?.trim();
+  if (fieldMessage) return fieldMessage;
+  return `${error.message}: ${error.data.code}`;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -2432,11 +2441,6 @@ async function runFlowUnlocked(params: {
         if (await stopCommandBeforeHandoff()) {
           return 'stopped';
         }
-        if (item.type !== 'message') {
-          throw new Error(
-            `Flow command item type ${item.type} is not executable until Story 45 runtime tasks are implemented.`,
-          );
-        }
         let executedItem;
         try {
           executedItem = await executeCommandItem({
@@ -2455,6 +2459,57 @@ async function runFlowUnlocked(params: {
                 instruction,
                 command,
               }),
+            executeReingest: async (reingestItem) => {
+              const result = await flowServiceDeps.runReingestRepository({
+                sourceId: reingestItem.sourceId,
+              });
+
+              if (!result.ok) {
+                throw new Error(reingestPrestartReason(result.error));
+              }
+
+              const callId = flowServiceDeps.createCallId();
+              const toolResult = flowServiceDeps.buildReingestToolResult({
+                callId,
+                outcome: result.value,
+              });
+              const pendingCancelAfterWait = consumePendingConversationCancel({
+                conversationId: params.conversationId,
+                runToken: params.runToken,
+              });
+
+              await flowServiceDeps.runReingestStepLifecycle({
+                conversationId: params.conversationId,
+                modelId: await getAgentModelId(agent.configPath),
+                source: params.source,
+                command,
+                toolResult,
+              });
+
+              let stopAfter = false;
+              if (pendingCancelAfterWait) {
+                await emitStoppedFlowStep({
+                  flowConversationId: params.conversationId,
+                  inflightId: stepInflightId,
+                  instruction: `Command: ${step.commandName}`,
+                  modelId: await getAgentModelId(agent.configPath),
+                  source: params.source,
+                  command,
+                });
+                stopAfter = true;
+              } else {
+                stopAfter = await stopCommandBeforeHandoff();
+              }
+              return {
+                status: result.value.status,
+                sourceId: result.value.sourceId,
+                callId,
+                continuedToNextItem:
+                  itemIndex < commandLoad.command.items.length - 1 &&
+                  !stopAfter,
+                stopAfter,
+              };
+            },
           });
         } catch (error) {
           const modelId = await getAgentModelId(agent.configPath);
@@ -2473,8 +2528,17 @@ async function runFlowUnlocked(params: {
           });
           return 'failed';
         }
-        if (shouldStopAfter(executedItem.result.status)) {
+        if (
+          executedItem.itemType === 'message' &&
+          shouldStopAfter(executedItem.result.status)
+        ) {
           return executedItem.result.status;
+        }
+        if (
+          executedItem.itemType === 'reingest' &&
+          executedItem.result.stopAfter
+        ) {
+          return 'stopped';
         }
       }
       return 'ok';

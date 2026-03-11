@@ -945,7 +945,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”œâ”€ test-results/
 â”‚  â”œâ”€ pr-comments/
 â”‚  â”‚  â”œâ”€ 0000042-summary.md â€” Story 0000042 PR summary artifact
-â”‚  â”‚  â””â”€ 0000043-summary.md â€” Story 0000043 PR summary artifact covering the stop contract, runtime changes, client UX alignment, and verification evidence
+â”‚  â”‚  â”œâ”€ 0000043-summary.md â€” Story 0000043 PR summary artifact covering the stop contract, runtime changes, client UX alignment, and verification evidence
+â”‚  â”‚  â””â”€ 0000045-summary.md â€” Story 0000045 PR summary artifact covering markdown-backed workflow steps, structured re-ingest paths, and final validation evidence
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)

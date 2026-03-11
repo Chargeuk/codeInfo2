@@ -648,7 +648,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 ### 2. Add Flow Schema Support For `markdownFile` And `reingest`
 
 - Task Status: `__done__`
-- Git Commits: `64dc2dd9`, `76c74715`
+- Git Commits:
   - `1b6e3148` - Task 2 implementation: flow schema union support for `llm.markdownFile` and dedicated `reingest`, plus required tests, logging, design updates, and verification notes.
 
 #### Overview
@@ -1767,7 +1767,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 ### 15. Re-Validate Story 45 After Review Fixes
 
 - Task Status: `__done__`
-- Git Commits:
+- Git Commits: `64dc2dd9`, `76c74715`, `369aedf4`
 
 #### Overview
 

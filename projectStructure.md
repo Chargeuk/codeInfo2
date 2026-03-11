@@ -1,5 +1,26 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000045 Task 8 structural change ledger
+
+Added files:
+
+- `server/src/chat/reingestStepLifecycle.ts`
+- `server/src/test/unit/reingest-step-lifecycle.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+
 ## Story 0000045 Task 7 structural change ledger
 
 Added files:
@@ -1197,9 +1218,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/chat/inflightRegistry.ts — in-memory active-run registry (assistantText/think/toolEvents/seq + AbortController) with replacement-aware final text and idempotent finalization guards
 - server/src/chat/chatStreamBridge.ts — shared bridge wiring ChatInterface events to inflight updates + WS transcript publishing with single-shot terminal publish semantics
 - server/src/chat/reingestToolResult.ts — shared Story 45 builder that converts terminal re-ingest outcomes into the nested `reingest_step_result` payload inside the existing `ChatToolResultEvent` wrapper
+- server/src/chat/reingestStepLifecycle.ts — shared Story 45 non-agent lifecycle that creates inflight state, publishes a synthetic user turn and re-ingest `tool_event`, persists assistant `toolCalls`, and finalizes the outer turn on the existing `ok` path
 - server/src/test/unit/ws-server.test.ts — unit coverage for `/ws` connection and protocol gating
 - server/src/test/support/wsClient.ts — shared WebSocket test helper (connect/sendJson/waitForEvent/close) used by Cucumber + node:test
 - server/src/test/unit/ws-chat-stream.test.ts — unit coverage for WS transcript sequencing, catch-up snapshots, cancellation errors, stale/late delta guards, unsubscribe behavior, and inflight cleanup
+- server/src/test/unit/reingest-step-lifecycle.test.ts — unit coverage for the shared re-ingest lifecycle ordering, publication, persistence shape, outer-vs-nested status separation, and caller-supplied metadata passthrough
 - server/src/test/integration/mcp-codebase-question-ws-stream.test.ts — integration coverage proving MCP `codebase_question` runs publish WS transcript updates
 - server/src/test/integration/mcp-server.test.ts — integration coverage for MCP v1 tools/list + tools/call (vector search + AST tools) and error mappings
 - server/src/test/integration/agents-run-ws-stream.test.ts — integration coverage proving agent runs publish WS transcript updates, including absolute `stepIndex`/`totalSteps` metadata for `startStep > 1`

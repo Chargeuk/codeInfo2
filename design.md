@@ -1978,6 +1978,44 @@ flowchart LR
   C --> G[ChatInterface persistAssistantTurn]
   G --> H[Turn.toolCalls = { calls: [tool-result] }]
 ```
+- Story 45 Task 8 adds `server/src/chat/reingestStepLifecycle.ts` as the shared non-agent lifecycle for any already-recordable re-ingest terminal result. It deliberately stays lifecycle-only: later direct-command and flow runtime tasks call this helper, but Task 8 itself does not start any re-ingest work.
+- The shared lifecycle requires callers to pass the resolved `conversationId`, `modelId`, `source`, and `command` metadata. That keeps the helper neutral about whether the caller is a direct command or a flow step and avoids inventing a second bootstrap path for conversation state.
+- Runtime order matches the existing synthetic flow-step pattern:
+  - create inflight state with the caller-supplied command metadata;
+  - publish a synthetic user turn;
+  - attach the existing chat stream bridge in deferred-final mode;
+  - append and publish the re-ingest `tool-result`;
+  - persist assistant `toolCalls = { calls: [tool-result] }`;
+  - finalize the outer turn on the existing `ok` path.
+- Outer run-level status stays on the normal contract even when the nested re-ingest result is `cancelled` or `error`. The detailed outcome remains inside the nested `reingest_step_result` payload, while the persisted assistant turn and websocket `turn_final` stay `ok` for a non-fatal post-start terminal result.
+- The lifecycle reuses the same storage branches as existing chat and flow code:
+  - memory mode keeps the structured `toolCalls` payload via `recordMemoryTurn(...)`;
+  - Mongo mode keeps the same payload through `appendTurn(...)` with the unchanged mixed `Turn.toolCalls` schema slot.
+
+```mermaid
+sequenceDiagram
+  participant Caller as Direct command or flow step
+  participant Life as runReingestStepLifecycle
+  participant Inflight as inflightRegistry
+  participant WS as ws/server
+  participant Bridge as chatStreamBridge
+  participant Store as memoryPersistence or mongo/repo
+
+  Caller->>Life: conversationId, modelId, source, command, toolResult
+  Life->>Inflight: createInflight(userTurn + command)
+  Life->>WS: publishUserTurn
+  Life->>Bridge: attachChatStreamBridge(deferFinal=true)
+  Life->>Store: persist synthetic user turn
+  Life->>Inflight: markInflightPersisted(user)
+  Life->>Inflight: appendToolEvent(tool-result)
+  Life->>WS: publishToolEvent(tool-result)
+  Life->>Store: persist assistant turn with toolCalls
+  Life->>Inflight: markInflightPersisted(assistant)
+  Life->>Bridge: finalize(fallback status=ok)
+  Bridge->>WS: publish turn_final status=ok
+  Bridge->>Inflight: markInflightFinal(status=ok)
+  Life->>Inflight: cleanupInflight
+```
 - Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
 - Flow turns attach `turn.command` metadata with `{ name: 'flow', stepIndex, totalSteps, loopDepth, agentType, identifier, label }` (label defaults to the step type) and log `flows.turn.metadata_attached`.
 - Per-agent thread reuse is tracked in memory by `agentType:identifier`, while the flow conversation stores the merged transcript.

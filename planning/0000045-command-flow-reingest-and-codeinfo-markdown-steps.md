@@ -560,6 +560,7 @@ export async function runReingestStepLifecycle(params: {
 
 - Task Status: `__done__`
 - Git Commits:
+  - `e644ce3b` - Task 8 implementation: shared non-agent re-ingest lifecycle helper, lifecycle unit coverage, Story 45 Task 8 docs, and final wrapper validation.
   - `ca664dc2` - Task 1 implementation: command schema union support for `message.markdownFile` and `reingest`, plus required tests, logging, and verification updates.
 
 #### Overview

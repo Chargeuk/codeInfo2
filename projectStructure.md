@@ -1,5 +1,28 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000045 Task 6 structural change ledger
+
+Added files:
+
+- `server/src/agents/commandItemExecutor.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+
 ## Story 0000045 Task 4 structural change ledger
 
 Added files:
@@ -1093,6 +1116,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/agents/authSeed.ts — best-effort copy of primary `auth.json` into agent homes (never overwrite, lock-protected)
 - server/src/agents/commandsSchema.ts — strict Zod v1 schema + safe parser for agent command JSON files
 - server/src/agents/commandsLoader.ts — reads command files and returns safe `{ name, description, disabled, stepCount }` summaries (`stepCount >= 1`, sentinel `1` for disabled/invalid)
+- server/src/agents/commandItemExecutor.ts — shared `message`-item instruction preparation and dispatch for direct commands and flow-owned command steps, including markdown resolution reuse and Task 45 T6 flow-command observability logging
 - server/src/agents/commandsRunner.ts — executes parsed agent commands sequentially with abort checks + conversation lock, including runtime `startStep` range validation (`1..N`), zero-based boundary conversion, and deterministic `INVALID_START_STEP` errors
 - server/src/agents/retry.ts — AbortSignal-aware retry/backoff helper used by the command runner
 - server/src/ingest/providers/openaiConstants.ts — OpenAI embedding adapter constants (allowlist, retry policy, guardrail thresholds, token-limit resolver)

@@ -1935,7 +1935,30 @@ flowchart TD
   H1 -- no --> J1[Success path]
 ```
 
+- Shared command `message` execution path for Story 45 Task 6:
+
+```mermaid
+flowchart TD
+  A[Command item type=message] --> B{Instruction source}
+  B -- content --> C[Join content with newline]
+  B -- markdownFile --> D{Execution context}
+  D -- direct command --> E[Prefer command sourceId]
+  D -- flow-owned command --> F[Prefer parent flowSourceId]
+  E --> G[Resolve via shared markdown resolver]
+  F --> G
+  G --> H{Markdown loaded and decoded?}
+  H -- yes --> I[Return one instruction string]
+  H -- no --> J[Surface caller-owned terminal failure]
+  I --> K{Caller}
+  K -- direct command --> L[commandsRunner owns retry and lock]
+  K -- flow command step --> M[flow service owns step retry and persistence]
+```
+
 - `command` steps load `commands/<commandName>.json` for the specified agent and run each command item as a flow instruction; missing/invalid commands return `invalid_request` and emit a failed `turn_final`.
+- Story 45 Task 6 extracts shared `message`-item execution into `server/src/agents/commandItemExecutor.ts` so direct commands and flow-owned command steps resolve `content` and `markdownFile` through one helper without collapsing their different outer orchestration layers.
+- `commandsRunner.ts` still owns direct-command lock lifetime and retry behavior; it now uses the shared helper only to prepare one final instruction string before the existing `runWithRetry(...)` path executes the nested agent run.
+- `flows/service.ts` still owns flow command-step command-file loading, stop handoff, failure persistence, and outer step retry behavior; it now delegates each flow-owned `message` item to the shared helper with the parent flow repository as `flowSourceId` so same-source markdown lookup matches the direct-command contract.
+- Task 6 remains `message`-only. Command `reingest` items stay guarded until the later Story 45 runtime tasks land.
 - Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
 - Flow turns attach `turn.command` metadata with `{ name: 'flow', stepIndex, totalSteps, loopDepth, agentType, identifier, label }` (label defaults to the step type) and log `flows.turn.metadata_attached`.
 - Per-agent thread reuse is tracked in memory by `agentType:identifier`, while the flow conversation stores the merged transcript.

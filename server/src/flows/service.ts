@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import type { CodexOptions } from '@openai/codex-sdk';
 
+import { executeCommandItem } from '../agents/commandItemExecutor.js';
 import { loadAgentCommandFile } from '../agents/commandsLoader.js';
 import type { AgentCommandFile } from '../agents/commandsSchema.js';
 import { resolveAgentRuntimeExecutionConfig } from '../agents/config.js';
@@ -2396,7 +2397,7 @@ async function runFlowUnlocked(params: {
         return 'failed';
       }
 
-      for (const item of commandLoad.command.items) {
+      for (const [itemIndex, item] of commandLoad.command.items.entries()) {
         if (await stopCommandBeforeHandoff()) {
           return 'stopped';
         }
@@ -2405,17 +2406,45 @@ async function runFlowUnlocked(params: {
             `Flow command item type ${item.type} is not executable until Story 45 runtime tasks are implemented.`,
           );
         }
-        const instruction =
-          'content' in item
-            ? joinMessageContent(item.content)
-            : item.markdownFile;
-        const result = await runInstruction({
-          agentType: step.agentType,
-          identifier: step.identifier,
-          instruction,
-          command,
-        });
-        if (shouldStopAfter(result.status)) return result.status;
+        let executedItem;
+        try {
+          executedItem = await executeCommandItem({
+            item,
+            itemIndex,
+            commandName: step.commandName,
+            flowSourceId: params.repositoryContext.flowSourceId,
+            flowContext: {
+              flowName: params.flowName,
+              stepIndex: command.stepIndex,
+            },
+            executeInstruction: async ({ instruction }) =>
+              runInstruction({
+                agentType: step.agentType,
+                identifier: step.identifier,
+                instruction,
+                command,
+              }),
+          });
+        } catch (error) {
+          const modelId = await getAgentModelId(agent.configPath);
+          await emitFailedFlowStep({
+            flowConversationId: params.conversationId,
+            inflightId: stepInflightId,
+            instruction: `Command: ${step.commandName}`,
+            modelId,
+            source: params.source,
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Failed to execute flow command message item',
+            errorCode: 'COMMAND_INVALID',
+            command,
+          });
+          return 'failed';
+        }
+        if (shouldStopAfter(executedItem.result.status)) {
+          return executedItem.result.status;
+        }
       }
       return 'ok';
     }

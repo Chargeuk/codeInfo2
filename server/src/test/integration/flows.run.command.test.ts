@@ -10,12 +10,21 @@ import supertest from 'supertest';
 import type WebSocket from 'ws';
 
 import { loadAgentCommandFile } from '../../agents/commandsLoader.js';
+import {
+  __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
+} from '../../agents/service.js';
+import { runAgentCommand } from '../../agents/service.js';
 import { registerPendingConversationCancel } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import {
+  __resetMarkdownFileResolverDepsForTests,
+  __setMarkdownFileResolverDepsForTests,
+} from '../../flows/markdownFileResolver.js';
 import { startFlowRun } from '../../flows/service.js';
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import type { Turn } from '../../mongo/turn.js';
@@ -54,6 +63,30 @@ class ScriptedChat extends ChatInterface {
     const response = delayedMatch ? delayedMatch[2] : 'ok';
     this.emit('thread', { type: 'thread', threadId: conversationId });
     this.emit('final', { type: 'final', content: response });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
+class FlakyOnceChat extends ChatInterface {
+  constructor(private readonly counter: { count: number }) {
+    super();
+  }
+
+  async execute(
+    _message: string,
+    _flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _message;
+    void _flags;
+    void _model;
+    this.counter.count += 1;
+    if (this.counter.count === 1) {
+      throw new Error('fail once');
+    }
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: 'ok' });
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
 }
@@ -103,6 +136,8 @@ const withFlowServer = async (
   }) => Promise<void>,
   options?: {
     listIngestedRepositories?: (tmpDir: string) => Promise<ListReposResult>;
+    markdownReadFile?: (filePath: string) => Promise<Buffer>;
+    chatFactory?: () => ChatInterface;
   },
 ) => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -113,13 +148,25 @@ const withFlowServer = async (
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.FLOWS_DIR = tmpDir;
 
+  if (options?.listIngestedRepositories) {
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: () => options.listIngestedRepositories!(tmpDir),
+    });
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: () => options.listIngestedRepositories!(tmpDir),
+      ...(options.markdownReadFile
+        ? { readFile: options.markdownReadFile }
+        : {}),
+    });
+  }
+
   const app = express();
   app.use(
     createFlowsRunRouter({
       startFlowRun: (params) =>
         startFlowRun({
           ...params,
-          chatFactory: () => new ScriptedChat(),
+          chatFactory: options?.chatFactory ?? (() => new ScriptedChat()),
           ...(options?.listIngestedRepositories
             ? {
                 listIngestedRepositories: () =>
@@ -141,6 +188,8 @@ const withFlowServer = async (
   try {
     await task({ baseUrl, wsUrl: ws, tmpDir });
   } finally {
+    __resetAgentServiceDepsForTests();
+    __resetMarkdownFileResolverDepsForTests();
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
@@ -168,6 +217,39 @@ const waitForTurns = async (
   throw new Error('Timed out waiting for flow turns');
 };
 
+const waitForFlowFinal = async (params: {
+  ws: WebSocket;
+  conversationId: string;
+  status: 'ok' | 'failed' | 'stopped';
+  timeoutMs?: number;
+}) =>
+  waitForEvent({
+    ws: params.ws,
+    predicate: (
+      event: unknown,
+    ): event is { type: 'turn_final'; status: string } => {
+      const e = event as {
+        type?: string;
+        conversationId?: string;
+        status?: string;
+      };
+      return (
+        e.type === 'turn_final' &&
+        e.conversationId === params.conversationId &&
+        e.status === params.status
+      );
+    },
+    timeoutMs: params.timeoutMs ?? 5000,
+  });
+
+const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
+  conversationIds.forEach((conversationId) => {
+    if (!conversationId) return;
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+  });
+};
+
 const makeFlowCommand = (params: { commandName: string }) => ({
   description: 'repo flow command',
   steps: [
@@ -184,6 +266,7 @@ const writeRepoCommand = async (params: {
   repoRoot: string;
   commandName: string;
   content?: string;
+  items?: unknown[];
   invalidSchema?: boolean;
   invalidJson?: boolean;
 }) => {
@@ -213,7 +296,7 @@ const writeRepoCommand = async (params: {
     filePath,
     JSON.stringify({
       Description: 'repo command',
-      items: [
+      items: params.items ?? [
         {
           type: 'message',
           role: 'user',
@@ -222,6 +305,26 @@ const writeRepoCommand = async (params: {
       ],
     }),
   );
+  return filePath;
+};
+
+const writeMarkdownFile = async (params: {
+  repoRoot: string;
+  relativePath: string;
+  content?: string;
+  bytes?: Uint8Array;
+}) => {
+  const filePath = path.join(
+    params.repoRoot,
+    'codeinfo_markdown',
+    params.relativePath,
+  );
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  if (params.bytes) {
+    await fs.writeFile(filePath, params.bytes);
+  } else {
+    await fs.writeFile(filePath, params.content ?? '', 'utf8');
+  }
   return filePath;
 };
 
@@ -295,6 +398,613 @@ test('command steps execute agent command items', async () => {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
   });
+});
+
+test('flow-owned commands execute one markdown-backed message item', async () => {
+  const repos: RepoEntry[] = [];
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'repo-markdown-single');
+      const commandName = 'task6_single_markdown';
+      const conversationId = 'flow-command-single-markdown';
+      await writeRepoFlow({
+        repoRoot: sourceRoot,
+        flowName: 'repo-command-single-markdown',
+        commandName,
+      });
+      await writeRepoCommand({
+        repoRoot: sourceRoot,
+        commandName,
+        items: [{ type: 'message', role: 'user', markdownFile: 'single.md' }],
+      });
+      await writeMarkdownFile({
+        repoRoot: sourceRoot,
+        relativePath: 'single.md',
+        content: '# single markdown',
+      });
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/repo-command-single-markdown/run')
+        .send({ conversationId, sourceId: sourceRoot })
+        .expect(202);
+
+      await waitForFlowFinal({
+        ws: wsUrl,
+        conversationId,
+        status: 'ok',
+      });
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('# single markdown'),
+          ),
+        3000,
+      );
+      assert.ok(
+        turns.some(
+          (turn) =>
+            turn.role === 'user' && turn.content.includes('# single markdown'),
+        ),
+      );
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({
+        repos,
+        lockedModelId: null,
+      }),
+    },
+  );
+});
+
+test('flow-owned commands preserve order across multiple markdown-backed message items', async () => {
+  const repos: RepoEntry[] = [];
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'repo-markdown-multi');
+      const commandName = 'task6_multi_markdown';
+      const conversationId = 'flow-command-multi-markdown';
+      await writeRepoFlow({
+        repoRoot: sourceRoot,
+        flowName: 'repo-command-multi-markdown',
+        commandName,
+      });
+      await writeRepoCommand({
+        repoRoot: sourceRoot,
+        commandName,
+        items: [
+          { type: 'message', role: 'user', markdownFile: 'first.md' },
+          { type: 'message', role: 'user', markdownFile: 'second.md' },
+        ],
+      });
+      await writeMarkdownFile({
+        repoRoot: sourceRoot,
+        relativePath: 'first.md',
+        content: 'first markdown item',
+      });
+      await writeMarkdownFile({
+        repoRoot: sourceRoot,
+        relativePath: 'second.md',
+        content: 'second markdown item',
+      });
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/repo-command-multi-markdown/run')
+        .send({ conversationId, sourceId: sourceRoot })
+        .expect(202);
+
+      await waitForFlowFinal({
+        ws: wsUrl,
+        conversationId,
+        status: 'ok',
+      });
+      const turns = await waitForTurns(
+        conversationId,
+        (items) => items.filter((turn) => turn.role === 'user').length >= 2,
+        3000,
+      );
+      const userTurns = turns
+        .filter((turn) => turn.role === 'user')
+        .map((turn) => turn.content);
+      assert.deepEqual(userTurns.slice(0, 2), [
+        'first markdown item',
+        'second markdown item',
+      ]);
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({
+        repos,
+        lockedModelId: null,
+      }),
+    },
+  );
+});
+
+test('flow-owned commands keep inline content behavior when mixed with markdown-backed items', async () => {
+  const repos: RepoEntry[] = [];
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'repo-markdown-mixed');
+      const commandName = 'task6_mixed_message_items';
+      const conversationId = 'flow-command-mixed-items';
+      await writeRepoFlow({
+        repoRoot: sourceRoot,
+        flowName: 'repo-command-mixed-items',
+        commandName,
+      });
+      await writeRepoCommand({
+        repoRoot: sourceRoot,
+        commandName,
+        items: [
+          { type: 'message', role: 'user', markdownFile: 'mixed.md' },
+          { type: 'message', role: 'user', content: ['inline item'] },
+        ],
+      });
+      await writeMarkdownFile({
+        repoRoot: sourceRoot,
+        relativePath: 'mixed.md',
+        content: 'markdown item',
+      });
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/repo-command-mixed-items/run')
+        .send({ conversationId, sourceId: sourceRoot })
+        .expect(202);
+
+      await waitForFlowFinal({
+        ws: wsUrl,
+        conversationId,
+        status: 'ok',
+      });
+      const turns = await waitForTurns(
+        conversationId,
+        (items) => items.filter((turn) => turn.role === 'user').length >= 2,
+        3000,
+      );
+      const userTurns = turns
+        .filter((turn) => turn.role === 'user')
+        .map((turn) => turn.content);
+      assert.deepEqual(userTurns.slice(0, 2), ['markdown item', 'inline item']);
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({
+        repos,
+        lockedModelId: null,
+      }),
+    },
+  );
+});
+
+test('flow-owned commands use the parent flow repository before markdown fallbacks', async () => {
+  const repos: RepoEntry[] = [];
+  const commandName = 'task6_same_source_markdown';
+  const localMarkdownPath = path.join(
+    repoRoot,
+    'codeinfo_markdown',
+    'shared-flow-cmd.md',
+  );
+  try {
+    await fs.mkdir(path.dirname(localMarkdownPath), { recursive: true });
+    await fs.writeFile(localMarkdownPath, 'codeinfo2 markdown', 'utf8');
+    await withFlowServer(
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const sourceRoot = path.join(tmpDir, 'repo-markdown-same-source');
+        const conversationId = 'flow-command-same-source-markdown';
+        await writeRepoFlow({
+          repoRoot: sourceRoot,
+          flowName: 'repo-command-same-source-markdown',
+          commandName,
+        });
+        await writeRepoCommand({
+          repoRoot: sourceRoot,
+          commandName,
+          items: [
+            {
+              type: 'message',
+              role: 'user',
+              markdownFile: 'shared-flow-cmd.md',
+            },
+          ],
+        });
+        await writeMarkdownFile({
+          repoRoot: sourceRoot,
+          relativePath: 'shared-flow-cmd.md',
+          content: 'same-source markdown',
+        });
+        repos.push(
+          buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+        );
+
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await supertest(baseUrl)
+          .post('/flows/repo-command-same-source-markdown/run')
+          .send({ conversationId, sourceId: sourceRoot })
+          .expect(202);
+
+        await waitForFlowFinal({
+          ws: wsUrl,
+          conversationId,
+          status: 'ok',
+        });
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes('same-source markdown'),
+            ),
+          3000,
+        );
+        assert.equal(
+          turns.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('codeinfo2 markdown'),
+          ),
+          false,
+        );
+        cleanupMemory(conversationId);
+      },
+      {
+        listIngestedRepositories: async () => ({
+          repos,
+          lockedModelId: null,
+        }),
+      },
+    );
+  } finally {
+    await fs.rm(localMarkdownPath, { force: true });
+  }
+});
+
+test('flow-owned commands fall back through markdown repositories after a same-source miss', async () => {
+  const repos: RepoEntry[] = [];
+  const commandName = 'task6_markdown_fallback';
+  const localMarkdownPath = path.join(
+    repoRoot,
+    'codeinfo_markdown',
+    'fallback-flow-cmd.md',
+  );
+  try {
+    await fs.mkdir(path.dirname(localMarkdownPath), { recursive: true });
+    await fs.writeFile(
+      localMarkdownPath,
+      'codeinfo2 fallback markdown',
+      'utf8',
+    );
+    await withFlowServer(
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const sourceRoot = path.join(tmpDir, 'repo-markdown-fallback');
+        const conversationId = 'flow-command-markdown-fallback';
+        await writeRepoFlow({
+          repoRoot: sourceRoot,
+          flowName: 'repo-command-markdown-fallback',
+          commandName,
+        });
+        await writeRepoCommand({
+          repoRoot: sourceRoot,
+          commandName,
+          items: [
+            {
+              type: 'message',
+              role: 'user',
+              markdownFile: 'fallback-flow-cmd.md',
+            },
+          ],
+        });
+        repos.push(
+          buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+        );
+
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await supertest(baseUrl)
+          .post('/flows/repo-command-markdown-fallback/run')
+          .send({ conversationId, sourceId: sourceRoot })
+          .expect(202);
+
+        await waitForFlowFinal({
+          ws: wsUrl,
+          conversationId,
+          status: 'ok',
+        });
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes('codeinfo2 fallback markdown'),
+            ),
+          3000,
+        );
+        assert.ok(
+          turns.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('codeinfo2 fallback markdown'),
+          ),
+        );
+        cleanupMemory(conversationId);
+      },
+      {
+        listIngestedRepositories: async () => ({
+          repos,
+          lockedModelId: null,
+        }),
+      },
+    );
+  } finally {
+    await fs.rm(localMarkdownPath, { force: true });
+  }
+});
+
+test('flow-owned commands fail fast when a higher-priority markdown file is unreadable', async () => {
+  const repos: RepoEntry[] = [];
+  const commandName = 'task6_markdown_unreadable';
+  const localMarkdownPath = path.join(
+    repoRoot,
+    'codeinfo_markdown',
+    'unreadable-flow-cmd.md',
+  );
+  let sourceMarkdownPath = '';
+  try {
+    await fs.mkdir(path.dirname(localMarkdownPath), { recursive: true });
+    await fs.writeFile(
+      localMarkdownPath,
+      'codeinfo2 fallback should not run',
+      'utf8',
+    );
+    await withFlowServer(
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const sourceRoot = path.join(tmpDir, 'repo-markdown-unreadable');
+        const conversationId = 'flow-command-markdown-unreadable';
+        sourceMarkdownPath = await writeMarkdownFile({
+          repoRoot: sourceRoot,
+          relativePath: 'unreadable-flow-cmd.md',
+          content: 'source markdown',
+        });
+        await writeRepoFlow({
+          repoRoot: sourceRoot,
+          flowName: 'repo-command-markdown-unreadable',
+          commandName,
+        });
+        await writeRepoCommand({
+          repoRoot: sourceRoot,
+          commandName,
+          items: [
+            {
+              type: 'message',
+              role: 'user',
+              markdownFile: 'unreadable-flow-cmd.md',
+            },
+          ],
+        });
+        repos.push(
+          buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+        );
+
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await supertest(baseUrl)
+          .post('/flows/repo-command-markdown-unreadable/run')
+          .send({ conversationId, sourceId: sourceRoot })
+          .expect(202);
+
+        await waitForFlowFinal({
+          ws: wsUrl,
+          conversationId,
+          status: 'failed',
+        });
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) => turn.role === 'assistant' && turn.status === 'failed',
+            ),
+          3000,
+        );
+        const failedTurn = turns.find(
+          (turn) => turn.role === 'assistant' && turn.status === 'failed',
+        );
+        assert.ok(failedTurn);
+        assert.match(failedTurn.content, /permission denied/);
+      },
+      {
+        listIngestedRepositories: async () => ({
+          repos,
+          lockedModelId: null,
+        }),
+        markdownReadFile: async (filePath) => {
+          if (filePath === sourceMarkdownPath) {
+            const error = new Error(
+              'permission denied',
+            ) as NodeJS.ErrnoException;
+            error.code = 'EACCES';
+            throw error;
+          }
+          return fs.readFile(filePath);
+        },
+      },
+    );
+  } finally {
+    await fs.rm(localMarkdownPath, { force: true });
+  }
+});
+
+test('flow-owned command message execution matches the direct-command path for the same markdown-backed command', async () => {
+  const repos: RepoEntry[] = [];
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'repo-command-parity');
+      const commandName = 'task6_parity_markdown';
+      const flowConversationId = 'flow-command-parity';
+      const directConversationId = 'direct-command-parity';
+      await writeRepoFlow({
+        repoRoot: sourceRoot,
+        flowName: 'repo-command-parity-markdown',
+        commandName,
+      });
+      await writeRepoCommand({
+        repoRoot: sourceRoot,
+        commandName,
+        items: [
+          { type: 'message', role: 'user', markdownFile: 'parity.md' },
+          { type: 'message', role: 'user', content: ['inline parity'] },
+        ],
+      });
+      await writeMarkdownFile({
+        repoRoot: sourceRoot,
+        relativePath: 'parity.md',
+        content: 'shared markdown parity',
+      });
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+      );
+
+      sendJson(wsUrl, {
+        type: 'subscribe_conversation',
+        conversationId: flowConversationId,
+      });
+      await supertest(baseUrl)
+        .post('/flows/repo-command-parity-markdown/run')
+        .send({ conversationId: flowConversationId, sourceId: sourceRoot })
+        .expect(202);
+      await waitForFlowFinal({
+        ws: wsUrl,
+        conversationId: flowConversationId,
+        status: 'ok',
+      });
+
+      await runAgentCommand({
+        agentName: 'planning_agent',
+        commandName,
+        conversationId: directConversationId,
+        sourceId: sourceRoot,
+        source: 'REST',
+        chatFactory: () => new ScriptedChat(),
+      });
+
+      const flowTurns = await waitForTurns(
+        flowConversationId,
+        (items) => items.filter((turn) => turn.role === 'user').length >= 2,
+        3000,
+      );
+      const directTurns = await waitForTurns(
+        directConversationId,
+        (items) => items.filter((turn) => turn.role === 'user').length >= 2,
+        3000,
+      );
+      assert.deepEqual(
+        flowTurns
+          .filter((turn) => turn.role === 'user')
+          .map((turn) => turn.content),
+        directTurns
+          .filter((turn) => turn.role === 'user')
+          .map((turn) => turn.content),
+      );
+      cleanupMemory(flowConversationId, directConversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({
+        repos,
+        lockedModelId: null,
+      }),
+    },
+  );
+});
+
+test('flow command-step retries and direct-command retries remain unchanged after shared message-item extraction', async () => {
+  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
+  process.env.FLOW_AND_COMMAND_RETRIES = '2';
+  const repos: RepoEntry[] = [];
+  const flowAttempts = { count: 0 };
+  const directAttempts = { count: 0 };
+  try {
+    await withFlowServer(
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const sourceRoot = path.join(tmpDir, 'repo-command-retry-shared');
+        const commandName = 'task6_retry_markdown';
+        const flowConversationId = 'flow-command-retry-shared';
+        const directConversationId = 'direct-command-retry-shared';
+        await writeRepoFlow({
+          repoRoot: sourceRoot,
+          flowName: 'repo-command-retry-shared',
+          commandName,
+        });
+        await writeRepoCommand({
+          repoRoot: sourceRoot,
+          commandName,
+          items: [{ type: 'message', role: 'user', markdownFile: 'retry.md' }],
+        });
+        await writeMarkdownFile({
+          repoRoot: sourceRoot,
+          relativePath: 'retry.md',
+          content: 'retry markdown item',
+        });
+        repos.push(
+          buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+        );
+
+        sendJson(wsUrl, {
+          type: 'subscribe_conversation',
+          conversationId: flowConversationId,
+        });
+        await supertest(baseUrl)
+          .post('/flows/repo-command-retry-shared/run')
+          .send({ conversationId: flowConversationId, sourceId: sourceRoot })
+          .expect(202);
+
+        await waitForFlowFinal({
+          ws: wsUrl,
+          conversationId: flowConversationId,
+          status: 'ok',
+          timeoutMs: 6000,
+        });
+        assert.equal(flowAttempts.count, 2);
+
+        await runAgentCommand({
+          agentName: 'planning_agent',
+          commandName,
+          conversationId: directConversationId,
+          sourceId: sourceRoot,
+          source: 'REST',
+          chatFactory: () => new FlakyOnceChat(directAttempts),
+        });
+        assert.equal(directAttempts.count, 2);
+        cleanupMemory(flowConversationId, directConversationId);
+      },
+      {
+        listIngestedRepositories: async () => ({
+          repos,
+          lockedModelId: null,
+        }),
+        chatFactory: () => new FlakyOnceChat(flowAttempts),
+      },
+    );
+  } finally {
+    if (previousRetries === undefined) {
+      delete process.env.FLOW_AND_COMMAND_RETRIES;
+    } else {
+      process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
+    }
+  }
 });
 
 test('RED: repository flow should resolve same-source command before fallback ordering', async () => {

@@ -8,11 +8,11 @@ import {
   getInflight,
 } from '../chat/inflightRegistry.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
-import { resolveMarkdownFileWithMetadata } from '../flows/markdownFileResolver.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
 
+import { executeCommandItem } from './commandItemExecutor.js';
 import { loadAgentCommandFile } from './commandsLoader.js';
 import { AbortError, runWithRetry } from './retry.js';
 import {
@@ -243,24 +243,16 @@ export async function runAgentCommandRunner(
           `Command item type ${item.type} is not executable until Story 45 runtime tasks are implemented.`,
         );
       }
-      const resolvedInstruction =
-        'content' in item
-          ? {
-              instruction: item.content.join('\n'),
-              markdownFile: undefined,
-              resolvedSourceId: undefined,
-            }
-          : await resolveMarkdownFileWithMetadata({
-              markdownFile: item.markdownFile,
-              sourceId: params.sourceId,
-            }).then((resolved) => ({
-              instruction: resolved.content,
-              markdownFile: item.markdownFile,
-              resolvedSourceId: resolved.resolvedSourceId,
-            }));
-      const originalInstruction = resolvedInstruction.instruction;
+      const preparedInstruction = await executeCommandItem({
+        item,
+        itemIndex: i,
+        commandName,
+        sourceId: params.sourceId,
+        executeInstruction: async (instruction) => instruction,
+      });
+      const originalInstruction = preparedInstruction.instruction;
 
-      if (resolvedInstruction.markdownFile) {
+      if (preparedInstruction.markdownFile) {
         append({
           level: 'info',
           message: 'DEV-0000045:T4:direct_command_markdown_message_loaded',
@@ -269,8 +261,8 @@ export async function runAgentCommandRunner(
           context: {
             commandName,
             itemIndex: i,
-            markdownFile: resolvedInstruction.markdownFile,
-            resolvedSourceId: resolvedInstruction.resolvedSourceId,
+            markdownFile: preparedInstruction.markdownFile,
+            resolvedSourceId: preparedInstruction.resolvedSourceId,
             instructionLength: originalInstruction.length,
           },
         });

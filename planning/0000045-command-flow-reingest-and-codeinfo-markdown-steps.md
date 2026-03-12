@@ -1885,7 +1885,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 
 ### 17. Re-Validate Story 45 After Final Review Follow-Ups
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1912,27 +1912,39 @@ Re-run the full Story 45 acceptance validation after Task 16 is complete. This t
 
 #### Subtasks
 
-1. [ ] Re-read the full Story 45 acceptance criteria and confirm Task 16 is marked done before starting this validation rerun.
-2. [ ] Re-run the full wrapper validation for the reopened Story 45 scope and confirm the full server, client, and end-to-end suites still complete cleanly.
-3. [ ] Re-check the manual acceptance evidence needed for Story 45, including the corrected `llm.markdownFile` failure precedence and the reduced parser-log noise in read-only paths.
-4. [ ] Update this story file’s Task 17 `Implementation notes` section after the full validation rerun is complete.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Re-read the full Story 45 acceptance criteria and confirm Task 16 is marked done before starting this validation rerun.
+2. [x] Re-run the full wrapper validation for the reopened Story 45 scope and confirm the full server, client, and end-to-end suites still complete cleanly.
+3. [x] Re-check the manual acceptance evidence needed for Story 45, including the corrected `llm.markdownFile` failure precedence and the reduced parser-log noise in read-only paths.
+4. [x] Update this story file’s Task 17 `Implementation notes` section after the full validation rerun is complete.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Use only the summary wrappers listed below. Do not attempt to run builds or tests without a wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run test:summary:server:unit`
-3. [ ] `npm run test:summary:server:cucumber`
-4. [ ] `npm run build:summary:client`
-5. [ ] `npm run test:summary:client`
-6. [ ] `npm run test:summary:e2e`
-7. [ ] `npm run compose:build:summary`
-8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP acceptance rerun
-10. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server`
+2. [x] `npm run test:summary:server:unit`
+3. [x] `npm run test:summary:server:cucumber`
+4. [x] `npm run build:summary:client`
+5. [x] `npm run test:summary:client`
+6. [x] `npm run test:summary:e2e`
+7. [x] `npm run compose:build:summary`
+8. [x] `npm run compose:up`
+9. [x] Manual Playwright-MCP acceptance rerun
+10. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Subtask 1: Re-read `AGENTS.md`, `README.md`, `design.md`, `projectStructure.md`, the Story 45 acceptance criteria, and the Task 17 section itself; confirmed Task 16 is marked `__done__` before starting the final validation rerun.
+- Testing 1: `npm run build:summary:server` passed cleanly with wrapper `agent_action: skip_log`, so no log inspection was needed.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with `1142` tests run, `1142` passed, `0` failed, and wrapper `agent_action: skip_log`.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `68` tests run, `68` passed, `0` failed, and wrapper `agent_action: skip_log`.
+- Testing 4: `npm run build:summary:client` passed cleanly with wrapper `agent_action: skip_log`, covering the required client typecheck-plus-build gate.
+- Testing 5: `npm run test:summary:client` passed cleanly with `523` tests run, `523` passed, `0` failed, and wrapper `agent_action: skip_log`.
+- Testing 6 / Subtask 2: `npm run test:summary:e2e` passed cleanly with `40` tests run, `40` passed, `0` failed, which completed the required full wrapper rerun across server, client, and end-to-end suites.
+- Testing 7: `npm run compose:build:summary` passed cleanly with `2` items passed, `0` failed, and wrapper `agent_action: skip_log`.
+- Testing 8: `npm run compose:up` completed cleanly and the stack reported the server and client containers started healthy, which unlocked the manual acceptance rerun.
+- Testing 9 / Subtask 3: Re-ran Manual Playwright-MCP validation against `http://host.docker.internal:5001`, confirmed read-only Logs-page searches for `DEV-0000045:T1` stayed empty before any command execution and after browsing `/agents` without running a command, then ran a temporary flow fixture that failed with `Agent missing_agent not found`, proving the `llm.markdownFile` path now reports `AGENT_NOT_FOUND` before markdown resolution. Recorded the manual evidence in `playwright-output-local/0000045-task17-manual-validation.md` and removed the temporary `flows-sandbox/0000045_task17_markdown_precedence.json` fixture after the rerun.
+- Testing 10: `npm run compose:down` completed cleanly after the manual acceptance rerun and removed the temporary validation stack containers and network.
+- Subtask 4: Finalized this Task 17 notes section after the rerun so the next developer can see the clean wrapper results, the manual precedence check, and the temporary-fixture cleanup in one place.
+- Subtask 5: `npm run lint --workspaces && npm run format:check --workspaces` completed successfully; lint returned to the repository's standing `42` warning baseline and Prettier was clean across all workspaces.

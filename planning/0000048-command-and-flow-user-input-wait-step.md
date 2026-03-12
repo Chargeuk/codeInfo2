@@ -1,4 +1,4 @@
-# Story 0000047 – Command And Flow User Input Wait Step
+# Story 0000048 – Command And Flow User Input Wait Step
 
 ## Implementation Plan
 

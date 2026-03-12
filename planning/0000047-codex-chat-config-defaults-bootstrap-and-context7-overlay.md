@@ -1,4 +1,4 @@
-# Story 0000046 – Codex Chat Config Defaults Bootstrap And Context7 Overlay
+# Story 0000047 – Codex Chat Config Defaults Bootstrap And Context7 Overlay
 
 ## Implementation Plan
 

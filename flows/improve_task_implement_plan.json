@@ -224,6 +224,20 @@
           "breakOn": "yes"
         }
       ]
+    },
+    {
+      "type": "llm",
+      "label": "Push",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "If possible, git push the branch."
+          ]
+        }
+      ]
     }
   ]
 }

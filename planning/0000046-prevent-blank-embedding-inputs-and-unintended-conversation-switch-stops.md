@@ -86,6 +86,75 @@ This story is therefore about correctness of shared boundaries:
 
 ## Implementation Ideas
 
+The rough implementation path can stay small if it follows the current repository boundaries instead of redesigning the ingest or websocket architecture. Direct source inspection shows that the likely work is concentrated in one ingest boundary, one defensive provider layer, one Chat page surface, and a small set of nearby regression tests.
+
+### Likely file map and change shape
+
+- Ingest chunk filtering boundary:
+  - `server/src/ingest/chunker.ts`
+  - Add one small shared eligibility helper such as `hasEmbeddableText(text)` or equivalent.
+  - Filter blank and whitespace-only pieces before they become returned chunks.
+  - Renumber `chunkIndex` after filtering so chunk hashes, ids, and metadata stay deterministic.
+- Fresh-ingest zero-eligible failure boundary:
+  - `server/src/ingest/ingestJob.ts`
+  - Keep the existing `discoverFiles()` zero-files failure path for fresh ingest.
+  - Add the second failure path after chunking so a run that discovered files but produced zero embeddable chunks still ends with the existing product-owned `NO_ELIGIBLE_FILES` style error.
+  - Preserve Story 0000020 delta re-embed no-change and deletions-only early exits exactly as they already work today.
+- Defensive provider guard:
+  - `server/src/ingest/providers/openaiGuardrails.ts`
+  - `server/src/ingest/providers/openaiEmbeddingProvider.ts`
+  - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts`
+  - Reuse one blank-input rule at provider entry so both OpenAI and LM Studio reject empty or whitespace-only strings before network work starts.
+  - Keep this guard defensive only; the main fix still belongs in the shared chunking/ingest path.
+- Chat implicit-cancel removal:
+  - `client/src/pages/ChatPage.tsx`
+  - Direct source inspection shows this file currently sends `cancelInflight(...)` from all three user actions this story cares about: `handleSelectConversation(...)`, `handleNewConversation(...)`, and provider/model change via `handleProviderChange(...)`.
+  - The main product fix is to remove those implicit cancel sends while preserving the explicit Stop button path.
+- Existing safe local reset and late-event guard:
+  - `client/src/hooks/useChatStream.ts`
+  - `setConversation(...)` already clears local streaming state for the newly visible conversation.
+  - `handleWsEvent(...)` already ignores websocket events whose `conversationId` does not match the active conversation.
+  - Rough plan implication: prefer to reuse this existing guard rather than inventing new hidden-conversation state or new websocket protocol behavior.
+- Server websocket scope boundary:
+  - `server/src/ws/server.ts`
+  - `server/src/ws/registry.ts`
+  - `server/src/test/features/chat_cancellation.feature`
+  - Research shows `unsubscribe_conversation` already behaves as subscription-only and `cancel_inflight` is already the explicit stop path.
+  - Rough plan implication: regression-test this contract, but do not redesign it as part of Story 0000046.
+
+### Rough implementation sequence
+
+1. Tighten `server/src/ingest/chunker.ts` so blank pieces never leave the chunker and chunk indexes remain sequential after filtering.
+2. Update `server/src/ingest/ingestJob.ts` so fresh ingest fails cleanly when post-filter chunking yields zero embeddable chunks even though files were discovered.
+3. Add the matching provider-entry guard for OpenAI and LM Studio so any future upstream breach still fails with a product-owned error.
+4. Remove implicit `cancelInflight(...)` sends from the three ChatPage navigation/reset actions while leaving the explicit Stop button behavior unchanged.
+5. Lean on the existing `useChatStream.ts` conversation-mismatch guard for late websocket events rather than adding new transport or server behavior.
+6. Extend the nearby regression tests so the story proves both sides of the contract: blank inputs never reach providers, and only explicit Stop sends `cancel_inflight`.
+
+### Candidate tests to extend or add
+
+- Ingest unit coverage:
+  - `server/src/test/unit/chunker.test.ts`
+  - Add cases for empty string, whitespace-only input, leading blank lines before a boundary, and chunk renumbering after blank removal.
+- Ingest integration or provider coverage:
+  - Add or extend server tests near the ingest provider files so OpenAI and LM Studio reject blank defensive inputs with the story's product-owned error path.
+  - Prefer one focused test per provider path rather than a large new suite.
+- Chat page regression coverage:
+  - `client/src/test/chatPage.newConversation.test.tsx`
+  - This file currently asserts that New conversation cancels the active run, so it should be rewritten to assert the opposite contract for Story 0000046.
+  - `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+  - Extend with an active-run scenario so provider/model changes update only future-send state and do not send `cancel_inflight`.
+  - Add or extend one Chat conversation-selection test to mirror the existing Agents navigation pattern and prove sidebar switching no longer sends `cancel_inflight`.
+  - `client/src/test/chatPage.stop.test.tsx`
+  - Keep as the regression guard that explicit Stop still sends the real cancellation request.
+- Existing pattern to mirror:
+  - `client/src/test/agentsPage.conversationSelection.test.tsx`
+  - `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`
+  - These already encode the desired “navigation is not cancellation” behavior and are the best nearby examples for shaping Chat tests.
+- Server websocket contract regression:
+  - `server/src/test/features/chat_cancellation.feature`
+  - Keep or extend this feature so unsubscribe remains non-cancelling and explicit `cancel_inflight` remains the only stop path.
+
 - Research summary for the embedding issue:
   - `server/src/ingest/chunker.ts` currently allows blank pieces to become chunks.
   - `splitOnBoundaries()` can emit an initial blank chunk when a file starts with newline or whitespace before the first detected boundary such as `function` or `class`.

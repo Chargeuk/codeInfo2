@@ -2061,7 +2061,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 
 ### 20. Re-Validate Story 45 After Code Review Follow-Ups
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -2088,27 +2088,39 @@ Re-run the full Story 45 acceptance validation after Tasks 18 and 19 are complet
 
 #### Subtasks
 
-1. [ ] Re-read the full Story 45 acceptance criteria and confirm Tasks 18 and 19 are marked done before starting this validation rerun.
-2. [ ] Re-run the full wrapper validation for the reopened Story 45 scope and confirm the full server, client, and end-to-end suites still complete cleanly.
-3. [ ] Re-check the manual acceptance evidence needed for Story 45, including nested-flow schema rejection coverage, corrected `llm.markdownFile` precheck failure codes, and the removal of the unintended push step from the plan-execution flow.
-4. [ ] Update this story file’s Task 20 `Implementation notes` section after the full validation rerun is complete.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Re-read the full Story 45 acceptance criteria and confirm Tasks 18 and 19 are marked done before starting this validation rerun.
+2. [x] Re-run the full wrapper validation for the reopened Story 45 scope and confirm the full server, client, and end-to-end suites still complete cleanly.
+3. [x] Re-check the manual acceptance evidence needed for Story 45, including nested-flow schema rejection coverage, corrected `llm.markdownFile` precheck failure codes, and the removal of the unintended push step from the plan-execution flow.
+4. [x] Update this story file’s Task 20 `Implementation notes` section after the full validation rerun is complete.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Use only the summary wrappers listed below. Do not attempt to run builds or tests without a wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run test:summary:server:unit`
-3. [ ] `npm run test:summary:server:cucumber`
-4. [ ] `npm run build:summary:client`
-5. [ ] `npm run test:summary:client`
-6. [ ] `npm run test:summary:e2e`
-7. [ ] `npm run compose:build:summary`
-8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP acceptance rerun
-10. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server`
+2. [x] `npm run test:summary:server:unit`
+3. [x] `npm run test:summary:server:cucumber`
+4. [x] `npm run build:summary:client`
+5. [x] `npm run test:summary:client`
+6. [x] `npm run test:summary:e2e`
+7. [x] `npm run compose:build:summary`
+8. [x] `npm run compose:up`
+9. [x] Manual Playwright-MCP acceptance rerun
+10. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Subtask 1: Re-read the full Story 45 acceptance criteria plus the required validation docs, confirmed Tasks 18 and 19 are both marked `__done__`, and re-opened `flows/implement_next_plan.json` to verify the unintended final `Push` step is absent before starting the wrapper rerun.
+- Testing 1: `npm run build:summary:server` passed cleanly with `warning_count: 0` and wrapper `agent_action: skip_log`, so the final Story 45 validation rerun starts from a clean server build baseline.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with `1145` tests run, `1145` passed, `0` failed, and wrapper `agent_action: skip_log`; the familiar long healthy tail completed without needing log inspection.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `68` tests run, `68` passed, `0` failed, and wrapper `agent_action: skip_log`, so the server feature-step surface still matches the reopened Story 45 contract.
+- Testing 4: `npm run build:summary:client` passed cleanly with `warning_count: 0` and wrapper `agent_action: skip_log`, so the final rerun includes a clean client typecheck-plus-build gate before broader UI validation.
+- Testing 5: `npm run test:summary:client` passed cleanly with `523` tests run, `523` passed, `0` failed, and wrapper `agent_action: skip_log`, so the client regression surface stayed green before e2e and manual browser validation.
+- Testing 6: `npm run test:summary:e2e` passed cleanly with `43` tests run, `43` passed, `0` failed, and wrapper `agent_action: skip_log`, so the compose-backed end-to-end suite stayed green before the separate manual acceptance rerun.
+- Testing 7: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and wrapper `agent_action: skip_log`, so the dedicated manual-validation compose stack built successfully.
+- Testing 8: `npm run compose:up` completed successfully and the validation stack reached healthy `server` plus `client` containers, which unlocked the final Task 20 manual acceptance rerun against `http://host.docker.internal:5001`.
+- Subtask 3 / Testing 9: Re-ran manual Playwright-MCP validation against `http://host.docker.internal:5001`, confirmed the temporary invalid flow `0000045_task20_nested_invalid` appeared disabled in the Flow selector, then ran `0000045_task20_markdown_precheck` and observed a successful first step followed by the expected failed markdown-backed step with `Agent missing_agent not found`.
+- Subtask 3 / Testing 9: Captured the manual evidence in `playwright-output-local/0000045-task20-manual-validation.md`, including shell verification that `flows/implement_next_plan.json` now returns `NO_PUSH_TEXT_FOUND` for the removed push prompt and ends at the final completion break instead of a trailing publish step. Removed the temporary `flows-sandbox/0000045_task20_nested_invalid.json` and `flows-sandbox/0000045_task20_markdown_precheck.json` fixtures after the rerun.
+- Testing 10: `npm run compose:down` completed cleanly after the manual acceptance rerun and removed the temporary validation stack containers plus the `codeinfo2_internal` network.
+- Subtasks 2-5: The full wrapper rerun is complete across server, client, e2e, and compose validation; the final `npm run lint --workspaces` sweep returned the standing `42` warning baseline, `npm run format:check --workspaces` passed cleanly across all workspaces, and the Task 20 manual evidence is recorded under `playwright-output-local/0000045-task20-manual-validation.md`.

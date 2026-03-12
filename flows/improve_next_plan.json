@@ -102,7 +102,7 @@
         {
           "role": "user",
           "content": [
-            "If possible, git push the branch."
+            "Commit all local changes, and if possible, git push the branch."
           ]
         }
       ]

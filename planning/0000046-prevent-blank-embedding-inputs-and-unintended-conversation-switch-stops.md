@@ -22,6 +22,12 @@ The second problem affects the web chat experience. When a user is in an active 
 
 The same product rule should apply consistently to the closely related Chat actions that currently behave like navigation or local reset rather than an explicit stop: Chat "New conversation" and Chat provider-change flows. Those actions should not send cancellation requests either. They should create or switch the local visible conversation while any previously active run continues until it finishes or the user explicitly presses Stop.
 
+For this story, the expected user-visible output for those Chat actions is:
+
+- selecting another conversation shows that conversation's own existing transcript and inflight state only; it must not show stopping, stopped, or newly streamed assistant content from the previously active conversation;
+- clicking Chat "New conversation" while another run is active opens a clean draft conversation view for the next message without cancelling the older run; if the user later returns to the older conversation, its server-side progress or final answer is still there;
+- changing provider or model while another run is active updates only the selection that will be used for the next send; it must not cancel, restart, or silently mutate the run that is already in flight.
+
 These problems are related at a product level because both are cases where the system is being too permissive at the wrong boundary:
 
 - ingest accepts invalid text into the embedding pipeline instead of rejecting or filtering it at the shared core boundary;
@@ -47,7 +53,7 @@ This story is therefore about correctness of shared boundaries:
 - Normal files still preserve their meaningful chunk content and chunk ordering after the fix.
 - If a fresh ingest path produces zero embeddable chunks after blank filtering, the run fails with the existing clear product-owned "no eligible files" style error rather than completing successfully with zero embeddings.
 - Existing Story 0000020 delta re-embed no-op and deletions-only behavior remains unchanged for this story.
-- If a blank embedding input somehow reaches the provider layer after the shared ingest fix, the provider layer rejects it with one clear product-owned error path rather than silently depending on provider-specific behavior.
+- If a blank embedding input somehow reaches the provider layer after the shared ingest fix, the provider layer rejects it with one clear product-owned error path that the product controls and can test, rather than surfacing a raw provider-SDK-specific validation message as the only explanation.
 - If the defensive provider-layer blank-input guard is hit, the run fails clearly instead of silently skipping the offending input and continuing.
 - OpenAI ingest no longer fails because the product generated blank embedding inputs internally.
 - LM Studio ingest behavior remains supported and does not regress.
@@ -55,12 +61,13 @@ This story is therefore about correctness of shared boundaries:
 - The previously active run continues server-side after sidebar selection until it finishes naturally or the user explicitly presses Stop.
 - Chat "New conversation" does not send a stop or cancel request for the previously active run.
 - Chat provider-change does not send a stop or cancel request for the previously active run.
+- If the user changes provider or model while a run is already active, that new selection affects only the next send and does not alter the provider/model used by the already-running request.
 - The Stop button continues to send the real cancellation request and continues to drive the existing stopping and stopped UX.
-- Switching the visible conversation only clears or rehydrates local view state for the newly selected conversation and does not invent terminal events for the previously active conversation.
-- Late websocket events from a still-running non-visible conversation do not corrupt the newly selected conversation view.
+- Switching the visible conversation only clears or rehydrates local view state for the newly selected conversation and does not invent terminal events, stop banners, or completed assistant messages for the previously active conversation.
+- Late websocket events from a still-running non-visible conversation do not corrupt the newly selected conversation view; they are ignored by the currently visible Chat view unless the user switches back to the conversation they belong to.
 - Chat behavior is aligned with the already-accepted Agents behavior where active conversation switching is allowed without forcing cancellation.
 - Chat "New conversation" and provider-change flows also stop cancelling runs implicitly and rely on explicit Stop instead.
-- Automated coverage is added or updated for the embedding and conversation-switch cases described in this story.
+- Automated coverage is added or updated for all of the following: blank chunk filtering, provider-layer blank-input rejection, sidebar conversation switching without `cancel_inflight`, Chat "New conversation" without `cancel_inflight`, provider/model change during an active run without `cancel_inflight`, and the explicit Stop button still sending the real cancellation request.
 
 ### Out Of Scope
 
@@ -126,6 +133,8 @@ This story is therefore about correctness of shared boundaries:
   - Keep the explicit Stop button path unchanged.
   - Align Chat with Agents and Flows, which already treat conversation selection as a local view change rather than a server stop request.
   - Also remove implicit cancellation from Chat "New conversation" and provider-change flows so Chat follows the same explicit-stop-only rule across its closely related navigation/reset actions.
+  - Treat Chat "New conversation" as a local draft reset only: clear the visible draft/composer state for the new conversation, but do not cancel or rewrite the older run.
+  - Treat provider/model changes during an active run as state for the next send only: do not cancel, restart, or mutate the request that is already in flight.
 
 - Why the Chat fix should be safe:
   - `client/src/hooks/useChatStream.ts` already resets local inflight state when a new conversation is selected.
@@ -146,6 +155,7 @@ This story is therefore about correctness of shared boundaries:
   - Add a Chat page test mirroring the existing Agents conversation-selection regression: active run plus sidebar switch must not send `cancel_inflight`.
   - Keep or update the existing Chat stop-button tests so they still prove explicit Stop sends the correct cancellation request.
   - Update the existing Chat "New conversation" and provider-change tests to prove they no longer send `cancel_inflight` and that the previous run can continue server-side while the visible conversation changes.
+  - Add at least one assertion that a non-visible conversation's late websocket events do not render a stop banner, stopped state, or assistant content inside the currently visible conversation.
   - Preserve or extend tests that prove late websocket events from an old conversation do not alter the currently selected conversation view.
 
 - Documentation and rollout notes:

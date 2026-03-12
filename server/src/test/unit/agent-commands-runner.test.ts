@@ -1402,6 +1402,51 @@ describe('agent commands runner (v1)', () => {
     assert.equal(messageCalls, 0);
   });
 
+  test('shared prestart formatter fallback stays aligned for direct command failures', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-format-fallback',
+      jsonText: JSON.stringify({
+        Description: 'Reingest fallback formatting',
+        items: [{ type: 'reingest', sourceId: '/repo/source-a' }],
+      }),
+    });
+
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => ({
+        ok: false,
+        error: buildReingestError({
+          message: 'INVALID_PARAMS',
+          code: 'INVALID_SOURCE_ID',
+          fieldMessage: '',
+        }),
+      }),
+    });
+
+    await assert.rejects(
+      async () =>
+        runAgentCommandRunner({
+          agentName: 'a1',
+          agentHome,
+          commandName: 'reingest-format-fallback',
+          initialModelId: 'agent-model-1',
+          source: 'REST',
+          runAgentInstructionUnlocked: async () => ({
+            modelId: 'agent-model-1',
+          }),
+        }),
+      (err) =>
+        (err as { code?: string; reason?: string }).code ===
+          'COMMAND_INVALID' &&
+        (err as { code?: string; reason?: string }).reason ===
+          'INVALID_PARAMS: INVALID_SOURCE_ID',
+    );
+  });
+
   test('unexpected thrown exceptions before a terminal result fail the command clearly', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');

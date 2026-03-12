@@ -10,10 +10,8 @@ import {
 import { runReingestStepLifecycle } from '../chat/reingestStepLifecycle.js';
 import { buildReingestToolResult } from '../chat/reingestToolResult.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
-import {
-  runReingestRepository,
-  type ReingestError,
-} from '../ingest/reingestService.js';
+import { formatReingestPrestartReason } from '../ingest/reingestError.js';
+import { runReingestRepository } from '../ingest/reingestService.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
@@ -145,12 +143,6 @@ function isSafeCommandName(raw: string): boolean {
   if (name.includes('/') || name.includes('\\')) return false;
   if (name.includes('..')) return false;
   return true;
-}
-
-function reingestPrestartReason(error: ReingestError): string {
-  const fieldMessage = error.data.fieldErrors[0]?.message?.trim();
-  if (fieldMessage) return fieldMessage;
-  return `${error.message}: ${error.data.code}`;
 }
 
 export async function runAgentCommandRunner(
@@ -303,12 +295,12 @@ export async function runAgentCommandRunner(
           await params.onPrestartFailure?.({
             command: stepMeta,
             instruction: `Re-ingest repository ${item.sourceId}`,
-            message: reingestPrestartReason(result.error),
+            message: formatReingestPrestartReason(result.error),
             errorCode: 'COMMAND_INVALID',
           });
           throw toCommandRunnerError(
             'COMMAND_INVALID',
-            reingestPrestartReason(result.error),
+            formatReingestPrestartReason(result.error),
           );
         }
 

@@ -1283,6 +1283,91 @@ test('flow llm.markdownFile surfaces unexpected markdown resolver exceptions as 
   );
 });
 
+test('flow llm.markdownFile reports AGENT_NOT_FOUND before markdown resolution failures', async () => {
+  await withMarkdownFlowHarness(
+    async ({ tempRoot, buildRepoEntry, writeFlowFile, runFlow }) => {
+      const sourceRepo = path.join(tempRoot, 'repo-source');
+      const flowName = 'markdown-agent-precheck';
+      const conversationId = 'flow-markdown-agent-precheck';
+      await writeFlowFile({
+        flowsRoot: path.join(sourceRepo, 'flows'),
+        flowName,
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'missing_agent',
+            identifier: 'basic',
+            markdownFile: 'missing.md',
+          },
+        ],
+      });
+
+      await assert.rejects(
+        async () =>
+          runFlow({
+            flowName,
+            conversationId,
+            sourceId: sourceRepo,
+            listedRepos: [buildRepoEntry(sourceRepo)],
+            turnsPredicate: () => false,
+          }),
+        (error) =>
+          (error as { code?: string; reason?: string }).code ===
+            'AGENT_NOT_FOUND' &&
+          (error as { code?: string; reason?: string }).reason ===
+            'Agent missing_agent not found',
+      );
+    },
+  );
+});
+
+test('flow llm.markdownFile reports CODEX_UNAVAILABLE before markdown resolution failures', async () => {
+  await withMarkdownFlowHarness(
+    async ({ tempRoot, buildRepoEntry, writeFlowFile, runFlow }) => {
+      const sourceRepo = path.join(tempRoot, 'repo-source');
+      const flowName = 'markdown-codex-precheck';
+      const conversationId = 'flow-markdown-codex-precheck';
+      const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+      const unavailableCodexHome = path.join(tempRoot, 'codex-home-missing');
+      await fs.mkdir(unavailableCodexHome, { recursive: true });
+      await writeFlowFile({
+        flowsRoot: path.join(sourceRepo, 'flows'),
+        flowName,
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'coding_agent',
+            identifier: 'basic',
+            markdownFile: 'missing.md',
+          },
+        ],
+      });
+
+      try {
+        process.env.CODEINFO_CODEX_HOME = unavailableCodexHome;
+        await assert.rejects(
+          async () =>
+            runFlow({
+              flowName,
+              conversationId,
+              sourceId: sourceRepo,
+              listedRepos: [buildRepoEntry(sourceRepo)],
+              turnsPredicate: () => false,
+            }),
+          (error) =>
+            (error as { code?: string; reason?: string }).code ===
+              'CODEX_UNAVAILABLE' &&
+            /Missing auth\.json/i.test(
+              (error as { code?: string; reason?: string }).reason ?? '',
+            ),
+        );
+      } finally {
+        process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+      }
+    },
+  );
+});
+
 test('flow continues to later steps after a successful llm.markdownFile step', async () => {
   await withMarkdownFlowHarness(
     async ({

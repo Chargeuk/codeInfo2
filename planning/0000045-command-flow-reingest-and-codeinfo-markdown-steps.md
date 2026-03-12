@@ -1826,7 +1826,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 
 ### 16. Restore Discriminated Flow Validation And Align Flow Reingest Error Handling
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1854,26 +1854,32 @@ Address the next round of Story 45 review follow-up items without widening the f
 
 #### Subtasks
 
-1. [ ] Re-read the reviewed `flowSchema.ts`, `flows/service.ts`, and `commandsRunner.ts` paths before changing behavior, and identify the smallest shared helper location for the re-ingest prestart reason formatter.
-2. [ ] Replace the current top-level flow step `z.union([...])` with a `type`-discriminated schema while keeping the `llm` step XOR contract for `messages` versus `markdownFile`.
-3. [ ] Extract the shared re-ingest prestart reason formatter and reuse it from both flow and direct-command execution paths.
-4. [ ] Reorder the `llm.markdownFile` flow execution path so agent existence and Codex/runtime availability are checked before markdown resolution, while keeping the existing markdown resolution contract unchanged once the step is runnable.
-5. [ ] Add or update unit tests that prove `llm` steps still accept exactly one instruction source, reject invalid XOR cases, and continue to parse `reingest` steps under the restored discriminated schema.
-6. [ ] Add or update runtime tests that prove the shared re-ingest reason formatter stays aligned across flow and command failures, and that `llm.markdownFile` now reports `AGENT_NOT_FOUND` or `CODEX_UNAVAILABLE` before markdown resolution failures when those earlier checks apply.
-7. [ ] Update this story file’s Task 16 `Implementation notes` section after the fix and tests for this task are complete.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Re-read the reviewed `flowSchema.ts`, `flows/service.ts`, and `commandsRunner.ts` paths before changing behavior, and identify the smallest shared helper location for the re-ingest prestart reason formatter.
+2. [x] Replace the current top-level flow step `z.union([...])` with a `type`-discriminated schema while keeping the `llm` step XOR contract for `messages` versus `markdownFile`.
+3. [x] Extract the shared re-ingest prestart reason formatter and reuse it from both flow and direct-command execution paths.
+4. [x] Reorder the `llm.markdownFile` flow execution path so agent existence and Codex/runtime availability are checked before markdown resolution, while keeping the existing markdown resolution contract unchanged once the step is runnable.
+5. [x] Add or update unit tests that prove `llm` steps still accept exactly one instruction source, reject invalid XOR cases, and continue to parse `reingest` steps under the restored discriminated schema.
+6. [x] Add or update runtime tests that prove the shared re-ingest reason formatter stays aligned across flow and command failures, and that `llm.markdownFile` now reports `AGENT_NOT_FOUND` or `CODEX_UNAVAILABLE` before markdown resolution failures when those earlier checks apply.
+7. [x] Update this story file’s Task 16 `Implementation notes` section after the fix and tests for this task are complete.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Use only the summary wrappers listed below. Do not attempt to run builds or tests without a wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+1. [x] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
 - 
+- Subtask 1: Re-read `flowSchema.ts`, `flows/service.ts`, and `commandsRunner.ts`, then placed the shared prestart re-ingest reason formatter in a small ingest-layer helper beside `reingestService.ts` so flow and direct-command paths can reuse the same message contract.
+- Subtasks 2-4: Restored `type`-discriminated flow-step parsing in `flowSchema.ts`, moved the `llm` XOR enforcement to flow-file validation so the discriminated union still compiles cleanly, extracted `formatReingestPrestartReason(...)` into a shared ingest helper, and moved the `llm.markdownFile` flow path onto agent/runtime prechecks before markdown resolution.
+- Subtasks 5-6: Added a schema regression proving `reingest` stays distinct under the restored discriminator, added direct-command and dedicated-flow formatter-alignment coverage for fieldless prestart errors, and updated the flow markdown precheck tests to assert the actual `AGENT_NOT_FOUND` / `CODEX_UNAVAILABLE` rejection contract before markdown resolution runs.
+- Testing 1: `npm run build:summary:server` initially failed on Zod/discriminated-union typing and a missing helper parameter, then passed cleanly after moving the XOR check to the flow-file schema and fixing the precheck helper signature.
+- Testing 2: `npm run test:summary:server:unit` first exposed the two new markdown-precheck assertions as contract mismatches because the flow rejects early with typed `AGENT_NOT_FOUND` / `CODEX_UNAVAILABLE` errors instead of emitting failed assistant turns; after aligning those tests and rerunning, the full wrapper passed with `1142` tests run and `0` failures.
+- Testing 3 / Subtasks 7-8: `npm run test:summary:server:cucumber` passed with `68` tests run and `0` failures, then the final `npm run lint --workspaces` plus `npm run format:check --workspaces` sweep returned the repo to its standing `42` warning lint baseline with Prettier clean across client/server/common.
 
 ---
 

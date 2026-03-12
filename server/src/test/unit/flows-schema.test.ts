@@ -253,6 +253,21 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, true);
   });
 
+  test('type discriminator keeps reingest steps distinct from llm instruction fields', () => {
+    const json = JSON.stringify({
+      steps: [
+        {
+          type: 'reingest',
+          sourceId: '/tmp/repo',
+          markdownFile: 'architecture/review.md',
+        },
+      ],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
   test('empty llm markdownFile returns ok: false', () => {
     const json = JSON.stringify({
       steps: [

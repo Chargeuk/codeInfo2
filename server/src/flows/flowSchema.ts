@@ -77,7 +77,7 @@ const FlowMessageSchema: z.ZodTypeAny = z
 
 const FlowStepSchema: z.ZodTypeAny = z.lazy(() => flowStepUnionSchema());
 
-const FlowStartLoopStepSchema: z.ZodTypeAny = z
+const FlowStartLoopStepSchema = z
   .object({
     type: z.literal('startLoop'),
     label: trimmedNonEmptyString.optional(),
@@ -85,32 +85,18 @@ const FlowStartLoopStepSchema: z.ZodTypeAny = z
   })
   .strict();
 
-const FlowLlmMessagesStepSchema: z.ZodTypeAny = z
+const FlowLlmStepSchema = z
   .object({
     type: z.literal('llm'),
     label: trimmedNonEmptyString.optional(),
     agentType: trimmedNonEmptyString,
     identifier: trimmedNonEmptyString,
-    messages: z.array(FlowMessageSchema).min(1),
+    messages: z.array(FlowMessageSchema).min(1).optional(),
+    markdownFile: trimmedNonEmptyString.optional(),
   })
   .strict();
 
-const FlowLlmMarkdownFileStepSchema: z.ZodTypeAny = z
-  .object({
-    type: z.literal('llm'),
-    label: trimmedNonEmptyString.optional(),
-    agentType: trimmedNonEmptyString,
-    identifier: trimmedNonEmptyString,
-    markdownFile: trimmedNonEmptyString,
-  })
-  .strict();
-
-const FlowLlmStepSchema: z.ZodTypeAny = z.union([
-  FlowLlmMessagesStepSchema,
-  FlowLlmMarkdownFileStepSchema,
-]);
-
-const FlowBreakStepSchema: z.ZodTypeAny = z
+const FlowBreakStepSchema = z
   .object({
     type: z.literal('break'),
     label: trimmedNonEmptyString.optional(),
@@ -121,7 +107,7 @@ const FlowBreakStepSchema: z.ZodTypeAny = z
   })
   .strict();
 
-const FlowCommandStepSchema: z.ZodTypeAny = z
+const FlowCommandStepSchema = z
   .object({
     type: z.literal('command'),
     label: trimmedNonEmptyString.optional(),
@@ -131,7 +117,7 @@ const FlowCommandStepSchema: z.ZodTypeAny = z
   })
   .strict();
 
-const FlowReingestStepSchema: z.ZodTypeAny = z
+const FlowReingestStepSchema = z
   .object({
     type: z.literal('reingest'),
     label: trimmedNonEmptyString.optional(),
@@ -140,7 +126,7 @@ const FlowReingestStepSchema: z.ZodTypeAny = z
   .strict();
 
 function flowStepUnionSchema() {
-  return z.union([
+  return z.discriminatedUnion('type', [
     FlowStartLoopStepSchema,
     FlowLlmStepSchema,
     FlowBreakStepSchema,
@@ -149,12 +135,27 @@ function flowStepUnionSchema() {
   ]);
 }
 
-const FlowFileSchema: z.ZodTypeAny = z
+const FlowFileSchema = z
   .object({
     description: trimmedNonEmptyString.optional(),
     steps: z.array(FlowStepSchema),
   })
-  .strict();
+  .strict()
+  .superRefine((flow, ctx) => {
+    flow.steps.forEach((step, index) => {
+      if (step.type !== 'llm') return;
+      const hasMessages = Array.isArray(step.messages);
+      const hasMarkdownFile = typeof step.markdownFile === 'string';
+      if (hasMessages === hasMarkdownFile) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            'llm steps must provide exactly one instruction source: messages or markdownFile',
+          path: ['steps', index],
+        });
+      }
+    });
+  });
 
 export function parseFlowFile(
   jsonText: string,
@@ -176,7 +177,7 @@ export function parseFlowFile(
       if (step.type !== 'llm' && step.type !== 'reingest') continue;
       const instructionSource =
         step.type === 'llm'
-          ? 'messages' in step
+          ? Array.isArray(step.messages)
             ? 'messages'
             : 'markdownFile'
           : 'reingest';

@@ -45,10 +45,8 @@ import {
 import { runReingestStepLifecycle } from '../chat/reingestStepLifecycle.js';
 import { buildReingestToolResult } from '../chat/reingestToolResult.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
-import {
-  runReingestRepository,
-  type ReingestError,
-} from '../ingest/reingestService.js';
+import { formatReingestPrestartReason } from '../ingest/reingestError.js';
+import { runReingestRepository } from '../ingest/reingestService.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
@@ -155,12 +153,6 @@ const isSafeCommandName = (raw: string): boolean => {
   if (name.includes('/') || name.includes('\\')) return false;
   if (name.includes('..')) return false;
   return true;
-};
-
-const reingestPrestartReason = (error: ReingestError): string => {
-  const fieldMessage = error.data.fieldErrors[0]?.message?.trim();
-  if (fieldMessage) return fieldMessage;
-  return `${error.message}: ${error.data.code}`;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -1991,6 +1983,33 @@ async function runFlowUnlocked(params: {
     }
   };
 
+  const resolveFlowInstructionPrerequisites = async (params: {
+    agentType: string;
+    configPath?: string;
+    source: 'REST' | 'MCP';
+  }): Promise<{
+    modelId: string;
+    runtimeConfig: CodexOptions['config'];
+  }> => {
+    const agent = agentByName.get(params.agentType);
+    if (!agent) {
+      throw toFlowRunError(
+        'AGENT_NOT_FOUND',
+        `Agent ${params.agentType} not found`,
+      );
+    }
+
+    const detection = refreshCodexDetection();
+    if (!detection.available) {
+      throw toFlowRunError('CODEX_UNAVAILABLE', detection.reason);
+    }
+
+    return resolveFlowAgentRuntimeExecution({
+      configPath: params.configPath ?? agent.configPath,
+      source: params.source,
+    });
+  };
+
   const runInstruction = async (instructionParams: {
     agentType: string;
     identifier: string;
@@ -2007,12 +2026,8 @@ async function runFlowUnlocked(params: {
       );
     }
 
-    const detection = refreshCodexDetection();
-    if (!detection.available) {
-      throw toFlowRunError('CODEX_UNAVAILABLE', detection.reason);
-    }
-
-    const runtime = await resolveFlowAgentRuntimeExecution({
+    const runtime = await resolveFlowInstructionPrerequisites({
+      agentType: instructionParams.agentType,
       configPath: agent.configPath,
       source: params.source,
     });
@@ -2199,6 +2214,10 @@ async function runFlowUnlocked(params: {
 
     let resolved;
     try {
+      await resolveFlowInstructionPrerequisites({
+        agentType: step.agentType,
+        source: params.source,
+      });
       resolved = await resolveMarkdownFileWithMetadata({
         markdownFile: step.markdownFile,
         flowSourceId: params.repositoryContext.flowSourceId,
@@ -2468,7 +2487,7 @@ async function runFlowUnlocked(params: {
               });
 
               if (!result.ok) {
-                throw new Error(reingestPrestartReason(result.error));
+                throw new Error(formatReingestPrestartReason(result.error));
               }
 
               const callId = flowServiceDeps.createCallId();
@@ -2578,9 +2597,7 @@ async function runFlowUnlocked(params: {
     }
 
     if (!result.ok) {
-      const message =
-        result.error.data.fieldErrors[0]?.message?.trim() ||
-        `${result.error.message}: ${result.error.data.code}`;
+      const message = formatReingestPrestartReason(result.error);
       await emitFailedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,

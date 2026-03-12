@@ -710,6 +710,42 @@ test('busy reingest refusal stops the dedicated flow clearly', async () => {
   });
 });
 
+test('shared prestart formatter fallback stays aligned for dedicated flow failures', async () => {
+  await withFlowHarness(async ({ tmpDir, ws }) => {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'reingest-format-fallback',
+      steps: [{ type: 'reingest', sourceId: '/repo/source-a' }, makeLlmStep()],
+    });
+    __setFlowServiceDepsForTests({
+      runReingestRepository: async () => ({
+        ok: false,
+        error: buildReingestError({
+          message: 'INVALID_PARAMS',
+          fieldMessage: '',
+        }),
+      }),
+    });
+
+    const result = await startFlowRun({
+      flowName: 'reingest-format-fallback',
+      source: 'REST',
+    });
+    subscribeConversation(ws, result.conversationId);
+    await waitForFlowFinal({
+      ws,
+      conversationId: result.conversationId,
+      status: 'failed',
+    });
+    const turns = await waitForTurns(
+      result.conversationId,
+      (items) => items.length >= 2,
+    );
+    assert.equal(turns[1]?.status, 'failed');
+    assert.match(turns[1]?.content ?? '', /INVALID_PARAMS: INVALID_SOURCE_ID/);
+  });
+});
+
 test('unexpected thrown exceptions fail the current dedicated flow', async () => {
   await withFlowHarness(async ({ tmpDir, ws }) => {
     await writeFlowFile({

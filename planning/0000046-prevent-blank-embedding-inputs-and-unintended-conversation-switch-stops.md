@@ -62,7 +62,7 @@ This story is therefore about correctness of shared boundaries:
 
 ### Questions
 
-None. The intended product rule for this story is explicit: runs should stop only when they finish naturally or when the user presses Stop.
+-
 
 ## Implementation Ideas
 

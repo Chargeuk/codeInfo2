@@ -52,6 +52,7 @@ This story is therefore about correctness of shared boundaries:
 - Empty files, whitespace-only files, and files with leading blank lines do not produce provider embedding requests for blank text.
 - Normal files still preserve their meaningful chunk content and chunk ordering after the fix.
 - If a fresh ingest path produces zero embeddable chunks after blank filtering, the run fails with the existing clear product-owned "no eligible files" style error rather than completing successfully with zero embeddings.
+- The fresh-ingest zero-embeddable-chunks failure rule applies even when file discovery succeeded; in other words, finding files is not enough if blank filtering leaves nothing valid to embed.
 - Existing Story 0000020 delta re-embed no-op and deletions-only behavior remains unchanged for this story.
 - If a blank embedding input somehow reaches the provider layer after the shared ingest fix, the provider layer rejects it with one clear product-owned error path that the product controls and can test, rather than surfacing a raw provider-SDK-specific validation message as the only explanation.
 - If the defensive provider-layer blank-input guard is hit, the run fails clearly instead of silently skipping the offending input and continuing.
@@ -67,6 +68,7 @@ This story is therefore about correctness of shared boundaries:
 - Late websocket events from a still-running non-visible conversation do not corrupt the newly selected conversation view; they are ignored by the currently visible Chat view unless the user switches back to the conversation they belong to.
 - Chat behavior is aligned with the already-accepted Agents behavior where active conversation switching is allowed without forcing cancellation.
 - Chat "New conversation" and provider-change flows also stop cancelling runs implicitly and rely on explicit Stop instead.
+- This story does not introduce a new websocket cancellation protocol; `cancel_inflight` remains the only client-to-server stop message and `unsubscribe_conversation` remains a subscription-only action.
 - Automated coverage is added or updated for all of the following: blank chunk filtering, provider-layer blank-input rejection, sidebar conversation switching without `cancel_inflight`, Chat "New conversation" without `cancel_inflight`, provider/model change during an active run without `cancel_inflight`, and the explicit Stop button still sending the real cancellation request.
 
 ### Out Of Scope
@@ -78,6 +80,7 @@ This story is therefore about correctness of shared boundaries:
 - Changing the existing Story 0000020 delta re-embed no-op or deletions-only terminal semantics beyond what is required to keep blank-only content out of embedding requests.
 - Redesigning the chat, agents, or flows page layout.
 - Changing the server-authoritative Stop contract introduced for explicit cancellation flows.
+- Introducing new websocket message types or changing `unsubscribe_conversation` so it behaves like cancellation.
 - Introducing multi-tab shared view state for hidden conversations beyond the existing websocket and snapshot behavior.
 - Reworking unrelated conversation hydration, transcript rendering, or sidebar styling behavior.
 
@@ -103,6 +106,7 @@ This story is therefore about correctness of shared boundaries:
   - Preserve original chunk text for non-blank chunks; use trimming only for eligibility checks, not for rewriting stored content.
   - Consider adding one small helper such as `isEmbeddableText(text)` or `hasNonWhitespaceContent(text)` in the ingest layer so the rule is centralized and readable.
   - Reuse the existing fresh-ingest "no eligible files" style error if blank filtering leaves the run with zero embeddable chunks, rather than inventing a new success contract for zero-embedding ingests.
+  - Because the current ingest job only fails early when `discoverFiles()` returns zero files, implementation must also add a post-chunking / post-filtering zero-embeddable guard for fresh ingest so blank-only discovered files still terminate with the existing product-owned failure contract.
 
 - Suggested defensive provider fix:
   - Add one shared embedding-input guard used by all provider adapters and embedding-function implementations.
@@ -135,6 +139,7 @@ This story is therefore about correctness of shared boundaries:
   - Also remove implicit cancellation from Chat "New conversation" and provider-change flows so Chat follows the same explicit-stop-only rule across its closely related navigation/reset actions.
   - Treat Chat "New conversation" as a local draft reset only: clear the visible draft/composer state for the new conversation, but do not cancel or rewrite the older run.
   - Treat provider/model changes during an active run as state for the next send only: do not cancel, restart, or mutate the request that is already in flight.
+  - Keep the websocket protocol and server-side cancel contract unchanged: repository evidence already shows `unsubscribe_conversation` is subscription-only and `cancel_inflight` is the explicit stop path, so the main product fix belongs in Chat client handlers and regression coverage rather than in new server protocol behavior.
 
 - Why the Chat fix should be safe:
   - `client/src/hooks/useChatStream.ts` already resets local inflight state when a new conversation is selected.
@@ -162,6 +167,13 @@ This story is therefore about correctness of shared boundaries:
   - Record clearly in the story tasks that the fix is intentionally shared-boundary work, not an OpenAI-only workaround.
   - Record clearly that the desired UX rule is "conversation selection is navigation, Stop is cancellation."
   - When implementation is complete, verify that the story notes explain the relationship to Story 0000043 so future work does not reintroduce sidebar-triggered stop behavior while adjusting stop-state UX.
+
+## Research Findings
+
+1. Repository evidence shows the ingest story needs one extra explicit boundary after chunking, not just before file discovery. `server/src/ingest/ingestJob.ts` already fails fresh ingest when `discoverFiles()` returns zero files, but `server/src/ingest/chunker.ts` can currently emit blank chunks and the ingest loop embeds every returned chunk directly. That means blank filtering can create a new case where files were discovered successfully but the run still has zero embeddable chunks. The plan now treats that as an intentional fresh-ingest failure using the existing product-owned "no eligible files" contract.
+2. Repository evidence shows the server-side websocket contract is already aligned with the desired stop behavior. `server/src/ws/server.ts` handles `unsubscribe_conversation` as subscription-only and `cancel_inflight` as the explicit stop path, while `server/src/test/features/chat_cancellation.feature` already proves unsubscribe does not cancel. This means Story 0000046 should stay scoped to Chat client handlers, UI state reset behavior, and regression coverage rather than redesigning websocket protocol semantics.
+3. Repository evidence shows the client already has the late-event protection this story needs. `client/src/hooks/useChatStream.ts` resets local inflight indicators when the active conversation changes and ignores websocket events whose `conversationId` does not match the currently visible conversation. That means the story does not need a new hidden-conversation state system; it needs ChatPage to stop sending `cancelInflight(...)` during navigation/reset actions and then rely on the existing conversation-mismatch guard.
+4. External contract evidence supports the hard-fail embedding behavior and the scoped UI reset behavior. The OpenAI API reference states that embeddings input cannot be an empty string, and DeepWiki's repository-grounded summary for `openai/openai-node` aligns with the API contract by noting that invalid inputs are API-level failures rather than client-side silent skips. React's official "Preserving and Resetting State" guidance uses chat-recipient switching as an example of when keyed UI state should reset locally, which supports resetting the visible Chat draft/view without treating that local reset as an instruction to cancel external background work.
 
 ## Questions
 

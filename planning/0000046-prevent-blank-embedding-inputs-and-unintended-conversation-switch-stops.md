@@ -244,6 +244,29 @@ The rough implementation path can stay small if it follows the current repositor
 3. Repository evidence shows the client already has the late-event protection this story needs. `client/src/hooks/useChatStream.ts` resets local inflight indicators when the active conversation changes and ignores websocket events whose `conversationId` does not match the currently visible conversation. That means the story does not need a new hidden-conversation state system; it needs ChatPage to stop sending `cancelInflight(...)` during navigation/reset actions and then rely on the existing conversation-mismatch guard.
 4. External contract evidence supports the hard-fail embedding behavior and the scoped UI reset behavior. The OpenAI API reference states that embeddings input cannot be an empty string, and DeepWiki's repository-grounded summary for `openai/openai-node` aligns with the API contract by noting that invalid inputs are API-level failures rather than client-side silent skips. React's official "Preserving and Resetting State" guidance uses chat-recipient switching as an example of when keyed UI state should reset locally, which supports resetting the visible Chat draft/view without treating that local reset as an instruction to cancel external background work.
 
+## Test Harnesses
+
+No new test harnesses need to be created for Story 0000046. Repository research shows the existing unit, UI, websocket, feature, and e2e harnesses are already capable of covering the behavior this story adds, so future tasks should extend the harnesses below instead of inventing a new test type.
+
+1. Server unit harness for ingest and provider validation:
+   - Create no new harness.
+   - Reuse the existing `node:test` server unit setup under `server/src/test/unit/`.
+   - Primary nearby files are `server/src/test/unit/chunker.test.ts`, the existing OpenAI provider tests, and the existing LM Studio provider tests.
+   - This harness is the right place for blank-chunk filtering, chunk renumbering, fresh zero-embeddable failure, and provider-layer blank-input rejection assertions.
+2. Client Chat UI websocket harness:
+   - Create no new harness.
+   - Reuse `client/src/test/setupTests.ts` plus `client/src/test/support/mockChatWs.ts`.
+   - `mockChatWs.ts` already provides `setupChatWsHarness()` for mocked `/chat`, `/conversations`, transcript events, sidebar events, and `cancel_ack` flows.
+   - This harness is the right place for Chat sidebar selection, New conversation, provider/model change, and explicit Stop assertions.
+3. Server websocket / feature harness:
+   - Create no new harness.
+   - Reuse `server/src/test/features/chat_cancellation.feature`, `server/src/test/steps/chat_cancellation.steps.ts`, `server/src/test/support/wsClient.ts`, and `server/src/test/support/mockLmStudioSdk.ts`.
+   - This harness already proves that unsubscribe does not cancel and that explicit `cancel_inflight` does cancel, so Story 0000046 should extend that behavior coverage rather than building a new protocol harness.
+4. Existing browser-level coverage:
+   - Create no new harness.
+   - Reuse the existing Playwright setup in `playwright.config.ts` and the current `e2e/*.spec.ts` files only if a later task decides one user-level smoke test is worth the cost.
+   - DeepWiki's Playwright guidance and the existing repo setup both support using ordinary page-level tests for navigation/state checks rather than inventing a custom browser harness. For this story, the lower-level client and server harnesses provide better observability for cancellation behavior than a new e2e harness would.
+
 ## Questions
 
 - No Further Questions

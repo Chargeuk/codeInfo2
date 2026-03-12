@@ -89,6 +89,49 @@ This story is therefore about correctness of shared boundaries:
 - Introducing multi-tab shared view state for hidden conversations beyond the existing websocket and snapshot behavior.
 - Reworking unrelated conversation hydration, transcript rendering, or sidebar styling behavior.
 
+## Documentation Sources
+
+These are the main sources a later task-writer or implementer should treat as the story's reference bundle. They capture the current behavior that Story 0000046 is intentionally changing or intentionally preserving.
+
+- Local ingest behavior and contracts:
+  - `server/src/ingest/chunker.ts`
+  - `server/src/ingest/ingestJob.ts`
+  - `server/src/ingest/types.ts`
+  - `server/src/ingest/providers/openaiGuardrails.ts`
+  - `server/src/ingest/providers/openaiEmbeddingProvider.ts`
+  - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts`
+  - `server/src/ingest/providers/openaiErrors.ts`
+- Local chat behavior and websocket contracts:
+  - `client/src/pages/ChatPage.tsx`
+  - `client/src/hooks/useChatStream.ts`
+  - `client/src/hooks/useChatWs.ts`
+  - `server/src/ws/types.ts`
+  - `server/src/ws/server.ts`
+  - `server/src/ws/registry.ts`
+- Local persistence and storage shapes to preserve:
+  - `server/src/mongo/conversation.ts`
+  - `server/src/mongo/turn.ts`
+  - the existing Chroma metadata writes in `server/src/ingest/ingestJob.ts`
+- Local tests and harnesses to mirror or extend:
+  - `server/src/test/unit/chunker.test.ts`
+  - `server/src/test/features/chat_cancellation.feature`
+  - `server/src/test/steps/chat_cancellation.steps.ts`
+  - `server/src/test/support/wsClient.ts`
+  - `server/src/test/support/mockLmStudioSdk.ts`
+  - `client/src/test/support/mockChatWs.ts`
+  - `client/src/test/chatPage.newConversation.test.tsx`
+  - `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+  - `client/src/test/chatPage.stop.test.tsx`
+  - `client/src/test/chatPage.inflightNavigate.test.tsx`
+  - `client/src/test/agentsPage.conversationSelection.test.tsx`
+  - `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`
+- Related story context that this story must stay aligned with:
+  - Story `0000020` for delta re-embed no-change and deletions-only semantics
+  - Story `0000043` for explicit stop behavior and the history of sidebar cancellation
+- External contracts already used to shape this story:
+  - OpenAI embeddings API reference stating embedding input cannot be an empty string
+  - React guidance on preserving and resetting state when switching visible UI context
+
 ## Implementation Ideas
 
 The rough implementation path can stay small if it follows the current repository boundaries instead of redesigning the ingest or websocket architecture. Direct source inspection shows that the likely work is concentrated in one ingest boundary, one defensive provider layer, one Chat page surface, and a small set of nearby regression tests.

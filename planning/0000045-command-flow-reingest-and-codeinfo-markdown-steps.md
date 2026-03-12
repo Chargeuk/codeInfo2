@@ -1821,3 +1821,112 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 - Testing 8-9 / Subtask 3: `npm run compose:up` brought the validation stack up cleanly, and the manual Playwright-MCP rerun confirmed that read-only `/agents`, `/flows`, and `/logs` browsing did not emit Story 45 T1/T2 parser logs before execution, while an invalid direct-command `reingest` run failed visibly in the UI with `sourceId must match an existing ingested repository root exactly` instead of hanging after the background `202` start response.
 - Testing 9 / Subtask 3: Saved browser evidence under `playwright-output-local`, including `0000045-task15-logs-no-noise.png`, `0000045-task15-agents-start.png`, `0000045-task15-agents-complete.png`, and `0000045-task15-flows-start.png`; the only browser-console issue observed during the rerun was the same transient `404` for `/conversations/<id>/turns`, so no new Story 45 regression was identified.
 - Testing 10: `npm run compose:down` completed cleanly after the manual acceptance rerun, and the temporary local-only validation fixtures created for Task 15 (`codex_agents/coding_agent/commands/0000045_task15_reingest_rejection.json` and `flows-sandbox/0000045_task15_parser_gate.json`) were used only for acceptance evidence and should not be committed with the story ledger.
+
+---
+
+### 16. Restore Discriminated Flow Validation And Align Flow Reingest Error Handling
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Address the next round of Story 45 review follow-up items without widening the feature scope. This task restores discriminator-based flow step parsing, removes duplicated re-ingest prestart error formatting logic, and makes `llm.markdownFile` flow failures report agent/runtime gating problems before markdown resolution errors when those earlier checks fail.
+
+#### Documentation Locations
+
+- Zod documentation: https://zod.dev/ - use for restoring a discriminated `type`-based flow step schema while still enforcing the `messages` versus `markdownFile` XOR rule for `llm` steps.
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for the unit and integration coverage added for the follow-up fixes in this task.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
+
+#### Critical Task Rules
+
+- Keep the Story 45 flow file contract unchanged: `llm` must still allow exactly one instruction source, `messages` or `markdownFile`, and `reingest` must remain a first-class flow step.
+- Restore a `type`-discriminated flow step schema instead of the current top-level `z.union([...])` so parsing stays aligned with the repo's existing discriminator-based shape checking.
+- Extract the shared re-ingest prestart failure reason formatting into one helper and reuse it from both flow and direct-command execution paths so the error contract does not drift.
+- In the `llm.markdownFile` execution path, validate agent existence and runtime availability before markdown resolution so failure precedence matches the `messages` branch and the flow does not do unnecessary filesystem work when it already cannot run.
+- Do not add new flow step types, new websocket events, or new persistence shapes as part of this task.
+
+#### Required Files For This Task
+
+- Read first: [flows/flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts), [flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), [agents/commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts), [ingest/reingestService.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/reingestService.ts), [markdownFileResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/markdownFileResolver.ts)
+- Edit in this task: [planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md), [flows/flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts), [flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), [agents/commandsRunner.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/commandsRunner.ts), any new shared helper under [server/src](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src), [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts), [agent-commands-runner.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-runner.test.ts), and the relevant flow runtime tests under [server/src/test](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test)
+
+#### Subtasks
+
+1. [ ] Re-read the reviewed `flowSchema.ts`, `flows/service.ts`, and `commandsRunner.ts` paths before changing behavior, and identify the smallest shared helper location for the re-ingest prestart reason formatter.
+2. [ ] Replace the current top-level flow step `z.union([...])` with a `type`-discriminated schema while keeping the `llm` step XOR contract for `messages` versus `markdownFile`.
+3. [ ] Extract the shared re-ingest prestart reason formatter and reuse it from both flow and direct-command execution paths.
+4. [ ] Reorder the `llm.markdownFile` flow execution path so agent existence and Codex/runtime availability are checked before markdown resolution, while keeping the existing markdown resolution contract unchanged once the step is runnable.
+5. [ ] Add or update unit tests that prove `llm` steps still accept exactly one instruction source, reject invalid XOR cases, and continue to parse `reingest` steps under the restored discriminated schema.
+6. [ ] Add or update runtime tests that prove the shared re-ingest reason formatter stays aligned across flow and command failures, and that `llm.markdownFile` now reports `AGENT_NOT_FOUND` or `CODEX_UNAVAILABLE` before markdown resolution failures when those earlier checks apply.
+7. [ ] Update this story file’s Task 16 `Implementation notes` section after the fix and tests for this task are complete.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Use only the summary wrappers listed below. Do not attempt to run builds or tests without a wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- 
+
+---
+
+### 17. Re-Validate Story 45 After Final Review Follow-Ups
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Re-run the full Story 45 acceptance validation after Task 16 is complete. This task exists so the newly reopened review-fix work is validated against the full story acceptance surface instead of being accepted only from targeted regression coverage.
+
+#### Documentation Locations
+
+- Playwright introduction: https://playwright.dev/docs/intro - use for the manual browser validation flow required in this final follow-up task.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose build/up/down validation sequence required in this task.
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for the full server unit validation run that is part of this acceptance re-check.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped build and validation commands listed in this task.
+
+#### Critical Task Rules
+
+- This task must verify the reopened Story 45 work, not add new behavior. If another issue is discovered here, stop final validation, reopen the appropriate earlier follow-up task, and complete that implementation there before returning to this task.
+- Re-check the full Story 45 acceptance criteria, including the restored discriminated flow parsing, shared re-ingest failure messaging, and the corrected `llm.markdownFile` failure precedence.
+- Use the wrapper-first build and test workflow from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). Do not replace the listed wrappers with raw commands unless wrapper diagnosis is required.
+
+#### Required Files For This Task
+
+- Read before starting validation: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md), [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and the full Story 45 acceptance criteria in this file
+- Save validation evidence under: [playwright-output-local](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local)
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 45 acceptance criteria and confirm Task 16 is marked done before starting this validation rerun.
+2. [ ] Re-run the full wrapper validation for the reopened Story 45 scope and confirm the full server, client, and end-to-end suites still complete cleanly.
+3. [ ] Re-check the manual acceptance evidence needed for Story 45, including the corrected `llm.markdownFile` failure precedence and the reduced parser-log noise in read-only paths.
+4. [ ] Update this story file’s Task 17 `Implementation notes` section after the full validation rerun is complete.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Use only the summary wrappers listed below. Do not attempt to run builds or tests without a wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run test:summary:server:unit`
+3. [ ] `npm run test:summary:server:cucumber`
+4. [ ] `npm run build:summary:client`
+5. [ ] `npm run test:summary:client`
+6. [ ] `npm run test:summary:e2e`
+7. [ ] `npm run compose:build:summary`
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP acceptance rerun
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 

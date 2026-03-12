@@ -316,6 +316,48 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, false);
   });
 
+  test('nested startLoop llm steps with messages and markdownFile return ok: false', () => {
+    const json = JSON.stringify({
+      steps: [
+        {
+          type: 'startLoop',
+          steps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'nested',
+              messages: [{ role: 'user', content: ['Hello'] }],
+              markdownFile: 'architecture/review.md',
+            },
+          ],
+        },
+      ],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('nested startLoop llm steps with neither messages nor markdownFile return ok: false', () => {
+    const json = JSON.stringify({
+      steps: [
+        {
+          type: 'startLoop',
+          steps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'nested',
+            },
+          ],
+        },
+      ],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
   test('whitespace-only entries are rejected after trimming', () => {
     const json = JSON.stringify({
       description: '  Flow name  ',

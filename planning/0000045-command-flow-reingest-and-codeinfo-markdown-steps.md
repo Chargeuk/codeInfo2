@@ -1953,7 +1953,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 
 ### 18. Close Nested Flow Validation And Markdown Precheck Review Gaps
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1981,25 +1981,31 @@ Close the runtime and schema issues found during branch review without widening 
 
 #### Subtasks
 
-1. [ ] Re-read the current `flowSchema.ts` and `flows/service.ts` implementations, confirm the exact review gaps, and identify the smallest change that enforces the `llm` XOR rule recursively for nested `startLoop` steps.
-2. [ ] Update [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts) so nested `llm` steps inside `startLoop` are rejected when they provide both `messages` and `markdownFile` or when they provide neither.
-3. [ ] Add unit coverage in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for nested `startLoop` `llm` steps that must now fail validation for both invalid XOR cases.
-4. [ ] Update [flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so a markdown-backed `llm` step that fails the earlier agent/runtime prechecks after flow start preserves the correct failure code (`AGENT_NOT_FOUND` or `CODEX_UNAVAILABLE`) instead of collapsing to `INVALID_REQUEST`.
-5. [ ] Add or update flow runtime integration coverage proving a later `llm.markdownFile` step now emits the correct failure code after the flow has already started, and still does not attempt markdown resolution when the precheck fails first.
-6. [ ] Update this story file’s Task 18 `Implementation notes` section after the fix and tests for this task are complete.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Re-read the current `flowSchema.ts` and `flows/service.ts` implementations, confirm the exact review gaps, and identify the smallest change that enforces the `llm` XOR rule recursively for nested `startLoop` steps.
+2. [x] Update [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts) so nested `llm` steps inside `startLoop` are rejected when they provide both `messages` and `markdownFile` or when they provide neither.
+3. [x] Add unit coverage in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for nested `startLoop` `llm` steps that must now fail validation for both invalid XOR cases.
+4. [x] Update [flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so a markdown-backed `llm` step that fails the earlier agent/runtime prechecks after flow start preserves the correct failure code (`AGENT_NOT_FOUND` or `CODEX_UNAVAILABLE`) instead of collapsing to `INVALID_REQUEST`.
+5. [x] Add or update flow runtime integration coverage proving a later `llm.markdownFile` step now emits the correct failure code after the flow has already started, and still does not attempt markdown resolution when the precheck fails first.
+6. [x] Update this story file’s Task 18 `Implementation notes` section after the fix and tests for this task are complete.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Use only the summary wrappers listed below. Do not attempt to run builds or tests without a wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+1. [x] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- 
+- Subtask 1: Re-read `flowSchema.ts`, `flows/service.ts`, `flows-schema.test.ts`, and the markdown-flow integration coverage; confirmed the two review gaps are a top-level-only `llm` XOR walk in `FlowFileSchema.superRefine(...)` and a markdown-precheck catch in `runLlmStep(...)` that rewrites started-flow failures to `INVALID_REQUEST`.
+- Subtasks 2-3: Replaced the top-level-only XOR walk in `flowSchema.ts` with a recursive step traversal so nested `startLoop` `llm` steps now fail when they provide both instruction sources or neither, then added the matching nested invalid-XOR unit coverage in `flows-schema.test.ts`.
+- Subtasks 4-5: Updated the markdown-backed `runLlmStep(...)` catch path in `flows/service.ts` to preserve caught `FlowRunError` codes instead of always rewriting them to `INVALID_REQUEST`, and added runtime integration coverage proving a later missing-agent markdown step now fails with `AGENT_NOT_FOUND` after flow start while the markdown resolver read hook is never invoked.
+- Testing 1: `npm run build:summary:server` initially failed on the new recursive XOR walk and flow-error type guard typings, then passed cleanly after switching the nested `llm` checks to property-presence narrowing and tightening the null guard in `isFlowRunError(...)`.
+- Testing 2: A targeted server-unit wrapper run first exposed that the new route-based integration coverage was using a websocket-only harness without the `/flows/:flowName/run` router mounted; after wiring the real flow-run router into `withFlowHarness(...)` and reusing the shared `waitForFlowFinal(...)` helper, the full `npm run test:summary:server:unit` wrapper passed with `1145` tests run and `0` failures.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `68` tests run, `68` passed, `0` failed, and wrapper `agent_action: skip_log`, so the recursive flow validation and preserved markdown-precheck failure codes did not regress the existing feature-step suite.
+- Subtasks 6-7: Closed the Task 18 notes after the full wrapper reruns, then reran `npm run lint --workspaces` plus `npm run format:check --workspaces`; lint returned to the repo's standing `42` warning baseline after fixing the new test import order warning, and `npm run format --workspace server -- src/flows/flowSchema.ts src/flows/service.ts` cleared the two server-file Prettier diffs before the final format-check rerun passed cleanly.
 
 ---
 

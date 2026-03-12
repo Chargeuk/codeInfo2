@@ -139,6 +139,13 @@ export function __resetFlowServiceDepsForTests() {
 const toFlowRunError = (code: FlowRunErrorCode, reason?: string) =>
   ({ code, reason }) satisfies FlowRunError;
 
+const isFlowRunError = (error: unknown): error is FlowRunError =>
+  Boolean(error) &&
+  typeof error === 'object' &&
+  error !== null &&
+  'code' in error &&
+  typeof (error as { code?: unknown }).code === 'string';
+
 const isSafeFlowName = (raw: string): boolean => {
   const name = raw.trim();
   if (!name) return false;
@@ -2224,10 +2231,12 @@ async function runFlowUnlocked(params: {
       });
     } catch (error) {
       const agent = agentByName.get(step.agentType);
-      const message =
-        error instanceof Error
+      const message = isFlowRunError(error)
+        ? (error.reason ?? error.code)
+        : error instanceof Error
           ? error.message
           : 'Failed to resolve flow llm markdownFile';
+      const errorCode = isFlowRunError(error) ? error.code : 'INVALID_REQUEST';
       await emitFailedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -2237,7 +2246,7 @@ async function runFlowUnlocked(params: {
           : FALLBACK_MODEL_ID,
         source: params.source,
         message,
-        errorCode: 'INVALID_REQUEST',
+        errorCode,
         command,
       });
       return 'failed';

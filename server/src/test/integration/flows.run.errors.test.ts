@@ -20,6 +20,10 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import {
+  __resetMarkdownFileResolverDepsForTests,
+  __setMarkdownFileResolverDepsForTests,
+} from '../../flows/markdownFileResolver.js';
 import { startFlowRun } from '../../flows/service.js';
 import {
   __resetFlowServiceDepsForTests,
@@ -195,6 +199,15 @@ async function withFlowHarness(
   process.env.FLOWS_DIR = tmpDir;
 
   const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new MinimalChat(),
+        }),
+    }),
+  );
   const httpServer = http.createServer(app);
   const wsHandle = attachWs({ httpServer });
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
@@ -207,6 +220,7 @@ async function withFlowHarness(
     await task({ tmpDir, baseUrl, ws });
   } finally {
     __resetFlowServiceDepsForTests();
+    __resetMarkdownFileResolverDepsForTests();
     resetStore();
     await closeWs(ws);
     await wsHandle.close();
@@ -260,7 +274,11 @@ const waitForFlowFinal = async (params: {
     ws: params.ws,
     predicate: (
       event: unknown,
-    ): event is { type: 'turn_final'; status: string } => {
+    ): event is {
+      type: 'turn_final';
+      status: string;
+      error?: { code?: string; message?: string } | null;
+    } => {
       const candidate = event as {
         type?: string;
         conversationId?: string;
@@ -482,6 +500,79 @@ test('POST /flows/:flowName/run returns 409 for concurrent runs', async () => {
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
+});
+
+test('later markdown-backed llm failures preserve AGENT_NOT_FOUND after flow start and skip markdown resolution', async () => {
+  await withFlowHarness(async ({ tmpDir, baseUrl, ws }) => {
+    const conversationId = 'flow-markdown-precheck-after-start';
+    const flowName = 'markdown-precheck-after-start';
+    let markdownReadCount = 0;
+
+    await writeFlowFile({
+      tmpDir,
+      flowName,
+      steps: [
+        makeLlmStep(),
+        {
+          type: 'llm',
+          agentType: 'missing_agent',
+          identifier: 'missing',
+          markdownFile: 'task18/should-not-resolve.md',
+        },
+      ],
+    });
+
+    __setMarkdownFileResolverDepsForTests({
+      readFile: async () => {
+        markdownReadCount += 1;
+        return Buffer.from('should not be read', 'utf8');
+      },
+    });
+
+    subscribeConversation(ws, conversationId);
+
+    const response = await supertest(baseUrl)
+      .post(`/flows/${flowName}/run`)
+      .send({ conversationId })
+      .expect(202);
+    assert.equal(response.body.status, 'started');
+
+    const final = await waitForFlowFinal({
+      ws,
+      conversationId,
+      status: 'failed',
+    });
+    assert.equal(final.error?.code, 'AGENT_NOT_FOUND');
+    assert.match(final.error?.message ?? '', /Agent missing_agent not found/);
+    assert.equal(markdownReadCount, 0);
+
+    const turns = await waitForTurns(
+      conversationId,
+      (items) =>
+        items.filter((turn) => turn.role === 'assistant').length >= 2 &&
+        items.some(
+          (turn) =>
+            turn.role === 'assistant' &&
+            turn.status === 'failed' &&
+            turn.content.includes('Agent missing_agent not found'),
+        ),
+    );
+    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
+    assert.equal(
+      assistantTurns.some(
+        (turn) => turn.status === 'ok' && turn.content.includes('ok'),
+      ),
+      true,
+    );
+    assert.equal(
+      assistantTurns.some(
+        (turn) =>
+          turn.status === 'failed' &&
+          turn.content.includes('Agent missing_agent not found'),
+      ),
+      true,
+    );
+  });
 });
 
 test('dedicated flow reingest terminal error remains non-fatal to later steps', async () => {

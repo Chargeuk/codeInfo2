@@ -142,19 +142,33 @@ const FlowFileSchema = z
   })
   .strict()
   .superRefine((flow, ctx) => {
-    flow.steps.forEach((step, index) => {
-      if (step.type !== 'llm') return;
-      const hasMessages = Array.isArray(step.messages);
-      const hasMarkdownFile = typeof step.markdownFile === 'string';
-      if (hasMessages === hasMarkdownFile) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message:
-            'llm steps must provide exactly one instruction source: messages or markdownFile',
-          path: ['steps', index],
-        });
-      }
-    });
+    const validateSteps = (
+      steps: FlowStep[],
+      pathPrefix: Array<string | number>,
+    ) => {
+      steps.forEach((step, index) => {
+        const stepPath = [...pathPrefix, index];
+        if (step.type === 'startLoop') {
+          validateSteps(step.steps, [...stepPath, 'steps']);
+          return;
+        }
+        if (step.type !== 'llm') return;
+
+        const hasMessages = 'messages' in step && Array.isArray(step.messages);
+        const hasMarkdownFile =
+          'markdownFile' in step && typeof step.markdownFile === 'string';
+        if (hasMessages === hasMarkdownFile) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              'llm steps must provide exactly one instruction source: messages or markdownFile',
+            path: stepPath,
+          });
+        }
+      });
+    };
+
+    validateSteps(flow.steps, ['steps']);
   });
 
 export function parseFlowFile(

@@ -267,6 +267,33 @@ No new test harnesses need to be created for Story 0000046. Repository research 
    - Reuse the existing Playwright setup in `playwright.config.ts` and the current `e2e/*.spec.ts` files only if a later task decides one user-level smoke test is worth the cost.
    - DeepWiki's Playwright guidance and the existing repo setup both support using ordinary page-level tests for navigation/state checks rather than inventing a custom browser harness. For this story, the lower-level client and server harnesses provide better observability for cancellation behavior than a new e2e harness would.
 
+## Contracts And Storage Shapes
+
+Story 0000046 does not require any brand-new websocket message types, REST payload shapes, database schemas, or vector metadata shapes. Repository research shows the existing contracts already cover the needed outcomes, so implementation should reuse the shapes below and change only the logic that decides when they are used.
+
+1. Chat websocket contracts to reuse unchanged:
+   - Reuse the existing client-to-server `cancel_inflight` message in `server/src/ws/types.ts` as the only explicit stop message.
+   - Reuse the existing subscription messages (`subscribe_conversation`, `unsubscribe_conversation`, and sidebar subscriptions) with no new fields.
+   - Reuse the existing server-to-client transcript events, `cancel_ack`, and `turn_final` event shapes.
+   - Story rule: do not add a new websocket message such as `pause`, `background_run`, `switch_conversation`, or any special navigation-cancel payload. The fix belongs in ChatPage behavior, not in a protocol expansion.
+2. Chat persistence shapes to reuse unchanged:
+   - Reuse the existing `Conversation` storage shape in `server/src/mongo/conversation.ts`; no new conversation flags or cancellation markers are needed for this story.
+   - Reuse the existing `Turn` storage shape in `server/src/mongo/turn.ts`, especially the current `status: 'ok' | 'stopped' | 'failed'` contract for final turn outcomes.
+   - Story rule: switching conversations, opening a new conversation, or changing provider/model must not require a new stored conversation field. These are local view/reset actions, not a new persistence model.
+3. Ingest failure and provider error shapes to reuse unchanged:
+   - Reuse the existing ingest run state contract in `server/src/ingest/types.ts`, especially the current `'error'` state for fresh-ingest blank-input failure cases.
+   - Reuse the existing normalized ingest error envelope already emitted by `server/src/ingest/ingestJob.ts`.
+   - Reuse the existing `NO_ELIGIBLE_FILES` style fresh-ingest failure contract when blank filtering leaves zero embeddable chunks.
+   - Reuse the existing provider error families (`OPENAI_BAD_REQUEST`, `LMSTUDIO_BAD_REQUEST`, and the surrounding normalized error shapes) instead of inventing a new top-level blank-input error payload just for this story.
+4. Chunk and vector metadata shapes to reuse unchanged:
+   - Reuse the existing `Chunk` and `ChunkMeta` shapes in `server/src/ingest/types.ts`.
+   - Reuse the existing per-chunk Chroma metadata fields already written from `server/src/ingest/ingestJob.ts`.
+   - Story rule: blank filtering changes which chunks survive and may require `chunkIndex` renumbering before hashing and storage, but it must not add new metadata keys or change the existing metadata field names.
+   - Reuse the existing root lock and root summary metadata shapes; their counts should simply reflect the filtered result.
+5. Implementation guardrail for this story:
+   - If implementation discovers a genuinely unavoidable need for a new contract field, message type, or storage property, that is a scope change and must be documented back into this section before coding proceeds.
+   - Based on the current repository and external evidence, no such new contract or shape is needed for Story 0000046.
+
 ## Questions
 
 - No Further Questions

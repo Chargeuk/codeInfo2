@@ -16,6 +16,7 @@ The first problem affects repository ingest when embedding text for vector stora
 For this story, the product behavior is intentionally small and consistent with the existing ingest contract:
 
 - a fresh ingest that produces zero embeddable chunks after blank filtering should fail with the existing clear product-owned "no eligible files" style error rather than pretending that zero embeddings is a successful ingest;
+- that blank-only fresh-ingest failure should leave no new vectors and no new completed root summary written for that run;
 - the existing delta re-embed no-op and deletions-only semantics from Story 0000020 should remain intact rather than being redesigned here.
 
 The second problem affects the web chat experience. When a user is in an active conversation and clicks another conversation in the Conversations sidebar, the conversation they were on stops as though the user had pressed the Stop button. That is not the intended product behavior. A conversation should continue running until it finishes naturally or until the user explicitly presses Stop. Merely changing which conversation is visible in the UI should not send a cancellation request to the server.
@@ -25,7 +26,9 @@ The same product rule should apply consistently to the closely related Chat acti
 For this story, the expected user-visible output for those Chat actions is:
 
 - selecting another conversation shows that conversation's own existing transcript and inflight state only; it must not show stopping, stopped, or newly streamed assistant content from the previously active conversation;
+- when another conversation is selected, the newly visible conversation should be locally interactive for its own state: it must not stay disabled, stopping, or spinner-locked just because a different hidden conversation is still running;
 - clicking Chat "New conversation" while another run is active opens a clean draft conversation view for the next message without cancelling the older run; if the user later returns to the older conversation, its server-side progress or final answer is still there;
+- that new draft conversation view should show an empty transcript placeholder and normal composer/send readiness for the next user message rather than inheriting a sending/stopping state from the older run;
 - changing provider or model while another run is active updates only the selection that will be used for the next send; it must not cancel, restart, or silently mutate the run that is already in flight.
 
 These problems are related at a product level because both are cases where the system is being too permissive at the wrong boundary:
@@ -53,6 +56,7 @@ This story is therefore about correctness of shared boundaries:
 - Normal files still preserve their meaningful chunk content and chunk ordering after the fix.
 - If a fresh ingest path produces zero embeddable chunks after blank filtering, the run fails with the existing clear product-owned "no eligible files" style error rather than completing successfully with zero embeddings.
 - The fresh-ingest zero-embeddable-chunks failure rule applies even when file discovery succeeded; in other words, finding files is not enough if blank filtering leaves nothing valid to embed.
+- If blank filtering leaves a fresh ingest with zero embeddable chunks, the run does not persist partial vector rows or a completed root summary for that failed run.
 - Existing Story 0000020 delta re-embed no-op and deletions-only behavior remains unchanged for this story.
 - If a blank embedding input somehow reaches the provider layer after the shared ingest fix, the provider layer rejects it with one clear product-owned error path that the product controls and can test, rather than surfacing a raw provider-SDK-specific validation message as the only explanation.
 - If the defensive provider-layer blank-input guard is hit, the run fails clearly instead of silently skipping the offending input and continuing.
@@ -63,6 +67,7 @@ This story is therefore about correctness of shared boundaries:
 - Chat "New conversation" does not send a stop or cancel request for the previously active run.
 - Chat provider-change does not send a stop or cancel request for the previously active run.
 - If the user changes provider or model while a run is already active, that new selection affects only the next send and does not alter the provider/model used by the already-running request.
+- The newly visible conversation or new draft conversation does not inherit `sending`, `stopping`, or disabled-composer state from a different hidden conversation that is still running.
 - The Stop button continues to send the real cancellation request and continues to drive the existing stopping and stopped UX.
 - Switching the visible conversation only clears or rehydrates local view state for the newly selected conversation and does not invent terminal events, stop banners, or completed assistant messages for the previously active conversation.
 - Late websocket events from a still-running non-visible conversation do not corrupt the newly selected conversation view; they are ignored by the currently visible Chat view unless the user switches back to the conversation they belong to.
@@ -176,6 +181,7 @@ The rough implementation path can stay small if it follows the current repositor
   - Consider adding one small helper such as `isEmbeddableText(text)` or `hasNonWhitespaceContent(text)` in the ingest layer so the rule is centralized and readable.
   - Reuse the existing fresh-ingest "no eligible files" style error if blank filtering leaves the run with zero embeddable chunks, rather than inventing a new success contract for zero-embedding ingests.
   - Because the current ingest job only fails early when `discoverFiles()` returns zero files, implementation must also add a post-chunking / post-filtering zero-embeddable guard for fresh ingest so blank-only discovered files still terminate with the existing product-owned failure contract.
+  - Trigger that fresh-ingest zero-embeddable failure before any successful root-summary completion write for the run, so the persisted ingest state cannot look completed when nothing valid was embedded.
 
 - Suggested defensive provider fix:
   - Add one shared embedding-input guard used by all provider adapters and embedding-function implementations.
@@ -209,6 +215,7 @@ The rough implementation path can stay small if it follows the current repositor
   - Treat Chat "New conversation" as a local draft reset only: clear the visible draft/composer state for the new conversation, but do not cancel or rewrite the older run.
   - Treat provider/model changes during an active run as state for the next send only: do not cancel, restart, or mutate the request that is already in flight.
   - Keep the websocket protocol and server-side cancel contract unchanged: repository evidence already shows `unsubscribe_conversation` is subscription-only and `cancel_inflight` is the explicit stop path, so the main product fix belongs in Chat client handlers and regression coverage rather than in new server protocol behavior.
+  - When switching to another conversation or a new draft, clear only the local inflight/sending indicators for the newly visible view; do not leave the visible composer or send controls blocked because a different hidden conversation is still running.
 
 - Why the Chat fix should be safe:
   - `client/src/hooks/useChatStream.ts` already resets local inflight state when a new conversation is selected.

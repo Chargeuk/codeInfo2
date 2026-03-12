@@ -117,6 +117,23 @@ class MockCodex {
   }
 }
 
+type JsonRpcErrorResponse = {
+  jsonrpc: string;
+  id: number;
+  error: {
+    code: number;
+    message: string;
+    data?: unknown;
+  };
+};
+
+const makeLmStudioClientFactory = () => () =>
+  ({
+    system: {
+      listDownloadedModels: async () => [],
+    },
+  }) as unknown as import('@lmstudio/sdk').LMStudioClient;
+
 test('MCP responder returns answer-only segments', async () => {
   const prev = getCodexDetection();
   setCodexDetection({
@@ -127,7 +144,10 @@ test('MCP responder returns answer-only segments', async () => {
   try {
     const result = await runCodebaseQuestion(
       { question: 'What is up?' },
-      { codexFactory: () => new MockCodex() },
+      {
+        codexFactory: () => new MockCodex(),
+        clientFactory: makeLmStudioClientFactory(),
+      },
     );
 
     const payload = JSON.parse(result.content[0].text);
@@ -155,7 +175,10 @@ test('MCP responder only returns the final answer segment', async () => {
   try {
     const result = await runCodebaseQuestion(
       { question: 'Second run' },
-      { codexFactory: () => new MockCodex() },
+      {
+        codexFactory: () => new MockCodex(),
+        clientFactory: makeLmStudioClientFactory(),
+      },
     );
 
     const payload = JSON.parse(result.content[0].text);
@@ -186,7 +209,10 @@ test('MCP codebase_question uses shared resolver defaults for thread options', a
   try {
     await runCodebaseQuestion(
       { question: 'Use shared defaults please' },
-      { codexFactory: () => mockCodex },
+      {
+        codexFactory: () => mockCodex,
+        clientFactory: makeLmStudioClientFactory(),
+      },
     );
     const capabilities = await resolveCodexCapabilities({
       consumer: 'chat_validation',
@@ -247,6 +273,7 @@ test('MCP codebase_question passes resolved chat runtime config to Codex', async
           capturedOptions = options;
           return mockCodex;
         },
+        clientFactory: makeLmStudioClientFactory(),
         chatRuntimeConfigResolver: async () => ({
           config: runtimeConfig,
           warnings: [],
@@ -260,13 +287,41 @@ test('MCP codebase_question passes resolved chat runtime config to Codex', async
   }
 });
 
-async function postJson(port: number, body: unknown) {
-  const response = await fetch(`http://127.0.0.1:${port}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
+async function postJson<T>(port: number, body: unknown): Promise<T> {
+  const payload = JSON.stringify(body);
+  return await new Promise<T>((resolve, reject) => {
+    const req = http.request({
+      host: '127.0.0.1',
+      port,
+      method: 'POST',
+      agent: false,
+      headers: {
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(payload),
+        connection: 'close',
+      },
+    });
+
+    let responseBody = '';
+
+    req.on('response', (response) => {
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => {
+        responseBody += chunk;
+      });
+      response.on('end', () => {
+        try {
+          resolve(JSON.parse(responseBody) as T);
+        } catch (error) {
+          reject(error);
+        }
+      });
+      response.on('error', reject);
+    });
+
+    req.on('error', reject);
+    req.end(payload);
   });
-  return response.json();
 }
 
 test('MCP JSON-RPC error shape remains stable for invalid params', async () => {
@@ -278,7 +333,7 @@ test('MCP JSON-RPC error shape remains stable for invalid params', async () => {
   const { port } = server.address() as AddressInfo;
 
   try {
-    const response = await postJson(port, {
+    const response = await postJson<JsonRpcErrorResponse>(port, {
       jsonrpc: '2.0',
       id: 99,
       method: 'tools/call',
@@ -294,7 +349,10 @@ test('MCP JSON-RPC error shape remains stable for invalid params', async () => {
     assert.equal(response.error.message, 'Invalid params');
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
-    server.close();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
   }
 });
 
@@ -308,6 +366,7 @@ test('MCP JSON-RPC returns a typed tool error when chat runtime config resolutio
     configPresent: true,
   });
   setToolDeps({
+    clientFactory: makeLmStudioClientFactory(),
     chatRuntimeConfigResolver: async () => {
       throw new RuntimeConfigResolutionError({
         code: 'RUNTIME_CONFIG_INVALID',
@@ -323,7 +382,7 @@ test('MCP JSON-RPC returns a typed tool error when chat runtime config resolutio
   const { port } = server.address() as AddressInfo;
 
   try {
-    const response = await postJson(port, {
+    const response = await postJson<JsonRpcErrorResponse>(port, {
       jsonrpc: '2.0',
       id: 100,
       method: 'tools/call',
@@ -346,6 +405,9 @@ test('MCP JSON-RPC returns a typed tool error when chat runtime config resolutio
     resetToolDeps();
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
     setCodexDetection(prev);
-    server.close();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
   }
 });

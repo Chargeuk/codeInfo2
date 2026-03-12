@@ -1,5 +1,204 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000045 final helper and test inventory
+
+Added helper files:
+
+- `server/src/agents/commandItemExecutor.ts`
+- `server/src/chat/reingestStepLifecycle.ts`
+- `server/src/chat/reingestToolResult.ts`
+- `server/src/flows/markdownFileResolver.ts`
+
+Added Story 45 test files:
+
+- `server/src/test/integration/commands.markdown-file.test.ts`
+- `server/src/test/integration/commands.reingest.test.ts`
+- `server/src/test/unit/markdown-file-resolver.test.ts`
+- `server/src/test/unit/reingest-step-lifecycle.test.ts`
+- `server/src/test/unit/reingest-tool-result.test.ts`
+
+Permanent fixture directories added by Story 45:
+
+- None. Story 45 documents a repository-level `codeinfo_markdown/` convention for local and ingested repositories, but it does not add a committed fixture directory under the `codeInfo2` repository itself.
+
+## Story 0000045 Task 11 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+- `server/src/agents/commandItemExecutor.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+
+## Story 0000045 Task 10 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+- `server/src/flows/service.ts`
+- `server/src/mongo/turn.ts`
+- `server/src/test/integration/flows.run.errors.test.ts`
+- `server/src/test/unit/turn-command-metadata.test.ts`
+
+## Story 0000045 Task 9 structural change ledger
+
+Added files:
+
+- `server/src/test/integration/commands.reingest.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/agents/service.ts`
+- `server/src/test/unit/agent-commands-runner.test.ts`
+
+## Story 0000045 Task 8 structural change ledger
+
+Added files:
+
+- `server/src/chat/reingestStepLifecycle.ts`
+- `server/src/test/unit/reingest-step-lifecycle.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+
+## Story 0000045 Task 7 structural change ledger
+
+Added files:
+
+- `server/src/chat/reingestToolResult.ts`
+- `server/src/test/unit/reingest-tool-result.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+
+## Story 0000045 Task 6 structural change ledger
+
+Added files:
+
+- `server/src/agents/commandItemExecutor.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+
+## Story 0000045 Task 4 structural change ledger
+
+Added files:
+
+- `server/src/test/integration/commands.markdown-file.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/agents/service.ts`
+- `server/src/flows/markdownFileResolver.ts`
+- `server/src/test/unit/agent-commands-runner.test.ts`
+
+## Story 0000045 Task 3 structural change ledger
+
+Added files:
+
+- `server/src/flows/markdownFileResolver.ts`
+- `server/src/test/unit/markdown-file-resolver.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `projectStructure.md`
+- `server/src/flows/service.ts`
+
 ## Story 0000039 Task 1 structural change ledger
 
 Added files:
@@ -746,7 +945,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”œâ”€ test-results/
 â”‚  â”œâ”€ pr-comments/
 â”‚  â”‚  â”œâ”€ 0000042-summary.md â€” Story 0000042 PR summary artifact
-â”‚  â”‚  â””â”€ 0000043-summary.md â€” Story 0000043 PR summary artifact covering the stop contract, runtime changes, client UX alignment, and verification evidence
+â”‚  â”‚  â”œâ”€ 0000043-summary.md â€” Story 0000043 PR summary artifact covering the stop contract, runtime changes, client UX alignment, and verification evidence
+â”‚  â”‚  â””â”€ 0000045-summary.md â€” Story 0000045 PR summary artifact covering markdown-backed workflow steps, structured re-ingest paths, and final validation evidence
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)
@@ -966,6 +1166,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚           â”œâ”€ mcp-ingested-repositories.test.ts â€” supertest coverage for classic MCP ListIngestedRepositories lock parity
 â”‚           â”œâ”€ mcp.keepalive.helper.test.ts â€” unit coverage for shared keepalive helper lifecycle and write-after-close protection
 â”‚           â”œâ”€ mcp.reingest.classic.test.ts â€” unit coverage for classic MCP `reingest_repository` tools/list + tools/call success/error contracts
+â”‚           â”œâ”€ reingest-tool-result.test.ts â€” unit coverage for the shared structured re-ingest tool-result builder, wrapper compatibility, and distinct `callId` preservation
 â”‚           â”œâ”€ reingestService.test.ts â€” unit coverage for `reingest_repository` validation, success mapping, unknown root retry guidance, and busy contracts
 â”‚           â”œâ”€ mcp-unsupported-provider.test.ts — MCP tools/call unsupported provider error path
 â”‚           â””â”€ tools-vector-search.test.ts â€” supertest coverage for /tools/vector-search
@@ -980,6 +1181,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚        |  â”œâ”€ flows.run.loop.test.ts â€” integration coverage for flow run loop + break
 â”‚        |  â”œâ”€ flows.turn-metadata.test.ts â€” integration coverage for flow command metadata
 â”‚        |  â””â”€ tools-ast.test.ts â€” integration coverage for AST REST tool routes
+â”‚        |  â”œâ”€ commands.reingest.test.ts â€” integration coverage for direct-command re-ingest bootstrap, repeated `callId` handling, and mixed re-ingest/message runs
 â”‚        |  â”œâ”€ chat-tools-wire.test.ts â€” chat route wiring (POST /chat 202 + WS bridge) with mocked LM Studio tools
 â”‚        |  â”œâ”€ chat-vectorsearch-locked-model.test.ts â€” chat run error/success flows when vector search lock/embedding availability changes
 â”‚        |  â”œâ”€ chat-codex.test.ts — Codex chat run flow, thread reuse, availability gating, and terminal dedupe regressions
@@ -1049,6 +1251,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/agents/authSeed.ts — best-effort copy of primary `auth.json` into agent homes (never overwrite, lock-protected)
 - server/src/agents/commandsSchema.ts — strict Zod v1 schema + safe parser for agent command JSON files
 - server/src/agents/commandsLoader.ts — reads command files and returns safe `{ name, description, disabled, stepCount }` summaries (`stepCount >= 1`, sentinel `1` for disabled/invalid)
+- server/src/agents/commandItemExecutor.ts — shared `message`-item instruction preparation and dispatch for direct commands and flow-owned command steps, including markdown resolution reuse and Task 45 T6 flow-command observability logging
 - server/src/agents/commandsRunner.ts — executes parsed agent commands sequentially with abort checks + conversation lock, including runtime `startStep` range validation (`1..N`), zero-based boundary conversion, and deterministic `INVALID_START_STEP` errors
 - server/src/agents/retry.ts — AbortSignal-aware retry/backoff helper used by the command runner
 - server/src/ingest/providers/openaiConstants.ts — OpenAI embedding adapter constants (allowlist, retry policy, guardrail thresholds, token-limit resolver)
@@ -1078,6 +1281,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/agent-commands-loader.test.ts — unit coverage for loading command summaries from disk (valid/invalid/missing)
 - server/src/test/unit/agent-commands-list.test.ts — unit coverage for listing agent commands from `commands/` (missing folder, filtering, sorting, no-cache, and `stepCount` semantics for valid/invalid entries)
 - server/src/test/unit/agent-commands-runner.test.ts — unit coverage for command execution runner (sequential steps, abort stop, lock behavior, `startStep` defaults/boundaries/offsets, and deterministic `INVALID_START_STEP` failures)
+- server/src/test/integration/commands.reingest.test.ts — integration coverage for direct-command Story 45 `reingest` bootstrap, structured tool-call persistence, repeated `callId` handling, and mixed re-ingest/message ordering
 - server/src/test/unit/agent-commands-runner-retry.test.ts — unit coverage for transient reconnect retry behavior in the command runner
 - server/src/test/unit/flow-command-retries-config.test.ts — unit coverage for shared flow/command retry-budget parsing behavior
 - server/src/test/unit/agent-commands-runner-abort-retry.test.ts — unit coverage that retries stop immediately when aborted
@@ -1106,9 +1310,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/ws/server.ts — `/ws` upgrade handler + ping/pong heartbeat + message dispatch
 - server/src/chat/inflightRegistry.ts — in-memory active-run registry (assistantText/think/toolEvents/seq + AbortController) with replacement-aware final text and idempotent finalization guards
 - server/src/chat/chatStreamBridge.ts — shared bridge wiring ChatInterface events to inflight updates + WS transcript publishing with single-shot terminal publish semantics
+- server/src/chat/reingestToolResult.ts — shared Story 45 builder that converts terminal re-ingest outcomes into the nested `reingest_step_result` payload inside the existing `ChatToolResultEvent` wrapper
+- server/src/chat/reingestStepLifecycle.ts — shared Story 45 non-agent lifecycle that creates inflight state, publishes a synthetic user turn and re-ingest `tool_event`, persists assistant `toolCalls`, and finalizes the outer turn on the existing `ok` path
 - server/src/test/unit/ws-server.test.ts — unit coverage for `/ws` connection and protocol gating
 - server/src/test/support/wsClient.ts — shared WebSocket test helper (connect/sendJson/waitForEvent/close) used by Cucumber + node:test
 - server/src/test/unit/ws-chat-stream.test.ts — unit coverage for WS transcript sequencing, catch-up snapshots, cancellation errors, stale/late delta guards, unsubscribe behavior, and inflight cleanup
+- server/src/test/unit/reingest-step-lifecycle.test.ts — unit coverage for the shared re-ingest lifecycle ordering, publication, persistence shape, outer-vs-nested status separation, and caller-supplied metadata passthrough
 - server/src/test/integration/mcp-codebase-question-ws-stream.test.ts — integration coverage proving MCP `codebase_question` runs publish WS transcript updates
 - server/src/test/integration/mcp-server.test.ts — integration coverage for MCP v1 tools/list + tools/call (vector search + AST tools) and error mappings
 - server/src/test/integration/agents-run-ws-stream.test.ts — integration coverage proving agent runs publish WS transcript updates, including absolute `stepIndex`/`totalSteps` metadata for `startStep > 1`
@@ -1244,6 +1451,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - `server/src/agents/config.ts`
 - `server/src/agents/service.ts`
 - `server/src/chat/factory.ts`
+- `server/src/chat/reingestToolResult.ts`
 - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
 - `server/src/config/codexConfig.ts`
 - `server/src/config/codexEnvDefaults.ts`
@@ -1265,6 +1473,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - `server/src/test/steps/chat_cancellation.steps.ts`
 - `server/src/test/steps/chat_stream.steps.ts`
 - `server/src/test/unit/agents-authSeed.test.ts`
+- `server/src/test/unit/reingest-tool-result.test.ts`
 - `server/src/test/unit/agents-config-defaults.test.ts`
 - `server/src/test/unit/chat-codex-reasoning-delta.test.ts`
 - `server/src/test/unit/chatModels.codex.test.ts`

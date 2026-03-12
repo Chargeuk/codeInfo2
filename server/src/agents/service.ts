@@ -14,7 +14,9 @@ import {
   cleanupPendingConversationCancel,
   consumePendingConversationCancel,
   getInflight,
+  markInflightPersisted,
 } from '../chat/inflightRegistry.js';
+import { ChatInterface } from '../chat/interfaces/ChatInterface.js';
 import type {
   ChatAnalysisEvent,
   ChatFinalEvent,
@@ -22,7 +24,9 @@ import type {
 } from '../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
+  recordMemoryTurn,
   shouldUseMemoryPersistence,
+  updateMemoryConversationMeta,
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
 import { RuntimeConfigResolutionError } from '../config/runtimeConfig.js';
@@ -36,8 +40,12 @@ import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { ConversationModel } from '../mongo/conversation.js';
 import type { Conversation } from '../mongo/conversation.js';
-import { createConversation } from '../mongo/repo.js';
-import type { TurnCommandMetadata } from '../mongo/turn.js';
+import {
+  appendTurn,
+  createConversation,
+  updateConversationMeta,
+} from '../mongo/repo.js';
+import type { Turn, TurnCommandMetadata, TurnSource } from '../mongo/turn.js';
 import { refreshCodexDetection } from '../providers/codexDetection.js';
 import { publishUserTurn } from '../ws/server.js';
 
@@ -85,6 +93,10 @@ export type RunAgentInstructionResult = {
   segments: unknown[];
 };
 
+type AgentServiceDeps = {
+  listIngestedRepositories: typeof listIngestedRepositories;
+};
+
 type InstructionRuntimeCleanupFn = typeof cleanupInflight;
 type InstructionReleaseLockFn = typeof releaseConversationLock;
 
@@ -116,6 +128,19 @@ const T07_SUCCESS_LOG =
   '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=success';
 const T07_ERROR_LOG =
   '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=error';
+const agentServiceDeps: AgentServiceDeps = {
+  listIngestedRepositories,
+};
+
+export function __setAgentServiceDepsForTests(
+  overrides: Partial<AgentServiceDeps>,
+) {
+  Object.assign(agentServiceDeps, overrides);
+}
+
+export function __resetAgentServiceDepsForTests() {
+  agentServiceDeps.listIngestedRepositories = listIngestedRepositories;
+}
 
 function logTransitiveContractRead(params: {
   consumer: string;
@@ -255,6 +280,167 @@ async function ensureAgentConversation(params: {
     flags: {},
     lastMessageAt: now,
   });
+}
+
+class NoopChat extends ChatInterface {
+  async execute(): Promise<void> {
+    return undefined;
+  }
+}
+
+async function persistSyntheticAgentTurn(params: {
+  conversationId: string;
+  role: 'user' | 'assistant';
+  content: string;
+  model: string;
+  provider: string;
+  source: TurnSource;
+  status: Turn['status'];
+  toolCalls: Record<string, unknown> | null;
+  command: TurnCommandMetadata;
+  createdAt: Date;
+}): Promise<{ turnId?: string }> {
+  if (shouldUseMemoryPersistence()) {
+    recordMemoryTurn({
+      conversationId: params.conversationId,
+      role: params.role,
+      content: params.content,
+      model: params.model,
+      provider: params.provider,
+      source: params.source,
+      toolCalls: params.toolCalls,
+      status: params.status,
+      command: params.command,
+      createdAt: params.createdAt,
+    } as Turn);
+    updateMemoryConversationMeta(params.conversationId, {
+      lastMessageAt: params.createdAt,
+      model: params.model,
+    });
+    return {};
+  }
+
+  const turn = await appendTurn({
+    conversationId: params.conversationId,
+    role: params.role,
+    content: params.content,
+    model: params.model,
+    provider: params.provider,
+    source: params.source,
+    toolCalls: params.toolCalls,
+    status: params.status,
+    command: params.command,
+    createdAt: params.createdAt,
+  });
+
+  await updateConversationMeta({
+    conversationId: params.conversationId,
+    lastMessageAt: params.createdAt,
+    model: params.model,
+  });
+
+  const turnId =
+    turn && typeof turn === 'object' && '_id' in (turn as object)
+      ? String((turn as { _id?: unknown })._id ?? '')
+      : undefined;
+  return turnId?.length ? { turnId } : {};
+}
+
+async function emitFailedAgentCommandStep(params: {
+  conversationId: string;
+  inflightId: string;
+  instruction: string;
+  modelId: string;
+  source: 'REST' | 'MCP';
+  message: string;
+  errorCode?: string;
+  command: TurnCommandMetadata;
+}): Promise<void> {
+  const createdAtIso = new Date().toISOString();
+  createInflight({
+    conversationId: params.conversationId,
+    inflightId: params.inflightId,
+    provider: 'codex',
+    model: params.modelId,
+    source: params.source,
+    command: params.command,
+    userTurn: { content: params.instruction, createdAt: createdAtIso },
+  });
+
+  const bridge = attachChatStreamBridge({
+    conversationId: params.conversationId,
+    inflightId: params.inflightId,
+    provider: 'codex',
+    model: params.modelId,
+    chat: new NoopChat(),
+    deferFinal: true,
+  });
+
+  try {
+    publishUserTurn({
+      conversationId: params.conversationId,
+      inflightId: params.inflightId,
+      content: params.instruction,
+      createdAt: createdAtIso,
+    });
+
+    const userCreatedAt = new Date(createdAtIso);
+    const userPersisted = await persistSyntheticAgentTurn({
+      conversationId: params.conversationId,
+      role: 'user',
+      content: params.instruction,
+      model: params.modelId,
+      provider: 'codex',
+      source: params.source,
+      status: 'ok',
+      toolCalls: null,
+      command: params.command,
+      createdAt: userCreatedAt,
+    });
+
+    const assistantCreatedAt = new Date();
+    const assistantPersisted = await persistSyntheticAgentTurn({
+      conversationId: params.conversationId,
+      role: 'assistant',
+      content: params.message,
+      model: params.modelId,
+      provider: 'codex',
+      source: params.source,
+      status: 'failed',
+      toolCalls: null,
+      command: params.command,
+      createdAt: assistantCreatedAt,
+    });
+
+    markInflightPersisted({
+      conversationId: params.conversationId,
+      inflightId: params.inflightId,
+      role: 'user',
+      turnId: userPersisted.turnId,
+    });
+    markInflightPersisted({
+      conversationId: params.conversationId,
+      inflightId: params.inflightId,
+      role: 'assistant',
+      turnId: assistantPersisted.turnId,
+    });
+
+    bridge.finalize({
+      fallback: {
+        status: 'failed',
+        error: {
+          code: params.errorCode,
+          message: params.message,
+        },
+      },
+    });
+  } finally {
+    bridge.cleanup();
+    cleanupInflight({
+      conversationId: params.conversationId,
+      inflightId: params.inflightId,
+    });
+  }
 }
 
 export async function startAgentInstruction(
@@ -429,6 +615,115 @@ function isSafeAgentCommandName(raw: string): boolean {
   return true;
 }
 
+const FALLBACK_COMMAND_MODEL_ID = 'gpt-5.1-codex-max';
+
+function buildCommandConversationTitle(params: {
+  commandName: string;
+  parsedCommand:
+    | Awaited<ReturnType<typeof loadAgentCommandFile>>
+    | { ok: false };
+  startIndex: number;
+}): string {
+  if (!params.parsedCommand.ok) {
+    return `Command: ${params.commandName}`;
+  }
+
+  const startItem = params.parsedCommand.command.items[params.startIndex];
+  if (
+    startItem?.type === 'message' &&
+    'content' in startItem &&
+    Array.isArray(startItem.content)
+  ) {
+    const title = startItem.content.join('\n').trim().slice(0, 80);
+    if (title.length > 0) return title;
+  }
+
+  return `Command: ${params.commandName}`;
+}
+
+async function prepareDirectCommandBootstrap(params: {
+  agentName: string;
+  commandName: string;
+  agentHome: string;
+  configPath: string;
+  conversationId: string;
+  commandFilePath: string;
+  startStep: number;
+  source: 'REST' | 'MCP';
+}): Promise<{
+  initialModelId: string;
+}> {
+  const parsed = await loadAgentCommandFile({
+    filePath: params.commandFilePath,
+  }).catch(() => ({ ok: false }) as const);
+  if (!parsed.ok) {
+    return { initialModelId: FALLBACK_COMMAND_MODEL_ID };
+  }
+
+  const remainingItems = parsed.command.items.slice(params.startStep - 1);
+  const needsSyntheticBootstrap = remainingItems.some(
+    (item) => item.type === 'reingest',
+  );
+
+  const existingConversation = await getConversation(params.conversationId);
+  if (existingConversation?.archivedAt) {
+    throw toRunAgentError('CONVERSATION_ARCHIVED');
+  }
+  if (
+    existingConversation &&
+    (existingConversation.agentName ?? '') !== params.agentName
+  ) {
+    throw toRunAgentError('AGENT_MISMATCH');
+  }
+
+  let configuredModelId: string | undefined;
+  try {
+    const resolved = await resolveAgentRuntimeExecutionConfig({
+      configPath: params.configPath,
+      entrypoint: 'agents.service',
+    });
+    configuredModelId = resolved.modelId;
+  } catch (error) {
+    const code =
+      error instanceof RuntimeConfigResolutionError
+        ? error.code
+        : 'UNKNOWN_ERROR';
+    console.error(
+      `${T06_ERROR_LOG} surface=agents.run source=${params.source} code=${code}`,
+    );
+    if (params.source === 'MCP') {
+      console.error(
+        `${T07_ERROR_LOG} surface=mcp.agents.run source=${params.source} code=${code}`,
+      );
+    }
+    throw error;
+  }
+  const initialModelId =
+    configuredModelId ??
+    existingConversation?.model ??
+    FALLBACK_COMMAND_MODEL_ID;
+
+  if (!needsSyntheticBootstrap || existingConversation) {
+    return { initialModelId };
+  }
+
+  const title = buildCommandConversationTitle({
+    commandName: params.commandName,
+    parsedCommand: parsed,
+    startIndex: params.startStep - 1,
+  });
+
+  await ensureAgentConversation({
+    conversationId: params.conversationId,
+    agentName: params.agentName,
+    modelId: initialModelId,
+    title,
+    source: params.source,
+  });
+
+  return { initialModelId };
+}
+
 export async function startAgentCommand(params: {
   agentName: string;
   commandName: string;
@@ -515,7 +810,8 @@ export async function startAgentCommand(params: {
     let commandFilePath = path.join(commandsDir, commandName + '.json');
 
     if (sourceId) {
-      const ingestRoots = await listIngestedRepositories()
+      const ingestRoots = await agentServiceDeps
+        .listIngestedRepositories()
         .then((result) => result.repos)
         .catch(() => null);
       const matchingRoot = ingestRoots?.find(
@@ -591,7 +887,13 @@ export async function startAgentCommand(params: {
     modelId =
       configuredModelId ?? existingConversation?.model ?? 'gpt-5.1-codex-max';
 
-    const firstInstruction = parsed.command.items[0]?.content?.join('\n') ?? '';
+    const firstItem = parsed.command.items[0];
+    const firstInstruction =
+      firstItem?.type === 'message'
+        ? 'content' in firstItem
+          ? firstItem.content.join('\n')
+          : ''
+        : '';
     const title =
       firstInstruction.trim().slice(0, 80) || 'Command: ' + commandName;
 
@@ -619,9 +921,23 @@ export async function startAgentCommand(params: {
           commandName,
           startStep,
           conversationId,
+          sourceId,
           working_folder: params.working_folder,
           signal: undefined,
           source: params.source,
+          initialModelId: modelId,
+          onPrestartFailure: async (failure) => {
+            await emitFailedAgentCommandStep({
+              conversationId,
+              inflightId: crypto.randomUUID(),
+              instruction: failure.instruction,
+              modelId,
+              source: params.source,
+              message: failure.message,
+              errorCode: failure.errorCode,
+              command: failure.command,
+            });
+          },
           runAgentInstructionUnlocked: (runParams) =>
             runAgentInstructionUnlocked({
               ...runParams,
@@ -678,6 +994,7 @@ export async function runAgentCommand(params: {
       ? params.sourceId.trim()
       : undefined;
   const startStep = params.startStep ?? 1;
+  const conversationId = params.conversationId ?? crypto.randomUUID();
 
   append({
     level: 'info',
@@ -711,7 +1028,8 @@ export async function runAgentCommand(params: {
   let commandFilePath: string | undefined;
 
   if (sourceId) {
-    const ingestRoots = await listIngestedRepositories()
+    const ingestRoots = await agentServiceDeps
+      .listIngestedRepositories()
       .then((result) => result.repos)
       .catch(() => null);
     const matchingRoot = ingestRoots?.find(
@@ -755,6 +1073,20 @@ export async function runAgentCommand(params: {
     },
   });
 
+  const resolvedCommandFilePath =
+    commandFilePath ??
+    path.join(agent.home, 'commands', `${params.commandName}.json`);
+  const { initialModelId } = await prepareDirectCommandBootstrap({
+    agentName: params.agentName,
+    commandName: params.commandName.trim(),
+    agentHome: agent.home,
+    configPath: agent.configPath,
+    conversationId,
+    commandFilePath: resolvedCommandFilePath,
+    startStep,
+    source: params.source,
+  });
+
   return await runAgentCommandRunner({
     agentName: params.agentName,
     agentHome: agent.home,
@@ -762,10 +1094,12 @@ export async function runAgentCommand(params: {
     commandFilePath,
     commandName: params.commandName,
     startStep,
-    conversationId: params.conversationId,
+    conversationId,
+    sourceId,
     working_folder: params.working_folder,
     signal: params.signal,
     source: params.source,
+    initialModelId,
     runAgentInstructionUnlocked: (runParams) =>
       runAgentInstructionUnlocked({
         ...runParams,

@@ -103,6 +103,24 @@ class MockCodex {
   }
 }
 
+type JsonRpcHttpResponse = {
+  id?: number | string | null;
+  result?: {
+    content: Array<{ type: string; text: string }>;
+  };
+  error?: {
+    code: number;
+    message: string;
+  };
+};
+
+const makeLmStudioClientFactory = () => () =>
+  ({
+    system: {
+      listDownloadedModels: async () => [],
+    },
+  }) as never;
+
 async function withTempCodexHome(chatToml: string): Promise<{
   codexHome: string;
   cleanup: () => Promise<void>;
@@ -126,12 +144,40 @@ async function withTempCodexHome(chatToml: string): Promise<{
 }
 
 async function postJson(port: number, body: unknown) {
-  const response = await fetch(`http://127.0.0.1:${port}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
+  const payload = JSON.stringify(body);
+  return await new Promise<JsonRpcHttpResponse>((resolve, reject) => {
+    const req = http.request({
+      host: '127.0.0.1',
+      port,
+      method: 'POST',
+      agent: false,
+      headers: {
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(payload),
+        connection: 'close',
+      },
+    });
+
+    let responseBody = '';
+
+    req.on('response', (response) => {
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => {
+        responseBody += chunk;
+      });
+      response.on('end', () => {
+        try {
+          resolve(JSON.parse(responseBody));
+        } catch (error) {
+          reject(error);
+        }
+      });
+      response.on('error', reject);
+    });
+
+    req.on('error', reject);
+    req.end(payload);
   });
-  return response.json();
 }
 
 test('codebase_question returns answer-only payloads and preserves conversationId', async () => {
@@ -140,7 +186,10 @@ test('codebase_question returns answer-only payloads and preserves conversationI
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
   resetStore();
   const mockCodex = new MockCodex('thread-abc');
-  setToolDeps({ codexFactory: () => mockCodex });
+  setToolDeps({
+    codexFactory: () => mockCodex,
+    clientFactory: makeLmStudioClientFactory(),
+  });
   const tempHome = await withTempCodexHome(
     [
       'sandbox_mode = "workspace-write"',
@@ -168,6 +217,7 @@ test('codebase_question returns answer-only payloads and preserves conversationI
       },
     });
 
+    assert.ok(firstCall.result);
     assert.equal(firstCall.result.content[0].type, 'text');
     const firstPayload = JSON.parse(firstCall.result.content[0].text);
     const defaults = resolveChatDefaults({ requestProvider: 'codex' });
@@ -193,6 +243,7 @@ test('codebase_question returns answer-only payloads and preserves conversationI
       },
     });
 
+    assert.ok(secondCall.result);
     const secondPayload = JSON.parse(secondCall.result.content[0].text);
     assert.equal(secondPayload.conversationId, 'thread-abc');
     assert.equal(mockCodex.lastResumeId, 'thread-abc');
@@ -227,7 +278,10 @@ test('codebase_question returns answer-only payloads and preserves conversationI
     else process.env.CODEX_HOME = originalCodeHome;
     delete process.env.Codex_network_access_enabled;
     await tempHome.cleanup();
-    server.close();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
   }
 });
 
@@ -273,7 +327,10 @@ test('codebase_question returns an empty answer segment when no answer emitted',
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalCodeHome = process.env.CODEX_HOME;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
-  setToolDeps({ codexFactory: () => new MockCodexNoAnswer() });
+  setToolDeps({
+    codexFactory: () => new MockCodexNoAnswer(),
+    clientFactory: makeLmStudioClientFactory(),
+  });
   resetStore();
   const tempHome = await withTempCodexHome('web_search_request = false\n');
   process.env.CODEX_HOME = tempHome.codexHome;
@@ -293,6 +350,7 @@ test('codebase_question returns an empty answer segment when no answer emitted',
       },
     });
 
+    assert.ok(response.result);
     const payload = JSON.parse(response.result.content[0].text);
     assert.deepEqual(
       payload.segments.map((s: { type: string }) => s.type),
@@ -305,7 +363,10 @@ test('codebase_question returns an empty answer segment when no answer emitted',
     if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
     else process.env.CODEX_HOME = originalCodeHome;
     await tempHome.cleanup();
-    server.close();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
   }
 });
 
@@ -365,7 +426,10 @@ test('codebase_question parity fixture aligns MCP defaults with REST resolver ex
   );
   process.env.CODEX_HOME = tempHome.codexHome;
   const mockCodex = new MockCodex('thread-parity');
-  setToolDeps({ codexFactory: () => mockCodex });
+  setToolDeps({
+    codexFactory: () => mockCodex,
+    clientFactory: makeLmStudioClientFactory(),
+  });
 
   const server = http.createServer(handleRpc);
   server.listen(0);
@@ -380,6 +444,7 @@ test('codebase_question parity fixture aligns MCP defaults with REST resolver ex
         arguments: { question: 'Parity?' },
       },
     });
+    assert.ok(result.result);
     assert.equal(result.result.content[0].type, 'text');
     const markerLogs = query({
       source: ['server'],
@@ -397,6 +462,9 @@ test('codebase_question parity fixture aligns MCP defaults with REST resolver ex
     if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
     else process.env.CODEX_HOME = originalCodeHome;
     await tempHome.cleanup();
-    server.close();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
   }
 });

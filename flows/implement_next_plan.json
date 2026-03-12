@@ -15,7 +15,7 @@
         }
       ]
     },
-     {
+    {
       "type": "llm",
       "label": "Explain Next Coding Work",
       "agentType": "coding_agent",

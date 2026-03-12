@@ -6,6 +6,13 @@ import { ConversationModel } from '../../mongo/conversation.js';
 import { TurnModel } from '../../mongo/turn.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 
+const makeLmStudioClientFactory = () => () =>
+  ({
+    system: {
+      listDownloadedModels: async () => [],
+    },
+  }) as never;
+
 test('MCP chat persists conversation/turn with source MCP when persistence is available', async () => {
   const savedConversations: Record<string, unknown>[] = [];
   const savedTurns: Record<string, unknown>[] = [];
@@ -95,6 +102,7 @@ test('MCP chat persists conversation/turn with source MCP when persistence is av
             }),
           }),
         }),
+        clientFactory: makeLmStudioClientFactory(),
       },
     );
 

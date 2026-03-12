@@ -41,14 +41,16 @@ test('tools/list returns tool definitions when Codex is available', async () => 
 
     const tool = body.result.tools.find(
       (entry: { name: string }) => entry.name === 'codebase_question',
-    ) as {
-      name: string;
-      description: string;
-      inputSchema: {
-        required: string[];
-        properties: Record<string, unknown>;
-      };
-    } | undefined;
+    ) as
+      | {
+          name: string;
+          description: string;
+          inputSchema: {
+            required: string[];
+            properties: Record<string, unknown>;
+          };
+        }
+      | undefined;
 
     assert.ok(tool, 'expected codebase_question tool to be present');
     assert.equal(tool.name, 'codebase_question');

@@ -2,8 +2,43 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 import { parseAgentCommandFile } from '../../agents/commandsSchema.js';
+import { query, resetStore } from '../../logStore.js';
 
 describe('agent command schema (v1)', () => {
+  test('does not emit Story 45 parse logs unless explicitly requested', () => {
+    resetStore();
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [{ type: 'message', role: 'user', content: ['x'] }],
+    });
+
+    const parsed = parseAgentCommandFile(json, { commandName: 'sample' });
+    assert.equal(parsed.ok, true);
+    assert.equal(
+      query({ text: 'DEV-0000045:T1:command_schema_item_parsed' }).length,
+      0,
+    );
+  });
+
+  test('emits Story 45 parse logs when explicitly requested', () => {
+    resetStore();
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [{ type: 'reingest', sourceId: '/tmp/repo' }],
+    });
+
+    const parsed = parseAgentCommandFile(json, {
+      commandName: 'sample',
+      emitSchemaParseLogs: true,
+    });
+    assert.equal(parsed.ok, true);
+
+    const logs = query({ text: 'DEV-0000045:T1:command_schema_item_parsed' });
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0]?.context?.commandName, 'sample');
+    assert.equal(logs[0]?.context?.itemIndex, 0);
+  });
+
   test('valid command JSON parses as ok: true', () => {
     const json = JSON.stringify({
       Description: 'A command',
@@ -97,6 +132,99 @@ describe('agent command schema (v1)', () => {
     assert.equal(parsed.ok, false);
   });
 
+  test('message items still parse when they use content', () => {
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [{ type: 'message', role: 'user', content: ['x', 'y'] }],
+    });
+
+    const parsed = parseAgentCommandFile(json);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+
+    assert.deepEqual(parsed.command.items[0], {
+      type: 'message',
+      role: 'user',
+      content: ['x', 'y'],
+    });
+  });
+
+  test('message items parse when they use markdownFile', () => {
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [
+        {
+          type: 'message',
+          role: 'user',
+          markdownFile: 'architecture/review.md',
+        },
+      ],
+    });
+
+    const parsed = parseAgentCommandFile(json);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+
+    assert.deepEqual(parsed.command.items[0], {
+      type: 'message',
+      role: 'user',
+      markdownFile: 'architecture/review.md',
+    });
+  });
+
+  test('reingest items parse with sourceId', () => {
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [{ type: 'reingest', sourceId: '/tmp/repo' }],
+    });
+
+    const parsed = parseAgentCommandFile(json);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+
+    assert.deepEqual(parsed.command.items[0], {
+      type: 'reingest',
+      sourceId: '/tmp/repo',
+    });
+  });
+
+  test('empty markdownFile returns ok: false', () => {
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [{ type: 'message', role: 'user', markdownFile: '' }],
+    });
+
+    const parsed = parseAgentCommandFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('content and markdownFile together return ok: false', () => {
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [
+        {
+          type: 'message',
+          role: 'user',
+          content: ['x'],
+          markdownFile: 'architecture/review.md',
+        },
+      ],
+    });
+
+    const parsed = parseAgentCommandFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('message items with neither content nor markdownFile return ok: false', () => {
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [{ type: 'message', role: 'user' }],
+    });
+
+    const parsed = parseAgentCommandFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
   test('whitespace-only content entries are rejected after trimming', () => {
     const json = JSON.stringify({
       Description: 'A command',
@@ -107,10 +235,10 @@ describe('agent command schema (v1)', () => {
     assert.equal(parsed.ok, false);
   });
 
-  test('unknown keys are rejected (strict)', () => {
+  test('unknown keys are rejected (strict), including reingest extras', () => {
     const json = JSON.stringify({
       Description: 'A command',
-      items: [{ type: 'message', role: 'user', content: ['x'] }],
+      items: [{ type: 'reingest', sourceId: '/tmp/repo', extra: true }],
       extra: true,
     });
 
@@ -131,6 +259,10 @@ describe('agent command schema (v1)', () => {
     if (!parsed.ok) return;
 
     assert.equal(parsed.command.Description, 'A command');
-    assert.deepEqual(parsed.command.items[0].content, ['first', 'second']);
+    const firstItem = parsed.command.items[0];
+    assert.equal(firstItem.type, 'message');
+    assert.equal('content' in firstItem, true);
+    if (!('content' in firstItem)) return;
+    assert.deepEqual(firstItem.content, ['first', 'second']);
   });
 });

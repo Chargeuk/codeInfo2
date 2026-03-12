@@ -19,6 +19,26 @@ import {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const makeLmStudioClientFactory = () => () =>
+  ({
+    system: {
+      listDownloadedModels: async () => [
+        {
+          modelKey: 'm',
+          displayName: 'm',
+          type: 'gguf',
+        },
+      ],
+    },
+    llm: {
+      model: () => ({
+        complete: async () => {
+          throw new Error('unused');
+        },
+      }),
+    },
+  }) as never;
+
 class StreamingChat extends ChatInterface {
   async execute(
     _message: string,
@@ -65,6 +85,7 @@ test('MCP codebase_question publishes WS transcript events while in progress', a
 
   setToolDeps({
     chatFactory: () => new StreamingChat(),
+    clientFactory: makeLmStudioClientFactory(),
   });
 
   const wsApp = express();

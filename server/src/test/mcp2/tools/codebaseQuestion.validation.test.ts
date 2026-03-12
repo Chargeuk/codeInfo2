@@ -7,14 +7,78 @@ import path from 'node:path';
 import test from 'node:test';
 import { query, resetStore } from '../../../logStore.js';
 import { handleRpc } from '../../../mcp2/router.js';
+import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
+
+const makeLmStudioClientFactory = () => () =>
+  ({
+    system: {
+      listDownloadedModels: async () => [],
+    },
+  }) as never;
+
+const makeCodexFactory = () => ({
+  startThread: () => ({
+    runStreamed: async () => ({
+      events: (async function* () {
+        yield { type: 'turn.completed' };
+      })(),
+    }),
+  }),
+  resumeThread: () => ({
+    runStreamed: async () => ({
+      events: (async function* () {
+        yield { type: 'turn.completed' };
+      })(),
+    }),
+  }),
+});
+
+type JsonRpcHttpResponse = {
+  id?: number | string | null;
+  result?: {
+    content: Array<{ type: string; text: string }>;
+  };
+  error?: {
+    code: number;
+    message: string;
+  };
+};
 
 async function postJson(port: number, body: unknown) {
-  const response = await fetch(`http://127.0.0.1:${port}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
+  const payload = JSON.stringify(body);
+  return await new Promise<JsonRpcHttpResponse>((resolve, reject) => {
+    const req = http.request({
+      host: '127.0.0.1',
+      port,
+      method: 'POST',
+      agent: false,
+      headers: {
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(payload),
+        connection: 'close',
+      },
+    });
+
+    let responseBody = '';
+
+    req.on('response', (response) => {
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => {
+        responseBody += chunk;
+      });
+      response.on('end', () => {
+        try {
+          resolve(JSON.parse(responseBody));
+        } catch (error) {
+          reject(error);
+        }
+      });
+      response.on('error', reject);
+    });
+
+    req.on('error', reject);
+    req.end(payload);
   });
-  return response.json();
 }
 
 async function withTempCodexHome(chatToml: string): Promise<{
@@ -60,11 +124,15 @@ test('codebase_question validation returns -32602 when question is missing', asy
 
     const body = await postJson(port, payload);
 
+    assert.ok(body.error);
     assert.equal(body.error.code, -32602);
     assert.equal(body.error.message, 'Invalid params');
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
-    server.close();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
   }
 });
 
@@ -83,6 +151,10 @@ test('codebase_question emits field-specific warning fields when falling back to
   const server = http.createServer(handleRpc);
   server.listen(0);
   const { port } = server.address() as AddressInfo;
+  setToolDeps({
+    clientFactory: makeLmStudioClientFactory(),
+    codexFactory: makeCodexFactory,
+  });
   try {
     const body = await postJson(port, {
       jsonrpc: '2.0',
@@ -107,6 +179,7 @@ test('codebase_question emits field-specific warning fields when falling back to
     assert.ok(context?.warningFields?.includes('model_reasoning_effort'));
     assert.ok(context?.warningFields?.includes('web_search'));
   } finally {
+    resetToolDeps();
     process.env.MCP_FORCE_CODEX_AVAILABLE = originalForce;
     if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
     else process.env.CODEX_HOME = originalCodeHome;
@@ -115,7 +188,10 @@ test('codebase_question emits field-specific warning fields when falling back to
     delete process.env.Codex_reasoning_effort;
     delete process.env.Codex_web_search_enabled;
     await tempHome.cleanup();
-    server.close();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
   }
 });
 
@@ -136,10 +212,14 @@ test('codebase_question validation rejects invalid provider values deterministic
         arguments: { question: 'invalid provider?', provider: 'bad-provider' },
       },
     });
+    assert.ok(body.error);
     assert.equal(body.error.code, -32602);
     assert.equal(body.error.message, 'Invalid params');
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
-    server.close();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
   }
 });

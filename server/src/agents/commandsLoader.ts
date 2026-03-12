@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import path from 'node:path';
 
 import type { AgentCommandFile } from './commandsSchema.js';
 import { parseAgentCommandFile } from './commandsSchema.js';
@@ -7,13 +8,17 @@ const INVALID_DESCRIPTION = 'Invalid command file';
 
 export async function loadAgentCommandFile(params: {
   filePath: string;
+  emitSchemaParseLogs?: boolean;
 }): Promise<{ ok: true; command: AgentCommandFile } | { ok: false }> {
   const jsonText = await fs
     .readFile(params.filePath, 'utf-8')
     .catch(() => null);
   if (!jsonText) return { ok: false };
 
-  return parseAgentCommandFile(jsonText);
+  return parseAgentCommandFile(jsonText, {
+    commandName: path.parse(params.filePath).name,
+    emitSchemaParseLogs: params.emitSchemaParseLogs,
+  });
 }
 
 export async function loadAgentCommandSummary(params: {

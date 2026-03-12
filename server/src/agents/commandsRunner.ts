@@ -7,11 +7,16 @@ import {
   consumePendingConversationCancel,
   getInflight,
 } from '../chat/inflightRegistry.js';
+import { runReingestStepLifecycle } from '../chat/reingestStepLifecycle.js';
+import { buildReingestToolResult } from '../chat/reingestToolResult.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
+import { formatReingestPrestartReason } from '../ingest/reingestError.js';
+import { runReingestRepository } from '../ingest/reingestService.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
 
+import { executeCommandItem } from './commandItemExecutor.js';
 import { loadAgentCommandFile } from './commandsLoader.js';
 import { AbortError, runWithRetry } from './retry.js';
 import {
@@ -60,14 +65,22 @@ export type RunAgentCommandRunnerParams = {
   conversationId?: string;
   commandsRoot?: string;
   commandFilePath?: string;
+  sourceId?: string;
   lockAlreadyHeld?: boolean;
   working_folder?: string;
   signal?: AbortSignal;
   source: 'REST' | 'MCP';
+  initialModelId?: string;
   logger?: LoggerLike;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
   releaseConversationLockFn?: typeof releaseConversationLock;
   runToken?: string;
+  onPrestartFailure?: (params: {
+    command: { name: string; stepIndex: number; totalSteps: number };
+    instruction: string;
+    message: string;
+    errorCode?: string;
+  }) => Promise<void>;
   runAgentInstructionUnlocked: (params: {
     agentName: string;
     instruction: string;
@@ -79,6 +92,34 @@ export type RunAgentCommandRunnerParams = {
     source: 'REST' | 'MCP';
   }) => Promise<{ modelId: string }>;
 };
+
+type CommandRunnerDeps = {
+  runReingestRepository: typeof runReingestRepository;
+  buildReingestToolResult: typeof buildReingestToolResult;
+  runReingestStepLifecycle: typeof runReingestStepLifecycle;
+  createCallId: () => string;
+};
+
+const defaultCommandRunnerDeps: CommandRunnerDeps = {
+  runReingestRepository,
+  buildReingestToolResult,
+  runReingestStepLifecycle,
+  createCallId: () => crypto.randomUUID(),
+};
+
+const commandRunnerDeps: CommandRunnerDeps = {
+  ...defaultCommandRunnerDeps,
+};
+
+export function __setAgentCommandRunnerDepsForTests(
+  overrides: Partial<CommandRunnerDeps>,
+): void {
+  Object.assign(commandRunnerDeps, overrides);
+}
+
+export function __resetAgentCommandRunnerDepsForTests(): void {
+  Object.assign(commandRunnerDeps, defaultCommandRunnerDeps);
+}
 
 type CommandRunnerErrorCode =
   | 'COMMAND_INVALID'
@@ -131,7 +172,10 @@ export async function runAgentCommandRunner(
     throw toCommandRunnerError('COMMAND_NOT_FOUND');
   }
 
-  const parsed = await loadAgentCommandFile({ filePath });
+  const parsed = await loadAgentCommandFile({
+    filePath,
+    emitSchemaParseLogs: true,
+  });
   if (!parsed.ok) {
     throw toCommandRunnerError('COMMAND_INVALID');
   }
@@ -224,7 +268,7 @@ export async function runAgentCommandRunner(
     },
   });
 
-  let modelId = 'gpt-5.1-codex-max';
+  let modelId = params.initialModelId ?? 'gpt-5.1-codex-max';
   const logger = params.logger ?? (baseLogger as LoggerLike);
   const maxAttempts = getFlowAndCommandRetries();
 
@@ -236,13 +280,88 @@ export async function runAgentCommandRunner(
       if (combinedSignal.aborted) break;
 
       const item = command.items[i];
-      const originalInstruction = item.content.join('\n');
-
       const stepMeta = {
         name: commandName,
         stepIndex: i + 1,
         totalSteps,
       };
+
+      if (item.type === 'reingest') {
+        const result = await commandRunnerDeps.runReingestRepository({
+          sourceId: item.sourceId,
+        });
+
+        if (!result.ok) {
+          await params.onPrestartFailure?.({
+            command: stepMeta,
+            instruction: `Re-ingest repository ${item.sourceId}`,
+            message: formatReingestPrestartReason(result.error),
+            errorCode: 'COMMAND_INVALID',
+          });
+          throw toCommandRunnerError(
+            'COMMAND_INVALID',
+            formatReingestPrestartReason(result.error),
+          );
+        }
+
+        const callId = commandRunnerDeps.createCallId();
+        const toolResult = commandRunnerDeps.buildReingestToolResult({
+          callId,
+          outcome: result.value,
+        });
+
+        await commandRunnerDeps.runReingestStepLifecycle({
+          conversationId,
+          modelId,
+          source: params.source,
+          command: stepMeta,
+          toolResult,
+        });
+
+        consumePendingCommandStop();
+        const continuedToNextItem =
+          i < totalSteps - 1 && !combinedSignal.aborted;
+        append({
+          level: 'info',
+          message: 'DEV-0000045:T9:direct_command_reingest_recorded',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            commandName,
+            itemIndex: i,
+            sourceId: result.value.sourceId,
+            status: result.value.status,
+            callId,
+            continuedToNextItem,
+          },
+        });
+        continue;
+      }
+
+      const preparedInstruction = await executeCommandItem({
+        item,
+        itemIndex: i,
+        commandName,
+        sourceId: params.sourceId,
+        executeInstruction: async (instruction) => instruction,
+      });
+      const originalInstruction = preparedInstruction.instruction;
+
+      if (preparedInstruction.markdownFile) {
+        append({
+          level: 'info',
+          message: 'DEV-0000045:T4:direct_command_markdown_message_loaded',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            commandName,
+            itemIndex: i,
+            markdownFile: preparedInstruction.markdownFile,
+            resolvedSourceId: preparedInstruction.resolvedSourceId,
+            instructionLength: originalInstruction.length,
+          },
+        });
+      }
 
       let previousError: unknown = null;
       let sanitizedErrorLength = 0;

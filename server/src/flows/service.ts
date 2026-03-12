@@ -4,7 +4,9 @@ import path from 'node:path';
 
 import type { CodexOptions } from '@openai/codex-sdk';
 
+import { executeCommandItem } from '../agents/commandItemExecutor.js';
 import { loadAgentCommandFile } from '../agents/commandsLoader.js';
+import type { AgentCommandFile } from '../agents/commandsSchema.js';
 import { resolveAgentRuntimeExecutionConfig } from '../agents/config.js';
 import { discoverAgents } from '../agents/discovery.js';
 import {
@@ -40,7 +42,11 @@ import {
   shouldUseMemoryPersistence,
   updateMemoryConversationMeta,
 } from '../chat/memoryPersistence.js';
+import { runReingestStepLifecycle } from '../chat/reingestStepLifecycle.js';
+import { buildReingestToolResult } from '../chat/reingestToolResult.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
+import { formatReingestPrestartReason } from '../ingest/reingestError.js';
+import { runReingestRepository } from '../ingest/reingestService.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
@@ -73,10 +79,16 @@ import {
   type FlowBreakStep,
   type FlowCommandStep,
   type FlowLlmStep,
+  type FlowReingestStep,
   type FlowStartLoopStep,
   type FlowStep,
 } from './flowSchema.js';
 import type { FlowResumeState } from './flowState.js';
+import {
+  compareSourceCandidates,
+  normalizeSourceLabel,
+  resolveMarkdownFileWithMetadata,
+} from './markdownFileResolver.js';
 import type {
   FlowAgentState,
   FlowChatFactory,
@@ -96,8 +108,43 @@ const DEV_0000040_T11_FLOW_RESOLUTION_ORDER =
   'DEV_0000040_T11_FLOW_RESOLUTION_ORDER';
 const agentConversationState = new Map<string, FlowAgentState>();
 
+type FlowServiceDeps = {
+  runReingestRepository: typeof runReingestRepository;
+  buildReingestToolResult: typeof buildReingestToolResult;
+  runReingestStepLifecycle: typeof runReingestStepLifecycle;
+  createCallId: () => string;
+};
+
+const defaultFlowServiceDeps: FlowServiceDeps = {
+  runReingestRepository,
+  buildReingestToolResult,
+  runReingestStepLifecycle,
+  createCallId: () => crypto.randomUUID(),
+};
+
+const flowServiceDeps: FlowServiceDeps = {
+  ...defaultFlowServiceDeps,
+};
+
+export function __setFlowServiceDepsForTests(
+  overrides: Partial<FlowServiceDeps>,
+) {
+  Object.assign(flowServiceDeps, overrides);
+}
+
+export function __resetFlowServiceDepsForTests() {
+  Object.assign(flowServiceDeps, defaultFlowServiceDeps);
+}
+
 const toFlowRunError = (code: FlowRunErrorCode, reason?: string) =>
   ({ code, reason }) satisfies FlowRunError;
+
+const isFlowRunError = (error: unknown): error is FlowRunError =>
+  Boolean(error) &&
+  typeof error === 'object' &&
+  error !== null &&
+  'code' in error &&
+  typeof (error as { code?: unknown }).code === 'string';
 
 const isSafeFlowName = (raw: string): boolean => {
   const name = raw.trim();
@@ -353,6 +400,12 @@ const flowsDirForRun = () => {
   return path.resolve('flows');
 };
 
+const codeInfo2RootForRun = () => {
+  const agentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  if (agentsHome) return path.resolve(agentsHome, '..');
+  return path.resolve('codex_agents', '..');
+};
+
 const resolveFlowFilePath = (flowName: string, flowsRoot: string) => {
   if (!isSafeFlowName(flowName)) {
     throw toFlowRunError('FLOW_NOT_FOUND', 'Invalid flow name');
@@ -390,7 +443,10 @@ const loadFlowFile = async (params: {
     throw error;
   });
 
-  const parsed = parseFlowFile(jsonText);
+  const parsed = parseFlowFile(jsonText, {
+    flowName: params.flowName,
+    emitSchemaParseLogs: true,
+  });
   if (!parsed.ok) {
     throw toFlowRunError('FLOW_INVALID');
   }
@@ -531,7 +587,7 @@ const joinMessageContent = (content: string[]) => content.join('\n');
 type FlowTurnCommandMetadata = Extract<TurnCommandMetadata, { name: 'flow' }>;
 
 const buildFlowCommandMetadata = (params: {
-  step: FlowLlmStep | FlowBreakStep | FlowCommandStep;
+  step: FlowLlmStep | FlowBreakStep | FlowCommandStep | FlowReingestStep;
   stepIndex: number;
   totalSteps: number;
   loopDepth: number;
@@ -543,9 +599,13 @@ const buildFlowCommandMetadata = (params: {
     stepIndex: params.stepIndex,
     totalSteps: params.totalSteps,
     loopDepth: params.loopDepth,
-    agentType: params.step.agentType,
-    identifier: params.step.identifier,
     label,
+    ...('agentType' in params.step
+      ? {
+          agentType: params.step.agentType,
+          identifier: params.step.identifier,
+        }
+      : {}),
   };
 };
 
@@ -1511,15 +1571,6 @@ const findFirstAgentStep = (
   return undefined;
 };
 
-const hasUnsupportedStep = (steps: FlowStep[]): boolean => {
-  for (const step of steps) {
-    if (step.type === 'startLoop' && hasUnsupportedStep(step.steps)) {
-      return true;
-    }
-  }
-  return false;
-};
-
 const validateCommandSteps = async (
   steps: FlowStep[],
   agentByName: Map<string, { home: string }>,
@@ -1599,7 +1650,7 @@ type LoadCommandResult =
   | {
       ok: true;
       commandName: string;
-      command: { items: Array<{ content: string[] }> };
+      command: AgentCommandFile;
       sourceId: string;
       sourceLabel: string;
       sourceRank: 'same_source' | 'codeinfo2' | 'other';
@@ -1626,30 +1677,6 @@ type FlowCommandCandidate = {
 };
 
 const normalizeAsciiLower = (value: string) => value.toLowerCase();
-
-const normalizeSourceLabel = (params: {
-  sourceId: string;
-  sourceLabel?: string;
-}) => {
-  const trimmed = params.sourceLabel?.trim();
-  if (trimmed) return trimmed;
-  return path.posix.basename(params.sourceId.replace(/\\/g, '/'));
-};
-
-const compareSourceCandidates = (
-  left: { sourceId: string; sourceLabel: string },
-  right: { sourceId: string; sourceLabel: string },
-) => {
-  const leftLabel = normalizeAsciiLower(left.sourceLabel);
-  const rightLabel = normalizeAsciiLower(right.sourceLabel);
-  if (leftLabel < rightLabel) return -1;
-  if (leftLabel > rightLabel) return 1;
-  const leftPath = normalizeAsciiLower(left.sourceId);
-  const rightPath = normalizeAsciiLower(right.sourceId);
-  if (leftPath < rightPath) return -1;
-  if (leftPath > rightPath) return 1;
-  return 0;
-};
 
 const buildFlowCommandCandidates = (params: {
   context: FlowCommandRepositoryContext;
@@ -1888,6 +1915,7 @@ async function runFlowUnlocked(params: {
   repositoryContext: FlowCommandRepositoryContext;
   conversationId: string;
   inflightId: string;
+  modelId: string;
   workingDirectoryOverride?: string;
   source: 'REST' | 'MCP';
   chatFactory?: FlowChatFactory;
@@ -1962,6 +1990,33 @@ async function runFlowUnlocked(params: {
     }
   };
 
+  const resolveFlowInstructionPrerequisites = async (params: {
+    agentType: string;
+    configPath?: string;
+    source: 'REST' | 'MCP';
+  }): Promise<{
+    modelId: string;
+    runtimeConfig: CodexOptions['config'];
+  }> => {
+    const agent = agentByName.get(params.agentType);
+    if (!agent) {
+      throw toFlowRunError(
+        'AGENT_NOT_FOUND',
+        `Agent ${params.agentType} not found`,
+      );
+    }
+
+    const detection = refreshCodexDetection();
+    if (!detection.available) {
+      throw toFlowRunError('CODEX_UNAVAILABLE', detection.reason);
+    }
+
+    return resolveFlowAgentRuntimeExecution({
+      configPath: params.configPath ?? agent.configPath,
+      source: params.source,
+    });
+  };
+
   const runInstruction = async (instructionParams: {
     agentType: string;
     identifier: string;
@@ -1978,12 +2033,8 @@ async function runFlowUnlocked(params: {
       );
     }
 
-    const detection = refreshCodexDetection();
-    if (!detection.available) {
-      throw toFlowRunError('CODEX_UNAVAILABLE', detection.reason);
-    }
-
-    const runtime = await resolveFlowAgentRuntimeExecution({
+    const runtime = await resolveFlowInstructionPrerequisites({
+      agentType: instructionParams.agentType,
       configPath: agent.configPath,
       source: params.source,
     });
@@ -2154,17 +2205,74 @@ async function runFlowUnlocked(params: {
     step: FlowLlmStep,
     command: TurnCommandMetadata,
   ): Promise<TurnStatus> => {
-    for (const message of step.messages) {
-      const instruction = joinMessageContent(message.content);
-      const result = await runInstruction({
+    if ('messages' in step) {
+      for (const message of step.messages) {
+        const instruction = joinMessageContent(message.content);
+        const result = await runInstruction({
+          agentType: step.agentType,
+          identifier: step.identifier,
+          instruction,
+          command,
+        });
+        if (shouldStopAfter(result.status)) return result.status;
+      }
+      return 'ok';
+    }
+
+    let resolved;
+    try {
+      await resolveFlowInstructionPrerequisites({
         agentType: step.agentType,
-        identifier: step.identifier,
-        instruction,
+        source: params.source,
+      });
+      resolved = await resolveMarkdownFileWithMetadata({
+        markdownFile: step.markdownFile,
+        flowSourceId: params.repositoryContext.flowSourceId,
+      });
+    } catch (error) {
+      const agent = agentByName.get(step.agentType);
+      const message = isFlowRunError(error)
+        ? (error.reason ?? error.code)
+        : error instanceof Error
+          ? error.message
+          : 'Failed to resolve flow llm markdownFile';
+      const errorCode = isFlowRunError(error) ? error.code : 'INVALID_REQUEST';
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction: `Markdown file: ${step.markdownFile}`,
+        modelId: agent
+          ? await getAgentModelId(agent.configPath)
+          : FALLBACK_MODEL_ID,
+        source: params.source,
+        message,
+        errorCode,
         command,
       });
-      if (shouldStopAfter(result.status)) return result.status;
+      return 'failed';
     }
-    return 'ok';
+
+    append({
+      level: 'info',
+      message: 'DEV-0000045:T5:flow_llm_markdown_loaded',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        stepIndex: command.stepIndex,
+        markdownFile: step.markdownFile,
+        resolvedSourceId: resolved.resolvedSourceId,
+        instructionLength: resolved.content.length,
+      },
+    });
+
+    const result = await runInstruction({
+      agentType: step.agentType,
+      identifier: step.identifier,
+      instruction: resolved.content,
+      command,
+    });
+    return result.status;
   };
 
   const runBreakStep = async (
@@ -2360,23 +2468,194 @@ async function runFlowUnlocked(params: {
         return 'failed';
       }
 
-      for (const item of commandLoad.command.items) {
+      for (const [itemIndex, item] of commandLoad.command.items.entries()) {
         if (await stopCommandBeforeHandoff()) {
           return 'stopped';
         }
-        const instruction = joinMessageContent(item.content);
-        const result = await runInstruction({
-          agentType: step.agentType,
-          identifier: step.identifier,
-          instruction,
-          command,
-        });
-        if (shouldStopAfter(result.status)) return result.status;
+        let executedItem;
+        try {
+          executedItem = await executeCommandItem({
+            item,
+            itemIndex,
+            commandName: step.commandName,
+            flowSourceId: params.repositoryContext.flowSourceId,
+            flowContext: {
+              flowName: params.flowName,
+              stepIndex: command.stepIndex,
+            },
+            executeInstruction: async ({ instruction }) =>
+              runInstruction({
+                agentType: step.agentType,
+                identifier: step.identifier,
+                instruction,
+                command,
+              }),
+            executeReingest: async (reingestItem) => {
+              const result = await flowServiceDeps.runReingestRepository({
+                sourceId: reingestItem.sourceId,
+              });
+
+              if (!result.ok) {
+                throw new Error(formatReingestPrestartReason(result.error));
+              }
+
+              const callId = flowServiceDeps.createCallId();
+              const toolResult = flowServiceDeps.buildReingestToolResult({
+                callId,
+                outcome: result.value,
+              });
+              const pendingCancelAfterWait = consumePendingConversationCancel({
+                conversationId: params.conversationId,
+                runToken: params.runToken,
+              });
+
+              await flowServiceDeps.runReingestStepLifecycle({
+                conversationId: params.conversationId,
+                modelId: await getAgentModelId(agent.configPath),
+                source: params.source,
+                command,
+                toolResult,
+              });
+
+              let stopAfter = false;
+              if (pendingCancelAfterWait) {
+                await emitStoppedFlowStep({
+                  flowConversationId: params.conversationId,
+                  inflightId: stepInflightId,
+                  instruction: `Command: ${step.commandName}`,
+                  modelId: await getAgentModelId(agent.configPath),
+                  source: params.source,
+                  command,
+                });
+                stopAfter = true;
+              } else {
+                stopAfter = await stopCommandBeforeHandoff();
+              }
+              return {
+                status: result.value.status,
+                sourceId: result.value.sourceId,
+                callId,
+                continuedToNextItem:
+                  itemIndex < commandLoad.command.items.length - 1 &&
+                  !stopAfter,
+                stopAfter,
+              };
+            },
+          });
+        } catch (error) {
+          const modelId = await getAgentModelId(agent.configPath);
+          await emitFailedFlowStep({
+            flowConversationId: params.conversationId,
+            inflightId: stepInflightId,
+            instruction: `Command: ${step.commandName}`,
+            modelId,
+            source: params.source,
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Failed to execute flow command message item',
+            errorCode: 'COMMAND_INVALID',
+            command,
+          });
+          return 'failed';
+        }
+        if (
+          executedItem.itemType === 'message' &&
+          shouldStopAfter(executedItem.result.status)
+        ) {
+          return executedItem.result.status;
+        }
+        if (
+          executedItem.itemType === 'reingest' &&
+          executedItem.result.stopAfter
+        ) {
+          return 'stopped';
+        }
       }
       return 'ok';
     }
 
     return 'failed';
+  };
+
+  const runReingestStep = async (
+    step: FlowReingestStep,
+    command: TurnCommandMetadata,
+  ): Promise<TurnStatus> => {
+    const instruction = `Reingest repository: ${step.sourceId}`;
+    let result;
+    try {
+      result = await flowServiceDeps.runReingestRepository({
+        sourceId: step.sourceId,
+      });
+    } catch (error) {
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        source: params.source,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Dedicated flow reingest failed unexpectedly',
+        errorCode: 'INVALID_REQUEST',
+        command,
+      });
+      return 'failed';
+    }
+
+    if (!result.ok) {
+      const message = formatReingestPrestartReason(result.error);
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        source: params.source,
+        message,
+        errorCode: 'INVALID_REQUEST',
+        command,
+      });
+      return 'failed';
+    }
+
+    const callId = flowServiceDeps.createCallId();
+    const toolResult = flowServiceDeps.buildReingestToolResult({
+      callId,
+      outcome: result.value,
+    });
+
+    await flowServiceDeps.runReingestStepLifecycle({
+      conversationId: params.conversationId,
+      modelId: params.modelId,
+      source: params.source,
+      command,
+      toolResult,
+    });
+
+    const pendingCancel = consumePendingConversationCancel({
+      conversationId: params.conversationId,
+      runToken: params.runToken,
+    });
+    const continuedToNextStep = !pendingCancel;
+    append({
+      level: 'info',
+      message: 'DEV-0000045:T10:flow_reingest_step_recorded',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        stepIndex: command.stepIndex,
+        label: 'label' in command ? command.label : undefined,
+        sourceId: result.value.sourceId,
+        status: result.value.status,
+        callId,
+        continuedToNextStep,
+      },
+    });
+
+    return pendingCancel ? 'stopped' : 'ok';
   };
 
   const runStartLoopStep = async (
@@ -2575,6 +2854,41 @@ async function runFlowUnlocked(params: {
         continue;
       }
 
+      if (step.type === 'reingest') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            agentType: command.agentType,
+          },
+        });
+        const status = await runReingestStep(step, command);
+        if (shouldStopAfter(status)) {
+          await persistFlowResumeState({
+            conversationId: params.conversationId,
+            stepPath: lastCompletedStepPath,
+            loopStack,
+          });
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        await persistFlowResumeState({
+          conversationId: params.conversationId,
+          stepPath: lastCompletedStepPath,
+          loopStack,
+        });
+        continue;
+      }
+
       throw toFlowRunError(
         'UNSUPPORTED_STEP',
         'Flow step type not supported yet',
@@ -2669,12 +2983,6 @@ export async function startFlowRun(
     if (!flow.steps.length) {
       throw toFlowRunError('NO_STEPS', 'Flow has no steps');
     }
-    if (hasUnsupportedStep(flow.steps)) {
-      throw toFlowRunError(
-        'UNSUPPORTED_STEP',
-        'Only llm, startLoop, break, and command steps are supported in this flow run',
-      );
-    }
 
     const existingConversation = await getConversation(conversationId);
     if (existingConversation?.archivedAt) {
@@ -2704,28 +3012,26 @@ export async function startFlowRun(
     hydrateFlowAgentState(resumeState);
 
     const firstAgentStep = findFirstAgentStep(flow.steps);
-    if (!firstAgentStep) {
-      throw toFlowRunError('UNSUPPORTED_STEP', 'No agent steps found');
-    }
-
     const discovered = await discoverAgents();
     const agentByName = new Map(discovered.map((item) => [item.name, item]));
-    const agent = agentByName.get(firstAgentStep.agentType);
-    if (!agent) {
-      throw toFlowRunError(
-        'AGENT_NOT_FOUND',
-        `Agent ${firstAgentStep.agentType} not found`,
-      );
+    if (firstAgentStep) {
+      const agent = agentByName.get(firstAgentStep.agentType);
+      if (!agent) {
+        throw toFlowRunError(
+          'AGENT_NOT_FOUND',
+          `Agent ${firstAgentStep.agentType} not found`,
+        );
+      }
+
+      const detection = refreshCodexDetection();
+      if (!detection.available) {
+        throw toFlowRunError('CODEX_UNAVAILABLE', detection.reason);
+      }
+
+      modelId = await getAgentModelId(agent.configPath);
     }
 
-    const detection = refreshCodexDetection();
-    if (!detection.available) {
-      throw toFlowRunError('CODEX_UNAVAILABLE', detection.reason);
-    }
-
-    modelId = await getAgentModelId(agent.configPath);
-
-    const codeInfo2Root = path.resolve(agent.home, '..', '..');
+    const codeInfo2Root = codeInfo2RootForRun();
     repositoryContext = {
       flowName,
       flowSourceId: sourceRepo?.containerPath
@@ -2794,6 +3100,7 @@ export async function startFlowRun(
         repositoryContext,
         conversationId,
         inflightId,
+        modelId,
         workingDirectoryOverride,
         source: params.source,
         chatFactory: params.chatFactory,

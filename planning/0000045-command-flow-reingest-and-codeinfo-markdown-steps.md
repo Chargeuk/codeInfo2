@@ -1948,3 +1948,157 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 - Testing 10: `npm run compose:down` completed cleanly after the manual acceptance rerun and removed the temporary validation stack containers and network.
 - Subtask 4: Finalized this Task 17 notes section after the rerun so the next developer can see the clean wrapper results, the manual precedence check, and the temporary-fixture cleanup in one place.
 - Subtask 5: `npm run lint --workspaces && npm run format:check --workspaces` completed successfully; lint returned to the repository's standing `42` warning baseline and Prettier was clean across all workspaces.
+
+---
+
+### 18. Close Nested Flow Validation And Markdown Precheck Review Gaps
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Close the runtime and schema issues found during branch review without widening Story 45. The review found that the `messages` versus `markdownFile` XOR rule is only enforced for top-level `llm` steps today, so invalid nested `llm` steps inside `startLoop` can still parse. The review also found that when a later `llm.markdownFile` step fails agent/runtime prechecks after a flow has already started, the emitted failure is collapsed to `INVALID_REQUEST` instead of preserving the earlier `AGENT_NOT_FOUND` or `CODEX_UNAVAILABLE` contract that Task 16 intended to match.
+
+#### Documentation Locations
+
+- Zod documentation: https://zod.dev/ - use for restoring recursive `llm` XOR validation without breaking the discriminated `type`-based flow schema.
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for the unit and integration coverage required for the nested-schema and runtime-failure fixes in this task.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped lint/build/test commands listed in this task.
+
+#### Critical Task Rules
+
+- Keep the Story 45 flow file contract unchanged: every `llm` step, including nested loop steps, must provide exactly one instruction source, `messages` or `markdownFile`.
+- Do not weaken the `type` discriminator fix from Task 16 while restoring recursive XOR enforcement.
+- Preserve the existing markdown resolution ordering and safety checks; this task is about validation coverage and failure-code parity, not a resolver redesign.
+- For markdown-backed `llm` steps that fail agent/runtime prechecks after a flow has started, keep the earlier failure code (`AGENT_NOT_FOUND` or `CODEX_UNAVAILABLE`) instead of rewriting it to `INVALID_REQUEST`.
+- Do not add new websocket event types, new persistence shapes, or new flow step types as part of this task.
+
+#### Required Files For This Task
+
+- Read first: [flows/flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts), [flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), [flows.run.basic.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts), and [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts)
+- Edit in this task: [planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md), [flows/flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts), [flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts), and the relevant flow integration tests under [server/src/test/integration](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration)
+
+#### Subtasks
+
+1. [ ] Re-read the current `flowSchema.ts` and `flows/service.ts` implementations, confirm the exact review gaps, and identify the smallest change that enforces the `llm` XOR rule recursively for nested `startLoop` steps.
+2. [ ] Update [flowSchema.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/flowSchema.ts) so nested `llm` steps inside `startLoop` are rejected when they provide both `messages` and `markdownFile` or when they provide neither.
+3. [ ] Add unit coverage in [flows-schema.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/flows-schema.test.ts) for nested `startLoop` `llm` steps that must now fail validation for both invalid XOR cases.
+4. [ ] Update [flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) so a markdown-backed `llm` step that fails the earlier agent/runtime prechecks after flow start preserves the correct failure code (`AGENT_NOT_FOUND` or `CODEX_UNAVAILABLE`) instead of collapsing to `INVALID_REQUEST`.
+5. [ ] Add or update flow runtime integration coverage proving a later `llm.markdownFile` step now emits the correct failure code after the flow has already started, and still does not attempt markdown resolution when the precheck fails first.
+6. [ ] Update this story file’s Task 18 `Implementation notes` section after the fix and tests for this task are complete.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Use only the summary wrappers listed below. Do not attempt to run builds or tests without a wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- 
+
+---
+
+### 19. Remove Unsafe Automatic Push From The Plan-Execution Flow
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Remove the unconditional `Push` step that was added to [flows/implement_next_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/implement_next_plan.json) during Story 45 branch work. That step is outside Story 45 acceptance criteria and conflicts with the repo workflow used throughout this branch, where agents are expected to commit but not push unless the user explicitly asks for it.
+
+#### Documentation Locations
+
+- Git push documentation: https://git-scm.com/docs/git-push - use to confirm push remains an explicit user action rather than an unconditional automation step.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the wrapper-based verification commands listed in this task.
+
+#### Critical Task Rules
+
+- Keep the existing `implement_next_plan` flow shape valid JSON and valid Story 45 flow schema after removing the push behavior.
+- Do not replace the unconditional push with another implicit publish action; if the workflow should mention push at all, it must only do so as an explicit user-driven follow-up outside automatic execution.
+- Do not widen this task into broader planner/tasking prompt rewrites unless a directly related parse or workflow issue is discovered in the same file while making this fix.
+
+#### Required Files For This Task
+
+- Read first: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md) and [flows/implement_next_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/implement_next_plan.json)
+- Edit in this task: [planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md) and [flows/implement_next_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/implement_next_plan.json)
+
+#### Subtasks
+
+1. [ ] Re-read [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md) and [flows/implement_next_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/implement_next_plan.json) together so the final flow behavior stays aligned with the repository's commit-without-push default.
+2. [ ] Remove the unconditional final `Push` step from [flows/implement_next_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/implement_next_plan.json) and leave the completion check as the actual end of the flow.
+3. [ ] Re-open the edited flow file and confirm the surrounding step order, labels, and JSON formatting still describe the intended plan-execution workflow without hidden publish behavior.
+4. [ ] Update this story file’s Task 19 `Implementation notes` section after the fix and validation for this task are complete.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Use only the summary wrappers listed below. Do not attempt to run builds or tests without a wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+
+#### Implementation notes
+
+- 
+
+---
+
+### 20. Re-Validate Story 45 After Code Review Follow-Ups
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Re-run the full Story 45 acceptance validation after Tasks 18 and 19 are complete. This task exists so the review-driven fixes are accepted against the entire story surface rather than only through targeted regression coverage.
+
+#### Documentation Locations
+
+- Playwright introduction: https://playwright.dev/docs/intro - use for the manual browser validation flow required in this final follow-up task.
+- Docker Compose documentation: https://docs.docker.com/compose/ - use for the compose build/up/down validation sequence required in this task.
+- Node.js test runner documentation: https://nodejs.org/api/test.html - use for the full server unit validation run that is part of this acceptance re-check.
+- npm workspaces documentation: https://docs.npmjs.com/cli/v11/using-npm/workspaces - use for the workspace-scoped build and validation commands listed in this task.
+
+#### Critical Task Rules
+
+- This task must verify the reopened Story 45 work, not add new behavior. If another issue is discovered here, stop final validation, reopen the appropriate earlier review follow-up task, and complete that implementation there before returning to this task.
+- Re-check the full Story 45 acceptance criteria, including the recursive `llm` XOR validation, the corrected markdown-precheck failure-code parity, and the removal of the unintended auto-push workflow step.
+- Use the wrapper-first build and test workflow from [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). Do not replace the listed wrappers with raw commands unless wrapper diagnosis is required.
+
+#### Required Files For This Task
+
+- Read before starting validation: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md), [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), [flows/implement_next_plan.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/flows/implement_next_plan.json), and the full Story 45 acceptance criteria in this file
+- Save validation evidence under: [playwright-output-local](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local)
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 45 acceptance criteria and confirm Tasks 18 and 19 are marked done before starting this validation rerun.
+2. [ ] Re-run the full wrapper validation for the reopened Story 45 scope and confirm the full server, client, and end-to-end suites still complete cleanly.
+3. [ ] Re-check the manual acceptance evidence needed for Story 45, including nested-flow schema rejection coverage, corrected `llm.markdownFile` precheck failure codes, and the removal of the unintended push step from the plan-execution flow.
+4. [ ] Update this story file’s Task 20 `Implementation notes` section after the full validation rerun is complete.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Use only the summary wrappers listed below. Do not attempt to run builds or tests without a wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run test:summary:server:unit`
+3. [ ] `npm run test:summary:server:cucumber`
+4. [ ] `npm run build:summary:client`
+5. [ ] `npm run test:summary:client`
+6. [ ] `npm run test:summary:e2e`
+7. [ ] `npm run compose:build:summary`
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP acceptance rerun
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 

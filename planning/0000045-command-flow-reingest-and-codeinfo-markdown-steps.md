@@ -737,7 +737,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 ### 3. Add The Shared Markdown Resolver And Its Safety Rules
 
 - Task Status: `__done__`
-- Git Commits:
+- Git Commits: `48795135`
   - `84e7fb5a` - Task 3 implementation: shared markdown resolver, resolver unit coverage, project-structure updates, and verification notes.
 
 #### Overview

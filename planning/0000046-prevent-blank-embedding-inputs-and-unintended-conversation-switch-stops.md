@@ -1224,7 +1224,7 @@ Wrapper-only rule: this task is documentation-only, so do not attempt to run raw
 ### 14. Final Task - Prepare PR Notes
 
 - Task Status: `__done__`
-- Git Commits: `75955734`
+- Git Commits: `75955734, e58c2a6d`
 
 #### Overview
 
@@ -1264,6 +1264,7 @@ On the Chat side, the work keeps the existing stop and rehydration contracts ins
 
 The proof stays reuse-first as well. The story extends existing unit, integration, cucumber, and client wrapper coverage instead of creating parallel harnesses, and it distinguishes targeted guard evidence from browser-visible regression evidence: Tasks 2 and 4 rely on targeted server-wrapper proofs for blank-input provider guards, Task 11 relies on targeted client-wrapper proofs for hidden stale-event ignores, and the remaining user-visible acceptance criteria were covered by wrapper runs plus task-specific manual Playwright checks. The final full-suite wrapper pass is reserved for Task 15.
 - `npm run lint --workspaces` completed at the existing 39-warning import-order baseline and `npm run format:check --workspaces` passed cleanly, so Task 14 did not introduce any new workspace-quality issues.
+- Audit correction: Task 14's `Git Commits` field now records both the PR-summary implementation commit and the final bookkeeping update (`75955734, e58c2a6d`) so the plan matches the actual completion trail.
 
 ---
 

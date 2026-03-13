@@ -344,6 +344,45 @@ Story 0000046 does not require any brand-new websocket message types, REST paylo
    - If implementation discovers a genuinely unavoidable need for a new contract field, message type, or storage property, that is a scope change and must be documented back into this section before coding proceeds.
    - Based on the current repository and external evidence, no such new contract or shape is needed for Story 0000046.
 
+## Edge Cases and Failure Modes
+
+1. Leading blank piece before the first code boundary:
+   - `server/src/ingest/chunker.ts` can currently produce a first piece that is only whitespace when a file starts with blank lines before the first `function`, `class`, or other boundary match.
+   - Story rule: filter that blank piece before chunk indexes are assigned so valid later chunks keep deterministic sequential indexes.
+2. Whitespace-only slice after token-limit slicing:
+   - `sliceToFit()` currently filters only falsy slices, not whitespace-only slices.
+   - Story rule: a slice containing only spaces or line breaks must be removed before it can become a chunk or reach a provider.
+3. Fresh ingest discovers files but ends with zero embeddable chunks:
+   - This is different from the existing `discoverFiles()` zero-files case.
+   - Story rule: fresh ingest must fail with the existing `NO_ELIGIBLE_FILES` style contract, and it must not leave partial vectors or a completed root summary behind.
+4. Delta re-embed with blank-only outcomes:
+   - Story `0000020` semantics still apply.
+   - If a re-embed run produces zero new embeddable chunks because changed files became blank, the implementation must still handle no-change and deletions-only outcomes the same way the existing delta flow already does, rather than forcing the fresh-ingest failure behavior onto every re-embed run.
+5. Mixed valid and blank files in the same ingest:
+   - A repository may contain some valid files and some blank or whitespace-only files.
+   - Story rule: valid chunks should still embed successfully; blank files should contribute nothing and must not force the whole run to fail unless the final result for a fresh ingest is zero embeddable chunks overall.
+6. Defensive provider guard hit after upstream filtering should have prevented it:
+   - This is a failure mode, not a normal control path.
+   - Story rule: fail clearly and treat it as an invariant breach; do not silently skip that input and continue as though the ingest succeeded normally.
+7. Blank-input failure after earlier successful embeddings:
+   - If a provider-side blank-input failure somehow occurs after valid chunks were already written, the run must still end as a clear failure rather than a misleading success.
+   - Primary mitigation: blank filtering must happen before batching and embedding so this failure mode becomes defensive-only instead of normal-path behavior.
+8. Sidebar selection, New conversation, or provider/model change during an active run:
+   - `client/src/pages/ChatPage.tsx` currently routes all three through implicit cancellation paths.
+   - Story rule: those actions must become local view/reset changes only; the old run continues server-side, and the newly visible conversation must not inherit `sending`, `stopping`, spinner, or disabled-composer state from the hidden run.
+9. Rapid repeated Chat context switches:
+   - A user may switch conversations, open a new conversation, and change provider/model quickly while a previous run is still active.
+   - Story rule: the visible Chat view should always reflect the latest selected conversation or new draft only, and any older hidden conversation state should be recovered from normal server history/inflight hydration if the user returns later.
+10. Late websocket events from a hidden conversation:
+   - `client/src/hooks/useChatStream.ts` already ignores events whose `conversationId` does not match the visible conversation.
+   - Story rule: preserve that guard so hidden conversation events cannot render stop banners, assistant text, or completed states into the wrong visible conversation.
+11. `cancel_ack` with `result: 'noop'` outside an explicit stop attempt:
+   - Existing logic only treats this as meaningful while the client is in stopping state.
+   - Story rule: preserve that behavior; navigation/reset actions should not rely on `cancel_ack` to clean themselves up because they should not be sending cancellation in the first place.
+12. Non-blank but low-value files:
+   - Files that contain comments, imports, or type declarations only are not blank, even if they are low-value for embeddings.
+   - Story rule: Story 0000046 is not a chunk-quality or semantic-filtering story. It only removes empty and whitespace-only content, leaving non-blank chunk quality heuristics unchanged.
+
 ## Questions
 
 - No Further Questions

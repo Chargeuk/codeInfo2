@@ -416,9 +416,9 @@ This task isolates the first shared ingest boundary: `chunkText()`. Its job is t
 
 #### Documentation Locations
 
-- TypeScript: Context7 `/microsoft/typescript` — array/filter/map typing for in-place chunk filtering.
-- Node.js test runner: official `node:test` documentation for focused unit-test structure.
-- OpenAI platform docs: embeddings input validation reference confirming blank input is invalid.
+- TypeScript handbook: `https://www.typescriptlang.org/docs/handbook/2/narrowing.html` — use this for safe typed filtering/narrowing when trimming and removing blank chunk candidates in place.
+- Node.js `node:test` API: `https://nodejs.org/api/test.html` — use this for the correct structure of focused unit tests and subtests in the existing server harness.
+- OpenAI embeddings API reference: `https://platform.openai.com/docs/api-reference/embeddings/create` — use this because it is the product contract proving empty embedding input is invalid, which is why blank chunks must never leave `chunkText()`.
 
 #### Subtasks
 
@@ -456,9 +456,9 @@ This task adds the defensive provider-layer blank-input check for the OpenAI emb
 
 #### Documentation Locations
 
-- OpenAI platform docs: embeddings API reference for request rules and invalid-input behavior.
-- DeepWiki `openai/openai-node` — repository-grounded error-handling guidance for SDK usage.
-- Node.js test runner: official `node:test` documentation for focused provider tests.
+- OpenAI embeddings API reference: `https://platform.openai.com/docs/api-reference/embeddings/create` — use this for the request contract and bad-input expectations that the guard must enforce before any SDK call.
+- DeepWiki MCP target `openai/openai-node` — use the `Embeddings` resource plus README `Handling errors` coverage because it documents the Node SDK error model the task must reuse instead of inventing a new error path.
+- Node.js `node:test` API: `https://nodejs.org/api/test.html` — use this for extending the existing focused OpenAI provider tests without changing harness style.
 
 #### Subtasks
 
@@ -494,9 +494,9 @@ This task adds the defensive provider-layer blank-input check for the LM Studio 
 
 #### Documentation Locations
 
-- LM Studio documentation: official embeddings or JavaScript SDK docs for `model.embed(...)` behavior.
-- Node.js test runner: official `node:test` documentation for focused provider tests.
-- TypeScript: Context7 `/microsoft/typescript` — error narrowing and typed guardrail helpers.
+- LM Studio TypeScript embeddings docs: `https://lmstudio.ai/docs/typescript/embedding` — use this because the existing provider path calls `model.embed(...)`, and this is the correct SDK surface to validate against.
+- Node.js `node:test` API: `https://nodejs.org/api/test.html` — use this for extending the existing LM Studio provider tests without changing harness style.
+- TypeScript handbook: `https://www.typescriptlang.org/docs/handbook/2/narrowing.html` — use this for typed error narrowing and guard code in the provider implementation.
 
 #### Subtasks
 
@@ -532,9 +532,10 @@ This task handles the second server-side ingest boundary: what happens after chu
 
 #### Documentation Locations
 
-- Chroma documentation: collection write/delete semantics relevant to avoiding misleading partial success.
-- TypeScript: Context7 `/microsoft/typescript` — control-flow and error handling in async job code.
-- Node.js test runner: official `node:test` documentation for start/re-embed regression tests.
+- Chroma add-data docs: `https://docs.trychroma.com/docs/collections/add-data` — use this for the expected add/write flow so the task does not leave partial-success semantics behind when ingest fails.
+- Chroma delete-data docs: `https://docs.trychroma.com/docs/collections/delete-data` — use this for understanding cleanup semantics when a failed fresh ingest must not leave misleading persisted vector state.
+- TypeScript handbook: `https://www.typescriptlang.org/docs/handbook/2/narrowing.html` — use this for safe async control-flow and typed failure handling in the ingest job.
+- Node.js `node:test` API: `https://nodejs.org/api/test.html` — use this for the correct structure of start/re-embed regression tests in the current server harness.
 
 #### Subtasks
 
@@ -572,9 +573,10 @@ This task makes the existing server-side cancellation contract explicit before a
 
 #### Documentation Locations
 
-- `ws` documentation: WebSocket server message handling patterns.
-- Cucumber guides: feature and step-definition authoring for behavior contracts.
-- MDN WebSocket documentation: general client/server message semantics.
+- `ws` repository documentation: `https://github.com/websockets/ws/blob/master/README.md` — use this for the server-side message/event handling model used by the repository’s websocket layer.
+- Cucumber guide: `https://cucumber.io/docs/guides/10-minute-tutorial/` — use this for the correct feature/step structure when tightening the cancellation contract feature.
+- Cucumber guide: `https://cucumber.io/docs/guides/testable-architecture/` — use this for keeping websocket contract coverage focused on observable behavior instead of implementation details.
+- MDN WebSocket reference: `https://developer.mozilla.org/en-US/docs/Web/API/WebSocket` — use this for general message semantics when describing subscription versus cancellation behavior.
 
 #### Subtasks
 
@@ -611,9 +613,9 @@ This task handles only the Chat sidebar selection path. The goal is to make sele
 
 #### Documentation Locations
 
-- React documentation: preserving and resetting state when visible UI context changes.
-- Material UI: use the MUI MCP docs for the current repo major version `TextField` and `Select` APIs.
-- React Testing Library documentation for interaction-driven page regression tests.
+- React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this because the task is changing visible conversation selection into local UI navigation rather than external cleanup.
+- MUI MCP docs for `@mui/material` `6.4.12`: `https://llms.mui.com/material-ui/6.4.12/components/text-fields.md`, `https://llms.mui.com/material-ui/6.4.12/components/selects.md`, and `https://llms.mui.com/material-ui/6.4.12/api/text-field.md` — use these because `ChatPage.tsx` already uses MUI `TextField` with `select`, `SelectProps`, and `slotProps.select`.
+- React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for interaction-driven page regression tests that verify visible conversation state.
 
 #### Subtasks
 
@@ -650,9 +652,9 @@ This task isolates the `New conversation` control. The required output is a clea
 
 #### Documentation Locations
 
-- React documentation: preserving and resetting state for local draft resets.
-- React Testing Library documentation for page-level interaction tests.
-- Material UI: use the MUI MCP docs for any control-state behavior touched by the Chat page.
+- React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this because `New conversation` is a local draft reset, not an external stop action.
+- React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for the page-level interaction tests proving no cancel message is sent.
+- MUI MCP docs for `@mui/material` `6.4.12`: `https://llms.mui.com/material-ui/6.4.12/components/text-fields.md` and `https://llms.mui.com/material-ui/6.4.12/api/text-field.md` — use these because the Chat composer and selectors already rely on existing MUI `TextField` control behavior.
 
 #### Subtasks
 
@@ -691,9 +693,10 @@ This task isolates provider switching during an active run. The selected provide
 
 #### Documentation Locations
 
-- React documentation: state synchronization and preserving/resetting UI state.
-- Material UI: use the MUI MCP docs for the current repo major version `TextField` and `Select` APIs.
-- React Testing Library documentation for provider-selection regression tests.
+- React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this for deciding when provider selection is local next-send state instead of persisted hidden-run state.
+- React docs: `https://react.dev/learn/synchronizing-with-effects` — use this because the risky behavior here comes from state being overwritten by `selectedConversation` sync effects.
+- MUI MCP docs for `@mui/material` `6.4.12`: `https://llms.mui.com/material-ui/6.4.12/components/text-fields.md`, `https://llms.mui.com/material-ui/6.4.12/components/selects.md`, and `https://llms.mui.com/material-ui/6.4.12/api/text-field.md` — use these because the existing provider control is an MUI `TextField select` and the task must update logic, not replace the control.
+- React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for provider-selection regression tests that assert next-send behavior.
 
 #### Subtasks
 
@@ -733,9 +736,10 @@ This task isolates model switching during an active run. The selected model shou
 
 #### Documentation Locations
 
-- React documentation: state synchronization and preserving/resetting UI state.
-- Material UI: use the MUI MCP docs for the current repo major version `TextField` and `Select` APIs.
-- React Testing Library documentation for model-selection regression tests.
+- React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this for deciding when model selection is local next-send state instead of persisted hidden-run state.
+- React docs: `https://react.dev/learn/synchronizing-with-effects` — use this because the risky behavior here comes from the current `selectedConversation` model sync effect.
+- MUI MCP docs for `@mui/material` `6.4.12`: `https://llms.mui.com/material-ui/6.4.12/components/text-fields.md`, `https://llms.mui.com/material-ui/6.4.12/components/selects.md`, and `https://llms.mui.com/material-ui/6.4.12/api/text-field.md` — use these because the existing model control is an MUI `TextField select` and the task must update logic, not replace the control.
+- React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for model-selection regression tests that assert next-send behavior.
 
 #### Subtasks
 
@@ -774,10 +778,12 @@ This task locks down the failure mode that appears after Tasks 6-9 remove implic
 
 #### Documentation Locations
 
-- React documentation: preserving/resetting state and effect cleanup behavior.
-- React Testing Library documentation for visible-state isolation tests.
-- `ws` documentation and MDN WebSocket docs for message ordering and subscription semantics.
-- Cucumber guides for any existing server feature coverage that needs extension.
+- React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this for visible-conversation isolation and local reset behavior.
+- React docs: `https://react.dev/learn/synchronizing-with-effects` — use this for the late-event/effect-cleanup side of hidden-run state handling.
+- React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for visible-state isolation tests around late websocket events.
+- `ws` repository documentation: `https://github.com/websockets/ws/blob/master/README.md` — use this for server message ordering/subscription semantics relevant to hidden runs.
+- MDN WebSocket reference: `https://developer.mozilla.org/en-US/docs/Web/API/WebSocket` — use this for general message and subscription behavior when describing hidden-run events.
+- Cucumber guide: `https://cucumber.io/docs/guides/testable-architecture/` — use this only if existing server feature coverage truly needs a small extension after the client and turns tests are updated.
 
 #### Subtasks
 
@@ -818,9 +824,8 @@ This task is documentation-only. It updates the shared written material after im
 
 #### Documentation Locations
 
-- GitHub documentation: Markdown authoring and formatting conventions.
-- Mermaid documentation for any diagram text updated in `design.md`.
-- Project documentation style guidance already established by earlier repository stories.
+- GitHub Markdown docs: `https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax` — use this for README and PR-summary formatting conventions.
+- Mermaid docs: `https://mermaid.js.org/intro/` — use this for any diagram text or flow updates in `design.md`.
 
 #### Subtasks
 
@@ -853,10 +858,10 @@ This final task proves the story end to end against the acceptance criteria. It 
 
 #### Documentation Locations
 
-- Docker documentation for Compose and container lifecycle checks.
-- Playwright documentation for manual/browser verification workflow.
-- Jest documentation for full client test-suite expectations.
-- Cucumber guides for full server feature-suite expectations.
+- Docker Compose docs: `https://docs.docker.com/compose/` — use this for the build/up/down validation flow and container lifecycle checks.
+- Playwright docs: `https://playwright.dev/docs/intro` — use this for the manual/browser verification workflow and screenshot capture expectations.
+- Jest docs: `https://jestjs.io/docs/getting-started` — use this for full client test-suite expectations when interpreting wrapper output.
+- Cucumber guide: `https://cucumber.io/docs/guides/10-minute-tutorial/` — use this for full server feature-suite expectations and terminology when validating the cucumber wrapper output.
 
 #### Subtasks
 

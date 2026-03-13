@@ -1109,7 +1109,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 ### 12. Client - Reuse Existing Hidden-Run Rehydration When Revisiting Conversations
 
 - Task Status: `__done__`
-- Git Commits: `__to_do__`
+- Git Commits: `42ceb1c4`
 
 #### Overview
 
@@ -1177,6 +1177,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 - Testing step 6 complete: `npm run compose:up` started the Task 12 stack successfully; the server reached `Healthy` and the client container started cleanly.
 - Testing step 7 complete: manual Playwright validation at `http://host.docker.internal:5001/chat` passed for both revisit states. For the still-running revisit path, I created and backgrounded conversation `6r0dnino0hw`, reopened it from the sidebar, confirmed the persisted user turn plus live running UI rehydrated with `Stop` visible, and saw `DEV-0000046:T12:hidden-run-rehydrated` in the browser console with `conversationId: 6r0dnino0hw` and `hasInflightSnapshot: true`. For the completed revisit path, I reopened existing conversation `mjecr59zk7n` (`TASK10 next-send proof 2026-03-13T22:09Z`), confirmed the persisted transcript returned with no stale running-state UI, and saw the same marker with `conversationId: mjecr59zk7n` and `hasInflightSnapshot: false`. Browser error-console output stayed empty throughout, and reviewed screenshots were saved at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000046-task12-running-revisit.png` and `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000046-task12-completed-revisit.png`.
 - Testing step 8 complete: `npm run compose:down` stopped and removed the Task 12 containers cleanly, ending with `Network codeinfo2_internal Removed`.
+- Git commit recorded: implementation and proof changes for Task 12 were committed as `42ceb1c4` (`DEV-[46] - Reuse hidden-run rehydration path on revisit`) before this bookkeeping update.
 
 ---
 

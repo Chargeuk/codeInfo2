@@ -4048,6 +4048,34 @@ sequenceDiagram
   Note over UI,WS: no cancel_inflight is sent by sidebar selection
 ```
 
+## Story 0000046 Task 8: chat New conversation becomes a local draft reset
+
+- The `New conversation` button stays in the existing `handleNewConversation(...)` event path in `client/src/pages/ChatPage.tsx`; it does not move into a new effect or a new websocket message.
+- The button now reuses `resetTurns()` plus `reset()` / `setConversation(..., { clearMessages: true })` as a local draft reset and does not send `cancelInflight(...)` for the previously visible conversation.
+- The older conversation may still be running server-side, but the newly opened draft becomes the visible idle view immediately: empty transcript placeholder, cleared composer input, no stop banner, and normal send readiness after the user types the next prompt.
+- Task 8 stays isolated from provider/model next-send behavior. The shared helper still leaves the provider-change branch alone so later Story `0000046` tasks can adjust that flow separately.
+- Task 8 verification marker:
+  - `DEV-0000046:T8:new-conversation-local-reset`
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as ChatPage.handleNewConversation
+  participant Stream as useChatStream
+  participant Turns as useConversationTurns
+  participant Hidden as Older hidden run
+
+  User->>UI: Click New conversation
+  UI->>Turns: resetTurns()
+  UI->>Stream: reset()
+  UI->>Stream: setConversation(newDraftId, clearMessages=true)
+  UI->>UI: clear input + visible sending/stopping state
+  UI-->>UI: log DEV-0000046:T8:new-conversation-local-reset
+  Note over UI,Hidden: no cancel_inflight is sent by the button
+  Hidden-->>Server: continue running until completion or explicit Stop
+  UI-->>User: clean draft placeholder and interactive composer
+```
+
 ### Agent tooling (Chroma list + search)
 
 - `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.

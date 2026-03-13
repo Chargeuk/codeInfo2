@@ -879,11 +879,15 @@ export default function ChatPage() {
     reason?: 'provider-change' | 'new-conversation';
     nextProvider?: string;
   }) => {
+    const resetReason = options?.reason ?? 'new-conversation';
     const currentInflightId =
       inflightSnapshot?.inflightId ??
       serverVisibleInflightIdRef.current ??
       undefined;
-    if (activeConversationId) {
+    const olderConversationRemainedInflight = Boolean(
+      activeConversationId && (currentInflightId || isSending || isStopping),
+    );
+    if (resetReason === 'provider-change' && activeConversationId) {
       cancelInflight(activeConversationId, currentInflightId);
     }
     resetTurns();
@@ -896,12 +900,19 @@ export default function ChatPage() {
     setThinkOpen({});
     setToolOpen({});
     serverVisibleInflightIdRef.current = null;
+    if (resetReason === 'new-conversation') {
+      log('info', 'DEV-0000046:T8:new-conversation-local-reset', {
+        previousConversationId: activeConversationId ?? null,
+        nextConversationId: nextId,
+        olderConversationRemainedInflight,
+        cancelSent: false,
+      });
+    }
     const targetProvider = options?.nextProvider ?? provider;
     if (targetProvider === 'codex') {
-      const reason = options?.reason ?? 'new-conversation';
-      const applied = applyCodexDefaults(reason);
+      const applied = applyCodexDefaults(resetReason);
       if (!applied) {
-        pendingCodexDefaultsReasonRef.current = reason;
+        pendingCodexDefaultsReasonRef.current = resetReason;
       }
     }
   };

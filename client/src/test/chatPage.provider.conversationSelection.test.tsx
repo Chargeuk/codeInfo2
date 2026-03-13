@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -35,6 +35,8 @@ const codexConversationId = 'conv-codex';
 const lmConversationId = 'conv-lm';
 
 function mockApi() {
+  const chatBodies: Record<string, unknown>[] = [];
+
   mockFetch.mockImplementation(
     async (url: RequestInfo | URL, opts?: RequestInit) => {
       const href = typeof url === 'string' ? url : url.toString();
@@ -184,6 +186,7 @@ function mockApi() {
           opts?.body && typeof opts.body === 'string'
             ? (JSON.parse(opts.body) as Record<string, unknown>)
             : {};
+        chatBodies.push(body);
         return Promise.resolve({
           ok: true,
           status: 202,
@@ -204,25 +207,65 @@ function mockApi() {
       }) as unknown as Response;
     },
   );
+
+  return { chatBodies };
 }
 
-describe('Chat page provider follows selected conversation', () => {
-  it('switches provider to selected conversation and shows turns', async () => {
-    mockApi();
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+function getWsMessages() {
+  const wsRegistry = (
+    globalThis as unknown as {
+      __wsMock?: { instances?: Array<{ sent: string[] }> };
+    }
+  ).__wsMock;
 
-    await screen.findByText('Codex conversation');
+  return (wsRegistry?.instances ?? [])
+    .flatMap((socket) => socket.sent)
+    .map((entry) => {
+      try {
+        return JSON.parse(entry) as Record<string, unknown>;
+      } catch {
+        return null;
+      }
+    })
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+}
 
-    const providerSelect = screen.getByTestId('provider-select');
-    expect(providerSelect).toHaveTextContent(/LM Studio/i);
+async function startDraftRun() {
+  const user = userEvent.setup();
+  const { chatBodies } = mockApi();
+  const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+  render(<RouterProvider router={router} />);
+
+  await screen.findByText('Codex conversation');
+
+  const input = screen.getByTestId('chat-input');
+  await user.type(input, 'Hello inflight');
+
+  await act(async () => {
+    await user.click(screen.getByTestId('chat-send'));
+  });
+
+  await waitFor(() => expect(chatBodies).toHaveLength(1));
+
+  return {
+    user,
+    draftConversationId: String(chatBodies[0]?.conversationId ?? ''),
+  };
+}
+
+describe('Chat page sidebar conversation selection', () => {
+  it('does not send cancel_inflight when switching conversations during an active run', async () => {
+    const { user, draftConversationId } = await startDraftRun();
 
     const codexRowTitle = screen.getByText('Codex conversation');
     const codexRow = codexRowTitle.closest('[data-testid="conversation-row"]');
     if (!codexRow) {
       throw new Error('Codex conversation row not found');
     }
-    await userEvent.click(codexRow);
+
+    await act(async () => {
+      await user.click(codexRow);
+    });
 
     await waitFor(() =>
       expect(screen.getByTestId('provider-select')).toHaveTextContent(
@@ -230,12 +273,44 @@ describe('Chat page provider follows selected conversation', () => {
       ),
     );
 
-    const providerCombobox = screen.getByRole('combobox', {
-      name: /provider/i,
+    const cancelMessages = getWsMessages().filter(
+      (msg) =>
+        msg.type === 'cancel_inflight' &&
+        msg.conversationId === draftConversationId,
+    );
+
+    expect(cancelMessages).toHaveLength(0);
+  });
+
+  it('shows only the selected conversation transcript and local state after switching', async () => {
+    const { user } = await startDraftRun();
+
+    expect(screen.getByText('Hello inflight')).toBeInTheDocument();
+    expect(screen.getByText(/Responding.../i)).toBeInTheDocument();
+
+    const codexRowTitle = screen.getByText('Codex conversation');
+    const codexRow = codexRowTitle.closest('[data-testid="conversation-row"]');
+    if (!codexRow) {
+      throw new Error('Codex conversation row not found');
+    }
+
+    await act(async () => {
+      await user.click(codexRow);
     });
-    expect(providerCombobox).toHaveAttribute('aria-disabled', 'true');
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /OpenAI Codex/i,
+      ),
+    );
 
     const transcript = await screen.findByTestId('chat-transcript');
     expect(within(transcript).getByText('codex reply')).toBeInTheDocument();
+    expect(
+      within(transcript).queryByText('Hello inflight'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('chat-stop')).not.toBeInTheDocument();
+    expect(screen.getByTestId('chat-input')).toBeEnabled();
   });
 });

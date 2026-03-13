@@ -958,6 +958,7 @@ export default function ChatPage() {
 
   const handleSelectConversation = (conversation: string) => {
     if (conversation === activeConversationId) return;
+    const previousConversationId = activeConversationId;
     console.info('[chat-history] handleSelect', {
       clickedId: conversation,
       activeConversationId,
@@ -979,14 +980,11 @@ export default function ChatPage() {
     ) {
       setSelected(nextConversation.model);
     }
-    if (activeConversationId) {
-      cancelInflight(
-        activeConversationId,
-        inflightSnapshot?.inflightId ??
-          serverVisibleInflightIdRef.current ??
-          undefined,
-      );
-    }
+    log('info', 'DEV-0000046:T7:sidebar-selection-navigation', {
+      previousConversationId,
+      nextConversationId: conversation,
+      cancelSent: false,
+    });
     resetTurns();
     setConversation(conversation, { clearMessages: true });
     setActiveConversationId(conversation);

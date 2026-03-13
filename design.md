@@ -4020,6 +4020,34 @@ sequenceDiagram
   end
 ```
 
+## Story 0000046 Task 7: chat sidebar selection becomes local navigation
+
+- Chat sidebar selection now stays inside the existing `handleSelectConversation(...)` event path in `client/src/pages/ChatPage.tsx`.
+- Selecting another conversation reuses the current `resetTurns()` plus `setConversation(..., { clearMessages: true })` local reset flow from `client/src/hooks/useChatStream.ts`.
+- Sidebar selection no longer sends `cancel_inflight`; explicit Stop remains the only Chat action that requests cancellation.
+- Provider and model UI still follow the selected conversation for the visible view in this task, but the hidden run is left alone. The later Story `0000046` tasks still own `New conversation`, provider next-send, and model next-send behavior separately.
+- Task 7 verification marker:
+  - `DEV-0000046:T7:sidebar-selection-navigation`
+
+```mermaid
+sequenceDiagram
+  participant UI as Chat UI
+  participant Stream as useChatStream
+  participant WS as useChatWs
+  participant Server as /ws + /conversations/:id/turns
+
+  UI->>UI: handleSelectConversation(nextConversationId)
+  UI-->>UI: log DEV-0000046:T7:sidebar-selection-navigation
+  UI->>Stream: resetTurns()
+  UI->>Stream: setConversation(nextConversationId, clearMessages=true)
+  UI->>WS: unsubscribe_conversation(previousConversationId)
+  UI->>WS: subscribe_conversation(nextConversationId)
+  UI->>Server: fetch /conversations/:id/turns
+  Server-->>UI: selected conversation turns + inflight snapshot
+  Note over UI: visible transcript/state now belongs only to the selected conversation
+  Note over UI,WS: no cancel_inflight is sent by sidebar selection
+```
+
 ### Agent tooling (Chroma list + search)
 
 - `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.

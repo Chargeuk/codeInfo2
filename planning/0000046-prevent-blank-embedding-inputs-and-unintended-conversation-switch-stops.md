@@ -785,7 +785,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 ### 7. Client - Conversation Sidebar Selection Becomes Pure Navigation
 
 - Task Status: `__done__`
-- Git Commits: `__to_do__`
+- Git Commits: `d9151d2e`
 
 #### Overview
 

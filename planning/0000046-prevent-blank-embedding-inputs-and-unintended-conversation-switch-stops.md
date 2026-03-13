@@ -659,7 +659,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 ### 5. Server - Fail Fresh Ingest Cleanly When Filtering Leaves Zero Embeddable Chunks
 
 - Task Status: `__done__`
-- Git Commits: `__to_do__`
+- Git Commits: `af6a5039`
 
 #### Overview
 

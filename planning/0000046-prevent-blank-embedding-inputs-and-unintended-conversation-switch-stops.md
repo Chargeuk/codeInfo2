@@ -292,7 +292,9 @@ The rough implementation path can stay small if it follows the current repositor
 1. Repository evidence shows the ingest story needs one extra explicit boundary after chunking, not just before file discovery. `server/src/ingest/ingestJob.ts` already fails fresh ingest when `discoverFiles()` returns zero files, but `server/src/ingest/chunker.ts` can currently emit blank chunks and the ingest loop embeds every returned chunk directly. That means blank filtering can create a new case where files were discovered successfully but the run still has zero embeddable chunks. The plan now treats that as an intentional fresh-ingest failure using the existing product-owned "no eligible files" contract.
 2. Repository evidence shows the server-side websocket contract is already aligned with the desired stop behavior. `server/src/ws/server.ts` handles `unsubscribe_conversation` as subscription-only and `cancel_inflight` as the explicit stop path, while `server/src/test/features/chat_cancellation.feature` already proves unsubscribe does not cancel. This means Story 0000046 should stay scoped to Chat client handlers, UI state reset behavior, and regression coverage rather than redesigning websocket protocol semantics.
 3. Repository evidence shows the client already has the late-event protection this story needs. `client/src/hooks/useChatStream.ts` resets local inflight indicators when the active conversation changes and ignores websocket events whose `conversationId` does not match the currently visible conversation. That means the story does not need a new hidden-conversation state system; it needs ChatPage to stop sending `cancelInflight(...)` during navigation/reset actions and then rely on the existing conversation-mismatch guard.
-4. External contract evidence supports the hard-fail embedding behavior and the scoped UI reset behavior. The OpenAI API reference states that embeddings input cannot be an empty string, and DeepWiki's repository-grounded summary for `openai/openai-node` aligns with the API contract by noting that invalid inputs are API-level failures rather than client-side silent skips. React's official "Preserving and Resetting State" guidance uses chat-recipient switching as an example of when keyed UI state should reset locally, which supports resetting the visible Chat draft/view without treating that local reset as an instruction to cancel external background work.
+4. Repository evidence shows the hidden-run rehydration interface already exists and should be reused instead of expanded. `server/src/routes/conversations.ts` already returns an optional `inflight` snapshot from `GET /conversations/:id/turns`, and `client/src/hooks/useConversationTurns.ts` already hydrates that snapshot back into client state when a conversation is revisited. That means Story 0000046 does not need a new "active run" endpoint, extra response flag, or new conversation storage field just to let a hidden run keep progressing and reappear later.
+5. Repository evidence shows provider/model behavior has a second concrete dependency beyond removing `cancelInflight(...)`. `client/src/pages/ChatPage.tsx` currently forces provider/model back from `selectedConversation` via sync effects and also disables the Provider control when `selectedConversation` or `messages.length > 0`. That means Task 7 must explicitly update those synchronization and control-lock rules, otherwise the story would still fail even after the implicit cancel calls are removed.
+6. External contract evidence supports the hard-fail embedding behavior and the scoped UI reset behavior. The OpenAI API reference states that embeddings input cannot be an empty string, and DeepWiki's repository-grounded summary for `openai/openai-node` aligns with the API contract by noting that invalid inputs are API-level failures rather than client-side silent skips. React's official "Preserving and Resetting State" guidance uses chat-recipient switching as an example of when keyed UI state should reset locally, which supports resetting the visible Chat draft/view without treating that local reset as an instruction to cancel external background work.
 
 ## Test Harnesses
 
@@ -326,21 +328,25 @@ Story 0000046 does not require any brand-new websocket message types, REST paylo
    - Reuse the existing subscription messages (`subscribe_conversation`, `unsubscribe_conversation`, and sidebar subscriptions) with no new fields.
    - Reuse the existing server-to-client transcript events, `cancel_ack`, and `turn_final` event shapes.
    - Story rule: do not add a new websocket message such as `pause`, `background_run`, `switch_conversation`, or any special navigation-cancel payload. The fix belongs in ChatPage behavior, not in a protocol expansion.
-2. Chat persistence shapes to reuse unchanged:
+2. Chat REST read-model shapes to reuse unchanged:
+   - Reuse the existing `GET /conversations/:id/turns` response shape in `server/src/routes/conversations.ts`, including the optional `inflight` snapshot payload.
+   - Reuse the existing `useConversationTurns.ts` hydration path on the client when a hidden conversation is revisited.
+   - Story rule: do not add a new `hasActiveRun` flag, a new active-run lookup endpoint, or a new response field just to support this story. The existing `inflight` payload already exposes the state the Chat UI needs.
+3. Chat persistence shapes to reuse unchanged:
    - Reuse the existing `Conversation` storage shape in `server/src/mongo/conversation.ts`; no new conversation flags or cancellation markers are needed for this story.
    - Reuse the existing `Turn` storage shape in `server/src/mongo/turn.ts`, especially the current `status: 'ok' | 'stopped' | 'failed'` contract for final turn outcomes.
    - Story rule: switching conversations, opening a new conversation, or changing provider/model must not require a new stored conversation field. These are local view/reset actions, not a new persistence model.
-3. Ingest failure and provider error shapes to reuse unchanged:
+4. Ingest failure and provider error shapes to reuse unchanged:
    - Reuse the existing ingest run state contract in `server/src/ingest/types.ts`, especially the current `'error'` state for fresh-ingest blank-input failure cases.
    - Reuse the existing normalized ingest error envelope already emitted by `server/src/ingest/ingestJob.ts`.
    - Reuse the existing `NO_ELIGIBLE_FILES` style fresh-ingest failure contract when blank filtering leaves zero embeddable chunks.
    - Reuse the existing provider error families (`OPENAI_BAD_REQUEST`, `LMSTUDIO_BAD_REQUEST`, and the surrounding normalized error shapes) instead of inventing a new top-level blank-input error payload just for this story.
-4. Chunk and vector metadata shapes to reuse unchanged:
+5. Chunk and vector metadata shapes to reuse unchanged:
    - Reuse the existing `Chunk` and `ChunkMeta` shapes in `server/src/ingest/types.ts`.
    - Reuse the existing per-chunk Chroma metadata fields already written from `server/src/ingest/ingestJob.ts`.
    - Story rule: blank filtering changes which chunks survive and may require `chunkIndex` renumbering before hashing and storage, but it must not add new metadata keys or change the existing metadata field names.
    - Reuse the existing root lock and root summary metadata shapes; their counts should simply reflect the filtered result.
-5. Implementation guardrail for this story:
+6. Implementation guardrail for this story:
    - If implementation discovers a genuinely unavoidable need for a new contract field, message type, or storage property, that is a scope change and must be documented back into this section before coding proceeds.
    - Based on the current repository and external evidence, no such new contract or shape is needed for Story 0000046.
 
@@ -370,16 +376,19 @@ Story 0000046 does not require any brand-new websocket message types, REST paylo
 8. Sidebar selection, New conversation, or provider/model change during an active run:
    - `client/src/pages/ChatPage.tsx` currently routes all three through implicit cancellation paths.
    - Story rule: those actions must become local view/reset changes only; the old run continues server-side, and the newly visible conversation must not inherit `sending`, `stopping`, spinner, or disabled-composer state from the hidden run.
-9. Rapid repeated Chat context switches:
+9. Provider/model selection while viewing an existing conversation:
+   - `client/src/pages/ChatPage.tsx` currently forces provider/model back from `selectedConversation` and disables the Provider control while a conversation or existing messages are present.
+   - Story rule: implementation must update those synchronization and control-lock rules so a user can choose provider/model for the next send without mutating the already-running request, the persisted conversation metadata, or the server contracts that rehydrate hidden runs later.
+10. Rapid repeated Chat context switches:
    - A user may switch conversations, open a new conversation, and change provider/model quickly while a previous run is still active.
    - Story rule: the visible Chat view should always reflect the latest selected conversation or new draft only, and any older hidden conversation state should be recovered from normal server history/inflight hydration if the user returns later.
-10. Late websocket events from a hidden conversation:
+11. Late websocket events from a hidden conversation:
    - `client/src/hooks/useChatStream.ts` already ignores events whose `conversationId` does not match the visible conversation.
    - Story rule: preserve that guard so hidden conversation events cannot render stop banners, assistant text, or completed states into the wrong visible conversation.
-11. `cancel_ack` with `result: 'noop'` outside an explicit stop attempt:
+12. `cancel_ack` with `result: 'noop'` outside an explicit stop attempt:
    - Existing logic only treats this as meaningful while the client is in stopping state.
    - Story rule: preserve that behavior; navigation/reset actions should not rely on `cancel_ack` to clean themselves up because they should not be sending cancellation in the first place.
-12. Non-blank but low-value files:
+13. Non-blank but low-value files:
    - Files that contain comments, imports, or type declarations only are not blank, even if they are low-value for embeddings.
    - Story rule: Story 0000046 is not a chunk-quality or semantic-filtering story. It only removes empty and whitespace-only content, leaving non-blank chunk quality heuristics unchanged.
 
@@ -666,18 +675,23 @@ This task isolates provider/model switching during an active run. The selected p
 - Story `0000046` sections: `### Description`, `### Acceptance Criteria`, `## Contracts And Storage Shapes`, `## Edge Cases and Failure Modes`
 - `client/src/pages/ChatPage.tsx`
 - `client/src/hooks/useChatModel.ts`
+- `client/src/hooks/useConversationTurns.ts`
+- `server/src/routes/conversations.ts`
+- `server/src/mongo/conversation.ts`
 - `client/src/test/chatPage.provider.conversationSelection.test.tsx`
 - `client/src/test/chatPage.models.test.tsx`
 - `client/src/test/chatPage.stop.test.tsx`
 
 #### Subtasks
 
-1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatPage.models.test.tsx` before editing so you understand the current provider/model selection flow.
+1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useConversationTurns.ts`, `server/src/routes/conversations.ts`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatPage.models.test.tsx` before editing so you understand the current provider/model selection flow, the selected-conversation sync effects, and the existing hidden-run hydration path.
 2. [ ] Update the provider/model change path so an active run is not cancelled when the user changes provider or model.
-3. [ ] Ensure the newly selected provider/model affects only the next send and does not mutate the provider/model already associated with the in-flight request.
-4. [ ] Extend the most relevant Chat provider/model tests so they prove no `cancel_inflight` is sent during an active run and that the next send uses the new selection.
-5. [ ] Update Story `0000046` task notes with the exact provider/model persistence rule implemented for in-flight and next-send behavior.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+3. [ ] Update the current ChatPage synchronization rules so provider/model selections are not immediately overwritten by `selectedConversation` effects when the user is intentionally choosing the next-send values.
+4. [ ] Update the current Provider control locking rules so the story’s next-send provider/model behavior is actually reachable in the UI, without adding a new server endpoint, a new response field, or a new conversation storage property.
+5. [ ] Ensure the newly selected provider/model affects only the next send and does not mutate the provider/model already associated with the in-flight request, the persisted conversation metadata, or the existing `/conversations/:id/turns` hydration contract used when the user revisits a hidden run.
+6. [ ] Extend the most relevant Chat provider/model tests so they prove no `cancel_inflight` is sent during an active run, the next send uses the new selection, and revisiting the older hidden conversation still shows its own provider/model state rather than the newly chosen next-send values.
+7. [ ] Update Story `0000046` task notes with the exact provider/model persistence and synchronization rule implemented for in-flight, revisited, and next-send behavior.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 
@@ -708,7 +722,9 @@ This task locks down the failure mode that appears after Tasks 5-7 remove implic
 
 - Story `0000046` sections: `### Acceptance Criteria`, `## Research Findings`, `## Edge Cases and Failure Modes`
 - `client/src/hooks/useChatStream.ts`
+- `client/src/hooks/useConversationTurns.ts`
 - `client/src/pages/ChatPage.tsx`
+- `server/src/routes/conversations.ts`
 - `client/src/test/useChatStream.inflightMismatch.test.tsx`
 - `client/src/test/chatPage.inflightNavigate.test.tsx`
 - `server/src/test/features/chat_cancellation.feature`
@@ -716,12 +732,13 @@ This task locks down the failure mode that appears after Tasks 5-7 remove implic
 
 #### Subtasks
 
-1. [ ] Read `client/src/hooks/useChatStream.ts`, `client/src/pages/ChatPage.tsx`, `client/src/test/useChatStream.inflightMismatch.test.tsx`, `client/src/test/chatPage.inflightNavigate.test.tsx`, and the existing chat cancellation feature files before editing.
+1. [ ] Read `client/src/hooks/useChatStream.ts`, `client/src/hooks/useConversationTurns.ts`, `client/src/pages/ChatPage.tsx`, `server/src/routes/conversations.ts`, `client/src/test/useChatStream.inflightMismatch.test.tsx`, `client/src/test/chatPage.inflightNavigate.test.tsx`, and the existing chat cancellation feature files before editing.
 2. [ ] Adjust local Chat state handling only if needed so the visible conversation or new draft clears inherited sending/stopping indicators when another conversation is still running in the background.
-3. [ ] Extend client regression coverage to prove that late websocket events from a hidden conversation do not render stop banners, stopped state, or assistant content in the visible conversation.
-4. [ ] Extend server-side feature coverage only if needed to prove that navigation/reset actions leave the server-side run active until an explicit `cancel_inflight` arrives.
-5. [ ] Update Story `0000046` task notes with any additional conversation-isolation rule or websocket mismatch case discovered while implementing this task.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+3. [ ] Reuse the existing `/conversations/:id/turns` inflight snapshot and `useConversationTurns.ts` hydration path when proving that a hidden run can be revisited later; do not add a new active-run endpoint or a new response flag for this story.
+4. [ ] Extend client regression coverage to prove that late websocket events from a hidden conversation do not render stop banners, stopped state, or assistant content in the visible conversation, and that revisiting the hidden conversation rehydrates its own in-flight state through the existing turns snapshot path.
+5. [ ] Extend server-side feature coverage only if needed to prove that navigation/reset actions leave the server-side run active until an explicit `cancel_inflight` arrives.
+6. [ ] Update Story `0000046` task notes with any additional conversation-isolation rule, hydration rule, or websocket mismatch case discovered while implementing this task.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 

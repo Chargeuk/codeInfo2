@@ -844,7 +844,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 ### 8. Client - New Conversation Becomes a Local Draft Reset, Not a Stop Action
 
 - Task Status: `__done__`
-- Git Commits: `__to_do__`
+- Git Commits: `eb7484e8`
 
 #### Overview
 

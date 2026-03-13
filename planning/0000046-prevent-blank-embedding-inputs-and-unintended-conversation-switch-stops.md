@@ -411,7 +411,7 @@ Story 0000046 does not require any brand-new websocket message types, REST paylo
 
 #### Overview
 
-This task isolates the first shared ingest boundary: `chunkText()`. Its job is to make sure blank or whitespace-only pieces never leave the chunker and that surviving chunks keep deterministic sequential indexes. Nothing in this task should change provider behavior or final ingest status handling yet; it should only fix what the chunker returns and prove that with focused unit coverage.
+This task isolates the first shared ingest boundary: `chunkText()`. Its job is to make sure blank or whitespace-only pieces never leave the chunker and that surviving chunks keep deterministic sequential indexes. Nothing in this task should change provider behavior or final ingest status handling yet; it should only fix what the existing chunker returns and prove that with focused unit coverage. Update the current chunker implementation in place instead of introducing a second chunk-processing path.
 
 #### Documentation Locations
 
@@ -424,7 +424,7 @@ This task isolates the first shared ingest boundary: `chunkText()`. Its job is t
 #### Subtasks
 
 1. [ ] Read `server/src/ingest/chunker.ts`, `server/src/ingest/types.ts`, and `server/src/test/unit/chunker.test.ts` before editing so you understand how pieces, slices, and `chunkIndex` are created today.
-2. [ ] Update `server/src/ingest/chunker.ts` so whitespace-only pieces from `splitOnBoundaries()` are removed before they become `Chunk` objects.
+2. [ ] Update `server/src/ingest/chunker.ts` so whitespace-only pieces from `splitOnBoundaries()` are removed before they become `Chunk` objects. Keep this inside the existing `chunkText()` flow; do not create a parallel chunking utility for this story.
 3. [ ] Update `server/src/ingest/chunker.ts` so whitespace-only slices from `sliceToFit()` are removed before they become `Chunk` objects.
 4. [ ] Ensure `chunkIndex` is reassigned sequentially after all filtering is complete so returned chunks always use `0..n-1` with no gaps.
 5. [ ] Extend `server/src/test/unit/chunker.test.ts` with all of the following: empty string input, whitespace-only input, leading blank lines before the first boundary, a whitespace-only slice path, and sequential `chunkIndex` assertions after filtering.
@@ -462,15 +462,17 @@ This task adds the defensive provider-layer blank-input checks for OpenAI and LM
 - `server/src/ingest/providers/openaiEmbeddingProvider.ts`
 - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts`
 - `server/src/ingest/providers/openaiErrors.ts`
-- Existing server provider tests under `server/src/test/unit/`
+- `server/src/test/unit/openai-provider-guardrails.test.ts`
+- `server/src/test/unit/openai-provider.test.ts`
+- `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`
 - OpenAI embeddings API reference and the `openai/openai-node` repository error-handling guidance
 
 #### Subtasks
 
 1. [ ] Read `server/src/ingest/providers/openaiGuardrails.ts`, `server/src/ingest/providers/openaiEmbeddingProvider.ts`, `server/src/ingest/providers/lmstudioEmbeddingProvider.ts`, and the nearby provider tests before editing.
-2. [ ] Update the OpenAI guardrail path so any input whose trimmed text length is zero fails before `client.embeddings.create(...)` is called, using the existing OpenAI error family rather than inventing a new top-level error shape.
-3. [ ] Update the LM Studio embedding path so any input whose trimmed text length is zero fails before `model.embed(...)` is called, using the existing LM Studio normalized error family rather than inventing a new top-level error shape.
-4. [ ] Extend the most relevant existing provider unit tests so OpenAI and LM Studio both reject blank defensive inputs with the story’s existing product-owned error semantics.
+2. [ ] Update the existing OpenAI guardrail path so any input whose trimmed text length is zero fails before `client.embeddings.create(...)` is called, using the existing `OpenAiEmbeddingError` family rather than inventing a new validation layer or a new top-level error shape.
+3. [ ] Update the existing LM Studio embedding path so any input whose trimmed text length is zero fails before `model.embed(...)` is called, using the existing `LmStudioEmbeddingError` / normalized LM Studio error family rather than inventing a new top-level error shape.
+4. [ ] Extend the existing nearby provider tests in place so OpenAI and LM Studio both reject blank defensive inputs with the story’s existing product-owned error semantics, instead of creating a separate provider-guard test suite for this story.
 5. [ ] Update Story `0000046` task notes with the exact provider entry points and error families used so later tasks can reuse the same contract wording.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
@@ -588,6 +590,7 @@ This task handles only the Chat sidebar selection path. The goal is to make sele
 - Story `0000046` sections: `### Description`, `### Acceptance Criteria`, `## Edge Cases and Failure Modes`
 - `client/src/pages/ChatPage.tsx`
 - `client/src/hooks/useChatStream.ts`
+- `client/src/hooks/useConversations.ts`
 - `client/src/hooks/useChatWs.ts`
 - `client/src/test/chatSidebar.test.tsx`
 - `client/src/test/agentsPage.conversationSelection.test.tsx`
@@ -596,9 +599,9 @@ This task handles only the Chat sidebar selection path. The goal is to make sele
 #### Subtasks
 
 1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`, `client/src/test/chatSidebar.test.tsx`, and `client/src/test/agentsPage.conversationSelection.test.tsx` before editing so you understand the current selection and websocket patterns.
-2. [ ] Update the Chat sidebar selection path in `client/src/pages/ChatPage.tsx` so choosing another conversation no longer sends `cancelInflight(...)`.
-3. [ ] Preserve the existing local view reset/rehydration behavior so the newly selected conversation shows its own transcript and does not inherit sending or stopping UI state from the hidden conversation.
-4. [ ] Extend or add a focused Chat sidebar test proving that selection no longer sends `cancel_inflight` and that the newly visible conversation shows only its own state.
+2. [ ] Update the existing `handleSelectConversation(...)` path in `client/src/pages/ChatPage.tsx` so choosing another conversation reuses the current `setConversation(...)` / local reset flow and no longer sends `cancelInflight(...)`. Do not introduce a new conversation-switch helper or a new websocket message for this story.
+3. [ ] Preserve the existing local view reset/rehydration behavior already provided by `setConversation(...)` and the current conversation-loading flow so the newly selected conversation shows its own transcript and does not inherit sending or stopping UI state from the hidden conversation.
+4. [ ] Extend an existing nearby Chat sidebar/navigation test so it proves selection no longer sends `cancel_inflight` and that the newly visible conversation shows only its own state, instead of creating a new harness or alternate sidebar implementation path.
 5. [ ] Update Story `0000046` task notes with the exact Chat sidebar call site changed and any local UI-state reset rule clarified during implementation.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
@@ -631,6 +634,7 @@ This task isolates the `New conversation` control. The required output is a clea
 - Story `0000046` sections: `### Description`, `### Acceptance Criteria`, `## Edge Cases and Failure Modes`
 - `client/src/pages/ChatPage.tsx`
 - `client/src/hooks/useChatStream.ts`
+- `client/src/hooks/useConversationTurns.ts`
 - `client/src/test/chatPage.newConversation.test.tsx`
 - `client/src/test/chatPage.inflightNavigate.test.tsx`
 - `client/src/test/chatPage.stop.test.tsx`
@@ -638,8 +642,8 @@ This task isolates the `New conversation` control. The required output is a clea
 #### Subtasks
 
 1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`, `client/src/test/chatPage.newConversation.test.tsx`, `client/src/test/chatPage.inflightNavigate.test.tsx`, and `client/src/test/chatPage.stop.test.tsx` before editing.
-2. [ ] Update the `handleNewConversation(...)` path so it no longer sends `cancelInflight(...)` when another conversation is active.
-3. [ ] Preserve the local reset behavior so the new conversation opens with an empty transcript placeholder, a cleared input, and normal composer/send readiness for the next user message.
+2. [ ] Update the existing `handleNewConversation(...)` path so it reuses the current `reset()` / `setConversation(...)` flow and no longer sends `cancelInflight(...)` when another conversation is active. Do not introduce a second draft-reset implementation for this story.
+3. [ ] Preserve the local reset behavior already provided by the existing draft/transcript hooks so the new conversation opens with an empty transcript placeholder, a cleared input, and normal composer/send readiness for the next user message.
 4. [ ] Extend `client/src/test/chatPage.newConversation.test.tsx` so it now proves the opposite of the old contract: no `cancel_inflight` is sent, the old run can continue server-side, and the new draft view is locally interactive.
 5. [ ] Keep the explicit Stop button behavior unchanged by updating or cross-checking `client/src/test/chatPage.stop.test.tsx` only if the New conversation refactor changes shared UI code.
 6. [ ] Update Story `0000046` task notes with the exact local draft reset rules implemented for `New conversation`.
@@ -727,6 +731,7 @@ This task locks down the failure mode that appears after Tasks 5-7 remove implic
 - `server/src/routes/conversations.ts`
 - `client/src/test/useChatStream.inflightMismatch.test.tsx`
 - `client/src/test/chatPage.inflightNavigate.test.tsx`
+- `server/src/test/integration/conversations.turns.test.ts`
 - `server/src/test/features/chat_cancellation.feature`
 - `server/src/test/steps/chat_cancellation.steps.ts`
 
@@ -735,7 +740,7 @@ This task locks down the failure mode that appears after Tasks 5-7 remove implic
 1. [ ] Read `client/src/hooks/useChatStream.ts`, `client/src/hooks/useConversationTurns.ts`, `client/src/pages/ChatPage.tsx`, `server/src/routes/conversations.ts`, `client/src/test/useChatStream.inflightMismatch.test.tsx`, `client/src/test/chatPage.inflightNavigate.test.tsx`, and the existing chat cancellation feature files before editing.
 2. [ ] Adjust local Chat state handling only if needed so the visible conversation or new draft clears inherited sending/stopping indicators when another conversation is still running in the background.
 3. [ ] Reuse the existing `/conversations/:id/turns` inflight snapshot and `useConversationTurns.ts` hydration path when proving that a hidden run can be revisited later; do not add a new active-run endpoint or a new response flag for this story.
-4. [ ] Extend client regression coverage to prove that late websocket events from a hidden conversation do not render stop banners, stopped state, or assistant content in the visible conversation, and that revisiting the hidden conversation rehydrates its own in-flight state through the existing turns snapshot path.
+4. [ ] Extend the existing nearby client and server regression coverage in place so it proves that late websocket events from a hidden conversation do not render stop banners, stopped state, or assistant content in the visible conversation, and that revisiting the hidden conversation rehydrates its own in-flight state through the existing turns snapshot path. Prefer extending `client/src/test/chatPage.inflightNavigate.test.tsx` and `server/src/test/integration/conversations.turns.test.ts` before creating any new test file.
 5. [ ] Extend server-side feature coverage only if needed to prove that navigation/reset actions leave the server-side run active until an explicit `cancel_inflight` arrives.
 6. [ ] Update Story `0000046` task notes with any additional conversation-isolation rule, hydration rule, or websocket mismatch case discovered while implementing this task.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.

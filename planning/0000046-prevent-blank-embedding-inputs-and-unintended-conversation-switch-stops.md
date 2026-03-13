@@ -557,6 +557,7 @@ This task handles the second server-side ingest boundary: what happens after chu
 
 - Chroma add-data docs: `https://docs.trychroma.com/docs/collections/add-data` — use this for the expected add/write flow so the task does not leave partial-success semantics behind when ingest fails.
 - Chroma delete-data docs: `https://docs.trychroma.com/docs/collections/delete-data` — use this for understanding cleanup semantics when a failed fresh ingest must not leave misleading persisted vector state.
+- Context7 MCP documentation for Mermaid's official docs library, with explicit fallback page `https://mermaid.js.org/intro/` — use this for the ingest lifecycle diagram syntax because this task changes the documented fresh-ingest failure flow in `design.md`.
 - TypeScript handbook: `https://www.typescriptlang.org/docs/handbook/2/narrowing.html` — use this for safe async control-flow and typed failure handling in the ingest job.
 - Node.js `node:test` API: `https://nodejs.org/api/test.html` — use this for the correct structure of start/re-embed regression tests in the current server harness.
 
@@ -571,8 +572,9 @@ This task handles the second server-side ingest boundary: what happens after chu
 7. [ ] Add a `node:test` unit test in `server/src/test/unit/ingest-start.test.ts` that asserts the same fresh-ingest failure does not leave a completed-looking root summary or any vector-write success evidence behind. Purpose: prove the failure does not look partially successful in persisted ingest state.
 8. [ ] Add a `node:test` unit test in `server/src/test/unit/ingest-reembed.test.ts` that covers a blank-only delta re-embed and asserts the existing no-op success semantics remain unchanged. Purpose: prove Story `0000020` behavior is preserved for blank-only delta runs.
 9. [ ] Add a `node:test` unit test in `server/src/test/unit/ingest-reembed.test.ts` that covers a deletions-only delta re-embed and asserts the existing no-op success semantics remain unchanged. Purpose: prove the fresh-ingest failure rule is not accidentally applied to deletions-only re-embed runs.
-10. [ ] Update Story `0000046` task notes with the exact fresh-ingest versus re-embed rule implemented, including the file paths changed in `server/src/ingest/ingestJob.ts` and `server/src/ingest/deltaPlan.ts`, so later documentation work can quote one final rule.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+10. [ ] Update `design.md` with the final fresh-ingest versus re-embed lifecycle for this task and add or adjust the relevant Mermaid flow so the blank-only fresh-ingest failure path and preserved re-embed no-op paths are both documented. Purpose: keep the architecture and ingest flow documentation aligned with the implemented server behavior.
+11. [ ] Update Story `0000046` task notes with the exact fresh-ingest versus re-embed rule implemented, including the file paths changed in `server/src/ingest/ingestJob.ts`, `server/src/ingest/deltaPlan.ts`, and `design.md`, so later documentation work can quote one final rule.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 
@@ -603,6 +605,7 @@ This task makes the existing server-side cancellation contract explicit before a
 - `ws` repository documentation: `https://github.com/websockets/ws/blob/master/README.md` — use this for the server-side message/event handling model used by the repository’s websocket layer.
 - Cucumber guide: `https://cucumber.io/docs/guides/10-minute-tutorial/` — use this for the correct feature/step structure when tightening the cancellation contract feature.
 - Cucumber guide: `https://cucumber.io/docs/guides/testable-architecture/` — use this for keeping websocket contract coverage focused on observable behavior instead of implementation details.
+- Context7 MCP documentation for Mermaid's official docs library, with explicit fallback page `https://mermaid.js.org/intro/` — use this for websocket sequence diagram syntax because this task changes the documented unsubscribe-versus-cancel flow in `design.md`.
 - MDN WebSocket reference: `https://developer.mozilla.org/en-US/docs/Web/API/WebSocket` — use this for general message semantics when describing subscription versus cancellation behavior.
 
 #### Subtasks
@@ -613,8 +616,9 @@ This task makes the existing server-side cancellation contract explicit before a
 4. [ ] Add a Cucumber feature scenario in `server/src/test/features/chat_cancellation.feature` proving that a duplicate or late `cancel_inflight` after completion does not create a second stop effect or break the websocket session, and update `server/src/test/steps/chat_cancellation.steps.ts` if needed to support it. Purpose: cover the cancellation idempotency corner case introduced by keeping runs alive while the UI moves away.
 5. [ ] Add a Cucumber feature scenario in `server/src/test/features/chat_cancellation.feature` that sends `cancel_inflight` without an `inflightId` and asserts the existing conversation-scoped stop path still works, then update `server/src/test/steps/chat_cancellation.steps.ts` if needed. Purpose: keep the currently allowed websocket input shape in `server/src/ws/types.ts` covered while preserving the rule that only `cancel_inflight` can stop a run.
 6. [ ] Keep this task server-focused: do not change `client/src/pages/ChatPage.tsx` or any client interaction code here. The output of this task should be a locked-down server contract and regression coverage that the later Chat tasks can rely on.
-7. [ ] Update Story `0000046` task notes with the exact server-side cancellation contract confirmed in `server/src/ws/types.ts`, `server/src/ws/server.ts`, and `server/src/test/features/chat_cancellation.feature` so the later Chat tasks can quote one final rule.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+7. [ ] Update `design.md` with the final websocket cancellation flow for this task and add or adjust the relevant Mermaid sequence diagram so it clearly shows `unsubscribe_conversation` as navigation-only and `cancel_inflight` as the only stop path. Purpose: keep the documented chat-control architecture aligned with the locked-down server contract.
+8. [ ] Update Story `0000046` task notes with the exact server-side cancellation contract confirmed in `server/src/ws/types.ts`, `server/src/ws/server.ts`, `server/src/test/features/chat_cancellation.feature`, and `design.md` so the later Chat tasks can quote one final rule.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 
@@ -645,6 +649,7 @@ This task handles only the Chat sidebar selection path. The goal is to make sele
 - React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this because the task is changing visible conversation selection into local UI navigation rather than external cleanup.
 - MUI MCP docs for `@mui/material` `6.4.12` (nearest available docs to the repo's `^6.4.1` dependency): `https://llms.mui.com/material-ui/6.4.12/components/text-fields.md`, `https://llms.mui.com/material-ui/6.4.12/components/selects.md`, `https://llms.mui.com/material-ui/6.4.12/api/text-field.md`, and `https://llms.mui.com/material-ui/6.4.12/api/select.md` — use these because `ChatPage.tsx` already uses MUI `TextField` with `select`, `SelectProps`, `slotProps.select`, and standard Select disabled/onChange behavior rather than a custom control.
 - Context7 MCP documentation for Jest's official docs library, with explicit fallback page `https://jestjs.io/docs/getting-started` — use this for Jest-specific matcher, mock, and spy patterns because the client regression file in this task runs under Jest in this repo.
+- Context7 MCP documentation for Mermaid's official docs library, with explicit fallback page `https://mermaid.js.org/intro/` — use this for navigation-flow diagram syntax because this task changes the documented conversation-selection flow in `design.md`.
 - React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for interaction-driven page regression tests that verify visible conversation state.
 
 #### Subtasks
@@ -654,8 +659,9 @@ This task handles only the Chat sidebar selection path. The goal is to make sele
 3. [ ] Preserve the existing local view reset and rehydration behavior already provided by `setConversation(...)` and the current conversation-loading flow in `client/src/pages/ChatPage.tsx` so the newly selected conversation shows its own transcript and does not inherit sending or stopping UI state from the hidden conversation, as required by Story `0000046` `### Description`.
 4. [ ] Add a client page regression test in `client/src/test/chatPage.provider.conversationSelection.test.tsx` that selects another conversation during an active run and asserts no `cancel_inflight` websocket message is sent. Purpose: prove sidebar selection is now pure navigation rather than an implicit stop.
 5. [ ] Add a client page regression test in `client/src/test/chatPage.provider.conversationSelection.test.tsx` that selects another conversation during an active run and asserts the newly visible conversation shows only its own transcript and UI state. Purpose: prove selection does not leak sending or stopping state from the hidden conversation.
-6. [ ] Update Story `0000046` task notes with the exact Chat sidebar call site changed in `client/src/pages/ChatPage.tsx` and any local UI-state reset rule clarified during implementation so the later Chat tasks can reuse the same wording.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+6. [ ] Update `design.md` with the final sidebar-selection flow for this task and add or adjust the relevant Mermaid diagram so it shows conversation selection as local navigation rather than implicit cancellation. Purpose: keep the documented chat interaction flow aligned with the implemented behavior.
+7. [ ] Update Story `0000046` task notes with the exact Chat sidebar call site changed in `client/src/pages/ChatPage.tsx`, the matching `design.md` update, and any local UI-state reset rule clarified during implementation so the later Chat tasks can reuse the same wording.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 
@@ -685,6 +691,7 @@ This task isolates the `New conversation` control. The required output is a clea
 
 - React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this because `New conversation` is a local draft reset, not an external stop action.
 - Context7 MCP documentation for Jest's official docs library, with explicit fallback page `https://jestjs.io/docs/getting-started` — use this for Jest-specific matcher, mock, and spy patterns because the client regression files in this task run under Jest in this repo.
+- Context7 MCP documentation for Mermaid's official docs library, with explicit fallback page `https://mermaid.js.org/intro/` — use this for draft-reset flow diagram syntax because this task changes the documented `New conversation` flow in `design.md`.
 - React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for the page-level interaction tests proving no cancel message is sent.
 - MUI MCP docs for `@mui/material` `6.4.12`: `https://llms.mui.com/material-ui/6.4.12/components/text-fields.md`, `https://llms.mui.com/material-ui/6.4.12/api/text-field.md`, and `https://llms.mui.com/material-ui/6.4.12/api/select.md` — use these because the Chat composer and selectors already rely on existing MUI `TextField` and `Select` control behavior, including disabled and labeled-select handling.
 
@@ -697,8 +704,9 @@ This task isolates the `New conversation` control. The required output is a clea
 5. [ ] Add a client page regression test in `client/src/test/chatPage.newConversation.test.tsx` that clicks `New conversation` during an active run and asserts the previous conversation can keep running server-side. Purpose: prove the old run remains alive in the background until the user explicitly stops it.
 6. [ ] Add a client page regression test in `client/src/test/chatPage.newConversation.test.tsx` that clicks `New conversation` and asserts the new draft opens with an interactive composer and clean local state. Purpose: prove the local reset happy path still works for the new draft view.
 7. [ ] Add or update a client page regression test in `client/src/test/chatPage.stop.test.tsx` only if the `handleNewConversation(...)` refactor touches shared stop logic, and assert the explicit Stop button still sends the stop path correctly. Purpose: prove this task does not regress the explicit cancellation contract.
-8. [ ] Update Story `0000046` task notes with the exact local draft reset rules implemented for `New conversation`, including the `client/src/pages/ChatPage.tsx` function name and the `client/src/hooks/useChatStream.ts` helper reused.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+8. [ ] Update `design.md` with the final `New conversation` flow for this task and add or adjust the relevant Mermaid diagram so it shows draft reset without cancelling the older run. Purpose: keep the documented chat flow aligned with the implemented background-run behavior.
+9. [ ] Update Story `0000046` task notes with the exact local draft reset rules implemented for `New conversation`, including the `client/src/pages/ChatPage.tsx` function name, the `client/src/hooks/useChatStream.ts` helper reused, and the matching `design.md` update.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 
@@ -731,6 +739,7 @@ This task isolates provider switching during an active run. The selected provide
 - React docs: `https://react.dev/learn/synchronizing-with-effects` — use this because the risky behavior here comes from state being overwritten by `selectedConversation` sync effects.
 - MUI MCP docs for `@mui/material` `6.4.12` (nearest available docs to the repo's `^6.4.1` dependency): `https://llms.mui.com/material-ui/6.4.12/components/text-fields.md`, `https://llms.mui.com/material-ui/6.4.12/components/selects.md`, `https://llms.mui.com/material-ui/6.4.12/api/text-field.md`, and `https://llms.mui.com/material-ui/6.4.12/api/select.md` — use these because the existing provider control is an MUI `TextField select`, and this task needs the documented `select`, `SelectProps`, `slotProps.select`, and `disabled` behavior instead of a control rewrite.
 - Context7 MCP documentation for Jest's official docs library, with explicit fallback page `https://jestjs.io/docs/getting-started` — use this for Jest-specific matcher, mock, and spy patterns because the client regression files in this task run under Jest in this repo.
+- Context7 MCP documentation for Mermaid's official docs library, with explicit fallback page `https://mermaid.js.org/intro/` — use this for provider-switch flow diagram syntax because this task changes the documented next-send provider flow in `design.md`.
 - React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for provider-selection regression tests that assert next-send behavior.
 
 #### Subtasks
@@ -746,8 +755,9 @@ This task isolates provider switching during an active run. The selected provide
 9. [ ] Add a client page regression test in `client/src/test/chatPage.inflightNavigate.test.tsx` that changes provider during an active run, sends the next prompt, and asserts the new prompt uses the newly selected provider while the hidden run keeps its original persisted provider. Purpose: prove provider changes apply only to the next send.
 10. [ ] Add a client page regression test in `client/src/test/chatPage.codexDefaults.test.tsx` that switches into `provider === 'codex'` during an active run and asserts the existing next-send Codex defaults still apply. Purpose: prove the provider-change refactor preserves Codex-specific defaults behavior.
 11. [ ] Add a client page regression test in `client/src/test/chatPage.inflightNavigate.test.tsx` that revisits the older hidden conversation after a provider change and asserts it still shows its own persisted provider state rather than the newer next-send selection. Purpose: prove hidden-run provider metadata is not mutated by draft-state changes.
-12. [ ] Update Story `0000046` task notes with the exact provider persistence and synchronization rule implemented, including the `handleProviderChange(...)` call site, the `selectedConversation` sync effect, the final `providerLocked` behavior, and the preserved Codex-defaults behavior in `client/src/pages/ChatPage.tsx`.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+12. [ ] Update `design.md` with the final provider-switch flow for this task and add or adjust the relevant Mermaid diagram so it shows provider changes affecting only the next send while hidden runs preserve their original provider. Purpose: keep the documented chat-state architecture aligned with the implemented provider behavior.
+13. [ ] Update Story `0000046` task notes with the exact provider persistence and synchronization rule implemented, including the `handleProviderChange(...)` call site, the `selectedConversation` sync effect, the final `providerLocked` behavior, the preserved Codex-defaults behavior in `client/src/pages/ChatPage.tsx`, and the matching `design.md` update.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 
@@ -781,6 +791,7 @@ This task isolates model switching during an active run. The selected model shou
 - React docs: `https://react.dev/learn/synchronizing-with-effects` — use this because the risky behavior here comes from the current `selectedConversation` model sync effect.
 - MUI MCP docs for `@mui/material` `6.4.12` (nearest available docs to the repo's `^6.4.1` dependency): `https://llms.mui.com/material-ui/6.4.12/components/text-fields.md`, `https://llms.mui.com/material-ui/6.4.12/components/selects.md`, `https://llms.mui.com/material-ui/6.4.12/api/text-field.md`, and `https://llms.mui.com/material-ui/6.4.12/api/select.md` — use these because the existing model control is an MUI `TextField select`, and this task needs the documented `select`, `SelectProps`, and disabled/onChange behavior rather than a replacement component.
 - Context7 MCP documentation for Jest's official docs library, with explicit fallback page `https://jestjs.io/docs/getting-started` — use this for Jest-specific matcher, mock, and spy patterns because the client regression files in this task run under Jest in this repo.
+- Context7 MCP documentation for Mermaid's official docs library, with explicit fallback page `https://mermaid.js.org/intro/` — use this for model-switch flow diagram syntax because this task changes the documented next-send model flow in `design.md`.
 - React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for model-selection regression tests that assert next-send behavior.
 
 #### Subtasks
@@ -795,8 +806,9 @@ This task isolates model switching during an active run. The selected model shou
 8. [ ] Add a client page regression test in `client/src/test/chatPage.flags.reasoning.payload.test.tsx` that changes the next-send model and asserts capability-driven reasoning payload behavior follows that newly selected model. Purpose: prove model-linked reasoning flags still track the draft model correctly.
 9. [ ] Add a client page regression test in `client/src/test/chatPage.codexDefaults.test.tsx` that changes model within the Codex-capable path and asserts the existing Codex reasoning/default behavior is preserved. Purpose: prove the model-change refactor does not break Codex-specific defaults.
 10. [ ] Add a client page regression test in `client/src/test/chatPage.inflightNavigate.test.tsx` that revisits the older hidden conversation after a model change and asserts it still shows its own persisted model state rather than the newer next-send selection. Purpose: prove hidden-run model metadata is not mutated by draft-state changes.
-11. [ ] Update Story `0000046` task notes with the exact model persistence and synchronization rule implemented, including the `selectedConversation` model sync effect, the `setSelected(...)` call site, the preserved Codex reasoning-capability behavior, and the next-send-only behavior in `client/src/pages/ChatPage.tsx`.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+11. [ ] Update `design.md` with the final model-switch flow for this task and add or adjust the relevant Mermaid diagram so it shows model changes affecting only the next send while hidden runs preserve their original model and reasoning state. Purpose: keep the documented chat-state architecture aligned with the implemented model behavior.
+12. [ ] Update Story `0000046` task notes with the exact model persistence and synchronization rule implemented, including the `selectedConversation` model sync effect, the `setSelected(...)` call site, the preserved Codex reasoning-capability behavior, the next-send-only behavior in `client/src/pages/ChatPage.tsx`, and the matching `design.md` update.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 
@@ -830,6 +842,7 @@ This task locks down the first hidden-run failure mode that appears after Tasks 
 - React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this for visible-conversation isolation and local reset behavior.
 - React docs: `https://react.dev/learn/synchronizing-with-effects` — use this for the late-event/effect-cleanup side of hidden-run state handling.
 - Context7 MCP documentation for Jest's official docs library, with explicit fallback page `https://jestjs.io/docs/getting-started` — use this for Jest-specific matcher, mock, and spy patterns because the client regression files in this task run under Jest in this repo.
+- Context7 MCP documentation for Mermaid's official docs library, with explicit fallback page `https://mermaid.js.org/intro/` — use this for hidden-run event-flow diagram syntax because this task changes the documented late-event isolation flow in `design.md`.
 - React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for visible-state isolation tests around late websocket events.
 - `ws` repository documentation: `https://github.com/websockets/ws/blob/master/README.md` — use this for server message ordering/subscription semantics relevant to hidden runs.
 - MDN WebSocket reference: `https://developer.mozilla.org/en-US/docs/Web/API/WebSocket` — use this for general message and subscription behavior when describing hidden-run events.
@@ -845,8 +858,9 @@ This task locks down the first hidden-run failure mode that appears after Tasks 
 6. [ ] Add a client hook regression test in `client/src/test/useChatStream.inflightMismatch.test.tsx` that delivers a stale `turn_final` for a hidden conversation and asserts no stop banner or stopped state leaks into the visible conversation. Purpose: prove final-status events do not corrupt the current view.
 7. [ ] Add a client page regression test in `client/src/test/chatPage.inflightNavigate.test.tsx` that applies a stale inflight snapshot or mismatch refresh event from a hidden conversation and asserts the visible conversation state does not change. Purpose: prove snapshot-style late events are isolated alongside stream events.
 8. [ ] Keep this task focused on late-event isolation only. Do not add `/conversations/:id/turns` rehydration changes, a new active-run endpoint, or new snapshot merge behavior here; that work belongs to the next task so the proof paths stay small and clear.
-9. [ ] Update Story `0000046` task notes with any additional conversation-isolation rule or websocket mismatch case discovered while implementing this task, including the exact hooks/tests changed so later documentation work does not need to rediscover them.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+9. [ ] Update `design.md` with the final hidden-run late-event isolation flow for this task and add or adjust the relevant Mermaid diagram so it shows stale websocket events being ignored for the visible conversation. Purpose: keep the documented background-run event flow aligned with the implemented client behavior.
+10. [ ] Update Story `0000046` task notes with any additional conversation-isolation rule or websocket mismatch case discovered while implementing this task, including the exact hooks/tests changed and the matching `design.md` update so later documentation work does not need to rediscover them.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 
@@ -878,6 +892,7 @@ This task locks down the second hidden-run failure mode: after a conversation ke
 - React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this for how visible state should be reset and then rehydrated when returning to a conversation.
 - React docs: `https://react.dev/learn/synchronizing-with-effects` — use this for the existing fetch/rehydration effect model rather than inventing a second synchronization path.
 - Context7 MCP documentation for Jest's official docs library, with explicit fallback page `https://jestjs.io/docs/getting-started` — use this for Jest-specific matcher, mock, and spy patterns because the client regression files in this task run under Jest in this repo.
+- Context7 MCP documentation for Mermaid's official docs library, with explicit fallback page `https://mermaid.js.org/intro/` — use this for rehydration-flow diagram syntax because this task changes the documented hidden-run revisit flow in `design.md`.
 - React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for snapshot-rehydration page regressions.
 - MDN WebSocket reference: `https://developer.mozilla.org/en-US/docs/Web/API/WebSocket` — use this only for general message timing expectations around revisiting a still-running conversation.
 
@@ -891,8 +906,9 @@ This task locks down the second hidden-run failure mode: after a conversation ke
 6. [ ] Add a server integration test in `server/src/test/integration/conversations.turns.test.ts` that calls `GET /conversations/:id/turns` for a still-running conversation and asserts the existing `inflight` snapshot payload is present. Purpose: lock down the server route shape the client rehydration happy path depends on.
 7. [ ] Add a server integration test in `server/src/test/integration/conversations.turns.test.ts` that calls `GET /conversations/:id/turns` for a completed or idle conversation and asserts no `inflight` payload is returned. Purpose: lock down the no-inflight route shape the clean rehydration path depends on.
 8. [ ] Keep this task rehydration-focused: do not add new websocket message types, new browser caches, or extra server feature files as part of this proof path.
-9. [ ] Update Story `0000046` task notes with the exact rehydration rule confirmed by `server/src/routes/conversations.ts`, `client/src/hooks/useConversationTurns.ts`, and the snapshot tests so later documentation work can quote one final rule.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+9. [ ] Update `design.md` with the final hidden-run rehydration flow for this task and add or adjust the relevant Mermaid diagram so it shows `/conversations/:id/turns` inflight snapshot reuse for running versus completed conversations. Purpose: keep the documented snapshot/rehydration architecture aligned with the implemented behavior.
+10. [ ] Update Story `0000046` task notes with the exact rehydration rule confirmed by `server/src/routes/conversations.ts`, `client/src/hooks/useConversationTurns.ts`, the snapshot tests, and `design.md` so later documentation work can quote one final rule.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 
@@ -923,6 +939,7 @@ This task is documentation-only. It updates the shared written material after im
 #### Documentation Locations
 
 - GitHub Markdown docs: `https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax` — use this for README and repository-markdown formatting conventions.
+- Context7 MCP documentation for Mermaid's official docs library, with explicit fallback page `https://mermaid.js.org/intro/` — use this for Mermaid syntax validation whenever this task updates or redraws architecture and flow diagrams in `design.md`.
 - Mermaid docs: `https://mermaid.js.org/intro/` — use this for any diagram text or flow updates in `design.md`.
 
 #### Subtasks

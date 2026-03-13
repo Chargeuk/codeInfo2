@@ -1039,7 +1039,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 ### 11. Client - Prevent Hidden-Run Late Events From Corrupting The Visible Conversation
 
 - Task Status: `__done__`
-- Git Commits: `fda052a3`
+- Git Commits: `fda052a3, d884ebcc, e06442ef, 2c4d8203`
 
 #### Overview
 
@@ -1102,6 +1102,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 - Story repair complete: rewrote Testing step 5 to depend only on already-proven capabilities in the production-style stack. The manual check now covers the visible outcome and screenshot, while the exact ignore-marker proof is sourced from the focused client-wrapper regressions named above. This keeps Task 11 honest at its real ownership seam without adding a new prerequisite task or a product-only runtime hook.
 - Testing step 5 complete: manual Playwright validation at `http://host.docker.internal:5001/chat` now passed under the repaired Task 11 proof contract. I started a new Codex run, navigated away immediately with `New conversation`, and confirmed the visible draft stayed unchanged: the transcript placeholder remained visible, the composer stayed enabled, no `Stop` control leaked into the new draft, and the browser error console stayed empty. Screenshot evidence was saved and reviewed at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/0000046-task11-hidden-run-isolated.png`, which shows the clean visible draft state after the hidden run was backgrounded. The exact `DEV-0000046:T11:hidden-run-event-ignored` marker proof is satisfied by the already-passing wrapper-backed assertions from Testing step 2 in `client/src/test/useChatStream.inflightMismatch.test.tsx` and `client/src/test/chatPage.inflightNavigate.test.tsx`, matching the repaired Task 11 test contract.
 - Testing step 6 complete: `npm run compose:down` stopped and removed the Task 11 containers cleanly, ending with `Network codeinfo2_internal Removed`.
+- Audit correction: Task 11's `Git Commits` field now records the implementation, blocker-repair, and final bookkeeping commits together (`fda052a3, d884ebcc, e06442ef, 2c4d8203`) so the plan matches the actual completion trail.
 
 ---
 

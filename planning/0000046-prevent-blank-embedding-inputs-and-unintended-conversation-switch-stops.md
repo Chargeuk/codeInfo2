@@ -451,14 +451,10 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chunker.test.ts`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] `npm run compose:down`
+Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server ingest code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server chunking behavior and nearby `node:test` coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
@@ -495,14 +491,10 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --test-name "blank input|OpenAI|guardrail"`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] `npm run compose:down`
+Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server provider validation code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server OpenAI provider behavior and nearby `node:test` coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
@@ -538,14 +530,10 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --test-name "blank input|LM Studio"`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] `npm run compose:down`
+Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server provider validation code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server LM Studio provider behavior and nearby `node:test` coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
@@ -589,14 +577,10 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --test-name "NO_ELIGIBLE_FILES|reembed|delta|blank|mixed"`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] `npm run compose:down`
+Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server ingest lifecycle behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server ingest completion/failure behavior and nearby `node:test` coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
@@ -636,14 +620,11 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_cancellation.feature`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] `npm run compose:down`
+Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes or locks down server websocket contract behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because server/common websocket behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because this task adds or updates server Cucumber contract coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -682,14 +663,14 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
+Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client Chat navigation behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.provider.conversationSelection.test.tsx`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] `npm run compose:down`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify sidebar selection switches the visible conversation without implicitly stopping the hidden run, confirm the newly visible conversation shows only its own transcript/state, and confirm the debug console has no logged errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -730,15 +711,14 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
+Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client Chat new-conversation/reset behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.newConversation.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stop.test.tsx`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
-9. [ ] `npm run compose:down`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify `New conversation` opens a clean draft without cancelling the older run, confirm the composer remains interactive, confirm explicit Stop still behaves correctly when used, and confirm the debug console has no logged errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -785,16 +765,14 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
+Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client provider-selection behavior and nearby Jest coverage. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.provider.conversationSelection.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.inflightNavigate.test.tsx`
-7. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.codexDefaults.test.tsx`
-8. [ ] `npm run lint --workspaces`
-9. [ ] `npm run format:check --workspaces`
-10. [ ] `npm run compose:down`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify provider changes do not implicitly stop the hidden run, verify the provider selector remains usable for the next-send view, verify the next prompt uses the newly chosen provider, and confirm the debug console has no logged errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -840,17 +818,14 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
+Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client model-selection behavior and nearby Jest coverage. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.models.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.inflightNavigate.test.tsx`
-7. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.codexDefaults.test.tsx`
-8. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.flags.reasoning.payload.test.tsx`
-9. [ ] `npm run lint --workspaces`
-10. [ ] `npm run format:check --workspaces`
-11. [ ] `npm run compose:down`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify model changes do not implicitly stop the hidden run, verify the next prompt uses the newly chosen model, verify model-specific reasoning/default behavior remains correct, and confirm the debug console has no logged errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -895,15 +870,14 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
+Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client hidden-run event handling and nearby Jest coverage. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.inflightNavigate.test.tsx`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
-9. [ ] `npm run compose:down`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify late events from a hidden conversation do not corrupt the visible conversation, verify no leaked stopping/completed UI appears in the wrong thread, and confirm the debug console has no logged errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -946,16 +920,16 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/useConversationTurns.refresh.test.ts`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts`
-8. [ ] `npm run lint --workspaces`
-9. [ ] `npm run format:check --workspaces`
-10. [ ] `npm run compose:down`
+Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task may touch the server turns route contract. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Use because this task changes client rehydration behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Use because server/common turns-snapshot behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:client` - Use because client/common rehydration behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+5. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+6. [ ] `npm run compose:up`
+7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: revisit a hidden running conversation and confirm transcript plus inflight state rehydrate correctly, revisit a completed conversation and confirm no stale running-state UI remains, and confirm the debug console has no logged errors.
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -988,8 +962,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run format:check --workspaces`
+Wrapper-only rule: this task is documentation-only, so do not attempt to run raw build/test commands here. Rely on the wrapper-based validation in the implementation tasks and the full regression coverage in Task 14.
 
 #### Implementation notes
 
@@ -1021,8 +994,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run lint --workspaces` if markdown files were edited
-2. [ ] `npm run format:check --workspaces` if markdown files were edited
+Wrapper-only rule: this task is summary-only, so do not attempt to run raw build/test commands here. Rely on the wrapper-based validation in the implementation tasks and the full regression coverage in Task 14.
 
 #### Implementation notes
 
@@ -1059,15 +1031,18 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit`
-6. [ ] `npm run test:summary:client`
-7. [ ] `npm run test:summary:server:cucumber`
-8. [ ] `npm run test:summary:e2e`
-9. [ ] `npm run compose:down`
+Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Mandatory because final regression checks must cover server/common code touched by this story. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Mandatory because final regression checks must cover client/common code touched by this story. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Mandatory because final regression checks must cover server node:test unit/integration behavior touched by this story. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory because final regression checks must cover server feature/step behavior touched by this story. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Mandatory because final regression checks must cover client/common behavior touched by this story. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify the ingest blank-input failure path, verify Chat sidebar selection/New conversation/provider/model changes do not implicitly cancel a hidden run, verify revisiting hidden conversations rehydrates correctly, verify general regression coverage around Stop still works, and confirm the debug console has no logged errors.
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 

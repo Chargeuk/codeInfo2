@@ -1223,7 +1223,7 @@ Wrapper-only rule: this task is documentation-only, so do not attempt to run raw
 
 ### 14. Final Task - Prepare PR Notes
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -1238,11 +1238,11 @@ This task is summary-only. It turns the completed implementation notes into one 
 
 Isolation rule for this task: a junior may be assigned only one numbered subtask below. Treat this task's `Overview`, `Documentation Locations`, and any Story `0000046` section references named inside that numbered subtask as mandatory input for that one subtask, even when the wording duplicates information from elsewhere in the story.
 
-1. [ ] Review the finished implementation notes from Tasks 1-13 and Story `0000046` `### Acceptance Criteria` so the summary reflects only completed, verified behavior. Use GitHub Markdown formatting guidance `https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax` so the final PR-ready summary reads like a normal repository summary rather than raw task notes.
-2. [ ] Create a pull-request-ready summary covering the ingest boundary fix, the defensive provider guards, the Chat navigation/reset behavior change, the reused contracts, and the added regression coverage, using the exact task notes recorded in Story `0000046` so the summary does not omit a completed behavior.
-3. [ ] Include the key proof points in that summary: which existing contracts were reused, which tests were extended instead of added as new harnesses, and which acceptance criteria were validated by targeted versus full-suite runs.
-4. [ ] Update Story `0000046` task notes with the location of the final PR-ready summary or the exact wording source used, so later release-note work can reuse it without re-reading every task.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Review the finished implementation notes from Tasks 1-13 and Story `0000046` `### Acceptance Criteria` so the summary reflects only completed, verified behavior. Use GitHub Markdown formatting guidance `https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax` so the final PR-ready summary reads like a normal repository summary rather than raw task notes.
+2. [x] Create a pull-request-ready summary covering the ingest boundary fix, the defensive provider guards, the Chat navigation/reset behavior change, the reused contracts, and the added regression coverage, using the exact task notes recorded in Story `0000046` so the summary does not omit a completed behavior.
+3. [x] Include the key proof points in that summary: which existing contracts were reused, which tests were extended instead of added as new harnesses, and which acceptance criteria were validated by targeted versus full-suite runs.
+4. [x] Update Story `0000046` task notes with the location of the final PR-ready summary or the exact wording source used, so later release-note work can reuse it without re-reading every task.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1251,6 +1251,19 @@ Wrapper-only rule: this task is summary-only, so do not attempt to run raw build
 #### Implementation notes
 
 - Add implementation notes here after each completed subtask and testing step.
+- Reviewed Tasks 1-13 against Story `0000046` acceptance criteria and the repaired proof notes so the final summary only references completed, verified behavior.
+- Added the PR-ready summary below so Story `0000046` itself is the wording source for later release-note or PR drafting work.
+
+PR-ready summary wording source: this Task 14 `Implementation notes` section in `planning/0000046-prevent-blank-embedding-inputs-and-unintended-conversation-switch-stops.md`.
+
+PR-ready summary:
+
+Story 46 hardens ingest and Chat around one shared rule: background navigation must not look like cancellation, and blank embeddable text must never reach providers. On the ingest side, the shared chunker now removes whitespace-only chunks before provider calls, OpenAI and LM Studio both keep defensive trimmed-empty guards, and fresh ingest now fails with the existing `NO_ELIGIBLE_FILES` contract when filtering leaves zero embeddable chunks instead of persisting a misleading success-like result.
+
+On the Chat side, the work keeps the existing stop and rehydration contracts instead of adding new transport or cache layers. `cancel_inflight` remains the only explicit stop path, `unsubscribe_conversation` stays navigation-only, sidebar selection and `New conversation` now reset the visible draft locally, provider/model changes apply only to the next send, late hidden-run websocket events are ignored by the existing mismatch guards, and revisiting a hidden conversation reuses the existing `/conversations/:id/turns` transcript plus optional inflight snapshot path.
+
+The proof stays reuse-first as well. The story extends existing unit, integration, cucumber, and client wrapper coverage instead of creating parallel harnesses, and it distinguishes targeted guard evidence from browser-visible regression evidence: Tasks 2 and 4 rely on targeted server-wrapper proofs for blank-input provider guards, Task 11 relies on targeted client-wrapper proofs for hidden stale-event ignores, and the remaining user-visible acceptance criteria were covered by wrapper runs plus task-specific manual Playwright checks. The final full-suite wrapper pass is reserved for Task 15.
+- `npm run lint --workspaces` completed at the existing 39-warning import-order baseline and `npm run format:check --workspaces` passed cleanly, so Task 14 did not introduce any new workspace-quality issues.
 
 ---
 

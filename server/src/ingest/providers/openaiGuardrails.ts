@@ -6,6 +6,10 @@ import {
 import { OpenAiEmbeddingError } from './openaiErrors.js';
 
 export type TokenEstimator = (input: string) => number;
+export type OpenAiBlankInputGuardContext = {
+  blankInputCount: number;
+  batchSize: number;
+};
 
 export function estimateOpenAiTokens(input: string): number {
   const bytes = Buffer.byteLength(input, 'utf8');
@@ -17,6 +21,7 @@ export function validateOpenAiEmbeddingGuardrails(params: {
   model: string;
   inputs: string[];
   estimateTokens?: TokenEstimator;
+  onBlankInput?: (context: OpenAiBlankInputGuardContext) => void;
 }): { tokenEstimate: number; perInputEstimates: number[] } {
   const estimateTokens = params.estimateTokens ?? estimateOpenAiTokens;
   const modelLimit = resolveOpenAiModelTokenLimit(params.model);
@@ -34,6 +39,23 @@ export function validateOpenAiEmbeddingGuardrails(params: {
     throw new OpenAiEmbeddingError(
       'OPENAI_INPUT_TOO_LARGE',
       `OpenAI embeddings request exceeds max input count (${OPENAI_MAX_INPUTS_PER_REQUEST})`,
+      false,
+      400,
+    );
+  }
+
+  const blankInputCount = params.inputs.reduce(
+    (count, input) => (input.trim().length === 0 ? count + 1 : count),
+    0,
+  );
+  if (blankInputCount > 0) {
+    params.onBlankInput?.({
+      blankInputCount,
+      batchSize: params.inputs.length,
+    });
+    throw new OpenAiEmbeddingError(
+      'OPENAI_BAD_REQUEST',
+      'OpenAI embeddings input cannot be blank',
       false,
       400,
     );

@@ -295,6 +295,7 @@ The rough implementation path can stay small if it follows the current repositor
 4. Repository evidence shows the hidden-run rehydration interface already exists and should be reused instead of expanded. `server/src/routes/conversations.ts` already returns an optional `inflight` snapshot from `GET /conversations/:id/turns`, and `client/src/hooks/useConversationTurns.ts` already hydrates that snapshot back into client state when a conversation is revisited. That means Story 0000046 does not need a new "active run" endpoint, extra response flag, or new conversation storage field just to let a hidden run keep progressing and reappear later.
 5. Repository evidence shows provider/model behavior has a second concrete dependency beyond removing `cancelInflight(...)`. `client/src/pages/ChatPage.tsx` currently forces provider/model back from `selectedConversation` via sync effects and also disables the Provider control when `selectedConversation` or `messages.length > 0`. That means Task 7 must explicitly update those synchronization and control-lock rules, otherwise the story would still fail even after the implicit cancel calls are removed.
 6. External contract evidence supports the hard-fail embedding behavior and the scoped UI reset behavior. The OpenAI API reference states that embeddings input cannot be an empty string, and DeepWiki's repository-grounded summary for `openai/openai-node` aligns with the API contract by noting that invalid inputs are API-level failures rather than client-side silent skips. React's official "Preserving and Resetting State" guidance uses chat-recipient switching as an example of when keyed UI state should reset locally, which supports resetting the visible Chat draft/view without treating that local reset as an instruction to cancel external background work.
+7. Current library-version evidence supports keeping the Chat UI change small and in place. Repository package manifests show the client is already on React `19.2.0`, React Router `7.9.6`, and MUI `6.4.1`, and direct inspection of `client/src/pages/ChatPage.tsx` shows the Provider and Model controls are existing MUI `TextField` components using `select`, `SelectProps`, and `slotProps.select`. MUI's current Material UI documentation for the matching major version confirms those APIs already support the disabled/display behavior this page uses today, so Story `0000046` should adjust only the state and locking logic around those controls rather than replacing them with a new select implementation.
 
 ## Test Harnesses
 
@@ -592,16 +593,17 @@ This task handles only the Chat sidebar selection path. The goal is to make sele
 - `client/src/hooks/useChatStream.ts`
 - `client/src/hooks/useConversations.ts`
 - `client/src/hooks/useChatWs.ts`
-- `client/src/test/chatSidebar.test.tsx`
+- `client/src/test/chatPage.provider.conversationSelection.test.tsx`
 - `client/src/test/agentsPage.conversationSelection.test.tsx`
 - `server/src/ws/types.ts`
+- MUI Material UI TextField/Select documentation for the currently used major version
 
 #### Subtasks
 
-1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`, `client/src/test/chatSidebar.test.tsx`, and `client/src/test/agentsPage.conversationSelection.test.tsx` before editing so you understand the current selection and websocket patterns.
+1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/agentsPage.conversationSelection.test.tsx` before editing so you understand the current selection and websocket patterns.
 2. [ ] Update the existing `handleSelectConversation(...)` path in `client/src/pages/ChatPage.tsx` so choosing another conversation reuses the current `setConversation(...)` / local reset flow and no longer sends `cancelInflight(...)`. Do not introduce a new conversation-switch helper or a new websocket message for this story.
 3. [ ] Preserve the existing local view reset/rehydration behavior already provided by `setConversation(...)` and the current conversation-loading flow so the newly selected conversation shows its own transcript and does not inherit sending or stopping UI state from the hidden conversation.
-4. [ ] Extend an existing nearby Chat sidebar/navigation test so it proves selection no longer sends `cancel_inflight` and that the newly visible conversation shows only its own state, instead of creating a new harness or alternate sidebar implementation path.
+4. [ ] Extend `client/src/test/chatPage.provider.conversationSelection.test.tsx` or the closest existing ChatPage selection regression in place so it proves selection no longer sends `cancel_inflight` and that the newly visible conversation shows only its own state, instead of creating a new harness or alternate sidebar implementation path.
 5. [ ] Update Story `0000046` task notes with the exact Chat sidebar call site changed and any local UI-state reset rule clarified during implementation.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
@@ -611,7 +613,7 @@ This task handles only the Chat sidebar selection path. The goal is to make sele
 2. [ ] `npm run build:summary:client`
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/chatSidebar.test.tsx`
+5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.provider.conversationSelection.test.tsx`
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -685,13 +687,14 @@ This task isolates provider/model switching during an active run. The selected p
 - `client/src/test/chatPage.provider.conversationSelection.test.tsx`
 - `client/src/test/chatPage.models.test.tsx`
 - `client/src/test/chatPage.stop.test.tsx`
+- MUI Material UI TextField/Select documentation for the currently used major version
 
 #### Subtasks
 
 1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useConversationTurns.ts`, `server/src/routes/conversations.ts`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatPage.models.test.tsx` before editing so you understand the current provider/model selection flow, the selected-conversation sync effects, and the existing hidden-run hydration path.
 2. [ ] Update the provider/model change path so an active run is not cancelled when the user changes provider or model.
 3. [ ] Update the current ChatPage synchronization rules so provider/model selections are not immediately overwritten by `selectedConversation` effects when the user is intentionally choosing the next-send values.
-4. [ ] Update the current Provider control locking rules so the story’s next-send provider/model behavior is actually reachable in the UI, without adding a new server endpoint, a new response field, or a new conversation storage property.
+4. [ ] Update the current Provider control locking rules on the existing MUI `TextField select` controls so the story’s next-send provider/model behavior is actually reachable in the UI, without replacing the controls, adding a new server endpoint, adding a new response field, or adding a new conversation storage property.
 5. [ ] Ensure the newly selected provider/model affects only the next send and does not mutate the provider/model already associated with the in-flight request, the persisted conversation metadata, or the existing `/conversations/:id/turns` hydration contract used when the user revisits a hidden run.
 6. [ ] Extend the most relevant Chat provider/model tests so they prove no `cancel_inflight` is sent during an active run, the next send uses the new selection, and revisiting the older hidden conversation still shows its own provider/model state rather than the newly chosen next-send values.
 7. [ ] Update Story `0000046` task notes with the exact provider/model persistence and synchronization rule implemented for in-flight, revisited, and next-send behavior.

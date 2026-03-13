@@ -700,15 +700,16 @@ This task isolates provider switching during an active run. The selected provide
 
 #### Subtasks
 
-1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useConversationTurns.ts`, `server/src/routes/conversations.ts`, and `client/src/test/chatPage.provider.conversationSelection.test.tsx`, then reread Story `0000046` `## Research Findings` items 4-7 and `## Contracts And Storage Shapes` items 2-3 before editing.
+1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useConversationTurns.ts`, `server/src/routes/conversations.ts`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatPage.codexDefaults.test.tsx`, then reread Story `0000046` `## Research Findings` items 4-7 and `## Contracts And Storage Shapes` items 2-3 before editing.
 2. [ ] Update the provider-change path in `client/src/pages/ChatPage.tsx` so an active run is not cancelled when the user changes provider. The concrete code anchor to inspect first is `handleProviderChange(...)`, which currently routes through `handleNewConversation(...)`; the final behavior must match Story `0000046` `### Acceptance Criteria` by changing only the next-send provider.
 3. [ ] Update the current ChatPage provider synchronization rules in `client/src/pages/ChatPage.tsx` so an intentional next-send provider choice is not immediately overwritten by the existing `selectedConversation` provider sync effect, as called out in Story `0000046` `## Research Findings` item 5.
 4. [ ] Reuse the existing page-level `provider` state from `client/src/hooks/useChatModel.ts` as the next-send provider source if it can represent the required behavior cleanly; do not add a separate "draft provider" state object unless the existing state proves insufficient during implementation. This simplification is intentional and is part of Story `0000046`'s reuse-first rule.
 5. [ ] Update the current `providerLocked` logic in `client/src/pages/ChatPage.tsx` on the existing MUI `TextField select` control so next-send provider behavior is actually reachable in the UI, without replacing the control, adding a new server endpoint, adding a new response field, or adding a new conversation storage property.
-6. [ ] Ensure the newly selected provider affects only the next send and does not mutate the provider already associated with the in-flight request, the persisted conversation metadata, or the existing `/conversations/:id/turns` hydration contract from `server/src/routes/conversations.ts` used when the user revisits a hidden run.
-7. [ ] Extend `client/src/test/chatPage.provider.conversationSelection.test.tsx` so it proves the exact provider rules from Story `0000046` `### Acceptance Criteria`: no `cancel_inflight` is sent during an active run, the next send uses the new provider, and revisiting the older hidden conversation still shows its own persisted provider state rather than the newly chosen next-send value.
-8. [ ] Update Story `0000046` task notes with the exact provider persistence and synchronization rule implemented, including the `handleProviderChange(...)` call site, the `selectedConversation` sync effect, and the final `providerLocked` behavior in `client/src/pages/ChatPage.tsx`.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+6. [ ] Preserve the existing Codex-defaults behavior in `client/src/pages/ChatPage.tsx` when switching into `provider === 'codex'` by reusing `applyCodexDefaults(...)` and `pendingCodexDefaultsReasonRef` for next-send state only; do not reset or mutate the hidden in-flight run’s persisted provider/model/flag state while doing this.
+7. [ ] Ensure the newly selected provider affects only the next send and does not mutate the provider already associated with the in-flight request, the persisted conversation metadata, or the existing `/conversations/:id/turns` hydration contract from `server/src/routes/conversations.ts` used when the user revisits a hidden run.
+8. [ ] Extend `client/src/test/chatPage.provider.conversationSelection.test.tsx` and `client/src/test/chatPage.codexDefaults.test.tsx` if needed so they prove the exact provider rules from Story `0000046` `### Acceptance Criteria`: no `cancel_inflight` is sent during an active run, the next send uses the new provider, switching into Codex still applies the existing next-send defaults, and revisiting the older hidden conversation still shows its own persisted provider state rather than the newly chosen next-send value.
+9. [ ] Update Story `0000046` task notes with the exact provider persistence and synchronization rule implemented, including the `handleProviderChange(...)` call site, the `selectedConversation` sync effect, the final `providerLocked` behavior, and the preserved Codex-defaults behavior in `client/src/pages/ChatPage.tsx`.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 
@@ -717,7 +718,8 @@ This task isolates provider switching during an active run. The selected provide
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.provider.conversationSelection.test.tsx`
-6. [ ] `npm run compose:down`
+6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.codexDefaults.test.tsx`
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -743,14 +745,15 @@ This task isolates model switching during an active run. The selected model shou
 
 #### Subtasks
 
-1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useConversationTurns.ts`, `server/src/routes/conversations.ts`, `client/src/test/chatPage.models.test.tsx`, and `client/src/test/chatPage.provider.conversationSelection.test.tsx`, then reread Story `0000046` `## Research Findings` items 4-7 and `## Contracts And Storage Shapes` items 2-3 before editing.
+1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useConversationTurns.ts`, `server/src/routes/conversations.ts`, `client/src/test/chatPage.models.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.codexDefaults.test.tsx`, and `client/src/test/chatPage.flags.reasoning.payload.test.tsx`, then reread Story `0000046` `## Research Findings` items 4-7 and `## Contracts And Storage Shapes` items 2-3 before editing.
 2. [ ] Update the model-change path in `client/src/pages/ChatPage.tsx` so an active run is not cancelled or mutated when the user changes model. The concrete code anchor to inspect first is the `selectedConversation` model sync effect that currently calls `setSelected(...)`; the final behavior must match Story `0000046` `### Acceptance Criteria` by changing only the next-send model.
 3. [ ] Update the current ChatPage model synchronization rules in `client/src/pages/ChatPage.tsx` so an intentional next-send model choice is not immediately overwritten by the existing `selectedConversation` model sync effect, as called out in Story `0000046` `## Research Findings` item 5.
 4. [ ] Reuse the existing page-level selected-model state from `client/src/hooks/useChatModel.ts` as the next-send model source if it can represent the required behavior cleanly; do not add a separate "draft model" state object unless the existing state proves insufficient during implementation. This simplification is intentional and is part of Story `0000046`'s reuse-first rule.
-5. [ ] Ensure the newly selected model affects only the next send and does not mutate the model already associated with the in-flight request, the persisted conversation metadata, or the existing `/conversations/:id/turns` hydration contract from `server/src/routes/conversations.ts` used when the user revisits a hidden run.
-6. [ ] Extend `client/src/test/chatPage.models.test.tsx` and any directly related existing regression if needed so they prove the exact model rules from Story `0000046` `### Acceptance Criteria`: no hidden-run mutation occurs, the next send uses the new model, and revisiting the older hidden conversation still shows its own persisted model state rather than the newly chosen next-send value.
-7. [ ] Update Story `0000046` task notes with the exact model persistence and synchronization rule implemented, including the `selectedConversation` model sync effect, the `setSelected(...)` call site, and the next-send-only behavior in `client/src/pages/ChatPage.tsx`.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+5. [ ] Preserve the existing capability-driven Codex reasoning behavior in `client/src/pages/ChatPage.tsx` when the next-send model changes by keeping `selectedModelCapabilities`, `modelReasoningEffort`, `codexCapabilityStateKeyRef`, and `codexDynamicReasoningStateKeyRef` aligned with the newly selected next-send model, while not mutating the hidden in-flight run’s persisted model/flag state.
+6. [ ] Ensure the newly selected model affects only the next send and does not mutate the model already associated with the in-flight request, the persisted conversation metadata, or the existing `/conversations/:id/turns` hydration contract from `server/src/routes/conversations.ts` used when the user revisits a hidden run.
+7. [ ] Extend `client/src/test/chatPage.models.test.tsx`, `client/src/test/chatPage.codexDefaults.test.tsx`, and `client/src/test/chatPage.flags.reasoning.payload.test.tsx` if needed so they prove the exact model rules from Story `0000046` `### Acceptance Criteria`: no hidden-run mutation occurs, the next send uses the new model, capability-driven reasoning/default behavior still follows the new next-send model, and revisiting the older hidden conversation still shows its own persisted model state rather than the newly chosen next-send value.
+8. [ ] Update Story `0000046` task notes with the exact model persistence and synchronization rule implemented, including the `selectedConversation` model sync effect, the `setSelected(...)` call site, the preserved Codex reasoning-capability behavior, and the next-send-only behavior in `client/src/pages/ChatPage.tsx`.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 
@@ -759,7 +762,9 @@ This task isolates model switching during an active run. The selected model shou
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.models.test.tsx`
-6. [ ] `npm run compose:down`
+6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.codexDefaults.test.tsx`
+7. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.flags.reasoning.payload.test.tsx`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 

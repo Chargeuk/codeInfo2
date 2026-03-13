@@ -944,11 +944,10 @@ This task is documentation-only. It updates the shared written material after im
 
 #### Subtasks
 
-1. [ ] Review every acceptance criterion in Story `0000046` and confirm the documentation still matches the actual implemented behavior and regression coverage added by the earlier tasks; use Story `0000046` `### Acceptance Criteria`, `## Decisions`, and `## Contracts And Storage Shapes` as the checklist source while doing this pass. Use GitHub Markdown formatting guidance `https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax` and Mermaid docs `https://mermaid.js.org/intro/` while checking any markdown or diagram text you update.
-2. [ ] Ensure `README.md` documents any user-visible behavior change or operator-facing command change introduced by this story, especially the blank-embedding-input failure rule and the Chat rule that navigation is not cancellation from Story `0000046` `### Description`.
-3. [ ] Ensure `design.md` describes the final shared-boundary rules for blank embeddable text and “navigation is not cancellation,” including any diagram or flow text that would otherwise be misleading when compared to Story `0000046` `## Research Findings`.
-4. [ ] Ensure `projectStructure.md` lists any added, removed, or repurposed files touched by this story, using the file paths recorded in the earlier task implementation notes so a reader can find the changed code quickly.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+1. [ ] Review and update `README.md` at the repository root so it documents any user-visible behavior change or operator-facing command change introduced by this story, especially the blank-embedding-input failure rule and the Chat rule that navigation is not cancellation from Story `0000046` `### Description`. Purpose: keep the primary reader/operator documentation aligned with the implemented product behavior.
+2. [ ] Review and update `design.md` at the repository root so it describes the final shared-boundary rules for blank embeddable text and “navigation is not cancellation,” including any Mermaid diagram or flow text that would otherwise be misleading when compared to Story `0000046` `## Research Findings`. Purpose: keep the architecture and flow documentation aligned with the implemented system behavior.
+3. [ ] Review and update `projectStructure.md` at the repository root so it lists any added, removed, or repurposed files touched by this story, using the file paths recorded in the earlier task implementation notes so a reader can find the changed code quickly. Purpose: keep the file-layout documentation aligned with the final implementation footprint.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 

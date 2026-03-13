@@ -448,8 +448,6 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 7. [ ] Add a `node:test` unit test in `server/src/test/unit/chunker.test.ts` that drives the fallback slice path with content that would otherwise create a whitespace-only slice and asserts that slice is removed. Purpose: prove the shared final blank filter covers both `splitOnBoundaries(...)` and `sliceToFit(...)`.
 8. [ ] Add a `node:test` unit test in `server/src/test/unit/chunker.test.ts` that asserts `chunkIndex` values are sequential `0..n-1` after blank chunks are removed. Purpose: prove filtering does not leave index gaps that would make persisted chunk metadata misleading.
 9. [ ] Update Story `0000046` `## Research Findings` or task implementation notes with any new chunking detail discovered while implementing this task so later tasks do not need to rediscover the same boundary rules.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -457,7 +455,9 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chunker.test.ts`
-6. [ ] `npm run compose:down`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -491,8 +491,6 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 5. [ ] Add a `node:test` unit test in `server/src/test/unit/openai-provider-guardrails.test.ts` or `server/src/test/unit/openai-provider.test.ts` that passes a mixed batch containing valid text plus one blank entry and asserts the whole batch is rejected. Purpose: prove one bad element still protects the provider boundary for multi-input requests.
 6. [ ] Add a `node:test` unit test in `server/src/test/unit/openai-provider.test.ts` that spies on `client.embeddings.create(...)` and asserts it is never called when the guard rejects a blank batch. Purpose: prove the validation stays upstream of the network boundary.
 7. [ ] Update Story `0000046` task notes with the exact OpenAI provider entry points, file paths, and error family used so the later LM Studio and ingest tasks can reuse the same contract wording without having to rediscover it.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -500,7 +498,9 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --test-name "blank input|OpenAI|guardrail"`
-6. [ ] `npm run compose:down`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -533,8 +533,6 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 4. [ ] Add a `node:test` unit test in `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` that passes whitespace-only input into `embedText(...)` and asserts the same blank-input error is returned. Purpose: prove the LM Studio path trims input rather than only checking raw string length.
 5. [ ] Add a `node:test` unit test in `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` that spies on retry/model calls and asserts blank rejection happens before any retry attempt or `model.embed(...)` invocation. Purpose: prove the defensive guard stays ahead of the LM Studio retry/logging boundary.
 6. [ ] Update Story `0000046` task notes with the exact LM Studio provider entry point, file path, and error family used so the later ingest tasks can reuse the same contract wording without having to rediscover it.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -542,7 +540,9 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --test-name "blank input|LM Studio"`
-6. [ ] `npm run compose:down`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -583,8 +583,6 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 10. [ ] Add a `node:test` unit test in `server/src/test/unit/ingest-reembed.test.ts` that covers a deletions-only delta re-embed and asserts the existing no-op success semantics remain unchanged. Purpose: prove the fresh-ingest failure rule is not accidentally applied to deletions-only re-embed runs.
 11. [ ] Update `design.md` with the final fresh-ingest versus re-embed lifecycle for this task and add or adjust the relevant Mermaid flow so the blank-only fresh-ingest failure path and preserved re-embed no-op paths are both documented. Purpose: keep the architecture and ingest flow documentation aligned with the implemented server behavior.
 12. [ ] Update Story `0000046` task notes with the exact fresh-ingest versus re-embed rule implemented, including the file paths changed in `server/src/ingest/ingestJob.ts`, `server/src/ingest/deltaPlan.ts`, and `design.md`, so later documentation work can quote one final rule.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -592,7 +590,9 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --test-name "NO_ELIGIBLE_FILES|reembed|delta|blank|mixed"`
-6. [ ] `npm run compose:down`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -629,8 +629,6 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 6. [ ] Keep this task server-focused: do not change `client/src/pages/ChatPage.tsx` or any client interaction code here. The output of this task should be a locked-down server contract and regression coverage that the later Chat tasks can rely on.
 7. [ ] Update `design.md` with the final websocket cancellation flow for this task and add or adjust the relevant Mermaid sequence diagram so it clearly shows `unsubscribe_conversation` as navigation-only and `cancel_inflight` as the only stop path. Purpose: keep the documented chat-control architecture aligned with the locked-down server contract.
 8. [ ] Update Story `0000046` task notes with the exact server-side cancellation contract confirmed in `server/src/ws/types.ts`, `server/src/ws/server.ts`, `server/src/test/features/chat_cancellation.feature`, and `design.md` so the later Chat tasks can quote one final rule.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -638,7 +636,9 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_cancellation.feature`
-6. [ ] `npm run compose:down`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -674,8 +674,6 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 5. [ ] Add a client page regression test in `client/src/test/chatPage.provider.conversationSelection.test.tsx` that selects another conversation during an active run and asserts the newly visible conversation shows only its own transcript and UI state. Purpose: prove selection does not leak sending or stopping state from the hidden conversation.
 6. [ ] Update `design.md` with the final sidebar-selection flow for this task and add or adjust the relevant Mermaid diagram so it shows conversation selection as local navigation rather than implicit cancellation. Purpose: keep the documented chat interaction flow aligned with the implemented behavior.
 7. [ ] Update Story `0000046` task notes with the exact Chat sidebar call site changed in `client/src/pages/ChatPage.tsx`, the matching `design.md` update, and any local UI-state reset rule clarified during implementation so the later Chat tasks can reuse the same wording.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -683,7 +681,9 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.provider.conversationSelection.test.tsx`
-6. [ ] `npm run compose:down`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -721,8 +721,6 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 7. [ ] Add or update a client page regression test in `client/src/test/chatPage.stop.test.tsx` only if the `handleNewConversation(...)` refactor touches shared stop logic, and assert the explicit Stop button still sends the stop path correctly. Purpose: prove this task does not regress the explicit cancellation contract.
 8. [ ] Update `design.md` with the final `New conversation` flow for this task and add or adjust the relevant Mermaid diagram so it shows draft reset without cancelling the older run. Purpose: keep the documented chat flow aligned with the implemented background-run behavior.
 9. [ ] Update Story `0000046` task notes with the exact local draft reset rules implemented for `New conversation`, including the `client/src/pages/ChatPage.tsx` function name, the `client/src/hooks/useChatStream.ts` helper reused, and the matching `design.md` update.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -731,7 +729,9 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.newConversation.test.tsx`
 6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stop.test.tsx`
-7. [ ] `npm run compose:down`
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -775,8 +775,6 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 12. [ ] Add a client page regression test in `client/src/test/chatPage.inflightNavigate.test.tsx` that revisits the older hidden conversation after a provider change and asserts it still shows its own persisted provider state rather than the newer next-send selection. Purpose: prove hidden-run provider metadata is not mutated by draft-state changes.
 13. [ ] Update `design.md` with the final provider-switch flow for this task and add or adjust the relevant Mermaid diagram so it shows provider changes affecting only the next send while hidden runs preserve their original provider. Purpose: keep the documented chat-state architecture aligned with the implemented provider behavior.
 14. [ ] Update Story `0000046` task notes with the exact provider persistence and synchronization rule implemented, including the `handleProviderChange(...)` call site, the `selectedConversation` sync effect, the final `providerLocked` behavior, the preserved Codex-defaults behavior in `client/src/pages/ChatPage.tsx`, and the matching `design.md` update.
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -786,7 +784,9 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.provider.conversationSelection.test.tsx`
 6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.inflightNavigate.test.tsx`
 7. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.codexDefaults.test.tsx`
-8. [ ] `npm run compose:down`
+8. [ ] `npm run lint --workspaces`
+9. [ ] `npm run format:check --workspaces`
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -829,8 +829,6 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 11. [ ] Add a client page regression test in `client/src/test/chatPage.inflightNavigate.test.tsx` that revisits the older hidden conversation after a model change and asserts it still shows its own persisted model state rather than the newer next-send selection. Purpose: prove hidden-run model metadata is not mutated by draft-state changes.
 12. [ ] Update `design.md` with the final model-switch flow for this task and add or adjust the relevant Mermaid diagram so it shows model changes affecting only the next send while hidden runs preserve their original model and reasoning state. Purpose: keep the documented chat-state architecture aligned with the implemented model behavior.
 13. [ ] Update Story `0000046` task notes with the exact model persistence and synchronization rule implemented, including the `selectedConversation` model sync effect, the `setSelected(...)` call site, the preserved Codex reasoning-capability behavior, the next-send-only behavior in `client/src/pages/ChatPage.tsx`, and the matching `design.md` update.
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -841,7 +839,9 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.inflightNavigate.test.tsx`
 7. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.codexDefaults.test.tsx`
 8. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.flags.reasoning.payload.test.tsx`
-9. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces`
+10. [ ] `npm run format:check --workspaces`
+11. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -883,8 +883,6 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 8. [ ] Keep this task focused on late-event isolation only. Do not add `/conversations/:id/turns` rehydration changes, a new active-run endpoint, or new snapshot merge behavior here; that work belongs to the next task so the proof paths stay small and clear.
 9. [ ] Update `design.md` with the final hidden-run late-event isolation flow for this task and add or adjust the relevant Mermaid diagram so it shows stale websocket events being ignored for the visible conversation. Purpose: keep the documented background-run event flow aligned with the implemented client behavior.
 10. [ ] Update Story `0000046` task notes with any additional conversation-isolation rule or websocket mismatch case discovered while implementing this task, including the exact hooks/tests changed and the matching `design.md` update so later documentation work does not need to rediscover them.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -893,7 +891,9 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
 6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.inflightNavigate.test.tsx`
-7. [ ] `npm run compose:down`
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -933,8 +933,6 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 8. [ ] Keep this task rehydration-focused: do not add new websocket message types, new browser caches, or extra server feature files as part of this proof path.
 9. [ ] Update `design.md` with the final hidden-run rehydration flow for this task and add or adjust the relevant Mermaid diagram so it shows `/conversations/:id/turns` inflight snapshot reuse for running versus completed conversations. Purpose: keep the documented snapshot/rehydration architecture aligned with the implemented behavior.
 10. [ ] Update Story `0000046` task notes with the exact rehydration rule confirmed by `server/src/routes/conversations.ts`, `client/src/hooks/useConversationTurns.ts`, the snapshot tests, and `design.md` so later documentation work can quote one final rule.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -944,7 +942,9 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
 6. [ ] `npm run test:summary:client -- --file client/src/test/useConversationTurns.refresh.test.ts`
 7. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts`
-8. [ ] `npm run compose:down`
+8. [ ] `npm run lint --workspaces`
+9. [ ] `npm run format:check --workspaces`
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -974,8 +974,6 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 1. [ ] Review and update `README.md` at the repository root so it documents any user-visible behavior change or operator-facing command change introduced by this story, especially the blank-embedding-input failure rule and the Chat rule that navigation is not cancellation from Story `0000046` `### Description`. Purpose: keep the primary reader/operator documentation aligned with the implemented product behavior.
 2. [ ] Review and update `design.md` at the repository root so it describes the final shared-boundary rules for blank embeddable text and “navigation is not cancellation,” including any Mermaid diagram or flow text that would otherwise be misleading when compared to Story `0000046` `## Research Findings`. Purpose: keep the architecture and flow documentation aligned with the implemented system behavior.
 3. [ ] Review and update `projectStructure.md` at the repository root so it lists any added, removed, or repurposed files touched by this story, using the file paths recorded in the earlier task implementation notes so a reader can find the changed code quickly. Purpose: keep the file-layout documentation aligned with the final implementation footprint.
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
-
 #### Testing
 
 1. [ ] `npm run lint --workspaces`
@@ -1008,8 +1006,6 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 2. [ ] Create a pull-request-ready summary covering the ingest boundary fix, the defensive provider guards, the Chat navigation/reset behavior change, the reused contracts, and the added regression coverage, using the exact task notes recorded in Story `0000046` so the summary does not omit a completed behavior.
 3. [ ] Include the key proof points in that summary: which existing contracts were reused, which tests were extended instead of added as new harnesses, and which acceptance criteria were validated by targeted versus full-suite runs.
 4. [ ] Update Story `0000046` task notes with the location of the final PR-ready summary or the exact wording source used, so later release-note work can reuse it without re-reading every task.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` if this task edits any tracked markdown files; if not, record in the implementation notes that no format-sensitive repository files changed during this summary task.
-
 #### Testing
 
 1. [ ] `npm run lint --workspaces` if markdown files were edited

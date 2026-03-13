@@ -427,7 +427,7 @@ This task isolates the first shared ingest boundary: `chunkText()`. Its job is t
 1. [ ] Read `server/src/ingest/chunker.ts`, `server/src/ingest/types.ts`, and `server/src/test/unit/chunker.test.ts` before editing so you understand how pieces, slices, and `chunkIndex` are created today.
 2. [ ] Update `server/src/ingest/chunker.ts` so whitespace-only pieces from `splitOnBoundaries()` are removed before they become `Chunk` objects. Keep this inside the existing `chunkText()` flow; do not create a parallel chunking utility for this story.
 3. [ ] Update `server/src/ingest/chunker.ts` so whitespace-only slices from `sliceToFit()` are removed before they become `Chunk` objects.
-4. [ ] Ensure `chunkIndex` is reassigned sequentially after all filtering is complete so returned chunks always use `0..n-1` with no gaps.
+4. [ ] Ensure `chunkIndex` is reassigned sequentially after all filtering is complete so returned chunks always use `0..n-1` with no gaps. Prefer the smallest in-place change that keeps the current chunk shape; do not introduce a second chunk metadata pass unless the existing flow truly cannot express the renumbering safely.
 5. [ ] Extend `server/src/test/unit/chunker.test.ts` with all of the following: empty string input, whitespace-only input, leading blank lines before the first boundary, a whitespace-only slice path, and sequential `chunkIndex` assertions after filtering.
 6. [ ] Update Story `0000046` task notes with any new chunking detail discovered while implementing this task so later tasks do not need to rediscover the same boundary rules.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
@@ -593,7 +593,7 @@ This task makes the existing server-side cancellation contract explicit before a
 
 1. [ ] Read `server/src/ws/types.ts`, `server/src/ws/server.ts`, `server/src/ws/registry.ts`, `server/src/test/features/chat_cancellation.feature`, and `server/src/test/steps/chat_cancellation.steps.ts` before editing so you understand the current subscription and cancellation message flow.
 2. [ ] Update the server-side chat cancellation feature coverage so it explicitly proves `unsubscribe_conversation` does not cancel a running chat and that `cancel_inflight` remains the only authoritative stop message.
-3. [ ] If any step definitions or server-side message wording need to change so the contract is stable and easy to assert, update them here without introducing any new websocket message types or changing the meaning of `unsubscribe_conversation`.
+3. [ ] If any step definitions need to change so the contract is stable and easy to assert, update them here. Avoid changing server-side message wording unless the existing feature coverage truly cannot express the contract without it, and do not introduce any new websocket message types or change the meaning of `unsubscribe_conversation`.
 4. [ ] Keep this task server-focused: do not change Chat page interaction code here. The output of this task should be a locked-down server contract and regression coverage that the later client tasks can rely on.
 5. [ ] Update Story `0000046` task notes with the exact server-side cancellation contract confirmed or clarified by this task so the later Chat tasks can quote one final rule.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
@@ -721,7 +721,6 @@ This task isolates provider switching during an active run. The selected provide
 - `server/src/routes/conversations.ts`
 - `server/src/mongo/conversation.ts`
 - `client/src/test/chatPage.provider.conversationSelection.test.tsx`
-- `client/src/test/chatPage.newConversation.test.tsx`
 - `client/src/test/chatPage.stop.test.tsx`
 - MUI Material UI TextField/Select documentation for the currently used major version
 
@@ -730,11 +729,12 @@ This task isolates provider switching during an active run. The selected provide
 1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useConversationTurns.ts`, `server/src/routes/conversations.ts`, and `client/src/test/chatPage.provider.conversationSelection.test.tsx` before editing so you understand the current provider selection flow, the selected-conversation sync effects, and the existing hidden-run hydration path.
 2. [ ] Update the provider-change path so an active run is not cancelled when the user changes provider.
 3. [ ] Update the current ChatPage provider synchronization rules so an intentional next-send provider choice is not immediately overwritten by `selectedConversation` effects.
-4. [ ] Update the current Provider control locking rules on the existing MUI `TextField select` control so next-send provider behavior is actually reachable in the UI, without replacing the control, adding a new server endpoint, adding a new response field, or adding a new conversation storage property.
-5. [ ] Ensure the newly selected provider affects only the next send and does not mutate the provider already associated with the in-flight request, the persisted conversation metadata, or the existing `/conversations/:id/turns` hydration contract used when the user revisits a hidden run.
-6. [ ] Extend the most relevant Chat provider tests so they prove no `cancel_inflight` is sent during an active run, the next send uses the new provider, and revisiting the older hidden conversation still shows its own persisted provider state rather than the newly chosen next-send value.
-7. [ ] Update Story `0000046` task notes with the exact provider persistence and synchronization rule implemented for in-flight, revisited, and next-send behavior.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+4. [ ] Reuse the existing page-level `provider` state as the next-send provider source if it can represent the required behavior cleanly; do not add a separate "draft provider" state object unless the existing state proves insufficient during implementation.
+5. [ ] Update the current Provider control locking rules on the existing MUI `TextField select` control so next-send provider behavior is actually reachable in the UI, without replacing the control, adding a new server endpoint, adding a new response field, or adding a new conversation storage property.
+6. [ ] Ensure the newly selected provider affects only the next send and does not mutate the provider already associated with the in-flight request, the persisted conversation metadata, or the existing `/conversations/:id/turns` hydration contract used when the user revisits a hidden run.
+7. [ ] Extend the most relevant Chat provider tests so they prove no `cancel_inflight` is sent during an active run, the next send uses the new provider, and revisiting the older hidden conversation still shows its own persisted provider state rather than the newly chosen next-send value.
+8. [ ] Update Story `0000046` task notes with the exact provider persistence and synchronization rule implemented for in-flight, revisited, and next-send behavior.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 
@@ -777,10 +777,11 @@ This task isolates model switching during an active run. The selected model shou
 1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useConversationTurns.ts`, `server/src/routes/conversations.ts`, `client/src/test/chatPage.models.test.tsx`, and `client/src/test/chatPage.provider.conversationSelection.test.tsx` before editing so you understand the current model selection flow, the selected-conversation sync effects, and the existing hidden-run hydration path.
 2. [ ] Update the model-change path so an active run is not cancelled or mutated when the user changes model.
 3. [ ] Update the current ChatPage model synchronization rules so an intentional next-send model choice is not immediately overwritten by `selectedConversation` effects.
-4. [ ] Ensure the newly selected model affects only the next send and does not mutate the model already associated with the in-flight request, the persisted conversation metadata, or the existing `/conversations/:id/turns` hydration contract used when the user revisits a hidden run.
-5. [ ] Extend the most relevant Chat model tests so they prove no hidden-run mutation occurs, the next send uses the new model, and revisiting the older hidden conversation still shows its own persisted model state rather than the newly chosen next-send value.
-6. [ ] Update Story `0000046` task notes with the exact model persistence and synchronization rule implemented for in-flight, revisited, and next-send behavior.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+4. [ ] Reuse the existing page-level selected-model state as the next-send model source if it can represent the required behavior cleanly; do not add a separate "draft model" state object unless the existing state proves insufficient during implementation.
+5. [ ] Ensure the newly selected model affects only the next send and does not mutate the model already associated with the in-flight request, the persisted conversation metadata, or the existing `/conversations/:id/turns` hydration contract used when the user revisits a hidden run.
+6. [ ] Extend the most relevant Chat model tests so they prove no hidden-run mutation occurs, the next send uses the new model, and revisiting the older hidden conversation still shows its own persisted model state rather than the newly chosen next-send value.
+7. [ ] Update Story `0000046` task notes with the exact model persistence and synchronization rule implemented for in-flight, revisited, and next-send behavior.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 
@@ -823,11 +824,12 @@ This task locks down the failure mode that appears after Tasks 6-9 remove implic
 
 1. [ ] Read `client/src/hooks/useChatStream.ts`, `client/src/hooks/useConversationTurns.ts`, `client/src/pages/ChatPage.tsx`, `server/src/routes/conversations.ts`, `client/src/test/useChatStream.inflightMismatch.test.tsx`, `client/src/test/chatPage.inflightNavigate.test.tsx`, and the existing chat cancellation feature files before editing.
 2. [ ] Adjust local Chat state handling only if needed so the visible conversation or new draft clears inherited sending/stopping indicators when another conversation is still running in the background.
-3. [ ] Reuse the existing `/conversations/:id/turns` inflight snapshot and `useConversationTurns.ts` hydration path when proving that a hidden run can be revisited later; do not add a new active-run endpoint or a new response flag for this story.
-4. [ ] Extend the existing nearby client and server regression coverage in place so it proves that late websocket events from a hidden conversation do not render stop banners, stopped state, or assistant content in the visible conversation, and that revisiting the hidden conversation rehydrates its own in-flight state through the existing turns snapshot path. Prefer extending `client/src/test/chatPage.inflightNavigate.test.tsx` and `server/src/test/integration/conversations.turns.test.ts` before creating any new test file.
-5. [ ] Extend server-side feature coverage only if needed to prove that navigation/reset actions leave the server-side run active until an explicit `cancel_inflight` arrives.
-6. [ ] Update Story `0000046` task notes with any additional conversation-isolation rule, hydration rule, or websocket mismatch case discovered while implementing this task.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+3. [ ] Reuse the existing `/conversations/:id/turns` inflight snapshot and `useConversationTurns.ts` hydration path when proving that a hidden run can be revisited later; do not add a new active-run endpoint, a new response flag, or a new hidden-conversation client cache for this story.
+4. [ ] Extend the existing nearby client regression coverage first so it proves that late websocket events from a hidden conversation do not render stop banners, stopped state, or assistant content in the visible conversation.
+5. [ ] Reuse `server/src/test/integration/conversations.turns.test.ts` for the hidden-run rehydration proof instead of creating a second server-side path for the same behavior.
+6. [ ] Extend additional server-side feature coverage only if Tasks 5 and 10 still leave a real contract gap after the client and turns-snapshot coverage are updated.
+7. [ ] Update Story `0000046` task notes with any additional conversation-isolation rule, hydration rule, or websocket mismatch case discovered while implementing this task.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 

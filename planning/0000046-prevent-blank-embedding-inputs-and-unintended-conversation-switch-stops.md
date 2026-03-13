@@ -538,7 +538,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 ### 3. Server - Restore Full Server Unit Wrapper Baseline Before Continuing Story Work
 
 - Task Status: `__done__`
-- Git Commits: `__to_do__`
+- Git Commits: `c068b596`
 
 #### Overview
 

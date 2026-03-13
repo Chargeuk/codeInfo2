@@ -1137,6 +1137,13 @@ export default function ChatPage() {
 
   const lastHydratedRef = useRef<string | null>(null);
   const lastInflightHydratedRef = useRef<string | null>(null);
+  const lastRehydratedLogRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    lastHydratedRef.current = null;
+    lastInflightHydratedRef.current = null;
+    lastRehydratedLogRef.current = null;
+  }, [activeConversationId]);
 
   useEffect(() => {
     if (!activeConversationId) return;
@@ -1162,6 +1169,33 @@ export default function ChatPage() {
     serverVisibleInflightIdRef.current = inflightSnapshot.inflightId;
     hydrateInflightSnapshot(activeConversationId, inflightSnapshot);
   }, [activeConversationId, hydrateInflightSnapshot, inflightSnapshot]);
+
+  useEffect(() => {
+    if (!activeConversationId || !turnsConversationId) return;
+    if (activeConversationId !== turnsConversationId) return;
+    if (!knownConversationIds.has(activeConversationId)) return;
+    if (turns.length === 0 && !inflightSnapshot) return;
+
+    const oldest = turns[0]?.createdAt ?? 'none';
+    const newest = turns[turns.length - 1]?.createdAt ?? 'none';
+    const key = `${activeConversationId}-${oldest}-${newest}-${turns.length}-${inflightSnapshot?.inflightId ?? 'no-inflight'}`;
+    if (lastRehydratedLogRef.current === key) return;
+    lastRehydratedLogRef.current = key;
+
+    console.info('DEV-0000046:T12:hidden-run-rehydrated', {
+      conversationId: activeConversationId,
+      hasInflightSnapshot: Boolean(inflightSnapshot),
+      inflightId: inflightSnapshot?.inflightId ?? null,
+      replacedVisibleDraft: true,
+      turnCount: turns.length,
+    });
+  }, [
+    activeConversationId,
+    inflightSnapshot,
+    knownConversationIds,
+    turns,
+    turnsConversationId,
+  ]);
 
   useEffect(() => {
     if (!activeConversationId) {

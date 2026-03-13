@@ -208,3 +208,103 @@ test('hydration keeps assistant history when inflight bubble is empty', async ()
   expect(nonEmptyAssistantTexts).toEqual(['Persisted A', 'Persisted B']);
   expect(nonEmptyAssistantTexts).toHaveLength(2);
 });
+
+test('revisiting a hidden running conversation rehydrates its transcript and inflight snapshot', async () => {
+  const turnsPayload = {
+    items: [
+      {
+        conversationId: 'c1',
+        role: 'user',
+        content: 'Earlier prompt',
+        model: 'm1',
+        provider: 'lmstudio',
+        toolCalls: null,
+        status: 'ok',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      },
+      {
+        conversationId: 'c1',
+        role: 'assistant',
+        content: 'Earlier reply',
+        model: 'm1',
+        provider: 'lmstudio',
+        toolCalls: null,
+        status: 'ok',
+        createdAt: '2025-01-01T00:00:01.000Z',
+      },
+    ],
+    inflight: {
+      inflightId: 'i1',
+      assistantText: 'Persisted partial',
+      assistantThink: '',
+      toolEvents: [],
+      startedAt: '2025-01-01T00:00:02.000Z',
+      seq: 3,
+    },
+  };
+  const conversationsPayload = {
+    items: [
+      {
+        conversationId: 'c1',
+        title: 'Conversation 1',
+        provider: 'lmstudio',
+        model: 'm1',
+        source: 'REST',
+        lastMessageAt: '2025-01-01T00:00:03.000Z',
+        archived: false,
+      },
+    ],
+    nextCursor: null,
+  };
+
+  const consoleInfoSpy = jest
+    .spyOn(console, 'info')
+    .mockImplementation(() => {});
+
+  try {
+    setupChatWsHarness({
+      mockFetch,
+      conversations: conversationsPayload,
+      turns: turnsPayload,
+    });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const row = await screen.findByTestId('conversation-row');
+    await waitFor(() => expect(row).toBeEnabled());
+    await user.click(row);
+
+    expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
+    expect(await screen.findByText('Persisted partial')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-stop')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /new conversation/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          /Transcript will appear here once you send a message/i,
+        ),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('Persisted partial')).not.toBeInTheDocument();
+
+    await user.click(await screen.findByTestId('conversation-row'));
+
+    expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
+    expect(await screen.findByText('Persisted partial')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-stop')).toBeInTheDocument();
+    expect(consoleInfoSpy).toHaveBeenCalledWith(
+      'DEV-0000046:T12:hidden-run-rehydrated',
+      expect.objectContaining({
+        conversationId: 'c1',
+        hasInflightSnapshot: true,
+        replacedVisibleDraft: true,
+      }),
+    );
+  } finally {
+    consoleInfoSpy.mockRestore();
+  }
+});

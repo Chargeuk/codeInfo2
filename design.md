@@ -4163,6 +4163,37 @@ sequenceDiagram
   end
 ```
 
+## Story 0000046 Task 12: revisiting hidden conversations reuses the existing turns snapshot path
+
+- Task 12 keeps the existing `/conversations/:id/turns` contract in `server/src/routes/conversations.ts` and the existing `fetchSnapshot(...)` hydration path in `client/src/hooks/useConversationTurns.ts`. No new active-run endpoint, response flag, websocket message, or hidden-conversation cache is introduced for this story.
+- Revisiting a still-running hidden conversation replaces the visible draft with that conversation's persisted transcript and then reapplies the optional `inflight` snapshot through the existing `hydrateHistory(...)` plus `hydrateInflightSnapshot(...)` path in `client/src/pages/ChatPage.tsx`.
+- Revisiting a completed or idle conversation reuses the same turns fetch but returns no `inflight` payload, so the visible view is replaced by persisted transcript only and no stale running-state UI remains.
+- Task 12 verification marker:
+  - `DEV-0000046:T12:hidden-run-rehydrated`
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as ChatPage
+  participant Turns as useConversationTurns
+  participant Server as GET /conversations/:id/turns
+  participant Stream as useChatStream
+
+  User->>UI: Revisit hidden conversation
+  UI->>Server: fetch /conversations/:id/turns
+  Server-->>Turns: persisted items + optional inflight snapshot
+  Turns-->>UI: normalized transcript state
+  UI->>Stream: hydrateHistory(conversationId, persisted transcript, replace)
+  alt inflight snapshot present
+    UI->>Stream: hydrateInflightSnapshot(conversationId, inflight)
+    UI-->>UI: log DEV-0000046:T12:hidden-run-rehydrated hasInflightSnapshot=true
+    Note over UI: visible conversation shows persisted transcript + live inflight state
+  else no inflight snapshot
+    UI-->>UI: log DEV-0000046:T12:hidden-run-rehydrated hasInflightSnapshot=false
+    Note over UI: visible conversation shows persisted transcript only
+  end
+```
+
 ### Agent tooling (Chroma list + search)
 
 - `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.

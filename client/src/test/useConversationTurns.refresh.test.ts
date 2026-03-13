@@ -494,3 +494,121 @@ test('inflight id change resets overlay', async () => {
     expect(screen.getByText('i2:Second')).toBeInTheDocument(),
   );
 });
+
+test('refresh clears stale inflight state when a revisited conversation is no longer running', async () => {
+  let turnsCall = 0;
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (!url.includes('/conversations/c1/turns')) {
+        return mockJsonResponse({});
+      }
+
+      turnsCall += 1;
+      if (turnsCall === 1) {
+        return mockTurnsSnapshot(
+          [
+            {
+              conversationId: 'c1',
+              role: 'user',
+              content: 'Earlier prompt',
+              model: 'm1',
+              provider: 'lmstudio',
+              toolCalls: null,
+              status: 'ok',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
+            {
+              conversationId: 'c1',
+              role: 'assistant',
+              content: 'Earlier reply',
+              model: 'm1',
+              provider: 'lmstudio',
+              toolCalls: null,
+              status: 'ok',
+              createdAt: '2025-01-01T00:00:01Z',
+            },
+          ],
+          {
+            inflightId: 'i1',
+            assistantText: 'Persisted partial',
+            assistantThink: '',
+            toolEvents: [],
+            startedAt: '2025-01-01T00:00:02Z',
+            seq: 3,
+          },
+        );
+      }
+
+      return mockTurnsSnapshot([
+        {
+          conversationId: 'c1',
+          role: 'user',
+          content: 'Earlier prompt',
+          model: 'm1',
+          provider: 'lmstudio',
+          toolCalls: null,
+          status: 'ok',
+          createdAt: '2025-01-01T00:00:00Z',
+        },
+        {
+          conversationId: 'c1',
+          role: 'assistant',
+          content: 'Earlier reply',
+          model: 'm1',
+          provider: 'lmstudio',
+          toolCalls: null,
+          status: 'ok',
+          createdAt: '2025-01-01T00:00:01Z',
+        },
+      ]);
+    }),
+  );
+
+  function TestCompletedRevisitRefresh() {
+    const { turns, inflight, refresh } = useConversationTurns('c1');
+    const refreshedRef = useRef(false);
+
+    useEffect(() => {
+      if (!refreshedRef.current && inflight?.inflightId === 'i1') {
+        refreshedRef.current = true;
+        void refresh();
+      }
+    }, [inflight, refresh]);
+
+    const state: OverlayState = {
+      turns: turns.map((turn) => turn.content),
+      inflightId: inflight?.inflightId ?? 'none',
+    };
+
+    return createElement(
+      'div',
+      { 'data-testid': 'overlay' },
+      JSON.stringify(state),
+    );
+  }
+
+  render(createElement(TestCompletedRevisitRefresh));
+
+  await waitFor(() =>
+    expect(screen.getByTestId('overlay').textContent).toContain(
+      '"inflightId":"i1"',
+    ),
+  );
+
+  await waitFor(() =>
+    expect(screen.getByTestId('overlay').textContent).toContain(
+      '"inflightId":"none"',
+    ),
+  );
+
+  const overlayText = screen.getByTestId('overlay').textContent ?? '';
+  expect(overlayText).toContain('Earlier reply');
+  expect(overlayText).not.toContain('Persisted partial');
+  const turnsRequests = mockFetch.mock.calls.filter(([input]) =>
+    (typeof input === 'string' ? input : input.toString()).includes(
+      '/conversations/c1/turns',
+    ),
+  );
+  expect(turnsRequests.length).toBeGreaterThanOrEqual(2);
+});

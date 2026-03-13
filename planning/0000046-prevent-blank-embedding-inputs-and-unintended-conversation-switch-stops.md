@@ -1185,7 +1185,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 ### 13. Final Task - Update Shared Documentation
 
 - Task Status: `__done__`
-- Git Commits: `37bf4f6f`
+- Git Commits: `37bf4f6f, a0886d7f`
 
 #### Overview
 
@@ -1217,6 +1217,7 @@ Wrapper-only rule: this task is documentation-only, so do not attempt to run raw
 - Added a final `design.md` Story 46 boundary section plus Mermaid flow so the ingest blank-text contract and Chat navigation-versus-cancel contract read as one settled architecture instead of scattered task notes.
 - Added a Story 46 footprint section to `projectStructure.md` that points readers to the exact client, server, test, and planning files modified across Tasks 1-12.
 - `npm run lint --workspaces` completed at the existing 39-warning import-order baseline and `npm run format:check --workspaces` passed cleanly, so no Task 13-specific fixes were needed.
+- Audit correction: Task 13's `Git Commits` field now records both the documentation implementation commit and the final bookkeeping update (`37bf4f6f, a0886d7f`) so the plan matches the actual completion trail.
 
 ---
 

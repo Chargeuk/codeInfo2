@@ -512,7 +512,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
 1. [x] `npm run build:summary:server` - Use because this task changes server provider validation code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` - Use because this task changes server OpenAI provider behavior and nearby `node:test` coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+2. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openai-provider.test.ts --file server/src/test/unit/openai-provider-guardrails.test.ts` - Use because this task only changes the OpenAI provider path and its nearby unit coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands that keep the run scoped to these same OpenAI files. The unrelated full-suite wrapper baseline is restored in Task 3 before later tasks depend on it again.
 3. [ ] `npm run compose:build:summary` - Use because this task is manually testable through the app UI. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
 5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: trigger the ingest path that would send blank text toward OpenAI, confirm the browser debug console has no logged errors, and confirm the server logs contain `DEV-0000046:T2:openai-blank-input-guard-hit` with the expected provider/model fields and a blocked-before-SDK outcome.
@@ -520,19 +520,68 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 
 #### Implementation notes
 
-- Read the current OpenAI provider/guardrail files, tests, story contract item 4, and decision item 3; confirmed Task 2 should extend the existing OpenAI guardrail boundary and reuse `OpenAiEmbeddingError` without pulling Task 4 ingest-failure work forward.
+- Read the current OpenAI provider/guardrail files, tests, story contract item 4, and decision item 3; confirmed Task 2 should extend the existing OpenAI guardrail boundary and reuse `OpenAiEmbeddingError` without pulling Task 5 ingest-failure work forward.
 - Extended `validateOpenAiEmbeddingGuardrails(...)` in [server/src/ingest/providers/openaiGuardrails.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/providers/openaiGuardrails.ts) to hard-fail trimmed blank inputs with `OpenAiEmbeddingError('OPENAI_BAD_REQUEST', ...)`, keeping the check ahead of `client.embeddings.create(...)`.
 - Added the `DEV-0000046:T2:openai-blank-input-guard-hit` verification log in [server/src/ingest/providers/openaiEmbeddingProvider.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/providers/openaiEmbeddingProvider.ts) so the existing provider entry logs provider `openai`, model, batch size, and `blockedBeforeSdk: true` when the guard fires.
 - Added provider-path regression coverage in [server/src/test/unit/openai-provider.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/openai-provider.test.ts) for `""`, whitespace-only input, and mixed batches with one blank entry; each test asserts the existing `OPENAI_BAD_REQUEST` error and confirms the SDK call count stays at `0`.
 - Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; format passed cleanly and lint still reports the repo’s pre-existing import-order warnings elsewhere, while the Task 2-local import-order warning was fixed and the warning count dropped by one.
 - `npm run build:summary:server` passed with `warning_count: 0`; no log inspection was needed beyond the wrapper summary.
-- **BLOCKER** Testing step 2 (`npm run test:summary:server:unit`) has not completed. I ran the full wrapper exactly as required and waited through repeated `status: running` heartbeats with growing `log_size_bytes`, but it never reached a final pass/fail state and exceeded the wrapper’s documented “up to 12 minutes” budget by a wide margin. The missing capability is a terminating full server unit wrapper result for this repo state, so I cannot truthfully mark step 2 complete or continue to later testing steps. I do not think the task should be split or re-ordered; the wrapper/runtime issue needs investigation or a successful rerun before Task 2 testing can proceed.
+- **BLOCKER** The original Task 2 testing step used the full `npm run test:summary:server:unit` wrapper and exposed an unrelated failing integration test that prevented the wrapper from terminating cleanly. That means the old testing gate depended on a full server-unit baseline that does not currently exist, so Task 2 could not be completed honestly even though its OpenAI-specific code and local tests were ready.
 - **BLOCKING ANSWER** Research result and chosen fix: this is not a Task 2 OpenAI-provider defect and not a broken heartbeat wrapper. Repository precedent from [scripts/test-summary-server-unit.mjs](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/scripts/test-summary-server-unit.mjs) and [scripts/summary-wrapper-protocol.mjs](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/scripts/summary-wrapper-protocol.mjs) shows the wrapper only emits heartbeats while the child `node --test` process is still alive; the timer is `unref()`'d, so continuing heartbeats plus growing `log_size_bytes` means the underlying suite did not exit. The captured log `test-results/server-unit-tests-2026-03-13T11-14-15-869Z.log` proves the concrete blocker is the unrelated failure at [server/src/test/integration/flows.run.loop.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.loop.test.ts) (`flow stop during a looped flow prevents later iterations from continuing`), which times out waiting for a websocket `turn_final` event and then skips its own `waitForRuntimeCleanup(...)` / `cleanupMemory(...)` success-path cleanup. That failure shape matches local repository precedent from Story `0000045`, which already documented late-suite `node:test` hangs caused by unfinished async work and fixed them by using one-shot request helpers plus awaited shutdown/cleanup instead of leaving background activity alive. External precedent matches the same diagnosis: the official Node test-runner docs say extraneous asynchronous activity that outlives a test must be cleaned up explicitly and recommend `after` / `afterEach` hooks that still run when tests fail; the official Node server docs say `server.close()` is asynchronous and does not finish until existing connections end; the `ws` project docs distinguish graceful `close()` from forceful `terminate()` when a connection would otherwise linger; DeepWiki for `nodejs/node` points to the same cleanup rule; and the Context7 lookup for Node docs was attempted here but failed because this environment's Context7 API key is invalid, so the official Node docs and web references were used instead. Internet issue-resolution references also align: engineers resolve hanging websocket/server tests in practice by explicitly closing the websocket and waiting for its close event, and by awaiting server shutdown after each test rather than relying on process exit. Therefore the correct solution is to fix the unrelated failing flow-loop test or its helper so cleanup happens on the failure path too: wrap the test body in `try/finally` or move the runtime cleanup into `t.after(...)` / `afterEach(...)`, await `waitForRuntimeCleanup(...)` and memory cleanup even when `waitForEvent(...)` times out, and only use forced websocket termination in test support if graceful close still leaves the connection open. This fits the current repo state because nearby passing stop tests in the same file already use `waitForRuntimeCleanup(...)`, and the repo’s earlier hang fixes preferred awaited cleanup over bypassing the full wrapper. Rejected alternatives: marking Task 2 testing complete from targeted OpenAI-only tests would be dishonest because the plan explicitly requires the full wrapper; simply increasing the wrapper timeout is only a temporary workaround because the log already shows a specific unrelated failing test rather than a merely slow suite; and splitting or re-ordering Task 2 would hide the real shared-suite blocker instead of fixing the underlying async cleanup problem.
+- Story repair: narrowed Task 2’s testing gate to task-local targeted wrapper proof and inserted the new Task 3 prerequisite below so the unrelated full-suite baseline problem is fixed explicitly before later implementation and validation tasks depend on `npm run test:summary:server:unit` again.
 - Add implementation notes here after each completed subtask and testing step.
 
 ---
 
-### 3. Server - Add Defensive Blank-Input Guards to the LM Studio Embedding Path
+### 3. Server - Restore Full Server Unit Wrapper Baseline Before Continuing Story Work
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+This prerequisite task restores a trustworthy full `npm run test:summary:server:unit` result before later story tasks depend on that wrapper again. The blocker research proved the problem is an unrelated failing integration test plus failure-path cleanup gap in the server test suite, not the Task 2 OpenAI implementation and not the wrapper protocol itself. Keep this task strictly focused on the server test/runtime baseline and the failing flow-loop test or its shared test helper; do not mix in LM Studio, ingest-status, or Chat product behavior changes here.
+
+#### Documentation Locations
+
+- [scripts/test-summary-server-unit.mjs](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/scripts/test-summary-server-unit.mjs)
+- [scripts/summary-wrapper-protocol.mjs](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/scripts/summary-wrapper-protocol.mjs)
+- [server/src/test/integration/flows.run.loop.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.loop.test.ts)
+- [server/src/test/support/wsClient.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/support/wsClient.ts)
+- Story `0000045` node:test hang precedent at [planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md)
+- Node.js test runner docs: `https://nodejs.org/api/test.html`
+- Node.js HTTP server docs: `https://nodejs.org/api/http.html`
+- `ws` README: `https://github.com/websockets/ws/blob/master/README.md`
+- DeepWiki MCP repository `nodejs/node` guidance on extraneous asynchronous activity and teardown
+
+#### Subtasks
+
+Isolation rule for this task: a junior may be assigned only one numbered subtask below. Treat this task's `Overview`, `Documentation Locations`, and any Story `0000046` section references named inside that numbered subtask as mandatory input for that one subtask, even when the wording duplicates information from elsewhere in the story.
+
+1. [ ] Read [scripts/test-summary-server-unit.mjs](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/scripts/test-summary-server-unit.mjs), [scripts/summary-wrapper-protocol.mjs](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/scripts/summary-wrapper-protocol.mjs), [server/src/test/integration/flows.run.loop.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.loop.test.ts), [server/src/test/support/wsClient.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/support/wsClient.ts), and the Task 2 `**BLOCKING ANSWER**`, then reread the Story `0000046` blocker notes so you understand why the full wrapper currently cannot terminate honestly.
+2. [ ] Reproduce the blocker with a targeted wrapper command first: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"`. Purpose: prove the failing file/test is the local cause before changing any cleanup code.
+3. [ ] Update [server/src/test/integration/flows.run.loop.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.loop.test.ts) and/or [server/src/test/support/wsClient.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/support/wsClient.ts) so the failing loop-stop test always performs runtime cleanup, websocket shutdown, and memory cleanup even when the awaited websocket event times out or an assertion fails. Prefer `try/finally`, `t.after(...)`, or other awaited teardown paths that match the repo’s existing test style; do not “fix” this by only increasing timeouts.
+4. [ ] Keep the fix local to the test or shared test helper. Do not change product runtime behavior, websocket protocol behavior, or flow stop semantics just to make the test suite exit.
+5. [ ] If the helper or cleanup pattern changes, apply the same proven cleanup style to any directly related stop-boundary tests in [server/src/test/integration/flows.run.loop.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.loop.test.ts) only where the current code would otherwise leak runtime state on failure. Keep this scoped to the same file unless a second failing file proves the helper itself is the real boundary.
+6. [ ] Update Story `0000046` task notes with the exact failing test name, the cleanup change made, the file paths touched, and why timeout-only workarounds were rejected so later tasks can rely on the restored wrapper baseline honestly.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server test files and possibly shared server-test helpers. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` - Use because this is the narrowest honest proof that the blocker file/test now terminates correctly. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`) and keep diagnosis scoped to this same file until the blocker is gone.
+3. [ ] `npm run test:summary:server:unit` - Use because this task is only complete when the full server unit wrapper reaches a real final pass/fail result again instead of hanging in heartbeats. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands and rerun full `npm run test:summary:server:unit` after each fix.
+
+#### Implementation notes
+
+- This prerequisite task was inserted after Task 2 because the old Task 2 testing gate depended on a full server-unit baseline that the repo does not currently have. Its only job is to restore that baseline honestly before later implementation and validation tasks rely on the same wrapper again.
+- Add implementation notes here after each completed subtask and testing step.
+
+---
+
+### 4. Server - Add Defensive Blank-Input Guards to the LM Studio Embedding Path
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
@@ -557,7 +606,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 4. [ ] Add a `node:test` unit test in `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` that passes whitespace-only input into `embedText(...)` and asserts the same blank-input error is returned. Purpose: prove the LM Studio path trims input rather than only checking raw string length.
 5. [ ] Add a `node:test` unit test in `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` that spies on retry/model calls and asserts blank rejection happens before any retry attempt or `model.embed(...)` invocation. Purpose: prove the defensive guard stays ahead of the LM Studio retry/logging boundary.
 6. [ ] Update Story `0000046` task notes with the exact LM Studio provider entry point, file path, and error family used so the later ingest tasks can reuse the same contract wording without having to rediscover it.
-7. [ ] Add one product-owned verification log line around the LM Studio defensive guard path, using the exact prefix `DEV-0000046:T3:lmstudio-blank-input-guard-hit`, in the existing LM Studio provider logging boundary so it records provider, model, raw input classification, and the fact that retry/model calls were skipped. Purpose: give the manual Playwright validation step one concrete server event to confirm when the LM Studio guard is hit.
+7. [ ] Add one product-owned verification log line around the LM Studio defensive guard path, using the exact prefix `DEV-0000046:T4:lmstudio-blank-input-guard-hit`, in the existing LM Studio provider logging boundary so it records provider, model, raw input classification, and the fact that retry/model calls were skipped. Purpose: give the manual Playwright validation step one concrete server event to confirm when the LM Studio guard is hit.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
@@ -567,7 +616,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 2. [ ] `npm run test:summary:server:unit` - Use because this task changes server LM Studio provider behavior and nearby `node:test` coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
 3. [ ] `npm run compose:build:summary` - Use because this task is manually testable through the app UI. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: trigger the ingest path that would send blank text toward LM Studio, confirm the browser debug console has no logged errors, and confirm the server logs contain `DEV-0000046:T3:lmstudio-blank-input-guard-hit` with the expected provider/model fields and a skipped-retry outcome.
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: trigger the ingest path that would send blank text toward LM Studio, confirm the browser debug console has no logged errors, and confirm the server logs contain `DEV-0000046:T4:lmstudio-blank-input-guard-hit` with the expected provider/model fields and a skipped-retry outcome.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -576,7 +625,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 
 ---
 
-### 4. Server - Fail Fresh Ingest Cleanly When Filtering Leaves Zero Embeddable Chunks
+### 5. Server - Fail Fresh Ingest Cleanly When Filtering Leaves Zero Embeddable Chunks
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
@@ -609,7 +658,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 10. [ ] Add a `node:test` unit test in `server/src/test/unit/ingest-reembed.test.ts` that covers a deletions-only delta re-embed and asserts the existing no-op success semantics remain unchanged. Purpose: prove the fresh-ingest failure rule is not accidentally applied to deletions-only re-embed runs.
 11. [ ] Update `design.md` with the final fresh-ingest versus re-embed lifecycle for this task and add or adjust the relevant Mermaid flow so the blank-only fresh-ingest failure path and preserved re-embed no-op paths are both documented. Purpose: keep the architecture and ingest flow documentation aligned with the implemented server behavior.
 12. [ ] Update Story `0000046` task notes with the exact fresh-ingest versus re-embed rule implemented, including the file paths changed in `server/src/ingest/ingestJob.ts`, `server/src/ingest/deltaPlan.ts`, and `design.md`, so later documentation work can quote one final rule.
-13. [ ] Add one product-owned verification log line around the fresh-ingest zero-embeddable failure branch, using the exact prefix `DEV-0000046:T4:fresh-ingest-zero-embeddable`, in the existing ingest job logging path so it records run id, root, discovered file count, embedded count `0`, and the reused `NO_ELIGIBLE_FILES` style failure outcome. Purpose: give the manual Playwright validation step one concrete server event to confirm the new failure branch ran instead of the old skipped-success path.
+13. [ ] Add one product-owned verification log line around the fresh-ingest zero-embeddable failure branch, using the exact prefix `DEV-0000046:T5:fresh-ingest-zero-embeddable`, in the existing ingest job logging path so it records run id, root, discovered file count, embedded count `0`, and the reused `NO_ELIGIBLE_FILES` style failure outcome. Purpose: give the manual Playwright validation step one concrete server event to confirm the new failure branch ran instead of the old skipped-success path.
 14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
@@ -619,7 +668,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 2. [ ] `npm run test:summary:server:unit` - Use because this task changes server ingest completion/failure behavior and nearby `node:test` coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
 3. [ ] `npm run compose:build:summary` - Use because this task is manually testable through the app UI. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: trigger a blank-only fresh ingest, confirm the browser debug console has no logged errors, confirm the UI shows the reused no-eligible-files style failure outcome, and confirm the server logs contain `DEV-0000046:T4:fresh-ingest-zero-embeddable` with discovered files present and embedded count `0`.
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: trigger a blank-only fresh ingest, confirm the browser debug console has no logged errors, confirm the UI shows the reused no-eligible-files style failure outcome, and confirm the server logs contain `DEV-0000046:T5:fresh-ingest-zero-embeddable` with discovered files present and embedded count `0`.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -628,7 +677,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 
 ---
 
-### 5. Server - Lock Down The Websocket Cancellation Contract Before Chat UI Changes
+### 6. Server - Lock Down The Websocket Cancellation Contract Before Chat UI Changes
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
@@ -657,7 +706,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 6. [ ] Keep this task server-focused: do not change `client/src/pages/ChatPage.tsx` or any client interaction code here. The output of this task should be a locked-down server contract and regression coverage that the later Chat tasks can rely on.
 7. [ ] Update `design.md` with the final websocket cancellation flow for this task and add or adjust the relevant Mermaid sequence diagram so it clearly shows `unsubscribe_conversation` as navigation-only and `cancel_inflight` as the only stop path. Purpose: keep the documented chat-control architecture aligned with the locked-down server contract.
 8. [ ] Update Story `0000046` task notes with the exact server-side cancellation contract confirmed in `server/src/ws/types.ts`, `server/src/ws/server.ts`, `server/src/test/features/chat_cancellation.feature`, and `design.md` so the later Chat tasks can quote one final rule.
-9. [ ] Add two product-owned verification log lines in the existing websocket server logging path: `DEV-0000046:T5:unsubscribe-navigation-only` when `unsubscribe_conversation` is processed without a stop side effect, and `DEV-0000046:T5:cancel-explicit-stop` when `cancel_inflight` becomes the real stop path. Purpose: give the manual Playwright validation step concrete server events to distinguish navigation from explicit cancellation.
+9. [ ] Add two product-owned verification log lines in the existing websocket server logging path: `DEV-0000046:T6:unsubscribe-navigation-only` when `unsubscribe_conversation` is processed without a stop side effect, and `DEV-0000046:T6:cancel-explicit-stop` when `cancel_inflight` becomes the real stop path. Purpose: give the manual Playwright validation step concrete server events to distinguish navigation from explicit cancellation.
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
@@ -668,7 +717,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 3. [ ] `npm run test:summary:server:cucumber` - Use because this task adds or updates server Cucumber contract coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 4. [ ] `npm run compose:build:summary` - Use because this task is manually testable through Chat in the app UI. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: switch conversations or otherwise trigger unsubscribe-style navigation and confirm the browser debug console has no logged errors, confirm the server logs contain `DEV-0000046:T5:unsubscribe-navigation-only` with no stop-side-effect fields, then press explicit Stop and confirm the server logs contain `DEV-0000046:T5:cancel-explicit-stop` for the real cancellation path.
+6. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: switch conversations or otherwise trigger unsubscribe-style navigation and confirm the browser debug console has no logged errors, confirm the server logs contain `DEV-0000046:T6:unsubscribe-navigation-only` with no stop-side-effect fields, then press explicit Stop and confirm the server logs contain `DEV-0000046:T6:cancel-explicit-stop` for the real cancellation path.
 7. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -677,7 +726,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 
 ---
 
-### 6. Client - Conversation Sidebar Selection Becomes Pure Navigation
+### 7. Client - Conversation Sidebar Selection Becomes Pure Navigation
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
@@ -705,7 +754,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 5. [ ] Add a client page regression test in `client/src/test/chatPage.provider.conversationSelection.test.tsx` that selects another conversation during an active run and asserts the newly visible conversation shows only its own transcript and UI state. Purpose: prove selection does not leak sending or stopping state from the hidden conversation.
 6. [ ] Update `design.md` with the final sidebar-selection flow for this task and add or adjust the relevant Mermaid diagram so it shows conversation selection as local navigation rather than implicit cancellation. Purpose: keep the documented chat interaction flow aligned with the implemented behavior.
 7. [ ] Update Story `0000046` task notes with the exact Chat sidebar call site changed in `client/src/pages/ChatPage.tsx`, the matching `design.md` update, and any local UI-state reset rule clarified during implementation so the later Chat tasks can reuse the same wording.
-8. [ ] Add one product-owned client-side verification log line in the existing sidebar-selection path, using the exact prefix `DEV-0000046:T6:sidebar-selection-navigation`, so it records the previous and next conversation ids plus `cancelSent: false` when Chat switches visible conversations without stopping the hidden run. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm sidebar selection stayed navigation-only.
+8. [ ] Add one product-owned client-side verification log line in the existing sidebar-selection path, using the exact prefix `DEV-0000046:T7:sidebar-selection-navigation`, so it records the previous and next conversation ids plus `cancelSent: false` when Chat switches visible conversations without stopping the hidden run. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm sidebar selection stayed navigation-only.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
@@ -715,7 +764,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 2. [ ] `npm run test:summary:client` - Use because this task changes client Chat navigation behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify sidebar selection switches the visible conversation without implicitly stopping the hidden run, confirm the newly visible conversation shows only its own transcript/state, confirm the browser debug console has no logged errors, confirm the console contains `DEV-0000046:T6:sidebar-selection-navigation` with `cancelSent: false` and the expected previous/next conversation ids, and take at least one screenshot that clearly shows the visible conversation state after navigation. Save the screenshot under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using the story/task number in the filename, and have the agent review that screenshot to confirm the GUI matches this task’s expected post-navigation state.
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify sidebar selection switches the visible conversation without implicitly stopping the hidden run, confirm the newly visible conversation shows only its own transcript/state, confirm the browser debug console has no logged errors, confirm the console contains `DEV-0000046:T7:sidebar-selection-navigation` with `cancelSent: false` and the expected previous/next conversation ids, and take at least one screenshot that clearly shows the visible conversation state after navigation. Save the screenshot under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using the story/task number in the filename, and have the agent review that screenshot to confirm the GUI matches this task’s expected post-navigation state.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -724,7 +773,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 
 ---
 
-### 7. Client - New Conversation Becomes a Local Draft Reset, Not a Stop Action
+### 8. Client - New Conversation Becomes a Local Draft Reset, Not a Stop Action
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
@@ -754,7 +803,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 7. [ ] Add or update a client page regression test in `client/src/test/chatPage.stop.test.tsx` only if the `handleNewConversation(...)` refactor touches shared stop logic, and assert the explicit Stop button still sends the stop path correctly. Purpose: prove this task does not regress the explicit cancellation contract.
 8. [ ] Update `design.md` with the final `New conversation` flow for this task and add or adjust the relevant Mermaid diagram so it shows draft reset without cancelling the older run. Purpose: keep the documented chat flow aligned with the implemented background-run behavior.
 9. [ ] Update Story `0000046` task notes with the exact local draft reset rules implemented for `New conversation`, including the `client/src/pages/ChatPage.tsx` function name, the `client/src/hooks/useChatStream.ts` helper reused, and the matching `design.md` update.
-10. [ ] Add one product-owned client-side verification log line in the existing New conversation path, using the exact prefix `DEV-0000046:T7:new-conversation-local-reset`, so it records whether an older conversation remained inflight plus `cancelSent: false` when the clean draft view opens. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm the action stayed a local reset.
+10. [ ] Add one product-owned client-side verification log line in the existing New conversation path, using the exact prefix `DEV-0000046:T8:new-conversation-local-reset`, so it records whether an older conversation remained inflight plus `cancelSent: false` when the clean draft view opens. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm the action stayed a local reset.
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
@@ -764,7 +813,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 2. [ ] `npm run test:summary:client` - Use because this task changes client Chat new-conversation/reset behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify `New conversation` opens a clean draft without cancelling the older run, confirm the composer remains interactive, confirm explicit Stop still behaves correctly when used, confirm the browser debug console has no logged errors, confirm the console contains `DEV-0000046:T7:new-conversation-local-reset` with `cancelSent: false` and a flag showing the older conversation remained inflight when applicable, and take at least one screenshot that clearly shows the clean draft view and interactive composer state. Save the screenshot under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using the story/task number in the filename, and have the agent review that screenshot to confirm the GUI matches this task’s expected reset state.
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify `New conversation` opens a clean draft without cancelling the older run, confirm the composer remains interactive, confirm explicit Stop still behaves correctly when used, confirm the browser debug console has no logged errors, confirm the console contains `DEV-0000046:T8:new-conversation-local-reset` with `cancelSent: false` and a flag showing the older conversation remained inflight when applicable, and take at least one screenshot that clearly shows the clean draft view and interactive composer state. Save the screenshot under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using the story/task number in the filename, and have the agent review that screenshot to confirm the GUI matches this task’s expected reset state.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -773,7 +822,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 
 ---
 
-### 8. Client - Provider Changes Apply Only to the Next Send
+### 9. Client - Provider Changes Apply Only to the Next Send
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
@@ -809,7 +858,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 12. [ ] Add a client page regression test in `client/src/test/chatPage.inflightNavigate.test.tsx` that revisits the older hidden conversation after a provider change and asserts it still shows its own persisted provider state rather than the newer next-send selection. Purpose: prove hidden-run provider metadata is not mutated by draft-state changes.
 13. [ ] Update `design.md` with the final provider-switch flow for this task and add or adjust the relevant Mermaid diagram so it shows provider changes affecting only the next send while hidden runs preserve their original provider. Purpose: keep the documented chat-state architecture aligned with the implemented provider behavior.
 14. [ ] Update Story `0000046` task notes with the exact provider persistence and synchronization rule implemented, including the `handleProviderChange(...)` call site, the `selectedConversation` sync effect, the final `providerLocked` behavior, the preserved Codex-defaults behavior in `client/src/pages/ChatPage.tsx`, and the matching `design.md` update.
-15. [ ] Add one product-owned client-side verification log line in the existing provider-change path, using the exact prefix `DEV-0000046:T8:provider-next-send-updated`, so it records previous provider, next provider, the active conversation id, and `cancelSent: false` when the next-send provider changes during an active hidden run. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm provider switching stayed next-send-only.
+15. [ ] Add one product-owned client-side verification log line in the existing provider-change path, using the exact prefix `DEV-0000046:T9:provider-next-send-updated`, so it records previous provider, next provider, the active conversation id, and `cancelSent: false` when the next-send provider changes during an active hidden run. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm provider switching stayed next-send-only.
 16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
@@ -819,7 +868,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 2. [ ] `npm run test:summary:client` - Use because this task changes client provider-selection behavior and nearby Jest coverage. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify provider changes do not implicitly stop the hidden run, verify the provider selector remains usable for the next-send view, verify the next prompt uses the newly chosen provider, confirm the browser debug console has no logged errors, confirm the console contains `DEV-0000046:T8:provider-next-send-updated` with the expected previous/next provider values and `cancelSent: false`, and take at least one screenshot that clearly shows the provider selector state and next-send view after the change. Save the screenshot under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using the story/task number in the filename, and have the agent review that screenshot to confirm the GUI matches this task’s expected provider-selection state.
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify provider changes do not implicitly stop the hidden run, verify the provider selector remains usable for the next-send view, verify the next prompt uses the newly chosen provider, confirm the browser debug console has no logged errors, confirm the console contains `DEV-0000046:T9:provider-next-send-updated` with the expected previous/next provider values and `cancelSent: false`, and take at least one screenshot that clearly shows the provider selector state and next-send view after the change. Save the screenshot under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using the story/task number in the filename, and have the agent review that screenshot to confirm the GUI matches this task’s expected provider-selection state.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -828,7 +877,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 
 ---
 
-### 9. Client - Model Changes Apply Only to the Next Send
+### 10. Client - Model Changes Apply Only to the Next Send
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
@@ -863,7 +912,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 11. [ ] Add a client page regression test in `client/src/test/chatPage.inflightNavigate.test.tsx` that revisits the older hidden conversation after a model change and asserts it still shows its own persisted model state rather than the newer next-send selection. Purpose: prove hidden-run model metadata is not mutated by draft-state changes.
 12. [ ] Update `design.md` with the final model-switch flow for this task and add or adjust the relevant Mermaid diagram so it shows model changes affecting only the next send while hidden runs preserve their original model and reasoning state. Purpose: keep the documented chat-state architecture aligned with the implemented model behavior.
 13. [ ] Update Story `0000046` task notes with the exact model persistence and synchronization rule implemented, including the `selectedConversation` model sync effect, the `setSelected(...)` call site, the preserved Codex reasoning-capability behavior, the next-send-only behavior in `client/src/pages/ChatPage.tsx`, and the matching `design.md` update.
-14. [ ] Add one product-owned client-side verification log line in the existing model-change path, using the exact prefix `DEV-0000046:T9:model-next-send-updated`, so it records previous model, next model, the active conversation id, and `cancelSent: false` when the next-send model changes during an active hidden run. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm model switching stayed next-send-only.
+14. [ ] Add one product-owned client-side verification log line in the existing model-change path, using the exact prefix `DEV-0000046:T10:model-next-send-updated`, so it records previous model, next model, the active conversation id, and `cancelSent: false` when the next-send model changes during an active hidden run. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm model switching stayed next-send-only.
 15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
@@ -873,7 +922,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 2. [ ] `npm run test:summary:client` - Use because this task changes client model-selection behavior and nearby Jest coverage. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify model changes do not implicitly stop the hidden run, verify the next prompt uses the newly chosen model, verify model-specific reasoning/default behavior remains correct, confirm the browser debug console has no logged errors, confirm the console contains `DEV-0000046:T9:model-next-send-updated` with the expected previous/next model values and `cancelSent: false`, and take at least one screenshot that clearly shows the model selector state and the visible next-send view after the change. Save the screenshot under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using the story/task number in the filename, and have the agent review that screenshot to confirm the GUI matches this task’s expected model-selection state.
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify model changes do not implicitly stop the hidden run, verify the next prompt uses the newly chosen model, verify model-specific reasoning/default behavior remains correct, confirm the browser debug console has no logged errors, confirm the console contains `DEV-0000046:T10:model-next-send-updated` with the expected previous/next model values and `cancelSent: false`, and take at least one screenshot that clearly shows the model selector state and the visible next-send view after the change. Save the screenshot under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using the story/task number in the filename, and have the agent review that screenshot to confirm the GUI matches this task’s expected model-selection state.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -882,14 +931,14 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 
 ---
 
-### 10. Client - Prevent Hidden-Run Late Events From Corrupting The Visible Conversation
+### 11. Client - Prevent Hidden-Run Late Events From Corrupting The Visible Conversation
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
 
 #### Overview
 
-This task locks down the first hidden-run failure mode that appears after Tasks 6-9 remove implicit cancellation: a background conversation can still finish later, but its late websocket events must not leak banners, assistant content, or stopping state into whichever conversation is currently visible. This task is only about visible-state isolation from late events. It is not the task that proves revisiting a hidden conversation later still rehydrates correctly; that proof is split into the next task so each task stays smaller and independently testable.
+This task locks down the first hidden-run failure mode that appears after Tasks 7-10 remove implicit cancellation: a background conversation can still finish later, but its late websocket events must not leak banners, assistant content, or stopping state into whichever conversation is currently visible. This task is only about visible-state isolation from late events. It is not the task that proves revisiting a hidden conversation later still rehydrates correctly; that proof is split into the next task so each task stays smaller and independently testable.
 
 #### Documentation Locations
 
@@ -917,7 +966,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 9. [ ] Keep this task focused on late-event isolation only. Do not add `/conversations/:id/turns` rehydration changes, a new active-run endpoint, or new snapshot merge behavior here; that work belongs to the next task so the proof paths stay small and clear.
 10. [ ] Update `design.md` with the final hidden-run late-event isolation flow for this task and add or adjust the relevant Mermaid diagram so it shows stale websocket events being ignored for the visible conversation. Purpose: keep the documented background-run event flow aligned with the implemented client behavior.
 11. [ ] Update Story `0000046` task notes with any additional conversation-isolation rule or websocket mismatch case discovered while implementing this task, including the exact hooks/tests changed and the matching `design.md` update so later documentation work does not need to rediscover them.
-12. [ ] Add one product-owned client-side verification log line in the existing late-event ignore path, using the exact prefix `DEV-0000046:T10:hidden-run-event-ignored`, so it records event type, hidden conversation id, visible conversation id, and the reason the event was ignored. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm hidden-run late events were isolated instead of rendered.
+12. [ ] Add one product-owned client-side verification log line in the existing late-event ignore path, using the exact prefix `DEV-0000046:T11:hidden-run-event-ignored`, so it records event type, hidden conversation id, visible conversation id, and the reason the event was ignored. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm hidden-run late events were isolated instead of rendered.
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
@@ -927,7 +976,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 2. [ ] `npm run test:summary:client` - Use because this task changes client hidden-run event handling and nearby Jest coverage. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
 3. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify late events from a hidden conversation do not corrupt the visible conversation, verify no leaked stopping/completed UI appears in the wrong thread, confirm the browser debug console has no logged errors, confirm the console contains `DEV-0000046:T10:hidden-run-event-ignored` with the expected hidden/visible conversation ids and ignored event type, and take at least one screenshot that clearly shows the visible conversation stayed unchanged after the hidden-run event. Save the screenshot under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using the story/task number in the filename, and have the agent review that screenshot to confirm the GUI matches this task’s expected event-isolation state.
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify late events from a hidden conversation do not corrupt the visible conversation, verify no leaked stopping/completed UI appears in the wrong thread, confirm the browser debug console has no logged errors, confirm the console contains `DEV-0000046:T11:hidden-run-event-ignored` with the expected hidden/visible conversation ids and ignored event type, and take at least one screenshot that clearly shows the visible conversation stayed unchanged after the hidden-run event. Save the screenshot under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using the story/task number in the filename, and have the agent review that screenshot to confirm the GUI matches this task’s expected event-isolation state.
 6. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -936,14 +985,14 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 
 ---
 
-### 11. Client - Reuse Existing Hidden-Run Rehydration When Revisiting Conversations
+### 12. Client - Reuse Existing Hidden-Run Rehydration When Revisiting Conversations
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
 
 #### Overview
 
-This task locks down the second hidden-run failure mode: after a conversation keeps running in the background, revisiting it later must reuse the existing turns snapshot and inflight rehydration path so the user sees the right transcript and any still-active inflight state. This task is only about rehydration and snapshot proof. It must not re-open the late-event isolation work from Task 10 unless a snapshot change truly requires it.
+This task locks down the second hidden-run failure mode: after a conversation keeps running in the background, revisiting it later must reuse the existing turns snapshot and inflight rehydration path so the user sees the right transcript and any still-active inflight state. This task is only about rehydration and snapshot proof. It must not re-open the late-event isolation work from Task 11 unless a snapshot change truly requires it.
 
 #### Documentation Locations
 
@@ -968,7 +1017,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 8. [ ] Keep this task rehydration-focused: do not add new websocket message types, new browser caches, or extra server feature files as part of this proof path.
 9. [ ] Update `design.md` with the final hidden-run rehydration flow for this task and add or adjust the relevant Mermaid diagram so it shows `/conversations/:id/turns` inflight snapshot reuse for running versus completed conversations. Purpose: keep the documented snapshot/rehydration architecture aligned with the implemented behavior.
 10. [ ] Update Story `0000046` task notes with the exact rehydration rule confirmed by `server/src/routes/conversations.ts`, `client/src/hooks/useConversationTurns.ts`, the snapshot tests, and `design.md` so later documentation work can quote one final rule.
-11. [ ] Add one product-owned client-side verification log line in the existing hidden-run rehydration path, using the exact prefix `DEV-0000046:T11:hidden-run-rehydrated`, so it records conversation id, whether an inflight snapshot was present, and whether the visible draft state was replaced by persisted transcript plus snapshot data. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm rehydration succeeded through the intended path.
+11. [ ] Add one product-owned client-side verification log line in the existing hidden-run rehydration path, using the exact prefix `DEV-0000046:T12:hidden-run-rehydrated`, so it records conversation id, whether an inflight snapshot was present, and whether the visible draft state was replaced by persisted transcript plus snapshot data. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm rehydration succeeded through the intended path.
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
@@ -980,7 +1029,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 4. [ ] `npm run test:summary:client` - Use because client/common rehydration behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
 5. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 6. [ ] `npm run compose:up`
-7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: revisit a hidden running conversation and confirm transcript plus inflight state rehydrate correctly, revisit a completed conversation and confirm no stale running-state UI remains, confirm the browser debug console has no logged errors, confirm the console contains `DEV-0000046:T11:hidden-run-rehydrated` with the expected conversation id plus `hasInflightSnapshot: true` or `false` depending on the scenario, and take screenshots for both the running and completed revisit states. Save the screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using the story/task number in the filenames, and have the agent review those screenshots to confirm the GUI matches this task’s expected rehydration states.
+7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: revisit a hidden running conversation and confirm transcript plus inflight state rehydrate correctly, revisit a completed conversation and confirm no stale running-state UI remains, confirm the browser debug console has no logged errors, confirm the console contains `DEV-0000046:T12:hidden-run-rehydrated` with the expected conversation id plus `hasInflightSnapshot: true` or `false` depending on the scenario, and take screenshots for both the running and completed revisit states. Save the screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using the story/task number in the filenames, and have the agent review those screenshots to confirm the GUI matches this task’s expected rehydration states.
 8. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -989,7 +1038,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 
 ---
 
-### 12. Final Task - Update Shared Documentation
+### 13. Final Task - Update Shared Documentation
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
@@ -1014,7 +1063,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-Wrapper-only rule: this task is documentation-only, so do not attempt to run raw build/test commands here. Rely on the wrapper-based validation in the implementation tasks and the full regression coverage in Task 14.
+Wrapper-only rule: this task is documentation-only, so do not attempt to run raw build/test commands here. Rely on the wrapper-based validation in the implementation tasks and the full regression coverage in Task 15.
 
 #### Implementation notes
 
@@ -1022,7 +1071,7 @@ Wrapper-only rule: this task is documentation-only, so do not attempt to run raw
 
 ---
 
-### 13. Final Task - Prepare PR Notes
+### 14. Final Task - Prepare PR Notes
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
@@ -1039,14 +1088,14 @@ This task is summary-only. It turns the completed implementation notes into one 
 
 Isolation rule for this task: a junior may be assigned only one numbered subtask below. Treat this task's `Overview`, `Documentation Locations`, and any Story `0000046` section references named inside that numbered subtask as mandatory input for that one subtask, even when the wording duplicates information from elsewhere in the story.
 
-1. [ ] Review the finished implementation notes from Tasks 1-12 and Story `0000046` `### Acceptance Criteria` so the summary reflects only completed, verified behavior. Use GitHub Markdown formatting guidance `https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax` so the final PR-ready summary reads like a normal repository summary rather than raw task notes.
+1. [ ] Review the finished implementation notes from Tasks 1-13 and Story `0000046` `### Acceptance Criteria` so the summary reflects only completed, verified behavior. Use GitHub Markdown formatting guidance `https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax` so the final PR-ready summary reads like a normal repository summary rather than raw task notes.
 2. [ ] Create a pull-request-ready summary covering the ingest boundary fix, the defensive provider guards, the Chat navigation/reset behavior change, the reused contracts, and the added regression coverage, using the exact task notes recorded in Story `0000046` so the summary does not omit a completed behavior.
 3. [ ] Include the key proof points in that summary: which existing contracts were reused, which tests were extended instead of added as new harnesses, and which acceptance criteria were validated by targeted versus full-suite runs.
 4. [ ] Update Story `0000046` task notes with the location of the final PR-ready summary or the exact wording source used, so later release-note work can reuse it without re-reading every task.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-Wrapper-only rule: this task is summary-only, so do not attempt to run raw build/test commands here. Rely on the wrapper-based validation in the implementation tasks and the full regression coverage in Task 14.
+Wrapper-only rule: this task is summary-only, so do not attempt to run raw build/test commands here. Rely on the wrapper-based validation in the implementation tasks and the full regression coverage in Task 15.
 
 #### Implementation notes
 
@@ -1054,7 +1103,7 @@ Wrapper-only rule: this task is summary-only, so do not attempt to run raw build
 
 ---
 
-### 14. Final Task - Run Full Validation for Story Completion
+### 15. Final Task - Run Full Validation for Story Completion
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
@@ -1079,7 +1128,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 2. [ ] Run the full wrapper-based build, test, and e2e commands from the Story `0000046` Testing section after all code and documentation work is complete, and compare failures back to the task/file paths already recorded in the story if anything breaks.
 3. [ ] Use the Playwright MCP/browser tooling to manually verify the two core behaviors documented in Story `0000046` `### Acceptance Criteria`: the ingest blank-input failure path and the Chat navigation/no-implicit-cancel behavior. Save screenshots under `test-results/screenshots/` using the story index and task number in each filename so the evidence is easy to trace back later.
 4. [ ] Record any final validation notes or residual risks back into Story `0000046`, including the wrapper command used and the acceptance criterion it validates, so the completion state is auditable even if a later reader only opens the final task notes.
-5. [ ] During final validation, check and record the task-specific verification log lines from Tasks 1-11 so the story notes show exactly which runtime signals were seen: `DEV-0000046:T1:blank-chunks-filtered`, `DEV-0000046:T2:openai-blank-input-guard-hit`, `DEV-0000046:T3:lmstudio-blank-input-guard-hit`, `DEV-0000046:T4:fresh-ingest-zero-embeddable`, `DEV-0000046:T5:unsubscribe-navigation-only`, `DEV-0000046:T5:cancel-explicit-stop`, `DEV-0000046:T6:sidebar-selection-navigation`, `DEV-0000046:T7:new-conversation-local-reset`, `DEV-0000046:T8:provider-next-send-updated`, `DEV-0000046:T9:model-next-send-updated`, `DEV-0000046:T10:hidden-run-event-ignored`, and `DEV-0000046:T11:hidden-run-rehydrated`. Purpose: make the final regression pass auditable against the exact runtime events this story introduced.
+5. [ ] During final validation, check and record the task-specific verification log lines from Tasks 1-12 where applicable so the story notes show exactly which runtime signals were seen. Task 3 is the server-wrapper baseline repair task and does not introduce a new product verification log, so the expected runtime signals are `DEV-0000046:T1:blank-chunks-filtered`, `DEV-0000046:T2:openai-blank-input-guard-hit`, `DEV-0000046:T4:lmstudio-blank-input-guard-hit`, `DEV-0000046:T5:fresh-ingest-zero-embeddable`, `DEV-0000046:T6:unsubscribe-navigation-only`, `DEV-0000046:T6:cancel-explicit-stop`, `DEV-0000046:T7:sidebar-selection-navigation`, `DEV-0000046:T8:new-conversation-local-reset`, `DEV-0000046:T9:provider-next-send-updated`, `DEV-0000046:T10:model-next-send-updated`, `DEV-0000046:T11:hidden-run-event-ignored`, and `DEV-0000046:T12:hidden-run-rehydrated`. Purpose: make the final regression pass auditable against the exact runtime events this story introduced.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
@@ -1094,7 +1143,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
 7. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify the ingest blank-input failure path, verify Chat sidebar selection/New conversation/provider/model changes do not implicitly cancel a hidden run, verify revisiting hidden conversations rehydrates correctly, verify general regression coverage around Stop still works, confirm the browser debug console has no logged errors, confirm the expected task-specific verification log lines from Tasks 1-11 appear with the outcomes described in those tasks when their flows are exercised, and take screenshots for every acceptance criterion that can be confirmed in the GUI. Save all screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using the story/task number in each filename, and have the agent review those screenshots as part of the final acceptance check to confirm the GUI matches the story’s expected states.
+9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify the ingest blank-input failure path, verify Chat sidebar selection/New conversation/provider/model changes do not implicitly cancel a hidden run, verify revisiting hidden conversations rehydrates correctly, verify general regression coverage around Stop still works, confirm the browser debug console has no logged errors, confirm the expected task-specific verification log lines from Tasks 1-12 appear with the outcomes described in those tasks when their flows are exercised, excluding Task 3 because it is a harness-baseline repair task with no product runtime log, and take screenshots for every acceptance criterion that can be confirmed in the GUI. Save all screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using the story/task number in each filename, and have the agent review those screenshots as part of the final acceptance check to confirm the GUI matches the story’s expected states.
 10. [ ] `npm run compose:down`
 
 #### Implementation notes

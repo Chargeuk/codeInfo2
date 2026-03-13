@@ -788,14 +788,14 @@ This task isolates model switching during an active run. The selected model shou
 
 ---
 
-### 10. Client - Preserve Visible Conversation Isolation While Hidden Runs Continue
+### 10. Client - Prevent Hidden-Run Late Events From Corrupting The Visible Conversation
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
 
 #### Overview
 
-This task locks down the failure mode that appears after Tasks 6-9 remove implicit cancellation and split next-send selection from in-flight state: hidden conversations can still finish in the background, but their late websocket events must not leak banners, assistant content, or stopping state into whichever conversation is currently visible. This task should focus on state-isolation and regression coverage only.
+This task locks down the first hidden-run failure mode that appears after Tasks 6-9 remove implicit cancellation: a background conversation can still finish later, but its late websocket events must not leak banners, assistant content, or stopping state into whichever conversation is currently visible. This task is only about visible-state isolation from late events. It is not the task that proves revisiting a hidden conversation later still rehydrates correctly; that proof is split into the next task so each task stays smaller and independently testable.
 
 #### Documentation Locations
 
@@ -808,14 +808,13 @@ This task locks down the failure mode that appears after Tasks 6-9 remove implic
 
 #### Subtasks
 
-1. [ ] Read `client/src/hooks/useChatStream.ts`, `client/src/hooks/useConversationTurns.ts`, `client/src/pages/ChatPage.tsx`, `server/src/routes/conversations.ts`, `client/src/test/useChatStream.inflightMismatch.test.tsx`, `client/src/test/chatPage.inflightNavigate.test.tsx`, `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`, `client/src/test/useConversationTurns.refresh.test.ts`, and the existing chat cancellation feature files, then reread Story `0000046` `## Research Findings` items 3-4 and `## Edge Cases and Failure Modes` items 10-12 before editing.
+1. [ ] Read `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`, `client/src/test/useChatStream.inflightMismatch.test.tsx`, `client/src/test/chatPage.inflightNavigate.test.tsx`, and the existing chat cancellation feature files, then reread Story `0000046` `## Research Findings` items 3-4 and `## Edge Cases and Failure Modes` items 10-12 before editing.
 2. [ ] Adjust local Chat state handling only if needed in `client/src/hooks/useChatStream.ts` and `client/src/pages/ChatPage.tsx` so the visible conversation or new draft clears inherited sending/stopping indicators when another conversation is still running in the background, matching Story `0000046` `### Acceptance Criteria` lines about not leaking hidden-run UI state. Keep the existing client transport split intact: `client/src/hooks/useChatWs.ts` already uses the browser `WebSocket` API while `server/src/ws/server.ts` already uses `ws` with `WebSocketServer({ noServer: true })`, so do not add a second websocket abstraction while fixing this state leak.
-3. [ ] Reuse the existing `/conversations/:id/turns` inflight snapshot from `server/src/routes/conversations.ts` and the `useConversationTurns.ts` hydration path when proving that a hidden run can be revisited later; do not add a new active-run endpoint, a new response flag, or a new hidden-conversation client cache for this story. Prefer extending the existing rehydration regressions in `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx` and `client/src/test/useConversationTurns.refresh.test.ts` before inventing a second proof path.
-4. [ ] Extend `client/src/test/useChatStream.inflightMismatch.test.tsx` and/or `client/src/test/chatPage.inflightNavigate.test.tsx` first so they prove the exact Story `0000046` `### Acceptance Criteria` for hidden runs: late websocket events from a hidden conversation do not render stop banners, stopped state, or assistant content in the visible conversation.
-5. [ ] Reuse `server/src/test/integration/conversations.turns.test.ts` for the server-side hidden-run rehydration proof documented in Story `0000046` `## Research Findings` item 4, and reuse the existing client-side snapshot regressions in `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx` and `client/src/test/useConversationTurns.refresh.test.ts`, instead of creating a second server-side path or a new client cache for the same behavior.
-6. [ ] Extend additional server-side feature coverage only if Task 5 and this task still leave a real contract gap after the client and turns-snapshot coverage are updated; if you do add it, it must stay inside the existing `server/src/test/features/chat_cancellation.feature` path rather than creating a new websocket feature file.
-7. [ ] Update Story `0000046` task notes with any additional conversation-isolation rule, hydration rule, or websocket mismatch case discovered while implementing this task, including the exact hooks/tests changed so later documentation work does not need to rediscover them.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+3. [ ] Reuse the existing conversation-mismatch and inflight-mismatch guards already present in `client/src/hooks/useChatStream.ts` as the primary late-event isolation mechanism; do not add a new hidden-conversation client cache, a second websocket message filter, or a new page-level event queue for this story.
+4. [ ] Extend `client/src/test/useChatStream.inflightMismatch.test.tsx` and/or `client/src/test/chatPage.inflightNavigate.test.tsx` first so they prove the exact Story `0000046` `### Acceptance Criteria` for visible-state isolation: late websocket events from a hidden conversation do not render stop banners, stopped state, or assistant content in the visible conversation.
+5. [ ] Keep this task focused on late-event isolation only. Do not add `/conversations/:id/turns` rehydration changes, a new active-run endpoint, or new snapshot merge behavior here; that work belongs to the next task so the proof paths stay small and clear.
+6. [ ] Update Story `0000046` task notes with any additional conversation-isolation rule or websocket mismatch case discovered while implementing this task, including the exact hooks/tests changed so later documentation work does not need to rediscover them.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 
@@ -825,10 +824,7 @@ This task locks down the failure mode that appears after Tasks 6-9 remove implic
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
 6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.inflightNavigate.test.tsx`
-7. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
-8. [ ] `npm run test:summary:client -- --file client/src/test/useConversationTurns.refresh.test.ts`
-9. [ ] `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_cancellation.feature`
-10. [ ] `npm run compose:down`
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -836,18 +832,62 @@ This task locks down the failure mode that appears after Tasks 6-9 remove implic
 
 ---
 
-### 11. Final Task - Update Story Documentation and PR Notes
+### 11. Client - Reuse Existing Hidden-Run Rehydration When Revisiting Conversations
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
 
 #### Overview
 
-This task is documentation-only. It updates the shared written material after implementation is complete and records the PR-ready summary while the exact behavior is still fresh. Keep this task focused on README/design/structure/story documentation and the final written summary, not on running the full validation suite.
+This task locks down the second hidden-run failure mode: after a conversation keeps running in the background, revisiting it later must reuse the existing turns snapshot and inflight rehydration path so the user sees the right transcript and any still-active inflight state. This task is only about rehydration and snapshot proof. It must not re-open the late-event isolation work from Task 10 unless a snapshot change truly requires it.
 
 #### Documentation Locations
 
-- GitHub Markdown docs: `https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax` — use this for README and PR-summary formatting conventions.
+- React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this for how visible state should be reset and then rehydrated when returning to a conversation.
+- React docs: `https://react.dev/learn/synchronizing-with-effects` — use this for the existing fetch/rehydration effect model rather than inventing a second synchronization path.
+- React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for snapshot-rehydration page regressions.
+- MDN WebSocket reference: `https://developer.mozilla.org/en-US/docs/Web/API/WebSocket` — use this only for general message timing expectations around revisiting a still-running conversation.
+
+#### Subtasks
+
+1. [ ] Read `client/src/hooks/useConversationTurns.ts`, `client/src/pages/ChatPage.tsx`, `server/src/routes/conversations.ts`, `server/src/test/integration/conversations.turns.test.ts`, `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`, and `client/src/test/useConversationTurns.refresh.test.ts`, then reread Story `0000046` `## Research Findings` item 4 and `## Contracts And Storage Shapes` items 2-3 before editing.
+2. [ ] Reuse the existing `/conversations/:id/turns` inflight snapshot from `server/src/routes/conversations.ts` and the `useConversationTurns.ts` hydration path when proving that a hidden run can be revisited later; do not add a new active-run endpoint, a new response flag, or a new hidden-conversation client cache for this story.
+3. [ ] Adjust client snapshot merge or server turns-snapshot logic only if needed so revisiting a hidden conversation shows its own persisted transcript plus its current inflight snapshot again, without mutating the visible draft or another conversation's state.
+4. [ ] Extend `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx` and `client/src/test/useConversationTurns.refresh.test.ts` first so they prove the exact Story `0000046` `### Acceptance Criteria` for hidden-run rehydration: returning to the older conversation shows its own transcript and inflight state instead of the next-send selections or UI state from another conversation.
+5. [ ] Extend `server/src/test/integration/conversations.turns.test.ts` so the server-side proof path for hidden-run rehydration stays tied to the existing turns route instead of drifting into a second server endpoint or route contract.
+6. [ ] Keep this task rehydration-focused: do not add new websocket message types, new browser caches, or extra server feature files as part of this proof path.
+7. [ ] Update Story `0000046` task notes with the exact rehydration rule confirmed by `server/src/routes/conversations.ts`, `client/src/hooks/useConversationTurns.ts`, and the snapshot tests so later documentation work can quote one final rule.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
+6. [ ] `npm run test:summary:client -- --file client/src/test/useConversationTurns.refresh.test.ts`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Add implementation notes here after each completed subtask and testing step.
+
+---
+
+### 12. Final Task - Update Shared Documentation
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+This task is documentation-only. It updates the shared written material after implementation is complete so the repository docs describe the final ingest and Chat behavior accurately. Keep this task focused on README/design/structure/story documentation only, not on pull-request notes or the full validation suite.
+
+#### Documentation Locations
+
+- GitHub Markdown docs: `https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax` — use this for README and repository-markdown formatting conventions.
 - Mermaid docs: `https://mermaid.js.org/intro/` — use this for any diagram text or flow updates in `design.md`.
 
 #### Subtasks
@@ -856,8 +896,7 @@ This task is documentation-only. It updates the shared written material after im
 2. [ ] Ensure `README.md` documents any user-visible behavior change or operator-facing command change introduced by this story, especially the blank-embedding-input failure rule and the Chat rule that navigation is not cancellation from Story `0000046` `### Description`.
 3. [ ] Ensure `design.md` describes the final shared-boundary rules for blank embeddable text and “navigation is not cancellation,” including any diagram or flow text that would otherwise be misleading when compared to Story `0000046` `## Research Findings`.
 4. [ ] Ensure `projectStructure.md` lists any added, removed, or repurposed files touched by this story, using the file paths recorded in the earlier task implementation notes so a reader can find the changed code quickly.
-5. [ ] Create a pull-request-ready summary covering the ingest boundary fix, the defensive provider guards, the Chat navigation/reset behavior change, the reused contracts, and the added regression coverage, using the exact task notes recorded in Story `0000046` so the summary does not omit a completed behavior.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
 
 #### Testing
 
@@ -870,7 +909,39 @@ This task is documentation-only. It updates the shared written material after im
 
 ---
 
-### 12. Final Task - Run Full Validation for Story Completion
+### 13. Final Task - Prepare PR Notes
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+This task is summary-only. It turns the completed implementation notes into one PR-ready summary while the exact behavior is still fresh. Keep this task focused on the final change summary and evidence references, not on editing shared product docs or running the full validation suite.
+
+#### Documentation Locations
+
+- GitHub Markdown docs: `https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax` — use this for the final summary formatting conventions.
+
+#### Subtasks
+
+1. [ ] Review the finished implementation notes from Tasks 1-12 and Story `0000046` `### Acceptance Criteria` so the summary reflects only completed, verified behavior.
+2. [ ] Create a pull-request-ready summary covering the ingest boundary fix, the defensive provider guards, the Chat navigation/reset behavior change, the reused contracts, and the added regression coverage, using the exact task notes recorded in Story `0000046` so the summary does not omit a completed behavior.
+3. [ ] Include the key proof points in that summary: which existing contracts were reused, which tests were extended instead of added as new harnesses, and which acceptance criteria were validated by targeted versus full-suite runs.
+4. [ ] Update Story `0000046` task notes with the location of the final PR-ready summary or the exact wording source used, so later release-note work can reuse it without re-reading every task.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` if this task edits any tracked markdown files; if not, record in the implementation notes that no format-sensitive repository files changed during this summary task.
+
+#### Testing
+
+1. [ ] `npm run lint --workspaces` if markdown files were edited
+2. [ ] `npm run format:check --workspaces` if markdown files were edited
+
+#### Implementation notes
+
+- Add implementation notes here after each completed subtask and testing step.
+
+---
+
+### 14. Final Task - Run Full Validation for Story Completion
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`

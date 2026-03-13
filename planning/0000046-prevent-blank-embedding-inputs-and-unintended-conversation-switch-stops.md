@@ -392,3 +392,356 @@ Story 0000046 does not require any brand-new websocket message types, REST paylo
 1. Question addressed: should the explicit-stop-only rule cover only sidebar selection, or also Chat "New conversation" and provider-change flows? Why this matters: this story is about fixing implicit cancellation at the Chat UI boundary, and leaving closely related Chat reset/navigation actions with different rules would preserve the same user-visible bug in adjacent paths. Decision: apply the explicit-stop-only rule to all three Chat actions in this story: sidebar selection, Chat "New conversation", and provider-change flows. Source and rationale: repository research shows Agents and Flows already treat conversation switching and reset-style actions as local view changes without `cancel_inflight`, while Chat is the outlier; Story 0000038 and Story 0000019 establish that navigation should not cancel background work, and React guidance distinguishes local UI state/reset from explicit cleanup of external effects. This is the best answer because it is the smallest change that aligns Chat with the existing product pattern instead of inventing a new special-case rule just for one Chat control.
 2. Question addressed: if blank or whitespace-only content leaves an ingest with zero embeddable chunks, should that be a clear failure or a successful zero-embedding run? Why this matters: the story needs one stable contract for blank-only content, but it should not accidentally redesign existing re-embed semantics from Story 0000020. Decision: for fresh ingest, reuse the existing clear product-owned "no eligible files" failure path when blank filtering leaves zero embeddable chunks; for delta re-embed, keep the existing no-change and deletions-only skipped/completed semantics unchanged. Source and rationale: repository research found `server/src/ingest/ingestJob.ts` already treats fresh zero-eligible ingest as `NO_ELIGIBLE_FILES`, while Story 0000020 deliberately treats no-change and deletions-only re-embed outcomes as terminal no-op success; OpenAI's embeddings API requires non-empty input, and external issue reports show empty embedding requests cause whole indexing runs to fail in practice. This is the best answer because it follows established contracts, keeps the story scoped, and avoids inventing a misleading "successful zero-embedding ingest" result.
 3. Question addressed: if the defensive provider-layer blank-input guard is hit after shared filtering should already have prevented it, should the system hard-fail or silently skip and continue? Why this matters: this guard exists to catch an upstream invariant breach, and silently continuing would hide the bug and make counts, ordering, and troubleshooting less trustworthy. Decision: treat the guard as a hard ingest failure with a clear product-owned error; do not silently skip the offending input and continue. Source and rationale: repository research shows the codebase consistently fails fast on invariant violations in flows, commands, chat validation, markdown resolution, and explicit websocket target mismatches rather than silently converting bad state into success; OpenAI's API and external embedding bug reports also confirm that empty-input requests are real failure conditions, not benign warnings. This is the best answer because it preserves observability, matches existing validation patterns, and keeps the defensive guard honest instead of masking a pipeline bug.
+
+# Tasks
+
+### 1. Server - Filter Blank Chunks Before Any Embedding Call
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+This task isolates the first shared ingest boundary: `chunkText()`. Its job is to make sure blank or whitespace-only pieces never leave the chunker and that surviving chunks keep deterministic sequential indexes. Nothing in this task should change provider behavior or final ingest status handling yet; it should only fix what the chunker returns and prove that with focused unit coverage.
+
+#### Documentation Locations
+
+- Story `0000046` sections: `### Description`, `### Acceptance Criteria`, `## Research Findings`, `## Edge Cases and Failure Modes`
+- `server/src/ingest/chunker.ts`
+- `server/src/ingest/types.ts`
+- `server/src/test/unit/chunker.test.ts`
+- OpenAI embeddings API reference: input cannot be an empty string
+
+#### Subtasks
+
+1. [ ] Read `server/src/ingest/chunker.ts`, `server/src/ingest/types.ts`, and `server/src/test/unit/chunker.test.ts` before editing so you understand how pieces, slices, and `chunkIndex` are created today.
+2. [ ] Update `server/src/ingest/chunker.ts` so whitespace-only pieces from `splitOnBoundaries()` are removed before they become `Chunk` objects.
+3. [ ] Update `server/src/ingest/chunker.ts` so whitespace-only slices from `sliceToFit()` are removed before they become `Chunk` objects.
+4. [ ] Ensure `chunkIndex` is reassigned sequentially after all filtering is complete so returned chunks always use `0..n-1` with no gaps.
+5. [ ] Extend `server/src/test/unit/chunker.test.ts` with all of the following: empty string input, whitespace-only input, leading blank lines before the first boundary, a whitespace-only slice path, and sequential `chunkIndex` assertions after filtering.
+6. [ ] Update Story `0000046` task notes with any new chunking detail discovered while implementing this task so later tasks do not need to rediscover the same boundary rules.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chunker.test.ts`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Add implementation notes here after each completed subtask and testing step.
+
+---
+
+### 2. Server - Add Defensive Blank-Input Guards to Embedding Providers
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+This task adds the defensive provider-layer blank-input checks for OpenAI and LM Studio. The main story fix remains in the shared chunker, but this task ensures that if a blank input ever slips through later, the providers fail with an existing product-owned error shape instead of sending invalid requests downstream. Keep this task focused on provider entry validation only.
+
+#### Documentation Locations
+
+- Story `0000046` sections: `### Acceptance Criteria`, `## Contracts And Storage Shapes`, `## Edge Cases and Failure Modes`
+- `server/src/ingest/providers/openaiGuardrails.ts`
+- `server/src/ingest/providers/openaiEmbeddingProvider.ts`
+- `server/src/ingest/providers/lmstudioEmbeddingProvider.ts`
+- `server/src/ingest/providers/openaiErrors.ts`
+- Existing server provider tests under `server/src/test/unit/`
+- OpenAI embeddings API reference and the `openai/openai-node` repository error-handling guidance
+
+#### Subtasks
+
+1. [ ] Read `server/src/ingest/providers/openaiGuardrails.ts`, `server/src/ingest/providers/openaiEmbeddingProvider.ts`, `server/src/ingest/providers/lmstudioEmbeddingProvider.ts`, and the nearby provider tests before editing.
+2. [ ] Update the OpenAI guardrail path so any input whose trimmed text length is zero fails before `client.embeddings.create(...)` is called, using the existing OpenAI error family rather than inventing a new top-level error shape.
+3. [ ] Update the LM Studio embedding path so any input whose trimmed text length is zero fails before `model.embed(...)` is called, using the existing LM Studio normalized error family rather than inventing a new top-level error shape.
+4. [ ] Extend the most relevant existing provider unit tests so OpenAI and LM Studio both reject blank defensive inputs with the story’s existing product-owned error semantics.
+5. [ ] Update Story `0000046` task notes with the exact provider entry points and error families used so later tasks can reuse the same contract wording.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --test-name "blank input|OpenAI|LM Studio|guardrail"`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Add implementation notes here after each completed subtask and testing step.
+
+---
+
+### 3. Server - Fail Fresh Ingest Cleanly When Filtering Leaves Zero Embeddable Chunks
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+This task handles the second server-side ingest boundary: what happens after chunk filtering when the run discovered files but ended with zero embeddable chunks. It must reuse the existing `NO_ELIGIBLE_FILES` style failure path for fresh ingest, preserve Story `0000020` delta re-embed semantics, and prevent a failed blank-only fresh ingest from looking partially successful in persisted ingest data.
+
+#### Documentation Locations
+
+- Story `0000046` sections: `### Description`, `### Acceptance Criteria`, `## Research Findings`, `## Contracts And Storage Shapes`, `## Edge Cases and Failure Modes`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/deltaPlan.ts`
+- `server/src/test/unit/ingest-start.test.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
+- Story `0000020-ingest-delta-reembed-and-ingest-page-ux.md`
+
+#### Subtasks
+
+1. [ ] Read `server/src/ingest/ingestJob.ts`, `server/src/ingest/deltaPlan.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts` before editing so you understand the current fresh-ingest and delta re-embed completion paths.
+2. [ ] Update `server/src/ingest/ingestJob.ts` so a fresh ingest that discovered files but ended with zero embeddable chunks fails with the existing `NO_ELIGIBLE_FILES` style error contract.
+3. [ ] Ensure that fresh-ingest zero-embeddable failure happens before a completed root summary is written, and that the failed run does not leave misleading completed-state persistence behind.
+4. [ ] Preserve Story `0000020` behavior for re-embed no-change and deletions-only flows; do not force the fresh-ingest failure rule onto every re-embed run.
+5. [ ] Extend the most relevant server tests so fresh blank-only ingest failure and delta re-embed blank-only/deletions-only behavior are both covered.
+6. [ ] Update Story `0000046` task notes with the exact fresh-ingest versus re-embed behavior that was implemented so later documentation work can quote one final rule.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --test-name "NO_ELIGIBLE_FILES|reembed|delta|blank"`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Add implementation notes here after each completed subtask and testing step.
+
+---
+
+### 4. Client - Conversation Sidebar Selection Becomes Pure Navigation
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+This task handles only the Chat sidebar selection path. The goal is to make selecting another conversation behave like navigation: no implicit `cancel_inflight`, no stop state leaking into the newly selected view, and no change to the explicit Stop button contract. Keep this task focused on sidebar selection only, not New conversation or provider/model changes.
+
+#### Documentation Locations
+
+- Story `0000046` sections: `### Description`, `### Acceptance Criteria`, `## Edge Cases and Failure Modes`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/hooks/useChatStream.ts`
+- `client/src/hooks/useChatWs.ts`
+- `client/src/test/chatSidebar.test.tsx`
+- `client/src/test/agentsPage.conversationSelection.test.tsx`
+- `server/src/ws/types.ts`
+
+#### Subtasks
+
+1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`, `client/src/test/chatSidebar.test.tsx`, and `client/src/test/agentsPage.conversationSelection.test.tsx` before editing so you understand the current selection and websocket patterns.
+2. [ ] Update the Chat sidebar selection path in `client/src/pages/ChatPage.tsx` so choosing another conversation no longer sends `cancelInflight(...)`.
+3. [ ] Preserve the existing local view reset/rehydration behavior so the newly selected conversation shows its own transcript and does not inherit sending or stopping UI state from the hidden conversation.
+4. [ ] Extend or add a focused Chat sidebar test proving that selection no longer sends `cancel_inflight` and that the newly visible conversation shows only its own state.
+5. [ ] Update Story `0000046` task notes with the exact Chat sidebar call site changed and any local UI-state reset rule clarified during implementation.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:client -- --file client/src/test/chatSidebar.test.tsx`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Add implementation notes here after each completed subtask and testing step.
+
+---
+
+### 5. Client - New Conversation Becomes a Local Draft Reset, Not a Stop Action
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+This task isolates the `New conversation` control. The required output is a clean new draft view with normal composer/send readiness while the old conversation keeps running in the background unless the user explicitly presses Stop. This task should not change provider/model switching; it is only about the New conversation control.
+
+#### Documentation Locations
+
+- Story `0000046` sections: `### Description`, `### Acceptance Criteria`, `## Edge Cases and Failure Modes`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/hooks/useChatStream.ts`
+- `client/src/test/chatPage.newConversation.test.tsx`
+- `client/src/test/chatPage.inflightNavigate.test.tsx`
+- `client/src/test/chatPage.stop.test.tsx`
+
+#### Subtasks
+
+1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`, `client/src/test/chatPage.newConversation.test.tsx`, `client/src/test/chatPage.inflightNavigate.test.tsx`, and `client/src/test/chatPage.stop.test.tsx` before editing.
+2. [ ] Update the `handleNewConversation(...)` path so it no longer sends `cancelInflight(...)` when another conversation is active.
+3. [ ] Preserve the local reset behavior so the new conversation opens with an empty transcript placeholder, a cleared input, and normal composer/send readiness for the next user message.
+4. [ ] Extend `client/src/test/chatPage.newConversation.test.tsx` so it now proves the opposite of the old contract: no `cancel_inflight` is sent, the old run can continue server-side, and the new draft view is locally interactive.
+5. [ ] Keep the explicit Stop button behavior unchanged by updating or cross-checking `client/src/test/chatPage.stop.test.tsx` only if the New conversation refactor changes shared UI code.
+6. [ ] Update Story `0000046` task notes with the exact local draft reset rules implemented for `New conversation`.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.newConversation.test.tsx`
+6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stop.test.tsx`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Add implementation notes here after each completed subtask and testing step.
+
+---
+
+### 6. Client - Provider and Model Changes Apply Only to the Next Send
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+This task isolates provider/model switching during an active run. The selected provider/model should change only for the next message the user sends, while the already-running request continues with the provider/model it started with. Keep this task focused on the provider/model-change path only.
+
+#### Documentation Locations
+
+- Story `0000046` sections: `### Description`, `### Acceptance Criteria`, `## Contracts And Storage Shapes`, `## Edge Cases and Failure Modes`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/hooks/useChatModel.ts`
+- `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+- `client/src/test/chatPage.models.test.tsx`
+- `client/src/test/chatPage.stop.test.tsx`
+
+#### Subtasks
+
+1. [ ] Read `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatPage.models.test.tsx` before editing so you understand the current provider/model selection flow.
+2. [ ] Update the provider/model change path so an active run is not cancelled when the user changes provider or model.
+3. [ ] Ensure the newly selected provider/model affects only the next send and does not mutate the provider/model already associated with the in-flight request.
+4. [ ] Extend the most relevant Chat provider/model tests so they prove no `cancel_inflight` is sent during an active run and that the next send uses the new selection.
+5. [ ] Update Story `0000046` task notes with the exact provider/model persistence rule implemented for in-flight and next-send behavior.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.provider.conversationSelection.test.tsx`
+6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.models.test.tsx`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Add implementation notes here after each completed subtask and testing step.
+
+---
+
+### 7. Client - Preserve Visible Conversation Isolation While Hidden Runs Continue
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+This task locks down the failure mode that appears after Tasks 4-6 remove implicit cancellation: hidden conversations can still finish in the background, but their late websocket events must not leak banners, assistant content, or stopping state into whichever conversation is currently visible. This task should focus on state-isolation and regression coverage only.
+
+#### Documentation Locations
+
+- Story `0000046` sections: `### Acceptance Criteria`, `## Research Findings`, `## Edge Cases and Failure Modes`
+- `client/src/hooks/useChatStream.ts`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/test/useChatStream.inflightMismatch.test.tsx`
+- `client/src/test/chatPage.inflightNavigate.test.tsx`
+- `server/src/test/features/chat_cancellation.feature`
+- `server/src/test/steps/chat_cancellation.steps.ts`
+
+#### Subtasks
+
+1. [ ] Read `client/src/hooks/useChatStream.ts`, `client/src/pages/ChatPage.tsx`, `client/src/test/useChatStream.inflightMismatch.test.tsx`, `client/src/test/chatPage.inflightNavigate.test.tsx`, and the existing chat cancellation feature files before editing.
+2. [ ] Adjust local Chat state handling only if needed so the visible conversation or new draft clears inherited sending/stopping indicators when another conversation is still running in the background.
+3. [ ] Extend client regression coverage to prove that late websocket events from a hidden conversation do not render stop banners, stopped state, or assistant content in the visible conversation.
+4. [ ] Extend server-side feature coverage only if needed to prove that navigation/reset actions leave the server-side run active until an explicit `cancel_inflight` arrives.
+5. [ ] Update Story `0000046` task notes with any additional conversation-isolation rule or websocket mismatch case discovered while implementing this task.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
+6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.inflightNavigate.test.tsx`
+7. [ ] `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_cancellation.feature`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Add implementation notes here after each completed subtask and testing step.
+
+---
+
+### 8. Final Task - Validate Story Completion and Documentation
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+This final task proves the story end to end against the acceptance criteria. It must run the full wrapper-based builds and tests, confirm the product still behaves correctly in docker, update shared documentation, and record a PR-ready summary. It is also responsible for checking that the story notes still explain how Story `0000046` relates to Story `0000043` and Story `0000020`.
+
+#### Documentation Locations
+
+- `README.md`
+- `design.md`
+- `projectStructure.md`
+- Story `0000046`
+- Story `0000020-ingest-delta-reembed-and-ingest-page-ux.md`
+- Story `0000043-stop-any-point-cancellation.md`
+- Docker/Compose documentation
+- Playwright documentation
+- Jest documentation
+- Cucumber guides
+
+#### Subtasks
+
+1. [ ] Review every acceptance criterion in Story `0000046` and confirm each earlier task changed the right files and added the right regression coverage.
+2. [ ] Ensure `README.md` documents any user-visible behavior change or operator-facing command change introduced by this story.
+3. [ ] Ensure `design.md` describes the final shared-boundary rules for blank embeddable text and “navigation is not cancellation,” including any diagram or flow text that would otherwise be misleading.
+4. [ ] Ensure `projectStructure.md` lists any added, removed, or repurposed files touched by this story.
+5. [ ] Create a pull-request-ready summary covering the ingest boundary fix, the defensive provider guard, the Chat navigation/reset behavior change, the reused contracts, and the added regression coverage.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit`
+6. [ ] `npm run test:summary:client`
+7. [ ] `npm run test:summary:server:cucumber`
+8. [ ] `npm run test:summary:e2e`
+9. [ ] Use the Playwright MCP/browser tooling to manually verify the ingest blank-input failure path and the Chat navigation/no-implicit-cancel behavior, saving screenshots under `test-results/screenshots/` using the story index and task number in each filename.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Add implementation notes here after each completed subtask and testing step.

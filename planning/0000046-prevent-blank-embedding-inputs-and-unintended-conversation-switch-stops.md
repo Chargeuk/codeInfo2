@@ -1184,7 +1184,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 
 ### 13. Final Task - Update Shared Documentation
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -1201,10 +1201,10 @@ This task is documentation-only. It updates the shared written material after im
 
 Isolation rule for this task: a junior may be assigned only one numbered subtask below. Treat this task's `Overview`, `Documentation Locations`, and any Story `0000046` section references named inside that numbered subtask as mandatory input for that one subtask, even when the wording duplicates information from elsewhere in the story.
 
-1. [ ] Review and update `README.md` at the repository root so it documents any user-visible behavior change or operator-facing command change introduced by this story, especially the blank-embedding-input failure rule and the Chat rule that navigation is not cancellation from Story `0000046` `### Description`. Purpose: keep the primary reader/operator documentation aligned with the implemented product behavior.
-2. [ ] Review and update `design.md` at the repository root so it describes the final shared-boundary rules for blank embeddable text and “navigation is not cancellation,” including any Mermaid diagram or flow text that would otherwise be misleading when compared to Story `0000046` `## Research Findings`. Purpose: keep the architecture and flow documentation aligned with the implemented system behavior.
-3. [ ] Review and update `projectStructure.md` at the repository root so it lists any added, removed, or repurposed files touched by this story, using the file paths recorded in the earlier task implementation notes so a reader can find the changed code quickly. Purpose: keep the file-layout documentation aligned with the final implementation footprint.
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Review and update `README.md` at the repository root so it documents any user-visible behavior change or operator-facing command change introduced by this story, especially the blank-embedding-input failure rule and the Chat rule that navigation is not cancellation from Story `0000046` `### Description`. Purpose: keep the primary reader/operator documentation aligned with the implemented product behavior.
+2. [x] Review and update `design.md` at the repository root so it describes the final shared-boundary rules for blank embeddable text and “navigation is not cancellation,” including any Mermaid diagram or flow text that would otherwise be misleading when compared to Story `0000046` `## Research Findings`. Purpose: keep the architecture and flow documentation aligned with the implemented system behavior.
+3. [x] Review and update `projectStructure.md` at the repository root so it lists any added, removed, or repurposed files touched by this story, using the file paths recorded in the earlier task implementation notes so a reader can find the changed code quickly. Purpose: keep the file-layout documentation aligned with the final implementation footprint.
+4. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1213,6 +1213,10 @@ Wrapper-only rule: this task is documentation-only, so do not attempt to run raw
 #### Implementation notes
 
 - Add implementation notes here after each completed subtask and testing step.
+- Updated `README.md` with final Story 46 operator-facing rules for blank-only ingest failure, provider guard boundaries, navigation-without-cancel, explicit Stop ownership, and hidden-conversation rehydration.
+- Added a final `design.md` Story 46 boundary section plus Mermaid flow so the ingest blank-text contract and Chat navigation-versus-cancel contract read as one settled architecture instead of scattered task notes.
+- Added a Story 46 footprint section to `projectStructure.md` that points readers to the exact client, server, test, and planning files modified across Tasks 1-12.
+- `npm run lint --workspaces` completed at the existing 39-warning import-order baseline and `npm run format:check --workspaces` passed cleanly, so no Task 13-specific fixes were needed.
 
 ---
 

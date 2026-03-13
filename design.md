@@ -4194,6 +4194,35 @@ sequenceDiagram
   end
 ```
 
+## Story 0000046 final shared boundaries
+
+- Blank embeddable text is blocked at two layers on purpose:
+  - the shared ingest chunker removes whitespace-only chunks before provider calls;
+  - OpenAI and LM Studio provider entry paths still reject trimmed-empty text as an invariant breach.
+- Fresh ingest now tells the truth when filtering removes every embeddable chunk. The run returns the existing `NO_ELIGIBLE_FILES` failure contract instead of persisting a completed-looking blank ingest summary.
+- Chat navigation and draft-reset actions are local view changes, not stop actions:
+  - sidebar selection,
+  - `New conversation`,
+  - provider changes,
+  - model changes.
+- Explicit `cancel_inflight` remains the only stop request for Chat. `unsubscribe_conversation` stays subscription-only, so hidden runs can continue until completion or a direct Stop.
+- Hidden-run late websocket events are ignored by the existing conversation/inflight mismatch guards, and revisiting a hidden conversation still rehydrates from the existing `/conversations/:id/turns` transcript plus optional inflight snapshot path.
+
+```mermaid
+flowchart TD
+  A[File content enters ingest] --> B{Any non-blank chunks after shared filter?}
+  B -->|No| C[Fail fresh ingest with NO_ELIGIBLE_FILES]
+  B -->|Yes| D[Provider entry guards reject trimmed-empty invariant breaches]
+  D --> E[Persist normal ingest results]
+
+  F[Chat action] --> G{Explicit Stop?}
+  G -->|Yes| H[Send cancel_inflight]
+  G -->|No| I[Switch visible draft locally]
+  I --> J[unsubscribe_conversation only]
+  J --> K[Hidden run continues]
+  K --> L[Later revisit rehydrates transcript plus optional inflight snapshot]
+```
+
 ### Agent tooling (Chroma list + search)
 
 - `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.

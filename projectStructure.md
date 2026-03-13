@@ -1,5 +1,54 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000046 final implementation footprint
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Repurposed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `client/src/hooks/useChatStream.ts`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/pages/IngestPage.tsx`
+- `client/src/test/chatPage.codexDefaults.test.tsx`
+- `client/src/test/chatPage.flags.reasoning.payload.test.tsx`
+- `client/src/test/chatPage.inflightNavigate.test.tsx`
+- `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
+- `client/src/test/chatPage.models.test.tsx`
+- `client/src/test/chatPage.newConversation.test.tsx`
+- `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+- `client/src/test/ingestStatus.test.tsx`
+- `client/src/test/useChatStream.inflightMismatch.test.tsx`
+- `client/src/test/useConversationTurns.refresh.test.ts`
+- `design.md`
+- `planning/0000046-prevent-blank-embedding-inputs-and-unintended-conversation-switch-stops.md`
+- `projectStructure.md`
+- `server/src/ingest/chunker.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/providers/lmstudioEmbeddingProvider.ts`
+- `server/src/ingest/providers/openaiEmbeddingProvider.ts`
+- `server/src/ingest/providers/openaiGuardrails.ts`
+- `server/src/test/features/chat_cancellation.feature`
+- `server/src/test/integration/conversations.turns.test.ts`
+- `server/src/test/steps/chat_cancellation.steps.ts`
+- `server/src/test/unit/chat-interface-run-persistence.test.ts`
+- `server/src/test/unit/chunker.test.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
+- `server/src/test/unit/ingest-start.test.ts`
+- `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`
+- `server/src/test/unit/openai-provider.test.ts`
+- `server/src/ws/server.ts`
+
 ## Story 0000045 final helper and test inventory
 
 Added helper files:

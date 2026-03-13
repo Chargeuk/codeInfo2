@@ -482,7 +482,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 ### 2. Server - Add Defensive Blank-Input Guards to the OpenAI Embedding Path
 
 - Task Status: `__in_progress__`
-- Git Commits: `__to_do__`
+- Git Commits: `a2bdcdac`
 
 #### Overview
 

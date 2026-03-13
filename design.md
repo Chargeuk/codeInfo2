@@ -3985,6 +3985,41 @@ sequenceDiagram
   Note over Server: AbortController.abort(); publish turn_final(status:"stopped")
 ```
 
+## Story 0000046 Task 6: websocket cancellation contract stays explicit before Chat navigation changes
+
+- `cancel_inflight` remains the only client-to-server stop message for chat runs.
+- `unsubscribe_conversation` remains subscription-only: it removes the socket's conversation subscription and does not abort the hidden run.
+- The server contract stays reuse-first for this story:
+  - no new websocket message types,
+  - no new cancel payload fields,
+  - no new unsubscribe-side stop behavior.
+- A targeted late/noop path is still allowed after completion: conversation-only `cancel_inflight` with no active run returns the existing `cancel_ack { result: 'noop' }` shape without emitting a second stop outcome.
+- Task 6 verification markers live in the websocket server path:
+  - `DEV-0000046:T6:unsubscribe-navigation-only`
+  - `DEV-0000046:T6:cancel-explicit-stop`
+
+```mermaid
+sequenceDiagram
+  participant UI as Chat UI
+  participant WS as /ws
+  participant Server as ws/server.ts
+  participant Run as Inflight registry
+
+  alt Navigation only
+    UI->>WS: unsubscribe_conversation(conversationId)
+    WS->>Server: unsubscribe_conversation
+    Server->>Server: remove socket subscription only
+    Server-->>Server: log DEV-0000046:T6:unsubscribe-navigation-only
+    Note over Run: hidden run keeps going
+  else Explicit stop
+    UI->>WS: cancel_inflight(conversationId, inflightId?)
+    WS->>Server: cancel_inflight
+    Server->>Run: abort active inflight or register pending cancel
+    Server-->>Server: log DEV-0000046:T6:cancel-explicit-stop
+    Run-->>UI: turn_final(status:"stopped") or cancel_ack(noop if already complete)
+  end
+```
+
 ### Agent tooling (Chroma list + search)
 
 - `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.

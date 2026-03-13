@@ -511,6 +511,12 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
           conversationId: message.conversationId,
           ws,
         });
+        logPublish('DEV-0000046:T6:unsubscribe-navigation-only', {
+          requestId: message.requestId,
+          connectionId,
+          conversationId: message.conversationId,
+          subscribedConversationCount: subscribedConversationCount(ws),
+        });
         return;
       case 'cancel_inflight': {
         const inflightId = message.inflightId ?? 'none';
@@ -625,6 +631,13 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
             });
             return;
           }
+          logPublish('DEV-0000046:T6:cancel-explicit-stop', {
+            requestId: message.requestId,
+            connectionId,
+            conversationId: message.conversationId,
+            inflightId: message.inflightId,
+            stopPath: 'inflight_target',
+          });
           abortAgentCommandRunForInflight({
             conversationId: message.conversationId,
             inflightId: message.inflightId,
@@ -635,11 +648,24 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
         logAbortRequested();
 
         if (abortAgentCommandRun(message.conversationId)) {
+          logPublish('DEV-0000046:T6:cancel-explicit-stop', {
+            requestId: message.requestId,
+            connectionId,
+            conversationId: message.conversationId,
+            stopPath: 'conversation_only_agent_run',
+          });
           return;
         }
 
         const cancelled = abortInflightByConversation(message.conversationId);
         if (cancelled.ok) {
+          logPublish('DEV-0000046:T6:cancel-explicit-stop', {
+            requestId: message.requestId,
+            connectionId,
+            conversationId: message.conversationId,
+            inflightId: cancelled.inflightId,
+            stopPath: 'conversation_only_inflight',
+          });
           return;
         }
 
@@ -648,6 +674,13 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
           registerPendingConversationCancel({
             conversationId: message.conversationId,
             runToken: ownership.runToken,
+          });
+          logPublish('DEV-0000046:T6:cancel-explicit-stop', {
+            requestId: message.requestId,
+            connectionId,
+            conversationId: message.conversationId,
+            runToken: ownership.runToken,
+            stopPath: 'conversation_only_pending_run',
           });
           return;
         }

@@ -15,18 +15,18 @@ import { createRequestLogger } from '../../logger.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs, type WsServerHandle } from '../../ws/server.js';
 import {
-  closeWs,
-  connectWs,
-  sendJson,
-  waitForEvent,
-} from '../support/wsClient.js';
-import {
   MockLMStudioClient,
   type MockScenario,
   getLastPredictionState,
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
+import {
+  closeWs,
+  connectWs,
+  sendJson,
+  waitForEvent,
+} from '../support/wsClient.js';
 
 type ChatStartResponse = {
   status: 'started';
@@ -42,6 +42,8 @@ type WsEvent = {
   inflightId?: string;
   inflight?: { inflightId?: string };
   status?: string;
+  requestId?: string;
+  result?: string;
 };
 
 let server: Server | null = null;
@@ -57,6 +59,50 @@ async function ensureWs() {
     ws = await connectWs({ baseUrl });
   }
   return ws;
+}
+
+async function startChatRunAndSubscribe() {
+  const userMessage = Array.isArray(chatRequestFixture.messages)
+    ? String(
+        chatRequestFixture.messages.find(
+          (msg) => (msg as { role?: string }).role === 'user',
+        )?.content ?? 'Hello',
+      )
+    : 'Hello';
+
+  const res = await fetch(`${baseUrl}/chat`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      provider:
+        (chatRequestFixture as { provider?: string }).provider ?? 'lmstudio',
+      model: (chatRequestFixture as { model?: string }).model ?? 'model-1',
+      conversationId: 'chat-cancel-fixture',
+      message: userMessage,
+    }),
+  });
+
+  startResponse = (await res.json()) as ChatStartResponse;
+  assert.equal(res.status, 202);
+  assert.ok(startResponse.inflightId);
+
+  const socket = await ensureWs();
+  sendJson(socket, {
+    type: 'subscribe_conversation',
+    conversationId: startResponse.conversationId,
+  });
+
+  await waitForEvent({
+    ws: socket,
+    predicate: (event: unknown): event is WsEvent => {
+      const e = event as WsEvent;
+      return (
+        e?.type === 'inflight_snapshot' &&
+        e.conversationId === startResponse?.conversationId &&
+        e.inflight?.inflightId === startResponse?.inflightId
+      );
+    },
+  });
 }
 
 Before(async () => {
@@ -140,55 +186,20 @@ Given('chat cancellation scenario {string}', (name: string) => {
 When(
   'I start a chat run and unsubscribe from the conversation stream',
   async () => {
-    const controller = new AbortController();
-    const userMessage = Array.isArray(chatRequestFixture.messages)
-      ? String(
-          chatRequestFixture.messages.find(
-            (msg) => (msg as { role?: string }).role === 'user',
-          )?.content ?? 'Hello',
-        )
-      : 'Hello';
-
-    const res = await fetch(`${baseUrl}/chat`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        provider:
-          (chatRequestFixture as { provider?: string }).provider ?? 'lmstudio',
-        model: (chatRequestFixture as { model?: string }).model ?? 'model-1',
-        conversationId: 'chat-cancel-fixture',
-        message: userMessage,
-      }),
-      signal: controller.signal,
-    });
-
-    startResponse = (await res.json()) as ChatStartResponse;
-    assert.equal(res.status, 202);
-    assert.ok(startResponse.inflightId);
-
+    await startChatRunAndSubscribe();
+    assert.ok(startResponse);
     const socket = await ensureWs();
-    sendJson(socket, {
-      type: 'subscribe_conversation',
-      conversationId: startResponse.conversationId,
-    });
-
-    // Wait for the subscription snapshot to prove we're receiving events, then unsubscribe.
-    await waitForEvent({
-      ws: socket,
-      predicate: (event: unknown): event is WsEvent => {
-        const e = event as WsEvent;
-        return (
-          e?.type === 'inflight_snapshot' &&
-          e.conversationId === startResponse?.conversationId &&
-          e.inflight?.inflightId === startResponse?.inflightId
-        );
-      },
-    });
-
     sendJson(socket, {
       type: 'unsubscribe_conversation',
       conversationId: startResponse.conversationId,
     });
+  },
+);
+
+When(
+  'I start a chat run and stay subscribed to the conversation stream',
+  async () => {
+    await startChatRunAndSubscribe();
   },
 );
 
@@ -201,29 +212,51 @@ Then('the chat prediction is not cancelled server side', async () => {
 When('I send cancel_inflight for the active run', async () => {
   assert.ok(startResponse);
   const socket = await ensureWs();
-
-  // Re-subscribe so we can observe the final status.
-  sendJson(socket, {
-    type: 'subscribe_conversation',
-    conversationId: startResponse.conversationId,
-  });
-
-  await waitForEvent({
-    ws: socket,
-    predicate: (event: unknown): event is WsEvent => {
-      const e = event as WsEvent;
-      return (
-        e?.type === 'inflight_snapshot' &&
-        e.conversationId === startResponse?.conversationId &&
-        e.inflight?.inflightId === startResponse?.inflightId
-      );
-    },
-  });
-
   sendJson(socket, {
     type: 'cancel_inflight',
     conversationId: startResponse.conversationId,
     inflightId: startResponse.inflightId,
+  });
+});
+
+When(
+  'I send conversation-only cancel_inflight for the active run',
+  async () => {
+    assert.ok(startResponse);
+    const socket = await ensureWs();
+    sendJson(socket, {
+      type: 'cancel_inflight',
+      conversationId: startResponse.conversationId,
+    });
+  },
+);
+
+When('I wait for the active run to complete normally', async () => {
+  assert.ok(startResponse);
+  const socket = await ensureWs();
+
+  const final = await waitForEvent({
+    ws: socket,
+    predicate: (event: unknown): event is WsEvent => {
+      const e = event as WsEvent;
+      return (
+        e?.type === 'turn_final' &&
+        e.conversationId === startResponse?.conversationId &&
+        e.inflightId === startResponse?.inflightId
+      );
+    },
+    timeoutMs: 4000,
+  });
+
+  assert.equal(final.status, 'ok');
+});
+
+When('I send late cancel_inflight for the completed run', async () => {
+  assert.ok(startResponse);
+  const socket = await ensureWs();
+  sendJson(socket, {
+    type: 'cancel_inflight',
+    conversationId: startResponse.conversationId,
   });
 });
 
@@ -252,3 +285,46 @@ Then(
     assert.strictEqual(state.cancelled, true);
   },
 );
+
+Then(
+  'the late cancel returns cancel_ack and no second terminal event',
+  async () => {
+    assert.ok(startResponse);
+    const socket = await ensureWs();
+
+    const ack = await waitForEvent({
+      ws: socket,
+      predicate: (event: unknown): event is WsEvent => {
+        const e = event as WsEvent;
+        return (
+          e?.type === 'cancel_ack' &&
+          e.conversationId === startResponse?.conversationId &&
+          e.result === 'noop'
+        );
+      },
+      timeoutMs: 4000,
+    });
+
+    assert.equal(ack.conversationId, startResponse.conversationId);
+    assert.equal(ack.result, 'noop');
+
+    await assert.rejects(
+      waitForEvent({
+        ws: socket,
+        predicate: (event: unknown): event is WsEvent => {
+          const e = event as WsEvent;
+          return (
+            e?.type === 'turn_final' &&
+            e.conversationId === startResponse?.conversationId
+          );
+        },
+        timeoutMs: 300,
+      }),
+    );
+  },
+);
+
+Then('the websocket session remains open', async () => {
+  const socket = await ensureWs();
+  assert.equal(socket.readyState, socket.OPEN);
+});

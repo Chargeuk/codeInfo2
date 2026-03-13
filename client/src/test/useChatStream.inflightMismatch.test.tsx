@@ -16,6 +16,195 @@ describe('useChatStream inflight mismatch handling', () => {
       ? message.segments[0].content
       : undefined;
 
+  it('ignores a hidden-conversation assistant delta without changing the visible transcript', async () => {
+    const consoleInfoSpy = jest
+      .spyOn(console, 'info')
+      .mockImplementation(() => {});
+
+    try {
+      const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+      act(() => {
+        result.current.setConversation('visible-c2', { clearMessages: true });
+      });
+
+      act(() =>
+        result.current.handleWsEvent({
+          protocolVersion: 'v1',
+          type: 'user_turn',
+          conversationId: 'visible-c2',
+          seq: 1,
+          inflightId: 'visible-i1',
+          content: 'Visible prompt',
+          createdAt: '2025-01-01T00:00:00.000Z',
+        }),
+      );
+      act(() =>
+        result.current.handleWsEvent({
+          protocolVersion: 'v1',
+          type: 'assistant_delta',
+          conversationId: 'visible-c2',
+          seq: 2,
+          inflightId: 'visible-i1',
+          delta: 'Visible reply',
+        }),
+      );
+
+      await waitFor(() => {
+        const assistantMessages = getAssistantMessages(result);
+        expect(assistantMessages).toHaveLength(1);
+        expect(assistantMessages[0]?.content).toBe('Visible reply');
+      });
+
+      act(() =>
+        result.current.handleWsEvent({
+          protocolVersion: 'v1',
+          type: 'assistant_delta',
+          conversationId: 'hidden-c1',
+          seq: 3,
+          inflightId: 'hidden-i1',
+          delta: 'Hidden late text',
+        }),
+      );
+
+      await waitFor(() => {
+        const assistantMessages = getAssistantMessages(result);
+        expect(assistantMessages).toHaveLength(1);
+        expect(assistantMessages[0]?.content).toBe('Visible reply');
+      });
+
+      expect(consoleInfoSpy).toHaveBeenCalledWith(
+        'DEV-0000046:T11:hidden-run-event-ignored',
+        expect.objectContaining({
+          eventType: 'assistant_delta',
+          hiddenConversationId: 'hidden-c1',
+          visibleConversationId: 'visible-c2',
+          reason: 'conversation_mismatch',
+        }),
+      );
+    } finally {
+      consoleInfoSpy.mockRestore();
+    }
+  });
+
+  it('ignores a hidden-conversation tool event without rendering tool output into the visible conversation', async () => {
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation('visible-c2', { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId: 'visible-c2',
+        seq: 1,
+        inflightId: 'visible-i1',
+        content: 'Visible prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId: 'visible-c2',
+        seq: 2,
+        inflightId: 'visible-i1',
+        delta: 'Visible reply',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.tools ?? []).toEqual([]);
+      expect(assistantMessages[0]?.content).toBe('Visible reply');
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'tool_event',
+        conversationId: 'hidden-c1',
+        seq: 3,
+        inflightId: 'hidden-i1',
+        event: {
+          type: 'tool-result',
+          callId: 'hidden-tool',
+          name: 'vector_search',
+          stage: 'completed',
+          result: { results: [{ repo: 'r', relPath: 'a.ts', chunk: 'x' }] },
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.tools ?? []).toEqual([]);
+      expect(assistantMessages[0]?.content).toBe('Visible reply');
+    });
+  });
+
+  it('ignores a hidden-conversation turn_final without leaking stopped UI into the visible conversation', async () => {
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation('visible-c2', { clearMessages: true });
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId: 'visible-c2',
+        seq: 1,
+        inflightId: 'visible-i1',
+        content: 'Visible prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId: 'visible-c2',
+        seq: 2,
+        inflightId: 'visible-i1',
+        delta: 'Visible reply',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.streamStatus).toBe('processing');
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId: 'hidden-c1',
+        seq: 3,
+        inflightId: 'hidden-i1',
+        status: 'stopped',
+      }),
+    );
+
+    await waitFor(() => {
+      const assistantMessages = getAssistantMessages(result);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.content).toBe('Visible reply');
+      expect(assistantMessages[0]?.streamStatus).toBe('processing');
+      expect(
+        result.current.messages.some((message) => message.kind === 'status'),
+      ).toBe(false);
+    });
+  });
+
   it('keeps the previous assistant bubble content when a stale delta arrives after the next Flow-style user_turn', async () => {
     const conversationId = 'flow-conversation';
 
@@ -2201,6 +2390,81 @@ describe('useChatStream inflight mismatch handling', () => {
       const assistantMessages = getAssistantMessages(result);
       expect(assistantMessages[0]?.streamStatus).toBe('processing');
     });
+  });
+
+  it('ignores a noop cancel_ack outside an explicit stop attempt without changing the visible conversation', async () => {
+    const consoleInfoSpy = jest
+      .spyOn(console, 'info')
+      .mockImplementation(() => {});
+
+    try {
+      const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+      act(() => {
+        result.current.setConversation('visible-c2', { clearMessages: true });
+      });
+
+      act(() =>
+        result.current.handleWsEvent({
+          protocolVersion: 'v1',
+          type: 'user_turn',
+          conversationId: 'visible-c2',
+          seq: 1,
+          inflightId: 'visible-i1',
+          content: 'Visible prompt',
+          createdAt: '2025-01-01T00:00:00.000Z',
+        }),
+      );
+      act(() =>
+        result.current.handleWsEvent({
+          protocolVersion: 'v1',
+          type: 'assistant_delta',
+          conversationId: 'visible-c2',
+          seq: 2,
+          inflightId: 'visible-i1',
+          delta: 'Visible reply',
+        }),
+      );
+
+      await waitFor(() => {
+        const assistantMessages = getAssistantMessages(result);
+        expect(assistantMessages[0]?.content).toBe('Visible reply');
+      });
+
+      act(() =>
+        result.current.handleWsEvent({
+          protocolVersion: 'v1',
+          type: 'cancel_ack',
+          conversationId: 'visible-c2',
+          requestId: 'req-noop-hidden',
+          result: 'noop',
+        } satisfies ChatWsCancelAckEvent),
+      );
+
+      await waitFor(() => {
+        const assistantMessages = getAssistantMessages(result);
+        expect(assistantMessages).toHaveLength(1);
+        expect(assistantMessages[0]?.content).toBe('Visible reply');
+        expect(assistantMessages[0]?.streamStatus).toBe('processing');
+        expect(
+          assistantMessages.some(
+            (message) => message.streamStatus === 'stopped',
+          ),
+        ).toBe(false);
+      });
+
+      expect(consoleInfoSpy).toHaveBeenCalledWith(
+        'DEV-0000046:T11:hidden-run-event-ignored',
+        expect.objectContaining({
+          eventType: 'cancel_ack',
+          hiddenConversationId: 'visible-c2',
+          visibleConversationId: 'visible-c2',
+          reason: 'cancel_ack_without_explicit_stop',
+        }),
+      );
+    } finally {
+      consoleInfoSpy.mockRestore();
+    }
   });
 
   it('does not append an immediate local Generation stopped bubble when the shared stop path is called', async () => {

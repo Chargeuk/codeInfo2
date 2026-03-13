@@ -4137,6 +4137,32 @@ sequenceDiagram
   Note over Hidden: revisiting the hidden conversation rehydrates its stored model
 ```
 
+## Story 0000046 Task 11: hidden-run late websocket events stay isolated from the visible conversation
+
+- Task 11 keeps the existing `client/src/hooks/useChatStream.ts` guard model instead of adding a second cache or websocket filter. Hidden-run late events are ignored in the existing conversation-mismatch and inflight-mismatch branches before they can touch visible transcript, tool, stopping, or terminal UI.
+- The visible draft or selected conversation still clears local sending/stopping indicators through the existing reset/navigation flow from Tasks 7-10. Task 11 only makes those ignore paths explicit and observable; it does not change `/conversations/:id/turns` rehydration or hidden-run snapshot reuse, which remains Task 12.
+- The same isolation rule now covers stale `assistant_delta`, `tool_event`, `turn_final`, `cancel_ack noop`, and `inflight_snapshot` refresh events. Valid active-conversation explicit-stop events still flow normally, so Task 6's explicit-stop contract remains intact.
+- Task 11 verification marker:
+  - `DEV-0000046:T11:hidden-run-event-ignored`
+
+```mermaid
+sequenceDiagram
+  participant Hidden as Hidden conversation run
+  participant WS as WebSocket event
+  participant Stream as useChatStream
+  participant Visible as Visible conversation UI
+
+  Hidden-->>WS: assistant_delta / tool_event / turn_final / inflight_snapshot
+  WS-->>Stream: late event for hidden or stale inflight
+  Stream->>Stream: compare conversationId + inflightId against visible state
+  alt mismatch or stale replay
+    Stream-->>Visible: ignore event, keep transcript + status unchanged
+    Stream->>Visible: log DEV-0000046:T11:hidden-run-event-ignored
+  else active visible run
+    Stream-->>Visible: apply event normally
+  end
+```
+
 ### Agent tooling (Chroma list + search)
 
 - `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.

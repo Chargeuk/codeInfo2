@@ -498,6 +498,130 @@ test('navigating away/back during inflight keeps persisted history + inflight', 
   ).toBeInTheDocument();
 });
 
+test('hidden-conversation inflight snapshots do not overwrite the visible draft after navigation away', async () => {
+  const turnsPayload = {
+    items: [
+      {
+        conversationId: 'c1',
+        role: 'user',
+        content: 'Earlier prompt',
+        model: 'm1',
+        provider: 'lmstudio',
+        toolCalls: null,
+        status: 'ok',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      },
+      {
+        conversationId: 'c1',
+        role: 'assistant',
+        content: 'Earlier reply',
+        model: 'm1',
+        provider: 'lmstudio',
+        toolCalls: null,
+        status: 'ok',
+        createdAt: '2025-01-01T00:00:01.000Z',
+      },
+    ],
+    inflight: {
+      inflightId: 'i1',
+      assistantText: 'Persisted partial',
+      assistantThink: '',
+      toolEvents: [],
+      startedAt: '2025-01-01T00:00:02.000Z',
+      seq: 3,
+    },
+  };
+  const conversationsPayload = {
+    items: [
+      {
+        conversationId: 'c1',
+        title: 'Conversation 1',
+        provider: 'lmstudio',
+        model: 'm1',
+        source: 'REST',
+        lastMessageAt: '2025-01-01T00:00:03.000Z',
+        archived: false,
+      },
+    ],
+    nextCursor: null,
+  };
+
+  const consoleInfoSpy = jest
+    .spyOn(console, 'info')
+    .mockImplementation(() => {});
+
+  try {
+    const harness = setupChatWsHarness({
+      mockFetch,
+      conversations: conversationsPayload,
+      turns: turnsPayload,
+    });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const row = await screen.findByTestId('conversation-row');
+    await waitFor(() => expect(row).toBeEnabled());
+    await user.click(row);
+
+    expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', { name: /new conversation/i }),
+      );
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          /Transcript will appear here once you send a message/i,
+        ),
+      ).toBeInTheDocument(),
+    );
+
+    const visibleConversationId = (
+      window as unknown as { __chatDebug?: { activeConversationId?: string } }
+    ).__chatDebug?.activeConversationId;
+
+    expect(visibleConversationId).toBeTruthy();
+    expect(visibleConversationId).not.toBe('c1');
+
+    await act(async () => {
+      harness.emitInflightSnapshot({
+        conversationId: 'c1',
+        inflightId: 'i1',
+        assistantText: 'Hidden late snapshot',
+      });
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          /Transcript will appear here once you send a message/i,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText('Hidden late snapshot'),
+      ).not.toBeInTheDocument();
+      expect(screen.getByTestId('chat-input')).toBeEnabled();
+    });
+
+    expect(consoleInfoSpy).toHaveBeenCalledWith(
+      'DEV-0000046:T11:hidden-run-event-ignored',
+      expect.objectContaining({
+        eventType: 'inflight_snapshot',
+        hiddenConversationId: 'c1',
+        visibleConversationId,
+        reason: 'conversation_mismatch',
+      }),
+    );
+  } finally {
+    consoleInfoSpy.mockRestore();
+  }
+});
+
 test('provider changes during an active run apply only to the next send', async () => {
   const { chatBodies } = mockProviderNextSendApi();
   const user = userEvent.setup();

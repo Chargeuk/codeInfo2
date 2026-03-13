@@ -4107,6 +4107,36 @@ sequenceDiagram
   Note over Hidden: revisiting the hidden conversation rehydrates its stored provider
 ```
 
+## Story 0000046 Task 10: chat model changes become next-send-only
+
+- Model changes stay in the existing `handleModelChange(...)` event path in `client/src/pages/ChatPage.tsx`; they do not move into a new effect or websocket protocol path.
+- Changing model during an active run now reuses the same local draft reset used by Tasks 8-9, but it does not send `cancelInflight(...)`. The already-running hidden conversation keeps its original model and persisted turn metadata.
+- The page-level `selected` model state from `client/src/hooks/useChatModel.ts` remains the single next-send model source. `client/src/pages/ChatPage.tsx` now syncs model from `selectedConversation` only when the visible conversation context changes, using the current inflight snapshot in the sync key, so an intentional next-send model choice is not overwritten immediately.
+- Codex capability-driven reasoning still hangs off the selected next-send model through `selectedModelCapabilities`, `modelReasoningEffort`, `codexCapabilityStateKeyRef`, and `codexDynamicReasoningStateKeyRef`. That keeps reasoning defaults aligned with the newly selected draft model without mutating the hidden conversation's stored model or flags.
+- Task 10 verification marker:
+  - `DEV-0000046:T10:model-next-send-updated`
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as ChatPage.handleModelChange
+  participant Turns as useConversationTurns
+  participant Stream as useChatStream
+  participant Models as useChatModel
+  participant Hidden as Hidden active run
+
+  User->>UI: Change model select
+  UI->>Turns: resetTurns()
+  UI->>Stream: reset()
+  UI->>Stream: setConversation(newDraftId, clearMessages=true)
+  UI->>Models: setSelected(nextModel)
+  UI-->>UI: log DEV-0000046:T10:model-next-send-updated
+  Hidden-->>Server: continue with original provider/model
+  Models-->>UI: update selectedModelCapabilities for next-send model
+  Note over UI: next prompt uses the newly chosen model and reasoning defaults
+  Note over Hidden: revisiting the hidden conversation rehydrates its stored model
+```
+
 ### Agent tooling (Chroma list + search)
 
 - `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.

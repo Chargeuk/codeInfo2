@@ -809,12 +809,26 @@ export default function ChatPage() {
     selectedModelCapabilities,
   ]);
 
+  const selectedConversationModelSyncKey = selectedConversation
+    ? `${selectedConversation.conversationId}:${selectedConversation.model}:${inflightSnapshot?.inflightId ?? 'no-inflight'}`
+    : null;
+
   useEffect(() => {
     if (!selectedConversation?.model) return;
-    if (models.some((model) => model.key === selectedConversation.model)) {
-      setSelected(selectedConversation.model);
+    if (!models.some((model) => model.key === selectedConversation.model)) {
+      return;
     }
-  }, [models, selectedConversation, setSelected]);
+    setSelected((currentModel) =>
+      currentModel === selectedConversation.model
+        ? currentModel
+        : selectedConversation.model,
+    );
+  }, [
+    models,
+    selectedConversation,
+    selectedConversationModelSyncKey,
+    setSelected,
+  ]);
 
   useEffect(() => {
     stopRef.current = stop;
@@ -884,7 +898,7 @@ export default function ChatPage() {
   };
 
   const handleNewConversation = (options?: {
-    reason?: 'provider-change' | 'new-conversation';
+    reason?: 'provider-change' | 'new-conversation' | 'model-change';
     nextProvider?: string;
   }) => {
     const resetReason = options?.reason ?? 'new-conversation';
@@ -914,7 +928,7 @@ export default function ChatPage() {
       });
     }
     const targetProvider = options?.nextProvider ?? provider;
-    if (targetProvider === 'codex') {
+    if (targetProvider === 'codex' && resetReason !== 'model-change') {
       const applied = applyCodexDefaults(resetReason);
       if (!applied) {
         pendingCodexDefaultsReasonRef.current = resetReason;
@@ -933,6 +947,26 @@ export default function ChatPage() {
     log('info', 'DEV-0000046:T9:provider-next-send-updated', {
       previousProvider,
       nextProvider,
+      activeConversationId: currentConversationId,
+      cancelSent: false,
+    });
+  };
+
+  const handleModelChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const nextModel = event.target.value;
+    if (!nextModel || nextModel === selected) {
+      return;
+    }
+
+    const previousModel = selected ?? null;
+    const currentConversationId = activeConversationId ?? null;
+    handleNewConversation({ reason: 'model-change' });
+    setSelected(nextModel);
+    log('info', 'DEV-0000046:T10:model-next-send-updated', {
+      previousModel,
+      nextModel,
       activeConversationId: currentConversationId,
       cancelSent: false,
     });
@@ -1780,7 +1814,7 @@ export default function ChatPage() {
                           id="chat-model-select"
                           label="Model"
                           value={selected ?? ''}
-                          onChange={(event) => setSelected(event.target.value)}
+                          onChange={handleModelChange}
                           disabled={
                             isLoading ||
                             isError ||

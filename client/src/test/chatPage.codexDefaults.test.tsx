@@ -416,6 +416,71 @@ describe('Codex defaults from server', () => {
     }
   });
 
+  it('preserves Codex defaults behavior when changing the next-send model during an active run', async () => {
+    mockCodexReady({
+      codexModels: [
+        {
+          key: 'model-a',
+          displayName: 'Model A',
+          type: 'codex',
+          supportedReasoningEfforts: ['medium', 'high'],
+          defaultReasoningEffort: 'medium',
+        },
+        {
+          key: 'model-b',
+          displayName: 'Model B',
+          type: 'codex',
+          supportedReasoningEfforts: ['minimal'],
+          defaultReasoningEffort: 'minimal',
+        },
+      ],
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /openai codex/i }),
+    );
+
+    await ensureCodexFlagsPanelExpanded();
+
+    const input = await screen.findByTestId('chat-input');
+    await userEvent.type(input, 'keep the first model running');
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('chat-send'));
+    });
+
+    const sandboxSelect = await screen.findByRole('combobox', {
+      name: /sandbox mode/i,
+    });
+    const approvalSelect = await screen.findByRole('combobox', {
+      name: /approval policy/i,
+    });
+    const modelSelect = await screen.findByRole('combobox', {
+      name: /model/i,
+    });
+
+    await waitFor(() => expect(sandboxSelect).toHaveTextContent(/read-only/i));
+    await waitFor(() => expect(approvalSelect).toHaveTextContent(/never/i));
+
+    await userEvent.click(modelSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /model b/i }),
+    );
+
+    const reasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
+    expect(sandboxSelect).toHaveTextContent(/read-only/i);
+    expect(approvalSelect).toHaveTextContent(/never/i);
+  });
+
   it('resets invalid reasoning effort after capability payload refresh', async () => {
     const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
     let codexModelsRequestCount = 0;

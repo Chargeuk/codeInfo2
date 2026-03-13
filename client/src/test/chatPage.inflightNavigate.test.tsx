@@ -208,6 +208,172 @@ function mockProviderNextSendApi() {
   return { chatBodies };
 }
 
+function mockModelNextSendApi() {
+  const chatBodies: Record<string, unknown>[] = [];
+
+  mockFetch.mockImplementation(
+    async (url: RequestInfo | URL, opts?: RequestInit) => {
+      const href = typeof url === 'string' ? url : url.toString();
+
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            providers: [
+              {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+
+      if (href.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'codex',
+            available: true,
+            toolsAvailable: true,
+            codexDefaults: {
+              sandboxMode: 'workspace-write',
+              approvalPolicy: 'on-failure',
+              modelReasoningEffort: 'high',
+              networkAccessEnabled: true,
+              webSearchEnabled: true,
+            },
+            codexWarnings: [],
+            models: [
+              {
+                key: 'gpt-5.1-codex-max',
+                displayName: 'gpt-5.1-codex-max',
+                type: 'codex',
+                supportedReasoningEfforts: ['high', 'xhigh'],
+                defaultReasoningEffort: 'high',
+              },
+              {
+                key: 'gpt-5.2',
+                displayName: 'gpt-5.2',
+                type: 'codex',
+                supportedReasoningEfforts: ['minimal'],
+                defaultReasoningEffort: 'minimal',
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+
+      if (href.includes('/conversations/c1/turns')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            items: [
+              {
+                conversationId: 'c1',
+                role: 'user',
+                content: 'Earlier prompt',
+                model: 'gpt-5.1-codex-max',
+                provider: 'codex',
+                toolCalls: null,
+                status: 'ok',
+                createdAt: '2025-01-01T00:00:00.000Z',
+              },
+              {
+                conversationId: 'c1',
+                role: 'assistant',
+                content: 'Earlier reply',
+                model: 'gpt-5.1-codex-max',
+                provider: 'codex',
+                toolCalls: null,
+                status: 'ok',
+                createdAt: '2025-01-01T00:00:01.000Z',
+              },
+            ],
+            inflight: {
+              inflightId: 'i1',
+              assistantText: 'Persisted partial',
+              assistantThink: '',
+              toolEvents: [],
+              startedAt: '2025-01-01T00:00:02.000Z',
+              seq: 3,
+            },
+          }),
+        }) as unknown as Response;
+      }
+
+      if (href.includes('/conversations/') && href.includes('/turns')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [] }),
+        }) as unknown as Response;
+      }
+
+      if (href.includes('/conversations')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            items: [
+              {
+                conversationId: 'c1',
+                title: 'Conversation 1',
+                provider: 'codex',
+                model: 'gpt-5.1-codex-max',
+                source: 'REST',
+                lastMessageAt: '2025-01-01T00:00:03.000Z',
+                archived: false,
+              },
+            ],
+            nextCursor: null,
+          }),
+        }) as unknown as Response;
+      }
+
+      if (href.includes('/chat') && opts?.method === 'POST') {
+        const body =
+          typeof opts.body === 'string'
+            ? (JSON.parse(opts.body) as Record<string, unknown>)
+            : {};
+        chatBodies.push(body);
+        return Promise.resolve({
+          ok: true,
+          status: 202,
+          json: async () => ({
+            status: 'started',
+            conversationId: body.conversationId,
+            inflightId: chatBodies.length === 1 ? 'i1' : 'i2',
+            provider: body.provider,
+            model: body.model,
+          }),
+        }) as unknown as Response;
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
+    },
+  );
+
+  return { chatBodies };
+}
+
 test('navigating away/back during inflight keeps persisted history + inflight', async () => {
   const turnsPayload = {
     items: [
@@ -398,6 +564,36 @@ test('revisiting the hidden conversation restores its persisted provider after a
   await waitFor(() =>
     expect(screen.getByTestId('provider-select')).toHaveTextContent(
       /LM Studio/i,
+    ),
+  );
+  expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
+});
+
+test('revisiting the hidden conversation restores its persisted model after a model change', async () => {
+  mockModelNextSendApi();
+  const user = userEvent.setup();
+
+  const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+  render(<RouterProvider router={router} />);
+
+  const row = await screen.findByTestId('conversation-row');
+  await user.click(row);
+
+  const modelSelect = await screen.findByRole('combobox', {
+    name: /model/i,
+  });
+  await user.click(modelSelect);
+  await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
+
+  await waitFor(() =>
+    expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-5.2/i),
+  );
+
+  await user.click(await screen.findByTestId('conversation-row'));
+
+  await waitFor(() =>
+    expect(screen.getByTestId('model-select')).toHaveTextContent(
+      /gpt-5.1-codex-max/i,
     ),
   );
   expect(await screen.findByText('Earlier reply')).toBeInTheDocument();

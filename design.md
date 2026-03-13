@@ -1712,6 +1712,31 @@ sequenceDiagram
   end
 ```
 
+## Story 0000046 Task 5: blank-only fresh ingest fails before completed persistence
+
+- Fresh ingest now has a second explicit `NO_ELIGIBLE_FILES` boundary after chunk filtering.
+- If discovery succeeds but blank filtering leaves `embedded=0` on `operation === "start"`, the run terminates as `state=error` with the existing no-eligible-files contract instead of falling through to `state=skipped`.
+- That fresh-ingest error returns before completed root-summary writes, ingest-file persistence, AST writes, or other success-looking persistence for the run.
+- Delta re-embed semantics stay unchanged:
+  - no-change delta re-embed still completes as a no-op;
+  - deletions-only delta re-embed still completes after cleanup;
+  - only fresh ingest uses the zero-embeddable failure branch.
+- Task 5 verification log:
+  - `DEV-0000046:T5:fresh-ingest-zero-embeddable`
+
+```mermaid
+flowchart TD
+  A[discoverFiles succeeds] --> B[chunk and embed work]
+  B --> C{operation == start and embedded == 0?}
+  C -- yes --> D[Log DEV-0000046:T5:fresh-ingest-zero-embeddable]
+  D --> E[Publish NO_ELIGIBLE_FILES error]
+  E --> F[Return before roots.add and success persistence]
+  C -- no --> G{reembed delta early-return case?}
+  G -- no-change --> H[Complete no-op]
+  G -- deletions-only --> I[Cleanup then complete]
+  G -- otherwise --> J[Normal completed persistence path]
+```
+
 ## Story 0000038 Task 7: ingest UI external status/phase consumption and visibility
 
 - Client ingest roots normalization now consumes the external listing contract directly:
@@ -1978,6 +2003,7 @@ flowchart LR
   C --> G[ChatInterface persistAssistantTurn]
   G --> H[Turn.toolCalls = { calls: [tool-result] }]
 ```
+
 - Story 45 Task 8 adds `server/src/chat/reingestStepLifecycle.ts` as the shared non-agent lifecycle for any already-recordable re-ingest terminal result. It deliberately stays lifecycle-only: later direct-command and flow runtime tasks call this helper, but Task 8 itself does not start any re-ingest work.
 - The shared lifecycle requires callers to pass the resolved `conversationId`, `modelId`, `source`, and `command` metadata. That keeps the helper neutral about whether the caller is a direct command or a flow step and avoids inventing a second bootstrap path for conversation state.
 - Runtime order matches the existing synthetic flow-step pattern:
@@ -2016,6 +2042,7 @@ sequenceDiagram
   Bridge->>Inflight: markInflightFinal(status=ok)
   Life->>Inflight: cleanupInflight
 ```
+
 - Story 45 Task 10 wires dedicated flow `{ type: "reingest", sourceId, label? }` steps into `server/src/flows/service.ts` without changing the existing outer flow-run contract.
 - Flow startup now treats dedicated `reingest` steps as runnable executable steps:
   - flows whose executable steps are all `reingest` still start successfully;
@@ -2068,6 +2095,7 @@ sequenceDiagram
     end
   end
 ```
+
 - Story 45 Task 11 finishes flow-command parity by allowing flow-owned command files to execute `{ type: "reingest", sourceId }` items through the shared `server/src/agents/commandItemExecutor.ts` path.
 - Shared command-item execution now has two stable boundaries:
   - `message` items still resolve inline `content` or `markdownFile` into one instruction string and hand execution back to the caller’s existing retry model;
@@ -2118,6 +2146,7 @@ sequenceDiagram
     Flow-->>Flow: check stop before later items / later steps
   end
 ```
+
 - Story 45 reuses the existing runtime surfaces instead of introducing a new paused or resumable protocol:
   - markdown-backed instructions still become one normal agent instruction string;
   - re-ingest results reuse the existing `tool_event`, `inflight_snapshot.inflight.toolEvents`, and persisted `Turn.toolCalls = { calls: [...] }` shapes;
@@ -2155,19 +2184,19 @@ flowchart TD
 
 ### Story 45 observable log reference
 
-| Marker | What it proves |
-| --- | --- |
-| `DEV-0000045:T1:command_schema_item_parsed` | A command file parsed a Story 45 `message.markdownFile` or `reingest` item through the updated command schema. |
-| `DEV-0000045:T2:flow_schema_step_parsed` | A flow file parsed a Story 45 `llm.markdownFile` or dedicated `reingest` step through the updated flow schema. |
-| `DEV-0000045:T3:markdown_file_resolved` | The shared markdown resolver selected a repository candidate and concrete `codeinfo_markdown` file path. |
-| `DEV-0000045:T4:direct_command_markdown_message_loaded` | A direct command turned `message.markdownFile` into one instruction string. |
-| `DEV-0000045:T5:flow_llm_markdown_loaded` | A flow `llm.markdownFile` step turned one markdown file into one instruction string. |
-| `DEV-0000045:T6:flow_command_message_item_executed` | A flow-owned command step reused the shared `message` item execution path. |
-| `DEV-0000045:T7:reingest_tool_result_built` | Story 45 built the shared nested `reingest_step_result` payload inside the existing `tool-result` wrapper. |
-| `DEV-0000045:T8:reingest_lifecycle_published` | The shared non-agent lifecycle published and persisted the structured re-ingest result. |
-| `DEV-0000045:T9:direct_command_reingest_recorded` | A direct command recorded a terminal re-ingest result and evaluated continuation to the next command item. |
-| `DEV-0000045:T10:flow_reingest_step_recorded` | A dedicated flow `reingest` step recorded a terminal result and evaluated continuation to the next flow step. |
-| `DEV-0000045:T11:flow_command_reingest_recorded` | A flow-owned command file reached full re-ingest parity and recorded whether execution continued to the next command item. |
+| Marker                                                  | What it proves                                                                                                             |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `DEV-0000045:T1:command_schema_item_parsed`             | A command file parsed a Story 45 `message.markdownFile` or `reingest` item through the updated command schema.             |
+| `DEV-0000045:T2:flow_schema_step_parsed`                | A flow file parsed a Story 45 `llm.markdownFile` or dedicated `reingest` step through the updated flow schema.             |
+| `DEV-0000045:T3:markdown_file_resolved`                 | The shared markdown resolver selected a repository candidate and concrete `codeinfo_markdown` file path.                   |
+| `DEV-0000045:T4:direct_command_markdown_message_loaded` | A direct command turned `message.markdownFile` into one instruction string.                                                |
+| `DEV-0000045:T5:flow_llm_markdown_loaded`               | A flow `llm.markdownFile` step turned one markdown file into one instruction string.                                       |
+| `DEV-0000045:T6:flow_command_message_item_executed`     | A flow-owned command step reused the shared `message` item execution path.                                                 |
+| `DEV-0000045:T7:reingest_tool_result_built`             | Story 45 built the shared nested `reingest_step_result` payload inside the existing `tool-result` wrapper.                 |
+| `DEV-0000045:T8:reingest_lifecycle_published`           | The shared non-agent lifecycle published and persisted the structured re-ingest result.                                    |
+| `DEV-0000045:T9:direct_command_reingest_recorded`       | A direct command recorded a terminal re-ingest result and evaluated continuation to the next command item.                 |
+| `DEV-0000045:T10:flow_reingest_step_recorded`           | A dedicated flow `reingest` step recorded a terminal result and evaluated continuation to the next flow step.              |
+| `DEV-0000045:T11:flow_command_reingest_recorded`        | A flow-owned command file reached full re-ingest parity and recorded whether execution continued to the next command item. |
 
 - Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
 - Flow turns attach `turn.command` metadata with `{ name: 'flow', stepIndex, totalSteps, loopDepth, agentType, identifier, label }` (label defaults to the step type) and log `flows.turn.metadata_attached`.

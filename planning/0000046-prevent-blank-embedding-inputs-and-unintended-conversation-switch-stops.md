@@ -396,17 +396,24 @@ Story 0000046 does not require any brand-new websocket message types, REST paylo
    - `client/src/pages/ChatPage.tsx` currently forces provider/model back from `selectedConversation` and disables the Provider control while a conversation or existing messages are present.
    - Story rule: implementation must update those synchronization and control-lock rules so a user can choose provider/model for the next send without mutating the already-running request, the persisted conversation metadata, or the server contracts that rehydrate hidden runs later.
 10. Rapid repeated Chat context switches:
-   - A user may switch conversations, open a new conversation, and change provider/model quickly while a previous run is still active.
-   - Story rule: the visible Chat view should always reflect the latest selected conversation or new draft only, and any older hidden conversation state should be recovered from normal server history/inflight hydration if the user returns later.
+
+- A user may switch conversations, open a new conversation, and change provider/model quickly while a previous run is still active.
+- Story rule: the visible Chat view should always reflect the latest selected conversation or new draft only, and any older hidden conversation state should be recovered from normal server history/inflight hydration if the user returns later.
+
 11. Late websocket events from a hidden conversation:
-   - `client/src/hooks/useChatStream.ts` already ignores events whose `conversationId` does not match the visible conversation.
-   - Story rule: preserve that guard so hidden conversation events cannot render stop banners, assistant text, or completed states into the wrong visible conversation.
+
+- `client/src/hooks/useChatStream.ts` already ignores events whose `conversationId` does not match the visible conversation.
+- Story rule: preserve that guard so hidden conversation events cannot render stop banners, assistant text, or completed states into the wrong visible conversation.
+
 12. `cancel_ack` with `result: 'noop'` outside an explicit stop attempt:
-   - Existing logic only treats this as meaningful while the client is in stopping state.
-   - Story rule: preserve that behavior; navigation/reset actions should not rely on `cancel_ack` to clean themselves up because they should not be sending cancellation in the first place.
+
+- Existing logic only treats this as meaningful while the client is in stopping state.
+- Story rule: preserve that behavior; navigation/reset actions should not rely on `cancel_ack` to clean themselves up because they should not be sending cancellation in the first place.
+
 13. Non-blank but low-value files:
-   - Files that contain comments, imports, or type declarations only are not blank, even if they are low-value for embeddings.
-   - Story rule: Story 0000046 is not a chunk-quality or semantic-filtering story. It only removes empty and whitespace-only content, leaving non-blank chunk quality heuristics unchanged.
+
+- Files that contain comments, imports, or type declarations only are not blank, even if they are low-value for embeddings.
+- Story rule: Story 0000046 is not a chunk-quality or semantic-filtering story. It only removes empty and whitespace-only content, leaving non-blank chunk quality heuristics unchanged.
 
 ## Questions
 
@@ -451,6 +458,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 10. [x] Update Story `0000046` `## Research Findings` or task implementation notes with any new chunking detail discovered while implementing this task so later tasks do not need to rediscover the same boundary rules.
 11. [x] Add one product-owned verification log line around the shared blank-filter boundary, using the exact prefix `DEV-0000046:T1:blank-chunks-filtered`, in the smallest existing server-side logging path that can record the run id, file path or relPath, removed blank-chunk count, and surviving chunk count without duplicating logging layers. Purpose: give the manual Playwright validation step one concrete server event to confirm when blank chunks are removed as expected.
 12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -507,6 +515,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 7. [x] Update Story `0000046` task notes with the exact OpenAI provider entry points, file paths, and error family used so the later LM Studio and ingest tasks can reuse the same contract wording without having to rediscover it.
 8. [x] Add one product-owned verification log line around the OpenAI defensive guard path, using the exact prefix `DEV-0000046:T2:openai-blank-input-guard-hit`, in the existing OpenAI provider/guardrail logging boundary so it records provider, model, batch size, and the fact that the SDK call was blocked before `client.embeddings.create(...)`. Purpose: give the targeted server-wrapper proof and final backend/docs-only regression notes one concrete server event to confirm when the OpenAI guard is hit.
 9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -618,6 +627,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 6. [x] Update Story `0000046` task notes with the exact LM Studio provider entry point, file path, and error family used so the later ingest tasks can reuse the same contract wording without having to rediscover it.
 7. [x] Add one product-owned verification log line around the LM Studio defensive guard path, using the exact prefix `DEV-0000046:T4:lmstudio-blank-input-guard-hit`, in the existing LM Studio provider logging boundary so it records provider, model, raw input classification, and the fact that retry/model calls were skipped. Purpose: give the targeted server-wrapper proof and final backend/docs-only regression notes one concrete server event to confirm when the LM Studio guard is hit.
 8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -648,7 +658,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 
 ### 5. Server - Fail Fresh Ingest Cleanly When Filtering Leaves Zero Embeddable Chunks
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -667,34 +677,46 @@ This task handles the second server-side ingest boundary: what happens after chu
 
 Isolation rule for this task: a junior may be assigned only one numbered subtask below. Treat this task's `Overview`, `Documentation Locations`, and any Story `0000046` section references named inside that numbered subtask as mandatory input for that one subtask, even when the wording duplicates information from elsewhere in the story.
 
-1. [ ] Read `server/src/ingest/ingestJob.ts`, `server/src/ingest/deltaPlan.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts`, then reread Story `0000046` `### Description`, `## Research Findings` item 1, and `## Decisions` item 2 so you understand the current fresh-ingest and delta re-embed completion paths before editing. While reading `server/src/ingest/ingestJob.ts`, inspect all three relevant anchors together: the existing zero-files `NO_ELIGIBLE_FILES` error branch after `discoverFiles()`, the later `resultState` assignment near `counts.embedded === 0`, and the `roots.add(...)` root-summary write that currently persists a `state: 'skipped'` root for zero-embedded fresh ingest. Use these docs while reading: Chroma add-data `https://docs.trychroma.com/docs/collections/add-data`, Chroma delete-data `https://docs.trychroma.com/docs/collections/delete-data`, TypeScript narrowing `https://www.typescriptlang.org/docs/handbook/2/narrowing.html`, and Node `node:test` `https://nodejs.org/api/test.html`.
-2. [ ] Update the fresh-ingest path in `server/src/ingest/ingestJob.ts` so a run that discovered files but ended with zero embeddable chunks fails with the existing `NO_ELIGIBLE_FILES` style error contract documented in Story `0000046` `### Acceptance Criteria` and `## Contracts And Storage Shapes` item 4. Reuse the same contract shape the file already publishes for the zero-files path: `state: 'error'`, a clear user-facing `message` / `lastError`, and `error.error = 'NO_ELIGIBLE_FILES'`. The concrete code anchors to inspect first are the current `resultState` assignment near the `counts.embedded === 0` handling and the fresh-ingest completion path that currently lets that case fall through to a success-like `skipped` outcome.
-3. [ ] Ensure that the fresh-ingest zero-embeddable failure in `server/src/ingest/ingestJob.ts` happens before any completed root summary write or misleading success persistence occurs. The concrete code anchors to inspect first are the current `roots.add(...)` write that happens after `rootMetadata.state` is derived and the later `setStatusAndPublish(...)` completion block that currently emits `state: 'skipped'` / `message: 'No changes detected'` for this case. The final implementation must short-circuit before those success-like paths run, while still allowing the existing empty-vector cleanup to happen if it is needed.
-4. [ ] Reuse the existing ingest counts and completion/failure flow in `server/src/ingest/ingestJob.ts` when detecting the zero-embeddable fresh-ingest case; do not add a second embeddable-chunk collection, a second root-summary path, or a parallel ingest-result helper just to detect this story condition.
-5. [ ] Preserve Story `0000020-ingest-delta-reembed-and-ingest-page-ux.md` behavior for re-embed no-change and deletions-only flows when updating `server/src/ingest/ingestJob.ts` and `server/src/ingest/deltaPlan.ts`; do not force the fresh-ingest failure rule onto every re-embed run. Repository research already showed that the current `operation === 'reembed'` path intentionally stays terminal-success/no-op for delta re-embed cases, so keep that exact split while changing only the fresh-ingest zero-embeddable outcome. Prefer leaving `server/src/ingest/deltaPlan.ts` untouched unless a failing test proves the existing ingestJob-only change cannot preserve the current re-embed semantics.
-6. [ ] Add a `node:test` unit test in `server/src/test/unit/ingest-start.test.ts` that runs a fresh ingest whose discovered files reduce to zero embeddable chunks and asserts the run now uses the existing zero-files-style error contract instead of the current `state: 'skipped'` completion path. Purpose: prove the story’s primary server failure path works for blank-only fresh ingest and that the old misleading success-like state is gone.
-7. [ ] Add a `node:test` unit test in `server/src/test/unit/ingest-start.test.ts` that asserts the same fresh-ingest failure does not execute the current success persistence path: no completed-looking root summary is written through `roots.add(...)`, and no vector-write success evidence is left behind. Purpose: prove the failure does not look partially successful in persisted ingest state.
-8. [ ] Add a `node:test` unit test in `server/src/test/unit/ingest-start.test.ts` that runs a fresh ingest containing both valid content and blank-only files, and asserts the run completes successfully while embedding only the valid chunks. Purpose: prove the happy path still works when blank filtering removes only part of the discovered input set.
-9. [ ] Add a `node:test` unit test in `server/src/test/unit/ingest-reembed.test.ts` that covers a blank-only delta re-embed and asserts the existing no-op success semantics remain unchanged. Purpose: prove Story `0000020` behavior is preserved for blank-only delta runs.
-10. [ ] Add a `node:test` unit test in `server/src/test/unit/ingest-reembed.test.ts` that covers a deletions-only delta re-embed and asserts the existing no-op success semantics remain unchanged. Purpose: prove the fresh-ingest failure rule is not accidentally applied to deletions-only re-embed runs.
-11. [ ] Update `design.md` with the final fresh-ingest versus re-embed lifecycle for this task and add or adjust the relevant Mermaid flow so the blank-only fresh-ingest failure path and preserved re-embed no-op paths are both documented. Purpose: keep the architecture and ingest flow documentation aligned with the implemented server behavior.
-12. [ ] Update Story `0000046` task notes with the exact fresh-ingest versus re-embed rule implemented, including the file paths changed in `server/src/ingest/ingestJob.ts`, `server/src/ingest/deltaPlan.ts`, and `design.md`, so later documentation work can quote one final rule.
-13. [ ] Add one product-owned verification log line around the fresh-ingest zero-embeddable failure branch, using the exact prefix `DEV-0000046:T5:fresh-ingest-zero-embeddable`, in the existing ingest job logging path so it records run id, root, discovered file count, embedded count `0`, and the reused `NO_ELIGIBLE_FILES` style failure outcome. Purpose: give the manual Playwright validation step one concrete server event to confirm the new failure branch ran instead of the old skipped-success path.
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Read `server/src/ingest/ingestJob.ts`, `server/src/ingest/deltaPlan.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts`, then reread Story `0000046` `### Description`, `## Research Findings` item 1, and `## Decisions` item 2 so you understand the current fresh-ingest and delta re-embed completion paths before editing. While reading `server/src/ingest/ingestJob.ts`, inspect all three relevant anchors together: the existing zero-files `NO_ELIGIBLE_FILES` error branch after `discoverFiles()`, the later `resultState` assignment near `counts.embedded === 0`, and the `roots.add(...)` root-summary write that currently persists a `state: 'skipped'` root for zero-embedded fresh ingest. Use these docs while reading: Chroma add-data `https://docs.trychroma.com/docs/collections/add-data`, Chroma delete-data `https://docs.trychroma.com/docs/collections/delete-data`, TypeScript narrowing `https://www.typescriptlang.org/docs/handbook/2/narrowing.html`, and Node `node:test` `https://nodejs.org/api/test.html`.
+2. [x] Update the fresh-ingest path in `server/src/ingest/ingestJob.ts` so a run that discovered files but ended with zero embeddable chunks fails with the existing `NO_ELIGIBLE_FILES` style error contract documented in Story `0000046` `### Acceptance Criteria` and `## Contracts And Storage Shapes` item 4. Reuse the same contract shape the file already publishes for the zero-files path: `state: 'error'`, a clear user-facing `message` / `lastError`, and `error.error = 'NO_ELIGIBLE_FILES'`. The concrete code anchors to inspect first are the current `resultState` assignment near the `counts.embedded === 0` handling and the fresh-ingest completion path that currently lets that case fall through to a success-like `skipped` outcome.
+3. [x] Ensure that the fresh-ingest zero-embeddable failure in `server/src/ingest/ingestJob.ts` happens before any completed root summary write or misleading success persistence occurs. The concrete code anchors to inspect first are the current `roots.add(...)` write that happens after `rootMetadata.state` is derived and the later `setStatusAndPublish(...)` completion block that currently emits `state: 'skipped'` / `message: 'No changes detected'` for this case. The final implementation must short-circuit before those success-like paths run, while still allowing the existing empty-vector cleanup to happen if it is needed.
+4. [x] Reuse the existing ingest counts and completion/failure flow in `server/src/ingest/ingestJob.ts` when detecting the zero-embeddable fresh-ingest case; do not add a second embeddable-chunk collection, a second root-summary path, or a parallel ingest-result helper just to detect this story condition.
+5. [x] Preserve Story `0000020-ingest-delta-reembed-and-ingest-page-ux.md` behavior for re-embed no-change and deletions-only flows when updating `server/src/ingest/ingestJob.ts` and `server/src/ingest/deltaPlan.ts`; do not force the fresh-ingest failure rule onto every re-embed run. Repository research already showed that the current `operation === 'reembed'` path intentionally stays terminal-success/no-op for delta re-embed cases, so keep that exact split while changing only the fresh-ingest zero-embeddable outcome. Prefer leaving `server/src/ingest/deltaPlan.ts` untouched unless a failing test proves the existing ingestJob-only change cannot preserve the current re-embed semantics.
+6. [x] Add a `node:test` unit test in `server/src/test/unit/ingest-start.test.ts` that runs a fresh ingest whose discovered files reduce to zero embeddable chunks and asserts the run now uses the existing zero-files-style error contract instead of the current `state: 'skipped'` completion path. Purpose: prove the story’s primary server failure path works for blank-only fresh ingest and that the old misleading success-like state is gone.
+7. [x] Add a `node:test` unit test in `server/src/test/unit/ingest-start.test.ts` that asserts the same fresh-ingest failure does not execute the current success persistence path: no completed-looking root summary is written through `roots.add(...)`, and no vector-write success evidence is left behind. Purpose: prove the failure does not look partially successful in persisted ingest state.
+8. [x] Add a `node:test` unit test in `server/src/test/unit/ingest-start.test.ts` that runs a fresh ingest containing both valid content and blank-only files, and asserts the run completes successfully while embedding only the valid chunks. Purpose: prove the happy path still works when blank filtering removes only part of the discovered input set.
+9. [x] Add a `node:test` unit test in `server/src/test/unit/ingest-reembed.test.ts` that covers a blank-only delta re-embed and asserts the existing no-op success semantics remain unchanged. Purpose: prove Story `0000020` behavior is preserved for blank-only delta runs.
+10. [x] Add a `node:test` unit test in `server/src/test/unit/ingest-reembed.test.ts` that covers a deletions-only delta re-embed and asserts the existing no-op success semantics remain unchanged. Purpose: prove the fresh-ingest failure rule is not accidentally applied to deletions-only re-embed runs.
+11. [x] Update `design.md` with the final fresh-ingest versus re-embed lifecycle for this task and add or adjust the relevant Mermaid flow so the blank-only fresh-ingest failure path and preserved re-embed no-op paths are both documented. Purpose: keep the architecture and ingest flow documentation aligned with the implemented server behavior.
+12. [x] Update Story `0000046` task notes with the exact fresh-ingest versus re-embed rule implemented, including the file paths changed in `server/src/ingest/ingestJob.ts`, `server/src/ingest/deltaPlan.ts`, and `design.md`, so later documentation work can quote one final rule.
+13. [x] Add one product-owned verification log line around the fresh-ingest zero-embeddable failure branch, using the exact prefix `DEV-0000046:T5:fresh-ingest-zero-embeddable`, in the existing ingest job logging path so it records run id, root, discovered file count, embedded count `0`, and the reused `NO_ELIGIBLE_FILES` style failure outcome. Purpose: give the manual Playwright validation step one concrete server event to confirm the new failure branch ran instead of the old skipped-success path.
+14. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Use because this task changes server ingest lifecycle behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` - Use because this task changes server ingest completion/failure behavior and nearby `node:test` coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run compose:build:summary` - Use because this task is manually testable through the app UI. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: trigger a blank-only fresh ingest, confirm the browser debug console has no logged errors, confirm the UI shows the reused no-eligible-files style failure outcome, and confirm the server logs contain `DEV-0000046:T5:fresh-ingest-zero-embeddable` with discovered files present and embedded count `0`.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server` - Use because this task changes server ingest lifecycle behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes server ingest completion/failure behavior and nearby `node:test` coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run compose:build:summary` - Use because this task is manually testable through the app UI. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`: trigger a blank-only fresh ingest, confirm the browser debug console has no logged errors, confirm the UI shows the reused no-eligible-files style failure outcome, and confirm the server logs contain `DEV-0000046:T5:fresh-ingest-zero-embeddable` with discovered files present and embedded count `0`.
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - Add implementation notes here after each completed subtask and testing step.
+- Subtask 1 complete: reread the Story `0000046` description/research/decision anchors, the Task 5 plan, `server/src/ingest/ingestJob.ts`, `server/src/ingest/deltaPlan.ts`, and the existing unit-test seams. Confirmed the exact bug is the fresh-ingest `counts.embedded === 0` fallthrough that still writes `roots.add(...)` and publishes `state: 'skipped'`, while delta re-embed no-change and deletions-only paths already have explicit completed/no-op handling that must stay unchanged.
+- Subtasks 2-5 complete: added one shared `NO_ELIGIBLE_FILES` status builder in `server/src/ingest/ingestJob.ts`, reused it for the existing zero-files branch plus the new fresh-ingest zero-embeddable branch, and short-circuited before `roots.add(...)`, ingest-file persistence, AST writes, or success-like `skipped` status publication. Kept the change inside `ingestJob.ts`; `deltaPlan.ts` stayed untouched because the existing re-embed split remained sufficient.
+- Subtasks 6-10 complete: added Task 5 job-level regression coverage in `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts` for blank-only fresh-ingest failure, no completed root-summary/success persistence on that failure, mixed valid-plus-blank fresh ingest success, blank-only delta re-embed staying completed, and deletions-only delta re-embed staying completed without `NO_ELIGIBLE_FILES`.
+- Subtasks 11-13 complete: documented the new fresh-ingest-versus-reembed lifecycle in `design.md`, recorded the final rule here for later story tasks, and emitted `DEV-0000046:T5:fresh-ingest-zero-embeddable` from the fresh-ingest zero-embeddable error branch with run id, root, discovered-file count, embedded count, and the reused `NO_ELIGIBLE_FILES` outcome. `server/src/ingest/deltaPlan.ts` remained unchanged because the ingest-job-only change preserved the existing delta semantics.
+- Subtask 14 complete: `npm run lint --workspaces` still reports the repo's existing import-order warnings, now reduced to 41 with no Task 5-local warnings left after tightening the changed-file import order. `npm run format:check --workspaces` initially failed on the new Task 5 test files, then passed after formatting them with Prettier; a targeted `eslint` + `prettier --check` pass over the Task 5 changed files then passed cleanly.
+- Testing step 1 complete: `npm run build:summary:server` passed cleanly with `warning_count: 0`; wrapper log path `logs/test-summaries/build-server-latest.log`.
+- Testing step 2 complete: `npm run test:summary:server:unit` passed cleanly with `tests run: 1161`, `passed: 1161`, `failed: 0`; wrapper log path `test-results/server-unit-tests-2026-03-13T19-31-48-435Z.log`.
+- Testing step 3 complete: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`; wrapper log path `logs/test-summaries/compose-build-latest.log`.
+- Testing step 4 complete: `npm run compose:up` reported the existing Task 5 stack running and healthy, finishing with `codeinfo2-server-1 Healthy`.
+- Testing step 5 complete: manual Playwright validation at `http://host.docker.internal:5001/ingest` succeeded after rebuilding the compose client image for the follow-up IngestPage fix. The UI now keeps the terminal `No eligible files found in /Users/danielstapleton/Documents/dev/task5-manual-nongit` error visible after refresh, browser console error output remained empty, screenshot evidence was saved to `playwright-output-local/0000046-task5-blank-only-ingest-error.png`, and `docker exec codeinfo2-server-1 ... rg ... /app/logs/server.1.log` confirmed `DEV-0000046:T5:fresh-ingest-zero-embeddable` for run `42fcc190-4026-4eb0-87f8-1c5ad60ee82c` with `discoveredFileCount: 1` and `counts.embedded: 0`. Follow-up implementation detail: `client/src/pages/IngestPage.tsx` now preserves terminal ingest errors in a top-level alert so this reused product-owned failure stays visible even though the active run card still hides on terminal states; the matching regression lives in `client/src/test/ingestStatus.test.tsx`.
+- Testing step 6 complete: `npm run compose:down` stopped and removed the Task 5 containers cleanly, ending with `Network codeinfo2_internal Removed`.
 
 ---
 
@@ -729,6 +751,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 8. [ ] Update Story `0000046` task notes with the exact server-side cancellation contract confirmed in `server/src/ws/types.ts`, `server/src/ws/server.ts`, `server/src/test/features/chat_cancellation.feature`, and `design.md` so the later Chat tasks can quote one final rule.
 9. [ ] Add two product-owned verification log lines in the existing websocket server logging path: `DEV-0000046:T6:unsubscribe-navigation-only` when `unsubscribe_conversation` is processed without a stop side effect, and `DEV-0000046:T6:cancel-explicit-stop` when `cancel_inflight` becomes the real stop path. Purpose: give the manual Playwright validation step concrete server events to distinguish navigation from explicit cancellation.
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -777,6 +800,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 7. [ ] Update Story `0000046` task notes with the exact Chat sidebar call site changed in `client/src/pages/ChatPage.tsx`, the matching `design.md` update, and any local UI-state reset rule clarified during implementation so the later Chat tasks can reuse the same wording.
 8. [ ] Add one product-owned client-side verification log line in the existing sidebar-selection path, using the exact prefix `DEV-0000046:T7:sidebar-selection-navigation`, so it records the previous and next conversation ids plus `cancelSent: false` when Chat switches visible conversations without stopping the hidden run. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm sidebar selection stayed navigation-only.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -826,6 +850,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 9. [ ] Update Story `0000046` task notes with the exact local draft reset rules implemented for `New conversation`, including the `client/src/pages/ChatPage.tsx` function name, the `client/src/hooks/useChatStream.ts` helper reused, and the matching `design.md` update.
 10. [ ] Add one product-owned client-side verification log line in the existing New conversation path, using the exact prefix `DEV-0000046:T8:new-conversation-local-reset`, so it records whether an older conversation remained inflight plus `cancelSent: false` when the clean draft view opens. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm the action stayed a local reset.
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -881,6 +906,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 14. [ ] Update Story `0000046` task notes with the exact provider persistence and synchronization rule implemented, including the `handleProviderChange(...)` call site, the `selectedConversation` sync effect, the final `providerLocked` behavior, the preserved Codex-defaults behavior in `client/src/pages/ChatPage.tsx`, and the matching `design.md` update.
 15. [ ] Add one product-owned client-side verification log line in the existing provider-change path, using the exact prefix `DEV-0000046:T9:provider-next-send-updated`, so it records previous provider, next provider, the active conversation id, and `cancelSent: false` when the next-send provider changes during an active hidden run. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm provider switching stayed next-send-only.
 16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -935,6 +961,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 13. [ ] Update Story `0000046` task notes with the exact model persistence and synchronization rule implemented, including the `selectedConversation` model sync effect, the `setSelected(...)` call site, the preserved Codex reasoning-capability behavior, the next-send-only behavior in `client/src/pages/ChatPage.tsx`, and the matching `design.md` update.
 14. [ ] Add one product-owned client-side verification log line in the existing model-change path, using the exact prefix `DEV-0000046:T10:model-next-send-updated`, so it records previous model, next model, the active conversation id, and `cancelSent: false` when the next-send model changes during an active hidden run. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm model switching stayed next-send-only.
 15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -989,6 +1016,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 11. [ ] Update Story `0000046` task notes with any additional conversation-isolation rule or websocket mismatch case discovered while implementing this task, including the exact hooks/tests changed and the matching `design.md` update so later documentation work does not need to rediscover them.
 12. [ ] Add one product-owned client-side verification log line in the existing late-event ignore path, using the exact prefix `DEV-0000046:T11:hidden-run-event-ignored`, so it records event type, hidden conversation id, visible conversation id, and the reason the event was ignored. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm hidden-run late events were isolated instead of rendered.
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1040,6 +1068,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 10. [ ] Update Story `0000046` task notes with the exact rehydration rule confirmed by `server/src/routes/conversations.ts`, `client/src/hooks/useConversationTurns.ts`, the snapshot tests, and `design.md` so later documentation work can quote one final rule.
 11. [ ] Add one product-owned client-side verification log line in the existing hidden-run rehydration path, using the exact prefix `DEV-0000046:T12:hidden-run-rehydrated`, so it records conversation id, whether an inflight snapshot was present, and whether the visible draft state was replaced by persisted transcript plus snapshot data. Purpose: give the manual Playwright validation step one concrete browser-console event to confirm rehydration succeeded through the intended path.
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1082,6 +1111,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 2. [ ] Review and update `design.md` at the repository root so it describes the final shared-boundary rules for blank embeddable text and “navigation is not cancellation,” including any Mermaid diagram or flow text that would otherwise be misleading when compared to Story `0000046` `## Research Findings`. Purpose: keep the architecture and flow documentation aligned with the implemented system behavior.
 3. [ ] Review and update `projectStructure.md` at the repository root so it lists any added, removed, or repurposed files touched by this story, using the file paths recorded in the earlier task implementation notes so a reader can find the changed code quickly. Purpose: keep the file-layout documentation aligned with the final implementation footprint.
 4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Wrapper-only rule: this task is documentation-only, so do not attempt to run raw build/test commands here. Rely on the wrapper-based validation in the implementation tasks and the full regression coverage in Task 15.
@@ -1114,6 +1144,7 @@ Isolation rule for this task: a junior may be assigned only one numbered subtask
 3. [ ] Include the key proof points in that summary: which existing contracts were reused, which tests were extended instead of added as new harnesses, and which acceptance criteria were validated by targeted versus full-suite runs.
 4. [ ] Update Story `0000046` task notes with the location of the final PR-ready summary or the exact wording source used, so later release-note work can reuse it without re-reading every task.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 Wrapper-only rule: this task is summary-only, so do not attempt to run raw build/test commands here. Rely on the wrapper-based validation in the implementation tasks and the full regression coverage in Task 15.

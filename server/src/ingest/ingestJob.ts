@@ -50,15 +50,6 @@ import {
 } from './chromaClient.js';
 import { buildDeltaPlan, type DiscoveredFileHash } from './deltaPlan.js';
 import * as ingestLock from './lock.js';
-import type { IngestRunState } from './types.js';
-import {
-  chunkText,
-  discoverFiles,
-  hashChunk,
-  hashFile,
-  resolveConfig,
-} from './index.js';
-import type { ProviderEmbeddingModel } from './providers/types.js';
 import {
   appendIngestFailureLog,
   createLmStudioEmbeddingProvider,
@@ -72,6 +63,15 @@ import {
   type ResolvedEmbeddingModelSelection,
   resolveEmbeddingModelSelection,
 } from './providers/index.js';
+import type { ProviderEmbeddingModel } from './providers/types.js';
+import type { IngestRunState } from './types.js';
+import {
+  chunkText,
+  discoverFiles,
+  hashChunk,
+  hashFile,
+  resolveConfig,
+} from './index.js';
 
 export type IngestJobInput = {
   path: string;
@@ -208,6 +208,40 @@ function logWarning(message: string, context: Record<string, unknown>) {
 
   appendLog(entry);
   baseLogger.warn({ ...cleanedContext }, message);
+}
+
+function buildNoEligibleFilesErrorStatus(params: {
+  runId: string;
+  targetPath: string;
+  provider: 'lmstudio' | 'openai';
+  counts: { files: number; chunks: number; embedded: number };
+  ast?: IngestAstCounts;
+  currentFile?: string;
+  fileIndex?: number;
+  fileTotal?: number;
+  percent?: number;
+  etaMs?: number;
+}): IngestJobStatus {
+  const errorMsg = `No eligible files found in ${params.targetPath}`;
+  return {
+    runId: params.runId,
+    state: 'error',
+    counts: params.counts,
+    ...(params.ast ? { ast: params.ast } : {}),
+    message: errorMsg,
+    lastError: errorMsg,
+    error: {
+      error: 'NO_ELIGIBLE_FILES',
+      message: errorMsg,
+      retryable: false,
+      provider: params.provider,
+    },
+    currentFile: params.currentFile,
+    fileIndex: params.fileIndex,
+    fileTotal: params.fileTotal,
+    percent: params.percent,
+    etaMs: params.etaMs,
+  };
 }
 
 function isAstSupported(ext: string) {
@@ -390,20 +424,13 @@ async function processRun(runId: string, input: IngestJobInput) {
     const { files, root } = await discoverFiles(startPath, ingestConfig);
     jobInputs.set(runId, { ...input, root });
     if (files.length === 0 && operation !== 'reembed') {
-      const errorMsg = `No eligible files found in ${startPath}`;
-      setStatusAndPublish(runId, {
+      const errorStatus = buildNoEligibleFilesErrorStatus({
         runId,
-        state: 'error',
+        targetPath: startPath,
+        provider: requestedSelection.providerId,
         counts: { files: 0, chunks: 0, embedded: 0 },
-        message: errorMsg,
-        lastError: errorMsg,
-        error: {
-          error: 'NO_ELIGIBLE_FILES',
-          message: errorMsg,
-          retryable: false,
-          provider: requestedSelection.providerId,
-        },
       });
+      setStatusAndPublish(runId, errorStatus);
       logLifecycle('error', 'ingest error', {
         runId,
         operation,
@@ -414,8 +441,8 @@ async function processRun(runId: string, input: IngestJobInput) {
         name,
         description,
         state: 'error',
-        lastError: errorMsg,
-        counts: { files: 0, chunks: 0, embedded: 0 },
+        lastError: errorStatus.lastError,
+        counts: errorStatus.counts,
       });
       ingestLock.release(runId);
       return;
@@ -1093,6 +1120,52 @@ async function processRun(runId: string, input: IngestJobInput) {
 
     if (counts.embedded === 0) {
       await deleteVectorsCollectionIfEmpty();
+    }
+
+    if (operation === 'start' && counts.embedded === 0) {
+      const errorStatus = buildNoEligibleFilesErrorStatus({
+        runId,
+        targetPath: startPath,
+        provider: requestedSelection.providerId,
+        counts,
+        ast: astCounts,
+        currentFile: lastFileRelPath,
+        fileIndex: fileTotal,
+        fileTotal,
+        percent: fileTotal > 0 ? 100 : 0,
+        etaMs: 0,
+      });
+      logLifecycle('error', 'DEV-0000046:T5:fresh-ingest-zero-embeddable', {
+        runId,
+        operation,
+        path: startPath,
+        root,
+        model: embeddingModel,
+        embeddingProvider,
+        embeddingModel,
+        name,
+        description,
+        discoveredFileCount: files.length,
+        counts,
+        error: errorStatus.error?.error,
+      });
+      setStatusAndPublish(runId, errorStatus);
+      logLifecycle('error', 'ingest error', {
+        runId,
+        operation,
+        path: startPath,
+        root,
+        model: embeddingModel,
+        embeddingProvider,
+        embeddingModel,
+        name,
+        description,
+        state: 'error',
+        lastError: errorStatus.lastError,
+        counts,
+        error: errorStatus.error,
+      });
+      return;
     }
 
     const resultState =

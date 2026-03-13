@@ -42,3 +42,64 @@ test('falls back to slicing when chunk exceeds limit', async () => {
   assert.ok(chunks.length > 1, 'expected slices');
   assert.ok(chunks.every((c) => c.tokenCount <= maxTokens));
 });
+
+test('returns no chunks for an empty string', async () => {
+  const chunks = await chunkText('', mockModel(200));
+  assert.deepEqual(chunks, []);
+});
+
+test('returns no chunks for whitespace-only content', async () => {
+  const chunks = await chunkText(' \n\t  ', mockModel(200));
+  assert.deepEqual(chunks, []);
+});
+
+test('drops leading blank boundary output before the first real chunk', async () => {
+  const chunks = await chunkText(
+    '\n\nfunction alpha() {\n  return 1;\n}\n',
+    mockModel(200),
+  );
+  assert.equal(chunks.length, 1);
+  assert.ok(chunks[0].text.startsWith('function alpha()'));
+});
+
+test('filters whitespace-only slices from the fallback slice path', async () => {
+  const model = mockModel(10, 1);
+  const config = {
+    includes: [],
+    excludes: [],
+    tokenSafetyMargin: 1,
+    fallbackTokenLimit: 10,
+    flushEvery: 20,
+  };
+
+  const chunks = await chunkText(`abcdefgh${' '.repeat(12)}`, model, config);
+
+  assert.deepEqual(
+    chunks.map((chunk) => chunk.text),
+    ['abcdefgh'],
+  );
+});
+
+test('renumbers chunk indexes after blank chunks are removed', async () => {
+  const chunks = await chunkText(
+    '\nfunction alpha() {}\nclass Beta {}\n',
+    mockModel(200),
+  );
+
+  assert.deepEqual(
+    chunks.map((chunk) => chunk.chunkIndex),
+    [0, 1],
+  );
+});
+
+test('preserves normal non-blank chunk ordering after blank filtering', async () => {
+  const chunks = await chunkText(
+    '\nfunction alpha() {\n  return 1;\n}\nclass Beta {}\n',
+    mockModel(200),
+  );
+
+  assert.deepEqual(
+    chunks.map((chunk) => chunk.text),
+    ['function alpha() {\n  return 1;\n}', 'class Beta {}\n'],
+  );
+});

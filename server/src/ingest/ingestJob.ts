@@ -1024,7 +1024,12 @@ async function processRun(runId: string, input: IngestJobInput) {
           }),
         },
       );
-      const chunks = await chunkText(text, embeddingModelClient, ingestConfig);
+      const chunks = await chunkText(text, embeddingModelClient, ingestConfig, {
+        logContext: {
+          runId,
+          relPath: file.relPath,
+        },
+      });
       for (const chunk of chunks) {
         const chunkHash = hashChunk(file.relPath, chunk.chunkIndex, chunk.text);
         const embedding = await embeddingModelClient.embedText(chunk.text);

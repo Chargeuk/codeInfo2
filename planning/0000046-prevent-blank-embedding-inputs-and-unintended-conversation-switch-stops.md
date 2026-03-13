@@ -644,6 +644,7 @@ This task handles only the Chat sidebar selection path. The goal is to make sele
 
 - React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this because the task is changing visible conversation selection into local UI navigation rather than external cleanup.
 - MUI MCP docs for `@mui/material` `6.4.12` (nearest available docs to the repo's `^6.4.1` dependency): `https://llms.mui.com/material-ui/6.4.12/components/text-fields.md`, `https://llms.mui.com/material-ui/6.4.12/components/selects.md`, `https://llms.mui.com/material-ui/6.4.12/api/text-field.md`, and `https://llms.mui.com/material-ui/6.4.12/api/select.md` — use these because `ChatPage.tsx` already uses MUI `TextField` with `select`, `SelectProps`, `slotProps.select`, and standard Select disabled/onChange behavior rather than a custom control.
+- Context7 MCP documentation for Jest's official docs library, with explicit fallback page `https://jestjs.io/docs/getting-started` — use this for Jest-specific matcher, mock, and spy patterns because the client regression file in this task runs under Jest in this repo.
 - React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for interaction-driven page regression tests that verify visible conversation state.
 
 #### Subtasks
@@ -683,6 +684,7 @@ This task isolates the `New conversation` control. The required output is a clea
 #### Documentation Locations
 
 - React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this because `New conversation` is a local draft reset, not an external stop action.
+- Context7 MCP documentation for Jest's official docs library, with explicit fallback page `https://jestjs.io/docs/getting-started` — use this for Jest-specific matcher, mock, and spy patterns because the client regression files in this task run under Jest in this repo.
 - React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for the page-level interaction tests proving no cancel message is sent.
 - MUI MCP docs for `@mui/material` `6.4.12`: `https://llms.mui.com/material-ui/6.4.12/components/text-fields.md`, `https://llms.mui.com/material-ui/6.4.12/api/text-field.md`, and `https://llms.mui.com/material-ui/6.4.12/api/select.md` — use these because the Chat composer and selectors already rely on existing MUI `TextField` and `Select` control behavior, including disabled and labeled-select handling.
 
@@ -728,6 +730,7 @@ This task isolates provider switching during an active run. The selected provide
 - React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this for deciding when provider selection is local next-send state instead of persisted hidden-run state.
 - React docs: `https://react.dev/learn/synchronizing-with-effects` — use this because the risky behavior here comes from state being overwritten by `selectedConversation` sync effects.
 - MUI MCP docs for `@mui/material` `6.4.12` (nearest available docs to the repo's `^6.4.1` dependency): `https://llms.mui.com/material-ui/6.4.12/components/text-fields.md`, `https://llms.mui.com/material-ui/6.4.12/components/selects.md`, `https://llms.mui.com/material-ui/6.4.12/api/text-field.md`, and `https://llms.mui.com/material-ui/6.4.12/api/select.md` — use these because the existing provider control is an MUI `TextField select`, and this task needs the documented `select`, `SelectProps`, `slotProps.select`, and `disabled` behavior instead of a control rewrite.
+- Context7 MCP documentation for Jest's official docs library, with explicit fallback page `https://jestjs.io/docs/getting-started` — use this for Jest-specific matcher, mock, and spy patterns because the client regression files in this task run under Jest in this repo.
 - React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for provider-selection regression tests that assert next-send behavior.
 
 #### Subtasks
@@ -777,6 +780,7 @@ This task isolates model switching during an active run. The selected model shou
 - React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this for deciding when model selection is local next-send state instead of persisted hidden-run state.
 - React docs: `https://react.dev/learn/synchronizing-with-effects` — use this because the risky behavior here comes from the current `selectedConversation` model sync effect.
 - MUI MCP docs for `@mui/material` `6.4.12` (nearest available docs to the repo's `^6.4.1` dependency): `https://llms.mui.com/material-ui/6.4.12/components/text-fields.md`, `https://llms.mui.com/material-ui/6.4.12/components/selects.md`, `https://llms.mui.com/material-ui/6.4.12/api/text-field.md`, and `https://llms.mui.com/material-ui/6.4.12/api/select.md` — use these because the existing model control is an MUI `TextField select`, and this task needs the documented `select`, `SelectProps`, and disabled/onChange behavior rather than a replacement component.
+- Context7 MCP documentation for Jest's official docs library, with explicit fallback page `https://jestjs.io/docs/getting-started` — use this for Jest-specific matcher, mock, and spy patterns because the client regression files in this task run under Jest in this repo.
 - React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for model-selection regression tests that assert next-send behavior.
 
 #### Subtasks
@@ -825,6 +829,7 @@ This task locks down the first hidden-run failure mode that appears after Tasks 
 
 - React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this for visible-conversation isolation and local reset behavior.
 - React docs: `https://react.dev/learn/synchronizing-with-effects` — use this for the late-event/effect-cleanup side of hidden-run state handling.
+- Context7 MCP documentation for Jest's official docs library, with explicit fallback page `https://jestjs.io/docs/getting-started` — use this for Jest-specific matcher, mock, and spy patterns because the client regression files in this task run under Jest in this repo.
 - React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for visible-state isolation tests around late websocket events.
 - `ws` repository documentation: `https://github.com/websockets/ws/blob/master/README.md` — use this for server message ordering/subscription semantics relevant to hidden runs.
 - MDN WebSocket reference: `https://developer.mozilla.org/en-US/docs/Web/API/WebSocket` — use this for general message and subscription behavior when describing hidden-run events.
@@ -872,6 +877,7 @@ This task locks down the second hidden-run failure mode: after a conversation ke
 
 - React docs: `https://react.dev/learn/preserving-and-resetting-state` — use this for how visible state should be reset and then rehydrated when returning to a conversation.
 - React docs: `https://react.dev/learn/synchronizing-with-effects` — use this for the existing fetch/rehydration effect model rather than inventing a second synchronization path.
+- Context7 MCP documentation for Jest's official docs library, with explicit fallback page `https://jestjs.io/docs/getting-started` — use this for Jest-specific matcher, mock, and spy patterns because the client regression files in this task run under Jest in this repo.
 - React Testing Library docs: `https://testing-library.com/docs/react-testing-library/intro/` — use this for snapshot-rehydration page regressions.
 - MDN WebSocket reference: `https://developer.mozilla.org/en-US/docs/Web/API/WebSocket` — use this only for general message timing expectations around revisiting a still-running conversation.
 
@@ -983,6 +989,7 @@ This final task proves the story end to end against the acceptance criteria. It 
 
 - Docker Compose docs: `https://docs.docker.com/compose/` — use this for the build/up/down validation flow and container lifecycle checks.
 - Playwright docs: `https://playwright.dev/docs/intro` — use this for the manual/browser verification workflow and screenshot capture expectations.
+- Context7 MCP documentation for Jest's official docs library, with explicit fallback page `https://jestjs.io/docs/getting-started` — use this for interpreting Jest-specific failure output because the full client wrapper in this task runs the Jest suite used by the repo.
 - Jest docs: `https://jestjs.io/docs/getting-started` — use this for full client test-suite expectations when interpreting wrapper output.
 - Cucumber guide: `https://cucumber.io/docs/guides/10-minute-tutorial/` — use this for full server feature-suite expectations and terminology when validating the cucumber wrapper output.
 

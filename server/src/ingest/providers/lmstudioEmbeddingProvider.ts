@@ -1,5 +1,6 @@
 import type { EmbeddingFunction } from 'chromadb';
 import { runWithRetry } from '../../agents/retry.js';
+import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
 import {
   appendIngestFailureLog,
@@ -31,6 +32,8 @@ type LmStudioClientLike = {
 const LMSTUDIO_RETRY_MAX_ATTEMPTS = 3;
 const LMSTUDIO_RETRY_BASE_DELAY_MS = 350;
 
+type BlankInputClassification = 'empty' | 'whitespace_only';
+
 function toLmStudioEmbeddingError(error: unknown): LmStudioEmbeddingError {
   const mapped = mapLmStudioIngestError(error);
   return new LmStudioEmbeddingError(
@@ -38,6 +41,45 @@ function toLmStudioEmbeddingError(error: unknown): LmStudioEmbeddingError {
     mapped.message,
     mapped.retryable,
   );
+}
+
+function classifyBlankInput(text: string): BlankInputClassification | null {
+  if (text.length === 0) {
+    return 'empty';
+  }
+  if (text.trim().length === 0) {
+    return 'whitespace_only';
+  }
+  return null;
+}
+
+function createLmStudioBlankInputError() {
+  return new LmStudioEmbeddingError(
+    'LMSTUDIO_BAD_REQUEST',
+    'LM Studio embeddings input cannot be blank',
+    false,
+  );
+}
+
+function logBlankInputGuardHit(params: {
+  model: string;
+  rawInputClassification: BlankInputClassification;
+}) {
+  const payload = {
+    provider: 'lmstudio',
+    model: params.model,
+    rawInputClassification: params.rawInputClassification,
+    skippedRetryAndModelCall: true,
+  } as const;
+
+  append({
+    level: 'warn',
+    message: 'DEV-0000046:T4:lmstudio-blank-input-guard-hit',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: payload,
+  });
+  baseLogger.warn(payload, 'DEV-0000046:T4:lmstudio-blank-input-guard-hit');
 }
 
 function logPathSelected(modelKey: string) {
@@ -105,6 +147,15 @@ class LmStudioEmbeddingModel implements ProviderEmbeddingModel {
   }
 
   async embedText(text: string): Promise<number[]> {
+    const blankInputClassification = classifyBlankInput(text);
+    if (blankInputClassification) {
+      logBlankInputGuardHit({
+        model: this.modelKey,
+        rawInputClassification: blankInputClassification,
+      });
+      throw createLmStudioBlankInputError();
+    }
+
     let attemptCounter = 0;
     let terminalLogged = false;
 

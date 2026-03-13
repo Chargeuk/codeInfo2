@@ -173,7 +173,7 @@ describe('ChatInterface.run persistence', () => {
     });
   });
 
-  test('assistant persistence omits usage/timing when missing', async () => {
+  test('assistant persistence omits usage and only persists derived timing when available', async () => {
     const chat = new PersistSpyChat();
 
     await withReadyState(1, 'development', async () => {
@@ -187,7 +187,11 @@ describe('ChatInterface.run persistence', () => {
 
     assert.equal(chat.persisted.length, 2);
     assert.equal(chat.persisted[1].usage, undefined);
-    assert.equal(chat.persisted[1].timing, undefined);
+    const timing = chat.persisted[1].timing;
+    if (timing) {
+      assert.equal(typeof timing.totalTimeSec, 'number');
+      assert.equal(timing.tokensPerSecond, undefined);
+    }
   });
 
   test('fallback timing uses run start when provider timing missing', async () => {

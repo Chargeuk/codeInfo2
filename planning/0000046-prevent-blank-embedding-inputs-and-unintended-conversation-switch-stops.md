@@ -416,11 +416,9 @@ This task isolates the first shared ingest boundary: `chunkText()`. Its job is t
 
 #### Documentation Locations
 
-- Story `0000046` sections: `### Description`, `### Acceptance Criteria`, `## Research Findings`, `## Edge Cases and Failure Modes`
-- `server/src/ingest/chunker.ts`
-- `server/src/ingest/types.ts`
-- `server/src/test/unit/chunker.test.ts`
-- OpenAI embeddings API reference: input cannot be an empty string
+- TypeScript: Context7 `/microsoft/typescript` — array/filter/map typing for in-place chunk filtering.
+- Node.js test runner: official `node:test` documentation for focused unit-test structure.
+- OpenAI platform docs: embeddings input validation reference confirming blank input is invalid.
 
 #### Subtasks
 
@@ -458,13 +456,9 @@ This task adds the defensive provider-layer blank-input check for the OpenAI emb
 
 #### Documentation Locations
 
-- Story `0000046` sections: `### Acceptance Criteria`, `## Contracts And Storage Shapes`, `## Edge Cases and Failure Modes`
-- `server/src/ingest/providers/openaiGuardrails.ts`
-- `server/src/ingest/providers/openaiEmbeddingProvider.ts`
-- `server/src/ingest/providers/openaiErrors.ts`
-- `server/src/test/unit/openai-provider-guardrails.test.ts`
-- `server/src/test/unit/openai-provider.test.ts`
-- OpenAI embeddings API reference and the `openai/openai-node` repository error-handling guidance
+- OpenAI platform docs: embeddings API reference for request rules and invalid-input behavior.
+- DeepWiki `openai/openai-node` — repository-grounded error-handling guidance for SDK usage.
+- Node.js test runner: official `node:test` documentation for focused provider tests.
 
 #### Subtasks
 
@@ -500,10 +494,9 @@ This task adds the defensive provider-layer blank-input check for the LM Studio 
 
 #### Documentation Locations
 
-- Story `0000046` sections: `### Acceptance Criteria`, `## Contracts And Storage Shapes`, `## Edge Cases and Failure Modes`
-- `server/src/ingest/providers/lmstudioEmbeddingProvider.ts`
-- `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`
-- LM Studio SDK documentation already pinned by the repository version research in this story
+- LM Studio documentation: official embeddings or JavaScript SDK docs for `model.embed(...)` behavior.
+- Node.js test runner: official `node:test` documentation for focused provider tests.
+- TypeScript: Context7 `/microsoft/typescript` — error narrowing and typed guardrail helpers.
 
 #### Subtasks
 
@@ -539,12 +532,9 @@ This task handles the second server-side ingest boundary: what happens after chu
 
 #### Documentation Locations
 
-- Story `0000046` sections: `### Description`, `### Acceptance Criteria`, `## Research Findings`, `## Contracts And Storage Shapes`, `## Edge Cases and Failure Modes`
-- `server/src/ingest/ingestJob.ts`
-- `server/src/ingest/deltaPlan.ts`
-- `server/src/test/unit/ingest-start.test.ts`
-- `server/src/test/unit/ingest-reembed.test.ts`
-- Story `0000020-ingest-delta-reembed-and-ingest-page-ux.md`
+- Chroma documentation: collection write/delete semantics relevant to avoiding misleading partial success.
+- TypeScript: Context7 `/microsoft/typescript` — control-flow and error handling in async job code.
+- Node.js test runner: official `node:test` documentation for start/re-embed regression tests.
 
 #### Subtasks
 
@@ -582,12 +572,9 @@ This task makes the existing server-side cancellation contract explicit before a
 
 #### Documentation Locations
 
-- Story `0000046` sections: `### Acceptance Criteria`, `## Decisions`, `## Contracts And Storage Shapes`, `## Edge Cases and Failure Modes`
-- `server/src/ws/types.ts`
-- `server/src/ws/server.ts`
-- `server/src/ws/registry.ts`
-- `server/src/test/features/chat_cancellation.feature`
-- `server/src/test/steps/chat_cancellation.steps.ts`
+- `ws` documentation: WebSocket server message handling patterns.
+- Cucumber guides: feature and step-definition authoring for behavior contracts.
+- MDN WebSocket documentation: general client/server message semantics.
 
 #### Subtasks
 
@@ -624,15 +611,9 @@ This task handles only the Chat sidebar selection path. The goal is to make sele
 
 #### Documentation Locations
 
-- Story `0000046` sections: `### Description`, `### Acceptance Criteria`, `## Edge Cases and Failure Modes`
-- `client/src/pages/ChatPage.tsx`
-- `client/src/hooks/useChatStream.ts`
-- `client/src/hooks/useConversations.ts`
-- `client/src/hooks/useChatWs.ts`
-- `client/src/test/chatPage.provider.conversationSelection.test.tsx`
-- `client/src/test/agentsPage.conversationSelection.test.tsx`
-- `server/src/ws/types.ts`
-- MUI Material UI TextField/Select documentation for the currently used major version
+- React documentation: preserving and resetting state when visible UI context changes.
+- Material UI: use the MUI MCP docs for the current repo major version `TextField` and `Select` APIs.
+- React Testing Library documentation for interaction-driven page regression tests.
 
 #### Subtasks
 
@@ -669,13 +650,9 @@ This task isolates the `New conversation` control. The required output is a clea
 
 #### Documentation Locations
 
-- Story `0000046` sections: `### Description`, `### Acceptance Criteria`, `## Edge Cases and Failure Modes`
-- `client/src/pages/ChatPage.tsx`
-- `client/src/hooks/useChatStream.ts`
-- `client/src/hooks/useConversationTurns.ts`
-- `client/src/test/chatPage.newConversation.test.tsx`
-- `client/src/test/chatPage.inflightNavigate.test.tsx`
-- `client/src/test/chatPage.stop.test.tsx`
+- React documentation: preserving and resetting state for local draft resets.
+- React Testing Library documentation for page-level interaction tests.
+- Material UI: use the MUI MCP docs for any control-state behavior touched by the Chat page.
 
 #### Subtasks
 
@@ -714,15 +691,9 @@ This task isolates provider switching during an active run. The selected provide
 
 #### Documentation Locations
 
-- Story `0000046` sections: `### Description`, `### Acceptance Criteria`, `## Contracts And Storage Shapes`, `## Edge Cases and Failure Modes`
-- `client/src/pages/ChatPage.tsx`
-- `client/src/hooks/useChatModel.ts`
-- `client/src/hooks/useConversationTurns.ts`
-- `server/src/routes/conversations.ts`
-- `server/src/mongo/conversation.ts`
-- `client/src/test/chatPage.provider.conversationSelection.test.tsx`
-- `client/src/test/chatPage.stop.test.tsx`
-- MUI Material UI TextField/Select documentation for the currently used major version
+- React documentation: state synchronization and preserving/resetting UI state.
+- Material UI: use the MUI MCP docs for the current repo major version `TextField` and `Select` APIs.
+- React Testing Library documentation for provider-selection regression tests.
 
 #### Subtasks
 
@@ -762,15 +733,9 @@ This task isolates model switching during an active run. The selected model shou
 
 #### Documentation Locations
 
-- Story `0000046` sections: `### Description`, `### Acceptance Criteria`, `## Contracts And Storage Shapes`, `## Edge Cases and Failure Modes`
-- `client/src/pages/ChatPage.tsx`
-- `client/src/hooks/useChatModel.ts`
-- `client/src/hooks/useConversationTurns.ts`
-- `server/src/routes/conversations.ts`
-- `server/src/mongo/conversation.ts`
-- `client/src/test/chatPage.models.test.tsx`
-- `client/src/test/chatPage.provider.conversationSelection.test.tsx`
-- MUI Material UI TextField/Select documentation for the currently used major version
+- React documentation: state synchronization and preserving/resetting UI state.
+- Material UI: use the MUI MCP docs for the current repo major version `TextField` and `Select` APIs.
+- React Testing Library documentation for model-selection regression tests.
 
 #### Subtasks
 
@@ -809,16 +774,10 @@ This task locks down the failure mode that appears after Tasks 6-9 remove implic
 
 #### Documentation Locations
 
-- Story `0000046` sections: `### Acceptance Criteria`, `## Research Findings`, `## Edge Cases and Failure Modes`
-- `client/src/hooks/useChatStream.ts`
-- `client/src/hooks/useConversationTurns.ts`
-- `client/src/pages/ChatPage.tsx`
-- `server/src/routes/conversations.ts`
-- `client/src/test/useChatStream.inflightMismatch.test.tsx`
-- `client/src/test/chatPage.inflightNavigate.test.tsx`
-- `server/src/test/integration/conversations.turns.test.ts`
-- `server/src/test/features/chat_cancellation.feature`
-- `server/src/test/steps/chat_cancellation.steps.ts`
+- React documentation: preserving/resetting state and effect cleanup behavior.
+- React Testing Library documentation for visible-state isolation tests.
+- `ws` documentation and MDN WebSocket docs for message ordering and subscription semantics.
+- Cucumber guides for any existing server feature coverage that needs extension.
 
 #### Subtasks
 
@@ -859,12 +818,9 @@ This task is documentation-only. It updates the shared written material after im
 
 #### Documentation Locations
 
-- `README.md`
-- `design.md`
-- `projectStructure.md`
-- Story `0000046`
-- Story `0000020-ingest-delta-reembed-and-ingest-page-ux.md`
-- Story `0000043-stop-any-point-cancellation.md`
+- GitHub documentation: Markdown authoring and formatting conventions.
+- Mermaid documentation for any diagram text updated in `design.md`.
+- Project documentation style guidance already established by earlier repository stories.
 
 #### Subtasks
 
@@ -897,14 +853,10 @@ This final task proves the story end to end against the acceptance criteria. It 
 
 #### Documentation Locations
 
-- Story `0000046`
-- `README.md`
-- `design.md`
-- `projectStructure.md`
-- Docker/Compose documentation
-- Playwright documentation
-- Jest documentation
-- Cucumber guides
+- Docker documentation for Compose and container lifecycle checks.
+- Playwright documentation for manual/browser verification workflow.
+- Jest documentation for full client test-suite expectations.
+- Cucumber guides for full server feature-suite expectations.
 
 #### Subtasks
 

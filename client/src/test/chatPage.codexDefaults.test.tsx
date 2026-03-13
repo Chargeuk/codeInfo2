@@ -126,6 +126,19 @@ function mockCodexReady(options?: {
         }),
       }) as unknown as Response;
     }
+    if (href.includes('/chat')) {
+      return Promise.resolve({
+        ok: true,
+        status: 202,
+        json: async () => ({
+          status: 'started',
+          conversationId: 'draft-conversation',
+          inflightId: 'draft-inflight',
+          provider: 'lmstudio',
+          model: 'lm',
+        }),
+      }) as unknown as Response;
+    }
     return Promise.resolve({
       ok: true,
       status: 200,
@@ -264,6 +277,48 @@ describe('Codex defaults from server', () => {
     await waitFor(() =>
       expect(sandboxSelectAfterReset).toHaveTextContent(/read-only/i),
     );
+  });
+
+  it('applies Codex defaults when switching providers during an active run', async () => {
+    mockCodexReady();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    await userEvent.type(input, 'keep lmstudio running');
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('chat-send'));
+    });
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    const codexOption = await screen.findByRole('option', {
+      name: /openai codex/i,
+    });
+    await userEvent.click(codexOption);
+
+    await ensureCodexFlagsPanelExpanded();
+
+    const sandboxSelect = await screen.findByRole('combobox', {
+      name: /sandbox mode/i,
+    });
+    const approvalSelect = await screen.findByRole('combobox', {
+      name: /approval policy/i,
+    });
+    const reasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    const networkSwitch = await screen.findByTestId('network-access-switch');
+    const webSearchSwitch = await screen.findByTestId('web-search-switch');
+
+    await waitFor(() => expect(sandboxSelect).toHaveTextContent(/read-only/i));
+    await waitFor(() => expect(approvalSelect).toHaveTextContent(/never/i));
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/medium/i));
+    expect(networkSwitch).not.toBeChecked();
+    expect(webSearchSwitch).not.toBeChecked();
   });
 
   it('disables Codex flags when defaults are missing', async () => {

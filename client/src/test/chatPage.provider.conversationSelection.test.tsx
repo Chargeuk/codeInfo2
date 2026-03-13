@@ -253,6 +253,20 @@ async function startDraftRun() {
   };
 }
 
+async function selectProvider(
+  user: ReturnType<typeof userEvent.setup>,
+  optionName: RegExp,
+) {
+  const providerSelect = screen.getByRole('combobox', { name: /provider/i });
+  await act(async () => {
+    await user.click(providerSelect);
+  });
+  const option = await screen.findByRole('option', { name: optionName });
+  await act(async () => {
+    await user.click(option);
+  });
+}
+
 describe('Chat page sidebar conversation selection', () => {
   it('does not send cancel_inflight when switching conversations during an active run', async () => {
     const { user, draftConversationId } = await startDraftRun();
@@ -312,5 +326,45 @@ describe('Chat page sidebar conversation selection', () => {
     expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
     expect(screen.queryByTestId('chat-stop')).not.toBeInTheDocument();
     expect(screen.getByTestId('chat-input')).toBeEnabled();
+  });
+
+  it('does not send cancel_inflight when changing provider during an active run', async () => {
+    const { user, draftConversationId } = await startDraftRun();
+
+    await selectProvider(user, /openai codex/i);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /OpenAI Codex/i,
+      ),
+    );
+
+    const cancelMessages = getWsMessages().filter(
+      (msg) =>
+        msg.type === 'cancel_inflight' &&
+        msg.conversationId === draftConversationId,
+    );
+
+    expect(cancelMessages).toHaveLength(0);
+  });
+
+  it('keeps the provider selector enabled for the visible next-send view', async () => {
+    const { user } = await startDraftRun();
+
+    const providerSelect = screen.getByRole('combobox', { name: /provider/i });
+    expect(providerSelect).toBeEnabled();
+
+    await selectProvider(user, /openai codex/i);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /OpenAI Codex/i,
+      ),
+    );
+
+    expect(screen.getByRole('combobox', { name: /provider/i })).toBeEnabled();
+    expect(screen.getByTestId('chat-input')).toBeEnabled();
+    expect(screen.queryByText('Hello inflight')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
   });
 });

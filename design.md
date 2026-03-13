@@ -4076,6 +4076,37 @@ sequenceDiagram
   UI-->>User: clean draft placeholder and interactive composer
 ```
 
+## Story 0000046 Task 9: chat provider changes become next-send-only
+
+- Provider changes stay in the existing `handleProviderChange(...)` event path in `client/src/pages/ChatPage.tsx`; they do not move into a new effect or websocket protocol path.
+- Changing provider during an active run now reuses the same local draft reset used by Task 8, but it no longer sends `cancelInflight(...)`. The already-running hidden conversation keeps its original provider and persisted turn metadata.
+- The page-level `provider` state from `client/src/hooks/useChatModel.ts` remains the single next-send source. `client/src/pages/ChatPage.tsx` now syncs provider from `selectedConversation` only when the visible conversation context changes, using the current inflight snapshot in the sync key, so an intentional next-send provider choice is not overwritten immediately.
+- The existing MUI provider `TextField select` stays in place, but the old `providerLocked` rule no longer blocks provider changes just because a conversation or transcript is visible. This keeps the selector reachable for the next-send draft view while an older run continues in the background.
+- Switching into Codex still reuses `applyCodexDefaults(...)` and `pendingCodexDefaultsReasonRef`, but those defaults now apply only to the next-send draft state and do not mutate the hidden conversation's persisted provider/model history.
+- Task 9 verification marker:
+  - `DEV-0000046:T9:provider-next-send-updated`
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as ChatPage.handleProviderChange
+  participant Turns as useConversationTurns
+  participant Stream as useChatStream
+  participant Models as useChatModel
+  participant Hidden as Hidden active run
+
+  User->>UI: Change provider select
+  UI->>Turns: resetTurns()
+  UI->>Stream: reset()
+  UI->>Stream: setConversation(newDraftId, clearMessages=true)
+  UI->>Models: setProvider(nextProvider)
+  UI-->>UI: log DEV-0000046:T9:provider-next-send-updated
+  Hidden-->>Server: continue with original provider/model
+  Models-->>UI: refresh models/defaults for next-send provider
+  Note over UI: next prompt uses the newly chosen provider
+  Note over Hidden: revisiting the hidden conversation rehydrates its stored provider
+```
+
 ### Agent tooling (Chroma list + search)
 
 - `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.

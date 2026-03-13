@@ -506,7 +506,6 @@ export default function ChatPage() {
       },
     };
   }, [handleWsEvent]);
-  const providerLocked = Boolean(selectedConversation || messages.length > 0);
   const providerIsCodex = provider === 'codex';
   const codexDefaultsReady = providerIsCodex && Boolean(codexDefaults);
   const codexWarningList = useMemo(
@@ -559,6 +558,9 @@ export default function ChatPage() {
     (providerIsCodex && !toolsAvailable);
   const isSending = isStreaming || status === 'sending';
   const isStopping = status === 'stopping';
+  const providerLocked = Boolean(
+    selectedConversation && isStopping && !inflightSnapshot?.inflightId,
+  );
   const showStop = isSending || isStopping;
   const combinedError =
     providerErrorMessage ?? errorMessage ?? 'Failed to load chat options.';
@@ -677,12 +679,18 @@ export default function ChatPage() {
     unsubscribeConversation,
   ]);
 
+  const selectedConversationProviderSyncKey = selectedConversation
+    ? `${selectedConversation.conversationId}:${selectedConversation.provider}:${inflightSnapshot?.inflightId ?? 'no-inflight'}`
+    : null;
+
   useEffect(() => {
     if (!selectedConversation?.provider) return;
-    if (selectedConversation.provider !== provider) {
-      setProvider(selectedConversation.provider);
-    }
-  }, [provider, selectedConversation, setProvider]);
+    setProvider((currentProvider) =>
+      currentProvider === selectedConversation.provider
+        ? currentProvider
+        : selectedConversation.provider,
+    );
+  }, [selectedConversationProviderSyncKey, selectedConversation, setProvider]);
 
   useEffect(() => {
     if (!isDevEnv()) return;
@@ -880,16 +888,13 @@ export default function ChatPage() {
     nextProvider?: string;
   }) => {
     const resetReason = options?.reason ?? 'new-conversation';
-    const currentInflightId =
-      inflightSnapshot?.inflightId ??
-      serverVisibleInflightIdRef.current ??
-      undefined;
     const olderConversationRemainedInflight = Boolean(
-      activeConversationId && (currentInflightId || isSending || isStopping),
+      activeConversationId &&
+        (inflightSnapshot?.inflightId ||
+          serverVisibleInflightIdRef.current ||
+          isSending ||
+          isStopping),
     );
-    if (resetReason === 'provider-change' && activeConversationId) {
-      cancelInflight(activeConversationId, currentInflightId);
-    }
     resetTurns();
     const nextId = reset();
     setConversation(nextId, { clearMessages: true });
@@ -921,8 +926,16 @@ export default function ChatPage() {
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const nextProvider = event.target.value;
-    setProvider(nextProvider);
+    const previousProvider = provider ?? null;
+    const currentConversationId = activeConversationId ?? null;
     handleNewConversation({ reason: 'provider-change', nextProvider });
+    setProvider(nextProvider);
+    log('info', 'DEV-0000046:T9:provider-next-send-updated', {
+      previousProvider,
+      nextProvider,
+      activeConversationId: currentConversationId,
+      cancelSent: false,
+    });
   };
 
   const handleDeviceAuthOpen = () => {

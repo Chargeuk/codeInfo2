@@ -523,7 +523,49 @@ This task handles the second server-side ingest boundary: what happens after chu
 
 ---
 
-### 4. Client - Conversation Sidebar Selection Becomes Pure Navigation
+### 4. Server - Lock Down The Websocket Cancellation Contract Before Chat UI Changes
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+This task makes the existing server-side cancellation contract explicit before any Chat UI refactor depends on it. The story is not meant to redesign websocket protocol behavior, so this task should prove and, if needed, tighten the current rule that `cancel_inflight` is the only real stop message and `unsubscribe_conversation` remains subscription-only. If any server-side message wording or feature-step assertions need to change to keep that contract clear and testable, do that here before the frontend tasks rely on it.
+
+#### Documentation Locations
+
+- Story `0000046` sections: `### Acceptance Criteria`, `## Decisions`, `## Contracts And Storage Shapes`, `## Edge Cases and Failure Modes`
+- `server/src/ws/types.ts`
+- `server/src/ws/server.ts`
+- `server/src/ws/registry.ts`
+- `server/src/test/features/chat_cancellation.feature`
+- `server/src/test/steps/chat_cancellation.steps.ts`
+
+#### Subtasks
+
+1. [ ] Read `server/src/ws/types.ts`, `server/src/ws/server.ts`, `server/src/ws/registry.ts`, `server/src/test/features/chat_cancellation.feature`, and `server/src/test/steps/chat_cancellation.steps.ts` before editing so you understand the current subscription and cancellation message flow.
+2. [ ] Update the server-side chat cancellation feature coverage so it explicitly proves `unsubscribe_conversation` does not cancel a running chat and that `cancel_inflight` remains the only authoritative stop message.
+3. [ ] If any step definitions or server-side message wording need to change so the contract is stable and easy to assert, update them here without introducing any new websocket message types or changing the meaning of `unsubscribe_conversation`.
+4. [ ] Keep this task server-focused: do not change Chat page interaction code here. The output of this task should be a locked-down server contract and regression coverage that the later client tasks can rely on.
+5. [ ] Update Story `0000046` task notes with the exact server-side cancellation contract confirmed or clarified by this task so the later Chat tasks can quote one final rule.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve any remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_cancellation.feature`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Add implementation notes here after each completed subtask and testing step.
+
+---
+
+### 5. Client - Conversation Sidebar Selection Becomes Pure Navigation
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
@@ -566,7 +608,7 @@ This task handles only the Chat sidebar selection path. The goal is to make sele
 
 ---
 
-### 5. Client - New Conversation Becomes a Local Draft Reset, Not a Stop Action
+### 6. Client - New Conversation Becomes a Local Draft Reset, Not a Stop Action
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
@@ -610,7 +652,7 @@ This task isolates the `New conversation` control. The required output is a clea
 
 ---
 
-### 6. Client - Provider and Model Changes Apply Only to the Next Send
+### 7. Client - Provider and Model Changes Apply Only to the Next Send
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
@@ -653,14 +695,14 @@ This task isolates provider/model switching during an active run. The selected p
 
 ---
 
-### 7. Client - Preserve Visible Conversation Isolation While Hidden Runs Continue
+### 8. Client - Preserve Visible Conversation Isolation While Hidden Runs Continue
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`
 
 #### Overview
 
-This task locks down the failure mode that appears after Tasks 4-6 remove implicit cancellation: hidden conversations can still finish in the background, but their late websocket events must not leak banners, assistant content, or stopping state into whichever conversation is currently visible. This task should focus on state-isolation and regression coverage only.
+This task locks down the failure mode that appears after Tasks 5-7 remove implicit cancellation: hidden conversations can still finish in the background, but their late websocket events must not leak banners, assistant content, or stopping state into whichever conversation is currently visible. This task should focus on state-isolation and regression coverage only.
 
 #### Documentation Locations
 
@@ -698,7 +740,7 @@ This task locks down the failure mode that appears after Tasks 4-6 remove implic
 
 ---
 
-### 8. Final Task - Validate Story Completion and Documentation
+### 9. Final Task - Validate Story Completion and Documentation
 
 - Task Status: `__to_do__`
 - Git Commits: `__to_do__`

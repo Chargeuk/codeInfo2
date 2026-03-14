@@ -10,7 +10,7 @@
         {
           "role": "user",
           "content": [
-            "Before selecting the next plan, delete `test-results/flow-state/current-plan.json` if it already exists so this flow cannot inherit stale active-plan state from an earlier run. Do not fail if the file is missing, and do not create a replacement in this step."
+            "Please read AGENTS.md and follow its instructions. Then delete `test-results/flow-state/current-plan.json` if it already exists so this flow cannot inherit stale active-plan state from an earlier run. Do not fail if the file is missing, and do not create a replacement in this step."
           ]
         }
       ]
@@ -24,7 +24,7 @@
         {
           "role": "user",
           "content": [
-            "Please read AGENTS.md and follow its instructions. Please tell me the next plan that has not yet been fully executed. This can be determined by looking for plans that include tasks that are not yet moved to the status of completed/complete. The lowest indexed story that meets one of these two criteria will be the story we will be working on. Do NOT use code_info tools for this search. Confirm to me what story that is, and provide me with an overview of the story, including what is still remaining to be done, without making file changes at this time. When you have found the story, follow the rules within the `## Branching And Phase Flow` section of the AGENTS.md to ensure we are on the correct branch to work on it, and if not, create the branch and switch to it. Then write or overwrite `test-results/flow-state/current-plan.json` with only the selected relative plan path using the shape `{ \"plan_path\": \"planning/<story-file>.md\" }`. Do not write absolute paths. This handoff file becomes the sole plan-selection source for every later step in this flow."
+            "Please tell me the next plan that has not yet been fully executed. This can be determined by looking for plans that either do NOT yet have tasks, or that include tasks that are not yet moved to the status of done/completed/complete, for example it may have tasks that are todo or in_progress. The lowest indexed story that meets one of these two criteria will be the story we will be working on. Do NOT use code_info tools for this search. Confirm to me what story that is, and provide me with an overview of the story, including what is still remaining to be done, without making file changes at this time. When you have found the story, follow the rules within the `## Branching And Phase Flow` section of the AGENTS.md to ensure we are on the correct branch to work on it, and if not, create the branch and switch to it. Then write or overwrite `test-results/flow-state/current-plan.json` with only the selected relative plan path using the shape `{ \"plan_path\": \"planning/<story-file>.md\" }`. Do not write absolute paths. This handoff file becomes the sole plan-selection source for every later step in this flow."
           ]
         }
       ]

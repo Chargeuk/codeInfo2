@@ -140,6 +140,19 @@ The scope of this story is runtime-config correctness and consistency. It is not
 - `Context7 overlay with env key example`: if the runtime config contains `[mcp_servers.context7] args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY']` and `CODEINFO_CONTEXT7_API_KEY=ctx7sk-real`, the in-memory runtime config should use `['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real']` for that server definition without rewriting the file on disk.
 - `Context7 no-key fallback example`: if the runtime config contains either placeholder-equivalent key value and `CODEINFO_CONTEXT7_API_KEY` is missing or empty, the in-memory runtime config should use `['-y', '@upstash/context7-mcp']` for Context7. Only the `--api-key` pair is removed; unrelated args and unrelated MCP server definitions remain unchanged.
 
+## Edge Cases and Failure Modes
+
+- `Concurrent bootstrap`: if two requests notice a missing config file at the same time, the story must preserve no-overwrite behavior and treat “created by another winner first” as a safe existing-file outcome rather than an error that retries or corrupts the file.
+- `Existing but unusable chat config`: zero-byte files, unreadable files, directories in place of files, and invalid TOML all count as “existing” rather than “missing” for this story. The chat-default resolution path should warn and fall back, but bootstrap must not silently replace those paths.
+- `Blank or invalid model field`: if `codex/chat/config.toml` contains `model = ""`, whitespace-only text, or another unusable value, the story should treat that model as absent for merge/default purposes and continue to use the existing fallback chain rather than manufacturing a broken model entry.
+- `Model already present in env list`: if the chat-config model is already present in `Codex_model_list`, the merged list must not duplicate or move it. The only allowed reordering remains the existing route-level preferred-model prioritization after capability resolution.
+- `Chat config read failures during merge`: the same warning-and-fallback behavior already used by `resolveCodexChatDefaults()` should apply when the shared model list needs the chat-config model. A broken chat config must not cause `/chat/models` to invent a new hard-error contract for this story.
+- `Base runtime-config failures`: base-config parse/read/validation failures still use the existing runtime-config error path and codes in `server/src/config/runtimeConfig.ts`. Story 47 should not accidentally mask or down-convert those failures just because chat-config behavior is intentionally softer in one path.
+- `Context7 placeholder detection`: both `REPLACE_WITH_CONTEXT7_API_KEY` and the legacy seeded key literal count as “no usable key.” A real non-placeholder `--api-key` value must remain authoritative and must not be replaced from `CODEINFO_CONTEXT7_API_KEY`.
+- `Missing or malformed Context7 args`: if the local stdio Context7 definition does not have the expected `args` array shape, the story should avoid inventing a second config schema or destructive repair step. It should preserve existing validation/error behavior and only normalize the supported `command` plus `args` shape defined in scope.
+- `No-key fallback hygiene`: when no usable key is available, only the `--api-key` pair may be removed. Unrelated args must stay in the same order, and unrelated MCP server definitions must remain untouched in the same runtime config object.
+- `Route warning propagation`: `/chat/models?provider=codex` already exposes `codexWarnings` and route-level warnings about tool availability. Story 47 must preserve that warning contract while adding any new merge/overlay warnings through the existing warnings arrays rather than inventing a second warning field.
+
 ## Likely Files
 
 - `server/src/config/chatDefaults.ts`: existing default-model precedence and warnings logic; likely remains the source for config-over-env fallback behavior.

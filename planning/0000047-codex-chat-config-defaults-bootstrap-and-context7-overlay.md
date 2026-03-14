@@ -108,22 +108,13 @@ The scope of this story is runtime-config correctness and consistency. It is not
 
 ## Implementation Ideas
 
-- Consolidate model-list and default-model behavior so the same runtime read path is used by web chat routes and MCP chat tooling.
-- Extend the current Codex capability resolution so the model list is based on `env list UNION chat-config model`, preserving environment order and only appending the chat-config model when it is absent.
-- Keep request override precedence unchanged while lowering `CHAT_DEFAULT_MODEL` to fallback-only status behind `codex/chat/config.toml`.
-- Keep route-level or UI-level model prioritization separate from capability resolution so the merged list stays stable and deterministic.
-- Replace reliance on external runtime template files with one canonical in-code base template and one canonical in-code chat template, both using `gpt-5.3-codex` as the model value for first-time bootstrap, and create missing chat config from the chat template directly rather than copying base config first.
-- Update bootstrap helpers in `server/src/config/runtimeConfig.ts` and `server/src/config/codexConfig.ts` so first-run creation is deterministic and non-destructive.
-- Reuse the existing chat-default warning-and-fallback path for unreadable or invalid chat config rather than introducing a new strict-error behavior in this story.
-- Apply the Context7 API-key overlay during runtime config read/normalization, not during repeated writes.
-- Detect existing real `--api-key` args before overlaying anything so explicit user-provided keys still win.
-- Treat `REPLACE_WITH_CONTEXT7_API_KEY` and the one legacy checked-in seed key literal as placeholder-equivalent values, not as real configured keys.
-- When either placeholder-equivalent value is present and `CODEINFO_CONTEXT7_API_KEY` is empty, strip only the `--api-key` pair and fall back to the unauthenticated `['-y', '@upstash/context7-mcp']` argument form without disturbing unrelated args.
-- Add tests for:
-  - model list includes chat-config model when env list omits it;
-  - chat-config model is default in web and MCP surfaces;
-  - reread-from-disk behavior after file edits;
-  - missing chat config bootstraps from the in-code template;
-  - missing base config bootstraps from the in-code template;
-  - Context7 args receive in-memory env overlay only when needed;
-  - both placeholder-equivalent Context7 key values fall back to the no-key argument form when `CODEINFO_CONTEXT7_API_KEY` is empty.
+- `Model list and defaults`: keep `server/src/config/chatDefaults.ts` as the source for default-model precedence, and update the shared capability path in `server/src/config/codexEnvDefaults.ts` plus `server/src/codex/capabilityResolver.ts` so available-model resolution becomes `env list UNION chat-config model`. The merge should preserve env order, append the chat-config model only when missing, and leave route-level prioritization in `server/src/routes/chatModels.ts` as a separate concern.
+- `Shared read path`: make the chat model list and chat default use the same underlying runtime-config read shape so `/chat/models` and MCP chat validation cannot drift. The current repo split is env-only list resolution in `codexEnvDefaults.ts` and config-aware default resolution in `chatDefaults.ts`; this story should close that gap without changing request override precedence.
+- `Base bootstrap`: update `server/src/config/codexConfig.ts` so `ensureCodexConfigSeeded()` stops consulting `config.toml.example` and always seeds from the canonical in-code base template. While doing that, align the base template model value with this story’s chosen bootstrap default `gpt-5.3-codex`.
+- `Chat bootstrap`: update `server/src/config/runtimeConfig.ts` so `ensureChatRuntimeConfigBootstrapped()` creates a missing `codex/chat/config.toml` directly from the canonical chat template instead of copying the base config first. Keep the current non-destructive behavior for existing files and preserve the current warning-and-fallback contract when an existing chat config is unreadable or invalid.
+- `Context7 normalization`: add the in-memory overlay in `server/src/config/runtimeConfig.ts` on the runtime config object returned from config reads, not as a file rewrite. Scope it only to the local stdio `command` plus `args` form already used by this repo’s Context7 definitions, detect the two placeholder-equivalent key values, preserve explicit non-placeholder keys, and when no usable key is available strip only the `--api-key` pair while leaving unrelated args untouched.
+- `Template cleanup`: update the canonical seeded Context7 definition in `server/src/config/codexConfig.ts` to stop embedding the legacy checked-in key in new bootstrap output. `config.toml.example` may remain as human documentation, but the runtime path should no longer depend on it as an input source for bootstrap logic.
+- `Likely tests`: extend `server/src/test/unit/codexEnvDefaults.test.ts` and `server/src/test/unit/capabilityResolver.test.ts` for merged-model-list behavior; extend `server/src/test/unit/config.chatDefaults.test.ts` for “chat-config model remains default and merge-safe” behavior; extend `server/src/test/unit/runtimeConfig.test.ts` for direct chat-template bootstrap, no-example bootstrap, placeholder detection, explicit-key preservation, and no-key fallback behavior.
+- `Current test contracts to replace`: `server/src/test/unit/runtimeConfig.test.ts` still asserts that missing chat config copies base config once when base exists, and current bootstrap tests still tolerate example/template split behavior. Those tests will need to be rewritten to assert the new direct-template bootstrap contract instead of today’s copy-from-base behavior.
+- `Likely docs`: refresh `README.md`, `design.md`, and `projectStructure.md` so they describe `CODEINFO_CONTEXT7_API_KEY`, the shared model-list/default-model contract, the deterministic bootstrap source of truth, and the fact that `config.toml.example` is documentation-only rather than a runtime bootstrap dependency.
+- `Implementation constraint`: keep the story focused on deterministic runtime config behavior inside the existing server config modules. There is no need for a new migration framework, remote Context7 config normalization, or payload-contract changes as long as the shared config/capability path stays the single place where model availability and runtime Context7 normalization are derived.

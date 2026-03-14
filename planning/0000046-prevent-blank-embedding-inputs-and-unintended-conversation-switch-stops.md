@@ -1339,7 +1339,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 ### 16. Review Follow-up - Remove Unrelated Improve-Next-Plan Flow Artifact
 
 - Task Status: `__done__`
-- Git Commits: `36b8ddc5`
+- Git Commits: `36b8ddc5, 8c765e5b`
 
 #### Overview
 
@@ -1374,7 +1374,7 @@ Wrapper-only rule: do not attempt to validate this task with raw commands. Use o
 - Subtask 5 complete: `npm run lint --workspaces` stayed at the existing repo-wide 39-warning import-order baseline and `npm run format:check --workspaces` passed cleanly, so the Task 16 cleanup introduced no new workspace-quality issues.
 - Testing step 1 complete: `npm run build:summary:server` passed cleanly with `warning_count: 0`; wrapper log path `logs/test-summaries/build-server-latest.log`.
 - Testing step 2 complete: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts` passed cleanly with `tests run: 10`, `passed: 10`, `failed: 0`; wrapper log path `test-results/server-unit-tests-2026-03-14T01-03-06-416Z.log`.
-- Audit note: Task 16 now records the flow-removal implementation commit (`36b8ddc5`); the usual follow-up bookkeeping commit will record this plan update immediately after.
+- Audit correction: Task 16 now records both the flow-removal implementation commit and the follow-up bookkeeping update (`36b8ddc5, 8c765e5b`) so the reopened-story audit trail matches the actual branch history.
 
 ---
 

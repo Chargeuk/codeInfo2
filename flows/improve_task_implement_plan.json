@@ -107,7 +107,6 @@
         }
       ]
     },
-    ,
     {
       "type": "llm",
       "label": "Push",

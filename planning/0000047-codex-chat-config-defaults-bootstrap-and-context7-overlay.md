@@ -14,12 +14,16 @@ Codex runtime defaults in the product are currently spread across more than one 
 Users want one predictable outcome:
 
 - if they set the model in `codex/chat/config.toml`, that model should always appear as an available chat model and should always be the default chat model unless a request explicitly overrides it;
+- if `Codex_model_list` already defines an order, runtime list merging should preserve that order and only append the chat-config model when it is missing;
 - if they edit `codex/chat/config.toml`, the next request for models or defaults should reflect the file as it exists on disk at that moment;
+- if `codex/chat/config.toml` is unreadable or invalid, this story should keep the existing warning-and-fallback behavior for default resolution rather than broadening scope into a new hard-error contract;
 - if the required config files do not exist yet, the server should generate them from one canonical in-code template instead of depending on external template files that may not exist on another system.
 
 There is also a related environment-key problem for Context7. Current template content contains a Context7 API key argument in config data. The user wants Context7 to be driven by a new environment variable named `CODEINFO_CONTEXT7_API_KEY`. When runtime config is read, any Context7 MCP args that are missing an API key should be overlaid in memory with that env value. The user has explicitly chosen an in-memory overlay, not repeated on-disk config rewriting.
 
-For this story, a placeholder key value of `REPLACE_WITH_CONTEXT7_API_KEY` is treated as “no usable key configured.” If `CODEINFO_CONTEXT7_API_KEY` is set to a non-empty value, runtime config should overlay that value in memory. If `CODEINFO_CONTEXT7_API_KEY` is missing or empty, runtime config should fall back to the no-key form `args = ['-y', '@upstash/context7-mcp']`, which still works with the provider’s limited unauthenticated allowance.
+For this story, both the explicit placeholder key value `REPLACE_WITH_CONTEXT7_API_KEY` and the current checked-in legacy seed value `ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866` are treated as “no usable key configured.” If `CODEINFO_CONTEXT7_API_KEY` is set to a non-empty value, runtime config should overlay that value in memory. If `CODEINFO_CONTEXT7_API_KEY` is missing or empty, runtime config should fall back to the no-key form `args = ['-y', '@upstash/context7-mcp']`, which still works with the provider’s limited unauthenticated allowance.
+
+For first-time bootstrap, the canonical in-code `codex/config.toml` template and the canonical in-code `codex/chat/config.toml` template should both use `model = "gpt-5.3-codex"` as the default Codex model for this story. Other surface-specific defaults such as approval policy can remain different where that behavior is already intentional and in scope.
 
 This story therefore unifies four closely related behaviors:
 
@@ -36,25 +40,28 @@ The scope of this story is runtime-config correctness and consistency. It is not
 - When the server resolves the Codex model list, it uses:
   - the environment model list;
   - unioned with the current model value from `codex/chat/config.toml`;
-  - with duplicates removed deterministically.
+  - with duplicates removed deterministically;
+  - preserving environment-list order and appending the chat-config model only when it is otherwise missing.
 - The model defined in `codex/chat/config.toml` is always the default Codex chat model unless the request explicitly overrides it.
 - Default model precedence is:
   - explicit request override;
   - `codex/chat/config.toml`;
   - environment fallback;
   - hardcoded fallback.
+- If `codex/chat/config.toml` is unreadable or invalid, the chat-default resolution path continues to warn and fall back to env/hardcoded defaults for this story instead of surfacing a new hard error.
 - The server rereads `codex/chat/config.toml` from disk each time model availability or default-model selection is requested.
 - The web chat model list reflects the current `codex/chat/config.toml` model on each request.
 - MCP chat/default-model selection reflects the current `codex/chat/config.toml` model on each request.
 - `CHAT_DEFAULT_MODEL` remains a fallback only and no longer overrides a valid model value in `codex/chat/config.toml`.
 - If `codex/chat/config.toml` does not exist, the server creates it from one canonical in-code chat-config template.
 - If `codex/config.toml` does not exist, the server creates it from one canonical in-code base-config template.
+- The canonical in-code base-config template and canonical in-code chat-config template both use `model = "gpt-5.3-codex"` for this story’s bootstrap behavior.
 - The canonical in-code templates are the source of truth for first-time file creation and do not depend on runtime access to files such as `codex/chat/config copy.toml`, `codex/config.toml`, or `config.toml.example`.
 - Missing-file bootstrap does not overwrite existing user-edited config files.
 - Runtime config loading applies `CODEINFO_CONTEXT7_API_KEY` as an in-memory overlay for Context7 MCP args when a Context7 server definition exists and no API key argument is already present.
-- Runtime config loading treats `--api-key REPLACE_WITH_CONTEXT7_API_KEY` as equivalent to no usable key being present.
-- If a Context7 definition contains the placeholder key and `CODEINFO_CONTEXT7_API_KEY` is set to a non-empty value, runtime config overlays that env key in memory.
-- If a Context7 definition contains the placeholder key and `CODEINFO_CONTEXT7_API_KEY` is missing or empty, runtime config uses the no-key argument form `args = ['-y', '@upstash/context7-mcp']`.
+- Runtime config loading treats `--api-key REPLACE_WITH_CONTEXT7_API_KEY` and `--api-key ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866` as equivalent to no usable key being present.
+- If a Context7 definition contains either placeholder-equivalent value and `CODEINFO_CONTEXT7_API_KEY` is set to a non-empty value, runtime config overlays that env key in memory.
+- If a Context7 definition contains either placeholder-equivalent value and `CODEINFO_CONTEXT7_API_KEY` is missing or empty, runtime config uses the no-key argument form `args = ['-y', '@upstash/context7-mcp']`.
 - Runtime config loading does not rewrite config files on disk just to apply `CODEINFO_CONTEXT7_API_KEY`.
 - The Context7 overlay applies consistently to the relevant config-reading paths used by chat and agent runtime config loading.
 - The resulting runtime config still preserves unrelated MCP-server args and unrelated config values.
@@ -68,27 +75,39 @@ The scope of this story is runtime-config correctness and consistency. It is not
 - Changing auth propagation behavior for agent homes.
 - Rewriting user-edited config files on each request to inject environment values.
 - Introducing provider-selection behavior changes beyond the default-model and model-list correctness described in this story.
+- Changing the existing chat-default unreadable/invalid-config contract from warnings-and-fallbacks to a new hard-error behavior.
+- Building generic credential validation for arbitrary user-supplied Context7 API keys beyond the explicit placeholder-equivalent values in scope for this story.
 - Building a general-purpose config migration framework.
 
-### Questions
+## Questions
 
-None. The placeholder-key handling and empty-env fallback behavior are now fixed for this story.
+- No Further Questions
+
+### Decisions
+
+1. Question: When the Codex model list is built from `Codex_model_list UNION codex/chat/config.toml`, what exact deterministic order should be returned before any UI-level prioritization? Why it matters: this story needs a single predictable merge rule without accidentally changing user-specified ordering or duplicating the same prioritization logic in two places. Decision: preserve the existing environment-list order and append the chat-config model only when it is missing; do not move the chat-config model to the front in the capability/model-list layer. Source and why this is best: current repo patterns already preserve first-seen order with `Array.from(new Set(...))` in `server/src/config/codexEnvDefaults.ts`, keep config precedence separate from list ordering in `server/src/config/chatDefaults.ts`, and apply any front-of-list preference later in the route layer via `prioritizeModel` in `server/src/routes/chatModels.ts`. External confirmation came from MDN’s `Set` documentation, which states iteration is in insertion order, and common JavaScript practice documented on Stack Overflow that `Array.from(new Set(array))` deduplicates while preserving original order. This is the best fit because it is the smallest change, keeps model availability separate from UI prioritization, matches existing repository patterns, and stays inside the story scope.
+2. Question: What exact default model values should the new canonical in-code templates contain for `codex/config.toml` and `codex/chat/config.toml`? Why it matters: the story is explicitly about one canonical bootstrap source of truth, and leaving different template model values in place would preserve today’s confusing split-brain behavior. Decision: both canonical in-code templates should use `model = "gpt-5.3-codex"` for this story. Source and why this is best: in the current repo, `server/src/config/runtimeConfig.ts` already bootstraps chat config with `gpt-5.3-codex`, `server/src/config/chatDefaults.ts` already hard-falls back to `gpt-5.3-codex`, and unit tests in `server/src/test/unit/config.chatDefaults.test.ts` assert that fallback. The mismatched `gpt-5.3-codex-spark` base template in `server/src/config/codexConfig.ts` is therefore the outlier. Upstream confirmation came from DeepWiki’s `openai/codex` configuration documentation, which points to `gpt-5.3-codex` as the main default coding model and did not surface an authoritative `gpt-5.3-codex-spark` default. A Context7 lookup was attempted for external library confirmation but the tool returned an invalid API key error in this environment, so DeepWiki plus direct repo evidence were used instead. This is the best answer because it aligns bootstrap with existing runtime behavior and tests, avoids a broader provider/model-policy change, and keeps the story narrowly focused on consistency.
+3. Question: If `codex/chat/config.toml` exists but is unreadable or contains invalid TOML, should runtime behavior continue to fall back to env/hardcoded defaults with warnings, or should this story change that behavior to surface an error instead? Why it matters: this story touches repeated rereads of chat config, so the plan needs to say whether it is also changing failure semantics or only making runtime-default resolution consistent. Decision: keep the existing warning-and-fallback behavior for chat-default resolution; do not expand this story into a new hard-error contract. Source and why this is best: current repo behavior already does this in `server/src/config/chatDefaults.ts` via `readChatConfigSafely`, and `server/src/test/unit/config.chatDefaults.test.ts` explicitly asserts that invalid TOML produces warnings while returning fallback defaults. The harder error path in `server/src/config/runtimeConfig.ts` remains valid for callers that require a strict config snapshot, but story 0000047 is about model/default correctness and bootstrap consistency, not changing every consumer’s failure semantics. External confirmation was limited because this is primarily a repository-policy question; a Context7 lookup was not available in this environment due to an invalid API key, and a web search showed mixed general opinions, reinforcing that the best answer here is the already-tested local behavior. This is the best fit because it preserves compatibility, avoids unnecessary surface-area changes, and stays inside the existing acceptance scope.
+4. Question: Existing seeded base configs may already contain the current checked-in Context7 API-key value rather than the new `REPLACE_WITH_CONTEXT7_API_KEY` placeholder. Should this story treat that existing checked-in value as an unusable placeholder at runtime as well, or only apply special handling to the new placeholder string? Why it matters: if old seeded configs keep a checked-in key literal that is no longer meant to be trusted, this story would leave existing users depending on the very key material it is supposed to remove from canonical defaults. Decision: treat both the new placeholder string and the one legacy checked-in seed key literal as placeholder-equivalent unusable values at runtime, while not attempting any broader validation of arbitrary user-supplied keys. Source and why this is best: local repo evidence shows the legacy literal is still present in `config.toml.example` and `server/src/config/codexConfig.ts`, while newer agent configs already use `REPLACE_WITH_CONTEXT7_API_KEY`. Context7’s official documentation says basic usage works without an API key at reduced limits, and DeepWiki’s `upstash/context7` documentation plus provider issue reports show invalid or stale API keys can fail with `401 Unauthorized` rather than gracefully downgrading. A Context7 tool lookup was attempted but blocked in this environment by an invalid API key, so direct repo evidence, DeepWiki, and provider documentation/issues were used instead. This is the best answer because it removes dependence on the legacy seeded key for both fresh and already-seeded configs, stays narrowly scoped to two explicit placeholder-equivalent values, and avoids a bigger secret-migration or credential-validation feature.
 
 ## Implementation Ideas
 
 - Consolidate model-list and default-model behavior so the same runtime read path is used by web chat routes and MCP chat tooling.
-- Extend the current Codex capability resolution so the model list is based on `env list UNION chat-config model`.
+- Extend the current Codex capability resolution so the model list is based on `env list UNION chat-config model`, preserving environment order and only appending the chat-config model when it is absent.
 - Keep request override precedence unchanged while lowering `CHAT_DEFAULT_MODEL` to fallback-only status behind `codex/chat/config.toml`.
-- Replace reliance on external runtime template files with one canonical in-code base template and one canonical in-code chat template.
+- Keep route-level or UI-level model prioritization separate from capability resolution so the merged list stays stable and deterministic.
+- Replace reliance on external runtime template files with one canonical in-code base template and one canonical in-code chat template, both using `gpt-5.3-codex` as the model value for first-time bootstrap.
 - Update bootstrap helpers in `server/src/config/runtimeConfig.ts` and `server/src/config/codexConfig.ts` so first-run creation is deterministic and non-destructive.
+- Reuse the existing chat-default warning-and-fallback path for unreadable or invalid chat config rather than introducing a new strict-error behavior in this story.
 - Apply the Context7 API-key overlay during runtime config read/normalization, not during repeated writes.
 - Detect existing real `--api-key` args before overlaying anything so explicit user-provided keys still win.
-- Treat `REPLACE_WITH_CONTEXT7_API_KEY` as a placeholder, not as a real configured key.
-- When the placeholder is present and `CODEINFO_CONTEXT7_API_KEY` is empty, strip the placeholder key args and fall back to the unauthenticated `['-y', '@upstash/context7-mcp']` argument form.
+- Treat `REPLACE_WITH_CONTEXT7_API_KEY` and the one legacy checked-in seed key literal as placeholder-equivalent values, not as real configured keys.
+- When either placeholder-equivalent value is present and `CODEINFO_CONTEXT7_API_KEY` is empty, strip the key args and fall back to the unauthenticated `['-y', '@upstash/context7-mcp']` argument form.
 - Add tests for:
   - model list includes chat-config model when env list omits it;
   - chat-config model is default in web and MCP surfaces;
   - reread-from-disk behavior after file edits;
   - missing chat config bootstraps from the in-code template;
   - missing base config bootstraps from the in-code template;
-  - Context7 args receive in-memory env overlay only when needed.
+  - Context7 args receive in-memory env overlay only when needed;
+  - both placeholder-equivalent Context7 key values fall back to the no-key argument form when `CODEINFO_CONTEXT7_API_KEY` is empty.

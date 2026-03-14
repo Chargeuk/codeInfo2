@@ -1338,7 +1338,7 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 
 ### 16. Review Follow-up - Remove Unrelated Improve-Next-Plan Flow Artifact
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -1354,22 +1354,26 @@ This review follow-up removes the unrelated runtime flow artifact found during b
 
 Isolation rule for this task: a junior may be assigned only one numbered subtask below. Treat this task's `Overview`, `Documentation Locations`, and the `## Code Review Findings` section above as mandatory input for that one subtask, even when the wording duplicates information from elsewhere in the story.
 
-1. [ ] Read `flows/improve_next_plan.json`, `server/src/flows/discovery.ts`, the Story `0000046` acceptance criteria, and the relevant `design.md` / `projectStructure.md` flow-discovery notes before editing so the cleanup is based on the real runtime exposure of `flows/`.
-2. [ ] Remove `flows/improve_next_plan.json` from this branch because it is unrelated runtime content and not part of Story `0000046` acceptance.
-3. [ ] If any Story `0000046` notes, structure docs, or review notes need a small follow-up wording change after the file removal, update only the directly affected text. Do not add new flow features or new planning behavior here.
-4. [ ] Update this story with a brief implementation note that explains what was removed and why the code review required that cleanup.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g. `npm run lint:fix` / `npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Read `flows/improve_next_plan.json`, `server/src/flows/discovery.ts`, the Story `0000046` acceptance criteria, and the relevant `design.md` / `projectStructure.md` flow-discovery notes before editing so the cleanup is based on the real runtime exposure of `flows/`.
+2. [x] Remove `flows/improve_next_plan.json` from this branch because it is unrelated runtime content and not part of Story `0000046` acceptance.
+3. [x] If any Story `0000046` notes, structure docs, or review notes need a small follow-up wording change after the file removal, update only the directly affected text. Do not add new flow features or new planning behavior here.
+4. [x] Update this story with a brief implementation note that explains what was removed and why the code review required that cleanup.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g. `npm run lint:fix` / `npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 Wrapper-only rule: do not attempt to validate this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Use because `flows/` is server-discovered runtime content. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts` - Use because this task changes server-side flow inventory and hot-reload surface only. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then rerun the same targeted wrapper until it passes.
+1. [x] `npm run build:summary:server` - Use because `flows/` is server-discovered runtime content. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts` - Use because this task changes server-side flow inventory and hot-reload surface only. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then rerun the same targeted wrapper until it passes.
 
 #### Implementation notes
 
 - Add implementation notes here after each completed subtask and testing step.
+- Subtasks 1-4 complete: confirmed `flows/improve_next_plan.json` was a live hot-reloaded runtime flow via `server/src/flows/discovery.ts` and the flow-discovery docs, removed it from the Story 46 branch, and verified no additional direct doc cleanup was needed beyond the existing review note because the file was not otherwise referenced by name. This keeps Story 46 scoped to its actual ingest and Chat acceptance criteria instead of shipping unrelated runtime automation content.
+- Subtask 5 complete: `npm run lint --workspaces` stayed at the existing repo-wide 39-warning import-order baseline and `npm run format:check --workspaces` passed cleanly, so the Task 16 cleanup introduced no new workspace-quality issues.
+- Testing step 1 complete: `npm run build:summary:server` passed cleanly with `warning_count: 0`; wrapper log path `logs/test-summaries/build-server-latest.log`.
+- Testing step 2 complete: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts` passed cleanly with `tests run: 10`, `passed: 10`, `failed: 0`; wrapper log path `test-results/server-unit-tests-2026-03-14T01-03-06-416Z.log`.
 
 ---
 

@@ -1271,7 +1271,7 @@ The proof stays reuse-first as well. The story extends existing unit, integratio
 ### 15. Final Task - Run Full Validation for Story Completion
 
 - Task Status: `__done__`
-- Git Commits: `18e361d5, a52c228d`
+- Git Commits: `18e361d5, a52c228d, ad88cb40`
 
 #### Overview
 
@@ -1328,4 +1328,4 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 - Full final wrapper coverage is now complete on the post-fix state: `npm run build:summary:server`, `npm run build:summary:client`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, `npm run test:summary:e2e`, and `npm run compose:build:summary` all passed, so the Story 46 acceptance audit has a clean wrapper baseline after implementation, documentation, and the final cucumber-harness isolation repair.
 - Task-specific verification evidence recorded for final audit: current runtime logs in `logs/server.1.log` show `DEV-0000046:T1:blank-chunks-filtered` and `DEV-0000046:T5:fresh-ingest-zero-embeddable` for run `ac08d538-e54f-49a1-860c-7a82ce0eb69a`, plus `DEV-0000046:T6:unsubscribe-navigation-only` for hidden-run navigation and `DEV-0000046:T6:cancel-explicit-stop` for explicit Stop on conversation `9ow0bmfu8vo`; the browser run produced `DEV-0000046:T7:sidebar-selection-navigation`, `DEV-0000046:T8:new-conversation-local-reset`, `DEV-0000046:T9:provider-next-send-updated`, `DEV-0000046:T10:model-next-send-updated`, and `DEV-0000046:T12:hidden-run-rehydrated`. Targeted evidence remains the proof source for Tasks 2, 4, and 11 exactly as documented earlier: Task 2 from `server/src/test/unit/openai-provider.test.ts`, Task 4 from `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`, and Task 11 from `client/src/test/useChatStream.inflightMismatch.test.tsx` plus `client/src/test/chatPage.inflightNavigate.test.tsx`.
 - Final residual-risk note: no new product bug remained after the validation pass, but Task 15 did uncover and fix a real cucumber harness isolation issue in `server/src/test/steps/chat_cancellation.steps.ts`; `npm run lint --workspaces` still ends at the existing repo-wide 39-warning import-order baseline and `npm run format:check --workspaces` passed cleanly.
-- Audit correction: Task 15's `Git Commits` field now records both the final validation implementation commit and the follow-up bookkeeping update (`18e361d5, a52c228d`) so the plan matches the completed story trail.
+- Audit correction: Task 15's `Git Commits` field now records the final validation implementation commit plus both follow-up bookkeeping updates (`18e361d5, a52c228d, ad88cb40`) so the plan matches the completed story trail.

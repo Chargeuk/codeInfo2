@@ -1329,3 +1329,93 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 - Task-specific verification evidence recorded for final audit: current runtime logs in `logs/server.1.log` show `DEV-0000046:T1:blank-chunks-filtered` and `DEV-0000046:T5:fresh-ingest-zero-embeddable` for run `ac08d538-e54f-49a1-860c-7a82ce0eb69a`, plus `DEV-0000046:T6:unsubscribe-navigation-only` for hidden-run navigation and `DEV-0000046:T6:cancel-explicit-stop` for explicit Stop on conversation `9ow0bmfu8vo`; the browser run produced `DEV-0000046:T7:sidebar-selection-navigation`, `DEV-0000046:T8:new-conversation-local-reset`, `DEV-0000046:T9:provider-next-send-updated`, `DEV-0000046:T10:model-next-send-updated`, and `DEV-0000046:T12:hidden-run-rehydrated`. Targeted evidence remains the proof source for Tasks 2, 4, and 11 exactly as documented earlier: Task 2 from `server/src/test/unit/openai-provider.test.ts`, Task 4 from `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`, and Task 11 from `client/src/test/useChatStream.inflightMismatch.test.tsx` plus `client/src/test/chatPage.inflightNavigate.test.tsx`.
 - Final residual-risk note: no new product bug remained after the validation pass, but Task 15 did uncover and fix a real cucumber harness isolation issue in `server/src/test/steps/chat_cancellation.steps.ts`; `npm run lint --workspaces` still ends at the existing repo-wide 39-warning import-order baseline and `npm run format:check --workspaces` passed cleanly.
 - Audit correction: Task 15's `Git Commits` field now records the final validation implementation commit plus both follow-up bookkeeping updates (`18e361d5, a52c228d, ad88cb40`) so the plan matches the completed story trail.
+
+## Code Review Findings
+
+1. Review finding: `flows/improve_next_plan.json` is an unrelated hot-reloaded runtime flow that was added on the Story 46 branch even though Story `0000046` only covers ingest blank-input handling and Chat navigation-without-cancel behavior. Repository evidence from `server/src/flows/discovery.ts` and `projectStructure.md` shows every JSON file under `flows/` is user-managed runtime content that is listed and executable, so this branch currently ships a new flow outside Story 46 scope. The file also contains commit/push instructions, which expands the runtime automation surface in a way that is not covered by Story 46 acceptance, tests, or docs. This must be removed or moved to its own story/branch before Story 46 can be considered review-complete.
+
+---
+
+### 16. Review Follow-up - Remove Unrelated Improve-Next-Plan Flow Artifact
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+This review follow-up removes the unrelated runtime flow artifact found during branch review so Story `0000046` only ships the ingest and Chat behavior it was planned to change. Keep this task tightly scoped to the stray `flows/improve_next_plan.json` addition and any directly related structure/story notes. Do not bundle broader planning-system or workflow changes into this story.
+
+#### Documentation Locations
+
+- Flow discovery docs in `design.md` and `projectStructure.md` — use these to confirm that files under `flows/` are hot-reloaded runtime artifacts, not passive planning notes.
+- GitHub Markdown docs: `https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax` — use this only if the review note wording or traceability text needs to be updated in the story.
+
+#### Subtasks
+
+Isolation rule for this task: a junior may be assigned only one numbered subtask below. Treat this task's `Overview`, `Documentation Locations`, and the `## Code Review Findings` section above as mandatory input for that one subtask, even when the wording duplicates information from elsewhere in the story.
+
+1. [ ] Read `flows/improve_next_plan.json`, `server/src/flows/discovery.ts`, the Story `0000046` acceptance criteria, and the relevant `design.md` / `projectStructure.md` flow-discovery notes before editing so the cleanup is based on the real runtime exposure of `flows/`.
+2. [ ] Remove `flows/improve_next_plan.json` from this branch because it is unrelated runtime content and not part of Story `0000046` acceptance.
+3. [ ] If any Story `0000046` notes, structure docs, or review notes need a small follow-up wording change after the file removal, update only the directly affected text. Do not add new flow features or new planning behavior here.
+4. [ ] Update this story with a brief implementation note that explains what was removed and why the code review required that cleanup.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g. `npm run lint:fix` / `npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Wrapper-only rule: do not attempt to validate this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because `flows/` is server-discovered runtime content. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts` - Use because this task changes server-side flow inventory and hot-reload surface only. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then rerun the same targeted wrapper until it passes.
+
+#### Implementation notes
+
+- Add implementation notes here after each completed subtask and testing step.
+
+---
+
+### 17. Final Task - Re-Run Full Validation After Review Fixes
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+This final task reruns the full Story `0000046` validation suite after the review follow-up work so the acceptance evidence reflects the branch exactly as it will be merged. Use Task 15 as the baseline for scope, but rerun the complete wrapper/manual proof after Task 16 lands.
+
+#### Documentation Locations
+
+- Docker Compose docs: `https://docs.docker.com/compose/` — use this for the build/up/down validation flow and container lifecycle checks.
+- Playwright docs: `https://playwright.dev/docs/intro` — use this for the manual/browser verification workflow and screenshot capture expectations.
+- Context7 MCP documentation for Jest's official docs library, with explicit fallback page `https://jestjs.io/docs/getting-started` — use this for interpreting Jest-specific failure output because the full client wrapper in this task runs the Jest suite used by the repo.
+- Jest docs: `https://jestjs.io/docs/getting-started` — use this for full client test-suite expectations when interpreting wrapper output.
+- Cucumber guide: `https://cucumber.io/docs/guides/10-minute-tutorial/` — use this for full server feature-suite expectations and terminology when validating the cucumber wrapper output.
+
+#### Subtasks
+
+Isolation rule for this task: a junior may be assigned only one numbered subtask below. Treat this task's `Overview`, `Documentation Locations`, Story `0000046` `### Acceptance Criteria`, and Task 15's completed notes as mandatory input for that one subtask, even when the wording duplicates information from elsewhere in the story.
+
+1. [ ] Review every acceptance criterion in Story `0000046` and confirm each earlier task plus the review follow-up task changed the right files and added the right regression coverage before rerunning the full validation suite.
+2. [ ] Run the full wrapper-based build, test, and e2e commands from this story after the review-fix work is complete, and compare failures back to the task/file paths already recorded in the story if anything breaks.
+3. [ ] Use the Playwright MCP/browser tooling to manually verify the two core behaviors documented in Story `0000046` `### Acceptance Criteria`: the ingest blank-input failure path and the Chat navigation/no-implicit-cancel behavior. Save screenshots under `test-results/screenshots/` using the story index and task number in each filename so the evidence is easy to trace back later.
+4. [ ] Record any final validation notes or residual risks back into Story `0000046`, including the wrapper command used and the acceptance criterion it validates, so the completion state is auditable even if a later reader only opens the final task notes.
+5. [ ] During final validation, check and record the task-specific verification evidence from Tasks 1-12 where applicable so the story notes show exactly which runtime signals were seen. Task 3 is the server-wrapper baseline repair task and does not introduce a new product verification log. Tasks 2 and 4 are backend-only guards whose `DEV-0000046:T2:openai-blank-input-guard-hit` and `DEV-0000046:T4:lmstudio-blank-input-guard-hit` proofs come from their targeted server-wrapper evidence rather than browser-generated flows. Task 11's `DEV-0000046:T11:hidden-run-event-ignored` proof likewise comes from its targeted client-wrapper evidence in `client/src/test/useChatStream.inflightMismatch.test.tsx` and `client/src/test/chatPage.inflightNavigate.test.tsx`, because the production-style browser flow has no deterministic stale-event injection seam after unsubscribe. The expected GUI/runtime signals exercised during final manual regression are therefore `DEV-0000046:T1:blank-chunks-filtered`, `DEV-0000046:T5:fresh-ingest-zero-embeddable`, `DEV-0000046:T6:unsubscribe-navigation-only`, `DEV-0000046:T6:cancel-explicit-stop`, `DEV-0000046:T7:sidebar-selection-navigation`, `DEV-0000046:T8:new-conversation-local-reset`, `DEV-0000046:T9:provider-next-send-updated`, `DEV-0000046:T10:model-next-send-updated`, and `DEV-0000046:T12:hidden-run-rehydrated`, while the targeted server-test evidence for Tasks 2 and 4 and the targeted client-test evidence for Task 11 must also be referenced in the final notes.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g. `npm run lint:fix` / `npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+Wrapper-only rule: do not attempt to build or test this task with raw commands. Use only the summary wrappers below. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Mandatory because final regression checks must cover server/common code touched by this story. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Mandatory because final regression checks must cover client/common code touched by this story. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Mandatory because final regression checks must cover server node:test unit/integration behavior touched by this story. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory because final regression checks must cover server feature/step behavior touched by this story. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Mandatory because final regression checks must cover client/common behavior touched by this story. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g. `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify the ingest blank-input failure path, verify Chat sidebar selection/New conversation/provider/model changes do not implicitly cancel a hidden run, verify revisiting hidden conversations rehydrates correctly, verify general regression coverage around Stop still works, confirm the browser debug console has no logged errors, confirm the expected task-specific verification log lines from Tasks 1 and 5-10 and 12 appear with the outcomes described in those tasks when their flows are exercised, confirm Task 11's visible late-event-isolation outcome by screenshot rather than by requiring a browser-generated stale-event marker, and separately reference Task 2’s targeted server-test proof, Task 4’s targeted server-test proof, and Task 11’s targeted client-test proof instead of expecting browser-generated `DEV-0000046:T2:openai-blank-input-guard-hit`, `DEV-0000046:T4:lmstudio-blank-input-guard-hit`, or `DEV-0000046:T11:hidden-run-event-ignored` events. Save all screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using the story/task number in each filename, and have the agent review those screenshots as part of the final acceptance check to confirm the GUI matches the story’s expected states.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Add implementation notes here after each completed subtask and testing step.

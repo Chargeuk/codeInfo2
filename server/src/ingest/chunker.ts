@@ -4,6 +4,11 @@ import { resolveConfig } from './config.js';
 import type { ProviderEmbeddingModel } from './providers/types.js';
 import { IngestConfig, Chunk } from './types.js';
 
+type ChunkTextLogContext = {
+  runId: string;
+  relPath: string;
+};
+
 function resolveModelKey(model: ProviderEmbeddingModel): string {
   return model.modelKey ?? 'unknown';
 }
@@ -87,6 +92,10 @@ function splitOnBoundaries(text: string, boundary: RegExp): string[] {
   return parts;
 }
 
+function hasEmbeddableText(text: string): boolean {
+  return text.trim().length > 0;
+}
+
 async function sliceToFit(
   model: ProviderEmbeddingModel,
   text: string,
@@ -113,22 +122,21 @@ export async function chunkText(
   text: string,
   model: ProviderEmbeddingModel,
   cfg?: IngestConfig,
+  options?: {
+    logContext?: ChunkTextLogContext;
+  },
 ): Promise<Chunk[]> {
   const config = cfg ?? resolveConfig();
   const maxTokens = await getSafeLimit(model, config);
   const boundary =
     /^(class\s+\w+|function\s+\w+|const\s+\w+\s*=\s*\(|export\s+(function|class))/m;
   const pieces = splitOnBoundaries(text, boundary);
-  const chunks: Chunk[] = [];
+  const candidateChunks: Array<Omit<Chunk, 'chunkIndex'>> = [];
 
   for (const piece of pieces) {
     const initialTokens = await count(model, piece);
     if (initialTokens <= maxTokens) {
-      chunks.push({
-        chunkIndex: chunks.length,
-        text: piece,
-        tokenCount: initialTokens,
-      });
+      candidateChunks.push({ text: piece, tokenCount: initialTokens });
     } else {
       const slices = await sliceToFit(
         model,
@@ -137,10 +145,37 @@ export async function chunkText(
       );
       for (const slice of slices) {
         const tokenCount = await count(model, slice);
-        chunks.push({ chunkIndex: chunks.length, text: slice, tokenCount });
+        candidateChunks.push({ text: slice, tokenCount });
       }
     }
   }
+
+  const filteredChunks = candidateChunks.filter((chunk) =>
+    hasEmbeddableText(chunk.text),
+  );
+  const removedBlankChunkCount = candidateChunks.length - filteredChunks.length;
+
+  if (removedBlankChunkCount > 0 && options?.logContext) {
+    const context = {
+      runId: options.logContext.runId,
+      relPath: options.logContext.relPath,
+      removedBlankChunkCount,
+      survivingChunkCount: filteredChunks.length,
+    };
+    append({
+      level: 'info',
+      source: 'server',
+      message: 'DEV-0000046:T1:blank-chunks-filtered',
+      timestamp: new Date().toISOString(),
+      context,
+    });
+    baseLogger.info(context, 'DEV-0000046:T1:blank-chunks-filtered');
+  }
+
+  const chunks = filteredChunks.map((chunk, chunkIndex) => ({
+    ...chunk,
+    chunkIndex,
+  }));
 
   return chunks;
 }

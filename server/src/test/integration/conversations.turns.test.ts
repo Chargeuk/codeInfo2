@@ -138,6 +138,74 @@ test('inflight-only snapshot returns inflight items and inflight payload', async
   }
 });
 
+test('returns the existing inflight snapshot payload when revisiting a running conversation', async () => {
+  const persisted: TurnSummary[] = [
+    {
+      turnId: 't2',
+      conversationId: 'c-running',
+      role: 'assistant',
+      content: 'Earlier reply',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: new Date('2025-01-01T00:00:01.000Z'),
+    },
+    {
+      turnId: 't1',
+      conversationId: 'c-running',
+      role: 'user',
+      content: 'Earlier prompt',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    },
+  ];
+
+  createInflight({
+    conversationId: 'c-running',
+    inflightId: 'i-running',
+    provider: 'lmstudio',
+    model: 'llama',
+    source: 'REST',
+    userTurn: {
+      content: 'Earlier prompt',
+      createdAt: new Date('2025-01-01T00:00:00.000Z').toISOString(),
+    },
+  });
+  appendAssistantDelta({
+    conversationId: 'c-running',
+    inflightId: 'i-running',
+    delta: 'Persisted partial',
+  });
+  bumpSeq('c-running');
+
+  try {
+    const res = await request(
+      appWith({
+        findConversationById: async () => ({
+          _id: 'c-running',
+          archivedAt: null,
+        }),
+        listAllTurns: async () => ({ items: persisted }),
+      }),
+    )
+      .get('/conversations/c-running/turns')
+      .expect(200);
+
+    assert.equal(res.body.items[0].content, 'Earlier reply');
+    assert.equal(res.body.inflight?.inflightId, 'i-running');
+    assert.equal(res.body.inflight?.assistantText, 'Persisted partial');
+    assert.equal(res.body.inflight?.seq, 1);
+  } finally {
+    cleanupInflight({ conversationId: 'c-running', inflightId: 'i-running' });
+  }
+});
+
 test('inflight snapshot returns command metadata when present', async () => {
   createInflight({
     conversationId: 'c1',
@@ -358,6 +426,52 @@ test('returns full history when no inflight exists', async () => {
   assert.equal(res.body.items.length, 4);
   assert.equal(res.body.items[0].content, 'second assistant');
   assert.equal(res.body.items[3].content, 'first user');
+  assert.equal(res.body.inflight, undefined);
+});
+
+test('omits the inflight payload when revisiting a completed conversation', async () => {
+  const turns: TurnSummary[] = [
+    {
+      turnId: 't2',
+      conversationId: 'c-complete',
+      role: 'assistant',
+      content: 'Final reply',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: new Date('2025-01-01T00:00:01.000Z'),
+    },
+    {
+      turnId: 't1',
+      conversationId: 'c-complete',
+      role: 'user',
+      content: 'Earlier prompt',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    },
+  ];
+
+  const res = await request(
+    appWith({
+      findConversationById: async () => ({
+        _id: 'c-complete',
+        archivedAt: null,
+      }),
+      listAllTurns: async () => ({ items: turns }),
+    }),
+  )
+    .get('/conversations/c-complete/turns')
+    .expect(200);
+
+  assert.equal(res.body.items.length, 2);
+  assert.equal(res.body.items[0].content, 'Final reply');
+  assert.equal('inflight' in res.body, false);
   assert.equal(res.body.inflight, undefined);
 });
 

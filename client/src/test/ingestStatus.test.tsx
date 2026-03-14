@@ -532,6 +532,71 @@ describe('IngestPage realtime status UI', () => {
       expect(screen.queryByText('Active ingest')).not.toBeInTheDocument();
     });
   });
+
+  it('keeps terminal ingest errors visible after the active panel hides', async () => {
+    renderPage();
+    await openSocket();
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_snapshot',
+        seq: 1,
+        status: {
+          runId: 'run-terminal-error',
+          state: 'embedding',
+          counts: { files: 1 },
+          ast: {
+            supportedFileCount: 1,
+            skippedFileCount: 0,
+            failedFileCount: 0,
+            lastIndexedAt: '2026-01-27T00:00:00.000Z',
+          },
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('ingest-status-chip')).toHaveTextContent(
+        'embedding',
+      ),
+    );
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_update',
+        seq: 2,
+        status: {
+          runId: 'run-terminal-error',
+          state: 'error',
+          counts: { files: 1, embedded: 0 },
+          lastError: 'No eligible files found in /blank-repo',
+          ast: {
+            supportedFileCount: 1,
+            skippedFileCount: 0,
+            failedFileCount: 0,
+            lastIndexedAt: '2026-01-27T00:00:00.000Z',
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      const modelCalls = mockFetch.mock.calls.filter(([input]) =>
+        String(input).includes('/ingest/models'),
+      );
+      const rootCalls = mockFetch.mock.calls.filter(([input]) =>
+        String(input).includes('/ingest/roots'),
+      );
+      expect(modelCalls.length).toBeGreaterThan(1);
+      expect(rootCalls.length).toBeGreaterThan(1);
+      expect(screen.queryByText('Active ingest')).not.toBeInTheDocument();
+      expect(screen.getByTestId('ingest-terminal-error')).toHaveTextContent(
+        'No eligible files found in /blank-repo',
+      );
+    });
+  });
 });
 
 describe('ActiveRunCard error compatibility rendering', () => {

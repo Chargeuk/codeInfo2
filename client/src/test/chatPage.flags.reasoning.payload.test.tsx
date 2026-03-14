@@ -410,6 +410,61 @@ describe('Codex model reasoning effort flag payloads', () => {
     expect((chatBodies.at(-1) ?? {}).modelReasoningEffort).toBe('minimal');
   });
 
+  it('applies capability-driven reasoning to the next-send model after an active run is hidden', async () => {
+    const chatBodies: Record<string, unknown>[] = [];
+    mockProvidersWithBodies(chatBodies);
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /openai codex/i }),
+    );
+
+    await ensureCodexFlagsPanelExpanded();
+
+    const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    await waitFor(() =>
+      expect(modelSelect).toHaveTextContent(/gpt-5.1-codex-max/i),
+    );
+
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = await screen.findByTestId('chat-send');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'keep codex running');
+    await act(async () => {
+      await userEvent.click(sendButton);
+    });
+
+    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
+    expect((chatBodies.at(-1) ?? {}).model).toBe('gpt-5.1-codex-max');
+
+    await userEvent.click(modelSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /gpt-5.2/i }),
+    );
+
+    const reasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
+
+    await userEvent.clear(input);
+    await userEvent.type(input, 'use the next-send model');
+    await act(async () => {
+      await userEvent.click(sendButton);
+    });
+
+    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
+    const payload = chatBodies.at(-1) ?? {};
+    expect(payload.model).toBe('gpt-5.2');
+    expect(payload.modelReasoningEffort).toBe('minimal');
+  });
+
   it('sends non-standard runtime reasoning values when model capabilities allow them', async () => {
     const chatBodies: Record<string, unknown>[] = [];
     mockProvidersWithBodies(chatBodies, {

@@ -205,6 +205,14 @@ codex_agents/<agentName>/
 - A real active stop is confirmed only when websocket delivery reaches `turn_final.status === 'stopped'`.
 - The visible stop UX is aligned across pages: while a stop is pending the transcript stays in `stopping`, and after a confirmed stop persisted turns hydrate back into a visible `Stopped` state.
 
+## Story 46 Safety Rules
+
+- Ingest now rejects blank-only fresh runs after chunk filtering. If discovered files produce zero embeddable chunks, the run ends with the existing `NO_ELIGIBLE_FILES` contract instead of looking like a successful skip.
+- Embedding providers still keep defensive blank-input guards, but the shared ingest chunk filter is the primary boundary. Blank or whitespace-only chunk text must never be sent to OpenAI or LM Studio.
+- Chat navigation is not cancellation. Sidebar selection, `New conversation`, provider changes, and model changes all switch the visible draft locally without sending `cancel_inflight`.
+- Explicit `Stop` remains the only Chat action that cancels an active run. Hidden conversations continue in the background until they finish or the user stops them directly.
+- Revisiting a hidden conversation reuses the existing `/conversations/:id/turns` transcript plus optional inflight snapshot so the visible page rehydrates the correct persisted state.
+
 ## Common Usage
 
 1. Start the local stack: `npm run compose:local`.

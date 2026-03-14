@@ -506,7 +506,6 @@ export default function ChatPage() {
       },
     };
   }, [handleWsEvent]);
-  const providerLocked = Boolean(selectedConversation || messages.length > 0);
   const providerIsCodex = provider === 'codex';
   const codexDefaultsReady = providerIsCodex && Boolean(codexDefaults);
   const codexWarningList = useMemo(
@@ -559,6 +558,9 @@ export default function ChatPage() {
     (providerIsCodex && !toolsAvailable);
   const isSending = isStreaming || status === 'sending';
   const isStopping = status === 'stopping';
+  const providerLocked = Boolean(
+    selectedConversation && isStopping && !inflightSnapshot?.inflightId,
+  );
   const showStop = isSending || isStopping;
   const combinedError =
     providerErrorMessage ?? errorMessage ?? 'Failed to load chat options.';
@@ -677,12 +679,18 @@ export default function ChatPage() {
     unsubscribeConversation,
   ]);
 
+  const selectedConversationProviderSyncKey = selectedConversation
+    ? `${selectedConversation.conversationId}:${selectedConversation.provider}:${inflightSnapshot?.inflightId ?? 'no-inflight'}`
+    : null;
+
   useEffect(() => {
     if (!selectedConversation?.provider) return;
-    if (selectedConversation.provider !== provider) {
-      setProvider(selectedConversation.provider);
-    }
-  }, [provider, selectedConversation, setProvider]);
+    setProvider((currentProvider) =>
+      currentProvider === selectedConversation.provider
+        ? currentProvider
+        : selectedConversation.provider,
+    );
+  }, [selectedConversationProviderSyncKey, selectedConversation, setProvider]);
 
   useEffect(() => {
     if (!isDevEnv()) return;
@@ -801,12 +809,26 @@ export default function ChatPage() {
     selectedModelCapabilities,
   ]);
 
+  const selectedConversationModelSyncKey = selectedConversation
+    ? `${selectedConversation.conversationId}:${selectedConversation.model}:${inflightSnapshot?.inflightId ?? 'no-inflight'}`
+    : null;
+
   useEffect(() => {
     if (!selectedConversation?.model) return;
-    if (models.some((model) => model.key === selectedConversation.model)) {
-      setSelected(selectedConversation.model);
+    if (!models.some((model) => model.key === selectedConversation.model)) {
+      return;
     }
-  }, [models, selectedConversation, setSelected]);
+    setSelected((currentModel) =>
+      currentModel === selectedConversation.model
+        ? currentModel
+        : selectedConversation.model,
+    );
+  }, [
+    models,
+    selectedConversation,
+    selectedConversationModelSyncKey,
+    setSelected,
+  ]);
 
   useEffect(() => {
     stopRef.current = stop;
@@ -876,16 +898,17 @@ export default function ChatPage() {
   };
 
   const handleNewConversation = (options?: {
-    reason?: 'provider-change' | 'new-conversation';
+    reason?: 'provider-change' | 'new-conversation' | 'model-change';
     nextProvider?: string;
   }) => {
-    const currentInflightId =
-      inflightSnapshot?.inflightId ??
-      serverVisibleInflightIdRef.current ??
-      undefined;
-    if (activeConversationId) {
-      cancelInflight(activeConversationId, currentInflightId);
-    }
+    const resetReason = options?.reason ?? 'new-conversation';
+    const olderConversationRemainedInflight = Boolean(
+      activeConversationId &&
+        (inflightSnapshot?.inflightId ||
+          serverVisibleInflightIdRef.current ||
+          isSending ||
+          isStopping),
+    );
     resetTurns();
     const nextId = reset();
     setConversation(nextId, { clearMessages: true });
@@ -896,12 +919,19 @@ export default function ChatPage() {
     setThinkOpen({});
     setToolOpen({});
     serverVisibleInflightIdRef.current = null;
+    if (resetReason === 'new-conversation') {
+      log('info', 'DEV-0000046:T8:new-conversation-local-reset', {
+        previousConversationId: activeConversationId ?? null,
+        nextConversationId: nextId,
+        olderConversationRemainedInflight,
+        cancelSent: false,
+      });
+    }
     const targetProvider = options?.nextProvider ?? provider;
-    if (targetProvider === 'codex') {
-      const reason = options?.reason ?? 'new-conversation';
-      const applied = applyCodexDefaults(reason);
+    if (targetProvider === 'codex' && resetReason !== 'model-change') {
+      const applied = applyCodexDefaults(resetReason);
       if (!applied) {
-        pendingCodexDefaultsReasonRef.current = reason;
+        pendingCodexDefaultsReasonRef.current = resetReason;
       }
     }
   };
@@ -910,8 +940,36 @@ export default function ChatPage() {
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const nextProvider = event.target.value;
-    setProvider(nextProvider);
+    const previousProvider = provider ?? null;
+    const currentConversationId = activeConversationId ?? null;
     handleNewConversation({ reason: 'provider-change', nextProvider });
+    setProvider(nextProvider);
+    log('info', 'DEV-0000046:T9:provider-next-send-updated', {
+      previousProvider,
+      nextProvider,
+      activeConversationId: currentConversationId,
+      cancelSent: false,
+    });
+  };
+
+  const handleModelChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const nextModel = event.target.value;
+    if (!nextModel || nextModel === selected) {
+      return;
+    }
+
+    const previousModel = selected ?? null;
+    const currentConversationId = activeConversationId ?? null;
+    handleNewConversation({ reason: 'model-change' });
+    setSelected(nextModel);
+    log('info', 'DEV-0000046:T10:model-next-send-updated', {
+      previousModel,
+      nextModel,
+      activeConversationId: currentConversationId,
+      cancelSent: false,
+    });
   };
 
   const handleDeviceAuthOpen = () => {
@@ -958,6 +1016,7 @@ export default function ChatPage() {
 
   const handleSelectConversation = (conversation: string) => {
     if (conversation === activeConversationId) return;
+    const previousConversationId = activeConversationId;
     console.info('[chat-history] handleSelect', {
       clickedId: conversation,
       activeConversationId,
@@ -979,14 +1038,11 @@ export default function ChatPage() {
     ) {
       setSelected(nextConversation.model);
     }
-    if (activeConversationId) {
-      cancelInflight(
-        activeConversationId,
-        inflightSnapshot?.inflightId ??
-          serverVisibleInflightIdRef.current ??
-          undefined,
-      );
-    }
+    log('info', 'DEV-0000046:T7:sidebar-selection-navigation', {
+      previousConversationId,
+      nextConversationId: conversation,
+      cancelSent: false,
+    });
     resetTurns();
     setConversation(conversation, { clearMessages: true });
     setActiveConversationId(conversation);
@@ -1081,6 +1137,13 @@ export default function ChatPage() {
 
   const lastHydratedRef = useRef<string | null>(null);
   const lastInflightHydratedRef = useRef<string | null>(null);
+  const lastRehydratedLogRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    lastHydratedRef.current = null;
+    lastInflightHydratedRef.current = null;
+    lastRehydratedLogRef.current = null;
+  }, [activeConversationId]);
 
   useEffect(() => {
     if (!activeConversationId) return;
@@ -1106,6 +1169,33 @@ export default function ChatPage() {
     serverVisibleInflightIdRef.current = inflightSnapshot.inflightId;
     hydrateInflightSnapshot(activeConversationId, inflightSnapshot);
   }, [activeConversationId, hydrateInflightSnapshot, inflightSnapshot]);
+
+  useEffect(() => {
+    if (!activeConversationId || !turnsConversationId) return;
+    if (activeConversationId !== turnsConversationId) return;
+    if (!knownConversationIds.has(activeConversationId)) return;
+    if (turns.length === 0 && !inflightSnapshot) return;
+
+    const oldest = turns[0]?.createdAt ?? 'none';
+    const newest = turns[turns.length - 1]?.createdAt ?? 'none';
+    const key = `${activeConversationId}-${oldest}-${newest}-${turns.length}-${inflightSnapshot?.inflightId ?? 'no-inflight'}`;
+    if (lastRehydratedLogRef.current === key) return;
+    lastRehydratedLogRef.current = key;
+
+    console.info('DEV-0000046:T12:hidden-run-rehydrated', {
+      conversationId: activeConversationId,
+      hasInflightSnapshot: Boolean(inflightSnapshot),
+      inflightId: inflightSnapshot?.inflightId ?? null,
+      replacedVisibleDraft: true,
+      turnCount: turns.length,
+    });
+  }, [
+    activeConversationId,
+    inflightSnapshot,
+    knownConversationIds,
+    turns,
+    turnsConversationId,
+  ]);
 
   useEffect(() => {
     if (!activeConversationId) {
@@ -1758,7 +1848,7 @@ export default function ChatPage() {
                           id="chat-model-select"
                           label="Model"
                           value={selected ?? ''}
-                          onChange={(event) => setSelected(event.target.value)}
+                          onChange={handleModelChange}
                           disabled={
                             isLoading ||
                             isError ||

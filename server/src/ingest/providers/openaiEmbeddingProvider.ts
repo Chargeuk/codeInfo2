@@ -139,6 +139,20 @@ export function createOpenAiEmbeddingProvider(params: {
     const { tokenEstimate } = validateOpenAiEmbeddingGuardrails({
       model,
       inputs,
+      onBlankInput: ({ batchSize }) => {
+        append({
+          level: 'warn',
+          message: 'DEV-0000046:T2:openai-blank-input-guard-hit',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            provider: OPENAI_PROVIDER_ID,
+            model,
+            batchSize,
+            blockedBeforeSdk: true,
+          },
+        });
+      },
     });
 
     return runOpenAiWithRetry({

@@ -1712,6 +1712,31 @@ sequenceDiagram
   end
 ```
 
+## Story 0000046 Task 5: blank-only fresh ingest fails before completed persistence
+
+- Fresh ingest now has a second explicit `NO_ELIGIBLE_FILES` boundary after chunk filtering.
+- If discovery succeeds but blank filtering leaves `embedded=0` on `operation === "start"`, the run terminates as `state=error` with the existing no-eligible-files contract instead of falling through to `state=skipped`.
+- That fresh-ingest error returns before completed root-summary writes, ingest-file persistence, AST writes, or other success-looking persistence for the run.
+- Delta re-embed semantics stay unchanged:
+  - no-change delta re-embed still completes as a no-op;
+  - deletions-only delta re-embed still completes after cleanup;
+  - only fresh ingest uses the zero-embeddable failure branch.
+- Task 5 verification log:
+  - `DEV-0000046:T5:fresh-ingest-zero-embeddable`
+
+```mermaid
+flowchart TD
+  A[discoverFiles succeeds] --> B[chunk and embed work]
+  B --> C{operation == start and embedded == 0?}
+  C -- yes --> D[Log DEV-0000046:T5:fresh-ingest-zero-embeddable]
+  D --> E[Publish NO_ELIGIBLE_FILES error]
+  E --> F[Return before roots.add and success persistence]
+  C -- no --> G{reembed delta early-return case?}
+  G -- no-change --> H[Complete no-op]
+  G -- deletions-only --> I[Cleanup then complete]
+  G -- otherwise --> J[Normal completed persistence path]
+```
+
 ## Story 0000038 Task 7: ingest UI external status/phase consumption and visibility
 
 - Client ingest roots normalization now consumes the external listing contract directly:
@@ -1978,6 +2003,7 @@ flowchart LR
   C --> G[ChatInterface persistAssistantTurn]
   G --> H[Turn.toolCalls = { calls: [tool-result] }]
 ```
+
 - Story 45 Task 8 adds `server/src/chat/reingestStepLifecycle.ts` as the shared non-agent lifecycle for any already-recordable re-ingest terminal result. It deliberately stays lifecycle-only: later direct-command and flow runtime tasks call this helper, but Task 8 itself does not start any re-ingest work.
 - The shared lifecycle requires callers to pass the resolved `conversationId`, `modelId`, `source`, and `command` metadata. That keeps the helper neutral about whether the caller is a direct command or a flow step and avoids inventing a second bootstrap path for conversation state.
 - Runtime order matches the existing synthetic flow-step pattern:
@@ -2016,6 +2042,7 @@ sequenceDiagram
   Bridge->>Inflight: markInflightFinal(status=ok)
   Life->>Inflight: cleanupInflight
 ```
+
 - Story 45 Task 10 wires dedicated flow `{ type: "reingest", sourceId, label? }` steps into `server/src/flows/service.ts` without changing the existing outer flow-run contract.
 - Flow startup now treats dedicated `reingest` steps as runnable executable steps:
   - flows whose executable steps are all `reingest` still start successfully;
@@ -2068,6 +2095,7 @@ sequenceDiagram
     end
   end
 ```
+
 - Story 45 Task 11 finishes flow-command parity by allowing flow-owned command files to execute `{ type: "reingest", sourceId }` items through the shared `server/src/agents/commandItemExecutor.ts` path.
 - Shared command-item execution now has two stable boundaries:
   - `message` items still resolve inline `content` or `markdownFile` into one instruction string and hand execution back to the caller’s existing retry model;
@@ -2118,6 +2146,7 @@ sequenceDiagram
     Flow-->>Flow: check stop before later items / later steps
   end
 ```
+
 - Story 45 reuses the existing runtime surfaces instead of introducing a new paused or resumable protocol:
   - markdown-backed instructions still become one normal agent instruction string;
   - re-ingest results reuse the existing `tool_event`, `inflight_snapshot.inflight.toolEvents`, and persisted `Turn.toolCalls = { calls: [...] }` shapes;
@@ -2155,19 +2184,19 @@ flowchart TD
 
 ### Story 45 observable log reference
 
-| Marker | What it proves |
-| --- | --- |
-| `DEV-0000045:T1:command_schema_item_parsed` | A command file parsed a Story 45 `message.markdownFile` or `reingest` item through the updated command schema. |
-| `DEV-0000045:T2:flow_schema_step_parsed` | A flow file parsed a Story 45 `llm.markdownFile` or dedicated `reingest` step through the updated flow schema. |
-| `DEV-0000045:T3:markdown_file_resolved` | The shared markdown resolver selected a repository candidate and concrete `codeinfo_markdown` file path. |
-| `DEV-0000045:T4:direct_command_markdown_message_loaded` | A direct command turned `message.markdownFile` into one instruction string. |
-| `DEV-0000045:T5:flow_llm_markdown_loaded` | A flow `llm.markdownFile` step turned one markdown file into one instruction string. |
-| `DEV-0000045:T6:flow_command_message_item_executed` | A flow-owned command step reused the shared `message` item execution path. |
-| `DEV-0000045:T7:reingest_tool_result_built` | Story 45 built the shared nested `reingest_step_result` payload inside the existing `tool-result` wrapper. |
-| `DEV-0000045:T8:reingest_lifecycle_published` | The shared non-agent lifecycle published and persisted the structured re-ingest result. |
-| `DEV-0000045:T9:direct_command_reingest_recorded` | A direct command recorded a terminal re-ingest result and evaluated continuation to the next command item. |
-| `DEV-0000045:T10:flow_reingest_step_recorded` | A dedicated flow `reingest` step recorded a terminal result and evaluated continuation to the next flow step. |
-| `DEV-0000045:T11:flow_command_reingest_recorded` | A flow-owned command file reached full re-ingest parity and recorded whether execution continued to the next command item. |
+| Marker                                                  | What it proves                                                                                                             |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `DEV-0000045:T1:command_schema_item_parsed`             | A command file parsed a Story 45 `message.markdownFile` or `reingest` item through the updated command schema.             |
+| `DEV-0000045:T2:flow_schema_step_parsed`                | A flow file parsed a Story 45 `llm.markdownFile` or dedicated `reingest` step through the updated flow schema.             |
+| `DEV-0000045:T3:markdown_file_resolved`                 | The shared markdown resolver selected a repository candidate and concrete `codeinfo_markdown` file path.                   |
+| `DEV-0000045:T4:direct_command_markdown_message_loaded` | A direct command turned `message.markdownFile` into one instruction string.                                                |
+| `DEV-0000045:T5:flow_llm_markdown_loaded`               | A flow `llm.markdownFile` step turned one markdown file into one instruction string.                                       |
+| `DEV-0000045:T6:flow_command_message_item_executed`     | A flow-owned command step reused the shared `message` item execution path.                                                 |
+| `DEV-0000045:T7:reingest_tool_result_built`             | Story 45 built the shared nested `reingest_step_result` payload inside the existing `tool-result` wrapper.                 |
+| `DEV-0000045:T8:reingest_lifecycle_published`           | The shared non-agent lifecycle published and persisted the structured re-ingest result.                                    |
+| `DEV-0000045:T9:direct_command_reingest_recorded`       | A direct command recorded a terminal re-ingest result and evaluated continuation to the next command item.                 |
+| `DEV-0000045:T10:flow_reingest_step_recorded`           | A dedicated flow `reingest` step recorded a terminal result and evaluated continuation to the next flow step.              |
+| `DEV-0000045:T11:flow_command_reingest_recorded`        | A flow-owned command file reached full re-ingest parity and recorded whether execution continued to the next command item. |
 
 - Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
 - Flow turns attach `turn.command` metadata with `{ name: 'flow', stepIndex, totalSteps, loopDepth, agentType, identifier, label }` (label defaults to the step type) and log `flows.turn.metadata_attached`.
@@ -3954,6 +3983,244 @@ sequenceDiagram
   UI->>WS: send cancel_inflight
   WS-->>Server: { type:"cancel_inflight", conversationId, inflightId }
   Note over Server: AbortController.abort(); publish turn_final(status:"stopped")
+```
+
+## Story 0000046 Task 6: websocket cancellation contract stays explicit before Chat navigation changes
+
+- `cancel_inflight` remains the only client-to-server stop message for chat runs.
+- `unsubscribe_conversation` remains subscription-only: it removes the socket's conversation subscription and does not abort the hidden run.
+- The server contract stays reuse-first for this story:
+  - no new websocket message types,
+  - no new cancel payload fields,
+  - no new unsubscribe-side stop behavior.
+- A targeted late/noop path is still allowed after completion: conversation-only `cancel_inflight` with no active run returns the existing `cancel_ack { result: 'noop' }` shape without emitting a second stop outcome.
+- Task 6 verification markers live in the websocket server path:
+  - `DEV-0000046:T6:unsubscribe-navigation-only`
+  - `DEV-0000046:T6:cancel-explicit-stop`
+
+```mermaid
+sequenceDiagram
+  participant UI as Chat UI
+  participant WS as /ws
+  participant Server as ws/server.ts
+  participant Run as Inflight registry
+
+  alt Navigation only
+    UI->>WS: unsubscribe_conversation(conversationId)
+    WS->>Server: unsubscribe_conversation
+    Server->>Server: remove socket subscription only
+    Server-->>Server: log DEV-0000046:T6:unsubscribe-navigation-only
+    Note over Run: hidden run keeps going
+  else Explicit stop
+    UI->>WS: cancel_inflight(conversationId, inflightId?)
+    WS->>Server: cancel_inflight
+    Server->>Run: abort active inflight or register pending cancel
+    Server-->>Server: log DEV-0000046:T6:cancel-explicit-stop
+    Run-->>UI: turn_final(status:"stopped") or cancel_ack(noop if already complete)
+  end
+```
+
+## Story 0000046 Task 7: chat sidebar selection becomes local navigation
+
+- Chat sidebar selection now stays inside the existing `handleSelectConversation(...)` event path in `client/src/pages/ChatPage.tsx`.
+- Selecting another conversation reuses the current `resetTurns()` plus `setConversation(..., { clearMessages: true })` local reset flow from `client/src/hooks/useChatStream.ts`.
+- Sidebar selection no longer sends `cancel_inflight`; explicit Stop remains the only Chat action that requests cancellation.
+- Provider and model UI still follow the selected conversation for the visible view in this task, but the hidden run is left alone. The later Story `0000046` tasks still own `New conversation`, provider next-send, and model next-send behavior separately.
+- Task 7 verification marker:
+  - `DEV-0000046:T7:sidebar-selection-navigation`
+
+```mermaid
+sequenceDiagram
+  participant UI as Chat UI
+  participant Stream as useChatStream
+  participant WS as useChatWs
+  participant Server as /ws + /conversations/:id/turns
+
+  UI->>UI: handleSelectConversation(nextConversationId)
+  UI-->>UI: log DEV-0000046:T7:sidebar-selection-navigation
+  UI->>Stream: resetTurns()
+  UI->>Stream: setConversation(nextConversationId, clearMessages=true)
+  UI->>WS: unsubscribe_conversation(previousConversationId)
+  UI->>WS: subscribe_conversation(nextConversationId)
+  UI->>Server: fetch /conversations/:id/turns
+  Server-->>UI: selected conversation turns + inflight snapshot
+  Note over UI: visible transcript/state now belongs only to the selected conversation
+  Note over UI,WS: no cancel_inflight is sent by sidebar selection
+```
+
+## Story 0000046 Task 8: chat New conversation becomes a local draft reset
+
+- The `New conversation` button stays in the existing `handleNewConversation(...)` event path in `client/src/pages/ChatPage.tsx`; it does not move into a new effect or a new websocket message.
+- The button now reuses `resetTurns()` plus `reset()` / `setConversation(..., { clearMessages: true })` as a local draft reset and does not send `cancelInflight(...)` for the previously visible conversation.
+- The older conversation may still be running server-side, but the newly opened draft becomes the visible idle view immediately: empty transcript placeholder, cleared composer input, no stop banner, and normal send readiness after the user types the next prompt.
+- Task 8 stays isolated from provider/model next-send behavior. The shared helper still leaves the provider-change branch alone so later Story `0000046` tasks can adjust that flow separately.
+- Task 8 verification marker:
+  - `DEV-0000046:T8:new-conversation-local-reset`
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as ChatPage.handleNewConversation
+  participant Stream as useChatStream
+  participant Turns as useConversationTurns
+  participant Hidden as Older hidden run
+
+  User->>UI: Click New conversation
+  UI->>Turns: resetTurns()
+  UI->>Stream: reset()
+  UI->>Stream: setConversation(newDraftId, clearMessages=true)
+  UI->>UI: clear input + visible sending/stopping state
+  UI-->>UI: log DEV-0000046:T8:new-conversation-local-reset
+  Note over UI,Hidden: no cancel_inflight is sent by the button
+  Hidden-->>Server: continue running until completion or explicit Stop
+  UI-->>User: clean draft placeholder and interactive composer
+```
+
+## Story 0000046 Task 9: chat provider changes become next-send-only
+
+- Provider changes stay in the existing `handleProviderChange(...)` event path in `client/src/pages/ChatPage.tsx`; they do not move into a new effect or websocket protocol path.
+- Changing provider during an active run now reuses the same local draft reset used by Task 8, but it no longer sends `cancelInflight(...)`. The already-running hidden conversation keeps its original provider and persisted turn metadata.
+- The page-level `provider` state from `client/src/hooks/useChatModel.ts` remains the single next-send source. `client/src/pages/ChatPage.tsx` now syncs provider from `selectedConversation` only when the visible conversation context changes, using the current inflight snapshot in the sync key, so an intentional next-send provider choice is not overwritten immediately.
+- The existing MUI provider `TextField select` stays in place, but the old `providerLocked` rule no longer blocks provider changes just because a conversation or transcript is visible. This keeps the selector reachable for the next-send draft view while an older run continues in the background.
+- Switching into Codex still reuses `applyCodexDefaults(...)` and `pendingCodexDefaultsReasonRef`, but those defaults now apply only to the next-send draft state and do not mutate the hidden conversation's persisted provider/model history.
+- Task 9 verification marker:
+  - `DEV-0000046:T9:provider-next-send-updated`
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as ChatPage.handleProviderChange
+  participant Turns as useConversationTurns
+  participant Stream as useChatStream
+  participant Models as useChatModel
+  participant Hidden as Hidden active run
+
+  User->>UI: Change provider select
+  UI->>Turns: resetTurns()
+  UI->>Stream: reset()
+  UI->>Stream: setConversation(newDraftId, clearMessages=true)
+  UI->>Models: setProvider(nextProvider)
+  UI-->>UI: log DEV-0000046:T9:provider-next-send-updated
+  Hidden-->>Server: continue with original provider/model
+  Models-->>UI: refresh models/defaults for next-send provider
+  Note over UI: next prompt uses the newly chosen provider
+  Note over Hidden: revisiting the hidden conversation rehydrates its stored provider
+```
+
+## Story 0000046 Task 10: chat model changes become next-send-only
+
+- Model changes stay in the existing `handleModelChange(...)` event path in `client/src/pages/ChatPage.tsx`; they do not move into a new effect or websocket protocol path.
+- Changing model during an active run now reuses the same local draft reset used by Tasks 8-9, but it does not send `cancelInflight(...)`. The already-running hidden conversation keeps its original model and persisted turn metadata.
+- The page-level `selected` model state from `client/src/hooks/useChatModel.ts` remains the single next-send model source. `client/src/pages/ChatPage.tsx` now syncs model from `selectedConversation` only when the visible conversation context changes, using the current inflight snapshot in the sync key, so an intentional next-send model choice is not overwritten immediately.
+- Codex capability-driven reasoning still hangs off the selected next-send model through `selectedModelCapabilities`, `modelReasoningEffort`, `codexCapabilityStateKeyRef`, and `codexDynamicReasoningStateKeyRef`. That keeps reasoning defaults aligned with the newly selected draft model without mutating the hidden conversation's stored model or flags.
+- Task 10 verification marker:
+  - `DEV-0000046:T10:model-next-send-updated`
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as ChatPage.handleModelChange
+  participant Turns as useConversationTurns
+  participant Stream as useChatStream
+  participant Models as useChatModel
+  participant Hidden as Hidden active run
+
+  User->>UI: Change model select
+  UI->>Turns: resetTurns()
+  UI->>Stream: reset()
+  UI->>Stream: setConversation(newDraftId, clearMessages=true)
+  UI->>Models: setSelected(nextModel)
+  UI-->>UI: log DEV-0000046:T10:model-next-send-updated
+  Hidden-->>Server: continue with original provider/model
+  Models-->>UI: update selectedModelCapabilities for next-send model
+  Note over UI: next prompt uses the newly chosen model and reasoning defaults
+  Note over Hidden: revisiting the hidden conversation rehydrates its stored model
+```
+
+## Story 0000046 Task 11: hidden-run late websocket events stay isolated from the visible conversation
+
+- Task 11 keeps the existing `client/src/hooks/useChatStream.ts` guard model instead of adding a second cache or websocket filter. Hidden-run late events are ignored in the existing conversation-mismatch and inflight-mismatch branches before they can touch visible transcript, tool, stopping, or terminal UI.
+- The visible draft or selected conversation still clears local sending/stopping indicators through the existing reset/navigation flow from Tasks 7-10. Task 11 only makes those ignore paths explicit and observable; it does not change `/conversations/:id/turns` rehydration or hidden-run snapshot reuse, which remains Task 12.
+- The same isolation rule now covers stale `assistant_delta`, `tool_event`, `turn_final`, `cancel_ack noop`, and `inflight_snapshot` refresh events. Valid active-conversation explicit-stop events still flow normally, so Task 6's explicit-stop contract remains intact.
+- Task 11 verification marker:
+  - `DEV-0000046:T11:hidden-run-event-ignored`
+
+```mermaid
+sequenceDiagram
+  participant Hidden as Hidden conversation run
+  participant WS as WebSocket event
+  participant Stream as useChatStream
+  participant Visible as Visible conversation UI
+
+  Hidden-->>WS: assistant_delta / tool_event / turn_final / inflight_snapshot
+  WS-->>Stream: late event for hidden or stale inflight
+  Stream->>Stream: compare conversationId + inflightId against visible state
+  alt mismatch or stale replay
+    Stream-->>Visible: ignore event, keep transcript + status unchanged
+    Stream->>Visible: log DEV-0000046:T11:hidden-run-event-ignored
+  else active visible run
+    Stream-->>Visible: apply event normally
+  end
+```
+
+## Story 0000046 Task 12: revisiting hidden conversations reuses the existing turns snapshot path
+
+- Task 12 keeps the existing `/conversations/:id/turns` contract in `server/src/routes/conversations.ts` and the existing `fetchSnapshot(...)` hydration path in `client/src/hooks/useConversationTurns.ts`. No new active-run endpoint, response flag, websocket message, or hidden-conversation cache is introduced for this story.
+- Revisiting a still-running hidden conversation replaces the visible draft with that conversation's persisted transcript and then reapplies the optional `inflight` snapshot through the existing `hydrateHistory(...)` plus `hydrateInflightSnapshot(...)` path in `client/src/pages/ChatPage.tsx`.
+- Revisiting a completed or idle conversation reuses the same turns fetch but returns no `inflight` payload, so the visible view is replaced by persisted transcript only and no stale running-state UI remains.
+- Task 12 verification marker:
+  - `DEV-0000046:T12:hidden-run-rehydrated`
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as ChatPage
+  participant Turns as useConversationTurns
+  participant Server as GET /conversations/:id/turns
+  participant Stream as useChatStream
+
+  User->>UI: Revisit hidden conversation
+  UI->>Server: fetch /conversations/:id/turns
+  Server-->>Turns: persisted items + optional inflight snapshot
+  Turns-->>UI: normalized transcript state
+  UI->>Stream: hydrateHistory(conversationId, persisted transcript, replace)
+  alt inflight snapshot present
+    UI->>Stream: hydrateInflightSnapshot(conversationId, inflight)
+    UI-->>UI: log DEV-0000046:T12:hidden-run-rehydrated hasInflightSnapshot=true
+    Note over UI: visible conversation shows persisted transcript + live inflight state
+  else no inflight snapshot
+    UI-->>UI: log DEV-0000046:T12:hidden-run-rehydrated hasInflightSnapshot=false
+    Note over UI: visible conversation shows persisted transcript only
+  end
+```
+
+## Story 0000046 final shared boundaries
+
+- Blank embeddable text is blocked at two layers on purpose:
+  - the shared ingest chunker removes whitespace-only chunks before provider calls;
+  - OpenAI and LM Studio provider entry paths still reject trimmed-empty text as an invariant breach.
+- Fresh ingest now tells the truth when filtering removes every embeddable chunk. The run returns the existing `NO_ELIGIBLE_FILES` failure contract instead of persisting a completed-looking blank ingest summary.
+- Chat navigation and draft-reset actions are local view changes, not stop actions:
+  - sidebar selection,
+  - `New conversation`,
+  - provider changes,
+  - model changes.
+- Explicit `cancel_inflight` remains the only stop request for Chat. `unsubscribe_conversation` stays subscription-only, so hidden runs can continue until completion or a direct Stop.
+- Hidden-run late websocket events are ignored by the existing conversation/inflight mismatch guards, and revisiting a hidden conversation still rehydrates from the existing `/conversations/:id/turns` transcript plus optional inflight snapshot path.
+
+```mermaid
+flowchart TD
+  A[File content enters ingest] --> B{Any non-blank chunks after shared filter?}
+  B -->|No| C[Fail fresh ingest with NO_ELIGIBLE_FILES]
+  B -->|Yes| D[Provider entry guards reject trimmed-empty invariant breaches]
+  D --> E[Persist normal ingest results]
+
+  F[Chat action] --> G{Explicit Stop?}
+  G -->|Yes| H[Send cancel_inflight]
+  G -->|No| I[Switch visible draft locally]
+  I --> J[unsubscribe_conversation only]
+  J --> K[Hidden run continues]
+  K --> L[Later revisit rehydrates transcript plus optional inflight snapshot]
 ```
 
 ### Agent tooling (Chroma list + search)

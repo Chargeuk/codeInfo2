@@ -12,6 +12,7 @@ import ActiveRunCard from '../components/ingest/ActiveRunCard';
 import IngestForm from '../components/ingest/IngestForm';
 import RootDetailsDrawer from '../components/ingest/RootDetailsDrawer';
 import RootsTable from '../components/ingest/RootsTable';
+import type { ChatWsIngestStatus } from '../hooks/useChatWs';
 import useIngestModels from '../hooks/useIngestModels';
 import useIngestRoots, { type IngestRoot } from '../hooks/useIngestRoots';
 import useIngestStatus from '../hooks/useIngestStatus';
@@ -45,6 +46,8 @@ export default function IngestPage() {
     refetch: refetchRoots,
   } = useIngestRoots();
   const [detailRoot, setDetailRoot] = useState<IngestRoot | undefined>();
+  const [terminalErrorStatus, setTerminalErrorStatus] =
+    useState<ChatWsIngestStatus | null>(null);
   const ingest = useIngestStatus();
 
   const terminalStates = useMemo(
@@ -114,6 +117,19 @@ export default function IngestPage() {
   }, [ingest.status, refetchRoots, refresh, terminalStates, log]);
 
   useEffect(() => {
+    if (!ingest.status) return;
+    if (!terminalStates.has(ingest.status.state)) {
+      setTerminalErrorStatus(null);
+      return;
+    }
+    if (ingest.status.state === 'error') {
+      setTerminalErrorStatus(ingest.status);
+      return;
+    }
+    setTerminalErrorStatus(null);
+  }, [ingest.status, terminalStates]);
+
+  useEffect(() => {
     console.info('DEV-0000032:T11:ast-banner-evaluated', {
       skippedFileCount,
       failedFileCount,
@@ -147,6 +163,11 @@ export default function IngestPage() {
         {isError && error ? <Alert severity="error">{error}</Alert> : null}
         {rootsIsError && rootsError ? (
           <Alert severity="error">{rootsError}</Alert>
+        ) : null}
+        {terminalErrorStatus?.lastError ? (
+          <Alert severity="error" data-testid="ingest-terminal-error">
+            {terminalErrorStatus.lastError}
+          </Alert>
         ) : null}
         {ingest.connectionState === 'connecting' ? (
           <Alert severity="info" data-testid="ingest-ws-connecting">

@@ -77,7 +77,7 @@ async function startChatRunAndSubscribe() {
       provider:
         (chatRequestFixture as { provider?: string }).provider ?? 'lmstudio',
       model: (chatRequestFixture as { model?: string }).model ?? 'model-1',
-      conversationId: 'chat-cancel-fixture',
+      conversationId: `chat-cancel-fixture-${crypto.randomUUID()}`,
       message: userMessage,
     }),
   });

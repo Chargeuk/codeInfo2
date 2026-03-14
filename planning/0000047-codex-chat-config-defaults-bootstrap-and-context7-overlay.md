@@ -140,6 +140,17 @@ The scope of this story is runtime-config correctness and consistency. It is not
 - `Context7 overlay with env key example`: if the runtime config contains `[mcp_servers.context7] args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY']` and `CODEINFO_CONTEXT7_API_KEY=ctx7sk-real`, the in-memory runtime config should use `['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real']` for that server definition without rewriting the file on disk.
 - `Context7 no-key fallback example`: if the runtime config contains either placeholder-equivalent key value and `CODEINFO_CONTEXT7_API_KEY` is missing or empty, the in-memory runtime config should use `['-y', '@upstash/context7-mcp']` for Context7. Only the `--api-key` pair is removed; unrelated args and unrelated MCP server definitions remain unchanged.
 
+## Likely Files
+
+- `server/src/config/chatDefaults.ts`: existing default-model precedence and warnings logic; likely remains the source for config-over-env fallback behavior.
+- `server/src/config/codexEnvDefaults.ts`: existing env-driven Codex model-list parsing; likely change point for env-list merging inputs or helper extraction.
+- `server/src/codex/capabilityResolver.ts`: shared capability/model-resolution path; likely place where the final merged model list becomes visible to chat surfaces.
+- `server/src/routes/chatModels.ts`: existing route-level preferred-model prioritization; likely needs verification that it keeps consuming shared capability output rather than adding a second merge rule.
+- `server/src/config/codexConfig.ts`: canonical base-template text and base bootstrap helper; likely change point for `gpt-5.3-codex`, Context7 seed cleanup, and removal of runtime dependence on `config.toml.example`.
+- `server/src/config/runtimeConfig.ts`: canonical chat-template text, chat bootstrap helper, runtime snapshot loading, and likely home for Context7 in-memory normalization.
+- `server/src/test/unit/codexEnvDefaults.test.ts`, `server/src/test/unit/capabilityResolver.test.ts`, `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`: existing test files most likely to absorb the story coverage.
+- `README.md`, `design.md`, `projectStructure.md`: documentation files likely to need updates once implementation is complete so the final behavior and source-of-truth rules stay discoverable.
+
 ## Test Harnesses
 
 - No new test harnesses need to be created for this story. Repository research shows the required coverage fits inside the existing server unit-test and route-test setup.

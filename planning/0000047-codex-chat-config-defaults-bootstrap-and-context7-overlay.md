@@ -131,6 +131,15 @@ The scope of this story is runtime-config correctness and consistency. It is not
 - `codex/chat/config.toml` stored shape: keep the existing top-level TOML fields already used by `resolveCodexChatDefaults()` (`model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, `web_search`). Story 47 changes bootstrap/source-of-truth behavior, not the schema for that file.
 - `Context7 env overlay`: treat `CODEINFO_CONTEXT7_API_KEY` as a runtime-only input, not a new persisted field. The story should continue representing Context7 config through the existing TOML `mcp_servers.context7.command` plus `args` shape and update that in memory only where required.
 
+## Expected Outcomes
+
+- `Model merge example`: if `Codex_model_list` resolves to `['gpt-5.2', 'gpt-5.2-codex']` and `codex/chat/config.toml` contains `model = "gpt-5.3-codex"`, the shared capability/model-resolution path should expose `['gpt-5.2', 'gpt-5.2-codex', 'gpt-5.3-codex']`. The default model is still `gpt-5.3-codex`, but route-level prioritization remains a separate concern from the merged capability list.
+- `Model already present example`: if `Codex_model_list` already contains `gpt-5.3-codex`, the final shared model list keeps the original env order and does not duplicate or move that model. The story should not invent a second prioritization step inside capability resolution.
+- `Missing-file bootstrap example`: if both `codex/config.toml` and `codex/chat/config.toml` are missing, runtime bootstrap creates those files from the canonical in-code templates, both with `model = "gpt-5.3-codex"`, and does not read from `config.toml.example` while doing so.
+- `Existing invalid chat-config example`: if `codex/chat/config.toml` already exists but contains invalid TOML, the story does not repair or replace that file. The runtime default-resolution path warns and falls back to env/hardcoded defaults, and the invalid file remains on disk for a human to fix.
+- `Context7 overlay with env key example`: if the runtime config contains `[mcp_servers.context7] args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY']` and `CODEINFO_CONTEXT7_API_KEY=ctx7sk-real`, the in-memory runtime config should use `['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real']` for that server definition without rewriting the file on disk.
+- `Context7 no-key fallback example`: if the runtime config contains either placeholder-equivalent key value and `CODEINFO_CONTEXT7_API_KEY` is missing or empty, the in-memory runtime config should use `['-y', '@upstash/context7-mcp']` for Context7. Only the `--api-key` pair is removed; unrelated args and unrelated MCP server definitions remain unchanged.
+
 ## Test Harnesses
 
 - No new test harnesses need to be created for this story. Repository research shows the required coverage fits inside the existing server unit-test and route-test setup.

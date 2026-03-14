@@ -3,6 +3,20 @@
   "steps": [
     {
       "type": "llm",
+      "label": "Clear stale current plan handoff",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Before selecting the next plan, delete `test-results/flow-state/current-plan.json` if it already exists so this flow cannot inherit stale active-plan state from an earlier run. Do not fail if the file is missing, and do not create a replacement in this step."
+          ]
+        }
+      ]
+    },
+    {
+      "type": "llm",
       "label": "Planner Select Next Plan",
       "agentType": "planning_agent",
       "identifier": "planner",
@@ -250,6 +264,20 @@
           "identifier": "planner",
           "question": "Re-read the plan that was being worked on and check the last 3 git commits. Is the plan that was being worked on now complete? You MUST re-read the plan and check the last 3 git commits before giving your answer, as the plan probably has changes made by other agents since you last looked at it. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
           "breakOn": "yes"
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "Remove current plan handoff",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "The flow has now finished working through the selected story. Delete `test-results/flow-state/current-plan.json` so later runs cannot reuse stale active-plan state. Do not fail if the file is already missing."
+          ]
         }
       ]
     },

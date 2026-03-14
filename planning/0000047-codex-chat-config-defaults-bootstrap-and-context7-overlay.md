@@ -19,7 +19,7 @@ Users want one predictable outcome:
 - if `codex/chat/config.toml` is unreadable or invalid, this story should keep the existing warning-and-fallback behavior for default resolution rather than broadening scope into a new hard-error contract;
 - if the required config files do not exist yet, the server should generate them from one canonical in-code template instead of depending on external template files that may not exist on another system.
 
-There is also a related environment-key problem for Context7. Current template content contains a Context7 API key argument in config data. The user wants Context7 to be driven by a new environment variable named `CODEINFO_CONTEXT7_API_KEY`. When runtime config is read, any Context7 MCP args that are missing an API key should be overlaid in memory with that env value. The user has explicitly chosen an in-memory overlay, not repeated on-disk config rewriting.
+There is also a related environment-key problem for Context7. Current template content contains a Context7 API key argument in config data. The user wants Context7 to be driven by a new environment variable named `CODEINFO_CONTEXT7_API_KEY`. When runtime config is read, any Context7 MCP args that do not currently contain a usable API key should be overlaid in memory with that env value. The user has explicitly chosen an in-memory overlay, not repeated on-disk config rewriting.
 
 For this story, both the explicit placeholder key value `REPLACE_WITH_CONTEXT7_API_KEY` and the current checked-in legacy seed value `ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866` are treated as “no usable key configured.” If `CODEINFO_CONTEXT7_API_KEY` is set to a non-empty value, runtime config should overlay that value in memory. If `CODEINFO_CONTEXT7_API_KEY` is missing or empty, runtime config should fall back to the no-key form `args = ['-y', '@upstash/context7-mcp']`, which still works with the provider’s limited unauthenticated allowance.
 
@@ -66,7 +66,7 @@ The scope of this story is runtime-config correctness and consistency. It is not
 - `config.toml.example` may remain in the repository as a human-facing sample, but it is not consulted, copied, or parsed by runtime bootstrap code in this story.
 - When `codex/chat/config.toml` is missing, bootstrap uses the canonical in-code chat template directly for that file rather than copying the base config into the chat config and then mutating it afterward.
 - Missing-file bootstrap does not overwrite existing user-edited config files.
-- Runtime config loading applies `CODEINFO_CONTEXT7_API_KEY` as an in-memory overlay for Context7 MCP args when a Context7 server definition exists and no API key argument is already present.
+- Runtime config loading applies `CODEINFO_CONTEXT7_API_KEY` as an in-memory overlay for Context7 MCP args when a Context7 server definition exists and no usable API key is effectively present.
 - Runtime config loading treats `--api-key REPLACE_WITH_CONTEXT7_API_KEY` and `--api-key ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866` as equivalent to no usable key being present.
 - If a Context7 definition contains either placeholder-equivalent value and `CODEINFO_CONTEXT7_API_KEY` is set to a non-empty value, runtime config overlays that env key in memory.
 - If a Context7 definition contains either placeholder-equivalent value and `CODEINFO_CONTEXT7_API_KEY` is missing or empty, runtime config uses the no-key argument form `args = ['-y', '@upstash/context7-mcp']`.

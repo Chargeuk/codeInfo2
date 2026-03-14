@@ -172,3 +172,282 @@ The scope of this story is runtime-config correctness and consistency. It is not
 - `server/src/test/unit/codexEnvDefaults.test.ts` and `server/src/test/unit/capabilityResolver.test.ts`: extend the existing env/capability harnesses for merged-model-list behavior so `Codex_model_list UNION chat-config model` is verified in the shared capability path rather than only through one route.
 - `server/src/test/unit/chatModels.codex.test.ts`: extend the existing Codex route harness if the story needs route-visible proof that `/chat/models?provider=codex` exposes the merged list while preserving route-level prioritization separately from capability resolution.
 - `server/src/test/steps/chat_models.steps.ts` together with `server/src/test/support/mockLmStudioSdk.ts`: keep these existing higher-level route/support harnesses available only if a story step needs HTTP-surface confirmation beyond unit coverage. Based on current repo contracts and external config-layer research, Story 47 does not require inventing a new CLI, Docker, or end-to-end harness to validate the planned behavior.
+
+## Implementation Plan Instructions
+
+This is a list of steps that must be copied into each new plan. It instructs how a developer works through the tasks.
+This should only be started once all the above sections are clear and understood AND all tasks have been created to a level that a very junior, inexperienced developer could work through without asking for help from a senior developer.
+
+1. Read and fully understand the story sections and the task you are starting before doing anything else so you know exactly what is required and why.
+2. Create or reuse the feature branch for this story using the established naming convention `feature/<number>-<short-description>`.
+3. Work through the tasks in order. Before touching code for a task, update that task's status to `__in_progress__`, commit that plan-file change, and only then begin implementation.
+4. For each subtask, read the documentation locations listed for that task before editing code, then complete the subtask in full before moving to the next one.
+5. As soon as a subtask is complete, mark its checkbox.
+6. After the implementation subtasks are complete, run the testing steps for that task in order and mark each checkbox as it passes.
+7. After testing passes, complete every documentation update listed for the task and mark each checkbox.
+8. Once implementation, testing, and documentation are complete, add detailed notes to that task's `Implementation notes` section describing what changed, why, and any issues that had to be solved.
+9. Record the git commit hashes for the task in the `Git Commits` line, then set the task status to `__done__`.
+10. Use the repository wrapper commands for builds and tests. Only inspect saved logs when a wrapper reports `agent_action: inspect_log` or otherwise fails unexpectedly.
+
+# Tasks
+
+### 1. Merge The Chat Config Model Into Shared Codex Resolution
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Update the shared server-side Codex resolution path so the model in `codex/chat/config.toml` is both the default Codex chat model and part of the available model list without changing the public response shape. This task is intentionally server-only; the client already consumes `/chat/models`, so no dedicated frontend task is needed unless the server contract changes later.
+
+#### Must Not Miss
+
+- Keep the response shapes for `/chat/models` and MCP/default-resolution payloads unchanged.
+- Preserve the environment model-list order exactly as it is today and append the chat-config model only when it is missing.
+- Keep route-level prioritization in `server/src/routes/chatModels.ts`; do not move presentation ordering into capability resolution.
+- Preserve the current warning-and-fallback behavior when `codex/chat/config.toml` is unreadable, invalid, blank, or contains an unusable `model`.
+
+#### Documentation Locations
+
+- Active story file: [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md). Re-read `Acceptance Criteria`, `Implementation Ideas`, `Contracts And Storage Shapes`, `Expected Outcomes`, and `Edge Cases and Failure Modes` before editing code.
+- Shared default-resolution code: [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [server/src/config/codexEnvDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexEnvDefaults.ts), [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts), [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts).
+- Existing server tests: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts), [server/src/test/unit/codexEnvDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexEnvDefaults.test.ts), [server/src/test/unit/capabilityResolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/capabilityResolver.test.ts), [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts).
+- JavaScript `Set` iteration order: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set. Use this when implementing deterministic first-seen deduplication.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections named in this task's documentation list and write down the exact precedence rule to preserve while implementing: explicit request override, then `codex/chat/config.toml`, then legacy env fallback, then hardcoded fallback.
+2. [ ] Update [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) so a valid `model` from `codex/chat/config.toml` always wins over `CHAT_DEFAULT_MODEL`, while blank or invalid chat-config values still produce warnings and fall back to env or hardcoded defaults exactly as the story requires.
+3. [ ] Update [server/src/config/codexEnvDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexEnvDefaults.ts) and [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts) so the shared capability path unions the current chat-config model into the environment model list, removes duplicates by first-seen order, and surfaces any read warnings through the existing warning arrays.
+4. [ ] Review [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts) after the shared resolver changes and only adjust it if needed so the route keeps using shared capability results and only performs route-level prioritization, not a second model-list merge.
+5. [ ] Add or update tests in [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts) to prove that the chat-config model stays the default when `CHAT_DEFAULT_MODEL` is also set, and that invalid or blank chat-config models still warn and fall back instead of breaking resolution.
+6. [ ] Add or update tests in [server/src/test/unit/codexEnvDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexEnvDefaults.test.ts), [server/src/test/unit/capabilityResolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/capabilityResolver.test.ts), and [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts) to prove the shared model list preserves env order, appends the chat-config model only when missing, avoids duplicates, and reaches the `/chat/models?provider=codex` surface without changing the payload shape.
+7. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) with a short explanation of the shared Codex model/default-resolution contract, and update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) only if it currently describes `CHAT_DEFAULT_MODEL` as overriding `codex/chat/config.toml`.
+8. [ ] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after those file changes are complete so it accurately lists every added or removed file.
+9. [ ] Update this plan file's Task 1 `Implementation notes` after implementation and testing are complete.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the appropriate fix command and manually resolve anything still left over.
+
+#### Testing
+
+Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
+
+1. [ ] Run `npm run build:summary:server` because this task changes server config and capability resolution logic.
+2. [ ] Run `npm run build:summary:client` to prove the unchanged `/chat/models` contract still typechecks and builds cleanly for the client.
+3. [ ] Run `npm run compose:build:summary` to prove the server changes still build correctly in the containerized stack.
+4. [ ] Run `npm run compose:up`, confirm the stack starts successfully, and then run `npm run compose:down` so the environment is left clean before the next task.
+5. [ ] Run `npm run test:summary:server:unit` because this task changes shared server resolution code and its route-visible behavior.
+
+#### Implementation notes
+
+- None yet.
+
+---
+
+### 2. Seed `codex/config.toml` From One Canonical In-Code Template
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Replace the base-config bootstrap split-brain behavior with one in-code source of truth. This task only covers first-time creation of missing `codex/config.toml`, the canonical template contents for that file, and the guarantee that runtime bootstrap no longer depends on `config.toml.example`.
+
+#### Must Not Miss
+
+- Remove runtime dependence on `config.toml.example`, but do not delete that file unless the story truly requires it.
+- Preserve non-destructive behavior: if `codex/config.toml` already exists, do not overwrite it.
+- Keep the resolved server-port substitution behavior intact.
+- Set the canonical bootstrap model to `gpt-5.3-codex` and remove checked-in Context7 key material from the canonical default template.
+
+#### Documentation Locations
+
+- Active story file: [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md). Re-read `Acceptance Criteria`, `Implementation Ideas`, `Expected Outcomes`, and `Edge Cases and Failure Modes` before editing code.
+- Base bootstrap code: [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts), [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts).
+- Existing bootstrap tests: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
+- Node.js file copy and write semantics: https://nodejs.org/api/fs.html. Use this to preserve non-overwrite behavior while removing `config.toml.example` from runtime bootstrap.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections named in this task's documentation list, paying special attention to the acceptance criteria that say the canonical in-code templates are the only bootstrap source of truth.
+2. [ ] Update [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts) so `ensureCodexConfigSeeded()` creates a missing `codex/config.toml` from the in-code template only, never searches for `config.toml.example`, and still preserves server-port replacement and no-overwrite behavior.
+3. [ ] Update the canonical base template in [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts) so it uses `model = "gpt-5.3-codex"` and no longer embeds the legacy checked-in Context7 API key.
+4. [ ] Add or update tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) to prove that a missing base config is created from the in-code template, that `config.toml.example` is not consulted by runtime bootstrap, that server-port substitution still happens, and that an existing `codex/config.toml` is never overwritten.
+5. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) so they describe `codex/config.toml` bootstrap as code-driven rather than sample-file-driven.
+6. [ ] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after those file changes are complete so it accurately lists every added or removed file.
+7. [ ] Update this plan file's Task 2 `Implementation notes` after implementation and testing are complete.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the appropriate fix command and manually resolve anything still left over.
+
+#### Testing
+
+Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
+
+1. [ ] Run `npm run build:summary:server` because this task changes server bootstrap code.
+2. [ ] Run `npm run build:summary:client` to prove the client still builds after the server bootstrap-only change.
+3. [ ] Run `npm run compose:build:summary` to prove the updated canonical config template still builds correctly in the containerized stack.
+4. [ ] Run `npm run compose:up`, confirm the stack starts successfully with the updated base bootstrap behavior, and then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:server:unit` because this task changes the config seeding behavior covered by server unit tests.
+
+#### Implementation notes
+
+- None yet.
+
+---
+
+### 3. Bootstrap `codex/chat/config.toml` Directly From The Canonical Chat Template
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Make missing chat-config bootstrap deterministic and independent from the base config file by writing `codex/chat/config.toml` directly from the canonical chat template. This task only covers the chat-config bootstrap path and its safeguards for missing vs existing files.
+
+#### Must Not Miss
+
+- When `codex/chat/config.toml` is missing, bootstrap it directly from the chat template instead of copying `codex/config.toml`.
+- If the chat-config path already exists, even as an unreadable file, zero-byte file, invalid TOML file, or directory, do not overwrite it.
+- Preserve the current warning-and-fallback runtime behavior for invalid existing chat config; this task is about missing-file bootstrap only.
+- Keep the canonical chat template using `gpt-5.3-codex`.
+
+#### Documentation Locations
+
+- Active story file: [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md). Re-read `Acceptance Criteria`, `Implementation Ideas`, `Expected Outcomes`, and `Edge Cases and Failure Modes` before editing code.
+- Chat bootstrap code: [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts).
+- Existing bootstrap tests: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts), [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
+- Node.js `COPYFILE_EXCL` and file-existence semantics: https://nodejs.org/api/fs.html. Use this to preserve safe bootstrap behavior while changing how the missing chat config is created.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections named in this task's documentation list, especially the acceptance criteria that say the chat config must be seeded directly from one canonical chat template and must not overwrite existing files.
+2. [ ] Update [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) so `ensureChatRuntimeConfigBootstrapped()` writes the canonical chat template directly when `codex/chat/config.toml` is missing, rather than copying the base config first.
+3. [ ] Review [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) after the bootstrap change and only adjust it if needed so invalid existing chat configs still warn and fall back without being rewritten or silently repaired.
+4. [ ] Add or update tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) to prove the missing chat config is created from the chat template directly, that the base config is not copied into chat config anymore, that both missing files bootstrap correctly, and that existing unusable chat-config paths are left untouched.
+5. [ ] Add or update tests in [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts) only if the bootstrap-path change needs regression coverage for warning-and-fallback behavior when an existing chat config is invalid or unreadable.
+6. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) so they describe direct chat-template bootstrap rather than copy-from-base behavior.
+7. [ ] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after those file changes are complete so it accurately lists every added or removed file.
+8. [ ] Update this plan file's Task 3 `Implementation notes` after implementation and testing are complete.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the appropriate fix command and manually resolve anything still left over.
+
+#### Testing
+
+Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
+
+1. [ ] Run `npm run build:summary:server` because this task changes server runtime-config bootstrap code.
+2. [ ] Run `npm run build:summary:client` to prove the client still builds after the server-only bootstrap change.
+3. [ ] Run `npm run compose:build:summary` to prove the updated chat bootstrap path still builds correctly in the containerized stack.
+4. [ ] Run `npm run compose:up`, confirm the stack starts successfully with the updated chat bootstrap behavior, and then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:server:unit` because this task changes server bootstrap and fallback behavior covered by server unit tests.
+
+#### Implementation notes
+
+- None yet.
+
+---
+
+### 4. Normalize Context7 API Keys In Runtime Config Loading
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Add the in-memory Context7 normalization step so runtime config loading treats placeholder-equivalent Context7 API keys as absent and overlays `CODEINFO_CONTEXT7_API_KEY` when present. This task is only about runtime config normalization for the local stdio `command` plus `args` shape and must not rewrite TOML files on disk.
+
+#### Must Not Miss
+
+- Only normalize the local stdio Context7 definition that uses `command` plus an `args` array; do not add support for remote `url` and `http_headers` shapes in this story.
+- Treat both `REPLACE_WITH_CONTEXT7_API_KEY` and `ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866` as no usable key.
+- If `CODEINFO_CONTEXT7_API_KEY` is set to a non-empty value, overlay it in memory only.
+- If no usable key is available, remove or replace only the `--api-key` pair and keep every unrelated arg and unrelated MCP server definition in its original order.
+
+#### Documentation Locations
+
+- Active story file: [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md). Re-read `Acceptance Criteria`, `Implementation Ideas`, `Expected Outcomes`, `Edge Cases and Failure Modes`, and Decision 4 before editing code.
+- Runtime config code: [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts).
+- Existing tests: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
+- Context7 repository documentation: https://github.com/upstash/context7. Use this only to confirm the local stdio `npx` + `args` shape and the no-key usage pattern already documented in the story.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections named in this task's documentation list and write down the two placeholder-equivalent API-key values that must be treated as unusable in runtime normalization.
+2. [ ] Update [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) so normalized runtime config applies the `CODEINFO_CONTEXT7_API_KEY` overlay in memory when a Context7 stdio definition exists and currently has no usable key.
+3. [ ] Make the runtime normalization in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) preserve explicit non-placeholder keys, preserve unrelated args and unrelated MCP server definitions, and fall back to the no-key `args = ['-y', '@upstash/context7-mcp']` shape when no usable key is available.
+4. [ ] Add or update tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) to prove placeholder detection, legacy-seed detection, env-key overlay, explicit-key preservation, no-key fallback, no disk rewrite, and preservation of unrelated args and other MCP servers.
+5. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) so they describe `CODEINFO_CONTEXT7_API_KEY` as the runtime source of truth and make it clear that the overlay is in-memory only.
+6. [ ] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after those file changes are complete so it accurately lists every added or removed file.
+7. [ ] Update this plan file's Task 4 `Implementation notes` after implementation and testing are complete.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the appropriate fix command and manually resolve anything still left over.
+
+#### Testing
+
+Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
+
+1. [ ] Run `npm run build:summary:server` because this task changes runtime config normalization code.
+2. [ ] Run `npm run build:summary:client` to prove the client still builds after the server-only normalization change.
+3. [ ] Run `npm run compose:build:summary` to prove the updated runtime config behavior still builds correctly in the containerized stack.
+4. [ ] Run `npm run compose:up`, confirm the stack starts successfully with the updated Context7 normalization behavior, and then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:server:unit` because this task changes the runtime-config test surface.
+
+#### Implementation notes
+
+- None yet.
+
+---
+
+### 5. Final Verification, Documentation Sweep, And Acceptance Check
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Run the story-level proof that all acceptance criteria are satisfied together, refresh the human-facing documentation, and prepare the pull-request summary. This final task must verify the completed server behavior end to end, confirm the unchanged client still reflects the corrected server responses, and leave clear evidence for review.
+
+#### Must Not Miss
+
+- Re-check every acceptance criterion in this story against the implemented behavior rather than assuming earlier task coverage is enough.
+- Keep the focus on verifying the existing UI against the corrected server behavior; this story does not require a dedicated frontend implementation task unless verification proves one is actually needed.
+- Save manual verification screenshots into `test-results/screenshots/` using the story number and task number in the filename.
+- Include all story changes in the pull-request summary, not just the last task.
+
+#### Documentation Locations
+
+- Active story file: [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md). Re-read the full `Acceptance Criteria`, `Expected Outcomes`, and `Out Of Scope` sections before starting final verification.
+- Build and test wrapper rules: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md).
+- Docker documentation: Context7 `/docker/docs`.
+- Playwright documentation: Context7 `/microsoft/playwright`.
+- Husky documentation: Context7 `/typicode/husky`.
+- Mermaid documentation: Context7 `/mermaid-js/mermaid`.
+- Jest documentation: Context7 `/jestjs/jest`.
+- Cucumber guides: https://cucumber.io/docs/guides/.
+
+#### Subtasks
+
+1. [ ] Re-read the full story acceptance criteria and create a short acceptance-check list inside your working notes so each criterion is explicitly verified against the completed implementation.
+2. [ ] Run through the code and tests touched by Tasks 1 through 4 and confirm there are no remaining branches still reading `config.toml.example`, copying base config into chat config, or treating the placeholder-equivalent Context7 values as usable keys.
+3. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) with any remaining command or behavior changes from this story, including the `CODEINFO_CONTEXT7_API_KEY` runtime behavior if that documentation is still incomplete.
+4. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) so it fully reflects the final shared model/default-resolution path, the canonical bootstrap source of truth, and the runtime-only Context7 overlay behavior.
+5. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) with every file added, removed, or materially repurposed during this story.
+6. [ ] Use the Playwright tooling available in this repo to manually verify the running application, confirm the Codex chat model list reflects the server changes without any dedicated client code changes, and save screenshots to `test-results/screenshots/` using filenames of the form `0000047-5-<short-name>.png`.
+7. [ ] Create a pull-request summary comment that covers the model/default resolution change, the base bootstrap change, the chat bootstrap change, the Context7 overlay change, and the final verification results.
+8. [ ] Update this plan file's Task 5 `Implementation notes` after all verification, documentation updates, and screenshots are complete.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the appropriate fix command and manually resolve anything still left over.
+
+#### Testing
+
+Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
+
+1. [ ] Run `npm run build:summary:server` and confirm the final server build passes cleanly.
+2. [ ] Run `npm run build:summary:client` and confirm the final client build passes cleanly.
+3. [ ] Run `npm run compose:build:summary` and confirm the full containerized build passes cleanly.
+4. [ ] Run `npm run compose:up`, confirm the stack starts cleanly, perform the required manual verification, and then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit suite passes cleanly.
+6. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber suite passes cleanly.
+7. [ ] Run `npm run test:summary:client` and confirm the full client test suite passes cleanly.
+8. [ ] Run `npm run test:summary:e2e` and confirm the end-to-end suite passes cleanly.
+
+#### Implementation notes
+
+- None yet.
+
+---

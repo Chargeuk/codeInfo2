@@ -1381,7 +1381,7 @@ Wrapper-only rule: do not attempt to validate this task with raw commands. Use o
 ### 17. Final Task - Re-Run Full Validation After Review Fixes
 
 - Task Status: `__done__`
-- Git Commits: `__to_do__`
+- Git Commits: `d9720bfa`
 
 #### Overview
 
@@ -1441,3 +1441,4 @@ Wrapper-only rule: do not attempt to build or test this task with raw commands. 
 - Subtask 5 complete: refreshed task-specific verification evidence is now recorded for final audit. Current runtime logs in `logs/server.1.log` show `DEV-0000046:T1:blank-chunks-filtered` and `DEV-0000046:T5:fresh-ingest-zero-embeddable` for Task 17 run `759b4b03-2156-45eb-b7cb-116813f04fe1`, plus `DEV-0000046:T6:unsubscribe-navigation-only` for hidden-run navigation on conversations `uyh0wb46ib`, `zu1sd8ydg1j`, `r690uk0gz3`, and `0aso64ko2au6`, and `DEV-0000046:T6:cancel-explicit-stop` for explicit Stop on `uyh0wb46ib` with `stopPath: inflight_target`. Targeted proof sources remain unchanged and are re-affirmed here: Task 2 from `server/src/test/unit/openai-provider.test.ts`, Task 4 from `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`, and Task 11 from `client/src/test/useChatStream.inflightMismatch.test.tsx` plus `client/src/test/chatPage.inflightNavigate.test.tsx`.
 - Subtask 6 complete: `npm run lint --workspaces` stayed at the existing repo-wide 39-warning import-order baseline and `npm run format:check --workspaces` passed cleanly, so the final revalidation introduced no new workspace-quality issues.
 - Final residual-risk note: no new product bug remains after the post-review-cleanup validation pass. The branch now excludes the unrelated `flows/improve_next_plan.json` runtime artifact, the full wrapper/manual suite is green again, and the only remaining lint noise is the repo's long-standing 39-warning import-order baseline.
+- Audit note: Task 17 now records the refreshed final-validation implementation commit (`d9720bfa`); the usual follow-up bookkeeping commit will record this plan update immediately after.

@@ -206,6 +206,7 @@ Update the shared server-side Codex resolution path so the model in `codex/chat/
 - Preserve the environment model-list order exactly as it is today and append the chat-config model only when it is missing.
 - Keep route-level prioritization in `server/src/routes/chatModels.ts`; do not move presentation ordering into capability resolution.
 - Preserve the current warning-and-fallback behavior when `codex/chat/config.toml` is unreadable, invalid, blank, or contains an unusable `model`.
+- The merged model-list path and the default-model path must reread `codex/chat/config.toml` from disk on each request; do not introduce request-level or module-level caching for this story.
 
 #### Documentation Locations
 
@@ -220,12 +221,13 @@ Update the shared server-side Codex resolution path so the model in `codex/chat/
 2. [ ] Update [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) so a valid `model` from `codex/chat/config.toml` always wins over `CHAT_DEFAULT_MODEL`, while blank or invalid chat-config values still produce warnings and fall back to env or hardcoded defaults exactly as the story requires.
 3. [ ] Update [server/src/config/codexEnvDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexEnvDefaults.ts) and [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts) so the shared capability path unions the current chat-config model into the environment model list, removes duplicates by first-seen order, and surfaces any read warnings through the existing warning arrays.
 4. [ ] Review [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts) after the shared resolver changes and only adjust it if needed so the route keeps using shared capability results and only performs route-level prioritization, not a second model-list merge.
-5. [ ] Add or update tests in [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts) to prove that the chat-config model stays the default when `CHAT_DEFAULT_MODEL` is also set, and that invalid or blank chat-config models still warn and fall back instead of breaking resolution.
-6. [ ] Add or update tests in [server/src/test/unit/codexEnvDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexEnvDefaults.test.ts), [server/src/test/unit/capabilityResolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/capabilityResolver.test.ts), and [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts) to prove the shared model list preserves env order, appends the chat-config model only when missing, avoids duplicates, and reaches the `/chat/models?provider=codex` surface without changing the payload shape.
-7. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) with a short explanation of the shared Codex model/default-resolution contract, and update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) only if it currently describes `CHAT_DEFAULT_MODEL` as overriding `codex/chat/config.toml`.
-8. [ ] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after those file changes are complete so it accurately lists every added or removed file.
-9. [ ] Update this plan file's Task 1 `Implementation notes` after implementation and testing are complete.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the appropriate fix command and manually resolve anything still left over.
+5. [ ] Review the shared runtime read path used by [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts), and any MCP/default-selection caller so both the web chat model list and MCP/default-model resolution read the current `codex/chat/config.toml` contents fresh on each request through one shared behavior rather than route-specific duplication.
+6. [ ] Add or update tests in [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts) to prove that the chat-config model stays the default when `CHAT_DEFAULT_MODEL` is also set, that invalid or blank chat-config models still warn and fall back instead of breaking resolution, and that consecutive calls reread `codex/chat/config.toml` from disk after the file changes.
+7. [ ] Add or update tests in [server/src/test/unit/codexEnvDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexEnvDefaults.test.ts), [server/src/test/unit/capabilityResolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/capabilityResolver.test.ts), and [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts) to prove the shared model list preserves env order, appends the chat-config model only when missing, avoids duplicates, rereads the on-disk chat config between requests, and reaches the `/chat/models?provider=codex` surface without changing the payload shape.
+8. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) with a short explanation of the shared Codex model/default-resolution contract, including the “fresh read on each request” rule, and update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) only if it currently describes `CHAT_DEFAULT_MODEL` as overriding `codex/chat/config.toml`.
+9. [ ] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after those file changes are complete so it accurately lists every added or removed file.
+10. [ ] Update this plan file's Task 1 `Implementation notes` after implementation and testing are complete.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the appropriate fix command and manually resolve anything still left over.
 
 #### Testing
 
@@ -258,6 +260,7 @@ Replace the base-config bootstrap split-brain behavior with one in-code source o
 - Preserve non-destructive behavior: if `codex/config.toml` already exists, do not overwrite it.
 - Keep the resolved server-port substitution behavior intact.
 - Set the canonical bootstrap model to `gpt-5.3-codex` and remove checked-in Context7 key material from the canonical default template.
+- Do not replace one on-disk bootstrap dependency with another one; the base bootstrap path must not read `codex/chat/config copy.toml` or any other sample/template file at runtime.
 
 #### Documentation Locations
 
@@ -271,7 +274,7 @@ Replace the base-config bootstrap split-brain behavior with one in-code source o
 1. [ ] Re-read the story sections named in this task's documentation list, paying special attention to the acceptance criteria that say the canonical in-code templates are the only bootstrap source of truth.
 2. [ ] Update [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts) so `ensureCodexConfigSeeded()` creates a missing `codex/config.toml` from the in-code template only, never searches for `config.toml.example`, and still preserves server-port replacement and no-overwrite behavior.
 3. [ ] Update the canonical base template in [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts) so it uses `model = "gpt-5.3-codex"` and no longer embeds the legacy checked-in Context7 API key.
-4. [ ] Add or update tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) to prove that a missing base config is created from the in-code template, that `config.toml.example` is not consulted by runtime bootstrap, that server-port substitution still happens, and that an existing `codex/config.toml` is never overwritten.
+4. [ ] Add or update tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) to prove that a missing base config is created from the in-code template, that `config.toml.example`, `codex/chat/config copy.toml`, and other sample/template files are not consulted by runtime bootstrap, that server-port substitution still happens, and that an existing `codex/config.toml` is never overwritten.
 5. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) so they describe `codex/config.toml` bootstrap as code-driven rather than sample-file-driven.
 6. [ ] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after those file changes are complete so it accurately lists every added or removed file.
 7. [ ] Update this plan file's Task 2 `Implementation notes` after implementation and testing are complete.
@@ -304,10 +307,11 @@ Make missing chat-config bootstrap deterministic and independent from the base c
 
 #### Must Not Miss
 
-- When `codex/chat/config.toml` is missing, bootstrap it directly from the chat template instead of copying `codex/config.toml`.
+- When `codex/chat/config.toml` is missing, bootstrap it directly from the chat template instead of copying `codex/config.toml`, even when `codex/config.toml` already exists and contains different values.
 - If the chat-config path already exists, even as an unreadable file, zero-byte file, invalid TOML file, or directory, do not overwrite it.
 - Preserve the current warning-and-fallback runtime behavior for invalid existing chat config; this task is about missing-file bootstrap only.
 - Keep the canonical chat template using `gpt-5.3-codex`.
+- Do not consult `codex/chat/config copy.toml` or any other on-disk template file as part of chat bootstrap.
 
 #### Documentation Locations
 
@@ -319,9 +323,9 @@ Make missing chat-config bootstrap deterministic and independent from the base c
 #### Subtasks
 
 1. [ ] Re-read the story sections named in this task's documentation list, especially the acceptance criteria that say the chat config must be seeded directly from one canonical chat template and must not overwrite existing files.
-2. [ ] Update [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) so `ensureChatRuntimeConfigBootstrapped()` writes the canonical chat template directly when `codex/chat/config.toml` is missing, rather than copying the base config first.
+2. [ ] Update [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) so `ensureChatRuntimeConfigBootstrapped()` always writes the canonical chat template directly when `codex/chat/config.toml` is missing and never copies the base config first, even when `codex/config.toml` already exists with different content.
 3. [ ] Review [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts) after the bootstrap change and only adjust it if needed so invalid existing chat configs still warn and fall back without being rewritten or silently repaired.
-4. [ ] Add or update tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) to prove the missing chat config is created from the chat template directly, that the base config is not copied into chat config anymore, that both missing files bootstrap correctly, and that existing unusable chat-config paths are left untouched.
+4. [ ] Add or update tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) to prove the missing chat config is created from the chat template directly, that the base config is not copied into chat config anymore even when the base file already exists with different contents, that `codex/chat/config copy.toml` and other on-disk template files are ignored, that both missing files bootstrap correctly, and that existing unusable chat-config paths are left untouched.
 5. [ ] Add or update tests in [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts) only if the bootstrap-path change needs regression coverage for warning-and-fallback behavior when an existing chat config is invalid or unreadable.
 6. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) so they describe direct chat-template bootstrap rather than copy-from-base behavior.
 7. [ ] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after those file changes are complete so it accurately lists every added or removed file.
@@ -359,6 +363,7 @@ Add the in-memory Context7 normalization step so runtime config loading treats p
 - Treat both `REPLACE_WITH_CONTEXT7_API_KEY` and `ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866` as no usable key.
 - If `CODEINFO_CONTEXT7_API_KEY` is set to a non-empty value, overlay it in memory only.
 - If no usable key is available, remove or replace only the `--api-key` pair and keep every unrelated arg and unrelated MCP server definition in its original order.
+- Apply the overlay in one shared runtime-config read path used by both chat and agent callers so the behavior cannot drift between surfaces.
 
 #### Documentation Locations
 
@@ -370,13 +375,15 @@ Add the in-memory Context7 normalization step so runtime config loading treats p
 #### Subtasks
 
 1. [ ] Re-read the story sections named in this task's documentation list and write down the two placeholder-equivalent API-key values that must be treated as unusable in runtime normalization.
-2. [ ] Update [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) so normalized runtime config applies the `CODEINFO_CONTEXT7_API_KEY` overlay in memory when a Context7 stdio definition exists and currently has no usable key.
-3. [ ] Make the runtime normalization in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) preserve explicit non-placeholder keys, preserve unrelated args and unrelated MCP server definitions, and fall back to the no-key `args = ['-y', '@upstash/context7-mcp']` shape when no usable key is available.
-4. [ ] Add or update tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) to prove placeholder detection, legacy-seed detection, env-key overlay, explicit-key preservation, no-key fallback, no disk rewrite, and preservation of unrelated args and other MCP servers.
-5. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) so they describe `CODEINFO_CONTEXT7_API_KEY` as the runtime source of truth and make it clear that the overlay is in-memory only.
-6. [ ] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after those file changes are complete so it accurately lists every added or removed file.
-7. [ ] Update this plan file's Task 4 `Implementation notes` after implementation and testing are complete.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the appropriate fix command and manually resolve anything still left over.
+2. [ ] Update [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) so normalized runtime config applies the `CODEINFO_CONTEXT7_API_KEY` overlay in memory when a Context7 stdio definition exists and currently has no usable key, and place that logic in one shared read path that feeds both chat and agent runtime config resolution instead of duplicating caller-specific branches.
+3. [ ] Make the runtime normalization in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) preserve explicit non-placeholder keys, preserve unrelated args and unrelated MCP server definitions, leave remote `url` and `http_headers` Context7 definitions unchanged, and fall back to the no-key `args = ['-y', '@upstash/context7-mcp']` shape when no usable key is available.
+4. [ ] Add or update tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) to prove placeholder detection, legacy-seed detection, env-key overlay, explicit-key preservation, no-key fallback, no disk rewrite, preservation of unrelated args and other MCP servers, and no changes to remote/header-based Context7 definitions.
+5. [ ] Add or update tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) or the most direct existing runtime-config consumer tests so both the chat runtime path and the agent runtime path prove they receive the same overlaid Context7 config object from the shared read path.
+6. [ ] Add or update tests in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) to prove base-config read or validation failures still surface through the existing hard-error path and are not silently masked by the softer chat-config fallback behavior introduced elsewhere in this story.
+7. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) and [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) so they describe `CODEINFO_CONTEXT7_API_KEY` as the runtime source of truth, make it clear that the overlay is in-memory only, and note that the same shared overlay path is used by both chat and agent runtime config loading.
+8. [ ] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) after those file changes are complete so it accurately lists every added or removed file.
+9. [ ] Update this plan file's Task 4 `Implementation notes` after implementation and testing are complete.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the appropriate fix command and manually resolve anything still left over.
 
 #### Testing
 

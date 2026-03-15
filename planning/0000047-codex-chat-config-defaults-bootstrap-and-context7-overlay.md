@@ -235,12 +235,12 @@ Update the shared server-side Codex resolution path so the model in `codex/chat/
 
 #### Documentation Locations
 
-- Active story file: [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md). Re-read `Acceptance Criteria`, `Implementation Ideas`, `Contracts And Storage Shapes`, `Expected Outcomes`, and `Edge Cases and Failure Modes` before editing code.
-- Shared default-resolution code: [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [server/src/config/codexEnvDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexEnvDefaults.ts), [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts), [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts), [server/src/routes/chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts), [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts).
-- Existing client consumption path for verification only: [client/src/hooks/useChatModel.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useChatModel.ts), [client/src/pages/ChatPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/ChatPage.tsx). Use these together with Decision 7 so you do not invent a frontend implementation task unless the server contract truly changes.
-- Existing server tests: [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts), [server/src/test/unit/codexEnvDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexEnvDefaults.test.ts), [server/src/test/unit/capabilityResolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/capabilityResolver.test.ts), [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts), [server/src/test/unit/chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts), [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts).
 - JavaScript `Set` iteration order: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set. Use this when implementing deterministic first-seen deduplication.
-- React and MUI verification docs: Context7 React 19 (`/facebook/react/v19_2_0`) for state-driven rerenders, plus MUI 6 TextField/Select/MenuItem docs for the existing controlled select pattern used in `ChatPage.tsx`.
+- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). Use this to confirm model/provider settings are layered config, not route-specific special cases.
+- React 19 docs: Context7 `/facebook/react/v19_2_0`. Use this only for the unchanged client verification path that rerenders from state updates and controlled inputs.
+- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md. Use this only for the unchanged controlled-select verification path.
+- MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md. Use this only for the unchanged controlled-select verification path.
+- MUI MenuItem API: https://llms.mui.com/material-ui/6.4.12/api/menu-item.md. Use this only for the unchanged controlled-select verification path.
 
 #### Subtasks
 
@@ -293,10 +293,9 @@ Replace the base-config bootstrap split-brain behavior with one in-code source o
 
 #### Documentation Locations
 
-- Active story file: [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md). Re-read `Acceptance Criteria`, `Implementation Ideas`, `Expected Outcomes`, and `Edge Cases and Failure Modes` before editing code.
-- Base bootstrap code: [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts), [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts).
-- Existing bootstrap tests: [server/src/test/unit/codexConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexConfig.test.ts), [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
 - Node.js file copy and write semantics: https://nodejs.org/api/fs.html. Use this to preserve non-overwrite behavior while removing `config.toml.example` from runtime bootstrap.
+- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). Use this to confirm the base config remains a first-class Codex config layer.
+- Context7 repository documentation: https://github.com/upstash/context7. Use this only to keep the seeded Context7 MCP server shape aligned with the repository’s documented local stdio form.
 
 #### Subtasks
 
@@ -345,10 +344,8 @@ Make missing chat-config bootstrap deterministic and independent from the base c
 
 #### Documentation Locations
 
-- Active story file: [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md). Re-read `Acceptance Criteria`, `Implementation Ideas`, `Expected Outcomes`, and `Edge Cases and Failure Modes` before editing code.
-- Chat bootstrap code: [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts).
-- Existing bootstrap tests: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts), [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
 - Node.js `COPYFILE_EXCL` and file-existence semantics: https://nodejs.org/api/fs.html. Use this to preserve safe bootstrap behavior while changing how the missing chat config is created.
+- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). Use this to confirm that chat config may be minimal while other runtime config still comes from layered base config resolution.
 
 #### Subtasks
 
@@ -397,10 +394,8 @@ Preserve the shared base-only runtime config that execution still needs once cha
 
 #### Documentation Locations
 
-- Active story file: [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md). Re-read `Acceptance Criteria`, `Implementation Ideas`, `Expected Outcomes`, and `Edge Cases and Failure Modes` before editing code.
-- Shared runtime-merge and consumer code: [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [server/src/agents/config.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/config.ts), [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts).
-- Existing tests: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts), [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts), [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts).
-- Codex config layering reference: DeepWiki `openai/codex` Config API and Layer System. Use this to confirm that `mcp_servers`, `model_provider`, and `model_providers` are documented Codex config fields that may live in the base config and must remain available through layered resolution.
+- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). Use this to confirm that `mcp_servers`, `model_provider`, and `model_providers` are documented Codex config fields that may live in the base config and must remain available through layered resolution.
+- TOML format reference: https://toml.io/en/. Use this only to stay grounded in the existing table structure while preserving `projects`, `mcp_servers`, and top-level runtime settings.
 
 #### Subtasks
 
@@ -451,10 +446,8 @@ Add the in-memory Context7 normalization step so runtime config loading treats p
 
 #### Documentation Locations
 
-- Active story file: [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md). Re-read `Acceptance Criteria`, `Implementation Ideas`, `Expected Outcomes`, `Edge Cases and Failure Modes`, and Decision 4 before editing code.
-- Runtime config code: [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts).
-- Existing tests: [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
 - Context7 repository documentation: https://github.com/upstash/context7. Use this only to confirm the local stdio `npx` + `args` shape and the no-key usage pattern already documented in the story.
+- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). Use this to confirm that the Context7 server definition is still flowing through the shared layered runtime config path.
 
 #### Subtasks
 
@@ -502,10 +495,12 @@ Prepare the story for final proof by updating the human-facing documentation and
 
 #### Documentation Locations
 
-- Active story file: [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md). Re-read the full `Acceptance Criteria`, `Expected Outcomes`, and `Out Of Scope` sections before starting this task.
-- Build and test wrapper rules: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md).
-- Existing client verification path: [client/src/hooks/useChatModel.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useChatModel.ts), [client/src/pages/ChatPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/ChatPage.tsx). Use these with Decision 7 so documentation does not invent story-specific UI work.
-- React and MUI verification docs: Context7 React 19 (`/facebook/react/v19_2_0`) plus MUI 6 TextField/Select/MenuItem docs. Use these only to confirm the existing controlled-select UI can display the corrected server responses without additional client-side logic.
+- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). Use this to keep the documentation aligned with layered config behavior rather than repo-specific guesses.
+- Context7 repository documentation: https://github.com/upstash/context7. Use this to keep the runtime overlay documentation aligned with the documented local stdio MCP shape.
+- React 19 docs: Context7 `/facebook/react/v19_2_0`. Use this only for the unchanged client verification wording.
+- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md. Use this only for the unchanged controlled-select verification wording.
+- MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md. Use this only for the unchanged controlled-select verification wording.
+- MUI MenuItem API: https://llms.mui.com/material-ui/6.4.12/api/menu-item.md. Use this only for the unchanged controlled-select verification wording.
 
 #### Subtasks
 
@@ -549,16 +544,16 @@ Run the full story-level proof that all completed changes work together in the r
 
 #### Documentation Locations
 
-- Active story file: [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md). Re-read the full `Acceptance Criteria`, `Expected Outcomes`, and `Out Of Scope` sections before starting final verification.
-- Build and test wrapper rules: [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md).
-- Existing client verification path: [client/src/hooks/useChatModel.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useChatModel.ts), [client/src/pages/ChatPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/ChatPage.tsx). Use these with Decision 7 so final verification checks the current React/MUI path instead of inventing story-specific UI work.
-- Docker documentation: Context7 `/docker/docs`.
+- Docker Compose documentation: Context7 `/docker/compose`.
 - Playwright documentation: Context7 `/microsoft/playwright`.
-- Husky documentation: Context7 `/typicode/husky`.
-- Mermaid documentation: Context7 `/mermaid-js/mermaid`.
 - Jest documentation: Context7 `/jestjs/jest`.
 - Cucumber guides: https://cucumber.io/docs/guides/.
-- React and MUI verification docs: Context7 React 19 (`/facebook/react/v19_2_0`) plus MUI 6 TextField/Select/MenuItem docs. Use these only to confirm the existing controlled-select UI can display the corrected server responses without additional client-side logic.
+- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). Use this to keep the final verification grounded in the layered config contract.
+- Context7 repository documentation: https://github.com/upstash/context7. Use this to keep the final verification grounded in the documented local stdio MCP shape and no-key behavior.
+- React 19 docs: Context7 `/facebook/react/v19_2_0`. Use this only to confirm the unchanged client rerender behavior.
+- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md. Use this only to confirm the unchanged controlled-select UI behavior.
+- MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md. Use this only to confirm the unchanged controlled-select UI behavior.
+- MUI MenuItem API: https://llms.mui.com/material-ui/6.4.12/api/menu-item.md. Use this only to confirm the unchanged controlled-select UI behavior.
 
 #### Subtasks
 

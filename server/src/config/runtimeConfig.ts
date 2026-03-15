@@ -28,6 +28,7 @@ const T09_BOOTSTRAP_LOG_MARKER = 'DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH';
 const T03_CHAT_BOOTSTRAP_MARKER = 'DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP';
 const T04_RUNTIME_INHERITANCE_MARKER =
   'DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED';
+const T05_CONTEXT7_NORMALIZED_MARKER = 'DEV_0000047_T05_CONTEXT7_NORMALIZED';
 
 export type RuntimeTomlConfig = Record<string, unknown>;
 export type RuntimeConfigWarning = { path: string; message: string };
@@ -40,6 +41,15 @@ type RuntimeMergeResult = {
   merged: RuntimeTomlConfig;
   inheritedKeys: string[];
   runtimeOverrideKeys: string[];
+};
+type Context7NormalizationMode =
+  | 'env_overlay'
+  | 'no_key_fallback'
+  | 'explicit_key_preserved'
+  | 'no_context7_definition';
+type Context7NormalizationResult = {
+  config: RuntimeTomlConfig;
+  mode: Context7NormalizationMode;
 };
 
 export class RuntimeConfigResolutionError extends Error {
@@ -87,6 +97,10 @@ export type RuntimeConfigSnapshot = {
 };
 
 const WEB_SEARCH_MODES = new Set(['live', 'cached', 'disabled']);
+const CONTEXT7_PLACEHOLDER_API_KEYS = new Set([
+  'REPLACE_WITH_CONTEXT7_API_KEY',
+  'ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866',
+]);
 const CHAT_CONFIG_TEMPLATE = [
   'model = "gpt-5.3-codex"',
   'model_reasoning_effort = "high"',
@@ -127,6 +141,110 @@ const toWebSearchMode = (
 
 function cloneConfig(input: RuntimeTomlConfig): RuntimeTomlConfig {
   return structuredClone(input) as RuntimeTomlConfig;
+}
+
+function getUsableContext7EnvApiKey(): string | undefined {
+  const raw = process.env.CODEINFO_CONTEXT7_API_KEY;
+  if (typeof raw !== 'string') {
+    return undefined;
+  }
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function isPlaceholderEquivalentContext7Key(value: unknown): boolean {
+  return (
+    typeof value === 'string' && CONTEXT7_PLACEHOLDER_API_KEYS.has(value.trim())
+  );
+}
+
+function normalizeContext7Args(params: {
+  args: unknown[];
+  envApiKey: string | undefined;
+}): { args: unknown[]; mode: Context7NormalizationMode } {
+  const apiKeyIndex = params.args.findIndex((entry) => entry === '--api-key');
+  if (apiKeyIndex === -1) {
+    return {
+      args: [...params.args],
+      mode: 'no_key_fallback',
+    };
+  }
+
+  const nextValue = params.args[apiKeyIndex + 1];
+  if (typeof nextValue !== 'string') {
+    return {
+      args: [...params.args],
+      mode: 'no_context7_definition',
+    };
+  }
+
+  if (!isPlaceholderEquivalentContext7Key(nextValue)) {
+    return {
+      args: [...params.args],
+      mode: 'explicit_key_preserved',
+    };
+  }
+
+  if (params.envApiKey) {
+    const normalizedArgs = [...params.args];
+    normalizedArgs[apiKeyIndex + 1] = params.envApiKey;
+    return {
+      args: normalizedArgs,
+      mode: 'env_overlay',
+    };
+  }
+
+  return {
+    args: [
+      ...params.args.slice(0, apiKeyIndex),
+      ...params.args.slice(apiKeyIndex + 2),
+    ],
+    mode: 'no_key_fallback',
+  };
+}
+
+export function normalizeContext7RuntimeConfig(
+  input: RuntimeTomlConfig,
+): Context7NormalizationResult {
+  const normalized = cloneConfig(input);
+  if (!isRecord(normalized.mcp_servers)) {
+    return { config: normalized, mode: 'no_context7_definition' };
+  }
+
+  const context7Definition = normalized.mcp_servers.context7;
+  if (!isRecord(context7Definition)) {
+    return { config: normalized, mode: 'no_context7_definition' };
+  }
+
+  if (
+    hasOwn(context7Definition, 'url') ||
+    hasOwn(context7Definition, 'http_headers')
+  ) {
+    return { config: normalized, mode: 'no_context7_definition' };
+  }
+
+  if (
+    typeof context7Definition.command !== 'string' ||
+    !Array.isArray(context7Definition.args)
+  ) {
+    return { config: normalized, mode: 'no_context7_definition' };
+  }
+
+  const result = normalizeContext7Args({
+    args: context7Definition.args,
+    envApiKey: getUsableContext7EnvApiKey(),
+  });
+  normalized.mcp_servers = {
+    ...(normalized.mcp_servers as Record<string, unknown>),
+    context7: {
+      ...context7Definition,
+      args: result.args,
+    },
+  };
+  return {
+    config: normalized,
+    mode: result.mode,
+  };
 }
 
 export function normalizeRuntimeConfig(
@@ -690,8 +808,8 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       baseConfig,
       runtimeConfig!,
     );
-    const merged = mergeResult.merged;
-    const validated = validateRuntimeConfig(merged, {
+    const context7Result = normalizeContext7RuntimeConfig(mergeResult.merged);
+    const validated = validateRuntimeConfig(context7Result.config, {
       pathLabel: params.surface,
     });
     logValidationWarnings(validated.warnings);
@@ -699,6 +817,11 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       surface: params.surface,
       inherited_keys: mergeResult.inheritedKeys,
       runtime_override_keys: mergeResult.runtimeOverrideKeys,
+      success: true,
+    });
+    console.info(T05_CONTEXT7_NORMALIZED_MARKER, {
+      mode: context7Result.mode,
+      surface: params.surface,
       success: true,
     });
     console.info(T04_SUCCESS_LOG, {

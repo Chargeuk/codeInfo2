@@ -1009,6 +1009,37 @@ flowchart TD
   H --> I[Return resolved runtime config to REST/MCP/agent consumers]
 ```
 
+## Story 0000047 Task 5: runtime-only Context7 API-key normalization
+
+- After shared base/runtime inheritance, runtime config loading now normalizes only the local stdio `mcp_servers.context7` shape that uses `command` plus `args`.
+- `CODEINFO_CONTEXT7_API_KEY` is the runtime source of truth for placeholder-equivalent Context7 `--api-key` values. The overlay is in-memory only and never rewrites `./codex/config.toml`, `./codex/chat/config.toml`, or agent TOML files on disk.
+- Placeholder-equivalent values are:
+  - `REPLACE_WITH_CONTEXT7_API_KEY`
+  - `ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866`
+- Behavior is intentionally narrow:
+  - explicit non-placeholder keys are preserved
+  - missing, empty, and whitespace-only `CODEINFO_CONTEXT7_API_KEY` values fall back to the no-key args form
+  - remote Context7 `url` and `http_headers` definitions are left unchanged
+- Story 47 normalization logs are emitted through `DEV_0000047_T05_CONTEXT7_NORMALIZED { mode, surface, success }`.
+
+```mermaid
+flowchart TD
+  A[Resolve merged runtime config] --> B{mcp_servers.context7 local stdio shape?}
+  B -- no --> C[Leave config unchanged]
+  B -- yes --> D{Has --api-key pair?}
+  D -- no --> E[Keep no-key args form]
+  D -- yes --> F{Key placeholder-equivalent?}
+  F -- no --> G[Preserve explicit key]
+  F -- yes --> H{CODEINFO_CONTEXT7_API_KEY usable?}
+  H -- yes --> I[Overlay env key in memory]
+  H -- no --> J[Remove only the --api-key pair]
+  C --> K[Emit DEV_0000047_T05_CONTEXT7_NORMALIZED]
+  E --> K
+  G --> K
+  I --> K
+  J --> K
+```
+
 ## Shared runtime resolver entrypoints (Story 0000037 Task 5)
 
 - Runtime entrypoints no longer use model-only parsing helpers for behavior decisions; they resolve execution defaults through one shared helper in `server/src/agents/config.ts`.

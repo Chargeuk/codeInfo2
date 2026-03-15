@@ -3,7 +3,7 @@ import type { PathLike } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, it, mock } from 'node:test';
+import { afterEach, describe, it, mock } from 'node:test';
 
 import {
   ensureCodexConfigSeeded,
@@ -17,6 +17,7 @@ import {
   mergeProjectsFromBaseIntoRuntime,
   mergeRuntimeConfigWithBaseConfig,
   minimizeBaseConfigToProjectsOnly,
+  normalizeContext7RuntimeConfig,
   normalizeRuntimeConfig,
   readAndNormalizeRuntimeTomlConfig,
   resolveAgentRuntimeConfig,
@@ -25,6 +26,17 @@ import {
   type RuntimeConfigResolutionError,
   validateRuntimeConfig,
 } from '../../config/runtimeConfig.js';
+
+const originalContext7ApiKey = process.env.CODEINFO_CONTEXT7_API_KEY;
+
+afterEach(() => {
+  mock.restoreAll();
+  if (originalContext7ApiKey === undefined) {
+    delete process.env.CODEINFO_CONTEXT7_API_KEY;
+  } else {
+    process.env.CODEINFO_CONTEXT7_API_KEY = originalContext7ApiKey;
+  }
+});
 
 describe('runtimeConfig normalization', () => {
   it('normalizes legacy features.view_image_tool to tools.view_image', () => {
@@ -875,6 +887,312 @@ describe('runtimeConfig merge and validation', () => {
         }),
       /invalid type/u,
     );
+  });
+});
+
+describe('runtimeConfig Context7 overlay', () => {
+  it('replaces REPLACE_WITH_CONTEXT7_API_KEY in memory from CODEINFO_CONTEXT7_API_KEY', () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+
+    const normalized = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: [
+            '-y',
+            '@upstash/context7-mcp',
+            '--api-key',
+            'REPLACE_WITH_CONTEXT7_API_KEY',
+          ],
+        },
+      },
+    });
+
+    assert.equal(normalized.mode, 'env_overlay');
+    assert.deepEqual(normalized.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'],
+      },
+    });
+  });
+
+  it('treats the legacy seeded Context7 key as a placeholder and overlays the env key', () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+
+    const normalized = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: [
+            '-y',
+            '@upstash/context7-mcp',
+            '--api-key',
+            'ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866',
+          ],
+        },
+      },
+    });
+
+    assert.equal(normalized.mode, 'env_overlay');
+    assert.deepEqual(normalized.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'],
+      },
+    });
+  });
+
+  it('preserves an explicit non-placeholder Context7 API key', () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-env';
+
+    const normalized = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: [
+            '-y',
+            '@upstash/context7-mcp',
+            '--api-key',
+            'ctx7sk-user-supplied',
+          ],
+        },
+      },
+    });
+
+    assert.equal(normalized.mode, 'explicit_key_preserved');
+    assert.deepEqual(normalized.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: [
+          '-y',
+          '@upstash/context7-mcp',
+          '--api-key',
+          'ctx7sk-user-supplied',
+        ],
+      },
+    });
+  });
+
+  it('leaves an already-no-key Context7 args list unchanged', () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = '   ';
+
+    const normalized = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp'],
+        },
+      },
+    });
+
+    assert.equal(normalized.mode, 'no_key_fallback');
+    assert.deepEqual(normalized.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: ['-y', '@upstash/context7-mcp'],
+      },
+    });
+  });
+
+  it('falls back to the no-key args form when the env key is missing empty or whitespace-only', () => {
+    const variants = [undefined, '', '   '];
+
+    for (const value of variants) {
+      if (value === undefined) {
+        delete process.env.CODEINFO_CONTEXT7_API_KEY;
+      } else {
+        process.env.CODEINFO_CONTEXT7_API_KEY = value;
+      }
+
+      const normalized = normalizeContext7RuntimeConfig({
+        mcp_servers: {
+          context7: {
+            command: 'npx',
+            args: [
+              '-y',
+              '@upstash/context7-mcp',
+              '--api-key',
+              'REPLACE_WITH_CONTEXT7_API_KEY',
+            ],
+          },
+        },
+      });
+
+      assert.equal(normalized.mode, 'no_key_fallback');
+      assert.deepEqual(normalized.config.mcp_servers, {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp'],
+        },
+      });
+    }
+  });
+
+  it('leaves configs without a Context7 definition unchanged', () => {
+    const input = {
+      mcp_servers: {
+        deepwiki: {
+          url: 'https://mcp.deepwiki.com/mcp',
+        },
+      },
+    };
+
+    const normalized = normalizeContext7RuntimeConfig(input);
+
+    assert.equal(normalized.mode, 'no_context7_definition');
+    assert.deepEqual(normalized.config, input);
+  });
+
+  it('removes only the api-key pair and preserves the order of unrelated args', () => {
+    delete process.env.CODEINFO_CONTEXT7_API_KEY;
+
+    const normalized = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: [
+            '--debug',
+            '-y',
+            '@upstash/context7-mcp',
+            '--api-key',
+            'REPLACE_WITH_CONTEXT7_API_KEY',
+            '--transport',
+            'stdio',
+          ],
+        },
+      },
+    });
+
+    assert.equal(normalized.mode, 'no_key_fallback');
+    assert.deepEqual(normalized.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: [
+          '--debug',
+          '-y',
+          '@upstash/context7-mcp',
+          '--transport',
+          'stdio',
+        ],
+      },
+    });
+  });
+
+  it('leaves remote url and http_headers Context7 definitions unchanged', () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+
+    const input = {
+      mcp_servers: {
+        context7: {
+          url: 'https://mcp.context7.test',
+          http_headers: {
+            Authorization: 'Bearer abc',
+          },
+        },
+      },
+    };
+
+    const normalized = normalizeContext7RuntimeConfig(input);
+
+    assert.equal(normalized.mode, 'no_context7_definition');
+    assert.deepEqual(normalized.config, input);
+  });
+
+  it('does not rewrite runtime config files on disk when overlaying Context7 keys', async () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          'args = ["-y", "@upstash/context7-mcp", "--api-key", "REPLACE_WITH_CONTEXT7_API_KEY"]',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
+
+      await resolveChatRuntimeConfig({ codexHome });
+
+      const baseContents = await fs.readFile(baseConfigPath, 'utf8');
+      assert.match(baseContents, /REPLACE_WITH_CONTEXT7_API_KEY/u);
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves chat runtime with the inherited overlaid Context7 definition from base config', async () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          'args = ["-y", "@upstash/context7-mcp", "--api-key", "REPLACE_WITH_CONTEXT7_API_KEY"]',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
+
+      const resolved = await resolveChatRuntimeConfig({ codexHome });
+
+      assert.deepEqual(resolved.config.mcp_servers, {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'],
+        },
+      });
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('leaves malformed local stdio Context7 shapes unchanged', () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+
+    const nonArrayArgs = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: 'broken',
+        },
+      },
+    });
+    assert.equal(nonArrayArgs.mode, 'no_context7_definition');
+    assert.deepEqual(nonArrayArgs.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: 'broken',
+      },
+    });
+
+    const missingPair = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp', '--api-key'],
+        },
+      },
+    });
+    assert.equal(missingPair.mode, 'no_context7_definition');
+    assert.deepEqual(missingPair.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: ['-y', '@upstash/context7-mcp', '--api-key'],
+      },
+    });
   });
 });
 

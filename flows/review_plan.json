@@ -1,0 +1,75 @@
+{
+  "description": "Execute a plan until it is complete",
+  "steps": [
+    {
+      "type": "llm",
+      "label": "Clear stale current plan handoff",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Please read AGENTS.md and follow its instructions. Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan for this flow. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. Do NOT use code_info tools for plan selection and do NOT independently search for or select a different plan. Confirm to me what story that selected plan is, and provide me with an overview of the story, including what is still remaining to be done, without making file changes at this time."
+          ]
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "Review evidence gate",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Now that everything has been implemented, start a 3-step review sequence for the current story. This first step is an evidence gate only, not the findings pass and not the plan-editing pass. First read `codeInfoStatus/flow-state/current-plan.json` and use only the relative `plan_path` stored there as the active plan for this flow. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. Then re-read that active plan from disk, inspect the branch against `main`, and gather the evidence a PR reviewer would need before issuing findings. Required work: 1. Re-read the full active planning document and extract the Description, Acceptance Criteria, Out of Scope, and the final completed tasks. 2. Inspect `git diff --name-status main...HEAD` and the recent branch commits. 3. Group changed files into planned implementation files, planned docs/tests/plan files, and suspicious or out-of-scope files. 4. For every acceptance criterion, identify the current proof source: code path, tests, wrapper/test logs, screenshots/manual proof, or note that the proof is weak/missing. 5. Call out any implementation area that looks more complex or verbose than the planned work actually required, even if it may still be correct. 6. Generate a unique `review_pass_id` using the story number from the selected plan filename, a UTC timestamp, and the current HEAD short SHA. 7. Write the evidence summary to `codeInfoStatus/reviews/<review_pass_id>-evidence.md`. This evidence file is a durable review artifact that MUST be committed later so a human can inspect it after the story completes. 8. Write or overwrite a handoff file at `codeInfoStatus/reviews/<story-number>-current-review.json` containing at least: `story_id`, `plan_path`, `branch`, `base_branch`, `head_commit`, `review_pass_id`, `evidence_file`, and `findings_file` set to null. This handoff file is the ONLY review file the next step may use; do not rely on timestamps or 'latest file' discovery. Treat the handoff file as transient workflow state, not as the durable review artifact. 9. Do not edit the plan in this step unless a tiny note is absolutely required to unblock the review, and do not commit in this step unless you had to make tracked changes for that unblock. Report the evidence summary and the exact handoff file path when done."
+          ]
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "Code review findings",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Continue the current story review using ONLY the handoff file written by the previous review-evidence step. Do NOT discover the latest review artifact by timestamp. First read `codeInfoStatus/flow-state/current-plan.json` and use only the relative `plan_path` stored there as the active plan for this flow. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated; do not edit the plan. Then read `codeInfoStatus/reviews/<story-number>-current-review.json`, derived from the selected plan filename, and verify that its `story_id` matches the current plan, its `branch` matches the current branch, its `head_commit` still matches the branch HEAD, and its referenced evidence file exists. If any of those checks fail, stop and say the review handoff is stale and must be regenerated; do not edit the plan. If the handoff is valid, perform the actual review against the planned work and the branch diff. Required review areas: correctness against the story plan, acceptance criteria coverage, code quality, maintainability, performance, security, configuration/runtime correctness, documentation drift, scope creep, and whether the code is more verbose or complex than needed and could be made more succinct without sacrificing quality. This step MUST produce findings only and MUST NOT edit the plan yet. Write the findings to `codeInfoStatus/reviews/<review_pass_id>-findings.md` using findings-first ordering by severity, with file references and explicit classification of each finding as `must_fix`, `should_fix`, or `optional_simplification`. This findings file is a durable review artifact that MUST be committed later so a human can inspect it after the story completes. If no findings exist, state that explicitly and also record any residual risks or weak-proof areas. Update the same handoff file so `findings_file` points to the exact findings artifact, and include any useful counts or disposition hints. Do not commit in this step unless you were forced to make tracked changes to repair the review artifacts themselves."
+          ]
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "Review disposition",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Finish the current story review using ONLY the handoff file and findings file referenced by that handoff. Do NOT rediscover review artifacts by timestamp. First read `codeInfoStatus/flow-state/current-plan.json` and use only the relative `plan_path` stored there as the active plan for this flow. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated; do not edit the plan. Then read `codeInfoStatus/reviews/<story-number>-current-review.json`, derived from the selected plan filename, again and verify that its `story_id`, `branch`, `head_commit`, `review_pass_id`, `evidence_file`, and `findings_file` still match the current repo state. If the handoff is stale or incomplete, stop and say the review must be rerun; do not edit the plan. If the handoff is valid, decide what the plan must do with the findings. Rules: 1. If any `must_fix` or `should_fix` findings exist, reopen the story in the active plan, add a `Code Review Findings` summary section, add explicit follow-up tasks using the same structure as previous tasks, and add a fresh full re-test/final validation task after those review-fix tasks so the story must be revalidated against the acceptance criteria. Update numbering and cross-references if needed. 2. If only `optional_simplification` findings exist, decide whether they are truly zero-risk and worth reopening the story; if not, record them in a short review note instead of reopening. 3. If there are no findings, append a `Post-Implementation Code Review` section to the end of the plan detailing the branch-vs-main checks performed, the acceptance-evidence checks performed, the files inspected, and why the story remains complete. 4. When the review is assessing the planned work, it MUST explicitly state whether each acceptance criterion has direct proof, indirect proof, or missing proof, and whether the implemented code is appropriately succinct for the required behavior or contains simplification opportunities. 5. The current pass `evidence_file` and `findings_file` are durable review artifacts and MUST be added to the commit alongside any plan changes so a human can inspect them later. The transient handoff file should not be treated as the durable artifact; once it has been consumed successfully, either remove it before committing or leave it untracked so later review passes do not rely on stale committed handoff state. 6. Commit the plan and the current pass review artifacts if you make tracked changes, but do not push. This is the only review step allowed to mutate the plan."
+          ]
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "Push",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "If possible, git push the branch."
+          ]
+        }
+      ]
+    }
+  ]
+}

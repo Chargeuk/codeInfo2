@@ -517,32 +517,27 @@ sequenceDiagram
 
 - `server/src/config/runtimeConfig.ts` bootstrap now follows deterministic branch selection:
   - `existing_noop`: chat config already exists, no overwrite.
-  - `copied`: chat config missing and base config exists, copy base once.
-  - `generated_template`: both chat and base configs missing, generate standard chat template.
+  - `generated_template`: chat config missing, write the canonical in-code chat template directly.
 - IO/permission failures are not silent. Bootstrap emits deterministic warning markers and rethrows:
-  - `chat_stat_failed`, `base_stat_failed`, `chat_dir_create_failed`, `copy_failed`, `template_write_failed`.
+  - `chat_stat_failed`, `chat_dir_create_failed`, `template_write_failed`.
 - Deterministic Task 9 marker:
   - `DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH` with branch, paths, and warning metadata.
+- Story 47 bootstrap marker:
+  - `DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP` with `config_path`, `outcome=seeded|existing`, `source=chat_template`, and `success`.
 - Data-safety rule: failed copy/template writes clean up partial destination artifacts so `codex/chat/config.toml` is not left corrupted.
+- Scope rule: this task changes missing-file bootstrap only. Existing invalid, unreadable, zero-byte, or directory paths are left in place and continue through the existing warning-and-fallback runtime behavior rather than being repaired or replaced.
 
 ```mermaid
 flowchart TD
   A[ensureChatRuntimeConfigBootstrapped] --> B{chat config exists?}
   B -- yes --> C[branch existing_noop]
-  B -- no --> D{base config exists?}
-  D -- yes --> E[copy base -> chat with COPYFILE_EXCL]
-  D -- no --> F[write deterministic template]
-  E --> G{copy success?}
-  F --> H{write+rename success?}
-  G -- yes --> I[branch copied]
-  H -- yes --> J[branch generated_template]
-  G -- no --> K[branch copy_failed + warning + cleanup + throw]
-  H -- no --> L[branch template_write_failed + warning + cleanup + throw]
-  C --> M[emit DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH]
-  I --> M
-  J --> M
-  K --> M
-  L --> M
+  B -- no --> D[write canonical chat template]
+  D --> E{write+rename success?}
+  E -- yes --> F[branch generated_template]
+  E -- no --> G[branch template_write_failed + warning + cleanup + throw]
+  C --> H[emit T09 + T03 existing markers]
+  F --> I[emit T09 + T03 seeded markers]
+  G --> J[emit warning marker and throw]
 ```
 
 ## Codex SDK pin and startup guard alignment (Story 0000040 Task 10)
@@ -929,8 +924,8 @@ sequenceDiagram
   participant FS as Filesystem
   participant Norm as Normalizer
   Caller->>Resolver: loadRuntimeConfigSnapshot({ agentName|agentConfigPath })
-  Resolver->>FS: ensure chat config bootstrap (copy-once)
-  FS-->>Resolver: copied | skipped
+  Resolver->>FS: ensure chat config bootstrap (direct template seed)
+  FS-->>Resolver: generated_template | existing_noop
   Resolver->>FS: read base/chat/agent TOML
   FS-->>Resolver: file contents / ENOENT / parse data
   Resolver->>Norm: normalize aliases (view_image, web_search)

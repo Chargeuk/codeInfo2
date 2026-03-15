@@ -8,6 +8,7 @@ import {
   resolveChatDefaults,
   resolveCodexChatDefaults,
 } from '../../config/chatDefaults.js';
+import { ensureChatRuntimeConfigBootstrapped } from '../../config/runtimeConfig.js';
 
 const ENV_KEYS = [
   'CHAT_DEFAULT_PROVIDER',
@@ -363,6 +364,27 @@ test('unreadable codex chat config warns and falls back without repair', async (
   );
   const stat = await fs.stat(chatConfigPath);
   assert.ok(stat.isDirectory());
+});
+
+test('bootstrap leaves invalid existing chat config untouched while defaults still warn and fall back', async () => {
+  process.env.CHAT_DEFAULT_MODEL = 'env-model';
+  const codexHome = await createCodexHome('[broken');
+  const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+
+  const bootstrapResult = await ensureChatRuntimeConfigBootstrapped({
+    codexHome,
+  });
+  const result = await resolveCodexChatDefaults({ codexHome });
+  const chatContents = await fs.readFile(chatConfigPath, 'utf8');
+
+  assert.equal(bootstrapResult.branch, 'existing_noop');
+  assert.equal(chatContents, '[broken');
+  assert.equal(result.values.model, 'env-model');
+  assert.ok(
+    result.warnings.some((warning) =>
+      warning.includes('Unable to read codex/chat/config.toml'),
+    ),
+  );
 });
 
 test('resolver rereads codex chat config on consecutive calls', async () => {

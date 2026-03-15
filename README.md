@@ -136,9 +136,9 @@ Corporate certificate directory requirements:
 - Fresh base bootstrap uses `model = "gpt-5.3-codex"` and seeds Context7 in the no-key local stdio form `args = ['-y', '@upstash/context7-mcp']`; it does not seed any checked-in or placeholder `--api-key` pair.
 - Chat runtime config bootstrap (`./codex/chat/config.toml`) is deterministic and non-destructive:
   - if chat config exists: no overwrite (`existing_noop`).
-  - if chat config is missing and base config exists: copy `./codex/config.toml` once (`copied`).
-  - if both chat and base configs are missing: generate a standard chat template (`generated_template`).
-  - IO/permission failures are surfaced with deterministic warnings and no silent fallback; failed copy/write paths clean up partial destination files.
+  - if chat config is missing: write the canonical in-code chat template directly (`generated_template`), regardless of whether base config exists.
+  - on-disk template files such as `codex/chat/config copy.toml` are ignored during bootstrap.
+  - IO/permission failures are surfaced with deterministic warnings and no silent fallback; failed write paths clean up partial destination files.
 
 ## Codex (CLI)
 

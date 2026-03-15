@@ -66,55 +66,9 @@ describe('runtimeConfig normalization', () => {
 
 describe('runtimeConfig bootstrap', () => {
   const TASK9_MARKER = 'DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH';
+  const TASK3_MARKER = 'DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP';
 
-  it('copies base config to chat config once when missing', async () => {
-    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
-    const baseConfigPath = path.join(codexHome, 'config.toml');
-    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
-
-    try {
-      await fs.writeFile(
-        baseConfigPath,
-        'model = "gpt-5.3-codex-spark"\n',
-        'utf8',
-      );
-      const first = await ensureChatRuntimeConfigBootstrapped({ codexHome });
-      const second = await ensureChatRuntimeConfigBootstrapped({ codexHome });
-      const copied = await fs.readFile(chatConfigPath, 'utf8');
-
-      assert.equal(first.copied, true);
-      assert.equal(first.branch, 'copied');
-      assert.equal(first.generatedTemplate, false);
-      assert.equal(second.copied, false);
-      assert.equal(second.branch, 'existing_noop');
-      assert.match(copied, /model = "gpt-5.3-codex-spark"/);
-    } finally {
-      await fs.rm(codexHome, { recursive: true, force: true });
-    }
-  });
-
-  it('never overwrites an existing chat config during bootstrap', async () => {
-    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
-    const baseConfigPath = path.join(codexHome, 'config.toml');
-    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
-
-    try {
-      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
-      await fs.writeFile(baseConfigPath, 'model = "base"\n', 'utf8');
-      await fs.writeFile(chatConfigPath, 'model = "chat"\n', 'utf8');
-
-      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
-      const chatContents = await fs.readFile(chatConfigPath, 'utf8');
-
-      assert.equal(result.copied, false);
-      assert.equal(result.branch, 'existing_noop');
-      assert.equal(chatContents, 'model = "chat"\n');
-    } finally {
-      await fs.rm(codexHome, { recursive: true, force: true });
-    }
-  });
-
-  it('generates template when both base and chat configs are missing', async () => {
+  it('writes the canonical chat template when chat config is missing', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
 
@@ -135,10 +89,41 @@ describe('runtimeConfig bootstrap', () => {
     }
   });
 
+  it('never copies base config into chat config when base already exists with different contents', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+
+    try {
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          'model = "base-model"',
+          'approval_policy = "never"',
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          'args = ["-y", "@upstash/context7-mcp"]',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const chatContents = await fs.readFile(chatConfigPath, 'utf8');
+
+      assert.equal(result.copied, false);
+      assert.equal(result.branch, 'generated_template');
+      assert.match(chatContents, /model = "gpt-5.3-codex"/u);
+      assert.doesNotMatch(chatContents, /base-model/u);
+      assert.doesNotMatch(chatContents, /\[mcp_servers\.context7\]/u);
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
   it('creates missing codex/chat directory before bootstrap write', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatDirPath = path.join(codexHome, 'chat');
-    const chatConfigPath = path.join(chatDirPath, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
 
     try {
       const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
@@ -195,7 +180,7 @@ describe('runtimeConfig bootstrap', () => {
       assert.equal(seededBasePath, getCodexConfigPathForHome(codexHome));
       assert.match(baseConfig, /model = "gpt-5\.3-codex"/u);
       assert.doesNotMatch(baseConfig, /from-example/u);
-      assert.equal(bootstrapResult.branch, 'copied');
+      assert.equal(bootstrapResult.branch, 'generated_template');
       assert.match(chatConfig, /model = "gpt-5\.3-codex"/u);
       assert.doesNotMatch(chatConfig, /from-copy-template/u);
     } finally {
@@ -209,136 +194,72 @@ describe('runtimeConfig bootstrap', () => {
     }
   });
 
-  it('emits deterministic marker for copied and existing branches', async () => {
+  it('replaces the old copied branch with direct-template seeding', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
-    const infoLogs: unknown[][] = [];
-    mock.method(console, 'info', (...args: unknown[]) => {
-      infoLogs.push(args);
-    });
 
     try {
       await fs.writeFile(baseConfigPath, 'model = "from-base"\n', 'utf8');
-      await ensureChatRuntimeConfigBootstrapped({ codexHome });
-      await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
 
-      assert(
-        infoLogs.some(
-          (entry) =>
-            String(entry[0]) === TASK9_MARKER &&
-            (entry[1] as { branch?: string } | undefined)?.branch === 'copied',
-        ),
-      );
-      assert(
-        infoLogs.some(
-          (entry) =>
-            String(entry[0]) === TASK9_MARKER &&
-            (entry[1] as { branch?: string } | undefined)?.branch ===
-              'existing_noop',
-        ),
-      );
+      assert.notEqual(result.branch, 'copied');
+      assert.equal(result.branch, 'generated_template');
     } finally {
-      mock.restoreAll();
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
 
-  it('emits deterministic warning marker on copy failure', async () => {
+  it('leaves an existing zero-byte chat config untouched', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
-    const baseConfigPath = path.join(codexHome, 'config.toml');
-    const warningLogs: unknown[][] = [];
-    const originalCopyFile = fs.copyFile.bind(fs);
-    mock.method(console, 'warn', (...args: unknown[]) => {
-      warningLogs.push(args);
-    });
-
-    try {
-      await fs.writeFile(baseConfigPath, 'model = "from-base"\n', 'utf8');
-      mock.method(
-        fs,
-        'copyFile',
-        async (
-          source: PathLike,
-          destination: PathLike,
-          mode?: number | undefined,
-        ) => {
-          if (String(destination).endsWith(path.join('chat', 'config.toml'))) {
-            const error = new Error('read-only destination') as
-              | Error
-              | NodeJS.ErrnoException;
-            (error as NodeJS.ErrnoException).code = 'EACCES';
-            throw error;
-          }
-          return originalCopyFile(source, destination, mode);
-        },
-      );
-
-      await assert.rejects(
-        async () => ensureChatRuntimeConfigBootstrapped({ codexHome }),
-        /read-only destination/u,
-      );
-
-      assert(
-        warningLogs.some((entry) => {
-          const payload = entry[1] as
-            | { branch?: string; warningCode?: string }
-            | undefined;
-          return (
-            String(entry[0]) === TASK9_MARKER &&
-            payload?.branch === 'copy_failed' &&
-            payload.warningCode === 'EACCES'
-          );
-        }),
-      );
-    } finally {
-      mock.restoreAll();
-      await fs.rm(codexHome, { recursive: true, force: true });
-    }
-  });
-
-  it('does not leave partial chat config when copy fails mid-stream', async () => {
-    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
-    const baseConfigPath = path.join(codexHome, 'config.toml');
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
-    const originalCopyFile = fs.copyFile.bind(fs);
 
     try {
-      await fs.writeFile(baseConfigPath, 'model = "from-base"\n', 'utf8');
-      mock.method(
-        fs,
-        'copyFile',
-        async (
-          source: PathLike,
-          destination: PathLike,
-          mode?: number | undefined,
-        ) => {
-          if (String(destination) === chatConfigPath) {
-            await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
-            await fs.writeFile(chatConfigPath, 'partial', 'utf8');
-            const error = new Error('mid-copy failure') as
-              | Error
-              | NodeJS.ErrnoException;
-            (error as NodeJS.ErrnoException).code = 'EIO';
-            throw error;
-          }
-          return originalCopyFile(source, destination, mode);
-        },
-      );
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(chatConfigPath, '', 'utf8');
 
-      await assert.rejects(
-        async () => ensureChatRuntimeConfigBootstrapped({ codexHome }),
-        /mid-copy failure/u,
-      );
-      const exists = await fs
-        .stat(chatConfigPath)
-        .then((stat) => stat.isFile())
-        .catch((error) => {
-          if ((error as { code?: string }).code === 'ENOENT') return false;
-          throw error;
-        });
-      assert.equal(exists, false);
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const chatContents = await fs.readFile(chatConfigPath, 'utf8');
+
+      assert.equal(result.branch, 'existing_noop');
+      assert.equal(chatContents, '');
     } finally {
-      mock.restoreAll();
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('leaves an existing invalid-TOML chat config untouched', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(chatConfigPath, '[broken', 'utf8');
+
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const chatContents = await fs.readFile(chatConfigPath, 'utf8');
+
+      assert.equal(result.branch, 'existing_noop');
+      assert.equal(chatContents, '[broken');
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('leaves an existing directory at the chat config path untouched', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+
+    try {
+      await fs.mkdir(chatConfigPath, { recursive: true });
+
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const isDirectory = await fs
+        .stat(chatConfigPath)
+        .then((stat) => stat.isDirectory());
+
+      assert.equal(result.branch, 'existing_noop');
+      assert.equal(isDirectory, true);
+    } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
@@ -381,6 +302,51 @@ describe('runtimeConfig bootstrap', () => {
             String(entry[0]) === TASK9_MARKER &&
             payload?.branch === 'template_write_failed' &&
             payload.warningCode === 'EROFS'
+          );
+        }),
+      );
+    } finally {
+      mock.restoreAll();
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('emits Story 47 markers for seeded and existing chat-template branches', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    const infoLogs: unknown[][] = [];
+    mock.method(console, 'info', (...args: unknown[]) => {
+      infoLogs.push(args);
+    });
+
+    try {
+      await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      await ensureChatRuntimeConfigBootstrapped({ codexHome });
+
+      assert(
+        infoLogs.some((entry) => {
+          const payload = entry[1] as
+            | { outcome?: string; source?: string; success?: boolean }
+            | undefined;
+          return (
+            String(entry[0]) === TASK3_MARKER &&
+            payload?.outcome === 'seeded' &&
+            payload.source === 'chat_template' &&
+            payload.success === true
+          );
+        }),
+      );
+      assert(
+        infoLogs.some((entry) => {
+          const payload = entry[1] as
+            | { outcome?: string; source?: string; success?: boolean }
+            | undefined;
+          return (
+            String(entry[0]) === TASK3_MARKER &&
+            payload?.outcome === 'existing' &&
+            payload.source === 'chat_template' &&
+            payload.success === true &&
+            (payload as { config_path?: string }).config_path === chatConfigPath
           );
         }),
       );

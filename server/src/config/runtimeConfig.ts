@@ -25,6 +25,7 @@ const T22_SUCCESS_LOG =
 const T22_ERROR_LOG =
   '[DEV-0000037][T22] event=final_config_minimization_completed result=error';
 const T09_BOOTSTRAP_LOG_MARKER = 'DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH';
+const T03_CHAT_BOOTSTRAP_MARKER = 'DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP';
 
 export type RuntimeTomlConfig = Record<string, unknown>;
 export type RuntimeConfigWarning = { path: string; message: string };
@@ -63,12 +64,9 @@ export class RuntimeConfigResolutionError extends Error {
 
 type ChatBootstrapBranch =
   | 'existing_noop'
-  | 'copied'
   | 'generated_template'
-  | 'copy_failed'
   | 'template_write_failed'
   | 'chat_stat_failed'
-  | 'base_stat_failed'
   | 'chat_dir_create_failed';
 
 export type RuntimeConfigSnapshot = {
@@ -538,6 +536,27 @@ function logTask9Bootstrap(params: {
   }
 }
 
+function logTask3Bootstrap(params: {
+  chatConfigPath: string;
+  outcome: 'seeded' | 'existing';
+  success: boolean;
+  warning?: string;
+  warningCode?: string;
+}) {
+  const payload = {
+    config_path: params.chatConfigPath,
+    outcome: params.outcome,
+    source: 'chat_template',
+    success: params.success,
+    warning: params.warning,
+    warningCode: params.warningCode,
+  };
+  console.info(T03_CHAT_BOOTSTRAP_MARKER, payload);
+  if (params.warning) {
+    console.warn(T03_CHAT_BOOTSTRAP_MARKER, payload);
+  }
+}
+
 async function cleanupPartialChatConfig(chatConfigPath: string) {
   const exists = await fs
     .stat(chatConfigPath)
@@ -632,7 +651,7 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
   const chatConfigPath = getCodexChatConfigPathForHome(codexHome);
 
   const chatExists = await fs.stat(chatConfigPath).then(
-    (stat) => stat.isFile(),
+    () => true,
     (error: unknown) => {
       if ((error as { code?: string }).code === 'ENOENT') return false;
       const code = (error as { code?: string }).code;
@@ -661,6 +680,11 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
       copied: false,
       generatedTemplate: false,
     });
+    logTask3Bootstrap({
+      chatConfigPath,
+      outcome: 'existing',
+      success: true,
+    });
     return {
       codexHome,
       baseConfigPath,
@@ -670,27 +694,6 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
       branch: 'existing_noop',
     };
   }
-
-  const baseExists = await fs.stat(baseConfigPath).then(
-    (stat) => stat.isFile(),
-    (error: unknown) => {
-      if ((error as { code?: string }).code === 'ENOENT') return false;
-      const code = (error as { code?: string }).code;
-      const warning =
-        error instanceof Error ? error.message : 'Failed to stat base config';
-      logTask9Bootstrap({
-        branch: 'base_stat_failed',
-        codexHome,
-        baseConfigPath,
-        chatConfigPath,
-        copied: false,
-        generatedTemplate: false,
-        warning,
-        warningCode: code,
-      });
-      throw error;
-    },
-  );
 
   await fs
     .mkdir(path.dirname(chatConfigPath), { recursive: true })
@@ -713,93 +716,37 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
       throw error;
     });
 
-  if (!baseExists) {
-    const tempPath = `${chatConfigPath}.tmp`;
-    try {
-      await fs.writeFile(tempPath, CHAT_CONFIG_TEMPLATE, {
-        encoding: 'utf8',
-        flag: 'wx',
-      });
-      await fs.rename(tempPath, chatConfigPath);
-      logTask9Bootstrap({
-        branch: 'generated_template',
-        codexHome,
-        baseConfigPath,
-        chatConfigPath,
-        copied: false,
-        generatedTemplate: true,
-      });
-      return {
-        codexHome,
-        baseConfigPath,
-        chatConfigPath,
-        copied: false,
-        generatedTemplate: true,
-        branch: 'generated_template',
-      };
-    } catch (error) {
-      await fs.unlink(tempPath).catch(() => undefined);
-      await cleanupPartialChatConfig(chatConfigPath);
-      if ((error as { code?: string }).code === 'EEXIST') {
-        logTask9Bootstrap({
-          branch: 'existing_noop',
-          codexHome,
-          baseConfigPath,
-          chatConfigPath,
-          copied: false,
-          generatedTemplate: false,
-        });
-        return {
-          codexHome,
-          baseConfigPath,
-          chatConfigPath,
-          copied: false,
-          generatedTemplate: false,
-          branch: 'existing_noop',
-        };
-      }
-      const code = (error as { code?: string }).code;
-      const warning =
-        error instanceof Error
-          ? error.message
-          : 'Failed to write chat config template';
-      logTask9Bootstrap({
-        branch: 'template_write_failed',
-        codexHome,
-        baseConfigPath,
-        chatConfigPath,
-        copied: false,
-        generatedTemplate: false,
-        warning,
-        warningCode: code,
-      });
-      throw error;
-    }
-  }
-
+  const tempPath = `${chatConfigPath}.tmp`;
   try {
-    await fs.copyFile(
-      baseConfigPath,
-      chatConfigPath,
-      fsConstants.COPYFILE_EXCL,
-    );
+    await fs.writeFile(tempPath, CHAT_CONFIG_TEMPLATE, {
+      encoding: 'utf8',
+      flag: 'wx',
+    });
+    await fs.rename(tempPath, chatConfigPath);
     logTask9Bootstrap({
-      branch: 'copied',
+      branch: 'generated_template',
       codexHome,
       baseConfigPath,
       chatConfigPath,
-      copied: true,
-      generatedTemplate: false,
+      copied: false,
+      generatedTemplate: true,
+    });
+    logTask3Bootstrap({
+      chatConfigPath,
+      outcome: 'seeded',
+      success: true,
     });
     return {
       codexHome,
       baseConfigPath,
       chatConfigPath,
-      copied: true,
-      generatedTemplate: false,
-      branch: 'copied',
+      copied: false,
+      generatedTemplate: true,
+      branch: 'generated_template',
     };
   } catch (error) {
+    await fs.unlink(tempPath).catch(() => undefined);
+    await cleanupPartialChatConfig(chatConfigPath);
     if ((error as { code?: string }).code === 'EEXIST') {
       logTask9Bootstrap({
         branch: 'existing_noop',
@@ -809,6 +756,11 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
         copied: false,
         generatedTemplate: false,
       });
+      logTask3Bootstrap({
+        chatConfigPath,
+        outcome: 'existing',
+        success: true,
+      });
       return {
         codexHome,
         baseConfigPath,
@@ -818,17 +770,24 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
         branch: 'existing_noop',
       };
     }
-    await cleanupPartialChatConfig(chatConfigPath);
     const code = (error as { code?: string }).code;
     const warning =
-      error instanceof Error ? error.message : 'Failed to copy base config';
+      error instanceof Error ? error.message : 'Failed to write chat template';
     logTask9Bootstrap({
-      branch: 'copy_failed',
+      branch: 'template_write_failed',
       codexHome,
       baseConfigPath,
       chatConfigPath,
       copied: false,
       generatedTemplate: false,
+      warning,
+      warningCode: code,
+    });
+    console.warn(T03_CHAT_BOOTSTRAP_MARKER, {
+      config_path: chatConfigPath,
+      outcome: 'seeded',
+      source: 'chat_template',
+      success: false,
       warning,
       warningCode: code,
     });

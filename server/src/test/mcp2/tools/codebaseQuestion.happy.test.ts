@@ -445,7 +445,11 @@ test('vector summary match uses the lowest distance', () => {
 test('codebase_question parity fixture aligns MCP defaults with REST resolver expectations', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalCodeHome = process.env.CODEX_HOME;
+  const originalChatDefaultProvider = process.env.CHAT_DEFAULT_PROVIDER;
+  const originalChatDefaultModel = process.env.CHAT_DEFAULT_MODEL;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  delete process.env.CHAT_DEFAULT_PROVIDER;
+  delete process.env.CHAT_DEFAULT_MODEL;
   resetStore();
   const tempHome = await withTempCodexHome({
     chatToml: [
@@ -488,11 +492,36 @@ test('codebase_question parity fixture aligns MCP defaults with REST resolver ex
       | undefined;
     assert.ok(context?.defaults);
     assert.equal(context.defaults?.webSearchEnabled, true);
+
+    const story47MarkerLogs = query({
+      source: ['server'],
+      text: 'DEV_0000047_T01_CODEX_DEFAULTS_APPLIED',
+    });
+    const latestStory47Marker = story47MarkerLogs.at(-1);
+    const story47Context = latestStory47Marker?.context as
+      | {
+          model_source?: string;
+          codex_model_source?: string;
+        }
+      | undefined;
+    assert.ok(story47Context);
+    assert.equal(story47Context?.model_source, 'fallback');
+    assert.equal(story47Context?.codex_model_source, 'hardcoded');
   } finally {
     resetToolDeps();
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
     if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
     else process.env.CODEX_HOME = originalCodeHome;
+    if (originalChatDefaultProvider === undefined) {
+      delete process.env.CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CHAT_DEFAULT_PROVIDER = originalChatDefaultProvider;
+    }
+    if (originalChatDefaultModel === undefined) {
+      delete process.env.CHAT_DEFAULT_MODEL;
+    } else {
+      process.env.CHAT_DEFAULT_MODEL = originalChatDefaultModel;
+    }
     await tempHome.cleanup();
     server.closeAllConnections();
     await new Promise<void>((resolve) => {

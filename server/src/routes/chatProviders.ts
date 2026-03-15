@@ -10,6 +10,7 @@ import {
   resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
   STORY_47_TASK_1_LOG_MARKER,
+  toChatResolutionSource,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
 import { baseLogger } from '../logger.js';
@@ -156,8 +157,14 @@ export function createChatProvidersRouter({
       resolved_model: runtimeSelection.executionModel,
       model_source:
         requestedDefaults.provider === 'codex'
-          ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
+          ? toChatResolutionSource(
+              codexRequestedDefaults?.sources.model ?? 'hardcoded',
+            )
           : requestedDefaults.modelSource,
+      codex_model_source:
+        requestedDefaults.provider === 'codex'
+          ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
+          : undefined,
       success: true,
       warning_count: codexWarnings.length,
     });

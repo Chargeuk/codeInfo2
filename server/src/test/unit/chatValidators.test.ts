@@ -8,6 +8,7 @@ import {
   modelReasoningEfforts,
   validateChatRequest,
 } from '../../routes/chatValidators.js';
+import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 
 const ENV_KEYS = [
   'Codex_sandbox_mode',
@@ -158,6 +159,35 @@ test('omitted codex provider and model resolve through the chat-config-aware def
   assert.equal(result.model, 'config-model');
   assert.equal(result.defaultsResolution.providerSource, 'fallback');
   assert.equal(result.defaultsResolution.modelSource, 'config');
+});
+
+test('chat validation marker keeps normalized model_source and separate raw codex_model_source', async () => {
+  await setChatConfig('model = "config-model"\n');
+
+  const markerPayloads: Array<Record<string, unknown>> = [];
+  const originalInfo = console.info;
+  console.info = (...args: unknown[]) => {
+    if (args[0] === STORY_47_TASK_1_LOG_MARKER && args[1]) {
+      markerPayloads.push(args[1] as Record<string, unknown>);
+    }
+  };
+
+  try {
+    await validateChatRequest({
+      model: 'override-model',
+      message: 'hello',
+      conversationId: 'marker-contract',
+      provider: 'codex',
+    });
+
+    const marker = markerPayloads.at(-1);
+    assert.ok(marker);
+    assert.equal(marker.surface, 'chat_validation');
+    assert.equal(marker.model_source, 'request');
+    assert.equal(marker.codex_model_source, 'override');
+  } finally {
+    console.info = originalInfo;
+  }
 });
 
 test('explicit Codex flags override resolver defaults', async () => {

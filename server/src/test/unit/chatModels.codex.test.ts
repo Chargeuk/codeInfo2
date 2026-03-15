@@ -16,6 +16,7 @@ import {
 import { baseLogger } from '../../logger.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
+import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 import { createChatModelsRouter } from '../../routes/chatModels.js';
 
 type EnvSnapshot = Map<string, string | undefined>;
@@ -170,6 +171,39 @@ test('codex env model list parsing surfaces defaults and warnings', async () => 
     assert.ok(res.body.codexDefaults);
     assert.ok(Array.isArray(res.body.codexWarnings));
   } finally {
+    await stopServer(server);
+  }
+});
+
+test('chat models marker normalizes model_source and retains raw codex_model_source', async () => {
+  await setCodexHome();
+  env.set('Codex_model_list', 'alpha,beta');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const markerPayloads: Array<Record<string, unknown>> = [];
+  const originalInfo = console.info;
+  console.info = (...args: unknown[]) => {
+    if (args[0] === STORY_47_TASK_1_LOG_MARKER && args[1]) {
+      markerPayloads.push(args[1] as Record<string, unknown>);
+    }
+  };
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    await request(server.httpServer).get('/chat/models?provider=codex').expect(200);
+
+    const marker = markerPayloads.at(-1);
+    assert.ok(marker);
+    assert.equal(marker.surface, '/chat/models');
+    assert.equal(marker.model_source, 'fallback');
+    assert.equal(marker.codex_model_source, 'hardcoded');
+  } finally {
+    console.info = originalInfo;
     await stopServer(server);
   }
 });

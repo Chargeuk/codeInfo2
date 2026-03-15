@@ -8,6 +8,7 @@ import {
   resolveCodexChatDefaults,
   STORY_47_TASK_1_LOG_MARKER,
   toChatResolutionSource,
+  toCodexDefaultSource,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
 import {
@@ -368,6 +369,8 @@ export async function validateChatRequest(
     requested_model: requestedModel ?? model,
     resolved_model: model,
     model_source: modelSource,
+    codex_model_source:
+      provider === 'codex' ? toCodexDefaultSource(modelSource) : undefined,
     success: true,
     warning_count: warnings.length,
     defaultedFlags,

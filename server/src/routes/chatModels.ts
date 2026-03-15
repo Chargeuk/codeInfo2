@@ -5,6 +5,7 @@ import {
   resolveChatDefaults,
   resolveCodexChatDefaults,
   STORY_47_TASK_1_LOG_MARKER,
+  toChatResolutionSource,
 } from '../config/chatDefaults.js';
 import {
   resolveCodexCapabilities,
@@ -130,7 +131,8 @@ export function createChatModelsRouter({
         requested_provider: 'codex',
         requested_model: preferredDefaults.values.model,
         resolved_model: preferredDefaults.values.model,
-        model_source: preferredDefaults.sources.model,
+        model_source: toChatResolutionSource(preferredDefaults.sources.model),
+        codex_model_source: preferredDefaults.sources.model,
         success: true,
         warning_count: codexWarnings.length,
       });

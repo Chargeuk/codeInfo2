@@ -30,6 +30,7 @@ import {
   resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
   STORY_47_TASK_1_LOG_MARKER,
+  toChatResolutionSource,
   type ChatDefaultProvider,
 } from '../../config/chatDefaults.js';
 import {
@@ -416,8 +417,14 @@ export async function runCodebaseQuestion(
       resolved_model: runtimeSelection.executionModel,
       model_source:
         requestedProvider === 'codex'
-          ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
+          ? toChatResolutionSource(
+              codexRequestedDefaults?.sources.model ?? 'hardcoded',
+            )
           : resolvedDefaults.modelSource,
+      codex_model_source:
+        requestedProvider === 'codex'
+          ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
+          : undefined,
       success: true,
       warning_fields: codexWarningFields,
     },
@@ -444,8 +451,14 @@ export async function runCodebaseQuestion(
     resolved_model: runtimeSelection.executionModel,
     model_source:
       requestedProvider === 'codex'
-        ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
+        ? toChatResolutionSource(
+            codexRequestedDefaults?.sources.model ?? 'hardcoded',
+          )
         : resolvedDefaults.modelSource,
+    codex_model_source:
+      requestedProvider === 'codex'
+        ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
+        : undefined,
     success: true,
     warning_fields: codexWarningFields,
   });

@@ -484,3 +484,11 @@ export const toChatResolutionSource = (
   if (source === 'hardcoded') return 'fallback';
   return source;
 };
+
+export const toCodexDefaultSource = (
+  source: ResolutionSource,
+): CodexDefaultSource => {
+  if (source === 'request') return 'override';
+  if (source === 'fallback') return 'hardcoded';
+  return source;
+};

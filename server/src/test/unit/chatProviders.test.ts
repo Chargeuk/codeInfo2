@@ -10,6 +10,7 @@ import express from 'express';
 import request from 'supertest';
 
 import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
+import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
@@ -169,6 +170,46 @@ test('providers route orders lmstudio first when codex default is unavailable an
     assert.ok(res.body.codexDefaults);
     assert.ok(Array.isArray(res.body.codexWarnings));
   } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers marker normalizes model_source and retains raw codex_model_source', async () => {
+  await setCodexHome();
+  env.set('CHAT_DEFAULT_PROVIDER', undefined);
+  env.set('CHAT_DEFAULT_MODEL', undefined);
+  env.set('LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const markerPayloads: Array<Record<string, unknown>> = [];
+  const originalInfo = console.info;
+  console.info = (...args: unknown[]) => {
+    if (args[0] === STORY_47_TASK_1_LOG_MARKER && args[1]) {
+      markerPayloads.push(args[1] as Record<string, unknown>);
+    }
+  };
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    await request(server.httpServer).get('/chat/providers').expect(200);
+
+    const marker = markerPayloads.at(-1);
+    assert.ok(marker);
+    assert.equal(marker.surface, '/chat/providers');
+    assert.equal(marker.model_source, 'fallback');
+    assert.equal(marker.codex_model_source, 'hardcoded');
+  } finally {
+    console.info = originalInfo;
     await stopServer(server);
   }
 });

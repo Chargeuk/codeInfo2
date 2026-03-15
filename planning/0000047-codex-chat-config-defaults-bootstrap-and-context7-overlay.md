@@ -1215,3 +1215,129 @@ There are no acceptance criteria currently classified as `missing`. AC13 and AC3
 The implementation remains appropriately succinct for the required behavior overall, and the review did not identify any `must_fix` or `should_fix` defects that justify reopening the story. The only remaining simplification opportunity is that [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts), and [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts) still carry a dense concentration of Story 47 responsibilities and proof coverage. That concentration is a valid optional simplification watchpoint, but it is zero-risk at this stage and did not justify reopening the completed story.
 
 The story remains complete after code review because the branch-vs-main diff is clean, the evidence and findings artifacts are durable and aligned with the final branch state, every acceptance criterion has either direct or indirect proof, and the only remaining note is a deferred optional simplification rather than a correctness, scope, or contract problem.
+
+## Code Review Findings
+
+External review was ingested through [codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-evidence.md) and [codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-findings.md). That pass endorsed one `must_fix` finding and one deferred `optional_simplification`.
+
+- `must_fix` / `generic_engineering_issue`: [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) currently lets `mergeNamedTables()` coerce malformed non-table values to `{}` before `validateRuntimeConfig()` runs, which can hide invalid runtime TOML such as `mcp_servers = "bad"` or `tools = "bad"` instead of surfacing a validation error.
+- `optional_simplification` / `generic_engineering_issue`: the Story 47 marker `DEV_0000047_T01_CODEX_DEFAULTS_APPLIED` uses inconsistent `model_source` vocabularies across [server/src/routes/chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts), [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts), and [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts). This is a real observability cleanup opportunity, but it is intentionally deferred because it is not a reopening correctness defect and the external automated patch examples were not safe to apply as-is.
+- Rejected external comments: the `/chat/providers` generic-warning propagation comment was not adopted because it would blur the response contract rather than clearly fix a bug, and the `stat.isFile()` bootstrap comment was rejected because Story 47 explicitly treats directories and other existing non-missing paths as existing rather than bootstrap targets.
+
+Acceptance proof status after this external review remains: AC1-12 `direct`, AC13 `indirect`, AC14-35 `direct`, and AC36 `indirect`. No acceptance criterion is currently classified as `missing`, but the external review exposed one negative-path correctness gap outside the original acceptance list: malformed merged top-level runtime tables are weakly proven and currently appear to be normalized too early. The overall implementation is still appropriately succinct for the required Story 47 behavior, but [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) remains the densest implementation area and now requires a focused repair task before the story can remain closed.
+
+---
+
+### 11. Preserve Validation Errors For Invalid Merged Runtime Tables
+
+- Task Status: `__todo__`
+- Git Commits:
+
+#### Overview
+
+Repair the shared runtime merge path so invalid non-table values for merged runtime table keys are not silently normalized into `{}` before validation runs. This task is limited to the merge/validation contract surfaced by the external review and must not broaden Story 47 into a generic deep-merge framework or reopen already-rejected bootstrap-path comments.
+
+#### Must Not Miss
+
+- Keep the fix inside [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts); do not build a second runtime merge path.
+- Invalid non-table values for merged table keys such as `projects`, `mcp_servers`, `tools`, and `model_providers` must remain visible to `validateRuntimeConfig()` or be rejected before merge in a way that still produces the existing validation-style failure contract.
+- Preserve the valid shared inheritance behavior already implemented for real table values; this task is about malformed non-table inputs only.
+- Do not change the Story 47 edge-case contract that existing non-missing chat-config paths, including directories, are treated as existing rather than bootstrap candidates.
+- Do not reopen the deferred `model_source` observability simplification in this task.
+
+#### Documentation Locations
+
+- [codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-findings.md): this is the exact external findings artifact that defines the merge-before-validate defect to fix.
+- [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts): the current shared merge and validation path to repair.
+- [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts): the existing unit/runtime proof surface for merged runtime config behavior.
+- https://toml.io/en/v1.1.0: use the table-vs-scalar TOML rules to keep the merge fix aligned with valid TOML table semantics instead of inventing a repo-local rule.
+
+#### Junior Developer Notes
+
+- Read [codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-evidence.md) and [codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-findings.md) before editing code so you understand why the merge helper was reopened.
+- Start from `mergeNamedTables()` and the `mergeTopLevelTable()` callers; do not invent a new merge abstraction or recursive merge engine.
+- Keep this task about strict malformed-input handling only. A valid table merge that already works should continue to work exactly as it does today.
+
+#### Example Shapes
+
+```ts
+// Incorrect current risk shape:
+// runtime config TOML
+// mcp_servers = "bad"
+//
+// Current merge path must not turn that into {}
+// before validateRuntimeConfig() sees it.
+```
+
+#### Subtasks
+
+1. [ ] Re-read the external review evidence and findings artifacts for Story 47 and copy the exact contract into your working notes before editing: malformed non-table values for merged table keys must surface validation failure instead of being silently normalized into `{}`.
+2. [ ] Update [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) so the shared merge path no longer coerces invalid non-table `baseValue` or `runtimeValue` inputs into empty tables for the merged keys covered by Story 47.
+3. [ ] Add or update a unit/runtime test in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) that proves a malformed `mcp_servers = "bad"` input now fails validation instead of being silently dropped or replaced by inherited base data.
+4. [ ] Add or update a unit/runtime test in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) that proves another merged table key such as `tools = "bad"` or `projects = "bad"` also surfaces the expected validation failure.
+5. [ ] Add or update a regression test in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) that proves valid table inheritance for Story 47 keys still works after the fix, so the repair does not break the good path while tightening the malformed-input path.
+6. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained docs or structure ledger need to mention the stricter validation behavior after the implementation is complete.
+7. [ ] Update this plan file’s Task 11 `Implementation notes` after the fix and tests are complete, including which malformed-input cases were previously being normalized too early and how the new tests prove they now fail correctly.
+8. [ ] Run `npm run build:summary:server` - Do not attempt to run builds or tests without using the summary wrappers. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+9. [ ] Run `npm run test:summary:server:unit` - Do not attempt to run builds or tests without using the summary wrappers. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands as needed, and rerun the full wrapper after fixes.
+10. [ ] Run `npm run test:summary:server:cucumber` - Do not attempt to run builds or tests without using the summary wrappers. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands as needed, and rerun the full wrapper after fixes.
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 12. Revalidate Story 47 After External Review Repair
+
+- Task Status: `__todo__`
+- Git Commits:
+
+#### Overview
+
+Run a fresh full-story validation pass after Task 11 closes the external `must_fix` finding so Story 47 can be closed again against the original acceptance criteria, the external review artifacts, and the final branch contents.
+
+#### Must Not Miss
+
+- Re-check the external findings artifact and prove that Task 11 closes the reopened `must_fix` finding before returning this story to `__done__`.
+- Revalidate the original Story 47 acceptance criteria, not only the Task 11 malformed-input path.
+- Keep the deferred `optional_simplification` explicitly deferred unless implementation work proves it became a correctness issue.
+- Refresh the maintained summary artifacts so the final branch state reflects the post-external-review repair.
+
+#### Documentation Locations
+
+- [codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-evidence.md)
+- [codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-findings.md)
+- [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md)
+
+#### Junior Developer Notes
+
+- Treat this as a full story-close validation task. Do not rely on the earlier Task 10 wrapper results once Task 11 changes code.
+- Keep the transient handoff file out of the commit; only the durable evidence/findings artifacts for this external review pass and the plan change belong in the final commit from this disposition cycle.
+
+#### Subtasks
+
+1. [ ] Re-read the external-review findings artifact [codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-findings.md) and confirm in working notes that Task 11 fully closes the reopened `must_fix` finding before starting the final regression wrappers.
+2. [ ] Refresh [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) so it records the post-external-review repair summary and the disposition of the deferred optional simplification.
+3. [ ] Update this plan file’s Task 12 `Implementation notes` after validation is complete, including which external review findings were closed, which acceptance criteria remained indirect, and why the optional simplification stayed deferred.
+4. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained docs or structure ledger changed during Task 11.
+5. [ ] Record the git commit hashes for Tasks 11 and 12 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
+
+#### Testing
+
+Do not attempt to run builds or tests without using the summary wrappers. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` - Allow up to 7 minutes. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP testing step to manually confirm Story 47 behavior and general regression health after the Task 11 fix. This must still verify that the chat page works at `http://host.docker.internal:5001`, that there are no logged browser-console errors, and that the runtime/config surfaces changed by Story 47 still behave as expected after the merge-validation repair.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending.

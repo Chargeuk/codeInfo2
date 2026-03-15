@@ -1878,7 +1878,7 @@ Repair the maintained Story 47 evidence summary so the final recorded `DEV_00000
 
 #### Testing
 
-This task is documentation-only. Do not attempt ad-hoc validation or raw test commands here; the fresh wrapper-based regression pass belongs in Task 20.
+Do not attempt to run tests without using the summary wrappers. This task is documentation-only, so no wrapper test steps are required here; the fresh wrapper-based regression pass belongs in Task 20.
 
 #### Implementation notes
 

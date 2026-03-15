@@ -1230,7 +1230,7 @@ Acceptance proof status after this external review remains: AC1-12 `direct`, AC1
 
 ### 11. Preserve Validation Errors For Invalid Merged Runtime Tables
 
-- Task Status: `__todo__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

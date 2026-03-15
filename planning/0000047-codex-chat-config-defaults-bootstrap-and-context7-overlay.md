@@ -1367,3 +1367,125 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 - Closed the external-review `must_fix` by pairing Task 11’s malformed-table validation repair with this full Task 12 rerun; the deferred `optional_simplification` stayed deferred because the fresh wrapper/manual pass kept it in the observability-cleanup category rather than exposing a product or contract bug.
 - Acceptance criteria around payload-shape stability and runtime marker consistency remain partly indirect in this final pass: the full server, client, e2e, compose, and manual coverage stayed green, but there is still no dedicated route-contract snapshot artifact for those response shapes.
 - Recorded the Task 11 and Task 12 implementation hashes on this task and returned the reopened external-review cycle to `__done__` after the final regression loop completed cleanly.
+
+## Code Review Findings
+
+Story 47 was reviewed again against the active plan, the branch diff versus `main`, and the durable artifacts [codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-evidence.md) and [codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-findings.md). That review found one localized `should_fix` issue: the shared Story 47 marker `DEV_0000047_T01_CODEX_DEFAULTS_APPLIED` still emits incompatible `model_source` vocabularies across REST and MCP surfaces. Because the files are already touched by Story 47, the cleanup is low risk, and it improves a shared logging contract without changing public payloads, the story is reopened for one focused repair plus one fresh full revalidation pass.
+
+Acceptance proof status for this pass remains:
+
+- AC1-12: `direct`
+- AC13: `indirect`
+- AC14-35: `direct`
+- AC36: `indirect`
+
+The implemented behavior is still appropriately succinct overall. The reopening reason is not a product-correctness defect in runtime behavior or bootstrap handling; it is a shared marker-schema consistency issue that should now be fixed rather than deferred because the current review flow treats this class of low-risk, localized cleanup as actionable follow-up work.
+
+---
+
+### 13. Normalize Story 47 Marker Model Source Vocabulary
+
+- Task Status: `__todo__`
+- Git Commits:
+
+#### Overview
+
+Normalize the `model_source` vocabulary emitted by the shared Story 47 marker `DEV_0000047_T01_CODEX_DEFAULTS_APPLIED` so the touched REST and MCP entrypoints use one consistent contract. This task is intentionally limited to logging/marker consistency only; it must not change REST or MCP payload shapes and it must not reopen the already-closed runtime/bootstrap logic.
+
+#### Must Not Miss
+
+- Keep all public REST and MCP payload shapes unchanged; this task is about marker/event consistency only.
+- Align `model_source` across [`server/src/routes/chatModels.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts), [`server/src/routes/chatProviders.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [`server/src/routes/chatValidators.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts), and [`server/src/mcp2/tools/codebaseQuestion.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts).
+- Reuse one shared normalization rule, preferably by reusing or extending the existing helper path in [`server/src/config/chatDefaults.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), instead of introducing multiple local mappers.
+- If the raw Codex source value is still operationally useful, emit it under a separate clearly named field such as `codex_model_source`; do not overload one field with two vocabularies.
+- Do not reopen the earlier rejected `/chat/providers` warning-propagation comment or any bootstrap-path behavior in this task.
+
+#### Documentation Locations
+
+- [codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-findings.md): this is the current review artifact that defines the marker-schema inconsistency to fix.
+- [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts): current home of the shared Story 47 marker constant and existing model-source normalization logic.
+- [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts), [server/src/routes/chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts), and [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts): the touched marker emitters that must agree after this task.
+- [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts), [server/src/test/unit/chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts), [server/src/test/unit/chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts), and [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts): likely proof surfaces for the normalized shared marker contract.
+
+#### Junior Developer Notes
+
+- Start by reading the current review evidence and findings artifacts so you understand exactly why this marker inconsistency is now a `should_fix` instead of a deferred cleanup.
+- Keep the fix as small as possible: one shared normalization rule, touched emitters aligned to it, and matching proof.
+- Prefer a shared helper over duplicating a tiny `switch` in multiple routes; the whole point of this task is to reduce schema drift risk.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-evidence.md) and [codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-findings.md), then record in working notes the exact required outcome: one consistent `model_source` vocabulary for `DEV_0000047_T01_CODEX_DEFAULTS_APPLIED`.
+2. [ ] Update the shared marker emission path so the touched Story 47 REST and MCP surfaces all emit the same `model_source` contract, reusing a shared normalization helper instead of duplicating local conversions.
+3. [ ] If raw Codex source information is still needed for operations, expose it under a separate stable field rather than reusing `model_source` for both normalized and raw values.
+4. [ ] Add or update route/MCP test coverage in the existing Story 47 server test files so the marker contract is proven consistently across `/chat/models`, `/chat/providers`, chat validation, and `codebaseQuestion`.
+5. [ ] Update this plan file’s Task 13 `Implementation notes` once the repair and tests are complete, including which emitters were aligned and whether a separate raw-source field was retained.
+6. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained docs or structure ledger need to mention the revised marker field contract.
+
+#### Testing
+
+Do not attempt to run builds or tests without using the summary wrappers. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 14. Revalidate Story 47 After Marker Consistency Repair
+
+- Task Status: `__todo__`
+- Git Commits:
+
+#### Overview
+
+Run one fresh full-story validation pass after Task 13 so Story 47 can close again with the new shared marker contract, the prior external-review repair, and the final branch contents all reflected in the maintained evidence.
+
+#### Must Not Miss
+
+- Re-check the current review findings artifact and prove that Task 13 closes the reopened `should_fix` before returning the story to `__done__`.
+- Revalidate the original Story 47 acceptance criteria, not only the marker-schema cleanup.
+- Keep the payload-shape acceptance criteria explicitly indirect unless this task adds a dedicated contract snapshot artifact.
+- Refresh the maintained summary artifacts so the final branch state reflects the post-marker-repair validation.
+
+#### Documentation Locations
+
+- [codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-evidence.md)
+- [codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-findings.md)
+- [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md)
+
+#### Junior Developer Notes
+
+- Treat this as a full story-close validation task. Do not rely on the earlier Task 12 wrapper results once Task 13 changes code.
+- Keep the transient handoff file out of the commit; only the durable evidence/findings artifacts for this review pass and the plan change belong in the final commit from this disposition cycle.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-findings.md) and confirm in working notes that Task 13 fully closes the reopened `should_fix` finding before starting the final regression wrappers.
+2. [ ] Refresh [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) so it records the post-marker-repair summary and the final disposition of any remaining indirect-proof areas.
+3. [ ] Update this plan file’s Task 14 `Implementation notes` after validation is complete, including which review findings were closed, which acceptance criteria remained indirect, and whether any simplification opportunities remain intentionally deferred.
+4. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained docs or structure ledger changed during Task 13.
+5. [ ] Record the git commit hashes for Tasks 13 and 14 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
+
+#### Testing
+
+Do not attempt to run builds or tests without using the summary wrappers. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP testing step to manually confirm Story 47 behavior and general regression health after the Task 13 marker repair. This must still verify that the chat page works at `http://host.docker.internal:5001`, that there are no logged browser-console errors, and that the runtime/config surfaces changed by Story 47 still behave as expected after the shared marker vocabulary cleanup.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending.

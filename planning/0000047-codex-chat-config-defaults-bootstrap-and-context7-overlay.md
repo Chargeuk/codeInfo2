@@ -1385,8 +1385,8 @@ The implemented behavior is still appropriately succinct overall. The reopening 
 
 ### 13. Normalize Story 47 Marker Model Source Vocabulary
 
-- Task Status: `__in_progress__`
-- Git Commits:
+- Task Status: `__done__`
+- Git Commits: `2cee8629`, `bfb1b04a`
 
 #### Overview
 

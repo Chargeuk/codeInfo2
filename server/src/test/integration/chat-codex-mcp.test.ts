@@ -164,12 +164,14 @@ const dummyClientFactory = () =>
     llm: { model: async () => ({ act: async () => undefined }) },
   }) as unknown as LMStudioClient;
 
+const ORIGINAL_CODEX_HOME = process.env.CODEX_HOME;
 const ORIGINAL_CODEX_WORKDIR = process.env.CODEX_WORKDIR;
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
 let tempCodexHomeForTest: string | undefined;
 
 beforeEach(async () => {
+  delete process.env.CODEX_HOME;
   delete process.env.CODEX_WORKDIR;
   delete process.env.CODEINFO_CODEX_WORKDIR;
   tempCodexHomeForTest = await fs.mkdtemp(
@@ -181,6 +183,7 @@ beforeEach(async () => {
     'model = "gpt-5.1-codex-max"\n',
     'utf8',
   );
+  process.env.CODEX_HOME = tempCodexHomeForTest;
   process.env.CODEINFO_CODEX_HOME = tempCodexHomeForTest;
   memoryConversations.clear();
   memoryTurns.clear();
@@ -195,6 +198,12 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  if (ORIGINAL_CODEX_HOME === undefined) {
+    delete process.env.CODEX_HOME;
+  } else {
+    process.env.CODEX_HOME = ORIGINAL_CODEX_HOME;
+  }
+
   if (ORIGINAL_CODEX_WORKDIR === undefined) {
     delete process.env.CODEX_WORKDIR;
   } else {

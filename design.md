@@ -22,11 +22,16 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Express 5 app with CORS enabled and env-driven port (default 5010 via `SERVER_PORT` in `server/.env`, with legacy `PORT` fallback).
 - Routes: `/health` returns `{ status: 'ok', uptime, timestamp }`; `/version` returns `VersionInfo` using `package.json` version; `/info` echoes a friendly message plus VersionInfo.
 - Depends on `@codeinfo2/common` for DTO helper; built with `tsc -b`, started via `npm run start --workspace server`.
-- Shared chat provider/model defaults are resolved in `server/src/config/chatDefaults.ts` with strict precedence: explicit request value -> `CHAT_DEFAULT_PROVIDER` / `CHAT_DEFAULT_MODEL` env -> hardcoded fallback (`codex`, `gpt-5.3-codex`).
+- Shared chat provider/model defaults are resolved in `server/src/config/chatDefaults.ts`. Provider selection still follows explicit request -> `CHAT_DEFAULT_PROVIDER` env -> hardcoded fallback (`codex`), while Codex model selection now follows explicit request -> `codex/chat/config.toml` -> `CHAT_DEFAULT_MODEL` env -> hardcoded fallback (`gpt-5.3-codex`).
 - `validateChatRequest` now accepts omitted `provider`/`model`, resolves both through the shared resolver, and keeps existing REST validation envelopes unchanged.
+- Codex-facing selection paths share the same chat-config-aware model/default behavior across `/chat/models`, `/chat/providers`, `validateChatRequest`, and MCP `codebase_question`.
+- The shared capability path unions `Codex_model_list` with the current `codex/chat/config.toml` model using first-seen order, and route presentation still performs its own preferred-model prioritization after capability resolution.
+- Codex model/default reads are intentionally fresh per request: callers reread `codex/chat/config.toml` instead of caching request-level or module-level snapshots.
+- Story 47 shared-resolution observability emits `DEV_0000047_T01_CODEX_DEFAULTS_APPLIED { surface, requested_provider, requested_model, resolved_model, model_source, success }` from the REST and MCP Codex-facing entrypoints.
 - Runtime provider selection is single-hop and shared: if the selected/default provider is unavailable, execution switches once to the alternate provider only when that alternate has at least one selectable runtime model. If the alternate has no selectable model, execution stays on the original provider and surfaces existing unavailable contracts (`REST: 503 PROVIDER_UNAVAILABLE`, `MCP codebase_question: -32001 CODE_INFO_LLM_UNAVAILABLE`).
 - REST runtime fallback no longer treats explicit `provider=lmstudio` + non-empty model as availability; LM Studio is considered available only when runtime model listing returns at least one selectable chat model.
 - The resolved execution provider/model are persisted on conversation metadata for both REST `/chat` and MCP `codebase_question`; when execution is not Codex, stale `flags.threadId` is removed so Codex resume state is not reused across providers.
+- The existing client selector path remains unchanged: `client/src/hooks/useChatModel.ts` continues to hydrate controlled React state from `/chat/providers` and `/chat/models`, and `client/src/pages/ChatPage.tsx` continues to render those values through MUI `TextField` + `MenuItem` selects without a Story 47 contract change.
 - Raw-input contract enforcement is server-side: valid chat/agent payload text is forwarded unchanged (including surrounding whitespace/newlines), while whitespace-only/newline-only payloads are rejected before provider execution with fixed endpoint-specific `400` messages (`POST /chat`: `message must contain at least one non-whitespace character`; `POST /agents/:agentName/run`: `instruction must contain at least one non-whitespace character`).
 - Chat client send-flow matches the raw-input contract: `ChatPage` forwards non-whitespace input to `useChatStream.send(...)` without trim mutation, while local submit guards block whitespace-only input before dispatching `POST /chat`.
 - Agents client send-flow matches the same raw-input contract: `AgentsPage` forwards non-whitespace instruction text to `runAgentInstruction(...)` without trim mutation, while local submit guards keep whitespace-only input from dispatching `/agents/:agentName/run`.
@@ -38,23 +43,29 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 ```mermaid
 flowchart LR
-  Req[POST /chat body] --> P{provider supplied?}
-  Req --> M{model supplied?}
+  Req[Codex-facing request] --> P{provider override?}
   P -- yes --> RP[provider=request]
-  P -- no --> EP{CHAT_DEFAULT_PROVIDER valid?}
-  EP -- yes --> RPE[provider=env]
-  EP -- no --> RPF[provider=codex fallback]
+  P -- no --> PE{CHAT_DEFAULT_PROVIDER valid?}
+  PE -- yes --> RPE[provider=env]
+  PE -- no --> RPF[provider=codex fallback]
+  Req --> M{model override?}
   M -- yes --> RM[model=request]
-  M -- no --> EM{CHAT_DEFAULT_MODEL valid?}
-  EM -- yes --> RME[model=env]
-  EM -- no --> RMF[model=gpt-5.3-codex fallback]
-  RP --> V[validateChatRequest]
-  RPE --> V
-  RPF --> V
-  RM --> V
-  RME --> V
-  RMF --> V
-  V --> C[chat route persists resolved provider/model]
+  M -- no --> Cfg{codex/chat/config.toml model valid?}
+  Cfg -- yes --> RMC[model=config]
+  Cfg -- no --> Env{CHAT_DEFAULT_MODEL valid?}
+  Env -- yes --> RME[model=env]
+  Env -- no --> RMF[model=gpt-5.3-codex fallback]
+  RM --> Shared[Shared Codex-aware resolution]
+  RMC --> Shared
+  RME --> Shared
+  RMF --> Shared
+  RP --> Shared
+  RPE --> Shared
+  RPF --> Shared
+  Shared --> Models[/chat/models]
+  Shared --> Providers[/chat/providers]
+  Shared --> Validate[validateChatRequest]
+  Shared --> MCP[codebase_question]
 ```
 
 ## Story 0000041 Task 3 server build override wiring
@@ -508,32 +519,27 @@ sequenceDiagram
 
 - `server/src/config/runtimeConfig.ts` bootstrap now follows deterministic branch selection:
   - `existing_noop`: chat config already exists, no overwrite.
-  - `copied`: chat config missing and base config exists, copy base once.
-  - `generated_template`: both chat and base configs missing, generate standard chat template.
+  - `generated_template`: chat config missing, write the canonical in-code chat template directly.
 - IO/permission failures are not silent. Bootstrap emits deterministic warning markers and rethrows:
-  - `chat_stat_failed`, `base_stat_failed`, `chat_dir_create_failed`, `copy_failed`, `template_write_failed`.
+  - `chat_stat_failed`, `chat_dir_create_failed`, `template_write_failed`.
 - Deterministic Task 9 marker:
   - `DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH` with branch, paths, and warning metadata.
+- Story 47 bootstrap marker:
+  - `DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP` with `config_path`, `outcome=seeded|existing`, `source=chat_template`, and `success`.
 - Data-safety rule: failed copy/template writes clean up partial destination artifacts so `codex/chat/config.toml` is not left corrupted.
+- Scope rule: this task changes missing-file bootstrap only. Existing invalid, unreadable, zero-byte, or directory paths are left in place and continue through the existing warning-and-fallback runtime behavior rather than being repaired or replaced.
 
 ```mermaid
 flowchart TD
   A[ensureChatRuntimeConfigBootstrapped] --> B{chat config exists?}
   B -- yes --> C[branch existing_noop]
-  B -- no --> D{base config exists?}
-  D -- yes --> E[copy base -> chat with COPYFILE_EXCL]
-  D -- no --> F[write deterministic template]
-  E --> G{copy success?}
-  F --> H{write+rename success?}
-  G -- yes --> I[branch copied]
-  H -- yes --> J[branch generated_template]
-  G -- no --> K[branch copy_failed + warning + cleanup + throw]
-  H -- no --> L[branch template_write_failed + warning + cleanup + throw]
-  C --> M[emit DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH]
-  I --> M
-  J --> M
-  K --> M
-  L --> M
+  B -- no --> D[write canonical chat template]
+  D --> E{write+rename success?}
+  E -- yes --> F[branch generated_template]
+  E -- no --> G[branch template_write_failed + warning + cleanup + throw]
+  C --> H[emit T09 + T03 existing markers]
+  F --> I[emit T09 + T03 seeded markers]
+  G --> J[emit warning marker and throw]
 ```
 
 ## Codex SDK pin and startup guard alignment (Story 0000040 Task 10)
@@ -920,8 +926,8 @@ sequenceDiagram
   participant FS as Filesystem
   participant Norm as Normalizer
   Caller->>Resolver: loadRuntimeConfigSnapshot({ agentName|agentConfigPath })
-  Resolver->>FS: ensure chat config bootstrap (copy-once)
-  FS-->>Resolver: copied | skipped
+  Resolver->>FS: ensure chat config bootstrap (direct template seed)
+  FS-->>Resolver: generated_template | existing_noop
   Resolver->>FS: read base/chat/agent TOML
   FS-->>Resolver: file contents / ENOENT / parse data
   Resolver->>Norm: normalize aliases (view_image, web_search)
@@ -932,9 +938,11 @@ sequenceDiagram
 
 ## Runtime config merge precedence + validation policy (Story 0000037 Task 4)
 
-- Runtime config resolution now performs a deterministic shared-project merge before validation:
-  - `effectiveProjects = { ...baseProjects, ...runtimeProjects }`
-  - only `[projects]` are inherited from shared base config; behavior keys (`model`, `approval_policy`, `sandbox_mode`, `tools`, etc.) remain runtime-owned.
+- Runtime config resolution now performs an explicit shared base/runtime inheritance step before validation:
+  - additive inherited tables: `projects`, `mcp_servers`
+  - inherited base-only top-level settings when the runtime file omits them: `personality`, `tools`, `model_provider`, `model_providers`
+  - runtime-owned overrides stay authoritative when present: `model`, `approval_policy`, `sandbox_mode`, `web_search`
+- This inheritance step preserves execution behavior after Story 0000047 Task 3 stopped bootstrapping `codex/chat/config.toml` by copying the full base file.
 - Validation is centralized in `server/src/config/runtimeConfig.ts`:
   - unknown keys: warning + ignored (non-fatal)
   - supported keys with invalid types: deterministic hard failure
@@ -947,38 +955,105 @@ sequenceDiagram
 - Task 4 structured logs are emitted at merge+validate boundaries:
   - success: `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=success`
   - error: `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=error ...`
+  - Story 0000047 inheritance marker: `DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED { surface, inherited_keys, runtime_override_keys, success }`
 
 ```mermaid
 flowchart TD
-  A[Resolve runtime config for agent/chat] --> B[Read shared base config (optional)]
-  B --> C[Read runtime config (required)]
-  C --> D[Merge projects only: effectiveProjects = base -> runtime precedence]
-  D --> E[Validate merged config]
-  E --> F{supported key invalid type?}
-  F -- yes --> G[Throw deterministic validation failure]
-  F -- no --> H{unknown/misplaced key?}
-  H -- yes --> I[Warn and ignore key]
-  H -- no --> J[Keep canonical key/value]
-  I --> K[Emit T04 success log]
-  J --> K
-  G --> L[Emit T04 error log + throw RuntimeConfigResolutionError]
+  A[Resolve runtime config for agent/chat] --> B[Read shared base config]
+  B --> C[Read runtime config]
+  C --> D[Explicitly inherit known key groups]
+  D --> E[Keep runtime-specific overrides authoritative]
+  E --> F[Validate merged config]
+  F --> G{supported key invalid type?}
+  G -- yes --> H[Throw deterministic validation failure]
+  G -- no --> I{unknown/misplaced key?}
+  I -- yes --> J[Warn and ignore key]
+  I -- no --> K[Keep canonical key/value]
+  J --> L[Emit T04 success log + Story 47 inheritance marker]
+  K --> L
+  H --> M[Emit T04 error log + throw RuntimeConfigResolutionError]
 ```
 
 ```mermaid
 sequenceDiagram
   participant Caller as Agent/Chat config consumer
   participant Resolver as runtimeConfig.ts
-  participant Merge as mergeProjectsFromBaseIntoRuntime
+  participant Merge as mergeRuntimeConfigWithBaseConfig
   participant Validate as validateRuntimeConfig
   Caller->>Resolver: resolveMergedAndValidatedRuntimeConfig(surface, runtimeConfigPath)
-  Resolver->>Resolver: read base(optional) + runtime(required)
-  Resolver->>Merge: apply base projects + runtime projects
-  Merge-->>Resolver: merged config (behavior keys runtime-owned)
+  Resolver->>Resolver: read base + runtime
+  Resolver->>Merge: apply explicit inheritance + additive tables
+  Merge-->>Resolver: merged config + inherited/runtime-owned key lists
   Resolver->>Validate: validate merged config
   Validate-->>Resolver: sanitized config + warnings OR validation error
-  Resolver-->>Caller: success -> config + warnings + T04 success log
+  Resolver-->>Caller: success -> config + warnings + T04 logs
   Resolver-->>Caller: failure -> RuntimeConfigResolutionError + T04 error log
 ```
+
+## Story 0000047 Task 4: shared base/runtime inheritance after direct chat bootstrap
+
+- Chat runtime (`./codex/chat/config.toml`) and agent runtime configs now rely on the same explicit inheritance rules instead of duplicated behavior from old copy-from-base bootstrap.
+- Existing consumers that still need shared execution settings continue to receive them through resolved runtime config:
+  - chat Codex execution paths keep inherited `mcp_servers`, `model_provider`, and `model_providers`
+  - agent execution paths keep inherited `mcp_servers`, `personality`, `tools`, `projects`, `model_provider`, and `model_providers`
+- Invalid existing chat config is still not repaired in place. Soft chat-default readers keep warning and falling back, while strict runtime readers still fail deterministically when shared base/runtime TOML cannot be read or validated.
+
+```mermaid
+flowchart TD
+  A[Caller needs runtime config] --> B{Surface}
+  B -- chat --> C[Load ./codex/chat/config.toml]
+  B -- agent --> D[Load named agent config]
+  C --> E[Load ./codex/config.toml]
+  D --> E
+  E --> F[Explicitly inherit projects, mcp_servers, personality, tools, provider keys]
+  F --> G[Keep runtime model, approval_policy, sandbox_mode, web_search when set]
+  G --> H[Validate + emit DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED]
+  H --> I[Return resolved runtime config to REST/MCP/agent consumers]
+```
+
+## Story 0000047 Task 5: runtime-only Context7 API-key normalization
+
+- After shared base/runtime inheritance, runtime config loading now normalizes only the local stdio `mcp_servers.context7` shape that uses `command` plus `args`.
+- `CODEINFO_CONTEXT7_API_KEY` is the runtime source of truth whenever the local stdio Context7 definition has no usable key, including placeholder-equivalent `--api-key` values and the already-no-key args form. The overlay is in-memory only and never rewrites `./codex/config.toml`, `./codex/chat/config.toml`, or agent TOML files on disk.
+- Placeholder-equivalent values are:
+  - `REPLACE_WITH_CONTEXT7_API_KEY`
+  - `ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866`
+- Behavior is intentionally narrow:
+  - explicit non-placeholder keys are preserved
+  - missing, empty, and whitespace-only `CODEINFO_CONTEXT7_API_KEY` values fall back to the no-key args form
+  - remote Context7 `url` and `http_headers` definitions are left unchanged
+- Story 47 normalization logs are emitted through `DEV_0000047_T05_CONTEXT7_NORMALIZED { mode, surface, success }`.
+
+```mermaid
+flowchart TD
+  A[Resolve merged runtime config] --> B{mcp_servers.context7 local stdio shape?}
+  B -- no --> C[Leave config unchanged]
+  B -- yes --> D{Has --api-key pair?}
+  D -- no --> E[Keep no-key args form]
+  D -- yes --> F{Key placeholder-equivalent?}
+  F -- no --> G[Preserve explicit key]
+  F -- yes --> H{CODEINFO_CONTEXT7_API_KEY usable?}
+  H -- yes --> I[Overlay env key in memory]
+  H -- no --> J[Remove only the --api-key pair]
+  C --> K[Emit DEV_0000047_T05_CONTEXT7_NORMALIZED]
+  E --> K
+  G --> K
+  I --> K
+  J --> K
+```
+
+## Story 0000047 regression marker checklist
+
+- `DEV_0000047_T01_CODEX_DEFAULTS_APPLIED`
+  Expected success outcome: REST and MCP Codex-facing entrypoints log `success=true` with the resolved model and source used for that request.
+- `DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP`
+  Expected success outcome: startup seeding checks log `template_source=in_code`, `outcome=seeded|existing`, and `success=true`.
+- `DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP`
+  Expected success outcome: chat-config seeding checks log `source=chat_template`, `outcome=seeded|existing`, and `success=true`.
+- `DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED`
+  Expected success outcome: chat and agent runtime reads log `success=true` with explicit inherited and runtime-owned key sets.
+- `DEV_0000047_T05_CONTEXT7_NORMALIZED`
+  Expected success outcome: post-inheritance runtime reads log `success=true` and the expected normalization mode for the active Context7 scenario.
 
 ## Shared runtime resolver entrypoints (Story 0000037 Task 5)
 
@@ -2664,6 +2739,29 @@ sequenceDiagram
   else unavailable
     Refresh-->>API: T08 error log emitted
   end
+```
+
+### Story 47 Task 2 base config bootstrap
+
+- `ensureCodexConfigSeeded()` now uses one canonical in-code template for `codex/config.toml` bootstrap.
+- Runtime bootstrap no longer searches for or copies `config.toml.example`; that file is documentation-only if it remains in the repository.
+- Missing-file creation stays non-destructive:
+  - missing `codex/config.toml` -> write the canonical in-code template with exclusive create semantics
+  - existing `codex/config.toml` -> short-circuit without overwrite
+- The canonical base template keeps server-port substitution, uses `model = "gpt-5.3-codex"`, and seeds Context7 in the no-key stdio form only.
+- Bootstrap observability now emits `DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP` with `outcome=seeded|existing`, `template_source=in_code`, and `success=true` on the success paths used during startup.
+
+```mermaid
+flowchart TD
+  Start[Server startup] --> Seed[ensureCodexConfigSeeded]
+  Seed --> Exists{codex/config.toml exists?}
+  Exists -- yes --> Existing[Leave file untouched]
+  Exists -- no --> Write[Write canonical in-code template]
+  Write --> Port[Apply resolved server port inside template]
+  Existing --> Marker[Emit DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP]
+  Port --> Marker
+  Marker --> Continue[Continue startup]
+  Example[config.toml.example] -. documentation only .-> Start
 ```
 
 ### Codex device-auth flow

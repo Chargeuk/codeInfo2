@@ -1,11 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import type { CodexOptions } from '@openai/codex-sdk';
 import { baseLogger } from '../logger.js';
 import { resolveServerPort } from './serverPort.js';
 
-const defaultCodexConfigTemplate = `model = "gpt-5.3-codex-spark"
+const TASK2_BOOTSTRAP_MARKER = 'DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP';
+
+const defaultCodexConfigTemplate = `model = "gpt-5.3-codex"
 model_reasoning_effort = "xhigh"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
@@ -17,7 +18,7 @@ view_image_tool = true
 
 [mcp_servers]
 [mcp_servers.context7]
-args = ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866']
+args = ['-y', '@upstash/context7-mcp']
 command = 'npx'
 startup_timeout_sec = 20.0
 
@@ -75,8 +76,6 @@ export function getCodexAuthPath(): string {
   return getCodexAuthPathForHome(getCodexHome());
 }
 
-const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-
 const authStoreKey = 'cli_auth_credentials_store';
 const authStoreValue = 'file';
 const authStoreLine = `${authStoreKey} = "${authStoreValue}"`;
@@ -106,34 +105,53 @@ export function buildDefaultCodexConfig(
 export function ensureCodexConfigSeeded(): string {
   const home = getCodexHome();
   const target = getCodexConfigPath();
-  const candidatePaths = [
-    path.resolve('config.toml.example'),
-    path.resolve('..', 'config.toml.example'),
-    path.resolve(moduleDir, '..', '..', 'config.toml.example'),
-    path.resolve(moduleDir, '..', '..', '..', 'config.toml.example'),
-  ];
-  const examplePath = candidatePaths.find((p) => fs.existsSync(p));
 
   if (!fs.existsSync(home)) {
     fs.mkdirSync(home, { recursive: true });
   }
 
-  if (!fs.existsSync(target)) {
-    if (examplePath) {
-      fs.copyFileSync(examplePath, target);
-      console.log(`Seeded Codex config from example to ${target}`);
-    } else {
-      fs.writeFileSync(target, buildDefaultCodexConfig());
-      console.warn(
-        'config.toml.example not found; wrote default Codex config instead.',
-      );
+  if (fs.existsSync(target)) {
+    console.info(TASK2_BOOTSTRAP_MARKER, {
+      config_path: target,
+      outcome: 'existing',
+      template_source: 'in_code',
+      success: true,
+    });
+    return target;
+  }
+
+  try {
+    fs.writeFileSync(target, buildDefaultCodexConfig(), {
+      encoding: 'utf8',
+      flag: 'wx',
+    });
+    console.info(TASK2_BOOTSTRAP_MARKER, {
+      config_path: target,
+      outcome: 'seeded',
+      template_source: 'in_code',
+      success: true,
+    });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      console.info(TASK2_BOOTSTRAP_MARKER, {
+        config_path: target,
+        outcome: 'existing',
+        template_source: 'in_code',
+        success: true,
+      });
+      return target;
     }
 
-    const seededConfig = fs.readFileSync(target, 'utf8');
-    const normalizedConfig = applyResolvedServerPortToCodexConfig(seededConfig);
-    if (normalizedConfig !== seededConfig) {
-      fs.writeFileSync(target, normalizedConfig);
-    }
+    console.warn(TASK2_BOOTSTRAP_MARKER, {
+      config_path: target,
+      outcome: 'seed_failed',
+      template_source: 'in_code',
+      success: false,
+      error:
+        error instanceof Error ? error.message : 'failed to seed codex config',
+      error_code: (error as NodeJS.ErrnoException).code,
+    });
+    throw error;
   }
 
   // const configText = fs.readFileSync(target, 'utf8');

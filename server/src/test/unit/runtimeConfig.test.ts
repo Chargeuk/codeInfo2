@@ -3,13 +3,21 @@ import type { PathLike } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, it, mock } from 'node:test';
+import { afterEach, describe, it, mock } from 'node:test';
 
+import {
+  ensureCodexConfigSeeded,
+  getCodexChatConfigPathForHome,
+  getCodexConfigPathForHome,
+  getCodexHome,
+} from '../../config/codexConfig.js';
 import {
   ensureChatRuntimeConfigBootstrapped,
   loadRuntimeConfigSnapshot,
   mergeProjectsFromBaseIntoRuntime,
+  mergeRuntimeConfigWithBaseConfig,
   minimizeBaseConfigToProjectsOnly,
+  normalizeContext7RuntimeConfig,
   normalizeRuntimeConfig,
   readAndNormalizeRuntimeTomlConfig,
   resolveAgentRuntimeConfig,
@@ -18,6 +26,17 @@ import {
   type RuntimeConfigResolutionError,
   validateRuntimeConfig,
 } from '../../config/runtimeConfig.js';
+
+const originalContext7ApiKey = process.env.CODEINFO_CONTEXT7_API_KEY;
+
+afterEach(() => {
+  mock.restoreAll();
+  if (originalContext7ApiKey === undefined) {
+    delete process.env.CODEINFO_CONTEXT7_API_KEY;
+  } else {
+    process.env.CODEINFO_CONTEXT7_API_KEY = originalContext7ApiKey;
+  }
+});
 
 describe('runtimeConfig normalization', () => {
   it('normalizes legacy features.view_image_tool to tools.view_image', () => {
@@ -60,55 +79,9 @@ describe('runtimeConfig normalization', () => {
 
 describe('runtimeConfig bootstrap', () => {
   const TASK9_MARKER = 'DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH';
+  const TASK3_MARKER = 'DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP';
 
-  it('copies base config to chat config once when missing', async () => {
-    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
-    const baseConfigPath = path.join(codexHome, 'config.toml');
-    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
-
-    try {
-      await fs.writeFile(
-        baseConfigPath,
-        'model = "gpt-5.3-codex-spark"\n',
-        'utf8',
-      );
-      const first = await ensureChatRuntimeConfigBootstrapped({ codexHome });
-      const second = await ensureChatRuntimeConfigBootstrapped({ codexHome });
-      const copied = await fs.readFile(chatConfigPath, 'utf8');
-
-      assert.equal(first.copied, true);
-      assert.equal(first.branch, 'copied');
-      assert.equal(first.generatedTemplate, false);
-      assert.equal(second.copied, false);
-      assert.equal(second.branch, 'existing_noop');
-      assert.match(copied, /model = "gpt-5.3-codex-spark"/);
-    } finally {
-      await fs.rm(codexHome, { recursive: true, force: true });
-    }
-  });
-
-  it('never overwrites an existing chat config during bootstrap', async () => {
-    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
-    const baseConfigPath = path.join(codexHome, 'config.toml');
-    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
-
-    try {
-      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
-      await fs.writeFile(baseConfigPath, 'model = "base"\n', 'utf8');
-      await fs.writeFile(chatConfigPath, 'model = "chat"\n', 'utf8');
-
-      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
-      const chatContents = await fs.readFile(chatConfigPath, 'utf8');
-
-      assert.equal(result.copied, false);
-      assert.equal(result.branch, 'existing_noop');
-      assert.equal(chatContents, 'model = "chat"\n');
-    } finally {
-      await fs.rm(codexHome, { recursive: true, force: true });
-    }
-  });
-
-  it('generates template when both base and chat configs are missing', async () => {
+  it('writes the canonical chat template when chat config is missing', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
 
@@ -129,10 +102,41 @@ describe('runtimeConfig bootstrap', () => {
     }
   });
 
+  it('never copies base config into chat config when base already exists with different contents', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+
+    try {
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          'model = "base-model"',
+          'approval_policy = "never"',
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          'args = ["-y", "@upstash/context7-mcp"]',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const chatContents = await fs.readFile(chatConfigPath, 'utf8');
+
+      assert.equal(result.copied, false);
+      assert.equal(result.branch, 'generated_template');
+      assert.match(chatContents, /model = "gpt-5.3-codex"/u);
+      assert.doesNotMatch(chatContents, /base-model/u);
+      assert.doesNotMatch(chatContents, /\[mcp_servers\.context7\]/u);
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
   it('creates missing codex/chat directory before bootstrap write', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatDirPath = path.join(codexHome, 'chat');
-    const chatConfigPath = path.join(chatDirPath, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
 
     try {
       const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
@@ -152,136 +156,123 @@ describe('runtimeConfig bootstrap', () => {
     }
   });
 
-  it('emits deterministic marker for copied and existing branches', async () => {
+  it('ignores config.toml.example and codex/chat/config copy.toml during runtime bootstrap', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const codexHome = path.join(tempRoot, 'codex-home');
+    const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
+    const originalCwd = process.cwd();
+
+    try {
+      process.env.CODEINFO_CODEX_HOME = codexHome;
+      process.chdir(tempRoot);
+      await fs.writeFile(
+        path.join(tempRoot, 'config.toml.example'),
+        'model = "from-example"\n',
+        'utf8',
+      );
+      await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+      await fs.writeFile(
+        path.join(codexHome, 'chat', 'config copy.toml'),
+        'model = "from-copy-template"\n',
+        'utf8',
+      );
+
+      const seededBasePath = ensureCodexConfigSeeded();
+      const bootstrapResult = await ensureChatRuntimeConfigBootstrapped({
+        codexHome: getCodexHome(),
+      });
+      const baseConfig = await fs.readFile(
+        getCodexConfigPathForHome(codexHome),
+        'utf8',
+      );
+      const chatConfig = await fs.readFile(
+        getCodexChatConfigPathForHome(codexHome),
+        'utf8',
+      );
+
+      assert.equal(seededBasePath, getCodexConfigPathForHome(codexHome));
+      assert.match(baseConfig, /model = "gpt-5\.3-codex"/u);
+      assert.doesNotMatch(baseConfig, /from-example/u);
+      assert.equal(bootstrapResult.branch, 'generated_template');
+      assert.match(chatConfig, /model = "gpt-5\.3-codex"/u);
+      assert.doesNotMatch(chatConfig, /from-copy-template/u);
+    } finally {
+      process.chdir(originalCwd);
+      if (originalCodeinfoHome === undefined) {
+        delete process.env.CODEINFO_CODEX_HOME;
+      } else {
+        process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+      }
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('replaces the old copied branch with direct-template seeding', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
-    const infoLogs: unknown[][] = [];
-    mock.method(console, 'info', (...args: unknown[]) => {
-      infoLogs.push(args);
-    });
 
     try {
       await fs.writeFile(baseConfigPath, 'model = "from-base"\n', 'utf8');
-      await ensureChatRuntimeConfigBootstrapped({ codexHome });
-      await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
 
-      assert(
-        infoLogs.some(
-          (entry) =>
-            String(entry[0]) === TASK9_MARKER &&
-            (entry[1] as { branch?: string } | undefined)?.branch === 'copied',
-        ),
-      );
-      assert(
-        infoLogs.some(
-          (entry) =>
-            String(entry[0]) === TASK9_MARKER &&
-            (entry[1] as { branch?: string } | undefined)?.branch ===
-              'existing_noop',
-        ),
-      );
+      assert.notEqual(result.branch, 'copied');
+      assert.equal(result.branch, 'generated_template');
     } finally {
-      mock.restoreAll();
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
 
-  it('emits deterministic warning marker on copy failure', async () => {
+  it('leaves an existing zero-byte chat config untouched', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
-    const baseConfigPath = path.join(codexHome, 'config.toml');
-    const warningLogs: unknown[][] = [];
-    const originalCopyFile = fs.copyFile.bind(fs);
-    mock.method(console, 'warn', (...args: unknown[]) => {
-      warningLogs.push(args);
-    });
-
-    try {
-      await fs.writeFile(baseConfigPath, 'model = "from-base"\n', 'utf8');
-      mock.method(
-        fs,
-        'copyFile',
-        async (
-          source: PathLike,
-          destination: PathLike,
-          mode?: number | undefined,
-        ) => {
-          if (String(destination).endsWith(path.join('chat', 'config.toml'))) {
-            const error = new Error('read-only destination') as
-              | Error
-              | NodeJS.ErrnoException;
-            (error as NodeJS.ErrnoException).code = 'EACCES';
-            throw error;
-          }
-          return originalCopyFile(source, destination, mode);
-        },
-      );
-
-      await assert.rejects(
-        async () => ensureChatRuntimeConfigBootstrapped({ codexHome }),
-        /read-only destination/u,
-      );
-
-      assert(
-        warningLogs.some((entry) => {
-          const payload = entry[1] as
-            | { branch?: string; warningCode?: string }
-            | undefined;
-          return (
-            String(entry[0]) === TASK9_MARKER &&
-            payload?.branch === 'copy_failed' &&
-            payload.warningCode === 'EACCES'
-          );
-        }),
-      );
-    } finally {
-      mock.restoreAll();
-      await fs.rm(codexHome, { recursive: true, force: true });
-    }
-  });
-
-  it('does not leave partial chat config when copy fails mid-stream', async () => {
-    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
-    const baseConfigPath = path.join(codexHome, 'config.toml');
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
-    const originalCopyFile = fs.copyFile.bind(fs);
 
     try {
-      await fs.writeFile(baseConfigPath, 'model = "from-base"\n', 'utf8');
-      mock.method(
-        fs,
-        'copyFile',
-        async (
-          source: PathLike,
-          destination: PathLike,
-          mode?: number | undefined,
-        ) => {
-          if (String(destination) === chatConfigPath) {
-            await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
-            await fs.writeFile(chatConfigPath, 'partial', 'utf8');
-            const error = new Error('mid-copy failure') as
-              | Error
-              | NodeJS.ErrnoException;
-            (error as NodeJS.ErrnoException).code = 'EIO';
-            throw error;
-          }
-          return originalCopyFile(source, destination, mode);
-        },
-      );
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(chatConfigPath, '', 'utf8');
 
-      await assert.rejects(
-        async () => ensureChatRuntimeConfigBootstrapped({ codexHome }),
-        /mid-copy failure/u,
-      );
-      const exists = await fs
-        .stat(chatConfigPath)
-        .then((stat) => stat.isFile())
-        .catch((error) => {
-          if ((error as { code?: string }).code === 'ENOENT') return false;
-          throw error;
-        });
-      assert.equal(exists, false);
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const chatContents = await fs.readFile(chatConfigPath, 'utf8');
+
+      assert.equal(result.branch, 'existing_noop');
+      assert.equal(chatContents, '');
     } finally {
-      mock.restoreAll();
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('leaves an existing invalid-TOML chat config untouched', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(chatConfigPath, '[broken', 'utf8');
+
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const chatContents = await fs.readFile(chatConfigPath, 'utf8');
+
+      assert.equal(result.branch, 'existing_noop');
+      assert.equal(chatContents, '[broken');
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('leaves an existing directory at the chat config path untouched', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+
+    try {
+      await fs.mkdir(chatConfigPath, { recursive: true });
+
+      const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      const isDirectory = await fs
+        .stat(chatConfigPath)
+        .then((stat) => stat.isDirectory());
+
+      assert.equal(result.branch, 'existing_noop');
+      assert.equal(isDirectory, true);
+    } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
@@ -324,6 +315,51 @@ describe('runtimeConfig bootstrap', () => {
             String(entry[0]) === TASK9_MARKER &&
             payload?.branch === 'template_write_failed' &&
             payload.warningCode === 'EROFS'
+          );
+        }),
+      );
+    } finally {
+      mock.restoreAll();
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('emits Story 47 markers for seeded and existing chat-template branches', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    const infoLogs: unknown[][] = [];
+    mock.method(console, 'info', (...args: unknown[]) => {
+      infoLogs.push(args);
+    });
+
+    try {
+      await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      await ensureChatRuntimeConfigBootstrapped({ codexHome });
+
+      assert(
+        infoLogs.some((entry) => {
+          const payload = entry[1] as
+            | { outcome?: string; source?: string; success?: boolean }
+            | undefined;
+          return (
+            String(entry[0]) === TASK3_MARKER &&
+            payload?.outcome === 'seeded' &&
+            payload.source === 'chat_template' &&
+            payload.success === true
+          );
+        }),
+      );
+      assert(
+        infoLogs.some((entry) => {
+          const payload = entry[1] as
+            | { outcome?: string; source?: string; success?: boolean }
+            | undefined;
+          return (
+            String(entry[0]) === TASK3_MARKER &&
+            payload?.outcome === 'existing' &&
+            payload.source === 'chat_template' &&
+            payload.success === true &&
+            (payload as { config_path?: string }).config_path === chatConfigPath
           );
         }),
       );
@@ -599,6 +635,60 @@ describe('runtimeConfig merge and validation', () => {
     });
   });
 
+  it('inherits explicit base-only runtime settings while preserving runtime overrides', () => {
+    const merged = mergeRuntimeConfigWithBaseConfig(
+      {
+        personality: 'base-personality',
+        model_provider: 'base-provider',
+        model_providers: {
+          base: { name: 'Base Provider' },
+        },
+        tools: {
+          view_image: true,
+        },
+        mcp_servers: {
+          context7: { command: 'npx' },
+        },
+        projects: {
+          '/base': { trust_level: 'trusted' },
+        },
+        model: 'base-model',
+      },
+      {
+        model: 'chat-model',
+        sandbox_mode: 'read-only',
+        projects: {
+          '/chat': { trust_level: 'trusted' },
+        },
+      },
+    );
+
+    assert.equal(merged.merged.personality, 'base-personality');
+    assert.equal(merged.merged.model_provider, 'base-provider');
+    assert.deepEqual(merged.merged.model_providers, {
+      base: { name: 'Base Provider' },
+    });
+    assert.deepEqual(merged.merged.tools, {
+      view_image: true,
+    });
+    assert.deepEqual(merged.merged.mcp_servers, {
+      context7: { command: 'npx' },
+    });
+    assert.deepEqual(merged.merged.projects, {
+      '/base': { trust_level: 'trusted' },
+      '/chat': { trust_level: 'trusted' },
+    });
+    assert.equal(merged.merged.model, 'chat-model');
+    assert.deepEqual(merged.inheritedKeys.sort(), [
+      'mcp_servers',
+      'model_provider',
+      'model_providers',
+      'personality',
+      'tools',
+    ]);
+    assert.ok(merged.runtimeOverrideKeys.includes('model'));
+  });
+
   it('warns and preserves unknown top-level keys for forward compatibility', () => {
     const result = validateRuntimeConfig({
       model: 'gpt-5.3-codex',
@@ -800,6 +890,365 @@ describe('runtimeConfig merge and validation', () => {
   });
 });
 
+describe('runtimeConfig Context7 overlay', () => {
+  it('replaces REPLACE_WITH_CONTEXT7_API_KEY in memory from CODEINFO_CONTEXT7_API_KEY', () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+
+    const normalized = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: [
+            '-y',
+            '@upstash/context7-mcp',
+            '--api-key',
+            'REPLACE_WITH_CONTEXT7_API_KEY',
+          ],
+        },
+      },
+    });
+
+    assert.equal(normalized.mode, 'env_overlay');
+    assert.deepEqual(normalized.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'],
+      },
+    });
+  });
+
+  it('treats the legacy seeded Context7 key as a placeholder and overlays the env key', () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+
+    const normalized = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: [
+            '-y',
+            '@upstash/context7-mcp',
+            '--api-key',
+            'ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866',
+          ],
+        },
+      },
+    });
+
+    assert.equal(normalized.mode, 'env_overlay');
+    assert.deepEqual(normalized.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'],
+      },
+    });
+  });
+
+  it('preserves an explicit non-placeholder Context7 API key', () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-env';
+
+    const normalized = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: [
+            '-y',
+            '@upstash/context7-mcp',
+            '--api-key',
+            'ctx7sk-user-supplied',
+          ],
+        },
+      },
+    });
+
+    assert.equal(normalized.mode, 'explicit_key_preserved');
+    assert.deepEqual(normalized.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: [
+          '-y',
+          '@upstash/context7-mcp',
+          '--api-key',
+          'ctx7sk-user-supplied',
+        ],
+      },
+    });
+  });
+
+  it('appends CODEINFO_CONTEXT7_API_KEY to an already-no-key Context7 args list in memory', () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+
+    const normalized = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp'],
+        },
+      },
+    });
+
+    assert.equal(normalized.mode, 'env_overlay');
+    assert.deepEqual(normalized.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'],
+      },
+    });
+  });
+
+  it('leaves an already-no-key Context7 args list unchanged when the env key is blank', () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = '   ';
+
+    const normalized = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp'],
+        },
+      },
+    });
+
+    assert.equal(normalized.mode, 'no_key_fallback');
+    assert.deepEqual(normalized.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: ['-y', '@upstash/context7-mcp'],
+      },
+    });
+  });
+
+  it('falls back to the no-key args form when the env key is missing empty or whitespace-only', () => {
+    const variants = [undefined, '', '   '];
+
+    for (const value of variants) {
+      if (value === undefined) {
+        delete process.env.CODEINFO_CONTEXT7_API_KEY;
+      } else {
+        process.env.CODEINFO_CONTEXT7_API_KEY = value;
+      }
+
+      const normalized = normalizeContext7RuntimeConfig({
+        mcp_servers: {
+          context7: {
+            command: 'npx',
+            args: [
+              '-y',
+              '@upstash/context7-mcp',
+              '--api-key',
+              'REPLACE_WITH_CONTEXT7_API_KEY',
+            ],
+          },
+        },
+      });
+
+      assert.equal(normalized.mode, 'no_key_fallback');
+      assert.deepEqual(normalized.config.mcp_servers, {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp'],
+        },
+      });
+    }
+  });
+
+  it('leaves configs without a Context7 definition unchanged', () => {
+    const input = {
+      mcp_servers: {
+        deepwiki: {
+          url: 'https://mcp.deepwiki.com/mcp',
+        },
+      },
+    };
+
+    const normalized = normalizeContext7RuntimeConfig(input);
+
+    assert.equal(normalized.mode, 'no_context7_definition');
+    assert.deepEqual(normalized.config, input);
+  });
+
+  it('removes only the api-key pair and preserves the order of unrelated args', () => {
+    delete process.env.CODEINFO_CONTEXT7_API_KEY;
+
+    const normalized = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: [
+            '--debug',
+            '-y',
+            '@upstash/context7-mcp',
+            '--api-key',
+            'REPLACE_WITH_CONTEXT7_API_KEY',
+            '--transport',
+            'stdio',
+          ],
+        },
+      },
+    });
+
+    assert.equal(normalized.mode, 'no_key_fallback');
+    assert.deepEqual(normalized.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: [
+          '--debug',
+          '-y',
+          '@upstash/context7-mcp',
+          '--transport',
+          'stdio',
+        ],
+      },
+    });
+  });
+
+  it('leaves remote url and http_headers Context7 definitions unchanged', () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+
+    const input = {
+      mcp_servers: {
+        context7: {
+          url: 'https://mcp.context7.test',
+          http_headers: {
+            Authorization: 'Bearer abc',
+          },
+        },
+      },
+    };
+
+    const normalized = normalizeContext7RuntimeConfig(input);
+
+    assert.equal(normalized.mode, 'no_context7_definition');
+    assert.deepEqual(normalized.config, input);
+  });
+
+  it('does not rewrite runtime config files on disk when overlaying Context7 keys', async () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          'args = ["-y", "@upstash/context7-mcp", "--api-key", "REPLACE_WITH_CONTEXT7_API_KEY"]',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
+
+      await resolveChatRuntimeConfig({ codexHome });
+
+      const baseContents = await fs.readFile(baseConfigPath, 'utf8');
+      assert.match(baseContents, /REPLACE_WITH_CONTEXT7_API_KEY/u);
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves chat runtime with the inherited overlaid Context7 definition from base config', async () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          'args = ["-y", "@upstash/context7-mcp", "--api-key", "REPLACE_WITH_CONTEXT7_API_KEY"]',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
+
+      const resolved = await resolveChatRuntimeConfig({ codexHome });
+
+      assert.deepEqual(resolved.config.mcp_servers, {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'],
+        },
+      });
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves chat runtime with an inherited no-key Context7 definition overlaid from CODEINFO_CONTEXT7_API_KEY', async () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          'args = ["-y", "@upstash/context7-mcp"]',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
+
+      const resolved = await resolveChatRuntimeConfig({ codexHome });
+
+      assert.deepEqual(resolved.config.mcp_servers, {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'],
+        },
+      });
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('leaves malformed local stdio Context7 shapes unchanged', () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+
+    const nonArrayArgs = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: 'broken',
+        },
+      },
+    });
+    assert.equal(nonArrayArgs.mode, 'no_context7_definition');
+    assert.deepEqual(nonArrayArgs.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: 'broken',
+      },
+    });
+
+    const missingPair = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp', '--api-key'],
+        },
+      },
+    });
+    assert.equal(missingPair.mode, 'no_context7_definition');
+    assert.deepEqual(missingPair.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: ['-y', '@upstash/context7-mcp', '--api-key'],
+      },
+    });
+  });
+});
+
 describe('runtimeConfig deterministic resolver failures', () => {
   it('hard-fails missing agent config with deterministic code', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
@@ -972,17 +1421,97 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
+
+  it('hard-fails strict runtime readers when base config TOML is invalid', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const agentConfigPath = path.join(codexHome, 'agent-config.toml');
+    try {
+      await fs.writeFile(baseConfigPath, 'model = "broken', 'utf8');
+      await fs.writeFile(agentConfigPath, 'model = "agent-model"\n', 'utf8');
+      await assert.rejects(
+        async () =>
+          resolveAgentRuntimeConfig({
+            codexHome,
+            agentConfigPath,
+          }),
+        (error) => {
+          const typed = error as RuntimeConfigResolutionError;
+          return (
+            typed?.code === 'RUNTIME_CONFIG_INVALID' &&
+            typed?.surface === 'agent'
+          );
+        },
+      );
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('runtimeConfig merged happy paths and T04 logs', () => {
-  it('resolves canonical agent config and merges only shared projects', async () => {
+  it('resolves chat runtime with inherited base mcp servers and provider routing', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          'model_provider = "base-provider"',
+          '[model_providers.base-provider]',
+          'name = "Base Provider"',
+          'base_url = "http://localhost:4000/v1"',
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          'args = ["-y", "@upstash/context7-mcp"]',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
+
+      const resolved = await resolveChatRuntimeConfig({ codexHome });
+
+      assert.equal(resolved.config.model, 'chat-model');
+      assert.equal(resolved.config.model_provider, 'base-provider');
+      assert.deepEqual(resolved.config.model_providers, {
+        'base-provider': {
+          name: 'Base Provider',
+          base_url: 'http://localhost:4000/v1',
+        },
+      });
+      assert.deepEqual(resolved.config.mcp_servers, {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp'],
+        },
+      });
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves canonical agent config and inherits base execution settings', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
     const agentConfigPath = path.join(codexHome, 'agent-config.toml');
     try {
       await fs.writeFile(
         baseConfigPath,
-        '[projects]\n[projects."/base"]\ntrust_level = "trusted"\nmodel = "base-model"\n',
+        [
+          'model = "base-model"',
+          'personality = "base-personality"',
+          '[tools]',
+          'view_image = true',
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          '[projects]',
+          '[projects."/base"]',
+          'trust_level = "trusted"',
+          '',
+        ].join('\n'),
         'utf8',
       );
       await fs.writeFile(
@@ -996,9 +1525,150 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         agentConfigPath,
       });
       assert.equal(resolved.config.model, 'agent-model');
+      assert.equal(resolved.config.personality, 'base-personality');
+      assert.deepEqual(resolved.config.tools, {
+        view_image: true,
+      });
+      assert.deepEqual(resolved.config.mcp_servers, {
+        context7: {
+          command: 'npx',
+        },
+      });
       assert.deepEqual(resolved.config.projects, {
         '/base': {
           trust_level: 'untrusted',
+        },
+      });
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves agent runtime with inherited base provider routing', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const agentConfigPath = path.join(codexHome, 'agent-config.toml');
+    try {
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          'model_provider = "base-provider"',
+          '[model_providers.base-provider]',
+          'name = "Base Provider"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(agentConfigPath, 'model = "agent-model"\n', 'utf8');
+
+      const resolved = await resolveAgentRuntimeConfig({
+        codexHome,
+        agentConfigPath,
+      });
+
+      assert.equal(resolved.config.model_provider, 'base-provider');
+      assert.deepEqual(resolved.config.model_providers, {
+        'base-provider': {
+          name: 'Base Provider',
+        },
+      });
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps runtime-specific model, approval, sandbox, and web_search overrides over base config', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          'model = "base-model"',
+          'approval_policy = "never"',
+          'sandbox_mode = "danger-full-access"',
+          'web_search = "disabled"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(
+        chatConfigPath,
+        [
+          'model = "chat-model"',
+          'approval_policy = "on-request"',
+          'sandbox_mode = "read-only"',
+          'web_search = "live"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const resolved = await resolveChatRuntimeConfig({ codexHome });
+
+      assert.equal(resolved.config.model, 'chat-model');
+      assert.equal(resolved.config.approval_policy, 'on-request');
+      assert.equal(resolved.config.sandbox_mode, 'read-only');
+      assert.equal(resolved.config.web_search, 'live');
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('merges runtime-specific projects and mcp servers without dropping unrelated base siblings', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const agentConfigPath = path.join(codexHome, 'agent-config.toml');
+    try {
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          '[mcp_servers.deepwiki]',
+          'url = "https://mcp.deepwiki.com/mcp"',
+          '[projects]',
+          '[projects."/base"]',
+          'trust_level = "trusted"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(
+        agentConfigPath,
+        [
+          'model = "agent-model"',
+          '[mcp_servers.context7]',
+          'command = "node"',
+          '[projects]',
+          '[projects."/agent"]',
+          'trust_level = "trusted"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const resolved = await resolveAgentRuntimeConfig({
+        codexHome,
+        agentConfigPath,
+      });
+
+      assert.deepEqual(resolved.config.mcp_servers, {
+        context7: {
+          command: 'node',
+        },
+        deepwiki: {
+          url: 'https://mcp.deepwiki.com/mcp',
+        },
+      });
+      assert.deepEqual(resolved.config.projects, {
+        '/base': {
+          trust_level: 'trusted',
+        },
+        '/agent': {
+          trust_level: 'trusted',
         },
       });
     } finally {
@@ -1049,6 +1719,11 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
           line.includes(
             '[DEV-0000037][T04] event=runtime_config_merged_and_validated result=success',
           ),
+        ),
+      );
+      assert(
+        infoLogs.some((line) =>
+          line.includes('DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED'),
         ),
       );
     } finally {

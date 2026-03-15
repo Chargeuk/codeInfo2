@@ -4,15 +4,16 @@ This story unified Codex chat/runtime behavior around one shared config path. Th
 
 Post-review fix status:
 
-- Task 8 closed the `must_fix` finding by appending `--api-key <env>` in memory when Context7 already uses the canonical no-key args form.
-- Task 9 closed the `should_fix` finding by removing unrelated future-story planning drift so the branch diff is back to Story 47 artifacts only.
-- The review's optional runtime-config simplification was intentionally deferred; Story 47 closes on correctness and proof rather than a secondary refactor.
+- Task 8 closed the first reopened `must_fix` by appending `--api-key <env>` in memory when Context7 already uses the canonical no-key args form.
+- Task 9 closed the `should_fix` planning-scope finding by removing unrelated future-story planning drift so the branch diff is back to Story 47 artifacts only.
+- Task 11 closed the external-review `must_fix` by preserving malformed merged-table scalar values for keys like `mcp_servers` and `tools` until runtime validation rejects them instead of silently normalizing them away.
+- The external review's `optional_simplification` around mixed `model_source` marker vocabularies remains intentionally deferred because the final revalidation kept it in the observability-cleanup category rather than elevating it into a correctness defect.
 
 Implementation highlights:
 
 - `server/src/config/chatDefaults.ts`, `server/src/codex/capabilityResolver.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chatProviders.ts`, `server/src/routes/chatValidators.ts`, and `server/src/mcp2/tools/codebaseQuestion.ts` now share the same Codex-aware default/model resolution behavior.
 - `server/src/config/codexConfig.ts` now seeds missing base config from one canonical in-code template using `model = "gpt-5.3-codex"` and no seeded Context7 `--api-key` pair.
-- `server/src/config/runtimeConfig.ts` now seeds missing chat config directly from the canonical chat template, preserves additive/shared base inheritance for chat and agent runtime config, and applies Context7 runtime-only normalization after inheritance.
+- `server/src/config/runtimeConfig.ts` now seeds missing chat config directly from the canonical chat template, preserves additive/shared base inheritance for chat and agent runtime config, applies Context7 runtime-only normalization after inheritance, and preserves malformed merged-table scalar values long enough for the existing validation path to reject them.
 - `README.md`, `design.md`, `projectStructure.md`, and `planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md` now document the final acceptance mapping and Story 47 verification markers.
 
 Observed Story 47 runtime markers during final verification:
@@ -27,12 +28,13 @@ Final verification results:
 
 - `npm run build:summary:server` passed with `status: passed` and `warning_count: 0`.
 - `npm run build:summary:client` passed with `status: passed` and `warning_count: 0`.
-- `npm run test:summary:server:unit` passed with `tests run: 1205`, `passed: 1205`, `failed: 0`.
+- `npm run test:summary:server:unit` passed with `tests run: 1208`, `passed: 1208`, `failed: 0`.
 - `npm run test:summary:server:cucumber` passed with `tests run: 71`, `passed: 71`, `failed: 0`.
 - `npm run test:summary:client` passed with `tests run: 544`, `passed: 544`, `failed: 0`.
 - `npm run test:summary:e2e` passed with `tests run: 43`, `passed: 43`, `failed: 0`.
 - `npm run compose:build:summary` passed with `items passed: 2` and `items failed: 0`.
 - Manual Playwright-MCP verification against `http://host.docker.internal:5001/chat` confirmed the chat UI still loaded with provider `codex`, model `gpt-5.1-codex-mini`, a successful `ok` response, and no browser console errors.
+- `npm run compose:up` and `npm run compose:down` both completed cleanly around the manual host-port verification pass.
 - `git diff --name-status main...HEAD -- planning projectStructure.md` now shows only Story 47 planning artifacts after the Task 9 cleanup.
 
 Saved evidence:

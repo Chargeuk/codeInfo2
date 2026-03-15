@@ -216,7 +216,7 @@ This should only be started once all the above sections are clear and understood
 ### 1. Merge The Chat Config Model Into Shared Codex Resolution
 
 - Task Status: `__done__`
-- Git Commits: `8310d88a`, `90181fa1`
+- Git Commits: `8310d88a`, `90181fa1`, `3d78c667`
 
 #### Overview
 

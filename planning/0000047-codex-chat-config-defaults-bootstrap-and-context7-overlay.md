@@ -243,6 +243,24 @@ Update the shared server-side Codex resolution path so the model in `codex/chat/
 - MUI MenuItem API: https://llms.mui.com/material-ui/6.4.12/api/menu-item.md. This page documents the option component rendered inside `Select` and `TextField select`, which is why it is the correct source for the unchanged option-list behavior.
 - Mermaid flowcharts in Markdown: Context7 `/mermaid-js/mermaid`, specifically the getting-started flowchart examples and usage documentation. This is the correct diagram reference for the `design.md` update in this task because the shared model/default-resolution flow needs a Mermaid diagram that follows Mermaid syntax exactly.
 
+#### Junior Developer Notes
+
+- Read these files before starting any subtask in Task 1: [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [server/src/config/codexEnvDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexEnvDefaults.ts), [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts), [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts), [server/src/routes/chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts), and [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts).
+- Do not assume the story-wide precedence is remembered elsewhere. For every subtask in this task, preserve this exact rule: explicit request override, then `codex/chat/config.toml`, then env fallback, then hardcoded fallback.
+- Do not invent new helpers when an existing one can be extended. This task should reuse the helpers already named in the Documentation Locations and Must Not Miss sections.
+
+#### Example Shapes
+
+```ts
+// Shared model availability rule for this task.
+const mergedModels = Array.from(
+  new Set([...envModelList, chatConfigModel].filter(Boolean)),
+);
+
+// Route-level presentation stays separate from availability.
+const presentedModels = prioritizeModel(mergedModels, preferredModel);
+```
+
 #### Subtasks
 
 1. [ ] In [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md), re-read the `Acceptance Criteria`, `Implementation Ideas`, `Expected Outcomes`, and `Edge Cases and Failure Modes` sections and write the exact precedence rule into your working notes before touching code: explicit request override, then `codex/chat/config.toml`, then legacy env fallback, then hardcoded fallback. Include one example in your notes: if `codex/chat/config.toml` says `model = "config-model"` and `CHAT_DEFAULT_MODEL=env-model`, the resolved default must stay `config-model`.
@@ -313,6 +331,24 @@ Replace the base-config bootstrap split-brain behavior with one in-code source o
 - Context7 repository documentation: https://github.com/upstash/context7. The README documents the local stdio MCP shape using `command = "npx"` with `args = ["-y", "@upstash/context7-mcp", "--api-key", "..."]`, which is why it is the correct external reference when cleaning the seeded base template without changing the MCP server contract.
 - Mermaid flowcharts in Markdown: Context7 `/mermaid-js/mermaid`, specifically the getting-started flowchart examples and usage documentation. This is the correct diagram reference for the `design.md` update in this task because the base bootstrap path needs a Mermaid diagram that matches Mermaid flowchart syntax.
 
+#### Junior Developer Notes
+
+- Read these files before starting any subtask in Task 2: [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts), [server/src/test/unit/codexConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexConfig.test.ts), and [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
+- Do not depend on any sample file at runtime in this task. `config.toml.example` may remain in the repository, but bootstrap must come only from the in-code template in [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts).
+- Preserve first-writer-wins behavior. Missing file means create it; existing file means leave it alone.
+
+#### Example Shapes
+
+```ts
+if (!configExists) {
+  await writeCanonicalTemplate(configPath);
+  return;
+}
+
+// Existing file stays untouched.
+return;
+```
+
 #### Subtasks
 
 1. [ ] In [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md), re-read the `Acceptance Criteria`, `Implementation Ideas`, `Expected Outcomes`, and `Edge Cases and Failure Modes` sections and write down the two non-negotiable rules for this task: the in-code template is the only bootstrap source of truth, and an existing `codex/config.toml` must never be overwritten.
@@ -369,6 +405,24 @@ Make missing chat-config bootstrap deterministic and independent from the base c
 - Node.js `node:fs` bootstrap semantics: Context7 `/nodejs/node`, specifically the `fs.copyFile`, `COPYFILE_EXCL`, `open` flags, and `fs.writeFile` documentation in the `node:fs` API. These docs explain why the missing chat file can be written directly from a canonical template while still preserving no-overwrite behavior when the target path already exists.
 - Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). This is the correct Codex reference for this task because it explains that a runtime-specific config file may stay minimal while shared behavior still comes from layered base config resolution.
 - Mermaid flowcharts in Markdown: Context7 `/mermaid-js/mermaid`, specifically the getting-started flowchart examples and usage documentation. This is the correct diagram reference for the `design.md` update in this task because the direct chat bootstrap branch needs a Mermaid diagram that follows Mermaid flowchart syntax.
+
+#### Junior Developer Notes
+
+- Read these files before starting any subtask in Task 3: [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts), [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts), and [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts).
+- This task changes only missing-file bootstrap for `codex/chat/config.toml`. It must not silently repair or overwrite any existing path, even if the existing path is broken.
+- The chat bootstrap path must stop copying the base config. The created chat file should come directly from the canonical chat template.
+
+#### Example Shapes
+
+```ts
+// Correct target behavior for this task.
+if (!chatConfigExists) {
+  await writeFile(chatConfigPath, CHAT_CONFIG_TEMPLATE, { flag: 'wx' });
+}
+
+// Do not do this after Story 47:
+// copyFile(baseConfigPath, chatConfigPath)
+```
 
 #### Subtasks
 
@@ -427,6 +481,23 @@ Preserve the shared base-only runtime config that execution still needs once cha
 - Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). This page is the correct source for this task because it describes layered config precedence and confirms that fields such as `mcp_servers`, `model_provider`, and `model_providers` are part of the shared configuration model rather than route-specific data.
 - TOML specification: https://toml.io/en/v1.1.0. This is the right format reference for this task because it documents tables, dotted keys, and top-level key/value structure, which are the exact TOML rules that matter when explicitly inheriting `projects`, `mcp_servers`, and base-only top-level settings.
 - Mermaid flowcharts in Markdown: Context7 `/mermaid-js/mermaid`, specifically the getting-started flowchart examples and usage documentation. This is the correct diagram reference for the `design.md` update in this task because the shared base/runtime inheritance path needs a Mermaid diagram that follows Mermaid syntax.
+
+#### Junior Developer Notes
+
+- Read these files before starting any subtask in Task 4: [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), [server/src/agents/config.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/config.ts), [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts), and [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
+- This task is not a generic deep-merge exercise. Explicitly inherit only the known keys named in this task, and keep runtime-specific values authoritative for `model`, `approval_policy`, `sandbox_mode`, and `web_search`.
+- Both chat runtime and agent runtime must keep the required base-only settings after direct chat bootstrap removes the old copy-from-base shortcut.
+
+#### Example Shapes
+
+```ts
+const merged = {
+  ...baseConfig,
+  ...runtimeConfig,
+  projects: mergeProjects(baseConfig.projects, runtimeConfig.projects),
+  mcp_servers: mergeMcpServers(baseConfig.mcp_servers, runtimeConfig.mcp_servers),
+};
+```
 
 #### Subtasks
 
@@ -487,6 +558,24 @@ Add the in-memory Context7 normalization step so runtime config loading treats p
 - Context7 repository documentation: https://github.com/upstash/context7. The README shows the supported local stdio MCP configuration using `npx` plus an `args` array and explains that an API key is optional but recommended, which is why it is the correct external source for the placeholder-key and no-key fallback behavior in this task.
 - Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). This is the right Codex reference because it explains the shared layered runtime read path that the in-memory Context7 overlay must plug into after base/runtime inheritance.
 - Mermaid flowcharts in Markdown: Context7 `/mermaid-js/mermaid`, specifically the getting-started flowchart examples and usage documentation. This is the correct diagram reference for the `design.md` update in this task because the Context7 overlay decision path needs a Mermaid diagram that follows Mermaid flowchart syntax.
+
+#### Junior Developer Notes
+
+- Read these files before starting any subtask in Task 5: [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts), and [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts).
+- This task only normalizes the local stdio Context7 shape that uses `command` plus `args`. Do not extend the task to remote `url` or `http_headers` definitions.
+- The overlay is runtime-only. It must change the in-memory config object returned from the shared runtime reader, not the TOML files on disk.
+
+#### Example Shapes
+
+```ts
+if (isPlaceholderKey(currentApiKey) && envApiKey) {
+  return ['-y', '@upstash/context7-mcp', '--api-key', envApiKey];
+}
+
+if (isPlaceholderKey(currentApiKey) && !envApiKey) {
+  return ['-y', '@upstash/context7-mcp'];
+}
+```
 
 #### Subtasks
 
@@ -553,6 +642,12 @@ Prepare the story for final proof by updating the human-facing documentation and
 - MUI MenuItem API: https://llms.mui.com/material-ui/6.4.12/api/menu-item.md. This page is the correct MUI reference because it documents the option rows rendered by the existing select UI.
 - Mermaid flowcharts in Markdown: Context7 `/mermaid-js/mermaid`, specifically the getting-started flowchart examples and usage documentation. This is the correct diagram reference for the final `design.md` sweep because the story-level architecture diagrams must use valid Mermaid syntax and consistent flowchart structure.
 
+#### Junior Developer Notes
+
+- Read these files before starting any subtask in Task 6: [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts), and [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts).
+- Treat this task as proof-mapping, not invention. Every acceptance criterion must point to implemented code or a planned test, and the docs must match that proof exactly.
+- Keep the README short and practical, and keep `design.md` architectural. Do not copy the same paragraph into both documents.
+
 #### Subtasks
 
 1. [ ] In [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md), re-read the full `Acceptance Criteria`, `Expected Outcomes`, and `Out Of Scope` sections and create a short acceptance-check list in your working notes. For each criterion, write the exact proof location beside it, such as a file link like [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) or a specific test file like [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
@@ -605,6 +700,12 @@ Run the full story-level proof that all completed changes work together in the r
 - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md. This page is the right MUI reference because it documents the `select` prop used by the existing client control.
 - MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md. This page is the right MUI reference because it documents the controlled dropdown behavior the existing client already uses.
 - MUI MenuItem API: https://llms.mui.com/material-ui/6.4.12/api/menu-item.md. This page is the right MUI reference because it documents the option rows rendered inside the unchanged select UI.
+
+#### Junior Developer Notes
+
+- Read these files before starting any subtask in Task 7: [client/src/hooks/useChatModel.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useChatModel.ts), [client/src/pages/ChatPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/ChatPage.tsx), [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts), and [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts).
+- This task is verification-only for the UI. Do not add new client behavior unless the server contract is proven insufficient during verification.
+- Save screenshots with the exact naming rule in this task, and use the acceptance map from Task 6 to decide what evidence still needs to be collected.
 
 #### Subtasks
 

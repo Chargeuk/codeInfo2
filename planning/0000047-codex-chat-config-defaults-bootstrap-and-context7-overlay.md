@@ -1595,8 +1595,8 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 
 ### 16. Revalidate Story 47 After Mixed-Shape Alias Repair
 
-- Task Status: `__in_progress__`
-- Git Commits: `__to_do__`
+- Task Status: `__done__`
+- Git Commits: `3eba2b73`, `19056ee8`
 
 #### Overview
 
@@ -1628,7 +1628,7 @@ Run one fresh full-story validation pass after Task 15 so Story 47 can close aga
 2. [x] Refresh [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) so it records the mixed-shape alias repair, the fresh Task 16 regression results, and the final disposition of any remaining indirect-proof areas.
 3. [x] Update this plan file’s Task 16 `Implementation notes` after validation is complete, including which review finding was closed, which acceptance criteria remain indirect, and whether any simplification opportunities remain intentionally deferred.
 4. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained docs or structure ledger changed during Task 15.
-5. [ ] Record the git commit hashes for Tasks 15 and 16 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
+5. [x] Record the git commit hashes for Tasks 15 and 16 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
 
 #### Testing
 
@@ -1661,3 +1661,4 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 - No additional changes were needed in [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), or [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) because Task 15 repaired compatibility inside the existing runtime contract rather than changing maintained docs or the structure ledger.
 - Passed `npm run compose:down`, which removed the validation stack cleanly after the final host-port manual verification.
 - Task 16 closes the reopened `should_fix` by pairing Task 15’s mixed-shape alias repair with this fresh full regression pass; AC13 and AC36 remain intentionally indirect because this cycle still does not add a dedicated payload-shape snapshot artifact, and no further simplification work was needed in this closeout pass.
+- Recorded the reopened-task ledger in this plan and returned Task 16 to `__done__` after the final revalidation pass completed cleanly.

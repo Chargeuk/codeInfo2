@@ -1085,7 +1085,7 @@ No wrapper test runs are required for this planning-only task. Do not attempt to
 
 ### 10. Revalidate Story 47 After Review Fixes
 
-- Task Status: `__todo__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

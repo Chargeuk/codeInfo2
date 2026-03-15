@@ -1687,7 +1687,7 @@ The current pass durable review artifacts that must be committed alongside the p
 
 ### 17. Preserve Validation Errors For Malformed Legacy Runtime Alias Values
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: `__to_do__`
 
 #### Overview

@@ -1301,8 +1301,8 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 
 ### 12. Revalidate Story 47 After External Review Repair
 
-- Task Status: `__in_progress__`
-- Git Commits:
+- Task Status: `__done__`
+- Git Commits: `69c39822`, `c026ae61`, `3dfc1b96`, `ca2a0678`
 
 #### Overview
 
@@ -1330,9 +1330,9 @@ Run a fresh full-story validation pass after Task 11 closes the external `must_f
 
 1. [x] Re-read the external-review findings artifact [codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T165803Z-2df347b7-findings.md) and confirm in working notes that Task 11 fully closes the reopened `must_fix` finding before starting the final regression wrappers.
 2. [x] Refresh [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) so it records the post-external-review repair summary and the disposition of the deferred optional simplification.
-3. [ ] Update this plan file’s Task 12 `Implementation notes` after validation is complete, including which external review findings were closed, which acceptance criteria remained indirect, and why the optional simplification stayed deferred.
+3. [x] Update this plan file’s Task 12 `Implementation notes` after validation is complete, including which external review findings were closed, which acceptance criteria remained indirect, and why the optional simplification stayed deferred.
 4. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained docs or structure ledger changed during Task 11.
-5. [ ] Record the git commit hashes for Tasks 11 and 12 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
+5. [x] Record the git commit hashes for Tasks 11 and 12 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
 
 #### Testing
 
@@ -1364,3 +1364,6 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 - Manual Playwright-MCP verification at `http://host.docker.internal:5001/chat` loaded cleanly with provider `codex` and model `gpt-5.1-codex-mini`; a new conversation replying to `Reply with exactly ok.` returned `ok`, and the browser error console remained empty, so the Story 47 runtime/config surfaces still behave normally after the malformed-table validation repair.
 - Passed `npm run compose:down`, which cleanly removed the validation stack after the manual host-port verification and closed the Task 12 regression loop without teardown errors.
 - No `README.md`, `design.md`, or `projectStructure.md` changes were needed for Task 12 because the Task 11 repair stayed within the existing runtime validation contract and the maintained structure ledger remained accurate.
+- Closed the external-review `must_fix` by pairing Task 11’s malformed-table validation repair with this full Task 12 rerun; the deferred `optional_simplification` stayed deferred because the fresh wrapper/manual pass kept it in the observability-cleanup category rather than exposing a product or contract bug.
+- Acceptance criteria around payload-shape stability and runtime marker consistency remain partly indirect in this final pass: the full server, client, e2e, compose, and manual coverage stayed green, but there is still no dedicated route-contract snapshot artifact for those response shapes.
+- Recorded the Task 11 and Task 12 implementation hashes on this task and returned the reopened external-review cycle to `__done__` after the final regression loop completed cleanly.

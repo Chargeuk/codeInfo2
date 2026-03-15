@@ -1024,8 +1024,8 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 
 ### 9. Remove Unrelated Future-Story Planning Drift From The Story 47 Branch
 
-- Task Status: `__in_progress__`
-- Git Commits:
+- Task Status: `__done__`
+- Git Commits: `784117db`, `16919506`
 
 #### Overview
 
@@ -1066,10 +1066,10 @@ only Story 47 planning files remain changed on this branch
 
 1. [x] Re-read the Story 47 review finding about out-of-scope planning drift in [codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md) and write down exactly which planning paths must leave the Story 47 branch.
 2. [x] Update the planning tree so the unrelated future-story files [planning/0000048-github-copilot-sdk-chat-provider.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000048-github-copilot-sdk-chat-provider.md) and [planning/0000049-command-and-flow-user-input-wait-step.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000049-command-and-flow-user-input-wait-step.md) no longer remain as Story 47 branch changes.
-3. [ ] Re-check `git diff --name-status main...HEAD -- planning projectStructure.md` and confirm only Story 47 planning changes remain in the branch diff after the cleanup.
-4. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained structure ledger still reflects the removed or restored planning files incorrectly after the cleanup.
-5. [ ] Update this plan file’s Task 9 `Implementation notes` after the cleanup is complete, including what was removed or restored and how you verified the planning diff was narrowed back to Story 47.
-6. [ ] Run `npm run format:check --workspaces` if any maintained markdown or JSON files owned by this task changed in a way that could affect formatting consistency.
+3. [x] Re-check `git diff --name-status main...HEAD -- planning projectStructure.md` and confirm only Story 47 planning changes remain in the branch diff after the cleanup.
+4. [x] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained structure ledger still reflects the removed or restored planning files incorrectly after the cleanup.
+5. [x] Update this plan file’s Task 9 `Implementation notes` after the cleanup is complete, including what was removed or restored and how you verified the planning diff was narrowed back to Story 47.
+6. [x] Run `npm run format:check --workspaces` if any maintained markdown or JSON files owned by this task changed in a way that could affect formatting consistency.
 
 #### Testing
 
@@ -1079,6 +1079,9 @@ No wrapper test runs are required for this planning-only task. Do not attempt to
 
 - Confirmed the exact Task 9 cleanup target from the review finding before editing: remove `planning/0000048-github-copilot-sdk-chat-provider.md` and undo the `planning/0000048-command-and-flow-user-input-wait-step.md` -> `planning/0000049-command-and-flow-user-input-wait-step.md` future-story rename from this branch.
 - Restored the planning tree toward `main` for the out-of-scope paths by deleting the GitHub Copilot story file from this branch and restoring the command/user-input-wait plan back to `planning/0000048-command-and-flow-user-input-wait-step.md`.
+- Re-checked `git diff --name-status main...HEAD -- planning projectStructure.md` after the cleanup commit and confirmed the planning diff is now narrowed back to Story 47 artifacts: the active plan file and the maintained `planning/0000047-pr-summary.md`.
+- `projectStructure.md` did not need a Task 9 edit because its remaining branch diff only tracks the maintained `planning/0000047-pr-summary.md` entry and no longer references the removed future-story planning drift.
+- Ran `npm run format:check --workspaces` after the Task 9 markdown updates, and all client, server, and common workspace files remained Prettier-clean.
 
 ### 10. Revalidate Story 47 After Review Fixes
 

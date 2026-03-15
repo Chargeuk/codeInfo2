@@ -1815,3 +1815,129 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 - Passed `npm run compose:down`, which removed the validation stack cleanly after the final host-port verification.
 - No additional changes were needed in [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), or [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) because Task 17 repaired validation order inside the existing Story 47 runtime contract rather than changing the maintained docs or structure ledger.
 - Task 18 closes the reopened `should_fix` by pairing Task 17’s malformed-alias validation repair with this fresh full regression pass; AC8, AC13, and AC36 remain intentionally indirect because this cycle still does not add dedicated reread or payload-shape snapshot artifacts, and no further simplification work was needed in this closeout pass.
+
+## Code Review Findings
+
+Story 47 was reviewed again against the active plan, the branch diff versus `main`, and the durable artifacts [codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-evidence.md) and [codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md). That review found one localized `should_fix` issue: the maintained Story 47 final-proof summary still reports `DEV_0000047_T05_CONTEXT7_NORMALIZED` as `mode: 'env_overlay'`, while the final Task 18 closeout notes record the last compose-backed host-port verification as `mode: 'no_key_fallback'`. Because the defect is localized to files already changed by Story 47, is low risk to repair, is objectively testable from the maintained evidence, and does not change any public payload or runtime contract, the story is reopened for one focused summary-alignment task plus one fresh full revalidation pass.
+
+Acceptance proof status for this pass remains:
+
+- AC1-7: `direct`
+- AC8: `indirect`
+- AC9-12: `direct`
+- AC13: `indirect`
+- AC14-35: `direct`
+- AC36: `indirect`
+
+No acceptance criterion is currently classified as `missing`. The implemented runtime code remains appropriately succinct for the required Story 47 behavior, and this review did not identify another code-path simplification that should reopen the server work. The remaining issue is maintained-evidence consistency: reviewers need one unambiguous final record that either aligns the summary with the actual Task 18 proof or explicitly distinguishes the earlier `env_overlay` proof scenario from the later `no_key_fallback` closeout verification.
+
+The current pass durable review artifacts that must be committed alongside the plan change are:
+
+- [codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-evidence.md)
+- [codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md)
+
+---
+
+### 19. Align Maintained Story 47 Final-Proof Summary With Task 18 Evidence
+
+- Task Status: `__to_do__`
+- Git Commits: _(pending)_
+
+#### Overview
+
+Repair the maintained Story 47 evidence summary so the final recorded `DEV_0000047_T05_CONTEXT7_NORMALIZED` proof is internally consistent with the Task 18 closeout evidence. This task is intentionally limited to maintained review artifacts and plan evidence wording; it must not reopen runtime code, marker schemas, or public REST/MCP contracts unless the current files prove the inconsistency comes from a real implementation defect instead of stale summary text.
+
+#### Must Not Miss
+
+- Re-read the current evidence and findings artifacts first so you preserve the exact `should_fix` scope from this review cycle.
+- Determine whether the final Story 47 summary should align to the Task 18 `no_key_fallback` closeout proof or explicitly retain both proof scenarios with clear labels and no ambiguity.
+- Keep the maintained summary honest about which proof came from the earlier temporary runtime-home `env_overlay` check and which proof came from the final compose-backed host-port verification.
+- Do not change runtime code, test code, or public contract claims in this task unless the document review proves they are actually wrong.
+- Update this plan task’s `Implementation notes` with the exact wording change and why it resolves the reviewer ambiguity.
+
+#### Documentation Locations
+
+- [codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-evidence.md): evidence artifact for the current review cycle, including the documentation hotspot that must be resolved.
+- [codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md): findings artifact defining the exact maintained-summary inconsistency to close.
+- [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md): maintained Story 47 summary that currently presents the ambiguous final T05 proof.
+- [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md): Task 18 closeout notes that currently record the final compose-backed verification as `mode: 'no_key_fallback'`.
+
+#### Junior Developer Notes
+
+- Treat this as an evidence-integrity repair, not a runtime fix. Your job is to make the maintained final record honest and easy for a reviewer to follow.
+- Keep the wording concrete. If both the earlier `env_overlay` proof and the later `no_key_fallback` proof should remain documented, label them as separate verification scenarios rather than leaving one bullet to imply both are the same final run.
+- Resist “cleaning up” other summary text in the same edit. The finding is narrow and the safest repair is a narrow one.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-evidence.md) and [codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md), then write down in working notes the exact ambiguity to remove before editing the summary.
+2. [ ] Update [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) so the final Story 47 `DEV_0000047_T05_CONTEXT7_NORMALIZED` evidence is either aligned to the final Task 18 proof or explicitly split into clearly labeled earlier-versus-final proof scenarios.
+3. [ ] Re-read the updated [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) beside Task 18 in this plan and confirm that a reviewer can now tell which T05 mode belongs to the final closeout pass without needing to infer intent.
+4. [ ] Update this plan file’s Task 19 `Implementation notes` with the exact summary change, why it resolves the ambiguity, and whether any runtime behavior claim had to change.
+5. [ ] Record the Task 19 commit hash in this plan once the evidence-alignment edit is complete.
+
+#### Testing
+
+This task is documentation-only. Do not attempt ad-hoc validation or raw test commands here; the fresh wrapper-based regression pass belongs in Task 20.
+
+#### Implementation notes
+
+- Not started yet.
+
+---
+
+### 20. Revalidate Story 47 After Final-Proof Summary Alignment
+
+- Task Status: `__to_do__`
+- Git Commits: _(pending)_
+
+#### Overview
+
+Run one fresh full-story validation pass after Task 19 so Story 47 can close again with the maintained summary, the plan evidence, and the branch behavior all aligned. This is the new final acceptance gate and must prove that the summary-only repair did not leave the branch in an ambiguous review state.
+
+#### Must Not Miss
+
+- Re-check the current findings artifact and prove that Task 19 fully closes the reopened `should_fix` before returning the story to `__done__`.
+- Revalidate the original Story 47 acceptance criteria, not only the maintained-summary wording repair.
+- Keep AC8, AC13, and AC36 explicitly indirect unless this task adds dedicated proof artifacts that move them to direct.
+- Refresh the maintained Story 47 summary artifacts so they clearly distinguish the final T05 proof scenario from any earlier proof scenario kept for context.
+- Keep the transient handoff file out of the commit; only the durable evidence/findings artifacts for this review pass and the plan change belong in the final commit from this disposition cycle.
+
+#### Documentation Locations
+
+- [codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-evidence.md)
+- [codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md)
+- [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md)
+
+#### Junior Developer Notes
+
+- Treat this as a full story-close validation task, even though Task 19 is documentation-only. The story is not complete again until the maintained artifacts and the final validation notes agree.
+- If Task 19 keeps both T05 proof scenarios in the maintained summary, make sure the final validation notes clearly state which one belongs to this closing pass.
+- Keep the revalidation narrow but honest: use the wrappers, verify the browser console stays clean, and make sure the final summary does not over-claim new direct proof for AC8, AC13, or AC36.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md) and confirm in working notes that Task 19 fully closes the reopened `should_fix` before starting the final regression wrappers.
+2. [ ] Refresh [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) again if the Task 20 validation pass needs any final wording adjustment so the maintained summary and the final closeout notes describe the same T05 proof scenario.
+3. [ ] Update this plan file’s Task 20 `Implementation notes` after validation is complete, including which review finding was closed, which acceptance criteria remain indirect, and whether any further simplification opportunities remain intentionally deferred.
+4. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained docs or structure ledger changed during Task 19.
+5. [ ] Record the git commit hashes for Tasks 19 and 20 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
+
+#### Testing
+
+Do not attempt to run builds or tests without using the summary wrappers. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP testing step to manually confirm Story 47 behavior and general regression health after the Task 19 maintained-summary repair. This must still verify that the chat page works at `http://host.docker.internal:5001`, that there are no logged browser-console errors, and that the final closeout notes and maintained summary now describe the same T05 proof scenario.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Not started yet.

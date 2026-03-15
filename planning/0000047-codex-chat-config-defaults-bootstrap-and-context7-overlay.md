@@ -1533,8 +1533,8 @@ The current pass durable review artifacts that must be committed alongside the p
 
 ### 15. Restore Mixed-Shape `view_image` Alias Compatibility In Runtime Normalization
 
-- Task Status: `__in_progress__`
-- Git Commits: `__to_do__`
+- Task Status: `__done__`
+- Git Commits: `9ab1a8e0`, `d4cf094d`
 
 #### Overview
 

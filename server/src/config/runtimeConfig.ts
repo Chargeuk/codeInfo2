@@ -269,28 +269,36 @@ export function normalizeRuntimeConfig(
     ? { ...rawTools }
     : ({} as Record<string, unknown>);
 
-  if (!hasCanonicalViewImage && hasOwn(features, 'view_image_tool')) {
-    const viewImage = toBoolean(features.view_image_tool);
-    if (viewImage !== undefined) {
-      tools.view_image = viewImage;
+  const viewImageAlias = hasOwn(features, 'view_image_tool')
+    ? toBoolean(features.view_image_tool)
+    : undefined;
+  if (viewImageAlias !== undefined) {
+    if (!hasCanonicalViewImage) {
+      tools.view_image = viewImageAlias;
     }
+    delete features.view_image_tool;
   }
-  delete features.view_image_tool;
 
   const hasCanonicalWebSearch = hasOwn(normalized, 'web_search');
+  const rootWebSearchAlias = hasOwn(normalized, 'web_search_request')
+    ? toWebSearchMode(normalized.web_search_request)
+    : undefined;
+  const featureWebSearchAlias = hasOwn(features, 'web_search_request')
+    ? toWebSearchMode(features.web_search_request)
+    : undefined;
   if (!hasCanonicalWebSearch) {
-    const aliasWebSearch =
-      toWebSearchMode(normalized.web_search_request) ??
-      toWebSearchMode(features.web_search_request);
+    const aliasWebSearch = rootWebSearchAlias ?? featureWebSearchAlias;
     if (aliasWebSearch !== undefined) {
       normalized.web_search = aliasWebSearch;
     }
   }
 
-  if (hasOwn(normalized, 'web_search_request')) {
+  if (rootWebSearchAlias !== undefined) {
     delete normalized.web_search_request;
   }
-  delete features.web_search_request;
+  if (featureWebSearchAlias !== undefined) {
+    delete features.web_search_request;
+  }
 
   if (hasCanonicalTools) {
     if (isRecord(rawTools)) {

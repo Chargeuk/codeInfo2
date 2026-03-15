@@ -85,6 +85,24 @@ describe('runtimeConfig normalization', () => {
       undefined,
     );
   });
+
+  it('preserves malformed legacy alias values so validation can reject them later', () => {
+    const normalized = normalizeRuntimeConfig({
+      web_search: 'cached',
+      features: {
+        view_image_tool: 'maybe',
+        web_search_request: 'sometimes',
+      },
+      tools: { web_search: false },
+    });
+
+    assert.equal(normalized.web_search, 'cached');
+    assert.deepEqual(normalized.tools, { web_search: false });
+    assert.deepEqual(normalized.features, {
+      view_image_tool: 'maybe',
+      web_search_request: 'sometimes',
+    });
+  });
 });
 
 describe('runtimeConfig bootstrap', () => {
@@ -1817,6 +1835,79 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         (resolved.config.features as Record<string, unknown> | undefined)
           ?.view_image_tool,
         undefined,
+      );
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects malformed features.view_image_tool values instead of dropping them during normalization', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        chatConfigPath,
+        [
+          'model = "gpt-5.3-codex"',
+          '[features]',
+          'view_image_tool = "maybe"',
+          '[tools]',
+          'web_search = false',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      await assert.rejects(
+        async () => resolveChatRuntimeConfig({ codexHome }),
+        (error) => {
+          const typed = error as RuntimeConfigResolutionError;
+          return (
+            typed?.code === 'RUNTIME_CONFIG_VALIDATION_FAILED' &&
+            typed?.surface === 'chat' &&
+            /invalid type at chat\.features\.view_image_tool: expected boolean/u.test(
+              typed?.message ?? '',
+            )
+          );
+        },
+      );
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects malformed features.web_search_request values even when canonical web_search already exists', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        chatConfigPath,
+        [
+          'model = "gpt-5.3-codex"',
+          'web_search = "cached"',
+          '[features]',
+          'web_search_request = "sometimes"',
+          '[tools]',
+          'view_image = true',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      await assert.rejects(
+        async () => resolveChatRuntimeConfig({ codexHome }),
+        (error) => {
+          const typed = error as RuntimeConfigResolutionError;
+          return (
+            typed?.code === 'RUNTIME_CONFIG_VALIDATION_FAILED' &&
+            typed?.surface === 'chat' &&
+            /invalid type at chat\.features\.web_search_request: expected boolean/u.test(
+              typed?.message ?? '',
+            )
+          );
+        },
       );
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });

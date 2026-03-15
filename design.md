@@ -27,9 +27,11 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Codex-facing selection paths share the same chat-config-aware model/default behavior across `/chat/models`, `/chat/providers`, `validateChatRequest`, and MCP `codebase_question`.
 - The shared capability path unions `Codex_model_list` with the current `codex/chat/config.toml` model using first-seen order, and route presentation still performs its own preferred-model prioritization after capability resolution.
 - Codex model/default reads are intentionally fresh per request: callers reread `codex/chat/config.toml` instead of caching request-level or module-level snapshots.
+- Story 47 shared-resolution observability emits `DEV_0000047_T01_CODEX_DEFAULTS_APPLIED { surface, requested_provider, requested_model, resolved_model, model_source, success }` from the REST and MCP Codex-facing entrypoints.
 - Runtime provider selection is single-hop and shared: if the selected/default provider is unavailable, execution switches once to the alternate provider only when that alternate has at least one selectable runtime model. If the alternate has no selectable model, execution stays on the original provider and surfaces existing unavailable contracts (`REST: 503 PROVIDER_UNAVAILABLE`, `MCP codebase_question: -32001 CODE_INFO_LLM_UNAVAILABLE`).
 - REST runtime fallback no longer treats explicit `provider=lmstudio` + non-empty model as availability; LM Studio is considered available only when runtime model listing returns at least one selectable chat model.
 - The resolved execution provider/model are persisted on conversation metadata for both REST `/chat` and MCP `codebase_question`; when execution is not Codex, stale `flags.threadId` is removed so Codex resume state is not reused across providers.
+- The existing client selector path remains unchanged: `client/src/hooks/useChatModel.ts` continues to hydrate controlled React state from `/chat/providers` and `/chat/models`, and `client/src/pages/ChatPage.tsx` continues to render those values through MUI `TextField` + `MenuItem` selects without a Story 47 contract change.
 - Raw-input contract enforcement is server-side: valid chat/agent payload text is forwarded unchanged (including surrounding whitespace/newlines), while whitespace-only/newline-only payloads are rejected before provider execution with fixed endpoint-specific `400` messages (`POST /chat`: `message must contain at least one non-whitespace character`; `POST /agents/:agentName/run`: `instruction must contain at least one non-whitespace character`).
 - Chat client send-flow matches the raw-input contract: `ChatPage` forwards non-whitespace input to `useChatStream.send(...)` without trim mutation, while local submit guards block whitespace-only input before dispatching `POST /chat`.
 - Agents client send-flow matches the same raw-input contract: `AgentsPage` forwards non-whitespace instruction text to `runAgentInstruction(...)` without trim mutation, while local submit guards keep whitespace-only input from dispatching `/agents/:agentName/run`.
@@ -1039,6 +1041,19 @@ flowchart TD
   I --> K
   J --> K
 ```
+
+## Story 0000047 regression marker checklist
+
+- `DEV_0000047_T01_CODEX_DEFAULTS_APPLIED`
+  Expected success outcome: REST and MCP Codex-facing entrypoints log `success=true` with the resolved model and source used for that request.
+- `DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP`
+  Expected success outcome: startup seeding checks log `template_source=in_code`, `outcome=seeded|existing`, and `success=true`.
+- `DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP`
+  Expected success outcome: chat-config seeding checks log `source=chat_template`, `outcome=seeded|existing`, and `success=true`.
+- `DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED`
+  Expected success outcome: chat and agent runtime reads log `success=true` with explicit inherited and runtime-owned key sets.
+- `DEV_0000047_T05_CONTEXT7_NORMALIZED`
+  Expected success outcome: post-inheritance runtime reads log `success=true` and the expected normalization mode for the active Context7 scenario.
 
 ## Shared runtime resolver entrypoints (Story 0000037 Task 5)
 

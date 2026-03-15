@@ -172,6 +172,20 @@ Corporate certificate directory requirements:
   - alias bool values normalize to canonical modes (`true -> live`, `false -> disabled`).
 - `/chat/models?provider=codex` and `/chat/providers` return resolver-backed `codexDefaults` and `codexWarnings`.
 - `/chat` request validation applies the same resolver-backed defaults when Codex flags are omitted.
+- The existing React 19 + MUI chat selector path stays unchanged: the client keeps consuming `/chat/providers` and `/chat/models`, and the controlled `TextField select` + `MenuItem` inputs rerender from server-fed state without a Story 47 payload change.
+
+## Story 47 Verification Markers
+
+- `DEV_0000047_T01_CODEX_DEFAULTS_APPLIED`
+  Expected outcome: emitted from REST and MCP Codex-facing selection paths with `success=true`, a resolved model, and the correct `model_source`.
+- `DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP`
+  Expected outcome: emitted during base-config seeding checks with `template_source=in_code`, `outcome=seeded|existing`, and `success=true`.
+- `DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP`
+  Expected outcome: emitted during chat-config seeding checks with `source=chat_template`, `outcome=seeded|existing`, and `success=true`.
+- `DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED`
+  Expected outcome: emitted during chat and agent runtime reads with `success=true`, plus explicit `inherited_keys` and `runtime_override_keys`.
+- `DEV_0000047_T05_CONTEXT7_NORMALIZED`
+  Expected outcome: emitted after runtime inheritance with `success=true` and the expected `mode` for the active Context7 key scenario (`env_overlay`, `no_key_fallback`, `explicit_key_preserved`, or `no_context7_definition`).
 
 ## Chrome DevTools MCP
 

@@ -1,5 +1,47 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000047 final implementation footprint
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Repurposed files:
+
+- `server/src/config/chatDefaults.ts`
+- `server/src/config/codexConfig.ts`
+- `server/src/config/runtimeConfig.ts`
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md`
+- `projectStructure.md`
+- `server/src/codex/capabilityResolver.ts`
+- `server/src/config/chatDefaults.ts`
+- `server/src/config/codexConfig.ts`
+- `server/src/config/codexEnvDefaults.ts`
+- `server/src/config/runtimeConfig.ts`
+- `server/src/mcp2/tools/codebaseQuestion.ts`
+- `server/src/routes/chatModels.ts`
+- `server/src/routes/chatProviders.ts`
+- `server/src/routes/chatValidators.ts`
+- `server/src/test/integration/mcp-codex-wrapper.test.ts`
+- `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+- `server/src/test/unit/capabilityResolver.test.ts`
+- `server/src/test/unit/chatModels.codex.test.ts`
+- `server/src/test/unit/chatProviders.test.ts`
+- `server/src/test/unit/chatValidators.test.ts`
+- `server/src/test/unit/codexConfig.test.ts`
+- `server/src/test/unit/codexEnvDefaults.test.ts`
+- `server/src/test/unit/config.chatDefaults.test.ts`
+- `server/src/test/unit/runtimeConfig.test.ts`
+
 ## Story 0000046 final implementation footprint
 
 Added files:

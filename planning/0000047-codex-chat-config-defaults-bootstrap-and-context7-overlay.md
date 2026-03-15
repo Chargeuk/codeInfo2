@@ -216,7 +216,7 @@ This should only be started once all the above sections are clear and understood
 ### 1. Merge The Chat Config Model Into Shared Codex Resolution
 
 - Task Status: `__done__`
-- Git Commits: `8310d88a`, `90181fa1`, `3d78c667`
+- Git Commits: `8310d88a`, `90181fa1`, `3d78c667`, `ca88f36d`
 
 #### Overview
 
@@ -317,7 +317,7 @@ Do not attempt to run builds or tests without the summary wrappers. Log review r
 ### 2. Seed `codex/config.toml` From One Canonical In-Code Template
 
 - Task Status: `__done__`
-- Git Commits: `2f6e8760`, `abd53a3c`, `138b349e`, `8e824933`, `df0817e2`
+- Git Commits: `2f6e8760`, `abd53a3c`, `138b349e`, `8e824933`, `df0817e2`, `1b1af734`
 
 #### Overview
 
@@ -400,7 +400,7 @@ Do not attempt to run builds or tests without the summary wrappers. Log review r
 ### 3. Bootstrap `codex/chat/config.toml` Directly From The Canonical Chat Template
 
 - Task Status: `__done__`
-- Git Commits: `1ad51f49`, `460f1df9`, `b6d7ce29`
+- Git Commits: `1ad51f49`, `460f1df9`, `b6d7ce29`, `f9c8966e`
 
 #### Overview
 

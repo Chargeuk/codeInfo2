@@ -1948,3 +1948,26 @@ Modified files (implementation traceability):
 Task notes:
 
 - Task 14 changed existing runtime files only; the documentation update is limited to structure/traceability because no user-visible flow behavior or design contract changed beyond the runtime typing cleanup itself.
+
+## Story 0000047 Task 7 structural verification ledger
+
+Added files:
+
+- `planning/0000047-pr-summary.md`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `projectStructure.md` — final Story 0000047 verification ledger synchronized with the PR-summary artifact that Task 7 adds.
+- `planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md` — Task 7 verification progress, marker evidence, screenshot locations, and final closeout notes recorded in sequence.
+
+Task notes:
+
+- Task 7 adds the maintained PR-summary artifact under `planning/` and keeps screenshot evidence under `test-results/screenshots/` without listing those generated image files here.

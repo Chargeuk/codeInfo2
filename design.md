@@ -1014,7 +1014,7 @@ flowchart TD
 ## Story 0000047 Task 5: runtime-only Context7 API-key normalization
 
 - After shared base/runtime inheritance, runtime config loading now normalizes only the local stdio `mcp_servers.context7` shape that uses `command` plus `args`.
-- `CODEINFO_CONTEXT7_API_KEY` is the runtime source of truth for placeholder-equivalent Context7 `--api-key` values. The overlay is in-memory only and never rewrites `./codex/config.toml`, `./codex/chat/config.toml`, or agent TOML files on disk.
+- `CODEINFO_CONTEXT7_API_KEY` is the runtime source of truth whenever the local stdio Context7 definition has no usable key, including placeholder-equivalent `--api-key` values and the already-no-key args form. The overlay is in-memory only and never rewrites `./codex/config.toml`, `./codex/chat/config.toml`, or agent TOML files on disk.
 - Placeholder-equivalent values are:
   - `REPLACE_WITH_CONTEXT7_API_KEY`
   - `ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866`

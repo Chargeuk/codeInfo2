@@ -143,8 +143,8 @@ Corporate certificate directory requirements:
   - inherited additively when omitted by the runtime-specific file: `projects`, `mcp_servers`, `personality`, `tools`, `model_provider`, `model_providers`
   - still runtime-owned when present in the runtime-specific file: `model`, `approval_policy`, `sandbox_mode`, `web_search`
   - strict runtime readers still hard-fail on invalid base/runtime TOML, while chat-default fallback reads continue to warn and fall back without rewriting invalid chat files
-  - for local stdio `[mcp_servers.context7]` definitions that use `command` plus `args`, `CODEINFO_CONTEXT7_API_KEY` is now the runtime source of truth for placeholder-equivalent `--api-key` values; the overlay happens in memory only and never rewrites the TOML files on disk
-  - placeholder-equivalent Context7 values are treated as unusable and normalize to either the env overlay or the no-key args form `['-y', '@upstash/context7-mcp']`
+  - for local stdio `[mcp_servers.context7]` definitions that use `command` plus `args`, `CODEINFO_CONTEXT7_API_KEY` is now the runtime source of truth whenever no usable key is present, including placeholder-equivalent `--api-key` values and the already-no-key args form; the overlay happens in memory only and never rewrites the TOML files on disk
+  - placeholder-equivalent Context7 values are treated as unusable and normalize to either the env overlay or the no-key args form `['-y', '@upstash/context7-mcp']`; if the args are already in that no-key form and the env var is non-empty, runtime appends `--api-key <env>` in memory
 
 ## Codex (CLI)
 

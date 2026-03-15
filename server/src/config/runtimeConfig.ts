@@ -164,6 +164,13 @@ function normalizeContext7Args(params: {
 }): { args: unknown[]; mode: Context7NormalizationMode } {
   const apiKeyIndex = params.args.findIndex((entry) => entry === '--api-key');
   if (apiKeyIndex === -1) {
+    if (params.envApiKey) {
+      return {
+        args: [...params.args, '--api-key', params.envApiKey],
+        mode: 'env_overlay',
+      };
+    }
+
     return {
       args: [...params.args],
       mode: 'no_key_fallback',

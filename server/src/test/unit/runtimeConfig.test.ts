@@ -974,7 +974,28 @@ describe('runtimeConfig Context7 overlay', () => {
     });
   });
 
-  it('leaves an already-no-key Context7 args list unchanged', () => {
+  it('appends CODEINFO_CONTEXT7_API_KEY to an already-no-key Context7 args list in memory', () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+
+    const normalized = normalizeContext7RuntimeConfig({
+      mcp_servers: {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp'],
+        },
+      },
+    });
+
+    assert.equal(normalized.mode, 'env_overlay');
+    assert.deepEqual(normalized.config.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'],
+      },
+    });
+  });
+
+  it('leaves an already-no-key Context7 args list unchanged when the env key is blank', () => {
     process.env.CODEINFO_CONTEXT7_API_KEY = '   ';
 
     const normalized = normalizeContext7RuntimeConfig({
@@ -1140,6 +1161,38 @@ describe('runtimeConfig Context7 overlay', () => {
           '[mcp_servers.context7]',
           'command = "npx"',
           'args = ["-y", "@upstash/context7-mcp", "--api-key", "REPLACE_WITH_CONTEXT7_API_KEY"]',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
+
+      const resolved = await resolveChatRuntimeConfig({ codexHome });
+
+      assert.deepEqual(resolved.config.mcp_servers, {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'],
+        },
+      });
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves chat runtime with an inherited no-key Context7 definition overlaid from CODEINFO_CONTEXT7_API_KEY', async () => {
+    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          'args = ["-y", "@upstash/context7-mcp"]',
           '',
         ].join('\n'),
         'utf8',

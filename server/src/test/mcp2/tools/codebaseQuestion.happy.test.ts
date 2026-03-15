@@ -703,3 +703,72 @@ test('codebase_question receives the same inherited overlaid Context7 definition
     });
   }
 });
+
+test('codebase_question overlays CODEINFO_CONTEXT7_API_KEY onto inherited no-key Context7 args', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
+  const originalContext7ApiKey = process.env.CODEINFO_CONTEXT7_API_KEY;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+  resetStore();
+  const capturingChat = new CapturingChat();
+  const tempHome = await withTempCodexHome({
+    baseToml: [
+      '[mcp_servers.context7]',
+      'command = "npx"',
+      'args = ["-y", "@upstash/context7-mcp"]',
+      '',
+    ].join('\n'),
+    chatToml: 'model = "chat-model"\n',
+  });
+  process.env.CODEX_HOME = tempHome.codexHome;
+  process.env.CODEINFO_CODEX_HOME = tempHome.codexHome;
+  setToolDeps({
+    clientFactory: makeLmStudioClientFactory(),
+    chatFactory: () => capturingChat,
+  });
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const response = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 133,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: { question: 'Overlay the inherited no-key Context7 args' },
+      },
+    });
+
+    assert.ok(response.result);
+    const runtimeConfig = capturingChat.lastFlags?.runtimeConfig as
+      | Record<string, unknown>
+      | undefined;
+    assert.deepEqual(runtimeConfig?.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'],
+      },
+    });
+  } finally {
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    if (originalCodeinfoHome === undefined)
+      delete process.env.CODEINFO_CODEX_HOME;
+    else process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+    if (originalContext7ApiKey === undefined)
+      delete process.env.CODEINFO_CONTEXT7_API_KEY;
+    else process.env.CODEINFO_CONTEXT7_API_KEY = originalContext7ApiKey;
+    await tempHome.cleanup();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
+});

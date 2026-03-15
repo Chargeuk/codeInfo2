@@ -28,7 +28,8 @@ Observed Story 47 runtime markers during final verification:
 - `DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP` observed with `outcome: 'existing'`, `template_source: 'in_code'`, and `success: true`.
 - `DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP` observed with `outcome: 'existing'`, `source: 'chat_template'`, and `success: true`.
 - `DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED` observed for both `surface: 'chat'` and `surface: 'agent'` with `success: true`.
-- `DEV_0000047_T05_CONTEXT7_NORMALIZED` observed from the live server image with a temporary no-key runtime home plus `CODEINFO_CONTEXT7_API_KEY=ctx7sk-real`, reporting `mode: 'env_overlay'`, `surface: 'chat'`, and `success: true`; the resolved args were `["-y","@upstash/context7-mcp","--api-key","ctx7sk-real"]`.
+- Earlier Task 5 live-image proof scenario: `DEV_0000047_T05_CONTEXT7_NORMALIZED` was observed with a temporary no-key runtime home plus `CODEINFO_CONTEXT7_API_KEY=ctx7sk-real`, reporting `mode: 'env_overlay'`, `surface: 'chat'`, and `success: true`; the resolved args were `["-y","@upstash/context7-mcp","--api-key","ctx7sk-real"]`.
+- Final Task 18 compose-backed closeout proof scenario: `DEV_0000047_T05_CONTEXT7_NORMALIZED` was observed during the host-port verification at `http://host.docker.internal:5001/chat`, reporting `mode: 'no_key_fallback'`, `surface: 'chat'`, and `success: true`.
 
 Final verification results:
 
@@ -39,7 +40,7 @@ Final verification results:
 - `npm run test:summary:client` passed with `tests run: 544`, `passed: 544`, `failed: 0`.
 - `npm run test:summary:e2e` passed with `tests run: 40`, `passed: 40`, `failed: 0`.
 - `npm run compose:build:summary` passed with `items passed: 2` and `items failed: 0`.
-- Manual Playwright-MCP verification against `http://host.docker.internal:5001/chat` confirmed the chat UI still loaded with provider `codex`, model `gpt-5.1-codex-mini`, a successful `ok` response, and no browser console errors after the malformed-alias validation repair.
+- Manual Playwright-MCP verification against `http://host.docker.internal:5001/chat` confirmed the chat UI still loaded with provider `codex`, model `gpt-5.1-codex-mini`, a successful `ok` response, no browser console errors, and the final closeout T05 marker scenario `mode: 'no_key_fallback'` after the malformed-alias validation repair.
 - `npm run compose:up` and `npm run compose:down` both completed cleanly around the manual host-port verification pass.
 - `git diff --name-status main...HEAD -- planning projectStructure.md` now shows only Story 47 planning artifacts after the Task 9 cleanup.
 

@@ -1840,7 +1840,7 @@ The current pass durable review artifacts that must be committed alongside the p
 
 ### 19. Align Maintained Story 47 Final-Proof Summary With Task 18 Evidence
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: _(pending)_
 
 #### Overview
@@ -1870,10 +1870,10 @@ Repair the maintained Story 47 evidence summary so the final recorded `DEV_00000
 
 #### Subtasks
 
-1. [ ] Re-read [codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-evidence.md) and [codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md), then write down in working notes the exact ambiguity to remove before editing the summary.
-2. [ ] Update [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) so the final Story 47 `DEV_0000047_T05_CONTEXT7_NORMALIZED` evidence is either aligned to the final Task 18 proof or explicitly split into clearly labeled earlier-versus-final proof scenarios.
-3. [ ] Re-read the updated [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) beside Task 18 in this plan and confirm that a reviewer can now tell which T05 mode belongs to the final closeout pass without needing to infer intent.
-4. [ ] Update this plan file’s Task 19 `Implementation notes` with the exact summary change, why it resolves the ambiguity, and whether any runtime behavior claim had to change.
+1. [x] Re-read [codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-evidence.md) and [codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T233217Z-fba698b0-findings.md), then write down in working notes the exact ambiguity to remove before editing the summary.
+2. [x] Update [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) so the final Story 47 `DEV_0000047_T05_CONTEXT7_NORMALIZED` evidence is either aligned to the final Task 18 proof or explicitly split into clearly labeled earlier-versus-final proof scenarios.
+3. [x] Re-read the updated [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) beside Task 18 in this plan and confirm that a reviewer can now tell which T05 mode belongs to the final closeout pass without needing to infer intent.
+4. [x] Update this plan file’s Task 19 `Implementation notes` with the exact summary change, why it resolves the ambiguity, and whether any runtime behavior claim had to change.
 5. [ ] Record the Task 19 commit hash in this plan once the evidence-alignment edit is complete.
 
 #### Testing
@@ -1882,7 +1882,9 @@ Do not attempt to run tests without using the summary wrappers. This task is doc
 
 #### Implementation notes
 
-- Not started yet.
+- Re-read the current review evidence and findings and locked the Task 19 ambiguity to one narrow point: [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) still presents `DEV_0000047_T05_CONTEXT7_NORMALIZED` as final `mode: 'env_overlay'`, while Task 18 records the final compose-backed closeout proof as `mode: 'no_key_fallback'`.
+- Updated [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) to keep both valid T05 proof scenarios but label them explicitly as the earlier Task 5 live-image `env_overlay` check versus the final Task 18 compose-backed `no_key_fallback` closeout proof.
+- Re-read the updated summary beside Task 18 and confirmed a reviewer can now tell which T05 mode belongs to the final closeout pass without inferring intent; no runtime behavior claim changed, only the maintained evidence wording became explicit.
 
 ---
 

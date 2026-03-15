@@ -11,13 +11,15 @@ Post-review fix status:
 - Task 14 reran the full regression and manual validation stack after the marker-contract repair and confirmed the Story 47 behavior remained green end to end.
 - Task 15 closed the final reopened `should_fix` by restoring mixed-shape `features.view_image_tool` compatibility when runtime configs already contain unrelated `tools` entries but omit canonical `tools.view_image`.
 - Task 16 reran the full regression and manual validation stack after that mixed-shape repair and confirmed the Story 47 behavior remains green end to end.
+- Task 17 closed the latest reopened `should_fix` by preserving malformed legacy alias values such as `features.view_image_tool = "maybe"` and `features.web_search_request = "sometimes"` until runtime validation rejects them instead of letting normalization delete them silently.
+- Task 18 reran the full regression and manual validation stack after the malformed-alias repair and confirmed the Story 47 behavior remains green end to end.
 
 Implementation highlights:
 
 - `server/src/config/chatDefaults.ts`, `server/src/codex/capabilityResolver.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chatProviders.ts`, `server/src/routes/chatValidators.ts`, and `server/src/mcp2/tools/codebaseQuestion.ts` now share the same Codex-aware default/model resolution behavior.
 - `server/src/config/chatDefaults.ts` now also provides the shared normalization helpers that keep Story 47 marker `model_source` fields consistent across REST and MCP emitters while preserving the raw Codex source under `codex_model_source` when that detail is still operationally useful.
 - `server/src/config/codexConfig.ts` now seeds missing base config from one canonical in-code template using `model = "gpt-5.3-codex"` and no seeded Context7 `--api-key` pair.
-- `server/src/config/runtimeConfig.ts` now seeds missing chat config directly from the canonical chat template, preserves additive/shared base inheritance for chat and agent runtime config, applies Context7 runtime-only normalization after inheritance, and preserves malformed merged-table scalar values long enough for the existing validation path to reject them.
+- `server/src/config/runtimeConfig.ts` now seeds missing chat config directly from the canonical chat template, preserves additive/shared base inheritance for chat and agent runtime config, applies Context7 runtime-only normalization after inheritance, preserves malformed merged-table scalar values long enough for the existing validation path to reject them, and keeps malformed legacy alias values visible to validation instead of normalizing them away.
 - `README.md`, `design.md`, `projectStructure.md`, and `planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md` now document the final acceptance mapping and Story 47 verification markers.
 
 Observed Story 47 runtime markers during final verification:
@@ -32,12 +34,12 @@ Final verification results:
 
 - `npm run build:summary:server` passed with `status: passed` and `warning_count: 0`.
 - `npm run build:summary:client` passed with `status: passed` and `warning_count: 0`.
-- `npm run test:summary:server:unit` passed with `tests run: 1212`, `passed: 1212`, `failed: 0`.
+- `npm run test:summary:server:unit` passed with `tests run: 1215`, `passed: 1215`, `failed: 0`.
 - `npm run test:summary:server:cucumber` passed with `tests run: 71`, `passed: 71`, `failed: 0`.
 - `npm run test:summary:client` passed with `tests run: 544`, `passed: 544`, `failed: 0`.
 - `npm run test:summary:e2e` passed with `tests run: 40`, `passed: 40`, `failed: 0`.
 - `npm run compose:build:summary` passed with `items passed: 2` and `items failed: 0`.
-- Manual Playwright-MCP verification against `http://host.docker.internal:5001/chat` confirmed the chat UI still loaded with provider `codex`, model `gpt-5.1-codex-mini`, a successful `ok` response, and no browser console errors after the mixed-shape alias repair.
+- Manual Playwright-MCP verification against `http://host.docker.internal:5001/chat` confirmed the chat UI still loaded with provider `codex`, model `gpt-5.1-codex-mini`, a successful `ok` response, and no browser console errors after the malformed-alias validation repair.
 - `npm run compose:up` and `npm run compose:down` both completed cleanly around the manual host-port verification pass.
 - `git diff --name-status main...HEAD -- planning projectStructure.md` now shows only Story 47 planning artifacts after the Task 9 cleanup.
 

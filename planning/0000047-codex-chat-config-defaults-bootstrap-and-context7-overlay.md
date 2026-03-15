@@ -235,12 +235,12 @@ Update the shared server-side Codex resolution path so the model in `codex/chat/
 
 #### Documentation Locations
 
-- JavaScript `Set` iteration order: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set. Use this when implementing deterministic first-seen deduplication.
-- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). Use this to confirm model/provider settings are layered config, not route-specific special cases.
-- React 19 docs: Context7 `/facebook/react/v19_2_0`. Use this only for the unchanged client verification path that rerenders from state updates and controlled inputs.
-- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md. Use this only for the unchanged controlled-select verification path.
-- MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md. Use this only for the unchanged controlled-select verification path.
-- MUI MenuItem API: https://llms.mui.com/material-ui/6.4.12/api/menu-item.md. Use this only for the unchanged controlled-select verification path.
+- JavaScript `Set` iteration order: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set. This page documents insertion-order iteration, which is the reason `Array.from(new Set(...))` is the right minimal rule for deduplicating the merged model list without reordering the env list.
+- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). This page explains layer precedence, load-time merges, and runtime config reads, which is why it is the correct source for deciding whether model/default behavior belongs in shared Codex config resolution instead of route-specific code.
+- React controlled inputs and rerenders: Context7 `/facebook/react/v19_2_0`, specifically the `react-dom/components/input` docs. This is the correct React reference for the unchanged client path because it shows how `value` plus `onChange` state updates rerender the existing controlled model selector.
+- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md. This page shows the `select` prop and the `select` slot, which is the reason it is the right documentation for the existing `TextField`-based chat model selector.
+- MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md. This page documents `value`, `onChange`, `open`, and menu behavior, which is the right reference for verifying the existing controlled provider/model dropdown flow.
+- MUI MenuItem API: https://llms.mui.com/material-ui/6.4.12/api/menu-item.md. This page documents the option component rendered inside `Select` and `TextField select`, which is why it is the correct source for the unchanged option-list behavior.
 
 #### Subtasks
 
@@ -293,9 +293,9 @@ Replace the base-config bootstrap split-brain behavior with one in-code source o
 
 #### Documentation Locations
 
-- Node.js file copy and write semantics: https://nodejs.org/api/fs.html. Use this to preserve non-overwrite behavior while removing `config.toml.example` from runtime bootstrap.
-- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). Use this to confirm the base config remains a first-class Codex config layer.
-- Context7 repository documentation: https://github.com/upstash/context7. Use this only to keep the seeded Context7 MCP server shape aligned with the repository’s documented local stdio form.
+- Node.js `node:fs` bootstrap semantics: Context7 `/nodejs/node`, specifically the `fs.copyFile`, `COPYFILE_EXCL`, `open` flags, and `fs.writeFile` documentation in the `node:fs` API. These docs are the correct reference for this task because they explain which file operations overwrite existing files by default and which patterns preserve first-writer-wins bootstrap behavior.
+- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). This is the right Codex reference because it explains why `codex/config.toml` is a real configuration layer and must stay part of layered runtime resolution even when bootstrap becomes in-code only.
+- Context7 repository documentation: https://github.com/upstash/context7. The README documents the local stdio MCP shape using `command = "npx"` with `args = ["-y", "@upstash/context7-mcp", "--api-key", "..."]`, which is why it is the correct external reference when cleaning the seeded base template without changing the MCP server contract.
 
 #### Subtasks
 
@@ -344,8 +344,8 @@ Make missing chat-config bootstrap deterministic and independent from the base c
 
 #### Documentation Locations
 
-- Node.js `COPYFILE_EXCL` and file-existence semantics: https://nodejs.org/api/fs.html. Use this to preserve safe bootstrap behavior while changing how the missing chat config is created.
-- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). Use this to confirm that chat config may be minimal while other runtime config still comes from layered base config resolution.
+- Node.js `node:fs` bootstrap semantics: Context7 `/nodejs/node`, specifically the `fs.copyFile`, `COPYFILE_EXCL`, `open` flags, and `fs.writeFile` documentation in the `node:fs` API. These docs explain why the missing chat file can be written directly from a canonical template while still preserving no-overwrite behavior when the target path already exists.
+- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). This is the correct Codex reference for this task because it explains that a runtime-specific config file may stay minimal while shared behavior still comes from layered base config resolution.
 
 #### Subtasks
 
@@ -394,8 +394,8 @@ Preserve the shared base-only runtime config that execution still needs once cha
 
 #### Documentation Locations
 
-- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). Use this to confirm that `mcp_servers`, `model_provider`, and `model_providers` are documented Codex config fields that may live in the base config and must remain available through layered resolution.
-- TOML format reference: https://toml.io/en/. Use this only to stay grounded in the existing table structure while preserving `projects`, `mcp_servers`, and top-level runtime settings.
+- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). This page is the correct source for this task because it describes layered config precedence and confirms that fields such as `mcp_servers`, `model_provider`, and `model_providers` are part of the shared configuration model rather than route-specific data.
+- TOML specification: https://toml.io/en/v1.1.0. This is the right format reference for this task because it documents tables, dotted keys, and top-level key/value structure, which are the exact TOML rules that matter when explicitly inheriting `projects`, `mcp_servers`, and base-only top-level settings.
 
 #### Subtasks
 
@@ -446,8 +446,8 @@ Add the in-memory Context7 normalization step so runtime config loading treats p
 
 #### Documentation Locations
 
-- Context7 repository documentation: https://github.com/upstash/context7. Use this only to confirm the local stdio `npx` + `args` shape and the no-key usage pattern already documented in the story.
-- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). Use this to confirm that the Context7 server definition is still flowing through the shared layered runtime config path.
+- Context7 repository documentation: https://github.com/upstash/context7. The README shows the supported local stdio MCP configuration using `npx` plus an `args` array and explains that an API key is optional but recommended, which is why it is the correct external source for the placeholder-key and no-key fallback behavior in this task.
+- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). This is the right Codex reference because it explains the shared layered runtime read path that the in-memory Context7 overlay must plug into after base/runtime inheritance.
 
 #### Subtasks
 
@@ -495,12 +495,12 @@ Prepare the story for final proof by updating the human-facing documentation and
 
 #### Documentation Locations
 
-- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). Use this to keep the documentation aligned with layered config behavior rather than repo-specific guesses.
-- Context7 repository documentation: https://github.com/upstash/context7. Use this to keep the runtime overlay documentation aligned with the documented local stdio MCP shape.
-- React 19 docs: Context7 `/facebook/react/v19_2_0`. Use this only for the unchanged client verification wording.
-- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md. Use this only for the unchanged controlled-select verification wording.
-- MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md. Use this only for the unchanged controlled-select verification wording.
-- MUI MenuItem API: https://llms.mui.com/material-ui/6.4.12/api/menu-item.md. Use this only for the unchanged controlled-select verification wording.
+- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). This page is the right source for the docs sweep because it explains how layered config reads and precedence work, which the story documentation now needs to describe accurately.
+- Context7 repository documentation: https://github.com/upstash/context7. The README documents the local stdio MCP setup and optional API-key behavior, which is why it is the correct source when writing the final `CODEINFO_CONTEXT7_API_KEY` documentation.
+- React controlled inputs and rerenders: Context7 `/facebook/react/v19_2_0`, specifically the `react-dom/components/input` docs. This is the right React reference for the documentation sweep because it explains why the existing client selector rerenders correctly from server-fed state without a story-specific UI rewrite.
+- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md. This page is the correct MUI reference because it documents the `select` prop used by the existing client path.
+- MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md. This page is the correct MUI reference because it documents the controlled select behavior that the existing client already uses.
+- MUI MenuItem API: https://llms.mui.com/material-ui/6.4.12/api/menu-item.md. This page is the correct MUI reference because it documents the option rows rendered by the existing select UI.
 
 #### Subtasks
 
@@ -544,16 +544,16 @@ Run the full story-level proof that all completed changes work together in the r
 
 #### Documentation Locations
 
-- Docker Compose documentation: Context7 `/docker/compose`.
-- Playwright documentation: Context7 `/microsoft/playwright`.
-- Jest documentation: Context7 `/jestjs/jest`.
-- Cucumber guides: https://cucumber.io/docs/guides/.
-- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). Use this to keep the final verification grounded in the layered config contract.
-- Context7 repository documentation: https://github.com/upstash/context7. Use this to keep the final verification grounded in the documented local stdio MCP shape and no-key behavior.
-- React 19 docs: Context7 `/facebook/react/v19_2_0`. Use this only to confirm the unchanged client rerender behavior.
-- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md. Use this only to confirm the unchanged controlled-select UI behavior.
-- MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md. Use this only to confirm the unchanged controlled-select UI behavior.
-- MUI MenuItem API: https://llms.mui.com/material-ui/6.4.12/api/menu-item.md. Use this only to confirm the unchanged controlled-select UI behavior.
+- Docker Compose lifecycle commands: Context7 `/docker/compose`, specifically the `docker compose up`, `docker compose down`, `docker compose start`, and `docker compose stop` docs. These are the correct Docker references for this task because the final verification step depends on bringing the stack up cleanly, checking it, and tearing it down again.
+- Playwright screenshots and screenshot assertions: Context7 `/microsoft/playwright`, specifically the screenshot guide and `LocatorAssertions.toHaveScreenshot`. These are the correct Playwright references for this task because the final proof requires saving stable manual evidence into `test-results/screenshots/`.
+- Jest snapshot and expect API docs: Context7 `/jestjs/jest`, specifically snapshot testing and `Expect` matcher guidance. This is the right Jest reference for final verification because it explains how snapshot-style evidence and matcher failures are expected to behave when reviewing client-side test output.
+- Cucumber Continuous Integration guide: https://cucumber.io/docs/guides/continuous-integration/. This is the right Cucumber guide for this task because it explains non-zero exit behavior and build-server execution expectations, which are the parts that matter when interpreting wrapper-based cucumber pass/fail results.
+- Codex config layering reference: DeepWiki `openai/codex`, page `Config API and Layer System` (`/wiki/openai/codex#4.5.4` in the DeepWiki MCP tool). This keeps final verification grounded in the actual layered Codex config contract that the story changes.
+- Context7 repository documentation: https://github.com/upstash/context7. The README is the correct source here because it documents the local stdio MCP shape and optional API-key behavior that final verification must preserve.
+- React controlled inputs and rerenders: Context7 `/facebook/react/v19_2_0`, specifically the `react-dom/components/input` docs. This is the correct React reference for confirming why the unchanged client selector should reflect refreshed server data.
+- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md. This page is the right MUI reference because it documents the `select` prop used by the existing client control.
+- MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md. This page is the right MUI reference because it documents the controlled dropdown behavior the existing client already uses.
+- MUI MenuItem API: https://llms.mui.com/material-ui/6.4.12/api/menu-item.md. This page is the right MUI reference because it documents the option rows rendered inside the unchanged select UI.
 
 #### Subtasks
 

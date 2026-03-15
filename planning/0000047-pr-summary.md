@@ -7,11 +7,13 @@ Post-review fix status:
 - Task 8 closed the first reopened `must_fix` by appending `--api-key <env>` in memory when Context7 already uses the canonical no-key args form.
 - Task 9 closed the `should_fix` planning-scope finding by removing unrelated future-story planning drift so the branch diff is back to Story 47 artifacts only.
 - Task 11 closed the external-review `must_fix` by preserving malformed merged-table scalar values for keys like `mcp_servers` and `tools` until runtime validation rejects them instead of silently normalizing them away.
-- The external review's `optional_simplification` around mixed `model_source` marker vocabularies remains intentionally deferred because the final revalidation kept it in the observability-cleanup category rather than elevating it into a correctness defect.
+- Task 13 closed the latest reopened `should_fix` by normalizing `DEV_0000047_T01_CODEX_DEFAULTS_APPLIED` so every touched Story 47 REST and MCP surface now emits the same `model_source` vocabulary, while retaining raw Codex source separately as `codex_model_source` where needed.
+- Task 14 reran the full regression and manual validation stack after the marker-contract repair and confirmed the Story 47 behavior remains green end to end.
 
 Implementation highlights:
 
 - `server/src/config/chatDefaults.ts`, `server/src/codex/capabilityResolver.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chatProviders.ts`, `server/src/routes/chatValidators.ts`, and `server/src/mcp2/tools/codebaseQuestion.ts` now share the same Codex-aware default/model resolution behavior.
+- `server/src/config/chatDefaults.ts` now also provides the shared normalization helpers that keep Story 47 marker `model_source` fields consistent across REST and MCP emitters while preserving the raw Codex source under `codex_model_source` when that detail is still operationally useful.
 - `server/src/config/codexConfig.ts` now seeds missing base config from one canonical in-code template using `model = "gpt-5.3-codex"` and no seeded Context7 `--api-key` pair.
 - `server/src/config/runtimeConfig.ts` now seeds missing chat config directly from the canonical chat template, preserves additive/shared base inheritance for chat and agent runtime config, applies Context7 runtime-only normalization after inheritance, and preserves malformed merged-table scalar values long enough for the existing validation path to reject them.
 - `README.md`, `design.md`, `projectStructure.md`, and `planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md` now document the final acceptance mapping and Story 47 verification markers.
@@ -28,7 +30,7 @@ Final verification results:
 
 - `npm run build:summary:server` passed with `status: passed` and `warning_count: 0`.
 - `npm run build:summary:client` passed with `status: passed` and `warning_count: 0`.
-- `npm run test:summary:server:unit` passed with `tests run: 1208`, `passed: 1208`, `failed: 0`.
+- `npm run test:summary:server:unit` passed with `tests run: 1211`, `passed: 1211`, `failed: 0`.
 - `npm run test:summary:server:cucumber` passed with `tests run: 71`, `passed: 71`, `failed: 0`.
 - `npm run test:summary:client` passed with `tests run: 544`, `passed: 544`, `failed: 0`.
 - `npm run test:summary:e2e` passed with `tests run: 43`, `passed: 43`, `failed: 0`.
@@ -36,6 +38,11 @@ Final verification results:
 - Manual Playwright-MCP verification against `http://host.docker.internal:5001/chat` confirmed the chat UI still loaded with provider `codex`, model `gpt-5.1-codex-mini`, a successful `ok` response, and no browser console errors.
 - `npm run compose:up` and `npm run compose:down` both completed cleanly around the manual host-port verification pass.
 - `git diff --name-status main...HEAD -- planning projectStructure.md` now shows only Story 47 planning artifacts after the Task 9 cleanup.
+
+Remaining indirect-proof areas:
+
+- AC13 `existing client contract remains usable without response-shape change` remains indirect because the current proof still relies on unchanged client/type contracts plus the green wrapper and manual runtime coverage instead of a dedicated response-shape snapshot artifact.
+- AC36 `public REST and MCP payload shapes remain unchanged` remains indirect for the same reason; this review cycle intentionally repaired the shared marker contract without introducing a new payload-contract snapshot.
 
 Saved evidence:
 

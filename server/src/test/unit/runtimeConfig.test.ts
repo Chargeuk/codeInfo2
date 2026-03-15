@@ -48,6 +48,16 @@ describe('runtimeConfig normalization', () => {
     assert.deepEqual(normalized.features, { keep_this: true });
   });
 
+  it('preserves mixed-shape tools entries while restoring view_image from the legacy alias', () => {
+    const normalized = normalizeRuntimeConfig({
+      features: { view_image_tool: true, keep_this: true },
+      tools: { web_search: false },
+    });
+
+    assert.deepEqual(normalized.tools, { web_search: false, view_image: true });
+    assert.deepEqual(normalized.features, { keep_this: true });
+  });
+
   it('normalizes legacy web_search aliases to canonical web_search', () => {
     const normalized = normalizeRuntimeConfig({
       features: { web_search_request: false },

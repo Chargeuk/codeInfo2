@@ -269,7 +269,7 @@ export function normalizeRuntimeConfig(
     ? { ...rawTools }
     : ({} as Record<string, unknown>);
 
-  if (!hasCanonicalViewImage && !hasCanonicalTools && hasOwn(features, 'view_image_tool')) {
+  if (!hasCanonicalViewImage && hasOwn(features, 'view_image_tool')) {
     const viewImage = toBoolean(features.view_image_tool);
     if (viewImage !== undefined) {
       tools.view_image = viewImage;

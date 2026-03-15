@@ -1301,7 +1301,7 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 
 ### 12. Revalidate Story 47 After External Review Repair
 
-- Task Status: `__todo__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

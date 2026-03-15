@@ -947,7 +947,7 @@ The implemented Story 47 behavior is mostly appropriately scoped, but `server/sr
 
 ### 8. Restore Context7 Env Overlay For No-Key Definitions
 
-- Task Status: `__todo__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

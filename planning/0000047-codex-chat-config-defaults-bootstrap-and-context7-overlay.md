@@ -1662,3 +1662,135 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 - Passed `npm run compose:down`, which removed the validation stack cleanly after the final host-port manual verification.
 - Task 16 closes the reopened `should_fix` by pairing Task 15’s mixed-shape alias repair with this fresh full regression pass; AC13 and AC36 remain intentionally indirect because this cycle still does not add a dedicated payload-shape snapshot artifact, and no further simplification work was needed in this closeout pass.
 - Recorded the reopened-task ledger in this plan and returned Task 16 to `__done__` after the final revalidation pass completed cleanly.
+
+## Code Review Findings
+
+Story 47 was reviewed again against the active plan, the branch diff versus `main`, and the durable artifacts [codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-evidence.md) and [codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-findings.md). That review found one localized `should_fix` issue: malformed legacy alias values for `features.view_image_tool` and `features.web_search_request` can still be deleted by `normalizeRuntimeConfig()` before the existing runtime-config validator has a chance to reject them. Because the defect is inside a file already changed by Story 47, weakens validation correctness without changing public payloads, and is low risk to repair, the story is reopened for one focused validation-order fix plus one fresh full revalidation pass.
+
+Acceptance proof status for this pass remains:
+
+- AC1-7: `direct`
+- AC8: `indirect`
+- AC9-12: `direct`
+- AC13: `indirect`
+- AC14-35: `direct`
+- AC36: `indirect`
+
+No acceptance criterion is currently classified as `missing`, but the review exposed one generic engineering defect outside the original acceptance list: malformed legacy alias values can still normalize into success silently inside [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts). The implemented code remains appropriately succinct overall, but [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) is still the densest Story 47 surface and the normalization-before-validation path remains the clearest simplification hotspot because it currently hides malformed input instead of letting the existing validator reject it.
+
+The current pass durable review artifacts that must be committed alongside the plan change are:
+
+- [codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-evidence.md)
+- [codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-findings.md)
+
+---
+
+### 17. Preserve Validation Errors For Malformed Legacy Runtime Alias Values
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Repair the remaining validation-order defect in `server/src/config/runtimeConfig.ts` so malformed legacy alias values such as `features.view_image_tool = "maybe"` or `features.web_search_request = "sometimes"` are not silently deleted before validation. This task is intentionally scoped to legacy-alias normalization and validation behavior only; it must preserve the already-closed Story 47 mixed-shape compatibility repair and must not reopen bootstrap, marker, or payload-contract work.
+
+#### Must Not Miss
+
+- Keep the valid Story 47 alias behavior intact: usable legacy boolean values must still normalize into canonical `tools.view_image` / `web_search` behavior where the plan already requires that compatibility.
+- Preserve canonical-key precedence from Task 15: existing `tools.view_image` and canonical `web_search` remain authoritative when they are already present.
+- Malformed legacy alias values must remain visible long enough for the existing runtime-config validation path to reject them instead of being silently dropped.
+- Do not broaden this task into bootstrap-path behavior, marker-schema cleanup, or public REST/MCP payload changes.
+- Do not change the plan-authorized rule that existing unreadable files, directories, or invalid chat-config paths count as `existing` rather than `missing`.
+- Add direct regression coverage for malformed alias values, including mixed-shape inputs where legacy and canonical structures partially coexist.
+
+#### Documentation Locations
+
+- [codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-evidence.md): current evidence artifact for this reopened review cycle, including the top-risk helper analysis and the acceptance-proof map.
+- [codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-findings.md): current findings artifact defining the exact malformed-alias validation defect to repair.
+- [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts): current home of `normalizeRuntimeConfig()`, `parseTomlOrThrow()`, and `validateRuntimeConfig()` where the validation-order contract now needs repair.
+- [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts): existing runtime normalization, validation, and Context7/bootstrap proof file where malformed-alias regression coverage should be added.
+
+#### Junior Developer Notes
+
+- Read the new findings artifact first so you understand the exact defect: this is not another mixed-shape coexistence problem and it is not a bootstrap problem. The bug is that invalid legacy alias values disappear before the validator can reject them.
+- Keep the fix small. The target outcome is to preserve existing happy-path alias compatibility while letting malformed alias values fail through the existing validation contract.
+- When you add regression coverage, include at least one malformed `features.view_image_tool` case and one malformed `features.web_search_request` case. Also include a mixed-shape example where another related canonical field or table exists so the test proves malformed alias values are not hidden by coexistence logic.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-evidence.md) and [codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-findings.md), then record in working notes the exact defect to close: malformed legacy alias values must not normalize into success silently.
+2. [ ] Update the normalization/parse/validation flow in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) so invalid `features.view_image_tool` and `features.web_search_request` values remain available to the existing validator, while valid alias values still normalize as Story 47 requires.
+3. [ ] Add or update focused regression coverage in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) for malformed non-boolean legacy alias values, including at least one mixed-shape input where a related canonical structure also exists.
+4. [ ] Re-run the existing Story 47 runtime normalization assertions in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) that cover valid alias-only input, canonical-conflict input, and mixed-shape coexistence input so the fix does not regress the already-closed Story 47 behavior.
+5. [ ] Update this plan file’s Task 17 `Implementation notes` after the repair and tests are complete, including which malformed alias inputs now fail correctly and how the final flow preserves valid alias compatibility without hiding bad values.
+6. [ ] Update [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) only if the maintained Story 47 summary needs to mention the reopened malformed-alias validation repair before the final validation task closes the story again.
+
+#### Testing
+
+Do not attempt to run builds or tests without using the summary wrappers. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 18. Revalidate Story 47 After Malformed-Alias Validation Repair
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Run one fresh full-story validation pass after Task 17 so Story 47 can close again with the malformed-alias validation repair, the earlier Story 47 review fixes, and the final branch contents all reflected in the maintained evidence. This task is the new final acceptance gate and must re-check the full Story 47 contract rather than only the reopened validation-order defect.
+
+#### Must Not Miss
+
+- Re-check the current review findings artifact and prove that Task 17 closes the reopened `should_fix` before returning the story to `__done__`.
+- Revalidate the original Story 47 acceptance criteria, not only the malformed-alias validation repair.
+- Keep AC8, AC13, and AC36 explicitly indirect unless this task adds dedicated proof artifacts that move them to direct.
+- Refresh the maintained Story 47 summary artifacts so the final branch state records this reopened review cycle and its closeout.
+- Keep the transient handoff file out of the commit; only the durable evidence/findings artifacts for this review pass and the plan change belong in the final commit from this disposition cycle.
+
+#### Documentation Locations
+
+- [codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-evidence.md)
+- [codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-findings.md)
+- [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md)
+
+#### Junior Developer Notes
+
+- Treat this as a full story-close validation task. Do not rely on the earlier Task 16 wrapper results once Task 17 changes runtime-config validation flow.
+- The reopened review finding is generic engineering scope, but the final validation still needs to prove the full Story 47 acceptance set remains green after the validation-order repair.
+- If the Task 17 repair changes the maintained Story 47 summary or acceptance-proof notes, update them here before closing the story again.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-findings.md) and confirm in working notes that Task 17 fully closes the reopened `should_fix` before starting the final regression wrappers.
+2. [ ] Refresh [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) so it records the malformed-alias validation repair, the fresh Task 18 regression results, and the final disposition of any remaining indirect-proof areas.
+3. [ ] Update this plan file’s Task 18 `Implementation notes` after validation is complete, including which review finding was closed, which acceptance criteria remain indirect, and whether any simplification opportunities remain intentionally deferred.
+4. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained docs or structure ledger changed during Task 17.
+5. [ ] Record the git commit hashes for Tasks 17 and 18 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
+
+#### Testing
+
+Do not attempt to run builds or tests without using the summary wrappers. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP testing step to manually confirm Story 47 behavior and general regression health after the Task 17 malformed-alias validation repair. This must still verify that the chat page works at `http://host.docker.internal:5001`, that there are no logged browser-console errors, and that the runtime/config surfaces changed by Story 47 still behave as expected after the validation-order fix.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending.

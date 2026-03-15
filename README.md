@@ -130,8 +130,10 @@ Corporate certificate directory requirements:
 
 ## Codex config seed
 
-- The repo ships `config.toml.example` at the root. On server startup, if `${CODEINFO_CODEX_HOME:-./codex}/config.toml` is missing, it is copied from the example (the `codex/` directory is git-ignored).
+- On server startup, if `${CODEINFO_CODEX_HOME:-./codex}/config.toml` is missing, the server writes one canonical in-code base template to that path (the `codex/` directory is git-ignored).
+- `config.toml.example` may remain in the repo as a human-facing sample, but runtime bootstrap does not read, parse, or copy it.
 - Customize `./codex/config.toml` after the first run; subsequent starts leave your edits intact.
+- Fresh base bootstrap uses `model = "gpt-5.3-codex"` and seeds Context7 in the no-key local stdio form `args = ['-y', '@upstash/context7-mcp']`; it does not seed any checked-in or placeholder `--api-key` pair.
 - Chat runtime config bootstrap (`./codex/chat/config.toml`) is deterministic and non-destructive:
   - if chat config exists: no overwrite (`existing_noop`).
   - if chat config is missing and base config exists: copy `./codex/config.toml` once (`copied`).
@@ -143,7 +145,7 @@ Corporate certificate directory requirements:
 - Install CLI (host): `npm install -g @openai/codex` and log in.
 - Login (host only): run `CODEX_HOME=./codex codex login` (or keep your existing `~/.codex`); Docker Compose mounts `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` to `/host/codex` and copies `auth.json` into `/app/codex` on startup when missing, so a separate container login is not required.
   - Note: `CODEX_HOME` is frequently set by Codex/agent environments; use `CODEINFO_HOST_CODEX_HOME` (not `CODEX_HOME`) when you need Compose to mount a specific host Codex home.
-- Codex home: `CODEINFO_CODEX_HOME=./codex` (mounted to `/app/codex` in Docker); seeded from `config.toml.example` on first start—edit `./codex/config.toml` after seeding to add MCP servers or overrides.
+- Codex home: `CODEINFO_CODEX_HOME=./codex` (mounted to `/app/codex` in Docker); seeded from the canonical in-code base template on first start. Edit `./codex/config.toml` after seeding to add MCP servers or overrides.
 - Behaviour when missing: if the CLI, `auth.json`, or `config.toml` are absent (and no host auth is available to copy), Codex stays disabled; startup logs explain which prerequisite is missing and the chat UI shows a disabled-state banner.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
 - Server SDK pin and runtime guard are coupled:

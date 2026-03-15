@@ -6,6 +6,12 @@ import path from 'node:path';
 import { describe, it, mock } from 'node:test';
 
 import {
+  ensureCodexConfigSeeded,
+  getCodexChatConfigPathForHome,
+  getCodexConfigPathForHome,
+  getCodexHome,
+} from '../../config/codexConfig.js';
+import {
   ensureChatRuntimeConfigBootstrapped,
   loadRuntimeConfigSnapshot,
   mergeProjectsFromBaseIntoRuntime,
@@ -149,6 +155,57 @@ describe('runtimeConfig bootstrap', () => {
       await fs.access(chatConfigPath);
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('ignores config.toml.example and codex/chat/config copy.toml during runtime bootstrap', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const codexHome = path.join(tempRoot, 'codex-home');
+    const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
+    const originalCwd = process.cwd();
+
+    try {
+      process.env.CODEINFO_CODEX_HOME = codexHome;
+      process.chdir(tempRoot);
+      await fs.writeFile(
+        path.join(tempRoot, 'config.toml.example'),
+        'model = "from-example"\n',
+        'utf8',
+      );
+      await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+      await fs.writeFile(
+        path.join(codexHome, 'chat', 'config copy.toml'),
+        'model = "from-copy-template"\n',
+        'utf8',
+      );
+
+      const seededBasePath = ensureCodexConfigSeeded();
+      const bootstrapResult = await ensureChatRuntimeConfigBootstrapped({
+        codexHome: getCodexHome(),
+      });
+      const baseConfig = await fs.readFile(
+        getCodexConfigPathForHome(codexHome),
+        'utf8',
+      );
+      const chatConfig = await fs.readFile(
+        getCodexChatConfigPathForHome(codexHome),
+        'utf8',
+      );
+
+      assert.equal(seededBasePath, getCodexConfigPathForHome(codexHome));
+      assert.match(baseConfig, /model = "gpt-5\.3-codex"/u);
+      assert.doesNotMatch(baseConfig, /from-example/u);
+      assert.equal(bootstrapResult.branch, 'copied');
+      assert.match(chatConfig, /model = "gpt-5\.3-codex"/u);
+      assert.doesNotMatch(chatConfig, /from-copy-template/u);
+    } finally {
+      process.chdir(originalCwd);
+      if (originalCodeinfoHome === undefined) {
+        delete process.env.CODEINFO_CODEX_HOME;
+      } else {
+        process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+      }
+      await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
 

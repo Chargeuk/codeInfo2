@@ -2675,6 +2675,29 @@ sequenceDiagram
   end
 ```
 
+### Story 47 Task 2 base config bootstrap
+
+- `ensureCodexConfigSeeded()` now uses one canonical in-code template for `codex/config.toml` bootstrap.
+- Runtime bootstrap no longer searches for or copies `config.toml.example`; that file is documentation-only if it remains in the repository.
+- Missing-file creation stays non-destructive:
+  - missing `codex/config.toml` -> write the canonical in-code template with exclusive create semantics
+  - existing `codex/config.toml` -> short-circuit without overwrite
+- The canonical base template keeps server-port substitution, uses `model = "gpt-5.3-codex"`, and seeds Context7 in the no-key stdio form only.
+- Bootstrap observability now emits `DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP` with `outcome=seeded|existing`, `template_source=in_code`, and `success=true` on the success paths used during startup.
+
+```mermaid
+flowchart TD
+  Start[Server startup] --> Seed[ensureCodexConfigSeeded]
+  Seed --> Exists{codex/config.toml exists?}
+  Exists -- yes --> Existing[Leave file untouched]
+  Exists -- no --> Write[Write canonical in-code template]
+  Write --> Port[Apply resolved server port inside template]
+  Existing --> Marker[Emit DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP]
+  Port --> Marker
+  Marker --> Continue[Continue startup]
+  Example[config.toml.example] -. documentation only .-> Start
+```
+
 ### Codex device-auth flow
 
 - Canonical contract (Task 10+): the client calls `POST /codex/device-auth` with a strict empty JSON object body (`{}`).

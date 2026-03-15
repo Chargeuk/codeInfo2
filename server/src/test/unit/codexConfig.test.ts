@@ -8,17 +8,20 @@ import {
   applyResolvedServerPortToCodexConfig,
   buildCodexOptions,
   buildDefaultCodexConfig,
+  ensureCodexConfigSeeded,
 } from '../../config/codexConfig.js';
-import {
-  getCodexDetection,
-  setCodexDetection,
-} from '../../providers/codexRegistry.js';
 import {
   detectCodex,
   refreshCodexDetection,
 } from '../../providers/codexDetection.js';
+import {
+  getCodexDetection,
+  setCodexDetection,
+} from '../../providers/codexRegistry.js';
 
 describe('codexConfig', () => {
+  const TASK2_BOOTSTRAP_MARKER = 'DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP';
+
   it('buildCodexOptions sets CODEX_HOME to the resolved override path', () => {
     const options = buildCodexOptions({ codexHome: '/tmp/x' });
     assert(options);
@@ -40,6 +43,15 @@ describe('codexConfig', () => {
     assert.match(config, /http:\/\/localhost:5600\/mcp/);
   });
 
+  it('buildDefaultCodexConfig seeds the canonical base template without a Context7 api key pair', () => {
+    const config = buildDefaultCodexConfig();
+
+    assert.match(config, /model = "gpt-5\.3-codex"/u);
+    assert.match(config, /args = \['-y', '@upstash\/context7-mcp'\]/u);
+    assert.doesNotMatch(config, /ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866/u);
+    assert.doesNotMatch(config, /--api-key/u);
+  });
+
   it('applyResolvedServerPortToCodexConfig rewrites legacy hard-coded MCP urls', () => {
     const input = [
       'host = "http://localhost:5010/mcp"',
@@ -50,6 +62,163 @@ describe('codexConfig', () => {
     });
     assert.match(rewritten, /http:\/\/localhost:5710\/mcp/);
     assert.match(rewritten, /http:\/\/server:5710\/mcp/);
+  });
+
+  it('ensureCodexConfigSeeded writes the in-code template when config.toml is missing', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
+
+    try {
+      process.env.CODEINFO_CODEX_HOME = codexHome;
+      const configPath = ensureCodexConfigSeeded();
+      const seeded = await fs.readFile(configPath, 'utf8');
+
+      assert.equal(configPath, path.join(codexHome, 'config.toml'));
+      assert.match(seeded, /model = "gpt-5\.3-codex"/u);
+      assert.match(seeded, /command = "npx"/u);
+    } finally {
+      if (originalCodeinfoHome === undefined) {
+        delete process.env.CODEINFO_CODEX_HOME;
+      } else {
+        process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+      }
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('ensureCodexConfigSeeded preserves server-port substitution in the in-code template', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
+    const originalServerPort = process.env.SERVER_PORT;
+    const originalPort = process.env.PORT;
+
+    try {
+      process.env.CODEINFO_CODEX_HOME = codexHome;
+      process.env.SERVER_PORT = '5876';
+      process.env.PORT = '5010';
+
+      const configPath = ensureCodexConfigSeeded();
+      const seeded = await fs.readFile(configPath, 'utf8');
+
+      assert.match(seeded, /http:\/\/localhost:5876\/mcp/u);
+      assert.doesNotMatch(seeded, /__SERVER_PORT__/u);
+    } finally {
+      if (originalCodeinfoHome === undefined) {
+        delete process.env.CODEINFO_CODEX_HOME;
+      } else {
+        process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+      }
+      if (originalServerPort === undefined) {
+        delete process.env.SERVER_PORT;
+      } else {
+        process.env.SERVER_PORT = originalServerPort;
+      }
+      if (originalPort === undefined) {
+        delete process.env.PORT;
+      } else {
+        process.env.PORT = originalPort;
+      }
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('ensureCodexConfigSeeded leaves the seeded file unchanged on repeated calls', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
+
+    try {
+      process.env.CODEINFO_CODEX_HOME = codexHome;
+
+      const configPath = ensureCodexConfigSeeded();
+      const first = await fs.readFile(configPath, 'utf8');
+      const secondPath = ensureCodexConfigSeeded();
+      const second = await fs.readFile(configPath, 'utf8');
+
+      assert.equal(secondPath, configPath);
+      assert.equal(second, first);
+    } finally {
+      if (originalCodeinfoHome === undefined) {
+        delete process.env.CODEINFO_CODEX_HOME;
+      } else {
+        process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+      }
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('ensureCodexConfigSeeded never overwrites an existing config.toml', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
+    const configPath = path.join(codexHome, 'config.toml');
+
+    try {
+      process.env.CODEINFO_CODEX_HOME = codexHome;
+      await fs.writeFile(configPath, 'model = "user-kept"\n', 'utf8');
+
+      const resolvedPath = ensureCodexConfigSeeded();
+      const preserved = await fs.readFile(configPath, 'utf8');
+
+      assert.equal(resolvedPath, configPath);
+      assert.equal(preserved, 'model = "user-kept"\n');
+    } finally {
+      if (originalCodeinfoHome === undefined) {
+        delete process.env.CODEINFO_CODEX_HOME;
+      } else {
+        process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+      }
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('ensureCodexConfigSeeded emits Story 47 bootstrap markers for seeded and existing paths', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
+    const infoLogs: unknown[][] = [];
+    mock.method(console, 'info', (...args: unknown[]) => {
+      infoLogs.push(args);
+    });
+
+    try {
+      process.env.CODEINFO_CODEX_HOME = codexHome;
+
+      ensureCodexConfigSeeded();
+      ensureCodexConfigSeeded();
+
+      assert(
+        infoLogs.some((entry) => {
+          const payload = entry[1] as
+            | { outcome?: string; template_source?: string; success?: boolean }
+            | undefined;
+          return (
+            String(entry[0]) === TASK2_BOOTSTRAP_MARKER &&
+            payload?.outcome === 'seeded' &&
+            payload.template_source === 'in_code' &&
+            payload.success === true
+          );
+        }),
+      );
+      assert(
+        infoLogs.some((entry) => {
+          const payload = entry[1] as
+            | { outcome?: string; template_source?: string; success?: boolean }
+            | undefined;
+          return (
+            String(entry[0]) === TASK2_BOOTSTRAP_MARKER &&
+            payload?.outcome === 'existing' &&
+            payload.template_source === 'in_code' &&
+            payload.success === true
+          );
+        }),
+      );
+    } finally {
+      mock.restoreAll();
+      if (originalCodeinfoHome === undefined) {
+        delete process.env.CODEINFO_CODEX_HOME;
+      } else {
+        process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+      }
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
   });
 
   it('reports shared-home availability as available when auth/config are present at startup', async () => {

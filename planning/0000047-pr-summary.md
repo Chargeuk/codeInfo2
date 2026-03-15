@@ -8,7 +8,9 @@ Post-review fix status:
 - Task 9 closed the `should_fix` planning-scope finding by removing unrelated future-story planning drift so the branch diff is back to Story 47 artifacts only.
 - Task 11 closed the external-review `must_fix` by preserving malformed merged-table scalar values for keys like `mcp_servers` and `tools` until runtime validation rejects them instead of silently normalizing them away.
 - Task 13 closed the latest reopened `should_fix` by normalizing `DEV_0000047_T01_CODEX_DEFAULTS_APPLIED` so every touched Story 47 REST and MCP surface now emits the same `model_source` vocabulary, while retaining raw Codex source separately as `codex_model_source` where needed.
-- Task 14 reran the full regression and manual validation stack after the marker-contract repair and confirmed the Story 47 behavior remains green end to end.
+- Task 14 reran the full regression and manual validation stack after the marker-contract repair and confirmed the Story 47 behavior remained green end to end.
+- Task 15 closed the final reopened `should_fix` by restoring mixed-shape `features.view_image_tool` compatibility when runtime configs already contain unrelated `tools` entries but omit canonical `tools.view_image`.
+- Task 16 reran the full regression and manual validation stack after that mixed-shape repair and confirmed the Story 47 behavior remains green end to end.
 
 Implementation highlights:
 
@@ -30,12 +32,12 @@ Final verification results:
 
 - `npm run build:summary:server` passed with `status: passed` and `warning_count: 0`.
 - `npm run build:summary:client` passed with `status: passed` and `warning_count: 0`.
-- `npm run test:summary:server:unit` passed with `tests run: 1211`, `passed: 1211`, `failed: 0`.
+- `npm run test:summary:server:unit` passed with `tests run: 1212`, `passed: 1212`, `failed: 0`.
 - `npm run test:summary:server:cucumber` passed with `tests run: 71`, `passed: 71`, `failed: 0`.
 - `npm run test:summary:client` passed with `tests run: 544`, `passed: 544`, `failed: 0`.
-- `npm run test:summary:e2e` passed with `tests run: 43`, `passed: 43`, `failed: 0`.
+- `npm run test:summary:e2e` passed with `tests run: 40`, `passed: 40`, `failed: 0`.
 - `npm run compose:build:summary` passed with `items passed: 2` and `items failed: 0`.
-- Manual Playwright-MCP verification against `http://host.docker.internal:5001/chat` confirmed the chat UI still loaded with provider `codex`, model `gpt-5.1-codex-mini`, a successful `ok` response, and no browser console errors.
+- Manual Playwright-MCP verification against `http://host.docker.internal:5001/chat` confirmed the chat UI still loaded with provider `codex`, model `gpt-5.1-codex-mini`, a successful `ok` response, and no browser console errors after the mixed-shape alias repair.
 - `npm run compose:up` and `npm run compose:down` both completed cleanly around the manual host-port verification pass.
 - `git diff --name-status main...HEAD -- planning projectStructure.md` now shows only Story 47 planning artifacts after the Task 9 cleanup.
 

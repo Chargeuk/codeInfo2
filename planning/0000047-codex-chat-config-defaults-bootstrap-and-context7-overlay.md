@@ -1445,8 +1445,8 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 
 ### 14. Revalidate Story 47 After Marker Consistency Repair
 
-- Task Status: `__in_progress__`
-- Git Commits:
+- Task Status: `__done__`
+- Git Commits: `2cee8629`, `bfb1b04a`, `eb6fa970`, `d9f55891`
 
 #### Overview
 
@@ -1476,7 +1476,7 @@ Run one fresh full-story validation pass after Task 13 so Story 47 can close aga
 2. [x] Refresh [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) so it records the post-marker-repair summary and the final disposition of any remaining indirect-proof areas.
 3. [x] Update this plan file’s Task 14 `Implementation notes` after validation is complete, including which review findings were closed, which acceptance criteria remained indirect, and whether any simplification opportunities remain intentionally deferred.
 4. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained docs or structure ledger changed during Task 13.
-5. [ ] Record the git commit hashes for Tasks 13 and 14 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
+5. [x] Record the git commit hashes for Tasks 13 and 14 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
 
 #### Testing
 
@@ -1509,3 +1509,4 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 - Manual Playwright-MCP verification at `http://host.docker.internal:5001/chat` loaded cleanly with provider `codex` and model `gpt-5.1-codex-mini`; a new conversation replying to `Reply with exactly ok.` returned `ok`, and the browser error console remained empty, so the Story 47 runtime/config surfaces still behave normally after the shared marker-vocabulary repair.
 - Passed `npm run compose:down`, which shut down the Story 47 regression stack cleanly after the host-port manual verification.
 - Task 14 closes the reopened `should_fix` by pairing Task 13's shared marker-vocabulary repair with a fresh full regression pass; AC13 and AC36 remain intentionally indirect because this review cycle still did not add a dedicated payload-shape snapshot artifact, and there is no additional simplification intentionally deferred in this reopened pass.
+- Recorded the Task 13 and Task 14 implementation hashes in this plan and returned Task 14 to `__done__`, leaving the reopened review cycle fully closed in the maintained story record.

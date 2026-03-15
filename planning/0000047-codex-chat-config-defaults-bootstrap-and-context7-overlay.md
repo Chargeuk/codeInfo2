@@ -665,7 +665,7 @@ Do not attempt to run builds or tests without the summary wrappers. Log review r
 
 ### 6. Complete Documentation Sweep And Acceptance Mapping
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

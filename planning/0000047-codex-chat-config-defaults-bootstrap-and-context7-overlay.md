@@ -891,3 +891,238 @@ Do not attempt to run builds or tests without the summary wrappers. Log review r
 - `npm run compose:down` completed successfully and removed the Story 47 verification stack, closing the compose lifecycle after the final runtime proof and screenshot capture.
 
 ---
+
+## Code Review Findings
+
+### Review Summary
+
+Story 47 was reviewed against the active plan, the branch diff versus `main`, and the durable review artifacts in `codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-evidence.md` and `codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md`. The review found one correctness issue that breaks the intended runtime Context7 overlay contract, one branch-scope cleanup issue caused by unrelated future-story planning files on this story branch, and one optional simplification opportunity around runtime-config concentration.
+
+This story is therefore reopened. Task 8 fixes the runtime Context7 overlay gap, Task 9 removes the unrelated planning drift from this branch, and Task 10 reruns full validation so Story 47 is re-proven against the acceptance criteria after the review-driven changes.
+
+### Acceptance Proof Status
+
+1. AC1 `chat-config model is available to Codex`: `direct`
+2. AC2 `shared capability path owns merged model list`: `direct`
+3. AC3 `env order + dedupe + append-only merge`: `direct`
+4. AC4 `chat-config model is default unless overridden`: `direct`
+5. AC5 `request -> config -> env -> hardcoded precedence`: `direct`
+6. AC6 `invalid/unreadable chat config warns and falls back`: `direct`
+7. AC7 `invalid existing chat config is left in place`: `direct`
+8. AC8 `chat config is reread on each request`: `direct`
+9. AC9 `web chat model list reflects current chat config`: `direct`
+10. AC10 `MCP default/model selection reflects current chat config`: `direct`
+11. AC11 `/chat/providers` uses shared Codex-aware selection`: `direct`
+12. AC12 `Codex-facing entrypoints share the same selection behavior`: `direct`
+13. AC13 `existing client contract remains usable without response-shape change`: `indirect`
+14. AC14 `CHAT_DEFAULT_MODEL is fallback-only`: `direct`
+15. AC15 `missing chat config bootstraps from canonical chat template`: `direct`
+16. AC16 `missing base config bootstraps from canonical base template`: `direct`
+17. AC17 `both templates use gpt-5.3-codex`: `direct`
+18. AC18 `bootstrap uses only in-code canonical templates`: `direct`
+19. AC19 `config.toml.example is documentation-only`: `direct`
+20. AC20 `chat bootstrap writes chat template directly, not copy-from-base`: `direct`
+21. AC21 `missing-file bootstrap does not overwrite existing configs`: `direct`
+22. AC22 `shared runtime resolution preserves required base data`: `direct`
+23. AC23 `mcp_servers/model_provider/model_providers remain available`: `direct`
+24. AC24 `direct chat bootstrap does not remove inherited runtime settings`: `direct`
+25. AC25 `Context7 overlay applies when no usable key exists`: `missing`
+26. AC26 `placeholder + legacy key values count as unusable`: `direct`
+27. AC27 `placeholder-equivalent values are overlaid from env`: `direct`
+28. AC28 `placeholder-equivalent values fall back to no-key form when env missing`: `direct`
+29. AC29 `no-key fallback only removes the api-key pair and preserves other args`: `direct`
+30. AC30 `explicit non-placeholder Context7 key wins`: `direct`
+31. AC31 `Context7 normalization only affects local stdio definitions`: `direct`
+32. AC32 `Context7 overlay does not rewrite TOML on disk`: `direct`
+33. AC33 `Context7 overlay applies consistently to chat and agent runtime reads`: `direct`
+34. AC34 `unrelated MCP args and config values are preserved`: `direct`
+35. AC35 `canonical templates no longer depend on checked-in Context7 key material`: `direct`
+36. AC36 `public REST and MCP payload shapes remain unchanged`: `indirect`
+
+There is no other acceptance criterion currently classified as `missing`, but AC13 and AC36 remain indirect because their runtime and contract evidence is based on unchanged client/type code plus manual verification rather than a dedicated contract snapshot.
+
+### Succinctness Review
+
+The implemented Story 47 behavior is mostly appropriately scoped, but `server/src/config/runtimeConfig.ts`, `server/src/test/unit/runtimeConfig.test.ts`, and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` now carry several Story 47 responsibilities in concentrated form. That concentration is acceptable to leave alone while the correctness and scope findings are being fixed, but it remains a valid optional simplification candidate if the reopened work touches those areas again.
+
+### 8. Restore Context7 Env Overlay For No-Key Definitions
+
+- Task Status: `__todo__`
+- Git Commits:
+
+#### Overview
+
+Fix the Story 47 Context7 normalization gap so a local stdio Context7 definition that already uses the canonical no-key args form still picks up `CODEINFO_CONTEXT7_API_KEY` in memory when that env var is set. This task exists because the review found that Story 47 currently overlays placeholder values but does not append an env key when the `--api-key` pair is entirely absent.
+
+#### Must Not Miss
+
+- Preserve the existing rule that an explicit non-placeholder Context7 API key remains authoritative.
+- Preserve the existing rule that missing or empty `CODEINFO_CONTEXT7_API_KEY` keeps the no-key args form.
+- Scope the fix only to local stdio-style Context7 definitions that use `command` plus `args`.
+- Preserve unrelated Context7 args in their original order; if a new `--api-key` pair must be added, append it deterministically rather than reshuffling earlier args.
+- Extend tests for the exact review finding: no-key args plus a non-empty env key must produce an in-memory args list that includes `--api-key <env>`.
+
+#### Documentation Locations
+
+- [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md): use the Description lines about Context7 overlay and the AC lines about “no usable key” as the contract source of truth.
+- [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts): current normalization logic and Story 47 markers live here.
+- [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts): current unit coverage for Context7 normalization lives here.
+- [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts): downstream runtime-config proof for inherited Context7 settings lives here.
+- https://github.com/upstash/context7: use the local stdio MCP shape as the external shape reference.
+
+#### Junior Developer Notes
+
+- Read the review findings artifact [codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md) before editing code so you understand the exact contract gap you are fixing.
+- Start from the existing `normalizeContext7Args()` helper rather than inventing a second normalization path.
+- Keep this task about runtime normalization and proof coverage only. Do not expand it into general Context7 validation or broader MCP-schema changes.
+
+#### Example Shapes
+
+```ts
+// Story 47 fix target for this task.
+const args = ['-y', '@upstash/context7-mcp'];
+const env = 'ctx7sk-real';
+
+// In-memory normalized result:
+['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'];
+```
+
+#### Subtasks
+
+1. [ ] Re-read the Story 47 review finding about no-key Context7 env overlay in [codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md) and copy the exact contract into your working notes before editing: when no usable key is present, a non-empty `CODEINFO_CONTEXT7_API_KEY` must be applied in memory even if the `--api-key` pair is absent.
+2. [ ] Update [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) so `normalizeContext7Args()` appends `--api-key <env>` when the Context7 args are already in the no-key form and `CODEINFO_CONTEXT7_API_KEY` is non-empty.
+3. [ ] Add or update a unit test in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) that proves a no-key args list plus `CODEINFO_CONTEXT7_API_KEY=ctx7sk-real` becomes `['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real']` in memory.
+4. [ ] Add or update a runtime-resolution test in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) that proves resolved chat or agent runtime config inherits a no-key base Context7 definition and still gains the env key in memory.
+5. [ ] Add or update the downstream proof in [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts) so the MCP path proves the same no-key-plus-env overlay contract, not only placeholder replacement.
+6. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) and [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) if either document currently implies that env overlay only happens when a placeholder key is present.
+7. [ ] Update this plan file’s Task 8 `Implementation notes` after the fix and tests are complete, including the exact no-key scenario that was broken and how the new coverage closes it.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve the remaining task-owned issues.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server` - Use because this task changes shared runtime-config logic. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log`.
+2. [ ] `npm run test:summary:server:unit` - Use because the fix lives in shared runtime-config logic and unit/runtime tests are the primary proof. If `failed > 0`, inspect the printed log path and rerun targeted wrapper commands as needed before rerunning full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because the shared runtime-config path is still part of server behavior and must remain green at the feature-suite level. If `failed > 0`, inspect the printed log path and rerun targeted wrapper commands before rerunning full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Not started yet.
+
+### 9. Remove Unrelated Future-Story Planning Drift From The Story 47 Branch
+
+- Task Status: `__todo__`
+- Git Commits:
+
+#### Overview
+
+Remove the unrelated future-story planning changes from this branch so Story 47 again contains only Story 47 work plus approved workflow-support paths. This task exists because the review found future-story planning files on the branch that are not part of the active story and are not protected by the workflow-path exception.
+
+#### Must Not Miss
+
+- Keep the approved workflow-support paths under `codeInfoStatus/**`, `flows/**`, and `codex_agents/**` intact; this task is about unrelated planning drift, not workflow config.
+- Restore the planning directory so the `main...HEAD` diff no longer carries future-story planning additions or renumbering unrelated to Story 47.
+- If removing or reverting planning files changes [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), update it so the maintained structure ledger matches the final Story 47 branch state.
+- Do not delete the durable review artifacts created during this review. They must be committed with the reopened plan changes.
+
+#### Documentation Locations
+
+- [codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md): this is the source of the should-fix finding this task resolves.
+- [planning/0000048-github-copilot-sdk-chat-provider.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000048-github-copilot-sdk-chat-provider.md) and [planning/0000049-command-and-flow-user-input-wait-step.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000049-command-and-flow-user-input-wait-step.md): current out-of-scope planning files to resolve for this branch.
+- [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md): update only if the maintained repo structure entries need to change after the planning cleanup.
+- [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md): use the branching and commit-message rules while closing this review-driven branch cleanup.
+
+#### Junior Developer Notes
+
+- Treat this as branch hygiene work, not as a chance to rewrite future stories.
+- Re-check `git diff --name-status main...HEAD -- planning projectStructure.md` before and after the cleanup so you can prove the branch only carries Story 47 planning changes afterward.
+- Keep the transient handoff file under `codeInfoStatus/reviews/0000047-current-review.json` out of the commit unless later workflow explicitly asks for it.
+
+#### Example Shapes
+
+```text
+Before cleanup:
+planning/0000048-github-copilot-sdk-chat-provider.md
+planning/0000049-command-and-flow-user-input-wait-step.md
+
+After cleanup:
+only Story 47 planning files remain changed on this branch
+```
+
+#### Subtasks
+
+1. [ ] Re-read the Story 47 review finding about out-of-scope planning drift in [codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md) and write down exactly which planning paths must leave the Story 47 branch.
+2. [ ] Update the planning tree so the unrelated future-story files [planning/0000048-github-copilot-sdk-chat-provider.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000048-github-copilot-sdk-chat-provider.md) and [planning/0000049-command-and-flow-user-input-wait-step.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000049-command-and-flow-user-input-wait-step.md) no longer remain as Story 47 branch changes.
+3. [ ] Re-check `git diff --name-status main...HEAD -- planning projectStructure.md` and confirm only Story 47 planning changes remain in the branch diff after the cleanup.
+4. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained structure ledger still reflects the removed or restored planning files incorrectly after the cleanup.
+5. [ ] Update this plan file’s Task 9 `Implementation notes` after the cleanup is complete, including what was removed or restored and how you verified the planning diff was narrowed back to Story 47.
+6. [ ] Run `npm run format:check --workspaces` if any maintained markdown or JSON files owned by this task changed in a way that could affect formatting consistency.
+
+#### Testing
+
+1. [ ] `git diff --name-status main...HEAD -- planning projectStructure.md` - Use as the primary proof that the branch no longer carries future-story planning drift after this task.
+2. [ ] `git log --oneline --decorate -5 main..HEAD` - Use to confirm the cleanup commits are clearly attributable to Story 47 review disposition work.
+
+#### Implementation notes
+
+- Not started yet.
+
+### 10. Revalidate Story 47 After Review Fixes
+
+- Task Status: `__todo__`
+- Git Commits:
+
+#### Overview
+
+Re-run full Story 47 validation after Tasks 8 and 9 are complete so the reopened story closes again against the acceptance criteria, the review findings, and the final branch contents. This task replaces the old “complete” state with a fresh full validation pass after review-driven fixes.
+
+#### Must Not Miss
+
+- Re-check the review findings and prove that the `must_fix` and `should_fix` findings are both closed before calling the story done again.
+- Revalidate the original Story 47 acceptance criteria, not just the new review-fix code paths.
+- Refresh the PR summary and plan notes so the final maintained documentation reflects the post-review branch state.
+- During manual runtime verification, explicitly prove that a no-key Context7 definition plus `CODEINFO_CONTEXT7_API_KEY` now emits the expected Story 47 marker behavior and produces an overlaid in-memory args list.
+
+#### Documentation Locations
+
+- [codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-evidence.md): use the evidence gate as the baseline for what was already proven before the review reopened the story.
+- [codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md): use this file as the source of the findings that must be closed by Tasks 8 and 9.
+- [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md): refresh this maintained artifact so it reflects the post-review-fix validation results.
+- [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md): refresh only if the review-fix work changed the maintained docs.
+
+#### Junior Developer Notes
+
+- Start by re-reading the `Code Review Findings` section above so you know which review artifacts and acceptance-proof statuses must change before the story can close again.
+- Treat this as a full-story revalidation task. Do not rely on the original Task 7 wrapper results once code or branch contents have changed.
+- Keep the transient handoff file out of the commit. The durable artifacts for this review pass are the evidence file and findings file only.
+
+#### Example Shapes
+
+```text
+Expected post-fix runtime proof:
+DEV_0000047_T05_CONTEXT7_NORMALIZED mode=env_overlay success=true
+```
+
+#### Subtasks
+
+1. [ ] Re-read the `Code Review Findings` section in this plan and the findings artifact [codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md), then verify in working notes that Tasks 8 and 9 fully close the `must_fix` and `should_fix` findings before starting the final validation commands.
+2. [ ] Refresh [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) so it captures the post-review-fix summary, including the corrected Context7 overlay behavior and the narrowed branch scope.
+3. [ ] Update this plan file’s Task 10 `Implementation notes` after validation is complete, including which findings were closed, which acceptance criteria remained indirect, and whether the optional simplification was intentionally deferred.
+4. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the review-fix implementation changed the maintained story documentation or structure ledger.
+5. [ ] Record the git commit hashes for Tasks 8 through 10 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run test:summary:server:unit`
+4. [ ] `npm run test:summary:server:cucumber`
+5. [ ] `npm run test:summary:client`
+6. [ ] `npm run test:summary:e2e`
+7. [ ] `npm run compose:build:summary`
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP verification plus `npm run compose:logs` review. This repeat verification must include a scenario where the runtime config uses the no-key Context7 args form, `CODEINFO_CONTEXT7_API_KEY` is non-empty, and `DEV_0000047_T05_CONTEXT7_NORMALIZED` reports the expected `mode=env_overlay` result with `success=true`.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Not started yet.

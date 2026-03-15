@@ -1162,3 +1162,56 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 - The only acceptance evidence that remained indirect is payload-shape stability, which stayed covered by unchanged route/type code plus the existing full wrapper and route/integration suites rather than by a new OpenAPI snapshot diff.
 - Passed `CODEINFO_HOST_CODEX_HOME=/tmp/story47-task10-codex-home CODEINFO_CONTEXT7_API_KEY=ctx7sk-real npm run compose:down`, so the final compose teardown completed cleanly after the manual verification run.
 - Reopened-task commit ledger: Task 8 used `868c053b`, `39fbeb10`, and `9be8bea8`; Task 9 used `784117db`, `16919506`, and `0e05f65c`; Task 10 used `f61d82db` and `e201de97` before this final plan-close commit.
+
+## Post-Implementation Code Review
+
+Story 47 was reviewed against `main` using the durable artifacts [codeInfoStatus/reviews/0000047-20260315T140322Z-ae0ae885-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T140322Z-ae0ae885-evidence.md) and [codeInfoStatus/reviews/0000047-20260315T140322Z-ae0ae885-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T140322Z-ae0ae885-findings.md). The `main...HEAD` review confirmed that the committed branch diff is now limited to Story 47 implementation files, Story 47 docs/tests/plan files, and approved workflow-support paths under `codeInfoStatus/**`, `flows/**`, and `codex_agents/**`; no suspicious or out-of-scope files remained after Task 9 removed the future-story planning drift.
+
+Files inspected during the review included the core implementation paths [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [server/src/config/codexEnvDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexEnvDefaults.ts), [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts), [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts), [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts), [server/src/routes/chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts), and [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts), together with the maintained docs and the Story 47 server/unit/integration proof files named throughout this plan.
+
+### Acceptance Proof Status
+
+1. AC1 `chat-config model is available to Codex`: `direct`
+2. AC2 `shared capability path owns merged model list`: `direct`
+3. AC3 `env order + dedupe + append-only merge`: `direct`
+4. AC4 `chat-config model is default unless overridden`: `direct`
+5. AC5 `request -> config -> env -> hardcoded precedence`: `direct`
+6. AC6 `invalid/unreadable chat config warns and falls back`: `direct`
+7. AC7 `invalid existing chat config is left in place`: `direct`
+8. AC8 `chat config is reread on each request`: `direct`
+9. AC9 `web chat model list reflects current chat config`: `direct`
+10. AC10 `MCP default/model selection reflects current chat config`: `direct`
+11. AC11 `/chat/providers` uses shared Codex-aware selection`: `direct`
+12. AC12 `Codex-facing entrypoints share the same selection behavior`: `direct`
+13. AC13 `existing client contract remains usable without response-shape change`: `indirect`
+14. AC14 `CHAT_DEFAULT_MODEL is fallback-only`: `direct`
+15. AC15 `missing chat config bootstraps from canonical chat template`: `direct`
+16. AC16 `missing base config bootstraps from canonical base template`: `direct`
+17. AC17 `both templates use gpt-5.3-codex`: `direct`
+18. AC18 `bootstrap uses only in-code canonical templates`: `direct`
+19. AC19 `config.toml.example is documentation-only`: `direct`
+20. AC20 `chat bootstrap writes chat template directly, not copy-from-base`: `direct`
+21. AC21 `missing-file bootstrap does not overwrite existing configs`: `direct`
+22. AC22 `shared runtime resolution preserves required base data`: `direct`
+23. AC23 `mcp_servers/model_provider/model_providers remain available`: `direct`
+24. AC24 `direct chat bootstrap does not remove inherited runtime settings`: `direct`
+25. AC25 `Context7 overlay applies when no usable key exists`: `direct`
+26. AC26 `placeholder + legacy key values count as unusable`: `direct`
+27. AC27 `placeholder-equivalent values are overlaid from env`: `direct`
+28. AC28 `placeholder-equivalent values fall back to no-key form when env missing`: `direct`
+29. AC29 `no-key fallback only removes the api-key pair and preserves other args`: `direct`
+30. AC30 `explicit non-placeholder Context7 key wins`: `direct`
+31. AC31 `Context7 normalization only affects local stdio definitions`: `direct`
+32. AC32 `Context7 overlay does not rewrite TOML on disk`: `direct`
+33. AC33 `Context7 overlay applies consistently to chat and agent runtime reads`: `direct`
+34. AC34 `unrelated MCP args and config values are preserved`: `direct`
+35. AC35 `canonical templates no longer depend on checked-in Context7 key material`: `direct`
+36. AC36 `public REST and MCP payload shapes remain unchanged`: `indirect`
+
+There are no acceptance criteria currently classified as `missing`. AC13 and AC36 remain indirect because the current proof is based on unchanged client/type contracts, route and integration coverage, and manual verification rather than a dedicated payload snapshot artifact.
+
+### Succinctness Review
+
+The implementation remains appropriately succinct for the required behavior overall, and the review did not identify any `must_fix` or `should_fix` defects that justify reopening the story. The only remaining simplification opportunity is that [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts), and [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts) still carry a dense concentration of Story 47 responsibilities and proof coverage. That concentration is a valid optional simplification watchpoint, but it is zero-risk at this stage and did not justify reopening the completed story.
+
+The story remains complete after code review because the branch-vs-main diff is clean, the evidence and findings artifacts are durable and aligned with the final branch state, every acceptance criterion has either direct or indirect proof, and the only remaining note is a deferred optional simplification rather than a correctness, scope, or contract problem.

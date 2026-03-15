@@ -316,8 +316,8 @@ Do not attempt to run builds or tests without the summary wrappers. Log review r
 
 ### 2. Seed `codex/config.toml` From One Canonical In-Code Template
 
-- Task Status: `__in_progress__`
-- Git Commits:
+- Task Status: `__done__`
+- Git Commits: `2f6e8760`, `abd53a3c`
 
 #### Overview
 

@@ -261,13 +261,15 @@ export function normalizeRuntimeConfig(
 
   const rawFeatures = isRecord(normalized.features) ? normalized.features : {};
   const features: Record<string, unknown> = { ...rawFeatures };
-  const hasCanonicalTools =
-    isRecord(normalized.tools) && hasOwn(normalized.tools, 'view_image');
-  const tools = isRecord(normalized.tools)
-    ? { ...normalized.tools }
+  const rawTools = normalized.tools;
+  const hasCanonicalTools = hasOwn(normalized, 'tools');
+  const hasCanonicalViewImage =
+    isRecord(rawTools) && hasOwn(rawTools, 'view_image');
+  const tools = isRecord(rawTools)
+    ? { ...rawTools }
     : ({} as Record<string, unknown>);
 
-  if (!hasCanonicalTools && hasOwn(features, 'view_image_tool')) {
+  if (!hasCanonicalViewImage && !hasCanonicalTools && hasOwn(features, 'view_image_tool')) {
     const viewImage = toBoolean(features.view_image_tool);
     if (viewImage !== undefined) {
       tools.view_image = viewImage;
@@ -290,10 +292,18 @@ export function normalizeRuntimeConfig(
   }
   delete features.web_search_request;
 
-  if (Object.keys(tools).length > 0) {
+  if (hasCanonicalTools) {
+    if (isRecord(rawTools)) {
+      if (Object.keys(tools).length > 0) {
+        normalized.tools = tools;
+      } else {
+        delete normalized.tools;
+      }
+    } else {
+      normalized.tools = rawTools;
+    }
+  } else if (Object.keys(tools).length > 0) {
     normalized.tools = tools;
-  } else if (hasOwn(normalized, 'tools')) {
-    delete normalized.tools;
   }
 
   if (Object.keys(features).length > 0) {
@@ -422,7 +432,13 @@ export function mergeProjectsFromBaseIntoRuntime(
 function mergeNamedTables(
   baseValue: unknown,
   runtimeValue: unknown,
-): Record<string, unknown> | undefined {
+): unknown {
+  if (runtimeValue !== undefined && !isRecord(runtimeValue)) {
+    return structuredClone(runtimeValue);
+  }
+  if (baseValue !== undefined && !isRecord(baseValue)) {
+    return structuredClone(baseValue);
+  }
   const baseTable = isRecord(baseValue)
     ? { ...(baseValue as Record<string, unknown>) }
     : {};

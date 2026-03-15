@@ -1450,6 +1450,118 @@ describe('runtimeConfig deterministic resolver failures', () => {
 });
 
 describe('runtimeConfig merged happy paths and T04 logs', () => {
+  it('rejects malformed runtime mcp_servers tables instead of inheriting base data', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          'args = ["-y", "@upstash/context7-mcp"]',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(
+        chatConfigPath,
+        ['model = "chat-model"', 'mcp_servers = "bad"', ''].join('\n'),
+        'utf8',
+      );
+
+      await assert.rejects(
+        async () => resolveChatRuntimeConfig({ codexHome }),
+        (error) => {
+          const typed = error as RuntimeConfigResolutionError;
+          return (
+            typed?.code === 'RUNTIME_CONFIG_VALIDATION_FAILED' &&
+            typed?.surface === 'chat' &&
+            /invalid type at chat\.mcp_servers: expected table/u.test(
+              typed?.message ?? '',
+            )
+          );
+        },
+      );
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects malformed runtime tools tables instead of inheriting base data', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        baseConfigPath,
+        ['[tools]', 'view_image = true', ''].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(
+        chatConfigPath,
+        ['model = "chat-model"', 'tools = "bad"', ''].join('\n'),
+        'utf8',
+      );
+
+      await assert.rejects(
+        async () => resolveChatRuntimeConfig({ codexHome }),
+        (error) => {
+          const typed = error as RuntimeConfigResolutionError;
+          return (
+            typed?.code === 'RUNTIME_CONFIG_VALIDATION_FAILED' &&
+            typed?.surface === 'chat' &&
+            /invalid type at chat\.tools: expected table/u.test(
+              typed?.message ?? '',
+            )
+          );
+        },
+      );
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('still inherits valid runtime tables for Story 47 merged keys', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          '[tools]',
+          'view_image = true',
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          'args = ["-y", "@upstash/context7-mcp"]',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
+
+      const resolved = await resolveChatRuntimeConfig({ codexHome });
+
+      assert.equal(resolved.config.model, 'chat-model');
+      assert.deepEqual(resolved.config.tools, {
+        view_image: true,
+      });
+      assert.deepEqual(resolved.config.mcp_servers, {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp'],
+        },
+      });
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
   it('resolves chat runtime with inherited base mcp servers and provider routing', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');

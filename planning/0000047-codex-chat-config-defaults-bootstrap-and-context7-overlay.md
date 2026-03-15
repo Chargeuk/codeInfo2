@@ -1511,10 +1511,132 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 - Task 14 closes the reopened `should_fix` by pairing Task 13's shared marker-vocabulary repair with a fresh full regression pass; AC13 and AC36 remain intentionally indirect because this review cycle still did not add a dedicated payload-shape snapshot artifact, and there is no additional simplification intentionally deferred in this reopened pass.
 - Recorded the Task 13 and Task 14 implementation hashes in this plan and returned Task 14 to `__done__`, leaving the reopened review cycle fully closed in the maintained story record.
 
-## Post-Implementation Code Review
+## Code Review Findings
 
-- Final review pass consumed [codeInfoStatus/reviews/0000047-20260315T201134Z-edfbd11e-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T201134Z-edfbd11e-evidence.md) and [codeInfoStatus/reviews/0000047-20260315T201134Z-edfbd11e-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T201134Z-edfbd11e-findings.md), using the `main...HEAD` branch diff plus the final Task 13/14 closeout commits `eb6fa970`, `d9f55891`, and `edfbd11e`.
-- Files inspected in the final review pass included [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts), [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts), [server/src/routes/chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts), [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts), the related Story 47 test files, [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md), and the approved workflow-support paths under `codeInfoStatus/**`, `flows/**`, and `codex_agents/**`.
-- Acceptance-evidence status after the final review pass: AC1-12 direct, AC13 indirect, AC14-35 direct, and AC36 indirect. No acceptance criterion is missing proof; the only indirect areas remain the unchanged payload-shape contracts that were revalidated through stable consumer behavior, route/MCP coverage, and final Playwright verification rather than a dedicated snapshot artifact.
-- The implemented code is appropriately succinct for the required behavior after the two reopen cycles closed. [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) remains the densest Story 47 surface and the clearest long-term simplification watchpoint, but the final review pass found no reopen-worthy correctness defect, no shared-marker schema drift, and no workflow-contract issue in the approved artifact/config paths.
-- The final findings artifact recorded no `must_fix`, `should_fix`, or `optional_simplification` items, so the story remains complete and closed after the final branch-vs-main review.
+Story 47 was reviewed again against the active plan, the branch diff versus `main`, and the durable artifacts [codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-evidence.md) and [codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-findings.md). That review found one localized `should_fix` issue: mixed-shape runtime configs can now silently lose the legacy `features.view_image_tool` alias whenever a `tools` table exists without `tools.view_image`. Because the regression is in a file already touched by Story 47, is low risk to repair, and restores backward-compatible normalization behavior without changing public payloads, the story is reopened for one focused fix plus one fresh full revalidation pass.
+
+Acceptance proof status for this pass remains:
+
+- AC1-12: `direct`
+- AC13: `indirect`
+- AC14-35: `direct`
+- AC36: `indirect`
+
+No acceptance criterion is currently classified as `missing`, but this review exposed one generic engineering defect outside the original acceptance list: mixed-shape alias compatibility in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) is no longer preserved when legacy and canonical structures partially coexist. The implemented code remains appropriately succinct overall, but [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) is still the densest Story 47 surface and now requires this targeted compatibility repair before the story can remain closed.
+
+The current pass durable review artifacts that must be committed alongside the plan change are:
+
+- [codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-evidence.md)
+- [codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-findings.md)
+
+---
+
+### 15. Restore Mixed-Shape `view_image` Alias Compatibility In Runtime Normalization
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Repair the mixed-shape runtime normalization regression so legacy `features.view_image_tool` continues to populate `tools.view_image` when a runtime config already has a `tools` table but does not define `tools.view_image`. This task is intentionally scoped to backward-compatible normalization behavior in `server/src/config/runtimeConfig.ts`; it must not reopen the Story 47 bootstrap-path contract that intentionally treats existing unusable chat-config paths as existing.
+
+#### Must Not Miss
+
+- Keep the fix localized to runtime normalization and its tests; do not broaden this task into unrelated bootstrap or marker work.
+- Preserve the current precedence rule for canonical values: if `tools.view_image` already exists, it remains authoritative and the legacy alias stays ignored.
+- Restore the previous mixed-shape compatibility behavior: if `tools` exists but `tools.view_image` does not, a usable `features.view_image_tool` value should still populate `tools.view_image`.
+- Do not change the plan-authorized Story 47 rule that existing directories or other unusable chat-config paths count as `existing` rather than `missing`.
+- Add direct regression coverage for the mixed-shape coexistence path that triggered the reopened `should_fix`.
+- Keep public REST and MCP payload shapes unchanged.
+
+#### Documentation Locations
+
+- [codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-evidence.md): current evidence artifact for the reopened review cycle, including the top-risk helper analysis and external review disposition.
+- [codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-findings.md): the current findings artifact that defines the exact mixed-shape alias defect to repair.
+- [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts): current home of `normalizeRuntimeConfig()` and the mixed-shape alias logic that now needs repair.
+- [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts): existing runtime normalization and bootstrap proof file where the mixed-shape regression test should be added.
+
+#### Junior Developer Notes
+
+- Read the reopened findings artifact first so you understand the exact path that regressed: this is not about alias-only input and not about canonical conflict; it is specifically about partial coexistence of legacy and canonical shapes.
+- Keep the repair small. The target outcome is to restore compatibility for mixed-shape inputs while preserving canonical-key precedence and the existing Story 47 bootstrap contract.
+- When you add the regression test, make the mixed-shape input explicit. Include at least one unrelated `tools` entry plus `features.view_image_tool = true`, then assert that both the unrelated tool and `tools.view_image` survive normalization.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-evidence.md) and [codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-findings.md), then write down the exact defect in working notes before changing code: a `tools` table without `tools.view_image` must not suppress `features.view_image_tool`.
+2. [ ] Update `normalizeRuntimeConfig()` in [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) so a usable legacy `features.view_image_tool` value still populates `tools.view_image` when the runtime config has a `tools` table but no canonical `tools.view_image` key. Keep canonical `tools.view_image` authoritative when it already exists.
+3. [ ] Add or update focused regression coverage in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) for the mixed-shape coexistence path, proving that unrelated `tools` keys are preserved and that `tools.view_image` is restored from the legacy alias only when the canonical key is absent.
+4. [ ] Re-run any existing Story 47 runtime normalization assertions in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts) that cover alias-only and canonical-conflict inputs, ensuring the repair does not regress the already-closed Story 47 behavior.
+5. [ ] Update this plan file’s Task 15 `Implementation notes` after the repair and tests are complete, including the exact mixed-shape input that failed before the fix and how the final condition preserves canonical precedence.
+6. [ ] Update [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) only if the maintained Story 47 summary needs to mention the reopened mixed-shape compatibility repair before the final validation task closes the story again.
+
+#### Testing
+
+Do not attempt to run builds or tests without using the summary wrappers. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 16. Revalidate Story 47 After Mixed-Shape Alias Repair
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Run one fresh full-story validation pass after Task 15 so Story 47 can close again with the mixed-shape alias repair, the earlier external-review fixes, and the final branch contents all reflected in the maintained evidence. This task is the new final acceptance gate and must re-check the full Story 47 contract rather than only the reopened normalization defect.
+
+#### Must Not Miss
+
+- Re-check the current review findings artifact and prove that Task 15 closes the reopened `should_fix` before returning the story to `__done__`.
+- Revalidate the original Story 47 acceptance criteria, not only the mixed-shape alias repair.
+- Keep AC13 and AC36 explicitly indirect unless this task adds a dedicated payload-shape snapshot artifact.
+- Refresh the maintained Story 47 summary artifacts so the final branch state records the reopened review cycle and its closeout.
+- Keep the transient handoff file out of the commit; only the durable evidence/findings artifacts for this review pass and the plan change belong in the final commit from this disposition cycle.
+
+#### Documentation Locations
+
+- [codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-evidence.md)
+- [codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-findings.md)
+- [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md)
+
+#### Junior Developer Notes
+
+- Treat this as a full story-close validation task. Do not rely on the earlier Task 14 wrapper results once Task 15 changes runtime normalization logic.
+- The reopened review finding is generic engineering scope, but the final validation still needs to prove the full Story 47 acceptance set remains green after the compatibility repair.
+- If the Task 15 repair changes the final Story 47 summary or acceptance-proof notes, update them here before closing the story again.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T213021Z-af04dbf5-findings.md) and confirm in working notes that Task 15 fully closes the reopened `should_fix` before starting the final regression wrappers.
+2. [ ] Refresh [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) so it records the mixed-shape alias repair, the fresh Task 16 regression results, and the final disposition of any remaining indirect-proof areas.
+3. [ ] Update this plan file’s Task 16 `Implementation notes` after validation is complete, including which review finding was closed, which acceptance criteria remain indirect, and whether any simplification opportunities remain intentionally deferred.
+4. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained docs or structure ledger changed during Task 15.
+5. [ ] Record the git commit hashes for Tasks 15 and 16 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
+
+#### Testing
+
+Do not attempt to run builds or tests without using the summary wrappers. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
+
+1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP testing step to manually confirm Story 47 behavior and general regression health after the Task 15 mixed-shape alias repair. This must still verify that the chat page works at `http://host.docker.internal:5001`, that there are no logged browser-console errors, and that the runtime/config surfaces changed by Story 47 still behave as expected after the compatibility fix.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending.

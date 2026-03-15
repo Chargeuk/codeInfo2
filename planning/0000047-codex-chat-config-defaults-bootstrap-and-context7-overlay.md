@@ -215,7 +215,7 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Merge The Chat Config Model Into Shared Codex Resolution
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

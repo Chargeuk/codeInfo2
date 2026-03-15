@@ -1445,7 +1445,7 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 
 ### 14. Revalidate Story 47 After Marker Consistency Repair
 
-- Task Status: `__todo__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

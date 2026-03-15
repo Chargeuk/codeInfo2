@@ -1749,8 +1749,8 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 
 ### 18. Revalidate Story 47 After Malformed-Alias Validation Repair
 
-- Task Status: `__in_progress__`
-- Git Commits: `__to_do__`
+- Task Status: `__done__`
+- Git Commits: `45c2be9e`, `1840a13a`
 
 #### Overview
 
@@ -1780,9 +1780,9 @@ Run one fresh full-story validation pass after Task 17 so Story 47 can close aga
 
 1. [x] Re-read [codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T224605Z-fd4cd189-findings.md) and confirm in working notes that Task 17 fully closes the reopened `should_fix` before starting the final regression wrappers.
 2. [x] Refresh [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) so it records the malformed-alias validation repair, the fresh Task 18 regression results, and the final disposition of any remaining indirect-proof areas.
-3. [ ] Update this plan file’s Task 18 `Implementation notes` after validation is complete, including which review finding was closed, which acceptance criteria remain indirect, and whether any simplification opportunities remain intentionally deferred.
-4. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained docs or structure ledger changed during Task 17.
-5. [ ] Record the git commit hashes for Tasks 17 and 18 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
+3. [x] Update this plan file’s Task 18 `Implementation notes` after validation is complete, including which review finding was closed, which acceptance criteria remain indirect, and whether any simplification opportunities remain intentionally deferred.
+4. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained docs or structure ledger changed during Task 17.
+5. [x] Record the git commit hashes for Tasks 17 and 18 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
 
 #### Testing
 
@@ -1813,3 +1813,5 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 - Manual Playwright-MCP verification against `http://host.docker.internal:5001/chat` loaded the chat page successfully, initialized provider `codex` with model `gpt-5.1-codex-mini`, returned `ok` for `Reply with exactly ok.`, and showed no browser-console errors. The live compose logs also showed `DEV_0000047_T01_CODEX_DEFAULTS_APPLIED`, `DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED`, and `DEV_0000047_T05_CONTEXT7_NORMALIZED { mode: 'no_key_fallback', surface: 'chat', success: true }`.
 - Refreshed [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) so the maintained Story 47 summary now records the malformed-alias validation repair in Task 17, the fresh Task 18 regression results, and the still-indirect AC8/AC13/AC36 proof areas.
 - Passed `npm run compose:down`, which removed the validation stack cleanly after the final host-port verification.
+- No additional changes were needed in [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), or [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) because Task 17 repaired validation order inside the existing Story 47 runtime contract rather than changing the maintained docs or structure ledger.
+- Task 18 closes the reopened `should_fix` by pairing Task 17’s malformed-alias validation repair with this fresh full regression pass; AC8, AC13, and AC36 remain intentionally indirect because this cycle still does not add dedicated reread or payload-shape snapshot artifacts, and no further simplification work was needed in this closeout pass.

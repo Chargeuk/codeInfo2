@@ -947,8 +947,8 @@ The implemented Story 47 behavior is mostly appropriately scoped, but `server/sr
 
 ### 8. Restore Context7 Env Overlay For No-Key Definitions
 
-- Task Status: `__in_progress__`
-- Git Commits:
+- Task Status: `__done__`
+- Git Commits: `868c053b`, `39fbeb10`
 
 #### Overview
 
@@ -1020,6 +1020,7 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 - Passed the rerun of `npm run test:summary:server:unit` with `tests run: 1205`, `passed: 1205`, `failed: 0`, and `agent_action: skip_log` after tightening that Codex-home test isolation.
 - The broken Task 8 scenario is now covered at three levels: direct helper normalization for existing no-key args, resolved chat runtime inheritance from a no-key base Context7 definition, and MCP `codebase_question` consumption of the same overlaid runtime config.
 - Passed `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`, so the Context7 overlay fix and the test-isolation cleanup stayed compatible with the higher-level server feature suite.
+- Re-ran `npm run format:check --workspaces` cleanly after the test-isolation follow-up edit, and `npm run lint --workspaces` remained on the repository’s existing 38 import-order warnings with no new Task 8 lint errors.
 
 ### 9. Remove Unrelated Future-Story Planning Drift From The Story 47 Branch
 

@@ -1749,7 +1749,7 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 
 ### 18. Revalidate Story 47 After Malformed-Alias Validation Repair
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: `__to_do__`
 
 #### Overview

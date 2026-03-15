@@ -483,7 +483,7 @@ Do not attempt to run builds or tests without the summary wrappers. Log review r
 ### 4. Preserve Shared Base Runtime Inheritance After Direct Chat Bootstrap
 
 - Task Status: `__done__`
-- Git Commits: `2a70f240`, `a251e43a`
+- Git Commits: `2a70f240`, `a251e43a`, `14422f86`
 
 #### Overview
 
@@ -541,7 +541,7 @@ const merged = {
 13. [x] Update the user/developer reference document [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) so it explains the shared base/runtime inheritance behavior and the preserved key groups at a high level. Purpose: keep the top-level guidance aligned with the new inheritance behavior without forcing the reader into the deeper design document first.
 14. [x] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only after every file-adding or file-removing subtask in this task is complete. The `projectStructure.md` update for this task must list every repository file added or removed by Task 4 so the repo map does not go stale for the next developer.
 15. [x] Update this plan file's Task 4 `Implementation notes` in [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md) after implementation and testing are complete, including which keys are inherited explicitly and which values remain runtime-specific overrides.
-16. [ ] In [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), add a Story 47 inheritance marker with the exact text `DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED`. Include `surface` (`chat` or `agent`), `inherited_keys`, `runtime_override_keys`, and `success` so a reviewer can tell which merge path executed. Expected outcome: during Task 7 manual verification, the compose logs show this marker for at least one chat runtime read and one agent runtime read, and every observed line reports `success=true`.
+16. [x] In [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), add a Story 47 inheritance marker with the exact text `DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED`. Include `surface` (`chat` or `agent`), `inherited_keys`, `runtime_override_keys`, and `success` so a reviewer can tell which merge path executed. Expected outcome: during Task 7 manual verification, the compose logs show this marker for at least one chat runtime read and one agent runtime read, and every observed line reports `success=true`.
 17. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing

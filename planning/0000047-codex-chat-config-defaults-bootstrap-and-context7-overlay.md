@@ -1085,8 +1085,8 @@ No wrapper test runs are required for this planning-only task. Do not attempt to
 
 ### 10. Revalidate Story 47 After Review Fixes
 
-- Task Status: `__in_progress__`
-- Git Commits:
+- Task Status: `__done__`
+- Git Commits: `f61d82db`, `e201de97`
 
 #### Overview
 
@@ -1125,7 +1125,7 @@ DEV_0000047_T05_CONTEXT7_NORMALIZED mode=env_overlay success=true
 2. [x] Refresh [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) so it captures the post-review-fix summary, including the corrected Context7 overlay behavior and the narrowed branch scope.
 3. [x] Update this plan file’s Task 10 `Implementation notes` after validation is complete, including which findings were closed, which acceptance criteria remained indirect, and whether the optional simplification was intentionally deferred.
 4. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the review-fix implementation changed the maintained story documentation or structure ledger.
-5. [ ] Record the git commit hashes for Tasks 8 through 10 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
+5. [x] Record the git commit hashes for Tasks 8 through 10 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
 
 #### Testing
 
@@ -1161,3 +1161,4 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 - Task 10 closes both review findings: Task 8 closed the `must_fix` Context7 no-key overlay gap, and Task 9 closed the `should_fix` planning-drift gap; the review's `optional_simplification` remains intentionally deferred because the reopened work only needed correctness and proof.
 - The only acceptance evidence that remained indirect is payload-shape stability, which stayed covered by unchanged route/type code plus the existing full wrapper and route/integration suites rather than by a new OpenAPI snapshot diff.
 - Passed `CODEINFO_HOST_CODEX_HOME=/tmp/story47-task10-codex-home CODEINFO_CONTEXT7_API_KEY=ctx7sk-real npm run compose:down`, so the final compose teardown completed cleanly after the manual verification run.
+- Reopened-task commit ledger: Task 8 used `868c053b`, `39fbeb10`, and `9be8bea8`; Task 9 used `784117db`, `16919506`, and `0e05f65c`; Task 10 used `f61d82db` and `e201de97` before this final plan-close commit.

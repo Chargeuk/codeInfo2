@@ -1064,8 +1064,8 @@ only Story 47 planning files remain changed on this branch
 
 #### Subtasks
 
-1. [ ] Re-read the Story 47 review finding about out-of-scope planning drift in [codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md) and write down exactly which planning paths must leave the Story 47 branch.
-2. [ ] Update the planning tree so the unrelated future-story files [planning/0000048-github-copilot-sdk-chat-provider.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000048-github-copilot-sdk-chat-provider.md) and [planning/0000049-command-and-flow-user-input-wait-step.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000049-command-and-flow-user-input-wait-step.md) no longer remain as Story 47 branch changes.
+1. [x] Re-read the Story 47 review finding about out-of-scope planning drift in [codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md) and write down exactly which planning paths must leave the Story 47 branch.
+2. [x] Update the planning tree so the unrelated future-story files [planning/0000048-github-copilot-sdk-chat-provider.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000048-github-copilot-sdk-chat-provider.md) and [planning/0000049-command-and-flow-user-input-wait-step.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000049-command-and-flow-user-input-wait-step.md) no longer remain as Story 47 branch changes.
 3. [ ] Re-check `git diff --name-status main...HEAD -- planning projectStructure.md` and confirm only Story 47 planning changes remain in the branch diff after the cleanup.
 4. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained structure ledger still reflects the removed or restored planning files incorrectly after the cleanup.
 5. [ ] Update this plan file’s Task 9 `Implementation notes` after the cleanup is complete, including what was removed or restored and how you verified the planning diff was narrowed back to Story 47.
@@ -1077,7 +1077,8 @@ No wrapper test runs are required for this planning-only task. Do not attempt to
 
 #### Implementation notes
 
-- Not started yet.
+- Confirmed the exact Task 9 cleanup target from the review finding before editing: remove `planning/0000048-github-copilot-sdk-chat-provider.md` and undo the `planning/0000048-command-and-flow-user-input-wait-step.md` -> `planning/0000049-command-and-flow-user-input-wait-step.md` future-story rename from this branch.
+- Restored the planning tree toward `main` for the out-of-scope paths by deleting the GitHub Copilot story file from this branch and restoring the command/user-input-wait plan back to `planning/0000048-command-and-flow-user-input-wait-step.md`.
 
 ### 10. Revalidate Story 47 After Review Fixes
 

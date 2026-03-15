@@ -291,13 +291,11 @@ const presentedModels = prioritizeModel(mergedModels, preferredModel);
 26. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
+Do not attempt to run builds or tests without the summary wrappers. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] Run `npm run build:summary:server` because this task changes server config and capability resolution logic.
-2. [ ] Run `npm run build:summary:client` to prove the unchanged `/chat/models` contract still typechecks and builds cleanly for the client.
-3. [ ] Run `npm run compose:build:summary` to prove the server changes still build correctly in the containerized stack.
-4. [ ] Run `npm run compose:up`, confirm the stack starts successfully, and then run `npm run compose:down` so the environment is left clean before the next task.
-5. [ ] Run `npm run test:summary:server:unit` because this task changes shared server resolution code and its route-visible behavior.
+1. [ ] `npm run build:summary:server` - Use because this task changes server config and capability resolution logic. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes shared server resolution code and route-visible server behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes server-facing behavior that should still satisfy the full Cucumber feature coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -366,13 +364,11 @@ return;
 14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
+Do not attempt to run builds or tests without the summary wrappers. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] Run `npm run build:summary:server` because this task changes server bootstrap code.
-2. [ ] Run `npm run build:summary:client` to prove the client still builds after the server bootstrap-only change.
-3. [ ] Run `npm run compose:build:summary` to prove the updated canonical config template still builds correctly in the containerized stack.
-4. [ ] Run `npm run compose:up`, confirm the stack starts successfully with the updated base bootstrap behavior, and then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` because this task changes the config seeding behavior covered by server unit tests.
+1. [ ] `npm run build:summary:server` - Use because this task changes server bootstrap code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server bootstrap behavior covered by node:test unit/integration suites. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes server bootstrap behavior that still needs full feature-suite coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -441,13 +437,11 @@ if (!chatConfigExists) {
 15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
+Do not attempt to run builds or tests without the summary wrappers. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] Run `npm run build:summary:server` because this task changes server runtime-config bootstrap code.
-2. [ ] Run `npm run build:summary:client` to prove the client still builds after the server-only bootstrap change.
-3. [ ] Run `npm run compose:build:summary` to prove the updated chat bootstrap path still builds correctly in the containerized stack.
-4. [ ] Run `npm run compose:up`, confirm the stack starts successfully with the updated chat bootstrap behavior, and then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` because this task changes server bootstrap behavior covered by server unit tests.
+1. [ ] `npm run build:summary:server` - Use because this task changes server runtime-config bootstrap code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server bootstrap behavior covered by node:test unit/integration suites. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes server bootstrap behavior that still needs full feature-suite coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -516,13 +510,11 @@ const merged = {
 16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
+Do not attempt to run builds or tests without the summary wrappers. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] Run `npm run build:summary:server` because this task changes shared runtime-config merge behavior.
-2. [ ] Run `npm run build:summary:client` to prove the client still builds after the server-only inheritance change.
-3. [ ] Run `npm run compose:build:summary` to prove the updated shared runtime-config path still builds correctly in the containerized stack.
-4. [ ] Run `npm run compose:up`, confirm the stack starts successfully with the updated inheritance behavior, and then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` because this task changes shared runtime-config behavior used by chat and agent execution.
+1. [ ] `npm run build:summary:server` - Use because this task changes shared runtime-config merge behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes shared server behavior used by chat and agent execution. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes server/common behavior that still needs full Cucumber feature coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -598,13 +590,11 @@ if (isPlaceholderKey(currentApiKey) && !envApiKey) {
 21. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
+Do not attempt to run builds or tests without the summary wrappers. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] Run `npm run build:summary:server` because this task changes runtime config normalization code.
-2. [ ] Run `npm run build:summary:client` to prove the client still builds after the server-only normalization change.
-3. [ ] Run `npm run compose:build:summary` to prove the updated runtime config behavior still builds correctly in the containerized stack.
-4. [ ] Run `npm run compose:up`, confirm the stack starts successfully with the updated Context7 normalization behavior, and then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` because this task changes the runtime-config test surface.
+1. [ ] `npm run build:summary:server` - Use because this task changes runtime config normalization code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes runtime-config behavior covered by node:test unit/integration suites. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes server/common behavior that still needs full Cucumber feature coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -654,11 +644,7 @@ Prepare the story for final proof by updating the human-facing documentation and
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
-
-1. [ ] Run `npm run build:summary:server` and confirm the current server build still passes cleanly after the documentation and acceptance sweep.
-2. [ ] Run `npm run build:summary:client` and confirm the current client build still passes cleanly after the documentation and acceptance sweep.
-3. [ ] Run `npm run compose:build:summary` and confirm the current containerized build still passes cleanly before the final runtime-verification task.
+No wrapper test runs are required for this documentation-only task. Do not attempt to run builds or tests without the summary wrappers if you later need verification for an adjacent code change.
 
 #### Implementation notes
 
@@ -704,23 +690,25 @@ Run the full story-level proof that all completed changes work together in the r
 #### Subtasks
 
 1. [ ] Re-read the acceptance-check list created in Task 6 from [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md) and write down which final runtime proof or screenshot will close each remaining criterion. Keep the proof plan next to the files that drive the behavior, such as [client/src/hooks/useChatModel.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useChatModel.ts) and [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts).
-2. [ ] Use the Playwright tooling available in this repo to manually verify the running application, confirm the existing [client/src/hooks/useChatModel.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useChatModel.ts) plus the MUI `TextField`/`MenuItem` controls in [client/src/pages/ChatPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/ChatPage.tsx) reflect the server changes without any dedicated client code changes, and save screenshots to `test-results/screenshots/` using filenames of the form `0000047-7-<short-name>.png`.
+2. [ ] After Testing step 9 completes, save the manual verification screenshots to `test-results/screenshots/` using filenames of the form `0000047-7-<short-name>.png` and make sure each screenshot can be mapped back to the acceptance-check list from Task 6.
 3. [ ] Create a pull-request summary comment that covers the model/default resolution change, the base bootstrap change, the chat bootstrap change, the shared base/runtime inheritance change, the Context7 overlay change, and the final verification results. Use the implementation files and tests already named in this story as the source material, especially [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts), [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), and the relevant server test files.
 4. [ ] If this task adds or removes repository files while completing the final verification work, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only after every file-adding or file-removing subtask in Task 7 is complete. The update must list every repository file added or removed by the final verification task, and it must not list generated screenshot evidence under `test-results/screenshots/` because `projectStructure.md` is for maintained repository structure rather than runtime artifacts.
 5. [ ] Update this plan file's Task 7 `Implementation notes` in [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md) after all verification, screenshots, and pull-request summary work are complete, including which runtime proofs were strongest and where the saved screenshots live.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
+Do not attempt to run builds or tests without the summary wrappers. Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
-1. [ ] Run `npm run build:summary:server` and confirm the final server build passes cleanly.
-2. [ ] Run `npm run build:summary:client` and confirm the final client build passes cleanly.
-3. [ ] Run `npm run compose:build:summary` and confirm the full containerized build passes cleanly.
-4. [ ] Run `npm run compose:up`, confirm the stack starts cleanly, perform the required manual verification, and then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit suite passes cleanly.
-6. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber suite passes cleanly.
-7. [ ] Run `npm run test:summary:client` and confirm the full client test suite passes cleanly.
-8. [ ] Run `npm run test:summary:e2e` and confirm the end-to-end suite passes cleanly.
+1. [ ] `npm run build:summary:server` - Mandatory for the final regression check because server/common behavior may be affected. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Mandatory for the final regression check because the final task verifies the existing client against the completed server behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Mandatory for the final regression check because server/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory for the final regression check because server/common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Mandatory for the final regression check because the completed story is testable from the client-facing chat surface. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` - Allow up to 7 minutes. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - Use because the final regression check includes front-end-accessible validation through the containerized stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP testing step - Use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the story’s completed behavior and general regression health. At minimum, verify that the chat UI reflects the server-selected defaults and available models, that the final story behavior can be exercised without adding client-specific code, and that there are no logged errors in the browser debug console.
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 

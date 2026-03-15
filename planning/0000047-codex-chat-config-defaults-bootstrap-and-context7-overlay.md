@@ -288,17 +288,16 @@ const presentedModels = prioritizeModel(mergedModels, preferredModel);
 23. [ ] Update the user/developer reference document [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) if it currently claims that `CHAT_DEFAULT_MODEL` overrides `codex/chat/config.toml`, because that statement must not survive this task. Purpose: keep the public-facing usage guidance aligned with the new Codex default-precedence contract.
 24. [ ] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only after every file-adding or file-removing subtask in this task is complete. The `projectStructure.md` update for this task must list every repository file added or removed by Task 1 so the structure map does not go stale for the next junior developer.
 25. [ ] Update this plan file's Task 1 `Implementation notes` in [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md) after implementation and testing are complete, including what changed, what warnings/fallback behavior was preserved, and any issue you had to solve.
-26. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root exactly as written in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). If either command fails, run the appropriate fix command and resolve any remaining issues before marking this task complete.
-
 #### Testing
 
 Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
 
-1. [ ] Run `npm run build:summary:server` because this task changes server config and capability resolution logic.
-2. [ ] Run `npm run build:summary:client` to prove the unchanged `/chat/models` contract still typechecks and builds cleanly for the client.
-3. [ ] Run `npm run compose:build:summary` to prove the server changes still build correctly in the containerized stack.
-4. [ ] Run `npm run compose:up`, confirm the stack starts successfully, and then run `npm run compose:down` so the environment is left clean before the next task.
-5. [ ] Run `npm run test:summary:server:unit` because this task changes shared server resolution code and its route-visible behavior.
+1. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root exactly as written in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). If either command fails, run the appropriate fix command and resolve any remaining issues before marking this task complete.
+2. [ ] Run `npm run build:summary:server` because this task changes server config and capability resolution logic.
+3. [ ] Run `npm run build:summary:client` to prove the unchanged `/chat/models` contract still typechecks and builds cleanly for the client.
+4. [ ] Run `npm run compose:build:summary` to prove the server changes still build correctly in the containerized stack.
+5. [ ] Run `npm run compose:up`, confirm the stack starts successfully, and then run `npm run compose:down` so the environment is left clean before the next task.
+6. [ ] Run `npm run test:summary:server:unit` because this task changes shared server resolution code and its route-visible behavior.
 
 #### Implementation notes
 
@@ -364,17 +363,16 @@ return;
 11. [ ] Update the user/developer reference document [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) so it describes `codex/config.toml` bootstrap as code-driven rather than sample-file-driven and states that `config.toml.example` is documentation-only. Purpose: keep the top-level implementation guidance aligned with the new bootstrap source of truth.
 12. [ ] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only after every file-adding or file-removing subtask in this task is complete. The `projectStructure.md` update for this task must list every repository file added or removed by Task 2 so the structure map stays correct for the next task.
 13. [ ] Update this plan file's Task 2 `Implementation notes` in [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md) after implementation and testing are complete, including what you changed in [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts) and what bootstrap behavior stayed intentionally unchanged.
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root exactly as described in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). If either command fails, run the appropriate fix command and resolve any remaining issues before marking this task complete.
-
 #### Testing
 
 Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
 
-1. [ ] Run `npm run build:summary:server` because this task changes server bootstrap code.
-2. [ ] Run `npm run build:summary:client` to prove the client still builds after the server bootstrap-only change.
-3. [ ] Run `npm run compose:build:summary` to prove the updated canonical config template still builds correctly in the containerized stack.
-4. [ ] Run `npm run compose:up`, confirm the stack starts successfully with the updated base bootstrap behavior, and then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` because this task changes the config seeding behavior covered by server unit tests.
+1. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root exactly as described in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). If either command fails, run the appropriate fix command and resolve any remaining issues before marking this task complete.
+2. [ ] Run `npm run build:summary:server` because this task changes server bootstrap code.
+3. [ ] Run `npm run build:summary:client` to prove the client still builds after the server bootstrap-only change.
+4. [ ] Run `npm run compose:build:summary` to prove the updated canonical config template still builds correctly in the containerized stack.
+5. [ ] Run `npm run compose:up`, confirm the stack starts successfully with the updated base bootstrap behavior, and then run `npm run compose:down`.
+6. [ ] Run `npm run test:summary:server:unit` because this task changes the config seeding behavior covered by server unit tests.
 
 #### Implementation notes
 
@@ -440,17 +438,16 @@ if (!chatConfigExists) {
 12. [ ] Update the user/developer reference document [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) so it describes direct chat-template bootstrap rather than copy-from-base behavior and makes it explicit that this task only changes missing-file bootstrap. Purpose: keep the top-level guidance aligned with the new direct bootstrap contract.
 13. [ ] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only after every file-adding or file-removing subtask in this task is complete. The `projectStructure.md` update for this task must list every repository file added or removed by Task 3 so the repo map does not go stale.
 14. [ ] Update this plan file's Task 3 `Implementation notes` in [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md) after implementation and testing are complete, including which bootstrap branch changed and which existing-file protections stayed intact.
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root exactly as described in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). If either command fails, run the appropriate fix command and resolve any remaining issues before marking this task complete.
-
 #### Testing
 
 Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
 
-1. [ ] Run `npm run build:summary:server` because this task changes server runtime-config bootstrap code.
-2. [ ] Run `npm run build:summary:client` to prove the client still builds after the server-only bootstrap change.
-3. [ ] Run `npm run compose:build:summary` to prove the updated chat bootstrap path still builds correctly in the containerized stack.
-4. [ ] Run `npm run compose:up`, confirm the stack starts successfully with the updated chat bootstrap behavior, and then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` because this task changes server bootstrap behavior covered by server unit tests.
+1. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root exactly as described in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). If either command fails, run the appropriate fix command and resolve any remaining issues before marking this task complete.
+2. [ ] Run `npm run build:summary:server` because this task changes server runtime-config bootstrap code.
+3. [ ] Run `npm run build:summary:client` to prove the client still builds after the server-only bootstrap change.
+4. [ ] Run `npm run compose:build:summary` to prove the updated chat bootstrap path still builds correctly in the containerized stack.
+5. [ ] Run `npm run compose:up`, confirm the stack starts successfully with the updated chat bootstrap behavior, and then run `npm run compose:down`.
+6. [ ] Run `npm run test:summary:server:unit` because this task changes server bootstrap behavior covered by server unit tests.
 
 #### Implementation notes
 
@@ -516,17 +513,16 @@ const merged = {
 13. [ ] Update the user/developer reference document [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) so it explains the shared base/runtime inheritance behavior and the preserved key groups at a high level. Purpose: keep the top-level guidance aligned with the new inheritance behavior without forcing the reader into the deeper design document first.
 14. [ ] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only after every file-adding or file-removing subtask in this task is complete. The `projectStructure.md` update for this task must list every repository file added or removed by Task 4 so the repo map does not go stale for the next developer.
 15. [ ] Update this plan file's Task 4 `Implementation notes` in [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md) after implementation and testing are complete, including which keys are inherited explicitly and which values remain runtime-specific overrides.
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root exactly as described in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). If either command fails, run the appropriate fix command and resolve any remaining issues before marking this task complete.
-
 #### Testing
 
 Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
 
-1. [ ] Run `npm run build:summary:server` because this task changes shared runtime-config merge behavior.
-2. [ ] Run `npm run build:summary:client` to prove the client still builds after the server-only inheritance change.
-3. [ ] Run `npm run compose:build:summary` to prove the updated shared runtime-config path still builds correctly in the containerized stack.
-4. [ ] Run `npm run compose:up`, confirm the stack starts successfully with the updated inheritance behavior, and then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` because this task changes shared runtime-config behavior used by chat and agent execution.
+1. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root exactly as described in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). If either command fails, run the appropriate fix command and resolve any remaining issues before marking this task complete.
+2. [ ] Run `npm run build:summary:server` because this task changes shared runtime-config merge behavior.
+3. [ ] Run `npm run build:summary:client` to prove the client still builds after the server-only inheritance change.
+4. [ ] Run `npm run compose:build:summary` to prove the updated shared runtime-config path still builds correctly in the containerized stack.
+5. [ ] Run `npm run compose:up`, confirm the stack starts successfully with the updated inheritance behavior, and then run `npm run compose:down`.
+6. [ ] Run `npm run test:summary:server:unit` because this task changes shared runtime-config behavior used by chat and agent execution.
 
 #### Implementation notes
 
@@ -599,17 +595,16 @@ if (isPlaceholderKey(currentApiKey) && !envApiKey) {
 18. [ ] Update the user/developer reference document [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) so it describes `CODEINFO_CONTEXT7_API_KEY` as the runtime source of truth and explains the in-memory-only overlay behavior at a practical level. Purpose: keep the top-level operational guidance aligned with the new Context7 configuration contract.
 19. [ ] If this task adds or removes files, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only after every file-adding or file-removing subtask in this task is complete. The `projectStructure.md` update for this task must list every repository file added or removed by Task 5 so the structure map does not go stale.
 20. [ ] Update this plan file's Task 5 `Implementation notes` in [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md) after implementation and testing are complete, including which placeholder-equivalent values were handled and how the runtime-only overlay works.
-21. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root exactly as described in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). If either command fails, run the appropriate fix command and resolve any remaining issues before marking this task complete.
-
 #### Testing
 
 Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
 
-1. [ ] Run `npm run build:summary:server` because this task changes runtime config normalization code.
-2. [ ] Run `npm run build:summary:client` to prove the client still builds after the server-only normalization change.
-3. [ ] Run `npm run compose:build:summary` to prove the updated runtime config behavior still builds correctly in the containerized stack.
-4. [ ] Run `npm run compose:up`, confirm the stack starts successfully with the updated Context7 normalization behavior, and then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` because this task changes the runtime-config test surface.
+1. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root exactly as described in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). If either command fails, run the appropriate fix command and resolve any remaining issues before marking this task complete.
+2. [ ] Run `npm run build:summary:server` because this task changes runtime config normalization code.
+3. [ ] Run `npm run build:summary:client` to prove the client still builds after the server-only normalization change.
+4. [ ] Run `npm run compose:build:summary` to prove the updated runtime config behavior still builds correctly in the containerized stack.
+5. [ ] Run `npm run compose:up`, confirm the stack starts successfully with the updated Context7 normalization behavior, and then run `npm run compose:down`.
+6. [ ] Run `npm run test:summary:server:unit` because this task changes the runtime-config test surface.
 
 #### Implementation notes
 
@@ -656,15 +651,14 @@ Prepare the story for final proof by updating the human-facing documentation and
 4. [ ] Update [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) so it fully reflects the final shared model/default-resolution path, the canonical bootstrap source of truth, the shared base/runtime inheritance, and the runtime-only Context7 overlay behavior. Use the implementation files already named in this story as the source of truth, especially [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts), and [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), and ensure the final Mermaid diagrams cover the end-to-end resolution flow, bootstrap flow, inheritance flow, and Context7 overlay flow without drifting from the implemented behavior.
 5. [ ] Update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only after every file-adding or file-removing subtask from Tasks 1 through 6 is complete. This story-level `projectStructure.md` sweep must list every repository file added or removed during the story, plus any materially repurposed files, so the repo map still matches the code and documentation a junior will rely on next.
 6. [ ] Update this plan file's Task 6 `Implementation notes` in [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md) after the acceptance map and documentation updates are complete, including which documents changed and which acceptance criteria were hardest to map.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root exactly as described in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). If either command fails, run the appropriate fix command and resolve any remaining issues before marking this task complete.
-
 #### Testing
 
 Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
 
-1. [ ] Run `npm run build:summary:server` and confirm the current server build still passes cleanly after the documentation and acceptance sweep.
-2. [ ] Run `npm run build:summary:client` and confirm the current client build still passes cleanly after the documentation and acceptance sweep.
-3. [ ] Run `npm run compose:build:summary` and confirm the current containerized build still passes cleanly before the final runtime-verification task.
+1. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root exactly as described in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). If either command fails, run the appropriate fix command and resolve any remaining issues before marking this task complete.
+2. [ ] Run `npm run build:summary:server` and confirm the current server build still passes cleanly after the documentation and acceptance sweep.
+3. [ ] Run `npm run build:summary:client` and confirm the current client build still passes cleanly after the documentation and acceptance sweep.
+4. [ ] Run `npm run compose:build:summary` and confirm the current containerized build still passes cleanly before the final runtime-verification task.
 
 #### Implementation notes
 
@@ -714,20 +708,19 @@ Run the full story-level proof that all completed changes work together in the r
 3. [ ] Create a pull-request summary comment that covers the model/default resolution change, the base bootstrap change, the chat bootstrap change, the shared base/runtime inheritance change, the Context7 overlay change, and the final verification results. Use the implementation files and tests already named in this story as the source material, especially [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts), [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), and the relevant server test files.
 4. [ ] If this task adds or removes repository files while completing the final verification work, update [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only after every file-adding or file-removing subtask in Task 7 is complete. The update must list every repository file added or removed by the final verification task, and it must not list generated screenshot evidence under `test-results/screenshots/` because `projectStructure.md` is for maintained repository structure rather than runtime artifacts.
 5. [ ] Update this plan file's Task 7 `Implementation notes` in [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md) after all verification, screenshots, and pull-request summary work are complete, including which runtime proofs were strongest and where the saved screenshots live.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root exactly as described in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). If either command fails, run the appropriate fix command and resolve any remaining issues before marking this task complete.
-
 #### Testing
 
 Do not run raw build or test commands when a summary wrapper exists. Inspect saved logs only if the wrapper reports failure, unexpected warnings, or `agent_action: inspect_log`.
 
-1. [ ] Run `npm run build:summary:server` and confirm the final server build passes cleanly.
-2. [ ] Run `npm run build:summary:client` and confirm the final client build passes cleanly.
-3. [ ] Run `npm run compose:build:summary` and confirm the full containerized build passes cleanly.
-4. [ ] Run `npm run compose:up`, confirm the stack starts cleanly, perform the required manual verification, and then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit suite passes cleanly.
-6. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber suite passes cleanly.
-7. [ ] Run `npm run test:summary:client` and confirm the full client test suite passes cleanly.
-8. [ ] Run `npm run test:summary:e2e` and confirm the end-to-end suite passes cleanly.
+1. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root exactly as described in [AGENTS.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md). If either command fails, run the appropriate fix command and resolve any remaining issues before marking this task complete.
+2. [ ] Run `npm run build:summary:server` and confirm the final server build passes cleanly.
+3. [ ] Run `npm run build:summary:client` and confirm the final client build passes cleanly.
+4. [ ] Run `npm run compose:build:summary` and confirm the full containerized build passes cleanly.
+5. [ ] Run `npm run compose:up`, confirm the stack starts cleanly, perform the required manual verification, and then run `npm run compose:down`.
+6. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit suite passes cleanly.
+7. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber suite passes cleanly.
+8. [ ] Run `npm run test:summary:client` and confirm the full client test suite passes cleanly.
+9. [ ] Run `npm run test:summary:e2e` and confirm the end-to-end suite passes cleanly.
 
 #### Implementation notes
 

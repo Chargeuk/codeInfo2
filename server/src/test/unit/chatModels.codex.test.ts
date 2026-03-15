@@ -50,6 +50,7 @@ const defaultDetection = {
   configPresent: false,
   reason: 'not detected',
 };
+const tempDirs: string[] = [];
 
 function createClient(
   models: {
@@ -109,18 +110,47 @@ async function stopServer(server: { httpServer: http.Server }) {
   );
 }
 
+async function setCodexHome(chatToml?: string) {
+  env.set('CHAT_DEFAULT_MODEL', undefined);
+  env.set('CHAT_DEFAULT_PROVIDER', undefined);
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-chat-models-codex-'),
+  );
+  tempDirs.push(root);
+  const codexHome = path.join(root, 'codex');
+  if (chatToml !== undefined) {
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.writeFile(
+      path.join(codexHome, 'chat', 'config.toml'),
+      chatToml,
+      'utf8',
+    );
+  }
+  env.set('CODEX_HOME', codexHome);
+  return {
+    codexHome,
+    chatConfigPath: path.join(codexHome, 'chat', 'config.toml'),
+  };
+}
+
 beforeEach(() => {
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
 });
 
-afterEach(() => {
+afterEach(async () => {
   env.restore();
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
+  await Promise.all(
+    tempDirs
+      .splice(0)
+      .map((dir) => fs.rm(dir, { recursive: true, force: true })),
+  );
 });
 
 test('codex env model list parsing surfaces defaults and warnings', async () => {
+  await setCodexHome('model = "gamma"\n');
   env.set('Codex_model_list', 'alpha,beta');
   setCodexDetection({
     available: true,
@@ -136,7 +166,7 @@ test('codex env model list parsing surfaces defaults and warnings', async () => 
       .expect(200);
 
     assert.equal(res.body.provider, 'codex');
-    assert.equal(res.body.models.length, 2);
+    assert.equal(res.body.models.length, 3);
     assert.ok(res.body.codexDefaults);
     assert.ok(Array.isArray(res.body.codexWarnings));
   } finally {
@@ -444,6 +474,7 @@ test('codex resolver warnings propagate into codexWarnings', async () => {
 });
 
 test('codex model list CSV trims, drops empties, and de-duplicates', async () => {
+  await setCodexHome();
   env.set(
     'Codex_model_list',
     ' gpt-5.1-codex-max , , gpt-5.1, gpt-5.1 , gpt-5.2 ',
@@ -464,13 +495,19 @@ test('codex model list CSV trims, drops empties, and de-duplicates', async () =>
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
-    assert.deepEqual(modelKeys, ['gpt-5.1-codex-max', 'gpt-5.1', 'gpt-5.2']);
+    assert.deepEqual(modelKeys, [
+      'gpt-5.3-codex',
+      'gpt-5.1-codex-max',
+      'gpt-5.1',
+      'gpt-5.2',
+    ]);
   } finally {
     await stopServer(server);
   }
 });
 
 test('codex model list empty CSV falls back with warning', async () => {
+  await setCodexHome();
   env.set('Codex_model_list', ' , , ');
   setCodexDetection({
     available: true,
@@ -500,6 +537,7 @@ test('codex model list empty CSV falls back with warning', async () => {
 });
 
 test('codex model list whitespace-only CSV falls back with warning', async () => {
+  await setCodexHome();
   env.set('Codex_model_list', '   ');
   setCodexDetection({
     available: true,
@@ -844,9 +882,10 @@ test('codex payload includes non-standard reasoning effort values from shared ca
 });
 
 test('codex models prioritize CHAT_DEFAULT_MODEL when codex is default provider', async () => {
+  await setCodexHome('model = "config-model"\n');
   env.set('CHAT_DEFAULT_PROVIDER', 'codex');
   env.set('CHAT_DEFAULT_MODEL', 'gpt-5.1');
-  env.set('Codex_model_list', 'gpt-5.3-codex,gpt-5.1,gpt-5.2');
+  env.set('Codex_model_list', 'config-model,gpt-5.1,gpt-5.2');
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -863,7 +902,65 @@ test('codex models prioritize CHAT_DEFAULT_MODEL when codex is default provider'
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
-    assert.equal(modelKeys[0], 'gpt-5.1');
+    assert.equal(modelKeys[0], 'config-model');
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('chat models route returns the merged codex model list while keeping the existing payload shape', async () => {
+  await setCodexHome('model = "gamma"\n');
+  env.set('Codex_model_list', 'alpha,beta');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    assert.equal(res.body.provider, 'codex');
+    assert.equal(typeof res.body.available, 'boolean');
+    assert.equal(typeof res.body.toolsAvailable, 'boolean');
+    assert.ok(Array.isArray(res.body.models));
+    assert.deepEqual(
+      res.body.models.map((model: { key: string }) => model.key),
+      ['gamma', 'alpha', 'beta'],
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('chat models route rereads codex chat config between requests', async () => {
+  const { chatConfigPath } = await setCodexHome('model = "first-model"\n');
+  env.set('Codex_model_list', 'alpha,beta');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const first = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    await fs.writeFile(chatConfigPath, 'model = "second-model"\n', 'utf8');
+
+    const second = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    assert.equal(first.body.models[0].key, 'first-model');
+    assert.equal(second.body.models[0].key, 'second-model');
   } finally {
     await stopServer(server);
   }

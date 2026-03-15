@@ -5,6 +5,9 @@ import type {
 } from '@openai/codex-sdk';
 import {
   resolveChatDefaults,
+  resolveCodexChatDefaults,
+  STORY_47_TASK_1_LOG_MARKER,
+  toChatResolutionSource,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
 import {
@@ -47,8 +50,8 @@ export type ValidatedChatRequest = {
   };
   warnings: string[];
   defaultsResolution: {
-    providerSource: 'request' | 'env' | 'fallback';
-    modelSource: 'request' | 'env' | 'fallback';
+    providerSource: 'request' | 'config' | 'env' | 'fallback';
+    modelSource: 'request' | 'config' | 'env' | 'fallback';
     requestedProvider?: Provider;
     requestedModel?: string;
   };
@@ -190,9 +193,24 @@ export async function validateChatRequest(
     requestModel: requestedModel,
   });
   const provider: Provider = resolvedDefaults.provider;
-  const model = resolvedDefaults.model;
+  const codexRequestedDefaults =
+    provider === 'codex' && requestedModel === undefined
+      ? await resolveCodexChatDefaults({
+          codexHome: process.env.CODEX_HOME,
+        })
+      : undefined;
+  const model =
+    provider === 'codex' && requestedModel === undefined
+      ? (codexRequestedDefaults?.values.model ?? resolvedDefaults.model)
+      : resolvedDefaults.model;
 
   const warnings: string[] = [...resolvedDefaults.warnings];
+  const modelSource =
+    requestedModel !== undefined
+      ? 'request'
+      : provider === 'codex' && codexRequestedDefaults
+        ? toChatResolutionSource(codexRequestedDefaults.sources.model)
+        : resolvedDefaults.modelSource;
 
   const threadId =
     typeof body.threadId === 'string' && body.threadId.length > 0
@@ -344,6 +362,16 @@ export async function validateChatRequest(
       '[codex-validate] applied resolver defaults',
     );
   }
+  console.info(STORY_47_TASK_1_LOG_MARKER, {
+    surface: 'chat_validation',
+    requested_provider: requestedProvider ?? provider,
+    requested_model: requestedModel ?? model,
+    resolved_model: model,
+    model_source: modelSource,
+    success: true,
+    warning_count: warnings.length,
+    defaultedFlags,
+  });
   console.info(TASK7_LOG_MARKER, {
     surface: 'chat_validation',
     provider,
@@ -363,7 +391,7 @@ export async function validateChatRequest(
     warnings,
     defaultsResolution: {
       providerSource: resolvedDefaults.providerSource,
-      modelSource: resolvedDefaults.modelSource,
+      modelSource,
       requestedProvider,
       requestedModel,
     },

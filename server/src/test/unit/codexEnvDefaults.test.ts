@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach } from 'node:test';
 
-import { getCodexEnvDefaults } from '../../config/codexEnvDefaults.js';
+import {
+  getCodexEnvDefaults,
+  mergeCodexModelList,
+} from '../../config/codexEnvDefaults.js';
 
 const ENV_KEYS = [
   'Codex_sandbox_mode',
@@ -124,4 +127,17 @@ test('boolean parsing handles valid and invalid values', () => {
       warning.includes('Codex_web_search_enabled must be "true" or "false"'),
     ),
   );
+});
+
+test('mergeCodexModelList preserves env order and appends chat config model only when missing', () => {
+  assert.deepEqual(mergeCodexModelList(['alpha', 'beta'], 'gamma'), [
+    'alpha',
+    'beta',
+    'gamma',
+  ]);
+  assert.deepEqual(mergeCodexModelList(['alpha', 'gamma', 'beta'], 'gamma'), [
+    'alpha',
+    'gamma',
+    'beta',
+  ]);
 });

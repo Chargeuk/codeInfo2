@@ -7,7 +7,9 @@ import {
 } from '../codex/capabilityResolver.js';
 import {
   resolveChatDefaults,
+  resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
+  STORY_47_TASK_1_LOG_MARKER,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
 import { baseLogger } from '../logger.js';
@@ -17,7 +19,6 @@ import { BASE_URL_REGEX, scrubBaseUrl } from './lmstudioUrl.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
 const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
-
 const toWebSocketUrl = (value: string) => {
   if (value.startsWith('http://')) return value.replace(/^http:/i, 'ws:');
   if (value.startsWith('https://')) return value.replace(/^https:/i, 'wss:');
@@ -69,9 +70,19 @@ export function createChatProvidersRouter({
     }
 
     const requestedDefaults = resolveChatDefaults({});
+    const codexRequestedDefaults =
+      requestedDefaults.provider === 'codex'
+        ? await resolveCodexChatDefaults({
+            codexHome: process.env.CODEX_HOME,
+          })
+        : undefined;
+    const requestedModel =
+      requestedDefaults.provider === 'codex'
+        ? (codexRequestedDefaults?.values.model ?? requestedDefaults.model)
+        : requestedDefaults.model;
     const runtimeSelection = resolveRuntimeProviderSelection({
       requestedProvider: requestedDefaults.provider as ChatDefaultProvider,
-      requestedModel: requestedDefaults.model,
+      requestedModel,
       codex: {
         available: codex.available,
         models: capabilities.models.map((entry) => entry.model),
@@ -138,6 +149,18 @@ export function createChatProvidersRouter({
         'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
       );
     }
+    console.info(STORY_47_TASK_1_LOG_MARKER, {
+      surface: '/chat/providers',
+      requested_provider: runtimeSelection.requestedProvider,
+      requested_model: runtimeSelection.requestedModel,
+      resolved_model: runtimeSelection.executionModel,
+      model_source:
+        requestedDefaults.provider === 'codex'
+          ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
+          : requestedDefaults.modelSource,
+      success: true,
+      warning_count: codexWarnings.length,
+    });
     console.info(TASK7_LOG_MARKER, {
       surface: '/chat/providers',
       provider: 'codex',

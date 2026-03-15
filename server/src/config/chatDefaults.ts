@@ -4,7 +4,7 @@ export type ChatDefaultProvider = 'codex' | 'lmstudio';
 export type CodexWebSearchMode = 'live' | 'cached' | 'disabled';
 export type CodexDefaultSource = 'override' | 'config' | 'env' | 'hardcoded';
 
-type ResolutionSource = 'request' | 'env' | 'fallback';
+type ResolutionSource = 'request' | 'config' | 'env' | 'fallback';
 
 export type ChatDefaultsResolution = {
   provider: ChatDefaultProvider;
@@ -61,6 +61,8 @@ export type ResolvedCodexChatDefaults = {
 
 const FALLBACK_PROVIDER: ChatDefaultProvider = 'codex';
 const FALLBACK_MODEL = 'gpt-5.3-codex';
+export const STORY_47_TASK_1_LOG_MARKER =
+  'DEV_0000047_T01_CODEX_DEFAULTS_APPLIED';
 const VALID_PROVIDERS: readonly ChatDefaultProvider[] = ['codex', 'lmstudio'];
 const FALLBACK_CODEX_SANDBOX_MODE = 'danger-full-access' as const;
 const FALLBACK_CODEX_APPROVAL_POLICY = 'on-failure' as const;
@@ -473,4 +475,12 @@ export const resolveChatDefaults = ({
     modelSource: requestModel ? 'request' : envModel ? 'env' : 'fallback',
     warnings,
   };
+};
+
+export const toChatResolutionSource = (
+  source: CodexDefaultSource,
+): ResolutionSource => {
+  if (source === 'override') return 'request';
+  if (source === 'hardcoded') return 'fallback';
+  return source;
 };

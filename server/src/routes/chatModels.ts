@@ -1,7 +1,11 @@
 import { type ChatModelsResponse } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
-import { resolveChatDefaults } from '../config/chatDefaults.js';
+import {
+  resolveChatDefaults,
+  resolveCodexChatDefaults,
+  STORY_47_TASK_1_LOG_MARKER,
+} from '../config/chatDefaults.js';
 import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
@@ -18,7 +22,6 @@ const TASK12_LOG_SUCCESS =
 const TASK12_LOG_ERROR =
   '[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=error';
 const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
-
 const scrubBaseUrl = (value: string) => {
   try {
     return new URL(value).origin;
@@ -81,7 +84,9 @@ export function createChatModelsRouter({
       }
 
       const codexWarnings = [...capabilities.warnings, ...runtimeWarnings];
-      const preferredDefaults = resolveChatDefaults({});
+      const preferredDefaults = await resolveCodexChatDefaults({
+        codexHome: process.env.CODEX_HOME,
+      });
       const codexModels = prioritizeModel(
         capabilities.models.map((capability) => {
           return {
@@ -92,9 +97,7 @@ export function createChatModelsRouter({
             defaultReasoningEffort: capability.defaultReasoningEffort,
           };
         }),
-        preferredDefaults.provider === 'codex'
-          ? preferredDefaults.model
-          : undefined,
+        preferredDefaults.values.model,
       );
 
       baseLogger.info(
@@ -122,6 +125,15 @@ export function createChatModelsRouter({
         codexDefaults: capabilities.defaults,
         codexWarnings,
       };
+      console.info(STORY_47_TASK_1_LOG_MARKER, {
+        surface: '/chat/models',
+        requested_provider: 'codex',
+        requested_model: preferredDefaults.values.model,
+        resolved_model: preferredDefaults.values.model,
+        model_source: preferredDefaults.sources.model,
+        success: true,
+        warning_count: codexWarnings.length,
+      });
       console.info(TASK7_LOG_MARKER, {
         surface: '/chat/models',
         provider: 'codex',

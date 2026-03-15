@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 import { baseLogger } from '../../logger.js';
@@ -47,4 +50,39 @@ test('resolveCodexCapabilities parses metadata values without env sentinels', as
   assert.ok(supported.includes('high'));
   assert.ok(supported.includes('turbo'));
   assert.equal(new Set(supported).size, supported.length);
+});
+
+test('resolveCodexCapabilities does not duplicate a chat-config model already present in Codex_model_list', async () => {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-capability-resolver-'),
+  );
+  const codexHome = path.join(root, 'codex');
+  const originalModelList = process.env.Codex_model_list;
+  const originalCodexHome = process.env.CODEX_HOME;
+  try {
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.writeFile(
+      path.join(codexHome, 'chat', 'config.toml'),
+      'model = "gamma"\n',
+      'utf8',
+    );
+    process.env.Codex_model_list = 'alpha,gamma,beta';
+    process.env.CODEX_HOME = codexHome;
+
+    const result = await resolveCodexCapabilities({
+      consumer: 'chat_models',
+      codexHome,
+    });
+
+    assert.deepEqual(
+      result.models.map((entry) => entry.model),
+      ['alpha', 'gamma', 'beta'],
+    );
+  } finally {
+    if (originalModelList === undefined) delete process.env.Codex_model_list;
+    else process.env.Codex_model_list = originalModelList;
+    if (originalCodexHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodexHome;
+    await fs.rm(root, { recursive: true, force: true });
+  }
 });

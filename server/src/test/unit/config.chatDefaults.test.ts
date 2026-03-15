@@ -334,6 +334,49 @@ test('model precedence is override > config > env > hardcoded', async () => {
   assert.equal(withHardcoded.sources.model, 'hardcoded');
 });
 
+test('missing codex chat config falls back without creating the file', async () => {
+  process.env.CHAT_DEFAULT_MODEL = 'env-model';
+  const codexHome = await createCodexHome();
+  const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+
+  const result = await resolveCodexChatDefaults({ codexHome });
+
+  assert.equal(result.values.model, 'env-model');
+  await assert.rejects(fs.access(chatConfigPath));
+});
+
+test('unreadable codex chat config warns and falls back without repair', async () => {
+  process.env.CHAT_DEFAULT_MODEL = 'env-model';
+  const codexHome = await createCodexHome('model = "config-model"\n');
+  const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+
+  await fs.rm(chatConfigPath);
+  await fs.mkdir(chatConfigPath, { recursive: true });
+
+  const result = await resolveCodexChatDefaults({ codexHome });
+
+  assert.equal(result.values.model, 'env-model');
+  assert.ok(
+    result.warnings.some((warning) =>
+      warning.includes('Unable to read codex/chat/config.toml'),
+    ),
+  );
+  const stat = await fs.stat(chatConfigPath);
+  assert.ok(stat.isDirectory());
+});
+
+test('resolver rereads codex chat config on consecutive calls', async () => {
+  const codexHome = await createCodexHome('model = "first-model"\n');
+  const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+
+  const first = await resolveCodexChatDefaults({ codexHome });
+  await fs.writeFile(chatConfigPath, 'model = "second-model"\n', 'utf8');
+  const second = await resolveCodexChatDefaults({ codexHome });
+
+  assert.equal(first.values.model, 'first-model');
+  assert.equal(second.values.model, 'second-model');
+});
+
 test('canonical web_search wins when canonical and alias are both present', async () => {
   const codexHome = await createCodexHome(`
 web_search = "cached"

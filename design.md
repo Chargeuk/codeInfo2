@@ -22,8 +22,11 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Express 5 app with CORS enabled and env-driven port (default 5010 via `SERVER_PORT` in `server/.env`, with legacy `PORT` fallback).
 - Routes: `/health` returns `{ status: 'ok', uptime, timestamp }`; `/version` returns `VersionInfo` using `package.json` version; `/info` echoes a friendly message plus VersionInfo.
 - Depends on `@codeinfo2/common` for DTO helper; built with `tsc -b`, started via `npm run start --workspace server`.
-- Shared chat provider/model defaults are resolved in `server/src/config/chatDefaults.ts` with strict precedence: explicit request value -> `CHAT_DEFAULT_PROVIDER` / `CHAT_DEFAULT_MODEL` env -> hardcoded fallback (`codex`, `gpt-5.3-codex`).
+- Shared chat provider/model defaults are resolved in `server/src/config/chatDefaults.ts`. Provider selection still follows explicit request -> `CHAT_DEFAULT_PROVIDER` env -> hardcoded fallback (`codex`), while Codex model selection now follows explicit request -> `codex/chat/config.toml` -> `CHAT_DEFAULT_MODEL` env -> hardcoded fallback (`gpt-5.3-codex`).
 - `validateChatRequest` now accepts omitted `provider`/`model`, resolves both through the shared resolver, and keeps existing REST validation envelopes unchanged.
+- Codex-facing selection paths share the same chat-config-aware model/default behavior across `/chat/models`, `/chat/providers`, `validateChatRequest`, and MCP `codebase_question`.
+- The shared capability path unions `Codex_model_list` with the current `codex/chat/config.toml` model using first-seen order, and route presentation still performs its own preferred-model prioritization after capability resolution.
+- Codex model/default reads are intentionally fresh per request: callers reread `codex/chat/config.toml` instead of caching request-level or module-level snapshots.
 - Runtime provider selection is single-hop and shared: if the selected/default provider is unavailable, execution switches once to the alternate provider only when that alternate has at least one selectable runtime model. If the alternate has no selectable model, execution stays on the original provider and surfaces existing unavailable contracts (`REST: 503 PROVIDER_UNAVAILABLE`, `MCP codebase_question: -32001 CODE_INFO_LLM_UNAVAILABLE`).
 - REST runtime fallback no longer treats explicit `provider=lmstudio` + non-empty model as availability; LM Studio is considered available only when runtime model listing returns at least one selectable chat model.
 - The resolved execution provider/model are persisted on conversation metadata for both REST `/chat` and MCP `codebase_question`; when execution is not Codex, stale `flags.threadId` is removed so Codex resume state is not reused across providers.
@@ -38,23 +41,29 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 ```mermaid
 flowchart LR
-  Req[POST /chat body] --> P{provider supplied?}
-  Req --> M{model supplied?}
+  Req[Codex-facing request] --> P{provider override?}
   P -- yes --> RP[provider=request]
-  P -- no --> EP{CHAT_DEFAULT_PROVIDER valid?}
-  EP -- yes --> RPE[provider=env]
-  EP -- no --> RPF[provider=codex fallback]
+  P -- no --> PE{CHAT_DEFAULT_PROVIDER valid?}
+  PE -- yes --> RPE[provider=env]
+  PE -- no --> RPF[provider=codex fallback]
+  Req --> M{model override?}
   M -- yes --> RM[model=request]
-  M -- no --> EM{CHAT_DEFAULT_MODEL valid?}
-  EM -- yes --> RME[model=env]
-  EM -- no --> RMF[model=gpt-5.3-codex fallback]
-  RP --> V[validateChatRequest]
-  RPE --> V
-  RPF --> V
-  RM --> V
-  RME --> V
-  RMF --> V
-  V --> C[chat route persists resolved provider/model]
+  M -- no --> Cfg{codex/chat/config.toml model valid?}
+  Cfg -- yes --> RMC[model=config]
+  Cfg -- no --> Env{CHAT_DEFAULT_MODEL valid?}
+  Env -- yes --> RME[model=env]
+  Env -- no --> RMF[model=gpt-5.3-codex fallback]
+  RM --> Shared[Shared Codex-aware resolution]
+  RMC --> Shared
+  RME --> Shared
+  RMF --> Shared
+  RP --> Shared
+  RPE --> Shared
+  RPF --> Shared
+  Shared --> Models[/chat/models]
+  Shared --> Providers[/chat/providers]
+  Shared --> Validate[validateChatRequest]
+  Shared --> MCP[codebase_question]
 ```
 
 ## Story 0000041 Task 3 server build override wiring

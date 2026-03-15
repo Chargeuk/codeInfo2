@@ -111,14 +111,14 @@ Corporate certificate directory requirements:
 
 `CODEINFO_REFRESH_CA_CERTS_ON_START=false` is the default behavior. Only case-insensitive `true` enables refresh. If refresh is enabled and certs are missing/invalid, server startup fails fast with non-zero exit.
 
-| Variable | Default when unset | Where used |
-| --- | --- | --- |
-| `CODEINFO_NPM_REGISTRY` | npm default registry behavior | Docker build-time npm install steps in server/client images, and host helper install in `start-gcf-server.sh` |
-| `CODEINFO_PIP_INDEX_URL` | pip default index behavior | Server Docker build-time `pip install` |
-| `CODEINFO_PIP_TRUSTED_HOST` | pip default trusted-host behavior | Server Docker build-time `pip install` |
-| `CODEINFO_NODE_EXTRA_CA_CERTS` | `/etc/ssl/certs/ca-certificates.crt` | Server runtime export before Node starts |
-| `CODEINFO_CORP_CERTS_DIR` | `./certs/empty-corp-ca` compose fallback source | Compose server cert mount source to `/usr/local/share/ca-certificates/codeinfo-corp:ro` |
-| `CODEINFO_REFRESH_CA_CERTS_ON_START` | Disabled (`false` behavior unless value is `true`) | Server entrypoint CA refresh gate before `exec node dist/index.js` |
+| Variable                             | Default when unset                                 | Where used                                                                                                    |
+| ------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `CODEINFO_NPM_REGISTRY`              | npm default registry behavior                      | Docker build-time npm install steps in server/client images, and host helper install in `start-gcf-server.sh` |
+| `CODEINFO_PIP_INDEX_URL`             | pip default index behavior                         | Server Docker build-time `pip install`                                                                        |
+| `CODEINFO_PIP_TRUSTED_HOST`          | pip default trusted-host behavior                  | Server Docker build-time `pip install`                                                                        |
+| `CODEINFO_NODE_EXTRA_CA_CERTS`       | `/etc/ssl/certs/ca-certificates.crt`               | Server runtime export before Node starts                                                                      |
+| `CODEINFO_CORP_CERTS_DIR`            | `./certs/empty-corp-ca` compose fallback source    | Compose server cert mount source to `/usr/local/share/ca-certificates/codeinfo-corp:ro`                       |
+| `CODEINFO_REFRESH_CA_CERTS_ON_START` | Disabled (`false` behavior unless value is `true`) | Server entrypoint CA refresh gate before `exec node dist/index.js`                                            |
 
 # CodeInfo2 Details
 
@@ -157,6 +157,8 @@ Corporate certificate directory requirements:
 - Covered fields are `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
 - Resolution precedence is deterministic per field:
   - request override -> `codex/chat/config.toml` -> legacy env fallback -> hardcoded safe fallback.
+- The `model` from `codex/chat/config.toml` is treated as the Codex chat default model and is unioned into the available Codex model list when `Codex_model_list` does not already contain it.
+- The shared Codex-aware read path is used by `/chat/models`, `/chat/providers`, `/chat` request validation, and MCP `codebase_question`, and those callers reread `codex/chat/config.toml` on each request instead of caching a snapshot.
 - `web_search` handling is canonical-first:
   - canonical `web_search` wins over alias keys;
   - alias bool values normalize to canonical modes (`true -> live`, `false -> disabled`).

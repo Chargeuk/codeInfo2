@@ -101,6 +101,7 @@ web_search = "disabled"
 });
 
 test('chat request resolves provider and model from shared env defaults', async () => {
+  await setChatConfig('');
   setEnv({
     CHAT_DEFAULT_PROVIDER: 'codex',
     CHAT_DEFAULT_MODEL: 'gpt-5.3-codex',
@@ -118,6 +119,7 @@ test('chat request resolves provider and model from shared env defaults', async 
 });
 
 test('invalid shared env defaults fallback without leaking invalid state', async () => {
+  await setChatConfig('');
   setEnv({
     CHAT_DEFAULT_PROVIDER: 'not-a-provider',
     CHAT_DEFAULT_MODEL: '',
@@ -142,6 +144,20 @@ test('invalid shared env defaults fallback without leaking invalid state', async
       warning.includes('CHAT_DEFAULT_MODEL is empty'),
     ),
   );
+});
+
+test('omitted codex provider and model resolve through the chat-config-aware default path', async () => {
+  await setChatConfig('model = "config-model"\n');
+
+  const result = await validateChatRequest({
+    message: 'hello',
+    conversationId: 'shared-defaults-config',
+  });
+
+  assert.equal(result.provider, 'codex');
+  assert.equal(result.model, 'config-model');
+  assert.equal(result.defaultsResolution.providerSource, 'fallback');
+  assert.equal(result.defaultsResolution.modelSource, 'config');
 });
 
 test('explicit Codex flags override resolver defaults', async () => {

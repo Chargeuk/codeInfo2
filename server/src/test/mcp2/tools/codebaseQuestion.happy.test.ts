@@ -468,3 +468,53 @@ test('codebase_question parity fixture aligns MCP defaults with REST resolver ex
     });
   }
 });
+
+test('codebase_question keeps an explicit request model override over the chat-config default', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  resetStore();
+  const tempHome = await withTempCodexHome('model = "config-model"\n');
+  process.env.CODEX_HOME = tempHome.codexHome;
+  const mockCodex = new MockCodex('thread-override');
+  setToolDeps({
+    codexFactory: () => mockCodex,
+    clientFactory: makeLmStudioClientFactory(),
+  });
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+  try {
+    const result = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 130,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'Override please',
+          model: 'request-model',
+        },
+      },
+    });
+
+    assert.ok(result.result);
+    const payload = JSON.parse(result.result.content[0].text);
+    assert.equal(payload.modelId, 'request-model');
+    assert.equal(
+      (mockCodex.lastStartOptions as { model?: string }).model,
+      'request-model',
+    );
+  } finally {
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    await tempHome.cleanup();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
+});

@@ -139,6 +139,10 @@ Corporate certificate directory requirements:
   - if chat config is missing: write the canonical in-code chat template directly (`generated_template`), regardless of whether base config exists.
   - on-disk template files such as `codex/chat/config copy.toml` are ignored during bootstrap.
   - IO/permission failures are surfaced with deterministic warnings and no silent fallback; failed write paths clean up partial destination files.
+- Resolved chat and agent runtime config now inherit a defined base-key set from `./codex/config.toml` instead of relying on chat bootstrap copying the full base file:
+  - inherited additively when omitted by the runtime-specific file: `projects`, `mcp_servers`, `personality`, `tools`, `model_provider`, `model_providers`
+  - still runtime-owned when present in the runtime-specific file: `model`, `approval_policy`, `sandbox_mode`, `web_search`
+  - strict runtime readers still hard-fail on invalid base/runtime TOML, while chat-default fallback reads continue to warn and fall back without rewriting invalid chat files
 
 ## Codex (CLI)
 

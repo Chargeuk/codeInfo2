@@ -936,9 +936,11 @@ sequenceDiagram
 
 ## Runtime config merge precedence + validation policy (Story 0000037 Task 4)
 
-- Runtime config resolution now performs a deterministic shared-project merge before validation:
-  - `effectiveProjects = { ...baseProjects, ...runtimeProjects }`
-  - only `[projects]` are inherited from shared base config; behavior keys (`model`, `approval_policy`, `sandbox_mode`, `tools`, etc.) remain runtime-owned.
+- Runtime config resolution now performs an explicit shared base/runtime inheritance step before validation:
+  - additive inherited tables: `projects`, `mcp_servers`
+  - inherited base-only top-level settings when the runtime file omits them: `personality`, `tools`, `model_provider`, `model_providers`
+  - runtime-owned overrides stay authoritative when present: `model`, `approval_policy`, `sandbox_mode`, `web_search`
+- This inheritance step preserves execution behavior after Story 0000047 Task 3 stopped bootstrapping `codex/chat/config.toml` by copying the full base file.
 - Validation is centralized in `server/src/config/runtimeConfig.ts`:
   - unknown keys: warning + ignored (non-fatal)
   - supported keys with invalid types: deterministic hard failure
@@ -951,37 +953,60 @@ sequenceDiagram
 - Task 4 structured logs are emitted at merge+validate boundaries:
   - success: `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=success`
   - error: `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=error ...`
+  - Story 0000047 inheritance marker: `DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED { surface, inherited_keys, runtime_override_keys, success }`
 
 ```mermaid
 flowchart TD
-  A[Resolve runtime config for agent/chat] --> B[Read shared base config (optional)]
-  B --> C[Read runtime config (required)]
-  C --> D[Merge projects only: effectiveProjects = base -> runtime precedence]
-  D --> E[Validate merged config]
-  E --> F{supported key invalid type?}
-  F -- yes --> G[Throw deterministic validation failure]
-  F -- no --> H{unknown/misplaced key?}
-  H -- yes --> I[Warn and ignore key]
-  H -- no --> J[Keep canonical key/value]
-  I --> K[Emit T04 success log]
-  J --> K
-  G --> L[Emit T04 error log + throw RuntimeConfigResolutionError]
+  A[Resolve runtime config for agent/chat] --> B[Read shared base config]
+  B --> C[Read runtime config]
+  C --> D[Explicitly inherit known key groups]
+  D --> E[Keep runtime-specific overrides authoritative]
+  E --> F[Validate merged config]
+  F --> G{supported key invalid type?}
+  G -- yes --> H[Throw deterministic validation failure]
+  G -- no --> I{unknown/misplaced key?}
+  I -- yes --> J[Warn and ignore key]
+  I -- no --> K[Keep canonical key/value]
+  J --> L[Emit T04 success log + Story 47 inheritance marker]
+  K --> L
+  H --> M[Emit T04 error log + throw RuntimeConfigResolutionError]
 ```
 
 ```mermaid
 sequenceDiagram
   participant Caller as Agent/Chat config consumer
   participant Resolver as runtimeConfig.ts
-  participant Merge as mergeProjectsFromBaseIntoRuntime
+  participant Merge as mergeRuntimeConfigWithBaseConfig
   participant Validate as validateRuntimeConfig
   Caller->>Resolver: resolveMergedAndValidatedRuntimeConfig(surface, runtimeConfigPath)
-  Resolver->>Resolver: read base(optional) + runtime(required)
-  Resolver->>Merge: apply base projects + runtime projects
-  Merge-->>Resolver: merged config (behavior keys runtime-owned)
+  Resolver->>Resolver: read base + runtime
+  Resolver->>Merge: apply explicit inheritance + additive tables
+  Merge-->>Resolver: merged config + inherited/runtime-owned key lists
   Resolver->>Validate: validate merged config
   Validate-->>Resolver: sanitized config + warnings OR validation error
-  Resolver-->>Caller: success -> config + warnings + T04 success log
+  Resolver-->>Caller: success -> config + warnings + T04 logs
   Resolver-->>Caller: failure -> RuntimeConfigResolutionError + T04 error log
+```
+
+## Story 0000047 Task 4: shared base/runtime inheritance after direct chat bootstrap
+
+- Chat runtime (`./codex/chat/config.toml`) and agent runtime configs now rely on the same explicit inheritance rules instead of duplicated behavior from old copy-from-base bootstrap.
+- Existing consumers that still need shared execution settings continue to receive them through resolved runtime config:
+  - chat Codex execution paths keep inherited `mcp_servers`, `model_provider`, and `model_providers`
+  - agent execution paths keep inherited `mcp_servers`, `personality`, `tools`, `projects`, `model_provider`, and `model_providers`
+- Invalid existing chat config is still not repaired in place. Soft chat-default readers keep warning and falling back, while strict runtime readers still fail deterministically when shared base/runtime TOML cannot be read or validated.
+
+```mermaid
+flowchart TD
+  A[Caller needs runtime config] --> B{Surface}
+  B -- chat --> C[Load ./codex/chat/config.toml]
+  B -- agent --> D[Load named agent config]
+  C --> E[Load ./codex/config.toml]
+  D --> E
+  E --> F[Explicitly inherit projects, mcp_servers, personality, tools, provider keys]
+  F --> G[Keep runtime model, approval_policy, sandbox_mode, web_search when set]
+  G --> H[Validate + emit DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED]
+  H --> I[Return resolved runtime config to REST/MCP/agent consumers]
 ```
 
 ## Shared runtime resolver entrypoints (Story 0000037 Task 5)

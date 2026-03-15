@@ -26,6 +26,8 @@ const T22_ERROR_LOG =
   '[DEV-0000037][T22] event=final_config_minimization_completed result=error';
 const T09_BOOTSTRAP_LOG_MARKER = 'DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH';
 const T03_CHAT_BOOTSTRAP_MARKER = 'DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP';
+const T04_RUNTIME_INHERITANCE_MARKER =
+  'DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED';
 
 export type RuntimeTomlConfig = Record<string, unknown>;
 export type RuntimeConfigWarning = { path: string; message: string };
@@ -34,6 +36,11 @@ export type RuntimeConfigValidationResult = {
   warnings: RuntimeConfigWarning[];
 };
 export type RuntimeConfigSurface = 'agent' | 'chat';
+type RuntimeMergeResult = {
+  merged: RuntimeTomlConfig;
+  inheritedKeys: string[];
+  runtimeOverrideKeys: string[];
+};
 
 export class RuntimeConfigResolutionError extends Error {
   readonly code:
@@ -285,6 +292,102 @@ export function mergeProjectsFromBaseIntoRuntime(
     delete merged.projects;
   }
   return merged;
+}
+
+function mergeNamedTables(
+  baseValue: unknown,
+  runtimeValue: unknown,
+): Record<string, unknown> | undefined {
+  const baseTable = isRecord(baseValue)
+    ? { ...(baseValue as Record<string, unknown>) }
+    : {};
+  const runtimeTable = isRecord(runtimeValue)
+    ? { ...(runtimeValue as Record<string, unknown>) }
+    : {};
+  const mergedTable = { ...baseTable, ...runtimeTable };
+  if (Object.keys(mergedTable).length === 0) {
+    return undefined;
+  }
+  return mergedTable;
+}
+
+export function mergeRuntimeConfigWithBaseConfig(
+  baseConfig: RuntimeTomlConfig | undefined,
+  runtimeConfig: RuntimeTomlConfig,
+): RuntimeMergeResult {
+  const merged = cloneConfig(runtimeConfig);
+  const inheritedKeys: string[] = [];
+  const runtimeOverrideKeys: string[] = [];
+
+  const recordOverride = (key: string) => {
+    if (
+      baseConfig &&
+      hasOwn(baseConfig, key) &&
+      hasOwn(runtimeConfig, key) &&
+      !runtimeOverrideKeys.includes(key)
+    ) {
+      runtimeOverrideKeys.push(key);
+    }
+  };
+
+  const inheritTopLevel = (key: string) => {
+    if (!baseConfig || !hasOwn(baseConfig, key)) {
+      return;
+    }
+    if (hasOwn(runtimeConfig, key)) {
+      recordOverride(key);
+      return;
+    }
+    merged[key] = cloneConfig({ [key]: baseConfig[key] })[key];
+    inheritedKeys.push(key);
+  };
+
+  const mergeTopLevelTable = (key: string) => {
+    const mergedTable = mergeNamedTables(baseConfig?.[key], runtimeConfig[key]);
+    if (mergedTable === undefined) {
+      delete merged[key];
+      return;
+    }
+    merged[key] = mergedTable;
+    if (baseConfig && hasOwn(baseConfig, key) && !hasOwn(runtimeConfig, key)) {
+      inheritedKeys.push(key);
+      return;
+    }
+    if (
+      baseConfig &&
+      hasOwn(baseConfig, key) &&
+      hasOwn(runtimeConfig, key) &&
+      !runtimeOverrideKeys.includes(key)
+    ) {
+      runtimeOverrideKeys.push(key);
+    }
+  };
+
+  merged.projects = mergeNamedTables(
+    baseConfig?.projects,
+    runtimeConfig.projects,
+  );
+  if (merged.projects === undefined) {
+    delete merged.projects;
+  } else if (baseConfig && hasOwn(baseConfig, 'projects')) {
+    if (hasOwn(runtimeConfig, 'projects')) {
+      runtimeOverrideKeys.push('projects');
+    } else {
+      inheritedKeys.push('projects');
+    }
+  }
+
+  mergeTopLevelTable('mcp_servers');
+  mergeTopLevelTable('tools');
+  mergeTopLevelTable('model_providers');
+  inheritTopLevel('personality');
+  inheritTopLevel('model_provider');
+
+  ['model', 'approval_policy', 'sandbox_mode', 'web_search'].forEach(
+    recordOverride,
+  );
+
+  return { merged, inheritedKeys, runtimeOverrideKeys };
 }
 
 export function validateRuntimeConfig(
@@ -583,11 +686,21 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
         required: true,
       }),
     ]);
-    const merged = mergeProjectsFromBaseIntoRuntime(baseConfig, runtimeConfig!);
+    const mergeResult = mergeRuntimeConfigWithBaseConfig(
+      baseConfig,
+      runtimeConfig!,
+    );
+    const merged = mergeResult.merged;
     const validated = validateRuntimeConfig(merged, {
       pathLabel: params.surface,
     });
     logValidationWarnings(validated.warnings);
+    console.info(T04_RUNTIME_INHERITANCE_MARKER, {
+      surface: params.surface,
+      inherited_keys: mergeResult.inheritedKeys,
+      runtime_override_keys: mergeResult.runtimeOverrideKeys,
+      success: true,
+    });
     console.info(T04_SUCCESS_LOG, {
       surface: params.surface,
       codexHome,

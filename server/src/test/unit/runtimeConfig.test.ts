@@ -15,6 +15,7 @@ import {
   ensureChatRuntimeConfigBootstrapped,
   loadRuntimeConfigSnapshot,
   mergeProjectsFromBaseIntoRuntime,
+  mergeRuntimeConfigWithBaseConfig,
   minimizeBaseConfigToProjectsOnly,
   normalizeRuntimeConfig,
   readAndNormalizeRuntimeTomlConfig,
@@ -622,6 +623,60 @@ describe('runtimeConfig merge and validation', () => {
     });
   });
 
+  it('inherits explicit base-only runtime settings while preserving runtime overrides', () => {
+    const merged = mergeRuntimeConfigWithBaseConfig(
+      {
+        personality: 'base-personality',
+        model_provider: 'base-provider',
+        model_providers: {
+          base: { name: 'Base Provider' },
+        },
+        tools: {
+          view_image: true,
+        },
+        mcp_servers: {
+          context7: { command: 'npx' },
+        },
+        projects: {
+          '/base': { trust_level: 'trusted' },
+        },
+        model: 'base-model',
+      },
+      {
+        model: 'chat-model',
+        sandbox_mode: 'read-only',
+        projects: {
+          '/chat': { trust_level: 'trusted' },
+        },
+      },
+    );
+
+    assert.equal(merged.merged.personality, 'base-personality');
+    assert.equal(merged.merged.model_provider, 'base-provider');
+    assert.deepEqual(merged.merged.model_providers, {
+      base: { name: 'Base Provider' },
+    });
+    assert.deepEqual(merged.merged.tools, {
+      view_image: true,
+    });
+    assert.deepEqual(merged.merged.mcp_servers, {
+      context7: { command: 'npx' },
+    });
+    assert.deepEqual(merged.merged.projects, {
+      '/base': { trust_level: 'trusted' },
+      '/chat': { trust_level: 'trusted' },
+    });
+    assert.equal(merged.merged.model, 'chat-model');
+    assert.deepEqual(merged.inheritedKeys.sort(), [
+      'mcp_servers',
+      'model_provider',
+      'model_providers',
+      'personality',
+      'tools',
+    ]);
+    assert.ok(merged.runtimeOverrideKeys.includes('model'));
+  });
+
   it('warns and preserves unknown top-level keys for forward compatibility', () => {
     const result = validateRuntimeConfig({
       model: 'gpt-5.3-codex',
@@ -995,17 +1050,97 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
+
+  it('hard-fails strict runtime readers when base config TOML is invalid', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const agentConfigPath = path.join(codexHome, 'agent-config.toml');
+    try {
+      await fs.writeFile(baseConfigPath, 'model = "broken', 'utf8');
+      await fs.writeFile(agentConfigPath, 'model = "agent-model"\n', 'utf8');
+      await assert.rejects(
+        async () =>
+          resolveAgentRuntimeConfig({
+            codexHome,
+            agentConfigPath,
+          }),
+        (error) => {
+          const typed = error as RuntimeConfigResolutionError;
+          return (
+            typed?.code === 'RUNTIME_CONFIG_INVALID' &&
+            typed?.surface === 'agent'
+          );
+        },
+      );
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('runtimeConfig merged happy paths and T04 logs', () => {
-  it('resolves canonical agent config and merges only shared projects', async () => {
+  it('resolves chat runtime with inherited base mcp servers and provider routing', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          'model_provider = "base-provider"',
+          '[model_providers.base-provider]',
+          'name = "Base Provider"',
+          'base_url = "http://localhost:4000/v1"',
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          'args = ["-y", "@upstash/context7-mcp"]',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
+
+      const resolved = await resolveChatRuntimeConfig({ codexHome });
+
+      assert.equal(resolved.config.model, 'chat-model');
+      assert.equal(resolved.config.model_provider, 'base-provider');
+      assert.deepEqual(resolved.config.model_providers, {
+        'base-provider': {
+          name: 'Base Provider',
+          base_url: 'http://localhost:4000/v1',
+        },
+      });
+      assert.deepEqual(resolved.config.mcp_servers, {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp'],
+        },
+      });
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves canonical agent config and inherits base execution settings', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
     const agentConfigPath = path.join(codexHome, 'agent-config.toml');
     try {
       await fs.writeFile(
         baseConfigPath,
-        '[projects]\n[projects."/base"]\ntrust_level = "trusted"\nmodel = "base-model"\n',
+        [
+          'model = "base-model"',
+          'personality = "base-personality"',
+          '[tools]',
+          'view_image = true',
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          '[projects]',
+          '[projects."/base"]',
+          'trust_level = "trusted"',
+          '',
+        ].join('\n'),
         'utf8',
       );
       await fs.writeFile(
@@ -1019,9 +1154,150 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         agentConfigPath,
       });
       assert.equal(resolved.config.model, 'agent-model');
+      assert.equal(resolved.config.personality, 'base-personality');
+      assert.deepEqual(resolved.config.tools, {
+        view_image: true,
+      });
+      assert.deepEqual(resolved.config.mcp_servers, {
+        context7: {
+          command: 'npx',
+        },
+      });
       assert.deepEqual(resolved.config.projects, {
         '/base': {
           trust_level: 'untrusted',
+        },
+      });
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves agent runtime with inherited base provider routing', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const agentConfigPath = path.join(codexHome, 'agent-config.toml');
+    try {
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          'model_provider = "base-provider"',
+          '[model_providers.base-provider]',
+          'name = "Base Provider"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(agentConfigPath, 'model = "agent-model"\n', 'utf8');
+
+      const resolved = await resolveAgentRuntimeConfig({
+        codexHome,
+        agentConfigPath,
+      });
+
+      assert.equal(resolved.config.model_provider, 'base-provider');
+      assert.deepEqual(resolved.config.model_providers, {
+        'base-provider': {
+          name: 'Base Provider',
+        },
+      });
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps runtime-specific model, approval, sandbox, and web_search overrides over base config', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          'model = "base-model"',
+          'approval_policy = "never"',
+          'sandbox_mode = "danger-full-access"',
+          'web_search = "disabled"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(
+        chatConfigPath,
+        [
+          'model = "chat-model"',
+          'approval_policy = "on-request"',
+          'sandbox_mode = "read-only"',
+          'web_search = "live"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const resolved = await resolveChatRuntimeConfig({ codexHome });
+
+      assert.equal(resolved.config.model, 'chat-model');
+      assert.equal(resolved.config.approval_policy, 'on-request');
+      assert.equal(resolved.config.sandbox_mode, 'read-only');
+      assert.equal(resolved.config.web_search, 'live');
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('merges runtime-specific projects and mcp servers without dropping unrelated base siblings', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const agentConfigPath = path.join(codexHome, 'agent-config.toml');
+    try {
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          '[mcp_servers.deepwiki]',
+          'url = "https://mcp.deepwiki.com/mcp"',
+          '[projects]',
+          '[projects."/base"]',
+          'trust_level = "trusted"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(
+        agentConfigPath,
+        [
+          'model = "agent-model"',
+          '[mcp_servers.context7]',
+          'command = "node"',
+          '[projects]',
+          '[projects."/agent"]',
+          'trust_level = "trusted"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const resolved = await resolveAgentRuntimeConfig({
+        codexHome,
+        agentConfigPath,
+      });
+
+      assert.deepEqual(resolved.config.mcp_servers, {
+        context7: {
+          command: 'node',
+        },
+        deepwiki: {
+          url: 'https://mcp.deepwiki.com/mcp',
+        },
+      });
+      assert.deepEqual(resolved.config.projects, {
+        '/base': {
+          trust_level: 'trusted',
+        },
+        '/agent': {
+          trust_level: 'trusted',
         },
       });
     } finally {
@@ -1072,6 +1348,11 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
           line.includes(
             '[DEV-0000037][T04] event=runtime_config_merged_and_validated result=success',
           ),
+        ),
+      );
+      assert(
+        infoLogs.some((line) =>
+          line.includes('DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED'),
         ),
       );
     } finally {

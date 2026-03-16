@@ -157,6 +157,7 @@ type ConversationLookup = Pick<Conversation, '_id' | 'archivedAt'> &
 
 type Deps = {
   listConversations: typeof defaultListConversations;
+  resolveListConversations: () => typeof defaultListConversations;
   createConversation: typeof defaultCreateConversation;
   archiveConversation: typeof defaultArchiveConversation;
   restoreConversation: typeof defaultRestoreConversation;
@@ -229,9 +230,12 @@ const listMemoryConversations = async (params: {
 
 export function createConversationsRouter(deps: Partial<Deps> = {}) {
   const {
-    listConversations = shouldUseMemoryPersistence()
-      ? listMemoryConversations
-      : defaultListConversations,
+    listConversations,
+    resolveListConversations = () =>
+      listConversations ??
+      (shouldUseMemoryPersistence()
+        ? listMemoryConversations
+        : defaultListConversations),
     createConversation = defaultCreateConversation,
     archiveConversation = defaultArchiveConversation,
     restoreConversation = defaultRestoreConversation,
@@ -401,7 +405,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     }
 
     try {
-      const { items } = await listConversations({
+      const { items } = await resolveListConversations()({
         limit,
         cursor,
         state,

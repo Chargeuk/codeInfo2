@@ -109,6 +109,33 @@ test('GET /conversations forwards flowName=<name> to repo layer', async () => {
   assert.equal(params.flowName, 'demo-flow');
 });
 
+test('GET /conversations resolves the list backing store at request time', async () => {
+  const calls: string[] = [];
+  let useMemoryList = true;
+
+  const memoryList = async () => {
+    calls.push('memory');
+    return { items: [] };
+  };
+  const mongoList = async () => {
+    calls.push('mongo');
+    return { items: [] };
+  };
+
+  const app = buildApp({
+    resolveListConversations: () =>
+      useMemoryList
+        ? (memoryList as never)
+        : (mongoList as never),
+  });
+
+  await request(app).get('/conversations').expect(200);
+  useMemoryList = false;
+  await request(app).get('/conversations').expect(200);
+
+  assert.deepEqual(calls, ['memory', 'mongo']);
+});
+
 test('POST /conversations/:id/working-folder saves flags.workingFolder while idle', async () => {
   let captured: unknown;
   const res = await request(

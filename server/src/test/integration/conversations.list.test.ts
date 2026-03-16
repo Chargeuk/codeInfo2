@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import test from 'node:test';
 import express from 'express';
 import request from 'supertest';
-import type { ConversationSummary } from '../../mongo/repo.js';
+import type { Conversation } from '../../mongo/conversation.js';
+import { type AppendTurnInput, type ConversationSummary } from '../../mongo/repo.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 
 const baseItem: ConversationSummary = {
@@ -249,6 +251,115 @@ test('conversation list responses preserve flags.workingFolder', async () => {
   assert.deepEqual(res.body.items[0].flags, {
     workingFolder: process.cwd(),
   });
+});
+
+test('REST-seeded conversations become visible through GET /conversations after turns are added', async () => {
+  const originalRandomUUID = crypto.randomUUID;
+  (crypto as unknown as { randomUUID: () => string }).randomUUID = () =>
+    'conv-seeded';
+
+  const storedConversations = new Map<string, Conversation>();
+
+  const app = appWith({
+    createConversation: async (input) => {
+      const conversation = {
+        _id: input.conversationId,
+        provider: input.provider,
+        model: input.model,
+        title: input.title,
+        source: input.source ?? 'REST',
+        flags: input.flags ?? {},
+        lastMessageAt: input.lastMessageAt ?? new Date(),
+        createdAt: new Date('2025-01-01T00:00:00Z'),
+        updatedAt: new Date('2025-01-01T00:00:00Z'),
+        archivedAt: null,
+      } satisfies Conversation;
+      storedConversations.set(input.conversationId, conversation);
+      return conversation;
+    },
+    findConversationById: async (id) => storedConversations.get(id) ?? null,
+    appendTurn: async (input: AppendTurnInput) => {
+      const existing = storedConversations.get(input.conversationId);
+      if (!existing) {
+        throw new Error(`Conversation not found: ${input.conversationId}`);
+      }
+      const createdAt = input.createdAt ?? new Date('2025-01-01T00:01:00Z');
+      storedConversations.set(input.conversationId, {
+        ...existing,
+        lastMessageAt: createdAt,
+        updatedAt: createdAt,
+      } satisfies Conversation);
+      return {
+        _id: 'turn-seeded',
+        conversationId: input.conversationId,
+        role: input.role,
+        content: input.content,
+        model: input.model,
+        provider: input.provider,
+        source: input.source ?? 'REST',
+        toolCalls: input.toolCalls ?? null,
+        status: input.status,
+        command: input.command,
+        usage: input.usage,
+        timing: input.timing,
+        runtime: input.runtime,
+        createdAt,
+      };
+    },
+    resolveListConversations: () => async ({ limit }) => {
+      const items = [...storedConversations.values()]
+        .sort(
+          (left, right) =>
+            right.lastMessageAt.getTime() - left.lastMessageAt.getTime(),
+        )
+        .slice(0, limit)
+        .map(
+          (conversation) =>
+            ({
+              conversationId: conversation._id,
+              provider: conversation.provider,
+              model: conversation.model,
+              title: conversation.title,
+              source: conversation.source ?? 'REST',
+              lastMessageAt: conversation.lastMessageAt,
+              archived: conversation.archivedAt != null,
+              flags: conversation.flags ?? {},
+              createdAt: conversation.createdAt,
+              updatedAt: conversation.updatedAt,
+            }) satisfies ConversationSummary,
+        );
+      return { items };
+    },
+  });
+
+  try {
+    const createRes = await request(app)
+      .post('/conversations')
+      .send({ provider: 'codex', model: 'gpt-5.1-codex-max', title: 'Seeded' })
+      .expect(201);
+
+    assert.equal(createRes.body.conversationId, 'conv-seeded');
+
+    await request(app)
+      .post('/conversations/conv-seeded/turns')
+      .send({
+        role: 'assistant',
+        content: 'Seeded reply',
+        model: 'gpt-5.1-codex-max',
+        provider: 'codex',
+        status: 'ok',
+      })
+      .expect(201);
+
+    const listRes = await request(app).get('/conversations').expect(200);
+
+    assert.equal(listRes.body.items.length, 1);
+    assert.equal(listRes.body.items[0].conversationId, 'conv-seeded');
+    assert.equal(listRes.body.items[0].title, 'Seeded');
+  } finally {
+    (crypto as unknown as { randomUUID: () => string }).randomUUID =
+      originalRandomUUID;
+  }
 });
 
 test('flowName=__none__ forwards sentinel to repo layer', async () => {

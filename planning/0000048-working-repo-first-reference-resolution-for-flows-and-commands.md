@@ -544,6 +544,7 @@ Rewire the server path that resolves command JSON files so it uses the shared ca
 - Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/path.html`, for command-file path resolution and normalized candidate construction
 - Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/fs.html`, for file-read errors and not-found handling that determine when command lookup may fall through to the next repository
 - Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/errors.html`, for distinguishing normal not-found failures from other read or parse failures that must remain fail-fast
+- Mermaid documentation via Context7 `/mermaid-js/mermaid` and `https://mermaid.js.org/intro/`, for updating the command-resolution architecture diagram so its syntax and flowchart structure stay valid
 
 #### Subtasks
 
@@ -561,8 +562,9 @@ Rewire the server path that resolves command JSON files so it uses the shared ca
 12. [ ] When Task 4 storage support exists, write the command lookup result into the shared runtime metadata contract from this story's `Contracts And Storage Shapes` section. Persist only `selectedRepositoryPath`, `fallbackUsed`, and `workingRepositoryAvailable` for both flow-owned command resolution and direct-command execution; keep the full candidate list in structured logs only.
 13. [ ] Add or extend one server integration test in `server/src/test/integration/flows.run.command.test.ts` that proves flow-owned command resolution persists `selectedRepositoryPath`, `fallbackUsed`, and `workingRepositoryAvailable` into runtime metadata. The purpose of this test is to protect the persisted debugging contract for flow command resolution.
 14. [ ] Add or extend one server unit test in `server/src/test/unit/turn-command-metadata.test.ts` that proves direct command execution persists `selectedRepositoryPath`, `fallbackUsed`, and `workingRepositoryAvailable` into runtime metadata. The purpose of this test is to ensure flow and direct-command execution do not diverge in persisted lookup metadata.
-15. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, update only this story file's Task 2 `Implementation notes`, including which functions in `server/src/flows/service.ts` and the direct-command path were changed.
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. If either fails, fix the issues before marking the task complete.
+15. [ ] Update `design.md` with the final command-resolution architecture introduced by this task. Include the working-repository-first candidate order, the direct-command owner-slot rule, the fail-fast stop point, and at least one Mermaid diagram that matches the implemented flow-owned and direct-command lookup sequence.
+16. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, update only this story file's Task 2 `Implementation notes`, including which functions in `server/src/flows/service.ts` and the direct-command path were changed.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. If either fails, fix the issues before marking the task complete.
 
 #### Testing
 
@@ -592,6 +594,7 @@ Update the markdown resolver so every markdown lookup uses the same shared repos
 - Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/path.html`, for safe markdown-path resolution and relative-path handling
 - Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/fs.html`, for markdown file reads and error handling that determine not-found versus fail-fast behavior
 - Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/buffer.html`, for UTF-8 decoding behavior and how invalid text data should be treated during markdown resolution
+- Mermaid documentation via Context7 `/mermaid-js/mermaid` and `https://mermaid.js.org/intro/`, for updating the nested markdown-resolution architecture diagram so its syntax and flowchart structure stay valid
 
 #### Subtasks
 
@@ -610,8 +613,9 @@ Update the markdown resolver so every markdown lookup uses the same shared repos
 13. [ ] When Task 4 storage support exists, persist only the minimal markdown lookup summary from this story's `Contracts And Storage Shapes` section: `selectedRepositoryPath`, `fallbackUsed`, and `workingRepositoryAvailable`. Keep the resolved markdown path and full candidate order in structured logs rather than persisted turn metadata.
 14. [ ] Add or extend one server integration test in `server/src/test/integration/flows.turn-metadata.test.ts` that proves a top-level markdown reference persists `selectedRepositoryPath`, `fallbackUsed`, and `workingRepositoryAvailable` into runtime metadata. The purpose of this test is to protect the persisted debugging contract for top-level markdown resolution.
 15. [ ] Add or extend one server integration test in `server/src/test/integration/commands.markdown-file.test.ts` that proves a nested markdown lookup persists `selectedRepositoryPath`, `fallbackUsed`, and `workingRepositoryAvailable` into runtime metadata. The purpose of this test is to ensure nested and top-level markdown resolution do not diverge in persisted metadata.
-16. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, update only this story file's Task 3 `Implementation notes`, including which resolver entry points and nested callers were changed.
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix any issues before moving on.
+16. [ ] Update `design.md` with the markdown-resolution architecture introduced by this task. Include the per-hop restart rule, the fail-fast read or decode branch, and at least one Mermaid diagram that shows how top-level and nested markdown references recompute repository order.
+17. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, update only this story file's Task 3 `Implementation notes`, including which resolver entry points and nested callers were changed.
+18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix any issues before moving on.
 
 #### Testing
 
@@ -641,6 +645,7 @@ Add the storage shapes that story 48 needs without changing any client UI yet. T
 - Mongoose documentation via Context7 `/websites/mongoosejs`, specifically `https://mongoosejs.com/docs/schematypes.html#mixed`, for `Mixed` field persistence rules and when `markModified(...)` is required
 - Mongoose documentation via Context7 `/websites/mongoosejs`, specifically `https://mongoosejs.com/docs/subdocs.html`, for nested objects and subdocument-style storage shape design
 - Mongoose documentation via Context7 `/websites/mongoosejs`, specifically `https://mongoosejs.com/docs/tutorials/findoneandupdate.html`, for atomic update patterns that should be reused when storing `flags.workingFolder` and turn runtime metadata
+- Mermaid documentation via Context7 `/mermaid-js/mermaid` and `https://mermaid.js.org/intro/`, for updating the persistence architecture diagram so the new storage shapes and data-flow notation stay valid
 
 #### Subtasks
 
@@ -659,8 +664,9 @@ Add the storage shapes that story 48 needs without changing any client UI yet. T
 13. [ ] Add or extend one server unit test in `server/src/test/unit/turn-runtime-metadata.test.ts` that proves `Turn.runtime` round-trips correctly in the memory-backed path. The purpose of this test is to keep degraded memory mode aligned with Mongo.
 14. [ ] Add or extend one server integration test in `server/src/test/integration/conversations.working-folder.summary.test.ts` that proves REST conversation summaries still include `flags.workingFolder` after the storage changes. The purpose of this test is to protect the client restore contract.
 15. [ ] Add or extend one server unit test in `server/src/test/unit/ws-server.test.ts` that proves `conversation_upsert` payloads still include `flags.workingFolder` after the storage changes. The purpose of this test is to protect realtime restore and clear behavior.
-16. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, update only this story file's Task 4 `Implementation notes`, including which persistence helpers and schemas were changed.
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix any issues before continuing.
+16. [ ] Update `design.md` with the persistence architecture introduced by this task. Include the new `Conversation.flags.workingFolder`, `FlowResumeState` additions, `Turn.runtime` contract, and at least one Mermaid diagram that shows how working-folder state moves between conversation storage, flow state, turn runtime metadata, and memory mode.
+17. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, update only this story file's Task 4 `Implementation notes`, including which persistence helpers and schemas were changed.
+18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix any issues before continuing.
 
 #### Testing
 
@@ -691,6 +697,7 @@ Use the storage shapes from Task 4 to make the server actually accept, validate,
 - Express documentation via Context7 `/expressjs/express`, specifically `https://expressjs.com/en/guide/writing-middleware.html`, for middleware and request-flow behavior used when validation and run-lock checks are enforced
 - Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/path.html` and `https://nodejs.org/api/fs.html`, for absolute-path validation and existence checks used by working-folder validation
 - Mongoose documentation via Context7 `/websites/mongoosejs`, specifically `https://mongoosejs.com/docs/tutorials/findoneandupdate.html`, for updating or clearing `flags.workingFolder` without creating a parallel persistence path
+- Mermaid documentation via Context7 `/mermaid-js/mermaid` and `https://mermaid.js.org/intro/`, for updating the server working-folder contract diagrams so route, restore, and child-conversation flow diagrams match Mermaid syntax
 
 #### Subtasks
 
@@ -718,7 +725,7 @@ Use the storage shapes from Task 4 to make the server actually accept, validate,
 22. [ ] Add or extend one server integration test in `server/src/test/integration/flows.run.working-folder.test.ts` that proves a stale saved path is cleared before a flow run reuses it. The purpose of this test is to verify end-to-end stale-path cleanup on the flow execution surface.
 23. [ ] Add or extend one server integration test in `server/src/test/integration/flows.run.working-folder.test.ts` that proves a flow-created child agent conversation inherits the exact folder path used by the flow step. The purpose of this test is to verify child conversation initialization behavior end to end.
 24. [ ] Add or extend one server unit test in `server/src/test/unit/agents-commands-router-run.test.ts` that proves direct command execution continues to use the owning agent conversation for saved-folder restore and update behavior. The purpose of this test is to prevent direct commands from drifting into a separate persistence model.
-25. [ ] Update `design.md` only if the server contract or execution-state behavior changed in a way the final validation task will not already document. In every case, update this story file's Task 5 `Implementation notes` with the new route, lock behavior, and restore-path decisions.
+25. [ ] Update `design.md` with the server contract and flow behavior introduced by this task. Include the idle-edit conversation route, restore-or-clear lifecycle, active-run lock behavior, child agent conversation inheritance, and at least one Mermaid diagram that shows the chat, agent, and flow working-folder lifecycle through validation, persistence, restore, and websocket updates.
 26. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix any issues before moving on.
 
 #### Testing

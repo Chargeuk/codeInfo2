@@ -103,6 +103,12 @@ e2e -> edit .env.e2e
 
 For e2e specifically, `.env.e2e` is used for compose interpolation values. Container runtime defaults still come from `server/.env.e2e` and `client/.env.e2e`.
 
+Client env contract:
+
+- `client/.env` / `client/.env.local` now use `VITE_CODEINFO_API_URL`, `VITE_CODEINFO_LMSTUDIO_URL`, `VITE_CODEINFO_LOG_FORWARD_ENABLED`, and `VITE_CODEINFO_LOG_MAX_BYTES`.
+- Docker Compose passes the same renamed `VITE_CODEINFO_*` values into the client build and runtime container so the built bundle and runtime-injected `window.__CODEINFO_CONFIG__` stay aligned.
+- `VITE_LOG_LEVEL` and `VITE_LOG_STREAM_ENABLED` are documentation-only legacy names and are not live runtime readers.
+
 Corporate certificate directory requirements:
 
 - Example host path: `/home/<user>/corp-certs`

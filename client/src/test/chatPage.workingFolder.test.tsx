@@ -71,11 +71,7 @@ function renderChatWorkingFolderPage(options?: {
           ? url
           : url instanceof URL
             ? url.toString()
-            : url instanceof Request
-              ? url.url
-              : 'url' in url && typeof url.url === 'string'
-                ? url.url
-                : url.toString();
+            : url.url;
       const method =
         init?.method ??
         (url instanceof Request
@@ -92,7 +88,7 @@ function renderChatWorkingFolderPage(options?: {
         method === 'POST'
       ) {
         const body =
-          typeof init.body === 'string'
+          typeof init?.body === 'string'
             ? (JSON.parse(init.body) as Record<string, unknown>)
             : {};
         workingFolderBodies.push(body);

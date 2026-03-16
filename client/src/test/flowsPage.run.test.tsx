@@ -95,7 +95,7 @@ function mockFlowsFetch(options?: {
       method === 'POST'
     ) {
       const body =
-        typeof init.body === 'string'
+        typeof init?.body === 'string'
           ? (JSON.parse(init.body) as Record<string, unknown>)
           : {};
       const workingFolder =
@@ -239,7 +239,7 @@ function setupFlowsRunHarness(options?: {
         method === 'POST'
       ) {
         const body =
-          typeof init.body === 'string'
+          typeof init?.body === 'string'
             ? (JSON.parse(init.body) as Record<string, unknown>)
             : {};
         const workingFolder =

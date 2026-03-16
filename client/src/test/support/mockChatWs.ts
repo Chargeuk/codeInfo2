@@ -117,9 +117,7 @@ export function setupChatWsHarness(params: {
           ? url
           : url instanceof URL
             ? url.toString()
-            : url instanceof Request
-              ? url.url
-              : url.toString();
+            : url.url;
       const method =
         opts?.method ?? (url instanceof Request ? url.method : undefined);
 

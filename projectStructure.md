@@ -1,5 +1,44 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000048 Task 9 structural change ledger
+
+Added files:
+
+- `client/src/config/runtimeConfig.ts`
+- `client/src/test/baseUrl.env.test.ts`
+- `e2e/env-runtime-config.spec.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `client/.env`
+- `client/.env.e2e`
+- `client/.env.local`
+- `client/Dockerfile`
+- `client/entrypoint.sh`
+- `client/src/api/baseUrl.ts`
+- `client/src/hooks/useLmStudioStatus.ts`
+- `client/src/logging/transport.ts`
+- `client/src/pages/LmStudioPage.tsx`
+- `client/src/test/logging/transport.test.ts`
+- `client/src/test/lmstudio.test.tsx`
+- `design.md`
+- `docker-compose.e2e.yml`
+- `docker-compose.local.yml`
+- `docker-compose.yml`
+- `docs/developer-reference.md`
+- `e2e/chat-multiwindow.spec.ts`
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `projectStructure.md`
+
 ## Story 0000048 Task 4 structural change ledger
 
 Added files:
@@ -888,7 +927,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”œâ”€ tsconfig.json â€” project references entry
 â”œâ”€ client/ â€” React 19 Vite app
 â”‚  â”œâ”€ .dockerignore â€” client docker build ignores
-â”‚  â”œâ”€ .env â€” client default env (VITE_API_URL, VITE_LMSTUDIO_URL)
+â”‚  â”œâ”€ .env â€” client default env (`VITE_CODEINFO_API_URL`, `VITE_CODEINFO_LMSTUDIO_URL`, log-forward/max-bytes defaults)
 â”‚  â”œâ”€ .env.local â€” client local overrides (ignored by git consumers)
 â”‚  â”œâ”€ .gitignore â€” client-specific ignores
 â”‚  â”œâ”€ Dockerfile â€” client image build with optional corporate npm registry override during `npm ci` and build-state metadata handoff (`CODEINFO_CLIENT_BUILD_OVERRIDE_STATE`)

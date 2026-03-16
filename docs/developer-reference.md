@@ -167,14 +167,21 @@ Use this document for API contracts, protocol details, and advanced runtime beha
 - Logging: client uses shared `LogEntry` schema with console tee + forwarding toggle (full details coming in the dedicated Logging section from Task 6).
 - Client logging env (set in `client/.env`, override in `.env.local`):
   ```env
-  VITE_LOG_FORWARD_ENABLED=false
+  VITE_CODEINFO_LOG_FORWARD_ENABLED=false
   ```
   Tests force-disable network sends when `MODE === 'test'`.
 - `npm run dev --workspace client` (http://localhost:5001)
 - `npm run build --workspace client`
 - `npm run preview --workspace client -- --host --port 5001`
 - `npm run test --workspace client` (Jest + @testing-library/react)
-- Env: `client/.env` sets `VITE_API_URL` (defaults http://localhost:5010); overrides in `.env.local`
+- Client runtime readers:
+  - `VITE_CODEINFO_API_URL`
+  - `VITE_CODEINFO_LMSTUDIO_URL`
+  - `VITE_CODEINFO_LOG_FORWARD_ENABLED`
+  - `VITE_CODEINFO_LOG_MAX_BYTES`
+- Runtime injection stays on the shared `window.__CODEINFO_CONFIG__` path written by `client/entrypoint.sh`, and browser startup emits `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` with the resolved values plus their `runtime|env|default` sources.
+- Documentation-only cleanup: legacy `VITE_LOG_LEVEL` and `VITE_LOG_STREAM_ENABLED` remain non-runtime names and should not be added back as live client config.
+- Env: `client/.env` sets `VITE_CODEINFO_API_URL` (defaults http://localhost:5010); overrides in `.env.local`
 - Styling/layout: MUI `CssBaseline` handles global reset; the `NavBar` AppBar spans the full width and content is constrained to a single `Container` (lg) with top padding so pages start at the top-left (Vite starter centering/dark background removed).
 - **Logs page:** open `/logs` to view combined server/client logs with level/source chips, free-text filter, live SSE toggle (auto-reconnect), manual refresh, and a “Send sample log” button that emits an example entry end-to-end. Opening the page emits `DEV-0000034:T7:logs_page_viewed` for verification. Ingest failure handling now emits frontend-visible `DEV-0000036:T17:ingest_provider_failure` entries for provider and route catch paths (`/ingest/start`, `/ingest/reembed/:root`, `/ingest/cancel/:runId`, `/ingest/roots`) with deterministic context (`runId`, `provider`, `surface`, `operation`, `code`, `message`, `retryable`, `attempt`, `waitMs`, `model`, `path/root`, `currentFile`, `stage`) where retryable failures map to `warn` and non-retryable/terminal failures map to `error`.
 - **Chat page:** open `/chat` to chat with LM Studio or Codex via `POST /chat` (HTTP 202) plus WebSocket streaming at `/ws`. Models come from `/chat/models` (first auto-selects) and are filtered to chat-capable LLMs (embedding/vector models are hidden); the dropdown, input, and Send stay disabled during load/error/empty states or while a response is running. Messages render newest-first near the controls with distinct user/assistant bubbles, and transcript updates arrive via `/ws` events (late subscribers receive an `inflight_snapshot` catch-up). Switching conversations or navigating away unsubscribes from streaming but does not cancel the run server-side; Stop cancels the current in-flight run. Chat history is persisted in Mongo: the left sidebar lists conversations newest-first, supports active/archived/all filtering plus multi-select bulk archive/restore/delete, and turn snapshots come from `GET /conversations/:id/turns` which returns full history plus any in-flight snapshot (no pagination). Conversation listing supports agent scoping via `/conversations?agentName=__none__` (only conversations with no `agentName`) and `/conversations?agentName=<agent>` (exact match). Chat now also exposes a saved working-folder picker: selecting an existing conversation restores `conversation.flags.workingFolder`, idle edits persist through `POST /conversations/:id/working-folder`, cleared or stale values fall back to the normal empty state, and the picker locks whenever local send state or websocket-visible inflight state shows the conversation is still busy. When the provider is OpenAI Codex and available, a **Re-authenticate (device auth)** button opens a dialog that calls `POST /codex/device-auth` and shows the verification URL + user code for re-login.
@@ -217,7 +224,7 @@ Use this document for API contracts, protocol details, and advanced runtime beha
 - Assistant replies that include `<think>...</think>` or OpenAI Harmony channel-tagged analysis (`<|channel|>analysis<|message|>...<|end|>`) collapse immediately while streaming, show a spinner on the “Thought process” header, and can be expanded to watch the reasoning stream. Final content renders separately from the hidden analysis.
 - **Mermaid diagrams:** code fences labeled `mermaid` render inline diagrams client-side; input is sanitized before rendering, and diagrams follow the current light/dark theme while staying within the chat bubble width.
 - Server chat proxy uses LM Studio SDK 1.5 via `client.llm.model(<key>).act(...)` with the LM Studio tools (ListIngestedRepositories, VectorSearch) and AbortController so cancellation works; it now builds a `Chat.from(messages)` history so the model sees the full conversation per request. LM Studio base URL comes from `CODEINFO_LMSTUDIO_BASE_URL` and is converted to ws/wss for the SDK.
-- **LM Studio page:** use the NavBar tab to open `/lmstudio`, enter a base URL (defaults to `http://host.docker.internal:1234` or `VITE_LMSTUDIO_URL`), and click “Check status” to fetch via the server proxy—browser never calls LM Studio directly. “Refresh models” re-runs the server call, errors surface inline with focus returning to the URL field, and empty lists show “No models reported by LM Studio.” Base URLs persist in localStorage and can be reset to the default.
+- **LM Studio page:** use the NavBar tab to open `/lmstudio`, enter a base URL (defaults to `http://host.docker.internal:1234` or `VITE_CODEINFO_LMSTUDIO_URL`), and click “Check status” to fetch via the server proxy—browser never calls LM Studio directly. “Refresh models” re-runs the server call, errors surface inline with focus returning to the URL field, and empty lists show “No models reported by LM Studio.” Base URLs persist in localStorage and can be reset to the default.
 - Docker: `docker build -f client/Dockerfile -t codeinfo2-client .` then `docker run --rm -p 5001:5001 codeinfo2-client`
 
 ### End-to-end (Playwright)

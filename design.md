@@ -2818,8 +2818,8 @@ sequenceDiagram
 
 ## Client skeleton
 
-- Vite + React 19 + MUI; dev server on port 5001 (host enabled). Env `VITE_API_URL` from `client/.env`.
-- Startup fetch calls `${VITE_API_URL}/version`, parses `VersionInfo` from `@codeinfo2/common`, and displays alongside client version (from package.json) in a MUI Card with loading/error states.
+- Vite + React 19 + MUI; dev server on port 5001 (host enabled). Client env contract now uses `VITE_CODEINFO_*` names from `client/.env`.
+- Startup fetch calls `${VITE_CODEINFO_API_URL}/version` (or the runtime-injected `window.__CODEINFO_CONFIG__.apiBaseUrl` override), parses `VersionInfo` from `@codeinfo2/common`, and displays alongside client version (from package.json) in a MUI Card with loading/error states.
 - Layout uses MUI `CssBaseline` for global resets; the `NavBar` AppBar spans the full width while the app shell uses a full-width `Container maxWidth={false}` with gutters preserved so pages (notably Chat) can take advantage of the available horizontal space.
 
 ### Chat page (models list)
@@ -3630,7 +3630,7 @@ sequenceDiagram
 
 ## Docker Compose wiring
 
-- `docker-compose.yml` builds `codeinfo2-client` and `codeinfo2-server`, exposes ports 5001/5010, and sets `VITE_API_URL=http://server:5010` for the client container.
+- `docker-compose.yml` builds `codeinfo2-client` and `codeinfo2-server`, exposes ports 5001/5010, and passes the client container one shared renamed env family: `VITE_CODEINFO_API_URL`, `VITE_CODEINFO_LMSTUDIO_URL`, `VITE_CODEINFO_LOG_FORWARD_ENABLED`, and `VITE_CODEINFO_LOG_MAX_BYTES`.
 - Healthchecks: server uses `/health`; client uses root `/` to ensure availability before dependencies start, with client waiting on server health.
 - Root scripts (`compose:build`, `compose:up`, `compose:down`, `compose:logs`) manage the stack for local demos and e2e setup.
 
@@ -4241,7 +4241,7 @@ sequenceDiagram
 
 ### LM Studio UI behaviour
 
-- Base URL field defaults to `http://host.docker.internal:1234` (or `VITE_LMSTUDIO_URL`) and persists to localStorage; reset restores the default.
+- Base URL field defaults to `http://host.docker.internal:1234` (or `VITE_CODEINFO_LMSTUDIO_URL`) and persists to localStorage; reset restores the default.
 - Actions: `Check status` runs the proxy call with the current URL, `Refresh models` reuses the saved URL, and errors focus the input for quick edits.
 - States: loading text (“Checking…”), inline error text from the server, empty-state message “No models reported by LM Studio.”
 - Responsive layout: table on md+ screens and stacked cards on small screens to avoid horizontal scrolling.
@@ -4731,7 +4731,8 @@ sequenceDiagram
 - Shared DTO lives in `common/src/logging.ts` and exports `LogEntry` / `LogLevel` plus an `isLogEntry` guard. Fields: `level`, `message`, ISO `timestamp`, `source` (`server|client`), optional `requestId`, `correlationId`, `userAgent`, `url`, `route`, `tags`, `context`, `sequence` (assigned server-side).
 - Server logger lives in `server/src/logger.ts` (pino + pino-http + pino-roll); request middleware is registered in `server/src/index.ts`. Env knobs: `CODEINFO_LOG_LEVEL`, `CODEINFO_LOG_BUFFER_MAX`, `CODEINFO_LOG_MAX_CLIENT_BYTES`, `CODEINFO_LOG_FILE_PATH` (default `./logs/server.log`), `CODEINFO_LOG_FILE_ROTATE` (defaults `true`). Files write to `./logs` (gitignored/bind-mounted later).
 - Startup logs emit `DEV-0000032:T12:verification-ready` once the server is ready, including `event` and `port` in the payload for manual verification.
-- Client logging stubs reside in `client/src/logging/*` with a console tee, queue placeholder, and forwarding toggle. Env knobs: `VITE_CODEINFO_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`.
+- Client runtime config is resolved through one shared helper in `client/src/config/runtimeConfig.ts`. It reads `window.__CODEINFO_CONFIG__` first, then falls back to the renamed Vite env readers `VITE_CODEINFO_API_URL`, `VITE_CODEINFO_LMSTUDIO_URL`, `VITE_CODEINFO_LOG_FORWARD_ENABLED`, and `VITE_CODEINFO_LOG_MAX_BYTES`, then finally to code defaults. Browser startup emits `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` with the resolved values and their sources so runtime/build drift is visible during manual checks.
+- Client logging stubs reside in `client/src/logging/*` with a console tee, queue placeholder, and forwarding toggle. Supported env knobs: `VITE_CODEINFO_LOG_FORWARD_ENABLED` and `VITE_CODEINFO_LOG_MAX_BYTES`. Legacy `VITE_LOG_LEVEL` and `VITE_LOG_STREAM_ENABLED` remain documentation-only cleanup targets and are not runtime readers.
 - Privacy: redact obvious secrets (auth headers/passwords) before storage/streaming; keep payload size limits to avoid accidental PII capture.
 
 ```mermaid
@@ -4781,7 +4782,7 @@ sequenceDiagram
 
 - `createLogger(source, routeProvider)` captures level/message/context, enriches with timestamp, route, user agent, a stable `clientId` (persisted to `localStorage` with an in-memory fallback), and a generated `correlationId`, tees to `console`, then forwards to the transport queue. `installGlobalErrorHooks` wires `window.onerror` and `unhandledrejection` with a 1s throttle to avoid noisy loops.
 - `createLogger(source, routeProvider)` captures level/message/context, enriches with timestamp, route, user agent, and a generated `correlationId`, tees to `console`, then forwards to the transport queue. Chat tool events now use `source: client` with `context.channel = "client-chat"` so they satisfy the server schema while staying filterable for telemetry. `installGlobalErrorHooks` wires `window.onerror` and `unhandledrejection` with a 1s throttle to avoid noisy loops.
-- The transport queues entries, enforces `VITE_LOG_MAX_BYTES` (default 32768), batches up to 10, and POSTs to `${VITE_API_URL}/logs` unless forwarding is disabled (`VITE_LOG_FORWARD_ENABLED=false`), the app is offline, or `MODE === 'test'`. Failures back off with delays `[500, 1000, 2000, 4000]` ms before retrying.
+- The transport queues entries, enforces `VITE_CODEINFO_LOG_MAX_BYTES` (default 32768), batches up to 10, and POSTs to `${apiBaseUrl}/logs` where `apiBaseUrl` comes from the shared runtime-config resolver. Forwarding is disabled only when `VITE_CODEINFO_LOG_FORWARD_ENABLED=false`, the app is offline, or `MODE === 'test'`. Failures back off with delays `[500, 1000, 2000, 4000]` ms before retrying.
 - Context should avoid PII; URLs with embedded credentials are redacted before logging. Forwarding can be opt-out via `.env.local` while keeping console output for local debugging.
 - LM Studio: client logs status/refresh/reset actions with `baseUrl` reduced to `URL.origin` and errors included; server logs LM Studio proxy requests (requestId, base URL origin, model count or error) and forwards them into the log buffer/streams, keeping credentials/token/password fields redacted.
 

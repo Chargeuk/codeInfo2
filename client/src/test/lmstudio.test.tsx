@@ -60,6 +60,7 @@ describe('LM Studio page', () => {
     mockFetch.mockReset();
     mockFetchServerVersion.mockClear();
     localStorage.clear();
+    delete process.env.VITE_CODEINFO_LMSTUDIO_URL;
   });
 
   it('applies size="small" inputs and button variant rules', () => {
@@ -180,6 +181,21 @@ describe('LM Studio page', () => {
     expect(localStorage.getItem('lmstudio.baseUrl')).toBe(
       'http://example.com:9999',
     );
+  });
+
+  it('uses the renamed VITE_CODEINFO_LMSTUDIO_URL as the default helper text', async () => {
+    process.env.VITE_CODEINFO_LMSTUDIO_URL = 'http://renamed-lmstudio:4321';
+    mockFetch.mockResolvedValue(okResponse);
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/lmstudio'],
+    });
+    render(<RouterProvider router={router} />);
+
+    const input = screen.getByLabelText(/LM Studio base URL/i);
+    expect(input).toHaveValue('http://renamed-lmstudio:4321');
+    expect(
+      screen.getByText(/Default: http:\/\/renamed-lmstudio:4321/i),
+    ).toBeInTheDocument();
   });
 
   it('emits client logs for LM Studio actions', async () => {

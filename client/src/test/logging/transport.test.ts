@@ -12,8 +12,9 @@ const baseEntry: LogEntry = {
 
 beforeEach(() => {
   process.env.MODE = 'development';
-  process.env.VITE_API_URL = 'http://localhost:5010';
-  process.env.VITE_LOG_MAX_BYTES = '32768';
+  process.env.VITE_CODEINFO_API_URL = 'http://localhost:5010';
+  process.env.VITE_CODEINFO_LOG_MAX_BYTES = '32768';
+  process.env.VITE_CODEINFO_LOG_FORWARD_ENABLED = 'true';
   _getQueue().length = 0;
   jest.clearAllMocks();
   jest.useRealTimers();
@@ -26,8 +27,14 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.MODE;
+  delete process.env.VITE_CODEINFO_API_URL;
+  delete process.env.VITE_CODEINFO_LOG_MAX_BYTES;
+  delete process.env.VITE_CODEINFO_LOG_FORWARD_ENABLED;
   delete process.env.VITE_API_URL;
+  delete process.env.VITE_LOG_FORWARD_ENABLED;
   delete process.env.VITE_LOG_MAX_BYTES;
+  delete process.env.VITE_LOG_LEVEL;
+  delete process.env.VITE_LOG_STREAM_ENABLED;
 });
 
 describe('transport', () => {
@@ -48,7 +55,7 @@ describe('transport', () => {
   });
 
   it('drops entries that exceed max bytes', async () => {
-    process.env.VITE_LOG_MAX_BYTES = '10';
+    process.env.VITE_CODEINFO_LOG_MAX_BYTES = '10';
     getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
 
     sendLogs([{ ...baseEntry, message: 'a'.repeat(50) }]);
@@ -86,5 +93,39 @@ describe('transport', () => {
 
     expect(_getQueue().length).toBe(0);
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('ignores legacy client log env names after the cutover', async () => {
+    process.env.VITE_LOG_FORWARD_ENABLED = 'false';
+    process.env.VITE_LOG_MAX_BYTES = '10';
+    getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
+
+    sendLogs([{ ...baseEntry, message: 'a'.repeat(50) }]);
+    await flushQueue();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:5010/logs',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+    expect(_getQueue().length).toBe(0);
+  });
+
+  it('does not treat documentation-only log env names as runtime inputs', async () => {
+    process.env.VITE_LOG_LEVEL = 'debug';
+    process.env.VITE_LOG_STREAM_ENABLED = 'false';
+    getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
+
+    sendLogs([baseEntry]);
+    await flushQueue();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:5010/logs',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+    expect(_getQueue().length).toBe(0);
   });
 });

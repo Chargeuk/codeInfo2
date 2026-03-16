@@ -209,6 +209,47 @@ Repository inspection for this story also found three concrete scope facts that 
   - chat conversation and sidebar tests once chat gains working-folder persistence.
 - Close the story by updating `design.md`, `projectStructure.md`, and README sections that still describe owner-first resolution, legacy env names, or the old OpenAI heuristic behavior.
 
+## Test Harnesses
+
+No new test harness type needs to be created for story 48. The repository already has the runner types needed for every planned change in this story, so implementation should extend the existing harnesses instead of inventing a new runner.
+
+1. Server unit and integration harness
+- Reuse `npm run test:summary:server:unit`, which is backed by `scripts/test-summary-server-unit.mjs`.
+- Place new or expanded server unit tests under `server/src/test/unit/`.
+- Place new or expanded server integration tests under `server/src/test/integration/`.
+- This harness is the right place for:
+  - shared repository-order helper tests;
+  - working-folder persistence and invalid-path clearing tests;
+  - env rename regression tests for server runtime readers;
+  - OpenAI tokenizer, guardrail, provider, and chunk-sizing tests.
+
+2. Server cucumber harness
+- Reuse `npm run test:summary:server:cucumber`, which is backed by `scripts/test-summary-server-cucumber.mjs`.
+- Add any story-specific feature files under `server/src/test/features/`.
+- Add or extend step definitions and shared setup under `server/src/test/steps/` and `server/src/test/support/`.
+- No new cucumber harness is needed; use this only if story 48 needs higher-level Gherkin coverage beyond node:test integration coverage.
+
+3. Client test harness
+- Reuse `npm run test:summary:client`, which is backed by `scripts/test-summary-client.mjs`.
+- Add or extend client tests under `client/src/test/`.
+- Place any shared test helpers in `client/src/test/support/`.
+- This harness is the right place for:
+  - chat, agent, and flow picker restore behavior;
+  - locked-picker state while runs are active;
+  - cleared invalid-path UI behavior;
+  - client env rename regressions for `VITE_CODEINFO_*` readers.
+
+4. Browser e2e harness
+- Reuse `npm run test:summary:e2e`, which is backed by `scripts/test-summary-e2e.mjs` and the existing Playwright runner in `playwright.config.ts`.
+- Add targeted browser specs under `e2e/`.
+- Place any shared e2e helpers or fixtures under `e2e/support/` and `e2e/fixtures/`.
+- No custom browser harness is required; the existing Playwright setup already supports the kind of targeted restore-flow and runtime-env validation this story may need.
+
+5. Compose and manual validation harness
+- Reuse `npm run compose:build:summary`, `npm run compose:build`, `npm run compose:up`, `npm run compose:down`, and `npm run compose:logs` for containerized validation.
+- This existing compose harness is sufficient for manual acceptance checks around working-folder restore, repository resolution visibility, and env cutover behavior.
+- If story 48 needs any additional shared test scaffolding, create it inside the existing support directories above rather than introducing a new top-level harness type.
+
 ## Research Findings
 
 1. Current reference resolution is owner-first in two different places

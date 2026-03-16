@@ -105,6 +105,27 @@ Repository inspection for this story also found three concrete scope facts that 
 - Reworking the Playwright manual-testing container networking model in this story beyond any documentation notes needed to explain why it is deferred.
 - Broader ingest-batching redesign work beyond the specific OpenAI token-counting bug fix captured in this story.
 
+## Expected Outcomes
+
+- A user who selects a working repository in the UI sees referenced command and markdown files resolve from that repository first, even when the flow or command definition itself lives in `codeInfo2` or another ingested repository.
+- Switching between existing chat, agent, and flow conversations restores the same saved working-folder path the user last chose for that conversation, unless the path has since become invalid.
+- Direct agent command execution behaves like the rest of the product instead of acting like a separate persistence surface: it restores and saves the folder on the owning agent conversation, and its reference lookups follow the same working-repo-first order.
+- When a saved working folder is missing or invalid, the UI returns to its normal empty state, the server clears the stale value before reuse, and logs make the reason visible.
+- Developers debugging lookup behavior can see the candidate order, selected repository, and fallback behavior in structured logs and compact runtime metadata without needing to infer the winner from file-system side effects.
+- After the env rename cutover, checked-in product code, wrappers, compose files, tests, and docs all speak the same `CODEINFO_` / `VITE_CODEINFO_` language with no lingering generic aliases.
+- OpenAI ingest rejects oversized inputs based on tokenizer-backed counting before sending avoidable bad requests upstream, and the chunker no longer silently hides tokenizer failures behind heuristic undercounting.
+
+## Edge Cases And Failure Modes
+
+- Duplicate repository identities are expected and must not create duplicate candidate attempts. If the working repository, owner repository, or `codeInfo2` resolve to the same absolute path, the runtime keeps only the first occurrence and preserves the remaining order.
+- Missing-working-folder state is a valid runtime state, not an error. The resolver skips the working slot, continues with owner -> `codeInfo2` -> others, and records that the working slot was unavailable.
+- Invalid saved-folder state is not allowed to survive into restore or execution. Before the next restore or run uses the value, the server clears it, emits a warning, and the client returns to the normal empty picker state.
+- Fail-fast behavior still applies to higher-priority repositories. If a higher-priority candidate is found but is unreadable, undecodable, or schema-invalid, the runtime stops there instead of silently falling through to lower-priority repositories.
+- Nested reference resolution must restart from the same four-place order for each hop. A repository that won an earlier lookup does not become the new root unless it is also the owner of the next referencing file.
+- Direct command execution is a special lookup surface but not a special persistence model. The selected command file contributes the owner slot for resolution, while the owning agent conversation remains the place where the editable saved folder is restored and updated.
+- OpenAI tokenizer failures must be visible and must not degrade back to the old heuristic or whitespace estimate once this story lands. In OpenAI ingest paths, tokenizer setup/counting failures should surface as clear ingest errors unless an equivalent tokenizer-backed fallback has been intentionally implemented.
+- Env rename drift is a real failure mode for this story. A partial cutover that leaves checked-in tests, Dockerfile args, compose env wiring, or docs on the old names should be treated as incomplete rather than acceptable.
+
 ### Questions
 
 ## Implementation Ideas

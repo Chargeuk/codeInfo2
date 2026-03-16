@@ -30,6 +30,8 @@ This host-networking work is not just a one-line Compose change. Docker's host-n
 - replace the hard-coded service-DNS MCP endpoint with an explicit environment-aware endpoint configuration for agents or wrappers;
 - keep browser navigation targets and agent control-channel endpoints as separate concerns rather than assuming they are the same URL.
 
+Repository research also clarifies an important implementation detail for this part of the story. The current Context7 API-key behavior is not driven by built-in TOML environment interpolation. Instead, the product reads a literal placeholder in agent `config.toml` and overlays the real value in memory during runtime config normalization. This story should treat Playwright MCP the same way: do not assume generic TOML env interpolation exists for MCP server definitions. If Playwright endpoints need to vary per environment, add an explicit runtime overlay for the Playwright MCP definition rather than relying on unproven config-file interpolation behavior.
+
 Current repository evidence shows that the checked-in Compose files do not all define a Playwright MCP service today. The story therefore needs to be precise: implement host networking for every checked-in Compose file that actually declares a `playwright-mcp` service, and explicitly decide whether files that do not currently define such a service are out of scope or must gain one as part of this story.
 
 ### Acceptance Criteria
@@ -55,6 +57,8 @@ Current repository evidence shows that the checked-in Compose files do not all d
 - Each host-networked Playwright MCP service uses a deliberate host port plan so checked-in stacks do not clash when run together.
 - The implementation removes any incompatible bridge-style `playwright-mcp` wiring that cannot coexist with host networking.
 - Agent or wrapper MCP endpoint configuration is updated so Playwright MCP is no longer hard-coded only as `http://playwright-mcp:8931/mcp`.
+- The Playwright MCP endpoint override is implemented through an explicit runtime environment overlay rather than assuming native TOML environment interpolation.
+- The story defines one explicit environment variable contract for the Playwright MCP endpoint, with a full URL rather than only a port value, so each Compose file can set the correct control-channel address directly.
 - The implementation keeps the browser navigation target and the agent control-channel endpoint conceptually separate where that is required for host-networked manual testing.
 - The resulting local manual-testing setup still supports the Playwright MCP traffic patterns used by this product, including browser control, websocket flows, screenshots, and manual UI verification.
 
@@ -117,6 +121,8 @@ Current repository evidence shows that the checked-in Compose files do not all d
   - assign distinct checked-in default ports per stack; or
   - drive the Playwright MCP port from explicit environment configuration with safe defaults.
 - Introduce a deliberate per-environment MCP endpoint strategy. Because service-name DNS no longer works the same way for a host-networked service, the story should replace hard-coded `http://playwright-mcp:8931/mcp` assumptions with an explicit configuration path used by agents or wrappers.
+- Follow the existing Context7 pattern rather than assuming TOML env interpolation exists. Current repository evidence shows Context7 is overlaid in memory from an environment variable during runtime config normalization, so Playwright should use a matching runtime overlay approach for its endpoint rather than file rewriting or `${ENV_VAR}` syntax assumptions.
+- Prefer a full URL environment variable for the Playwright MCP endpoint rather than only a port variable. That gives each Compose file one explicit place to declare the control-channel address it needs, even if host, port, or path differ by environment.
 - Keep browser-navigation URLs and agent-control MCP URLs as separate concerns. Host networking is being introduced so the browser launched by Playwright can use `localhost` semantics against host-published applications. That does not automatically mean the agent control channel should use the same URL.
 - Validate the implementation through the manual-testing workflows that already depend on Playwright MCP, including screenshot capture and browser-control flows.
 - Expect likely changes in:

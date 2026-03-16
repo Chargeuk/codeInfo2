@@ -199,7 +199,7 @@
       "type": "message",
       "role": "user",
       "content": [
-        "Ensure any task that updates the front end has detail within the Manual Playwright-MCP testing step to take a screenshot that is to be checked by the agent to ensure the GUI meets the expectations set within the task. This is especially important for the last overall story check task, as all acceptance that can be confirmed in the GUI needs to be checked with screenshots as well as any other appropriate techniques. Ensure that there is detail in the Manual Playwright-MCP testing step stating that the screenshots will be stored within the /Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local folder, as it is mapped within docker-compose.local.yml. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
+        "Ensure any task that updates the front end has detail within the Manual Playwright-MCP testing step to take a screenshot that is to be checked by the agent to ensure the GUI meets the expectations set within the task. This is especially important for the last overall story check task, as all acceptance that can be confirmed in the GUI needs to be checked with screenshots as well as any other appropriate techniques. Ensure that there is detail in the Manual Playwright-MCP testing step stating that the screenshots will be stored within the `playwright-output-local` folder, as it is mapped within docker-compose.local.yml. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
       ]
     }
   ]

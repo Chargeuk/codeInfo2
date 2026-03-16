@@ -1,4 +1,4 @@
-# Story 0000048 – GitHub Copilot SDK Chat Provider
+# Story 0000049 – GitHub Copilot SDK Chat Provider
 
 ## Implementation Plan
 

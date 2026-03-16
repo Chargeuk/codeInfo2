@@ -1,3 +1,21 @@
 # Future Ideas
 
 - Rework Chat model-selection/runtime-config handling so switching to `gpt*` models does not inherit an incompatible `model_provider` from `codex/chat/config.toml`. The current Chat path appears to preserve `model_provider = "lmstudiospark"` even when the selected model is a Codex/OpenAI model, which can route requests through the wrong provider and cause provider errors.
+- Investigate switching the manual-testing `playwright-mcp` container to host networking so the browser it launches can reach host-published services through `localhost` instead of `host.docker.internal`.
+  - Research so far:
+    - The local manual-testing stack already has a dedicated `playwright-mcp` container in `docker-compose.local.yml`, and agent configs currently reach it via Docker service DNS at `http://playwright-mcp:8931/mcp`.
+    - Docker documents host networking on Docker Desktop as available on Docker Desktop 4.34+ when explicitly enabled in settings, and states that containers using host networking can access host services via `localhost`.
+    - Docker also documents that `network_mode: host` is incompatible with normal Compose `ports` publishing and `networks` attachment for that service, so the current `playwright-mcp` service wiring would need to change rather than just toggling one line.
+    - MDN documents that `localhost`, `127.0.0.1`, and `*.localhost` receive special potentially trustworthy treatment; `host.docker.internal` is not called out in that list, which supports the security-context concern behind this idea.
+  - Mac-specific open research:
+    - Confirm the exact Docker Desktop for Mac behavior when a host-networked `playwright-mcp` service is consumed by bridged app containers in the same compose project.
+    - Confirm the best replacement MCP endpoint for agent configs after service-name DNS is lost, likely a host-reachable URL rather than `http://playwright-mcp:8931/mcp`.
+    - Confirm whether Docker Desktop for Mac host networking is reliable enough for the Chrome and Playwright MCP traffic patterns used in CodeInfo2 manual testing, including websocket and screenshot flows.
+  - Candidate implementation direction:
+    - Move only `playwright-mcp` to host networking.
+    - Remove its direct bridge-network service discovery assumptions.
+    - Update the agent-side MCP remote URL separately from the browser navigation target so the browser can use `localhost` while agents still have a stable control-channel endpoint.
+  - Sources:
+    - https://docs.docker.com/engine/network/drivers/host/
+    - https://docs.docker.com/reference/compose-file/services/#network_mode
+    - https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts

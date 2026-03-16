@@ -781,8 +781,9 @@ Update the client so chats, agents, and flows all restore the saved working-fold
 22. [ ] Add or extend one client component test in `client/src/test/flowsPage.run.test.tsx` that proves idle edits are saved through the shared conversation-edit helper. The purpose of this test is to lock down the shared idle-save behavior for flows.
 23. [ ] Add or extend one client component test in `client/src/test/flowsPage.run.test.tsx` that proves the flow picker is locked while a run is active. The purpose of this test is to protect the run-lock behavior on the flow surface.
 24. [ ] Add or extend one client component test in `client/src/test/flowsPage.run.test.tsx` that proves the flow picker returns to the normal empty state after the server clears an invalid saved path. The purpose of this test is to protect invalid-path recovery on the flow surface.
-25. [ ] Update `README.md` or `docs/developer-reference.md` only if the user-facing working-folder behavior described there is stale after the client changes. In all cases, update this story file's Task 6 `Implementation notes` with the shared helper location and the final lock rules used by each page.
-26. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix any issues before continuing.
+25. [ ] If this task adds or removes files such as a new shared client API helper or new client test files, update `projectStructure.md` after those file changes are complete.
+26. [ ] Update `README.md` or `docs/developer-reference.md` only if the user-facing working-folder behavior described there is stale after the client changes. In all cases, update this story file's Task 6 `Implementation notes` with the shared helper location and the final lock rules used by each page.
+27. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix any issues before continuing.
 
 #### Testing
 
@@ -874,8 +875,9 @@ Perform the client-side portion of the env rename cutover. This task is only abo
 7. [ ] Add or extend one client unit test in `client/src/test/logging/transport.test.ts` that proves documentation-only log env names do not accidentally become live runtime config paths. The purpose of this test is to stop the rename work from silently adding new unsupported inputs.
 8. [ ] Run repo-wide searches for the legacy checked-in client and e2e env names listed in this story and replace each remaining repo-owned occurrence. Treat `VITE_LOG_LEVEL` and `VITE_LOG_STREAM_ENABLED` as documentation cleanup only unless a checked-in runtime consumer was intentionally added earlier in the story.
 9. [ ] Add or extend one browser e2e test in `e2e/env-runtime-config.spec.ts` that proves compose-injected runtime config and built assets use the same renamed `VITE_CODEINFO_` values and cannot silently disagree. The purpose of this test is to catch runtime-versus-build drift after the env rename.
-10. [ ] Update `README.md`, `docs/developer-reference.md`, `design.md`, and this story file's Task 8 `Implementation notes` so the final client-side env contract is clear, including which names are true runtime readers and which old log env names were only documentation cleanup.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix issues before continuing.
+10. [ ] If this task adds or removes files such as a new browser e2e spec or new client env helpers, update `projectStructure.md` after those file changes are complete.
+11. [ ] Update `README.md`, `docs/developer-reference.md`, `design.md`, and this story file's Task 8 `Implementation notes` so the final client-side env contract is clear, including which names are true runtime readers and which old log env names were only documentation cleanup.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix issues before continuing.
 
 #### Testing
 

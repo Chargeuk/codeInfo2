@@ -34,6 +34,17 @@ export interface TurnTimingMetadata {
   tokensPerSecond?: number;
 }
 
+export interface TurnLookupSummaryMetadata {
+  selectedRepositoryPath: string;
+  fallbackUsed: boolean;
+  workingRepositoryAvailable: boolean;
+}
+
+export interface TurnRuntimeMetadata {
+  workingFolder?: string;
+  lookupSummary?: TurnLookupSummaryMetadata;
+}
+
 export interface Turn {
   conversationId: string;
   role: TurnRole;
@@ -46,6 +57,7 @@ export interface Turn {
   command?: TurnCommandMetadata;
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
+  runtime?: TurnRuntimeMetadata;
   createdAt: Date;
 }
 
@@ -82,6 +94,23 @@ const turnTimingSchema = new Schema<TurnTimingMetadata>(
   { _id: false },
 );
 
+const turnLookupSummarySchema = new Schema<TurnLookupSummaryMetadata>(
+  {
+    selectedRepositoryPath: { type: String, required: true },
+    fallbackUsed: { type: Boolean, required: true },
+    workingRepositoryAvailable: { type: Boolean, required: true },
+  },
+  { _id: false },
+);
+
+const turnRuntimeSchema = new Schema<TurnRuntimeMetadata>(
+  {
+    workingFolder: { type: String, required: false },
+    lookupSummary: { type: turnLookupSummarySchema, required: false },
+  },
+  { _id: false },
+);
+
 const turnSchema = new Schema<Turn>(
   {
     conversationId: { type: String, required: true, index: true },
@@ -99,6 +128,7 @@ const turnSchema = new Schema<Turn>(
     command: { type: turnCommandSchema, required: false },
     usage: { type: turnUsageSchema, required: false },
     timing: { type: turnTimingSchema, required: false },
+    runtime: { type: turnRuntimeSchema, required: false },
     createdAt: { type: Date, required: true, default: () => new Date() },
   },
   { timestamps: false },

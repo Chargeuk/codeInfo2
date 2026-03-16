@@ -230,6 +230,73 @@ flowchart TD
 
 ## Embedding flow refactor (Task 1)
 
+## Story 0000048 Task 2 command resolution
+
+- Flow-owned command lookup and direct command lookup now share one repository-order contract via `server/src/flows/repositoryCandidateOrder.ts`.
+- The concrete repository candidate order is:
+  - selected working repository first when available;
+  - referencing-file owner repository second;
+  - local `codeInfo2` third;
+  - remaining ingested repositories last in caller-supplied order.
+- Candidate dedupe is first-seen on normalized absolute paths, so working/owner/local collapses do not produce duplicate attempts or duplicate logged candidates.
+- Flow-owned commands keep the existing fail-fast rule in `server/src/flows/service.ts`: only `NOT_FOUND` falls through; an existing higher-priority command that is unreadable or schema-invalid stops resolution immediately.
+- Direct commands in `server/src/agents/service.ts` now follow the same lookup order, with the selected command file repository supplying the owner slot while the run still stays anchored to the existing agent conversation and command-runner lifecycle.
+- Structured observability is shared across both surfaces:
+  - `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER` records the helper-produced candidate order and whether a working repository was available.
+  - `DEV_0000040_T11_FLOW_RESOLUTION_ORDER` records the flow command winner plus `fallbackUsed` and `workingRepositoryAvailable`.
+  - `DEV-0000034:T2:command_run_resolved` records the direct command winner plus the same compact outcome fields.
+- Persisted command runtime metadata now stores only the compact lookup summary in `Turn.runtime.lookupSummary`:
+  - `selectedRepositoryPath`
+  - `fallbackUsed`
+  - `workingRepositoryAvailable`
+- The full candidate list remains a structured-log concern rather than persisted turn metadata.
+
+```mermaid
+flowchart TD
+  Start[Resolve command reference] --> Work{Working repository saved and available?}
+  Work -- yes --> W[Try working repository]
+  Work -- no --> Owner[Try owner repository]
+  W --> FoundW{Command file exists?}
+  FoundW -- valid --> PickW[Select working repository]
+  FoundW -- invalid/unreadable --> Fail[Fail fast]
+  FoundW -- missing --> Owner
+  Owner --> FoundO{Command file exists?}
+  FoundO -- valid --> PickO[Select owner repository]
+  FoundO -- invalid/unreadable --> Fail
+  FoundO -- missing --> Local[Try local codeInfo2]
+  Local --> FoundL{Command file exists?}
+  FoundL -- valid --> PickL[Select local codeInfo2]
+  FoundL -- invalid/unreadable --> Fail
+  FoundL -- missing --> Others[Try other ingested repositories in order]
+  Others --> FoundR{Command file exists?}
+  FoundR -- valid --> PickR[Select first matching repository]
+  FoundR -- invalid/unreadable --> Fail
+  FoundR -- missing everywhere --> NotFound[Return not found]
+```
+
+```mermaid
+sequenceDiagram
+  participant Flow as Flow step
+  participant Direct as Direct command
+  participant Helper as repositoryCandidateOrder
+  participant Loader as command loader
+  participant Turn as Turn runtime metadata
+
+  alt flow-owned command
+    Flow->>Helper: build order(working, flow owner, codeInfo2, others)
+    Helper-->>Flow: candidates + workingRepositoryAvailable
+    Flow->>Loader: try candidates in order
+    Loader-->>Flow: selected repo or fail-fast result
+    Flow->>Turn: persist runtime.lookupSummary
+  else direct command
+    Direct->>Helper: build order(working, command owner, codeInfo2, others)
+    Helper-->>Direct: candidates + workingRepositoryAvailable
+    Direct->>Loader: try candidates in order
+    Loader-->>Direct: selected repo or fail-fast result
+    Direct->>Turn: persist runtime.lookupSummary
+  end
+```
+
 ## Agents prompts route contract (Story 0000039 Task 1)
 
 - Added `GET /agents/{agentName}/prompts` at the agents commands router boundary.

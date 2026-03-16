@@ -1,5 +1,35 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000048 Task 2 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `projectStructure.md`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/agents/service.ts`
+- `server/src/chat/interfaces/ChatInterface.ts`
+- `server/src/flows/repositoryCandidateOrder.ts`
+- `server/src/flows/service.ts`
+- `server/src/mongo/repo.ts`
+- `server/src/mongo/turn.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+- `server/src/test/unit/agents-commands-router-run.test.ts`
+- `server/src/test/unit/turn-command-metadata.test.ts`
+
 ## Story 0000048 Task 1 structural change ledger
 
 Added files:

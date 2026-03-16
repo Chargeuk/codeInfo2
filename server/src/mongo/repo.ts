@@ -24,8 +24,9 @@ import {
   Turn,
   TurnCommandMetadata,
   TurnRole,
-  TurnStatus,
   TurnSource,
+  TurnStatus,
+  TurnRuntimeMetadata,
   TurnTimingMetadata,
   TurnUsageMetadata,
 } from './turn.js';
@@ -87,6 +88,7 @@ export interface AppendTurnInput {
   command?: TurnCommandMetadata;
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
+  runtime?: TurnRuntimeMetadata;
   createdAt?: Date;
 }
 
@@ -223,6 +225,7 @@ export async function appendTurn(input: AppendTurnInput): Promise<Turn> {
     command: input.command,
     usage: input.usage,
     timing: input.timing,
+    runtime: input.runtime,
     createdAt,
   });
 

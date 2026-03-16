@@ -791,6 +791,413 @@ test('flow-owned commands fall back through markdown repositories after a same-s
   }
 });
 
+test('local codeinfo2 flows resolve commands from the selected working repository before codeinfo2', async () => {
+  const repos: RepoEntry[] = [];
+  const commandName = 'task2_local_flow_working_repo_first';
+  const localCommandPath = path.join(
+    repoRoot,
+    'codex_agents',
+    'planning_agent',
+    'commands',
+    `${commandName}.json`,
+  );
+
+  try {
+    await writeRepoCommand({
+      repoRoot,
+      commandName,
+      content: 'codeinfo2 owner command',
+    });
+
+    await withFlowServer(
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const workingRoot = path.join(tmpDir, 'working-local-flow-repo');
+        const conversationId = 'task2-local-flow-working-repo-first';
+        await fs.writeFile(
+          path.join(tmpDir, 'task2-local-flow-working-repo-first.json'),
+          JSON.stringify(makeFlowCommand({ commandName })),
+        );
+        await writeRepoCommand({
+          repoRoot: workingRoot,
+          commandName,
+          content: 'working repository command',
+        });
+        repos.push(
+          buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
+        );
+
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await supertest(baseUrl)
+          .post('/flows/task2-local-flow-working-repo-first/run')
+          .send({
+            conversationId,
+            working_folder: workingRoot,
+          })
+          .expect(202);
+
+        await waitForFlowFinal({ ws: wsUrl, conversationId, status: 'ok' });
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes('working repository command'),
+            ),
+          3000,
+        );
+        assert.ok(
+          turns.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('working repository command'),
+          ),
+        );
+
+        const logs = query({ text: 'DEV_0000040_T11_FLOW_RESOLUTION_ORDER' });
+        const selectedLog = logs.find(
+          (entry) => entry.context?.decision === 'selected',
+        );
+        assert.equal(
+          selectedLog?.context?.selectedRepositoryPath,
+          path.resolve(workingRoot),
+        );
+        assert.equal(selectedLog?.context?.fallbackUsed, false);
+        assert.equal(selectedLog?.context?.workingRepositoryAvailable, true);
+        cleanupMemory(conversationId);
+      },
+      {
+        listIngestedRepositories: async () => ({ repos, lockedModelId: null }),
+      },
+    );
+  } finally {
+    await fs.rm(localCommandPath, { force: true });
+  }
+});
+
+test('cross-repo flows resolve commands from the selected working repository before the flow owner', async () => {
+  const repos: RepoEntry[] = [];
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'task2-source-repo');
+      const workingRoot = path.join(tmpDir, 'task2-working-repo');
+      const commandName = 'task2_cross_repo_working_repo_first';
+      const conversationId = 'task2-cross-repo-working-repo-first';
+      await writeRepoFlow({
+        repoRoot: sourceRoot,
+        flowName: 'task2-cross-repo-working-repo-first',
+        commandName,
+      });
+      await writeRepoCommand({
+        repoRoot: sourceRoot,
+        commandName,
+        content: 'owner repository command',
+      });
+      await writeRepoCommand({
+        repoRoot: workingRoot,
+        commandName,
+        content: 'working repository command',
+      });
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Owner Repo' }),
+        buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/task2-cross-repo-working-repo-first/run')
+        .send({
+          conversationId,
+          sourceId: sourceRoot,
+          working_folder: workingRoot,
+        })
+        .expect(202);
+
+      await waitForFlowFinal({ ws: wsUrl, conversationId, status: 'ok' });
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('working repository command'),
+          ),
+        3000,
+      );
+      assert.ok(
+        turns.some(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('working repository command'),
+        ),
+      );
+
+      const logs = query({ text: 'DEV_0000040_T11_FLOW_RESOLUTION_ORDER' });
+      const selectedLog = logs.find(
+        (entry) => entry.context?.decision === 'selected',
+      );
+      assert.equal(
+        selectedLog?.context?.selectedRepositoryPath,
+        path.resolve(workingRoot),
+      );
+      assert.equal(selectedLog?.context?.fallbackUsed, false);
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({ repos, lockedModelId: null }),
+    },
+  );
+});
+
+test('command resolution skips the working slot cleanly when no working repository is available', async () => {
+  const repos: RepoEntry[] = [];
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'task2-owner-without-working');
+      const otherRoot = path.join(tmpDir, 'task2-other-repo');
+      const commandName = 'task2_missing_working_repo';
+      const conversationId = 'task2-missing-working-repo';
+      await writeRepoFlow({
+        repoRoot: sourceRoot,
+        flowName: 'task2-missing-working-repo',
+        commandName,
+      });
+      await writeRepoCommand({
+        repoRoot: sourceRoot,
+        commandName,
+        content: 'owner repository command',
+      });
+      await writeRepoCommand({
+        repoRoot: otherRoot,
+        commandName,
+        content: 'other repository command',
+      });
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Owner Repo' }),
+        buildRepoEntry({ containerPath: otherRoot, id: 'Other Repo' }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/task2-missing-working-repo/run')
+        .send({ conversationId, sourceId: sourceRoot })
+        .expect(202);
+
+      await waitForFlowFinal({ ws: wsUrl, conversationId, status: 'ok' });
+      const logs = query({ text: 'DEV_0000040_T11_FLOW_RESOLUTION_ORDER' });
+      const selectedLog = logs.find(
+        (entry) => entry.context?.decision === 'selected',
+      );
+      const candidateRepositories = Array.isArray(
+        selectedLog?.context?.candidateRepositories,
+      )
+        ? (selectedLog.context.candidateRepositories as Array<{ slot: string }>)
+        : [];
+      assert.equal(selectedLog?.context?.workingRepositoryAvailable, false);
+      assert.equal(
+        selectedLog?.context?.selectedRepositoryPath,
+        path.resolve(sourceRoot),
+      );
+      assert.deepEqual(
+        candidateRepositories.map((item) => item.slot),
+        ['owner_repository', 'codeinfo2', 'other_repository'],
+      );
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({ repos, lockedModelId: null }),
+    },
+  );
+});
+
+test('command resolution dedupes duplicate working and owner repositories', async () => {
+  const repos: RepoEntry[] = [];
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'task2-dedupe-working-owner');
+      const commandName = 'task2_dedupe_working_owner';
+      const conversationId = 'task2-dedupe-working-owner';
+      await writeRepoFlow({
+        repoRoot: sourceRoot,
+        flowName: 'task2-dedupe-working-owner',
+        commandName,
+      });
+      await writeRepoCommand({
+        repoRoot: sourceRoot,
+        commandName,
+        content: 'single repository command',
+      });
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/task2-dedupe-working-owner/run')
+        .send({
+          conversationId,
+          sourceId: sourceRoot,
+          working_folder: sourceRoot,
+        })
+        .expect(202);
+
+      await waitForFlowFinal({ ws: wsUrl, conversationId, status: 'ok' });
+      const logs = query({ text: 'DEV_0000040_T11_FLOW_RESOLUTION_ORDER' });
+      const selectedLog = logs.find(
+        (entry) => entry.context?.decision === 'selected',
+      );
+      const candidateRepositories = Array.isArray(
+        selectedLog?.context?.candidateRepositories,
+      )
+        ? (selectedLog.context.candidateRepositories as Array<{
+            sourceId: string;
+            slot: string;
+          }>)
+        : [];
+      const matchingCandidates =
+        candidateRepositories.filter(
+          (item) => item.sourceId === path.resolve(sourceRoot),
+        ) ?? [];
+      assert.equal(matchingCandidates.length, 1);
+      assert.equal(matchingCandidates[0]?.slot, 'working_repository');
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({ repos, lockedModelId: null }),
+    },
+  );
+});
+
+test('command resolution dedupes duplicate working and local codeinfo2 repositories', async () => {
+  const commandName = 'task2_dedupe_working_codeinfo2';
+  const localCommandPath = path.join(
+    repoRoot,
+    'codex_agents',
+    'planning_agent',
+    'commands',
+    `${commandName}.json`,
+  );
+
+  try {
+    await writeRepoCommand({
+      repoRoot,
+      commandName,
+      content: 'codeinfo2 repository command',
+    });
+
+    await withFlowServer(async ({ baseUrl, wsUrl, tmpDir }) => {
+      const conversationId = 'task2-dedupe-working-codeinfo2';
+      await fs.writeFile(
+        path.join(tmpDir, 'task2-dedupe-working-codeinfo2.json'),
+        JSON.stringify(makeFlowCommand({ commandName })),
+      );
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/task2-dedupe-working-codeinfo2/run')
+        .send({
+          conversationId,
+          working_folder: repoRoot,
+        })
+        .expect(202);
+
+      await waitForFlowFinal({ ws: wsUrl, conversationId, status: 'ok' });
+      const logs = query({ text: 'DEV_0000040_T11_FLOW_RESOLUTION_ORDER' });
+      const selectedLog = logs.find(
+        (entry) => entry.context?.decision === 'selected',
+      );
+      const candidateRepositories = Array.isArray(
+        selectedLog?.context?.candidateRepositories,
+      )
+        ? (selectedLog.context.candidateRepositories as Array<{
+            sourceId: string;
+            slot: string;
+          }>)
+        : [];
+      const matchingCandidates =
+        candidateRepositories.filter(
+          (item) => item.sourceId === path.resolve(repoRoot),
+        ) ?? [];
+      assert.equal(matchingCandidates.length, 1);
+      assert.equal(matchingCandidates[0]?.slot, 'working_repository');
+      cleanupMemory(conversationId);
+    });
+  } finally {
+    await fs.rm(localCommandPath, { force: true });
+  }
+});
+
+test('flow-owned command turns persist lookupSummary runtime metadata', async () => {
+  const repos: RepoEntry[] = [];
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'task2-runtime-owner');
+      const workingRoot = path.join(tmpDir, 'task2-runtime-working');
+      const commandName = 'task2_runtime_lookup_summary';
+      const conversationId = 'task2-runtime-lookup-summary';
+      await writeRepoFlow({
+        repoRoot: sourceRoot,
+        flowName: 'task2-runtime-lookup-summary',
+        commandName,
+      });
+      await writeRepoCommand({
+        repoRoot: sourceRoot,
+        commandName,
+        content: 'owner repository command',
+      });
+      await writeRepoCommand({
+        repoRoot: workingRoot,
+        commandName,
+        content: 'working repository command',
+      });
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Owner Repo' }),
+        buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/task2-runtime-lookup-summary/run')
+        .send({
+          conversationId,
+          sourceId: sourceRoot,
+          working_folder: workingRoot,
+        })
+        .expect(202);
+
+      await waitForFlowFinal({ ws: wsUrl, conversationId, status: 'ok' });
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.runtime?.lookupSummary?.selectedRepositoryPath ===
+              path.resolve(workingRoot),
+          ),
+        3000,
+      );
+      const commandTurns = turns.filter(
+        (turn) =>
+          turn.command?.name === 'flow' &&
+          turn.runtime?.lookupSummary?.selectedRepositoryPath ===
+            path.resolve(workingRoot),
+      );
+      assert.equal(commandTurns.length > 0, true);
+      assert.equal(
+        commandTurns[0]?.runtime?.lookupSummary?.fallbackUsed,
+        false,
+      );
+      assert.equal(
+        commandTurns[0]?.runtime?.lookupSummary?.workingRepositoryAvailable,
+        true,
+      );
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({ repos, lockedModelId: null }),
+    },
+  );
+});
+
 test('flow-owned commands fail fast when a higher-priority markdown file is unreadable', async () => {
   const repos: RepoEntry[] = [];
   const commandName = 'task6_markdown_unreadable';
@@ -1870,7 +2277,7 @@ test('same-source missing command falls back to codeInfo2 repository', async () 
   }
 });
 
-test('deterministic ordering uses normalized source label then full path for other repositories', async () => {
+test('other repositories preserve caller-supplied order instead of sorting by label', async () => {
   const repos: RepoEntry[] = [];
   await withFlowServer(
     async ({ baseUrl, wsUrl, tmpDir }) => {
@@ -1932,19 +2339,19 @@ test('deterministic ordering uses normalized source label then full path for oth
         (items) =>
           items.some(
             (turn) =>
-              turn.role === 'user' && turn.content.includes('other-alpha'),
+              turn.role === 'user' && turn.content.includes('other-beta'),
           ),
         3000,
       );
       assert.ok(
         turns.some(
-          (turn) =>
-            turn.role === 'user' && turn.content.includes('other-alpha'),
+          (turn) => turn.role === 'user' && turn.content.includes('other-beta'),
         ),
       );
       assert.equal(
         turns.some(
-          (turn) => turn.role === 'user' && turn.content.includes('other-beta'),
+          (turn) =>
+            turn.role === 'user' && turn.content.includes('other-alpha'),
         ),
         false,
       );
@@ -2076,7 +2483,7 @@ test('command not found across all candidates fails deterministically', async ()
   );
 });
 
-test('other-repo ordering trims sourceLabel whitespace', async () => {
+test('other-repo ordering preserves caller order even when sourceLabel has whitespace', async () => {
   const repos: RepoEntry[] = [];
   await withFlowServer(
     async ({ baseUrl, wsUrl, tmpDir }) => {
@@ -2133,7 +2540,7 @@ test('other-repo ordering trims sourceLabel whitespace', async () => {
       const turns = memoryTurns.get(conversationId) ?? [];
       assert.ok(
         turns.some(
-          (turn) => turn.role === 'user' && turn.content.includes('trim-a'),
+          (turn) => turn.role === 'user' && turn.content.includes('trim-b'),
         ),
       );
     },
@@ -2146,7 +2553,7 @@ test('other-repo ordering trims sourceLabel whitespace', async () => {
   );
 });
 
-test('other-repo ordering falls back to basename when sourceLabel is empty', async () => {
+test('other-repo ordering preserves caller order when sourceLabel falls back to basename', async () => {
   const repos: RepoEntry[] = [];
   await withFlowServer(
     async ({ baseUrl, wsUrl, tmpDir }) => {
@@ -2203,7 +2610,7 @@ test('other-repo ordering falls back to basename when sourceLabel is empty', asy
       const turns = memoryTurns.get(conversationId) ?? [];
       assert.ok(
         turns.some(
-          (turn) => turn.role === 'user' && turn.content.includes('basename-a'),
+          (turn) => turn.role === 'user' && turn.content.includes('basename-b'),
         ),
       );
     },
@@ -2216,7 +2623,7 @@ test('other-repo ordering falls back to basename when sourceLabel is empty', asy
   );
 });
 
-test('other-repo ordering uses path tie-break when labels match case-insensitively', async () => {
+test('other-repo ordering preserves caller order when labels only differ by case', async () => {
   const repos: RepoEntry[] = [];
   await withFlowServer(
     async ({ baseUrl, wsUrl, tmpDir }) => {
@@ -2273,7 +2680,7 @@ test('other-repo ordering uses path tie-break when labels match case-insensitive
       const turns = memoryTurns.get(conversationId) ?? [];
       assert.ok(
         turns.some(
-          (turn) => turn.role === 'user' && turn.content.includes('tie-a'),
+          (turn) => turn.role === 'user' && turn.content.includes('tie-b'),
         ),
       );
     },

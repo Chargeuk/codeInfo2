@@ -30,6 +30,15 @@ import {
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
 import { RuntimeConfigResolutionError } from '../config/runtimeConfig.js';
+import {
+  buildRepositoryCandidateLookupSummary,
+  buildRepositoryCandidateOrder,
+  DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
+  normalizeRepositoryCandidateLabel,
+  type RepositoryCandidateLookupSummary,
+  type RepositoryCandidateOrderResult,
+  type RepositoryCandidateOrderSlot,
+} from '../flows/repositoryCandidateOrder.js';
 import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
 import {
   listIngestedRepositories,
@@ -45,7 +54,12 @@ import {
   createConversation,
   updateConversationMeta,
 } from '../mongo/repo.js';
-import type { Turn, TurnCommandMetadata, TurnSource } from '../mongo/turn.js';
+import type {
+  Turn,
+  TurnCommandMetadata,
+  TurnRuntimeMetadata,
+  TurnSource,
+} from '../mongo/turn.js';
 import { refreshCodexDetection } from '../providers/codexDetection.js';
 import { publishUserTurn } from '../ws/server.js';
 
@@ -288,6 +302,204 @@ class NoopChat extends ChatInterface {
   }
 }
 
+type DirectCommandResolution = {
+  commandsRoot: string;
+  commandFilePath: string;
+  selectedRepositoryPath: string;
+  selectedRepositoryLabel: string;
+  selectedRepositorySlot: RepositoryCandidateOrderSlot;
+  orderedCandidates: RepositoryCandidateOrderResult;
+  lookupSummary: RepositoryCandidateLookupSummary;
+};
+
+const codeInfo2RootForAgent = (agentHome: string) =>
+  path.resolve(agentHome, '..', '..');
+
+const mapCandidateRepositoriesForLog = (
+  orderedCandidates: RepositoryCandidateOrderResult,
+) =>
+  orderedCandidates.candidates.map((candidate) => ({
+    sourceId: candidate.sourceId,
+    sourceLabel: candidate.sourceLabel,
+    slot: candidate.slot,
+  }));
+
+const appendDirectCommandResolutionLogs = (params: {
+  agentName: string;
+  commandName: string;
+  selectedCandidate?: {
+    sourceId: string;
+    sourceLabel: string;
+    slot: RepositoryCandidateOrderSlot;
+  };
+  orderedCandidates: RepositoryCandidateOrderResult;
+  decision: 'selected' | 'fail_fast' | 'not_found';
+  failureReason?: string;
+  failureMessage?: string;
+}) => {
+  append({
+    level: params.decision === 'selected' ? 'info' : 'warn',
+    message: DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      caller: params.orderedCandidates.caller,
+      workingRepositoryAvailable:
+        params.orderedCandidates.workingRepositoryAvailable,
+      candidateRepositories: mapCandidateRepositoriesForLog(
+        params.orderedCandidates,
+      ),
+    },
+  });
+
+  const lookupSummary = params.selectedCandidate
+    ? buildRepositoryCandidateLookupSummary({
+        orderedCandidates: params.orderedCandidates,
+        selectedRepositoryPath: params.selectedCandidate.sourceId,
+      })
+    : undefined;
+
+  append({
+    level: params.decision === 'selected' ? 'info' : 'warn',
+    message: 'DEV-0000034:T2:command_run_resolved',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      agentName: params.agentName,
+      commandName: params.commandName,
+      decision: params.decision,
+      selectedRepositoryPath: lookupSummary?.selectedRepositoryPath ?? null,
+      selectedRepositoryLabel: params.selectedCandidate?.sourceLabel ?? null,
+      selectedRepositorySlot: params.selectedCandidate?.slot ?? null,
+      fallbackUsed: lookupSummary?.fallbackUsed ?? false,
+      workingRepositoryAvailable:
+        params.orderedCandidates.workingRepositoryAvailable,
+      candidateRepositories: mapCandidateRepositoriesForLog(
+        params.orderedCandidates,
+      ),
+      ...(params.failureReason ? { failureReason: params.failureReason } : {}),
+      ...(params.failureMessage
+        ? { failureMessage: params.failureMessage }
+        : {}),
+    },
+  });
+};
+
+const resolveDirectCommandSelection = async (params: {
+  agentName: string;
+  agentHome: string;
+  commandName: string;
+  workingRepositoryPath?: string;
+  sourceId?: string;
+  repos: RepoEntry[];
+}): Promise<DirectCommandResolution> => {
+  const codeInfo2Root = codeInfo2RootForAgent(params.agentHome);
+  const ownerRepositoryPath = params.sourceId?.trim()
+    ? path.resolve(params.sourceId)
+    : codeInfo2Root;
+  const ownerRepository = params.repos.find(
+    (repo) => path.resolve(repo.containerPath) === ownerRepositoryPath,
+  );
+  const ownerRepositoryLabel =
+    ownerRepository?.id ??
+    normalizeRepositoryCandidateLabel({
+      sourceId: ownerRepositoryPath,
+      sourceLabel: params.sourceId ? undefined : path.basename(codeInfo2Root),
+    });
+
+  const orderedCandidates = buildRepositoryCandidateOrder({
+    caller: 'direct-command',
+    workingRepositoryPath: params.workingRepositoryPath,
+    ownerRepositoryPath,
+    ownerRepositoryLabel,
+    codeInfo2Root,
+    otherRepositoryRoots: params.repos.map((repo) => ({
+      sourceId: repo.containerPath,
+      sourceLabel: repo.id,
+    })),
+  });
+
+  for (const candidate of orderedCandidates.candidates) {
+    const commandsRoot =
+      candidate.sourceId === codeInfo2Root
+        ? path.join(params.agentHome, 'commands')
+        : path.join(
+            candidate.sourceId,
+            'codex_agents',
+            params.agentName,
+            'commands',
+          );
+    const commandFilePath = path.resolve(
+      commandsRoot,
+      `${params.commandName}.json`,
+    );
+    const relativePath = path.relative(commandsRoot, commandFilePath);
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+      appendDirectCommandResolutionLogs({
+        agentName: params.agentName,
+        commandName: params.commandName,
+        orderedCandidates,
+        selectedCandidate: candidate,
+        decision: 'fail_fast',
+        failureReason: 'INVALID',
+        failureMessage: 'commandName must be a valid file name',
+      });
+      throw toRunAgentError('COMMAND_INVALID');
+    }
+
+    const commandStat = await fs.stat(commandFilePath).catch((error) => {
+      if ((error as { code?: string }).code === 'ENOENT') return null;
+      throw error;
+    });
+    if (!commandStat?.isFile()) {
+      continue;
+    }
+
+    const parsed = await loadAgentCommandFile({ filePath: commandFilePath });
+    if (!parsed.ok) {
+      appendDirectCommandResolutionLogs({
+        agentName: params.agentName,
+        commandName: params.commandName,
+        orderedCandidates,
+        selectedCandidate: candidate,
+        decision: 'fail_fast',
+        failureReason: 'INVALID',
+        failureMessage: `Command ${params.commandName} failed schema validation`,
+      });
+      throw toRunAgentError('COMMAND_INVALID');
+    }
+
+    const lookupSummary = buildRepositoryCandidateLookupSummary({
+      orderedCandidates,
+      selectedRepositoryPath: candidate.sourceId,
+    });
+    appendDirectCommandResolutionLogs({
+      agentName: params.agentName,
+      commandName: params.commandName,
+      orderedCandidates,
+      selectedCandidate: candidate,
+      decision: 'selected',
+    });
+    return {
+      commandsRoot,
+      commandFilePath,
+      selectedRepositoryPath: candidate.sourceId,
+      selectedRepositoryLabel: candidate.sourceLabel,
+      selectedRepositorySlot: candidate.slot,
+      orderedCandidates,
+      lookupSummary,
+    };
+  }
+
+  appendDirectCommandResolutionLogs({
+    agentName: params.agentName,
+    commandName: params.commandName,
+    orderedCandidates,
+    decision: 'not_found',
+  });
+  throw toRunAgentError('COMMAND_NOT_FOUND');
+};
+
 async function persistSyntheticAgentTurn(params: {
   conversationId: string;
   role: 'user' | 'assistant';
@@ -298,6 +510,7 @@ async function persistSyntheticAgentTurn(params: {
   status: Turn['status'];
   toolCalls: Record<string, unknown> | null;
   command: TurnCommandMetadata;
+  runtime?: TurnRuntimeMetadata;
   createdAt: Date;
 }): Promise<{ turnId?: string }> {
   if (shouldUseMemoryPersistence()) {
@@ -311,6 +524,7 @@ async function persistSyntheticAgentTurn(params: {
       toolCalls: params.toolCalls,
       status: params.status,
       command: params.command,
+      runtime: params.runtime,
       createdAt: params.createdAt,
     } as Turn);
     updateMemoryConversationMeta(params.conversationId, {
@@ -330,6 +544,7 @@ async function persistSyntheticAgentTurn(params: {
     toolCalls: params.toolCalls,
     status: params.status,
     command: params.command,
+    runtime: params.runtime,
     createdAt: params.createdAt,
   });
 
@@ -805,64 +1020,38 @@ export async function startAgentCommand(params: {
       throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
     }
 
-    // Validate command file before returning 202 so errors map cleanly to 4xx.
-    let commandsDir = path.join(agent.home, 'commands');
-    let commandFilePath = path.join(commandsDir, commandName + '.json');
-
-    if (sourceId) {
-      const ingestRoots = await agentServiceDeps
-        .listIngestedRepositories()
-        .then((result) => result.repos)
-        .catch(() => null);
-      const matchingRoot = ingestRoots?.find(
-        (repo) => repo.containerPath === sourceId,
-      );
-      if (!matchingRoot) {
-        throw toRunAgentError('COMMAND_NOT_FOUND');
-      }
-      logTransitiveContractRead({
-        consumer: 'agents.service.startAgentCommand',
-        sourceId,
-        repo: matchingRoot,
-      });
-
-      commandsDir = path.join(
-        matchingRoot.containerPath,
-        'codex_agents',
-        agent.name,
-        'commands',
-      );
-
-      const resolved = path.resolve(commandsDir, `${commandName}.json`);
-      const relativePath = path.relative(commandsDir, resolved);
-      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-        throw toRunAgentError('COMMAND_INVALID');
-      }
-      commandFilePath = resolved;
-    }
-
-    append({
-      level: 'info',
-      message: 'DEV-0000034:T2:command_run_resolved',
-      timestamp: new Date().toISOString(),
-      source: 'server',
-      context: {
-        agentName: params.agentName,
-        commandName,
-        sourceId: sourceId ?? 'local',
-        commandPath: commandFilePath,
-      },
-    });
-
-    const commandStat = await fs.stat(commandFilePath).catch((error) => {
-      if ((error as { code?: string }).code === 'ENOENT') return null;
-      throw error;
-    });
-    if (!commandStat?.isFile()) {
+    const ingestRoots = await agentServiceDeps
+      .listIngestedRepositories()
+      .then((result) => result.repos)
+      .catch(() => []);
+    const matchingRoot = sourceId
+      ? ingestRoots.find((repo) => repo.containerPath === sourceId)
+      : undefined;
+    if (sourceId && !matchingRoot) {
       throw toRunAgentError('COMMAND_NOT_FOUND');
     }
+    if (matchingRoot) {
+      logTransitiveContractRead({
+        consumer: 'agents.service.startAgentCommand',
+        sourceId: matchingRoot.containerPath,
+        repo: matchingRoot,
+      });
+    }
 
-    const parsed = await loadAgentCommandFile({ filePath: commandFilePath });
+    await resolveWorkingFolderWorkingDirectory(params.working_folder);
+
+    const resolution = await resolveDirectCommandSelection({
+      agentName: agent.name,
+      agentHome: agent.home,
+      commandName,
+      workingRepositoryPath: params.working_folder,
+      sourceId,
+      repos: ingestRoots,
+    });
+
+    const parsed = await loadAgentCommandFile({
+      filePath: resolution.commandFilePath,
+    });
     if (!parsed.ok) {
       throw toRunAgentError('COMMAND_INVALID');
     }
@@ -907,8 +1096,6 @@ export async function startAgentCommand(params: {
       });
     }
 
-    await resolveWorkingFolderWorkingDirectory(params.working_folder);
-
     backgroundScheduled = true;
 
     void (async () => {
@@ -916,16 +1103,17 @@ export async function startAgentCommand(params: {
         await runAgentCommandRunner({
           agentName: params.agentName,
           agentHome: agent.home,
-          commandsRoot: commandsDir,
-          commandFilePath,
+          commandsRoot: resolution.commandsRoot,
+          commandFilePath: resolution.commandFilePath,
           commandName,
           startStep,
           conversationId,
-          sourceId,
+          sourceId: resolution.selectedRepositoryPath,
           working_folder: params.working_folder,
           signal: undefined,
           source: params.source,
           initialModelId: modelId,
+          lookupSummary: resolution.lookupSummary,
           onPrestartFailure: async (failure) => {
             await emitFailedAgentCommandStep({
               conversationId,
@@ -1024,65 +1212,42 @@ export async function runAgentCommand(params: {
     },
   });
 
-  let commandsRoot: string | undefined;
-  let commandFilePath: string | undefined;
-
-  if (sourceId) {
-    const ingestRoots = await agentServiceDeps
-      .listIngestedRepositories()
-      .then((result) => result.repos)
-      .catch(() => null);
-    const matchingRoot = ingestRoots?.find(
-      (repo) => repo.containerPath === sourceId,
-    );
-    if (!matchingRoot) {
-      throw toRunAgentError('COMMAND_NOT_FOUND');
-    }
+  const ingestRoots = await agentServiceDeps
+    .listIngestedRepositories()
+    .then((result) => result.repos)
+    .catch(() => []);
+  const matchingRoot = sourceId
+    ? ingestRoots.find((repo) => repo.containerPath === sourceId)
+    : undefined;
+  if (sourceId && !matchingRoot) {
+    throw toRunAgentError('COMMAND_NOT_FOUND');
+  }
+  if (matchingRoot) {
     logTransitiveContractRead({
       consumer: 'agents.service.runAgentCommand',
-      sourceId,
+      sourceId: matchingRoot.containerPath,
       repo: matchingRoot,
     });
-
-    commandsRoot = path.join(
-      matchingRoot.containerPath,
-      'codex_agents',
-      agent.name,
-      'commands',
-    );
-    const resolved = path.resolve(commandsRoot, `${params.commandName}.json`);
-    const relativePath = path.relative(commandsRoot, resolved);
-    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-      throw toRunAgentError('COMMAND_INVALID');
-    }
-    commandFilePath = resolved;
   }
 
-  append({
-    level: 'info',
-    message: 'DEV-0000034:T2:command_run_resolved',
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: {
-      agentName: params.agentName,
-      commandName: params.commandName,
-      sourceId: sourceId ?? 'local',
-      commandPath:
-        commandFilePath ??
-        path.join(agent.home, 'commands', `${params.commandName}.json`),
-    },
+  await resolveWorkingFolderWorkingDirectory(params.working_folder);
+
+  const resolution = await resolveDirectCommandSelection({
+    agentName: agent.name,
+    agentHome: agent.home,
+    commandName: params.commandName.trim(),
+    workingRepositoryPath: params.working_folder,
+    sourceId,
+    repos: ingestRoots,
   });
 
-  const resolvedCommandFilePath =
-    commandFilePath ??
-    path.join(agent.home, 'commands', `${params.commandName}.json`);
   const { initialModelId } = await prepareDirectCommandBootstrap({
     agentName: params.agentName,
     commandName: params.commandName.trim(),
     agentHome: agent.home,
     configPath: agent.configPath,
     conversationId,
-    commandFilePath: resolvedCommandFilePath,
+    commandFilePath: resolution.commandFilePath,
     startStep,
     source: params.source,
   });
@@ -1090,16 +1255,17 @@ export async function runAgentCommand(params: {
   return await runAgentCommandRunner({
     agentName: params.agentName,
     agentHome: agent.home,
-    commandsRoot,
-    commandFilePath,
+    commandsRoot: resolution.commandsRoot,
+    commandFilePath: resolution.commandFilePath,
     commandName: params.commandName,
     startStep,
     conversationId,
-    sourceId,
+    sourceId: resolution.selectedRepositoryPath,
     working_folder: params.working_folder,
     signal: params.signal,
     source: params.source,
     initialModelId,
+    lookupSummary: resolution.lookupSummary,
     runAgentInstructionUnlocked: (runParams) =>
       runAgentInstructionUnlocked({
         ...runParams,
@@ -1115,6 +1281,7 @@ export async function runAgentInstructionUnlocked(params: {
   conversationId: string;
   mustExist?: boolean;
   command?: TurnCommandMetadata;
+  runtime?: TurnRuntimeMetadata;
   signal?: AbortSignal;
   source: 'REST' | 'MCP';
   inflightId?: string;
@@ -1420,6 +1587,7 @@ export async function runAgentInstructionUnlocked(params: {
           signal: getInflight(conversationId)?.abortController.signal,
           source: params.source,
           ...(params.command ? { command: params.command } : {}),
+          ...(params.runtime ? { runtime: params.runtime } : {}),
         },
         conversationId,
         modelId,

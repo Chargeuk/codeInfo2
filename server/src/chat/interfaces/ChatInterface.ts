@@ -11,6 +11,7 @@ import {
 import type {
   Turn,
   TurnCommandMetadata,
+  TurnRuntimeMetadata,
   TurnSource,
   TurnStatus,
   TurnTimingMetadata,
@@ -110,6 +111,51 @@ const deriveTiming = (params: {
     }
   }
   return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+};
+
+const parseRuntimeMetadata = (
+  input: unknown,
+): TurnRuntimeMetadata | undefined => {
+  if (!input || typeof input !== 'object') return undefined;
+  const value = input as Record<string, unknown>;
+  const workingFolder =
+    typeof value.workingFolder === 'string' && value.workingFolder.trim().length
+      ? value.workingFolder.trim()
+      : undefined;
+  const rawLookupSummary =
+    value.lookupSummary && typeof value.lookupSummary === 'object'
+      ? (value.lookupSummary as Record<string, unknown>)
+      : undefined;
+  const selectedRepositoryPath =
+    typeof rawLookupSummary?.selectedRepositoryPath === 'string' &&
+    rawLookupSummary.selectedRepositoryPath.trim().length
+      ? rawLookupSummary.selectedRepositoryPath.trim()
+      : undefined;
+  const fallbackUsed =
+    typeof rawLookupSummary?.fallbackUsed === 'boolean'
+      ? rawLookupSummary.fallbackUsed
+      : undefined;
+  const workingRepositoryAvailable =
+    typeof rawLookupSummary?.workingRepositoryAvailable === 'boolean'
+      ? rawLookupSummary.workingRepositoryAvailable
+      : undefined;
+
+  const lookupSummary =
+    selectedRepositoryPath !== undefined &&
+    fallbackUsed !== undefined &&
+    workingRepositoryAvailable !== undefined
+      ? {
+          selectedRepositoryPath,
+          fallbackUsed,
+          workingRepositoryAvailable,
+        }
+      : undefined;
+
+  if (!workingFolder && !lookupSummary) return undefined;
+  return {
+    ...(workingFolder ? { workingFolder } : {}),
+    ...(lookupSummary ? { lookupSummary } : {}),
+  };
 };
 
 export interface ChatTokenEvent {
@@ -218,6 +264,9 @@ export abstract class ChatInterface extends EventEmitter {
     const command = parseCommandMetadata(
       (flags as { command?: unknown })?.command,
     );
+    const runtime = parseRuntimeMetadata(
+      (flags as { runtime?: unknown })?.runtime,
+    );
     const createdAt = new Date();
     const userStatus: TurnStatus = 'ok';
 
@@ -302,6 +351,7 @@ export abstract class ChatInterface extends EventEmitter {
           provider,
           source,
           command,
+          runtime,
           toolCalls: null,
           status: userStatus,
           createdAt,
@@ -319,6 +369,7 @@ export abstract class ChatInterface extends EventEmitter {
           provider,
           source,
           command,
+          runtime,
           toolCalls: null,
           status: userStatus,
           createdAt,
@@ -476,6 +527,7 @@ export abstract class ChatInterface extends EventEmitter {
     provider: string;
     source: TurnSource;
     command?: TurnCommandMetadata;
+    runtime?: TurnRuntimeMetadata;
     usage?: TurnUsageMetadata;
     timing?: TurnTimingMetadata;
     status: TurnStatus;
@@ -489,6 +541,7 @@ export abstract class ChatInterface extends EventEmitter {
       provider,
       source,
       command,
+      runtime,
       usage,
       timing,
       status,
@@ -506,6 +559,7 @@ export abstract class ChatInterface extends EventEmitter {
       provider,
       source,
       command,
+      runtime,
       usage,
       timing,
       toolCalls: toolCalls.length > 0 ? { calls: toolCalls } : null,

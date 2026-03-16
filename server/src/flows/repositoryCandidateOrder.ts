@@ -28,6 +28,12 @@ export type RepositoryCandidateOrderResult = {
   candidates: RepositoryCandidateOrderEntry[];
 };
 
+export type RepositoryCandidateLookupSummary = {
+  selectedRepositoryPath: string;
+  fallbackUsed: boolean;
+  workingRepositoryAvailable: boolean;
+};
+
 const normalizeAsciiLower = (value: string) => value.toLowerCase();
 
 export const normalizeRepositoryCandidateLabel = (params: {
@@ -101,5 +107,22 @@ export const buildRepositoryCandidateOrder = (params: {
     caller: params.caller,
     workingRepositoryAvailable: Boolean(workingRepositoryPath),
     candidates,
+  };
+};
+
+export const buildRepositoryCandidateLookupSummary = (params: {
+  orderedCandidates: RepositoryCandidateOrderResult;
+  selectedRepositoryPath: string;
+}): RepositoryCandidateLookupSummary => {
+  const selectedRepositoryPath = path.resolve(params.selectedRepositoryPath);
+  const selectedIndex = params.orderedCandidates.candidates.findIndex(
+    (candidate) => candidate.sourceId === selectedRepositoryPath,
+  );
+
+  return {
+    selectedRepositoryPath,
+    fallbackUsed: selectedIndex > 0,
+    workingRepositoryAvailable:
+      params.orderedCandidates.workingRepositoryAvailable,
   };
 };

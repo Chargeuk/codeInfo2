@@ -35,9 +35,7 @@
     {
       "type": "message",
       "role": "user",
-      "content": [
-        "Use the code_info MCP tool to find existing code, existing contracts, reusable implementations, and candidate files related to the logic planned to be implemented. Ask multiple questions to the code_info MCP tool to gather repository evidence, remembering to state the path of the repository and to use the `conversationId` where appropriate for follow-up questions. Then inspect the relevant source files directly and decide what should be reused, updated, or removed so the plan prefers existing code where possible. When calling the tool, remember to provide the name of the repository, and to continue conversations using the `conversationId` seen in previous responses, but not to provide the `conversationId` for your first question. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
-      ]
+      "markdownFile": "code_info_task_search.md"
     },
     {
       "type": "message",
@@ -63,9 +61,7 @@
     {
       "type": "message",
       "role": "user",
-      "content": [
-        "Do you feel this story's task instructions are detailed enough for an inexperienced junior developer who has never seen our codebase before, especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask? Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links. If not, please improve the instructions to be more detailed and explicit. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
-      ]
+      "markdownFile": "junior_developer_tasks.md"
     },
     {
       "type": "message",
@@ -119,6 +115,11 @@
     {
       "type": "message",
       "role": "user",
+      "markdownFile": "documentation_tasks_update.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
       "content": [
         "In various tasks you have a single subtask to update multiple markdown documents. This is ambiguous. please separate these out to separate subtasks and be explicit about what needs updating - For each task, seperate each required markdown document update into it's own subtask. Include document name, location, description & purpose. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
       ]
@@ -152,15 +153,13 @@
     {
       "type": "message",
       "role": "user",
-      "content": [
-        "Do you feel this story's task instructions are detailed enough for an inexperienced junior developer who has never seen our codebase before, especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask? Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links. If not, please improve the instructions to be more detailed and explicit. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
-      ]
+      "markdownFile": "junior_developer_tasks.md"
     },
     {
       "type": "message",
       "role": "user",
       "content": [
-        "The Subtask sections should not contain subtasks to build code or run tests unless there is a specific need to, this is because all building and testing should be executed once all subtasks of a task are completed and the developer has moved on to the testing section, which must contain builds and running tests. Likewise the testing section should not contain steps to write code. Please move any build or test commands from within the subtask list to the Testing section, and remove any code writing steps from the testing section to the Subtask section of each Task. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
+        "A Task's Subtask section should not contain subtasks to build code or run tests unless there is a specific need to, this is because all building and testing should be executed once all subtasks of a task are completed and the developer has moved on to the testing section, which must contain builds and running tests. Likewise the testing section should not contain steps to write code. Please move any build or test commands from within the subtask list to the Testing section, and remove any code writing steps from the testing section to the Subtask section of each Task. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
@@ -176,16 +175,12 @@
     {
       "type": "message",
       "role": "user",
-      "content": [
-        "Ensure each task has specific log lines to add that can be tested for during the Manual Playwright-MCP testing step. These log lines should be detailed in the subtasks and will confirm events are triggered as expected. Include updates to the Manual Playwright-MCP testing step to check for these specific log lines and what the expected outcome is. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
-      ]
+      "markdownFile": "logline_tasks.md"
     },
     {
       "type": "message",
       "role": "user",
-      "content": [
-        "Ensure any task that updates the front end has detail within the Manual Playwright-MCP testing step to take a screenshot that is to be checked by the agent to ensure the GUI meets the expectations set within the task. This is especially important for the last overall story check task, as all acceptance that can be confirmed in the GUI needs to be checked with screenshots as well as any other appropriate techniques. Ensure that there is detail in the Manual Playwright-MCP testing step stating that the screenshots will be stored within the `playwright-output-local` folder, as it is mapped within docker-compose.local.yml. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
-      ]
+      "markdownFile": "screenshot_test_tasks.md"
     }
   ]
 }

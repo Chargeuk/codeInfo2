@@ -53,6 +53,7 @@ export type FlowRunStartResult = {
 export type FlowAgentState = {
   conversationId: string;
   threadId?: string;
+  workingFolder?: string;
 };
 
 export type FlowChatFactory = (

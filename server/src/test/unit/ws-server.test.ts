@@ -198,6 +198,52 @@ test('WS invalid/missing protocolVersion closes socket', async () => {
   }
 });
 
+test('WS conversation_upsert payload preserves flags.workingFolder', async () => {
+  const server = await startServer();
+  const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      ws.once('open', () => resolve());
+      ws.once('error', reject);
+    });
+
+    ws.send(
+      JSON.stringify({
+        protocolVersion: 'v1',
+        requestId: 'req-working-folder',
+        type: 'subscribe_sidebar',
+      }),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    emitConversationUpsert({
+      conversationId: 'c-working-folder',
+      provider: 'lmstudio',
+      model: 'model',
+      title: 'Title',
+      source: 'REST',
+      lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+      archived: false,
+      flags: { workingFolder: '/repos/working-root' },
+    });
+
+    const payload = await waitForMessage(ws);
+    const event = JSON.parse(payload) as {
+      conversation: { flags: Record<string, unknown> };
+    };
+
+    assert.deepEqual(event.conversation.flags, {
+      workingFolder: '/repos/working-root',
+    });
+  } finally {
+    ws.close();
+    await waitForClose(ws);
+    await stopServer(server);
+  }
+});
+
 test('WS malformed JSON closes socket', async () => {
   const server = await startServer();
   const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);

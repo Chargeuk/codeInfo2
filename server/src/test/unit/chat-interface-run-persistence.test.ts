@@ -2,8 +2,13 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import mongoose from 'mongoose';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
+import {
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
 import type { AppendTurnInput } from '../../mongo/repo.js';
 import type {
+  TurnRuntimeMetadata,
   TurnSource,
   TurnTimingMetadata,
   TurnUsageMetadata,
@@ -16,6 +21,7 @@ class PersistSpyChat extends ChatInterface {
     model: string;
     provider: string;
     source?: string;
+    runtime?: TurnRuntimeMetadata;
     usage?: TurnUsageMetadata;
     timing?: TurnTimingMetadata;
   }> = [];
@@ -44,6 +50,7 @@ class PersistSpyChat extends ChatInterface {
       model: input.model,
       provider: input.provider,
       source: input.source,
+      ...(input.runtime !== undefined ? { runtime: input.runtime } : {}),
       ...(input.usage !== undefined ? { usage: input.usage } : {}),
       ...(input.timing !== undefined ? { timing: input.timing } : {}),
     });
@@ -221,5 +228,91 @@ describe('ChatInterface.run persistence', () => {
     assert.equal(chat.persisted.length, 2);
     const totalTimeSec = chat.persisted[1].timing?.totalTimeSec ?? 0;
     assert.ok(Math.abs(totalTimeSec - 1.5) < 0.001);
+  });
+
+  test('persists Turn.runtime in the Mongo-backed path', async () => {
+    const chat = new PersistSpyChat();
+
+    await withReadyState(1, 'development', async () => {
+      await chat.run(
+        'hello',
+        {
+          provider: 'lmstudio',
+          source: 'REST',
+          runtime: {
+            workingFolder: '/repos/working-root',
+            lookupSummary: {
+              selectedRepositoryPath: '/repos/working-root',
+              fallbackUsed: false,
+              workingRepositoryAvailable: true,
+            },
+          },
+        },
+        'conv-runtime-mongo',
+        'model-runtime',
+      );
+    });
+
+    assert.equal(chat.persisted.length, 2);
+    assert.deepEqual(chat.persisted[0].runtime, {
+      workingFolder: '/repos/working-root',
+      lookupSummary: {
+        selectedRepositoryPath: '/repos/working-root',
+        fallbackUsed: false,
+        workingRepositoryAvailable: true,
+      },
+    });
+  });
+
+  test('persists Turn.runtime in the memory-backed path', async () => {
+    const chat = new PersistSpyChat();
+    memoryConversations.set('conv-runtime-memory', {
+      _id: 'conv-runtime-memory',
+      provider: 'lmstudio',
+      model: 'model-runtime',
+      title: 'Runtime memory test',
+      source: 'REST',
+      flags: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastMessageAt: new Date(),
+      archivedAt: null,
+    });
+
+    try {
+      await withReadyState(0, 'test', async () => {
+        await chat.run(
+          'hello',
+          {
+            provider: 'lmstudio',
+            source: 'REST',
+            runtime: {
+              workingFolder: '/repos/working-root',
+              lookupSummary: {
+                selectedRepositoryPath: '/repos/working-root',
+                fallbackUsed: false,
+                workingRepositoryAvailable: true,
+              },
+            },
+          },
+          'conv-runtime-memory',
+          'model-runtime',
+        );
+      });
+
+      const turns = memoryTurns.get('conv-runtime-memory') ?? [];
+      assert.equal(turns.length, 2);
+      assert.deepEqual(turns[0]?.runtime, {
+        workingFolder: '/repos/working-root',
+        lookupSummary: {
+          selectedRepositoryPath: '/repos/working-root',
+          fallbackUsed: false,
+          workingRepositoryAvailable: true,
+        },
+      });
+    } finally {
+      memoryConversations.delete('conv-runtime-memory');
+      memoryTurns.delete('conv-runtime-memory');
+    }
   });
 });

@@ -473,6 +473,7 @@ const ensureAgentState = async (params: {
   identifier: string;
   flowName: string;
   modelId: string;
+  workingFolder?: string;
   customTitle?: string;
   source: 'REST' | 'MCP';
 }): Promise<{ state: FlowAgentState; isNew: boolean }> => {
@@ -488,11 +489,13 @@ const ensureAgentState = async (params: {
       customTitle: params.customTitle,
       source: params.source,
     });
+    existing.workingFolder = params.workingFolder;
     return { state: existing, isNew: false };
   }
 
   const state = {
     conversationId: crypto.randomUUID(),
+    ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
   } satisfies FlowAgentState;
   agentConversationState.set(key, state);
   await ensureFlowAgentConversation({
@@ -553,9 +556,11 @@ const hydrateFlowAgentState = (resumeState: FlowResumeState | null) => {
   Object.entries(resumeState.agentConversations).forEach(
     ([key, conversationId]) => {
       const threadId = resumeState.agentThreads[key];
+      const workingFolder = resumeState.agentWorkingFolders?.[key];
       agentConversationState.set(key, {
         conversationId,
         threadId,
+        ...(workingFolder ? { workingFolder } : {}),
       });
     },
   );
@@ -1288,11 +1293,16 @@ type LoopFrame = {
 const buildFlowResumeState = (params: {
   stepPath: number[];
   loopStack: LoopFrame[];
+  workingFolder?: string;
 }): FlowResumeState => {
   const agentConversations: Record<string, string> = {};
+  const agentWorkingFolders: Record<string, string> = {};
   const agentThreads: Record<string, string> = {};
   agentConversationState.forEach((state, key) => {
     agentConversations[key] = state.conversationId;
+    if (state.workingFolder) {
+      agentWorkingFolders[key] = state.workingFolder;
+    }
     if (state.threadId) {
       agentThreads[key] = state.threadId;
     }
@@ -1304,7 +1314,11 @@ const buildFlowResumeState = (params: {
       loopStepPath: [...frame.loopStepPath],
       iteration: frame.iteration,
     })),
+    ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
     agentConversations,
+    ...(Object.keys(agentWorkingFolders).length > 0
+      ? { agentWorkingFolders }
+      : {}),
     agentThreads,
   };
 };
@@ -1313,10 +1327,12 @@ const persistFlowResumeState = async (params: {
   conversationId: string;
   stepPath: number[];
   loopStack: LoopFrame[];
+  workingFolder?: string;
 }) => {
   const flowState = buildFlowResumeState({
     stepPath: params.stepPath,
     loopStack: params.loopStack,
+    workingFolder: params.workingFolder,
   });
 
   if (shouldUseMemoryPersistence()) {
@@ -2083,6 +2099,7 @@ async function runFlowUnlocked(params: {
       identifier: instructionParams.identifier,
       flowName: params.flowName,
       modelId,
+      workingFolder: params.repositoryContext.workingRepositoryPath,
       customTitle: params.customTitle,
       source: params.source,
     });
@@ -2091,6 +2108,7 @@ async function runFlowUnlocked(params: {
         conversationId: params.conversationId,
         stepPath: lastCompletedStepPath,
         loopStack,
+        workingFolder: params.repositoryContext.workingRepositoryPath,
       });
     }
 
@@ -2165,6 +2183,7 @@ async function runFlowUnlocked(params: {
             conversationId: params.conversationId,
             stepPath: lastCompletedStepPath,
             loopStack,
+            workingFolder: params.repositoryContext.workingRepositoryPath,
           });
         },
       });
@@ -2755,6 +2774,7 @@ async function runFlowUnlocked(params: {
       conversationId: params.conversationId,
       stepPath: lastCompletedStepPath,
       loopStack,
+      workingFolder: params.repositoryContext.workingRepositoryPath,
     });
     return 'ok';
   };
@@ -2825,6 +2845,7 @@ async function runFlowUnlocked(params: {
             conversationId: params.conversationId,
             stepPath: lastCompletedStepPath,
             loopStack,
+            workingFolder: params.repositoryContext.workingRepositoryPath,
           });
           return status;
         }
@@ -2833,6 +2854,7 @@ async function runFlowUnlocked(params: {
           conversationId: params.conversationId,
           stepPath: lastCompletedStepPath,
           loopStack,
+          workingFolder: params.repositoryContext.workingRepositoryPath,
         });
         continue;
       }
@@ -2860,6 +2882,7 @@ async function runFlowUnlocked(params: {
             conversationId: params.conversationId,
             stepPath: lastCompletedStepPath,
             loopStack,
+            workingFolder: params.repositoryContext.workingRepositoryPath,
           });
           return status;
         }
@@ -2868,6 +2891,7 @@ async function runFlowUnlocked(params: {
           conversationId: params.conversationId,
           stepPath: lastCompletedStepPath,
           loopStack,
+          workingFolder: params.repositoryContext.workingRepositoryPath,
         });
         if (shouldBreak) return 'break';
         continue;
@@ -2902,6 +2926,7 @@ async function runFlowUnlocked(params: {
             conversationId: params.conversationId,
             stepPath: lastCompletedStepPath,
             loopStack,
+            workingFolder: params.repositoryContext.workingRepositoryPath,
           });
           return status;
         }
@@ -2910,6 +2935,7 @@ async function runFlowUnlocked(params: {
           conversationId: params.conversationId,
           stepPath: lastCompletedStepPath,
           loopStack,
+          workingFolder: params.repositoryContext.workingRepositoryPath,
         });
         continue;
       }
@@ -2937,6 +2963,7 @@ async function runFlowUnlocked(params: {
             conversationId: params.conversationId,
             stepPath: lastCompletedStepPath,
             loopStack,
+            workingFolder: params.repositoryContext.workingRepositoryPath,
           });
           return status;
         }
@@ -2945,6 +2972,7 @@ async function runFlowUnlocked(params: {
           conversationId: params.conversationId,
           stepPath: lastCompletedStepPath,
           loopStack,
+          workingFolder: params.repositoryContext.workingRepositoryPath,
         });
         continue;
       }

@@ -834,6 +834,91 @@ test('POST /flows/:flowName/run uses local flows when sourceId omitted', async (
   }
 });
 
+test('memory-backed flow runs preserve saved workingFolder while updating flow resume snapshots', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-working-folder-state-'),
+  );
+  const workingFolder = path.join(tmpDir, 'repo-working-root');
+  const conversationId = 'flow-working-folder-state';
+
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  await fs.mkdir(workingFolder, { recursive: true });
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Flow: llm-basic',
+    flowName: 'llm-basic',
+    source: 'REST',
+    flags: { workingFolder },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastMessageAt: new Date(),
+    archivedAt: null,
+  });
+
+  try {
+    await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId,
+      working_folder: workingFolder,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForTurns(
+      conversationId,
+      (turns) => turns.filter((turn) => turn.role === 'assistant').length > 0,
+    );
+
+    const conversation = memoryConversations.get(conversationId);
+    const flags = (conversation?.flags ?? {}) as {
+      workingFolder?: string;
+      flow?: {
+        workingFolder?: string;
+        agentConversations?: Record<string, string>;
+        agentWorkingFolders?: Record<string, string>;
+      };
+    };
+
+    assert.equal(flags.workingFolder, workingFolder);
+    assert.equal(flags.flow?.workingFolder, workingFolder);
+    assert.equal(
+      flags.flow?.agentWorkingFolders?.['coding_agent:basic'],
+      workingFolder,
+    );
+    assert.equal(
+      typeof flags.flow?.agentConversations?.['coding_agent:basic'],
+      'string',
+    );
+  } finally {
+    cleanupMemory(
+      conversationId,
+      ...collectAgentConversationIds(conversationId),
+    );
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('flow llm.markdownFile prefers the parent flow repository before codeInfo2', async () => {
   await withMarkdownFlowHarness(
     async ({

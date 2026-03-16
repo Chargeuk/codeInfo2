@@ -367,6 +367,59 @@ sequenceDiagram
   Note over Flow,Helper: Nested command markdown repeats the same sequence per hop using the resolved command file repository as the new owner slot.
 ```
 
+## Story 0000048 Task 4 persistence contracts
+
+- Story 48 now formalizes three persistence anchors without introducing a new collection:
+  - `Conversation.flags.workingFolder`
+  - `Conversation.flags.flow` with expanded `FlowResumeState`
+  - `Turn.runtime`
+- Working-folder persistence uses nested updates instead of replacing the whole `flags` object, so saved working folders do not clobber sibling state like `threadId` or `flow`.
+- `FlowResumeState` now carries:
+  - `workingFolder` for the flow-level snapshot
+  - `agentWorkingFolders` for child-agent snapshots
+  - the existing `stepPath`, `loopStack`, `agentConversations`, and `agentThreads`
+- `Turn.runtime` stays compact and shared across chat, agent, flow, command, and markdown persistence:
+  - `workingFolder`
+  - `lookupSummary.selectedRepositoryPath`
+  - `lookupSummary.fallbackUsed`
+  - `lookupSummary.workingRepositoryAvailable`
+- Memory mode mirrors the same shape as Mongo-backed persistence so downstream restore logic can use one contract.
+- Working-folder save and clear operations emit `DEV_0000048_T4_WORKING_FOLDER_STATE_STORED` with `conversationId`, `persistenceMode`, and `action`.
+
+```mermaid
+flowchart TD
+  Run[Run or idle edit decides working folder] --> Conv[Conversation.flags.workingFolder]
+  Run --> FlowState[Conversation.flags.flow]
+  Run --> TurnRuntime[Turn.runtime]
+  FlowState --> FlowFolder[workingFolder snapshot]
+  FlowState --> AgentFolders[agentWorkingFolders snapshots]
+  TurnRuntime --> RuntimeFolder[workingFolder]
+  TurnRuntime --> LookupSummary[selectedRepositoryPath + fallbackUsed + workingRepositoryAvailable]
+  Conv --> Rest[/conversations summary]
+  Conv --> Ws[conversation_upsert]
+  FlowState --> Resume[flow resume path]
+  TurnRuntime --> Turns[/conversations/:id/turns]
+```
+
+```mermaid
+sequenceDiagram
+  participant Caller as Persistence caller
+  participant Mongo as Mongo repo helper
+  participant Memory as Memory helper
+  participant Summary as REST/WS summary path
+
+  alt mongo-backed working-folder save or clear
+    Caller->>Mongo: nested $set/$unset flags.workingFolder
+    Mongo-->>Summary: emit conversation_upsert with flags preserved
+  else memory-backed save or clear
+    Caller->>Memory: merge workingFolder into in-memory flags
+    Memory-->>Summary: emit same structured marker contract
+  end
+
+  Caller->>Mongo: persist flags.flow with workingFolder + agentWorkingFolders
+  Caller->>Mongo: persist Turn.runtime with compact lookupSummary
+```
+
 ## Agents prompts route contract (Story 0000039 Task 1)
 
 - Added `GET /agents/{agentName}/prompts` at the agents commands router boundary.

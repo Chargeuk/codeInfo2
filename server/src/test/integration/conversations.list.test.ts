@@ -230,6 +230,27 @@ test('flowName query forwards to repo layer', async () => {
   assert.equal((calls[0] as { flowName?: string }).flowName, 'demo-flow');
 });
 
+test('conversation list responses preserve flags.workingFolder', async () => {
+  const res = await request(
+    appWith({
+      listConversations: async () => ({
+        items: [
+          {
+            ...baseItem,
+            flags: { workingFolder: '/repos/working-root' },
+          },
+        ],
+      }),
+    }),
+  )
+    .get('/conversations')
+    .expect(200);
+
+  assert.deepEqual(res.body.items[0].flags, {
+    workingFolder: '/repos/working-root',
+  });
+});
+
 test('flowName=__none__ forwards sentinel to repo layer', async () => {
   const calls: unknown[] = [];
   const res = await request(

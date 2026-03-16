@@ -385,9 +385,8 @@ describe('resolveMarkdownFile', () => {
     const orderLogs = query({
       text: 'DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER',
     });
-    const candidateRepositories = orderLogs[0]?.context?.candidateRepositories as
-      | Array<{ slot: string }>
-      | undefined;
+    const candidateRepositories = orderLogs[0]?.context
+      ?.candidateRepositories as Array<{ slot: string }> | undefined;
     assert.equal(orderLogs.length, 1);
     assert.equal(candidateRepositories?.length, 2);
     assert.equal(candidateRepositories?.[0]?.slot, 'working_repository');
@@ -412,9 +411,8 @@ describe('resolveMarkdownFile', () => {
     const orderLogs = query({
       text: 'DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER',
     });
-    const candidateRepositories = orderLogs[0]?.context?.candidateRepositories as
-      | Array<{ slot: string }>
-      | undefined;
+    const candidateRepositories = orderLogs[0]?.context
+      ?.candidateRepositories as Array<{ slot: string }> | undefined;
     assert.equal(orderLogs.length, 1);
     assert.equal(candidateRepositories?.length, 1);
     assert.equal(candidateRepositories?.[0]?.slot, 'working_repository');

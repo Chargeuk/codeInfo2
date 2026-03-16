@@ -1,5 +1,35 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000048 Task 4 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `projectStructure.md`
+- `server/src/chat/memoryPersistence.ts`
+- `server/src/flows/flowState.ts`
+- `server/src/flows/service.ts`
+- `server/src/flows/types.ts`
+- `server/src/mongo/repo.ts`
+- `server/src/test/integration/conversations.list.test.ts`
+- `server/src/test/integration/flows.run.basic.test.ts`
+- `server/src/test/unit/chat-interface-run-persistence.test.ts`
+- `server/src/test/unit/flows.flags.test.ts`
+- `server/src/test/unit/ws-server.test.ts`
+
 ## Story 0000048 Task 3 structural change ledger
 
 Added files:

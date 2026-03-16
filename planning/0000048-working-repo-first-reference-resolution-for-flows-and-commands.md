@@ -747,7 +747,7 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 ### 5. Wire The Server Working-Folder Contract Through Chat, Agents, Flows, And Child Conversations
 
 - Task Status: `__done__`
-- Git Commits: `61913ffa`
+- Git Commits: `61913ffa, 760bf4fe`
 
 #### Overview
 

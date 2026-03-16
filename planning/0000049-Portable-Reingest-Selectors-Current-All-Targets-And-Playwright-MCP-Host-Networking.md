@@ -11,13 +11,13 @@ The Questions sections should be populated by an AI at the start of the planning
 
 Command JSON files and flow JSON files already support a dedicated re-ingest action, but the current contract is too tied to machine-specific absolute paths. Today a workflow author must usually place an exact ingested repository root path into `sourceId`, which means the same command or flow can stop working when it is copied to another machine, another container layout, or another developer environment.
 
-Users want workflow re-ingest steps to be portable. A workflow should be able to identify a repository by a stable selector such as the repository name or id instead of by a hard-coded absolute path. This story therefore expands the meaning of flow and command re-ingest selectors so that existing path-based configurations keep working, while new machine-portable definitions can use case-insensitive repository names or ids and let the server resolve those to the canonical ingested root.
+Users want workflow re-ingest steps to be portable. A workflow should be able to identify a repository by a stable selector such as the repository name or id instead of by a hard-coded absolute path. This story therefore expands the meaning of flow and command re-ingest selectors so that existing path-based configurations keep working, while new machine-portable definitions can use case-insensitive repository names or ids and let the server resolve those to the canonical ingested root. The user has decided that if multiple ingested repositories share the same case-insensitive repository id, workflow re-ingest should preserve the current helper behavior of selecting the latest ingest rather than failing as ambiguous.
 
 Users also want two higher-level re-ingest targets that are not currently possible in workflow files.
 
 The first target is the current repository for the currently executing workflow file. In practice that means a re-ingest step should be able to say "re-ingest the repository that owns this flow or command" without hard-coding that repository path. For a top-level flow step this should mean the repository that supplied the flow file. For a direct command run this should mean the repository that supplied the command file. For a command running inside a flow command step this should mean the repository that supplied that command file, not the parent flow file unless they are the same repository.
 
-The second target is all currently ingested repositories. This is useful for maintenance or refresh workflows where the user wants one workflow action to refresh every indexed repository without authoring one step per repository. Because the ingest layer already enforces a global lock, this story should treat "all repositories" as a deterministic sequential operation rather than a parallel fan-out. Existing delta and skipped behavior in the ingest layer should continue to keep no-op repositories relatively cheap, but the story should still assume that "all repositories" means one re-ingest operation per ingested repository in a predictable order.
+The second target is all currently ingested repositories. This is useful for maintenance or refresh workflows where the user wants one workflow action to refresh every indexed repository without authoring one step per repository. Because the ingest layer already enforces a global lock, this story should treat "all repositories" as a deterministic sequential operation rather than a parallel fan-out. Existing delta and skipped behavior in the ingest layer should continue to keep no-op repositories relatively cheap, but the story should still assume that "all repositories" means one re-ingest operation per ingested repository in a predictable order. The user has decided that conversation history for this mode should use a dedicated batch result payload rather than emitting one existing per-repository tool result into the transcript for every repository.
 
 This story should preserve the current blocking re-ingest semantics. A workflow step should still wait for each re-ingest target to reach a terminal outcome before moving on. Pre-start validation failures should still fail the relevant workflow step early with a clear message. Terminal ingest failures should still be recorded as structured outcomes rather than being silently swallowed.
 
@@ -32,7 +32,7 @@ This host-networking work is not just a one-line Compose change. Docker's host-n
 
 Repository research also clarifies an important implementation detail for this part of the story. The current Context7 API-key behavior is not driven by built-in TOML environment interpolation. Instead, the product reads a literal placeholder in agent `config.toml` and overlays the real value in memory during runtime config normalization. This story should treat Playwright MCP the same way: do not assume generic TOML env interpolation exists for MCP server definitions. If Playwright endpoints need to vary per environment, add an explicit runtime overlay for the Playwright MCP definition rather than relying on unproven config-file interpolation behavior.
 
-Current repository evidence shows that the checked-in Compose files do not all define a Playwright MCP service today. The story therefore needs to be precise: implement host networking for every checked-in Compose file that actually declares a `playwright-mcp` service, and explicitly decide whether files that do not currently define such a service are out of scope or must gain one as part of this story.
+Current repository evidence shows that the checked-in Compose files do not all define a Playwright MCP service today. The user has decided that files which do not currently define a `playwright-mcp` service remain out of scope for this story. The story therefore should implement host networking for every checked-in Compose file that already declares a `playwright-mcp` service, without expanding scope into adding new Playwright MCP services to additional Compose environments.
 
 ### Acceptance Criteria
 
@@ -42,18 +42,18 @@ Current repository evidence shows that the checked-in Compose files do not all d
   - case-insensitive repository id or name;
   - container path;
   - host path.
+- If multiple ingested repositories share the same case-insensitive repository id, workflow re-ingest preserves the existing helper behavior of selecting the latest ingest.
 - Direct command runs can re-ingest the current repository without the workflow author hard-coding a repository path.
 - Top-level flow re-ingest steps can re-ingest the current repository without the workflow author hard-coding a repository path.
 - Command items running inside a flow command step can re-ingest the current repository of the executing command file rather than implicitly using only the parent flow repository.
 - Command and flow re-ingest support an explicit "all repositories" mode.
 - "All repositories" mode re-ingests repositories sequentially in a deterministic order and waits for each one to reach a terminal outcome before continuing.
+- "All repositories" mode records one dedicated batch result payload in conversation history rather than one existing single-repository result per repository.
 - If a "current repository" target resolves to a repository that is not currently ingested, the step fails fast with a clear pre-start error instead of silently falling back to another repository.
 - The low-level single-repository re-ingest service remains the canonical strict container-path execution layer, with selector expansion handled above it.
 - Structured re-ingest result recording remains intact for direct commands, dedicated flow re-ingest steps, and command items executed inside flows.
-- The plan clearly defines whether duplicate case-insensitive repository ids are allowed to resolve via the current latest-ingest helper behavior or must fail as ambiguous before implementation begins.
-- The plan clearly defines how "all repositories" results should be represented in conversation history before implementation begins.
 - Every checked-in Docker Compose file that defines a `playwright-mcp` service is updated to use host networking.
-- The story explicitly defines whether Compose files that do not currently define a `playwright-mcp` service are unchanged or must gain one, rather than leaving that ambiguous.
+- Compose files that do not currently define a `playwright-mcp` service remain unchanged for this story.
 - Each host-networked Playwright MCP service uses a deliberate host port plan so checked-in stacks do not clash when run together.
 - The implementation removes any incompatible bridge-style `playwright-mcp` wiring that cannot coexist with host networking.
 - Agent or wrapper MCP endpoint configuration is updated so Playwright MCP is no longer hard-coded only as `http://playwright-mcp:8931/mcp`.
@@ -71,15 +71,34 @@ Current repository evidence shows that the checked-in Compose files do not all d
 - Reworking unrelated workflow step types beyond what is needed to support portable re-ingest selectors, current/all targets, and the resulting runtime metadata.
 - Reworking unrelated Playwright MCP behavior outside the manual-testing networking, endpoint, and port-management concerns captured in this story.
 - Reworking the whole Docker networking model for the local stack beyond what is required for the `playwright-mcp` host-networking implementation.
+- Adding brand-new `playwright-mcp` services to Compose files that do not already define one.
 
 ### Questions
 
-1. If multiple ingested repositories share the same case-insensitive repository id, should workflow re-ingest keep the existing helper behavior of selecting the latest ingest, or should workflows fail fast as ambiguous because they are automation artifacts?
-   - Why this is important: this determines whether machine-portable repository-name selectors remain convenient but potentially surprising, or become stricter and safer for automation at the cost of rejecting some existing repository layouts.
-2. For `target: "all"`, should conversation history record one existing re-ingest tool result per repository, or should the story introduce a new batch result payload to reduce transcript noise?
-   - Why this is important: this decides both the user-facing transcript experience and the implementation scope for websocket, persistence, and test coverage around multi-repository re-ingest runs.
-3. Should Compose files that do not currently define a `playwright-mcp` service remain out of scope for the host-networking implementation, or is this story expected to add a Playwright MCP service to those files as well?
-   - Why this is important: this fixes the true size of the Docker and runtime-config work up front so the story does not accidentally grow from "convert existing Playwright services" into "introduce new Playwright services to additional environments."
+None currently. Add new planning questions here as they arise.
+
+## Decisions
+
+1. Preserve the existing latest-ingest helper behavior for duplicate case-insensitive repository ids.
+   - Question being addressed: If multiple ingested repositories share the same case-insensitive repository id, should workflow re-ingest keep the existing helper behavior of selecting the latest ingest, or should workflows fail fast as ambiguous because they are automation artifacts?
+   - Why the question matters: this determines whether machine-portable repository-name selectors stay convenient and backward-compatible or become stricter and potentially reject existing repository layouts.
+   - What the answer is: keep the existing helper behavior of selecting the latest ingest.
+   - Where the answer came from: direct user answer in this planning conversation.
+   - Why it is the best answer: it preserves the current selector contract already used by the helper, avoids surprising breakage for existing repository-name workflows, and keeps the story focused on portable selector support rather than expanding into a stricter repository-identity redesign.
+
+2. Use a dedicated batch result payload for `target: "all"`.
+   - Question being addressed: For `target: "all"`, should conversation history record one existing re-ingest tool result per repository, or should the story introduce a new batch result payload to reduce transcript noise?
+   - Why the question matters: this decides the transcript experience, payload contract, persistence work, websocket shape, and test scope for multi-repository re-ingest.
+   - What the answer is: introduce a new batch result payload to reduce transcript noise.
+   - Where the answer came from: direct user answer in this planning conversation.
+   - Why it is the best answer: it keeps the conversation history readable during large multi-repository refresh runs and makes the "all repositories" mode feel like one intentional workflow action rather than a flood of repeated single-repository system messages.
+
+3. Keep Compose files without an existing `playwright-mcp` service out of scope.
+   - Question being addressed: Should Compose files that do not currently define a `playwright-mcp` service remain out of scope for the host-networking implementation, or is this story expected to add a Playwright MCP service to those files as well?
+   - Why the question matters: this fixes the real size of the Docker and runtime-config work up front and prevents the story from silently expanding into introducing new Playwright services in additional environments.
+   - What the answer is: keep them out of scope.
+   - Where the answer came from: direct user answer in this planning conversation.
+   - Why it is the best answer: it keeps the story tightly focused on converting the existing Playwright MCP surfaces to host networking, which is already a substantial change without also designing new Playwright services for environments that do not currently have one.
 
 ## Implementation Ideas
 
@@ -102,7 +121,7 @@ Current repository evidence shows that the checked-in Compose files do not all d
 - Flow command execution should carry the selected command-file repository identity through nested command execution so `current` resolves from the command file being executed, not automatically from the parent flow repository.
 - For `all repositories`, derive the target set from `listIngestedRepositories()` and sort deterministically before execution so repeated runs are predictable.
 - Execute `all repositories` sequentially because the ingest layer already enforces a global lock and current re-ingest is blocking. Any attempt to parallelize would only add contention and complexity.
-- Preserve the existing rule that terminal ingest results are recorded as structured outcomes for commands and flows. Decide explicitly whether `all repositories` should reuse the existing per-repo tool-result shape or introduce a batch payload for transcript clarity.
+- Preserve the existing rule that terminal ingest results are recorded as structured outcomes for commands and flows. For `all repositories`, introduce a dedicated batch payload instead of repeating the existing single-repository tool-result shape once per repository in conversation history.
 - Reuse or extract the current MCP canonicalization pattern so command and flow runtime logic matches the behavior already used by the existing MCP re-ingest surfaces.
 - Add direct command tests, dedicated flow-step tests, and flow-command nested tests that prove:
   - repo-name selectors work;
@@ -116,6 +135,7 @@ Current repository evidence shows that the checked-in Compose files do not all d
   - `docker-compose.local.yml` defines a `playwright-mcp` service with bridge-style wiring and a published `8931:8931` mapping;
   - agent configs currently point to `http://playwright-mcp:8931/mcp`;
   - not every checked-in Compose file currently defines a `playwright-mcp` service.
+- Compose files that do not currently define a `playwright-mcp` service remain out of scope for this story and should not gain a new Playwright MCP service here.
 - For each Compose file that declares `playwright-mcp`, implement host networking in a way that also updates the surrounding assumptions:
   - remove incompatible `ports` and `networks` service wiring for that service;
   - remove any `extra_hosts` rules that only existed to support the old bridge-host access path if they are no longer needed;

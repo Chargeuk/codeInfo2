@@ -57,8 +57,23 @@ function mockJsonResponse(payload: unknown, init?: { status?: number }) {
 function mockFlowsFetch(options?: {
   dirs?: typeof defaultDirs | ((path: string | undefined) => unknown) | unknown;
 }) {
-  mockFetch.mockImplementation((url: RequestInfo | URL) => {
-    const target = typeof url === 'string' ? url : url.toString();
+  mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
+    const target =
+      typeof url === 'string'
+        ? url
+        : url instanceof URL
+          ? url.toString()
+          : 'url' in url && typeof url.url === 'string'
+            ? url.url
+            : url.toString();
+    const method =
+      init?.method ??
+      (typeof url === 'object' &&
+      url !== null &&
+      'method' in url &&
+      typeof url.method === 'string'
+        ? url.method
+        : undefined);
 
     if (target.includes('/health')) {
       return mockJsonResponse({ mongoConnected: true });
@@ -72,6 +87,32 @@ function mockFlowsFetch(options?: {
 
     if (target.includes('/conversations/') && target.includes('/turns')) {
       return mockJsonResponse({ items: [] });
+    }
+
+    if (
+      target.includes('/conversations/') &&
+      target.includes('/working-folder') &&
+      method === 'POST'
+    ) {
+      const body =
+        typeof init.body === 'string'
+          ? (JSON.parse(init.body) as Record<string, unknown>)
+          : {};
+      const workingFolder =
+        typeof body.workingFolder === 'string' ? body.workingFolder : undefined;
+      return mockJsonResponse({
+        status: 'ok',
+        conversation: {
+          conversationId: 'flow-1',
+          title: 'Flow: daily',
+          provider: 'codex',
+          model: 'gpt-5',
+          source: 'REST',
+          archived: false,
+          flowName: 'daily',
+          flags: workingFolder ? { workingFolder } : {},
+        },
+      });
     }
 
     if (target.includes('/conversations')) {
@@ -118,6 +159,11 @@ function emitWsEvent(event: Record<string, unknown>) {
   });
 }
 
+async function selectFirstConversation() {
+  const rows = await screen.findAllByTestId('conversation-row');
+  await userEvent.click(rows[0]);
+}
+
 function setupFlowsRunHarness(options?: {
   conversations?: unknown;
   turns?: unknown;
@@ -149,8 +195,23 @@ function setupFlowsRunHarness(options?: {
       string,
       unknown
     >,
-    fallbackFetch: (url) => {
-      const target = typeof url === 'string' ? url : url.toString();
+    fallbackFetch: (url, init) => {
+      const target =
+        typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.toString()
+            : 'url' in url && typeof url.url === 'string'
+              ? url.url
+              : url.toString();
+      const method =
+        init?.method ??
+        (typeof url === 'object' &&
+        url !== null &&
+        'method' in url &&
+        typeof url.method === 'string'
+          ? url.method
+          : undefined);
 
       if (target.includes('/flows') && !target.includes('/run')) {
         return mockJsonResponse({
@@ -172,6 +233,34 @@ function setupFlowsRunHarness(options?: {
         );
       }
 
+      if (
+        target.includes('/conversations/') &&
+        target.includes('/working-folder') &&
+        method === 'POST'
+      ) {
+        const body =
+          typeof init.body === 'string'
+            ? (JSON.parse(init.body) as Record<string, unknown>)
+            : {};
+        const workingFolder =
+          typeof body.workingFolder === 'string'
+            ? body.workingFolder
+            : undefined;
+        return mockJsonResponse({
+          status: 'ok',
+          conversation: {
+            conversationId: 'flow-1',
+            title: 'Flow: daily',
+            provider: 'codex',
+            model: 'gpt-5',
+            source: 'REST',
+            archived: false,
+            flowName: 'daily',
+            flags: workingFolder ? { workingFolder } : {},
+          },
+        });
+      }
+
       return mockJsonResponse({});
     },
   });
@@ -190,51 +279,97 @@ describe('Flows page run/resume controls', () => {
 
   it('disables the custom title input during resume and inflight states', async () => {
     const now = new Date().toISOString();
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
-      const target = typeof url === 'string' ? url : url.toString();
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target =
+          typeof url === 'string'
+            ? url
+            : url instanceof URL
+              ? url.toString()
+              : 'url' in url && typeof url.url === 'string'
+                ? url.url
+                : url.toString();
+        const method =
+          init?.method ??
+          (typeof url === 'object' &&
+          url !== null &&
+          'method' in url &&
+          typeof url.method === 'string'
+            ? url.method
+            : undefined);
 
-      if (target.includes('/health')) {
-        return mockJsonResponse({ mongoConnected: true });
-      }
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
-      }
+        if (target.includes('/flows') && !target.includes('/run')) {
+          return mockJsonResponse({
+            flows: [
+              { name: 'daily', description: 'Daily flow', disabled: false },
+            ],
+          });
+        }
 
-      if (target.includes('/conversations/') && target.includes('/turns')) {
-        return mockJsonResponse({ items: [] });
-      }
+        if (target.includes('/conversations/') && target.includes('/turns')) {
+          return mockJsonResponse({ items: [] });
+        }
 
-      if (target.includes('/conversations')) {
-        return mockJsonResponse({
-          items: [
-            {
+        if (
+          target.includes('/conversations/') &&
+          target.includes('/working-folder') &&
+          method === 'POST'
+        ) {
+          const body =
+            typeof init?.body === 'string'
+              ? (JSON.parse(init.body) as Record<string, unknown>)
+              : {};
+          const workingFolder =
+            typeof body.workingFolder === 'string'
+              ? body.workingFolder
+              : undefined;
+          return mockJsonResponse({
+            status: 'ok',
+            conversation: {
               conversationId: 'flow-1',
               title: 'Flow: daily',
               provider: 'codex',
               model: 'gpt-5',
               source: 'REST',
-              lastMessageAt: now,
               archived: false,
               flowName: 'daily',
-              flags: { flow: { stepPath: [1] } },
+              flags: workingFolder ? { workingFolder } : {},
             },
-          ],
-        });
-      }
+          });
+        }
 
-      return mockJsonResponse({});
-    });
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({
+            items: [
+              {
+                conversationId: 'flow-1',
+                title: 'Flow: daily',
+                provider: 'codex',
+                model: 'gpt-5',
+                source: 'REST',
+                lastMessageAt: now,
+                archived: false,
+                flowName: 'daily',
+                flags: { flow: { stepPath: [1] } },
+              },
+            ],
+          });
+        }
+
+        return mockJsonResponse({});
+      },
+    );
 
     const resumeRouter = createMemoryRouter(routes, {
       initialEntries: ['/flows'],
     });
     const { unmount } = render(<RouterProvider router={resumeRouter} />);
 
+    await selectFirstConversation();
     const resumeTitleInput = await screen.findByTestId('flow-custom-title');
     await waitFor(() => expect(resumeTitleInput).toBeDisabled());
     unmount();
@@ -293,6 +428,7 @@ describe('Flows page run/resume controls', () => {
     });
     render(<RouterProvider router={runRouter} />);
 
+    await selectFirstConversation();
     const runTitleInput = await screen.findByTestId('flow-custom-title');
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
@@ -385,6 +521,7 @@ describe('Flows page run/resume controls', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);
 
+    await selectFirstConversation();
     const workingFolderInput = await screen.findByTestId('flow-working-folder');
     fireEvent.change(workingFolderInput, { target: { value: '/tmp/work' } });
 
@@ -1136,6 +1273,204 @@ describe('Flows page run/resume controls', () => {
     await screen.findByText(/unable to list directories/i);
     expect(screen.getByTestId('flow-working-folder')).toHaveValue(
       '/existing/path',
+    );
+  });
+
+  it('restores the saved working folder from conversation state', async () => {
+    const harness = setupFlowsRunHarness({
+      conversations: {
+        items: [
+          {
+            conversationId: 'flow-1',
+            title: 'Flow: daily',
+            provider: 'codex',
+            model: 'gpt-5',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+            flowName: 'daily',
+            flags: { workingFolder: '/repos/flow' },
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Flow: daily');
+    await selectFirstConversation();
+
+    expect(await screen.findByTestId('flow-working-folder')).toHaveValue(
+      '/repos/flow',
+    );
+
+    expect(harness.getConversationId()).toBeNull();
+  });
+
+  it('shows the normal empty state when no saved working folder exists', async () => {
+    setupFlowsRunHarness();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Flow: daily');
+    await selectFirstConversation();
+
+    expect(await screen.findByTestId('flow-working-folder')).toHaveValue('');
+  });
+
+  it('saves idle edits through the shared conversation helper', async () => {
+    const user = userEvent.setup();
+    setupFlowsRunHarness();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Flow: daily');
+    await selectFirstConversation();
+
+    const workingFolder = await screen.findByTestId('flow-working-folder');
+    await user.clear(workingFolder);
+    await user.type(workingFolder, '/repos/flow-updated');
+    fireEvent.blur(workingFolder);
+
+    await waitFor(() => {
+      const updateCall = mockFetch.mock.calls.find(([url, init]) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        return (
+          href.includes('/conversations/flow-1/working-folder') &&
+          init?.method === 'POST'
+        );
+      });
+      expect(updateCall).toBeDefined();
+      const body =
+        typeof updateCall?.[1]?.body === 'string'
+          ? JSON.parse(updateCall[1].body)
+          : null;
+      expect(body).toEqual({ workingFolder: '/repos/flow-updated' });
+    });
+  });
+
+  it('locks the picker while a flow run is active', async () => {
+    const harness = setupFlowsRunHarness();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Flow: daily');
+    await selectFirstConversation();
+
+    act(() => {
+      harness.emitInflightSnapshot({
+        conversationId: 'flow-1',
+        inflightId: 'flow-inflight-1',
+      });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-working-folder')).toBeDisabled(),
+    );
+  });
+
+  it('returns to the empty state after the server clears an invalid saved path', async () => {
+    const harness = setupFlowsRunHarness({
+      conversations: {
+        items: [
+          {
+            conversationId: 'flow-1',
+            title: 'Flow: daily',
+            provider: 'codex',
+            model: 'gpt-5',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+            flowName: 'daily',
+            flags: { workingFolder: '/repos/flow' },
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Flow: daily');
+    await selectFirstConversation();
+    expect(await screen.findByTestId('flow-working-folder')).toHaveValue(
+      '/repos/flow',
+    );
+
+    act(() => {
+      harness.emitSidebarUpsert({
+        conversationId: 'flow-1',
+        title: 'Flow: daily',
+        provider: 'codex',
+        model: 'gpt-5',
+        source: 'REST',
+        lastMessageAt: '2025-01-01T00:00:01.000Z',
+        archived: false,
+        flowName: 'daily',
+        flags: {},
+      });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-working-folder')).toHaveValue(''),
+    );
+  });
+
+  it('clears through the shared conversation helper and returns to the empty state', async () => {
+    const user = userEvent.setup();
+    setupFlowsRunHarness({
+      conversations: {
+        items: [
+          {
+            conversationId: 'flow-1',
+            title: 'Flow: daily',
+            provider: 'codex',
+            model: 'gpt-5',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+            flowName: 'daily',
+            flags: { workingFolder: '/repos/flow' },
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Flow: daily');
+    await selectFirstConversation();
+
+    const workingFolder = await screen.findByTestId('flow-working-folder');
+    await user.clear(workingFolder);
+    fireEvent.blur(workingFolder);
+
+    await waitFor(() => {
+      const updateCall = mockFetch.mock.calls.find(([url, init]) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        return (
+          href.includes('/conversations/flow-1/working-folder') &&
+          init?.method === 'POST'
+        );
+      });
+      expect(updateCall).toBeDefined();
+      const body =
+        typeof updateCall?.[1]?.body === 'string'
+          ? JSON.parse(updateCall[1].body)
+          : null;
+      expect(body).toEqual({ workingFolder: null });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-working-folder')).toHaveValue(''),
     );
   });
 

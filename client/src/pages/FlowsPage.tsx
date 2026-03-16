@@ -191,6 +191,10 @@ export default function FlowsPage() {
   );
 
   const [workingFolder, setWorkingFolder] = useState('');
+  const selectedConversationIdRef = useRef<string | undefined>(undefined);
+  const workingFolderDisabledRef = useRef(false);
+  const workingFolderRestoreKeyRef = useRef<string | null>(null);
+  const workingFolderLockKeyRef = useRef<string | null>(null);
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [startPending, setStartPending] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
@@ -243,6 +247,9 @@ export default function FlowsPage() {
     bulkArchive,
     bulkRestore,
     bulkDelete,
+    readWorkingFolder,
+    updateWorkingFolder,
+    emitWorkingFolderPickerSync,
     applyWsUpsert,
     applyWsDelete,
   } = useConversations({ flowName: selectedFlowName });
@@ -570,14 +577,42 @@ export default function FlowsPage() {
     log('info', 'flows.qa.validation_ready', { flowCount: flows.length });
   }, [flows.length, flowsError, flowsLoading, log]);
 
+  const persistWorkingFolder = useCallback(
+    async (nextValue?: string) => {
+      const trimmedWorkingFolder = (nextValue ?? workingFolder).trim();
+      setWorkingFolder(trimmedWorkingFolder);
+      if (
+        !selectedConversationIdRef.current ||
+        workingFolderDisabledRef.current
+      ) {
+        return;
+      }
+      try {
+        await updateWorkingFolder({
+          conversationId: selectedConversationIdRef.current,
+          workingFolder: trimmedWorkingFolder || null,
+          surface: 'flows',
+        });
+      } catch (error) {
+        console.error('flow working-folder persistence failed', error);
+      }
+    },
+    [updateWorkingFolder, workingFolder],
+  );
+
   const handleOpenDirPicker = () => {
+    if (workingFolderDisabledRef.current) return;
     setDirPickerOpen(true);
   };
 
   const handlePickDir = (path: string) => {
-    setWorkingFolder(path);
-    log('info', 'flows.ui.working_folder.selected', { workingFolder: path });
+    const trimmedWorkingFolder = path.trim();
+    setWorkingFolder(trimmedWorkingFolder);
+    log('info', 'flows.ui.working_folder.selected', {
+      workingFolder: trimmedWorkingFolder,
+    });
     setDirPickerOpen(false);
+    void persistWorkingFolder(trimmedWorkingFolder);
   };
 
   const handleCloseDirPicker = () => {
@@ -936,6 +971,28 @@ export default function FlowsPage() {
     setActiveConversationId(conversationId);
   };
 
+  useEffect(() => {
+    if (!selectedConversation?.conversationId) {
+      workingFolderRestoreKeyRef.current = null;
+      return;
+    }
+
+    const restoredWorkingFolder = readWorkingFolder(selectedConversation) ?? '';
+    setWorkingFolder((current) =>
+      current === restoredWorkingFolder ? current : restoredWorkingFolder,
+    );
+
+    const restoreKey = `${selectedConversation.conversationId}:${restoredWorkingFolder}`;
+    if (workingFolderRestoreKeyRef.current === restoreKey) return;
+    workingFolderRestoreKeyRef.current = restoreKey;
+    emitWorkingFolderPickerSync({
+      surface: 'flows',
+      conversationId: selectedConversation.conversationId,
+      action: restoredWorkingFolder ? 'restore' : 'clear',
+      pickerState: restoredWorkingFolder,
+    });
+  }, [emitWorkingFolderPickerSync, readWorkingFolder, selectedConversation]);
+
   const handleStopClick = useCallback(() => {
     if (!selectedFlowName || !activeConversationId || status === 'stopping') {
       return;
@@ -1085,9 +1142,48 @@ export default function FlowsPage() {
 
   const isSending = startPending || isStreaming || status === 'sending';
   const isStopping = status === 'stopping';
+  const flowWorkingFolderLocked =
+    isSending ||
+    isStopping ||
+    Boolean(inflightSnapshot?.inflightId) ||
+    Boolean(serverVisibleInflightIdRef.current);
+  const isWorkingFolderDisabled =
+    flowsLoading || !!flowsError || flowWorkingFolderLocked;
   const showStop = isSending || isStopping;
   const customTitleDisabled =
     isSending || Boolean(resumeStepPath) || selectedFlowHasHistory;
+
+  useEffect(() => {
+    selectedConversationIdRef.current = selectedConversation?.conversationId;
+  }, [selectedConversation?.conversationId]);
+
+  useEffect(() => {
+    workingFolderDisabledRef.current = isWorkingFolderDisabled;
+  }, [isWorkingFolderDisabled]);
+
+  useEffect(() => {
+    if (!flowWorkingFolderLocked) {
+      workingFolderLockKeyRef.current = null;
+      return;
+    }
+
+    const conversationKey = activeConversationId ?? getConversationId();
+    const lockKey = `${conversationKey}:${workingFolder.trim()}`;
+    if (workingFolderLockKeyRef.current === lockKey) return;
+    workingFolderLockKeyRef.current = lockKey;
+    emitWorkingFolderPickerSync({
+      surface: 'flows',
+      conversationId: conversationKey,
+      action: 'lock',
+      pickerState: workingFolder.trim(),
+    });
+  }, [
+    activeConversationId,
+    emitWorkingFolderPickerSync,
+    flowWorkingFolderLocked,
+    getConversationId,
+    workingFolder,
+  ]);
 
   return (
     <Container
@@ -1292,6 +1388,18 @@ export default function FlowsPage() {
                       label="Working folder"
                       value={workingFolder}
                       onChange={(event) => setWorkingFolder(event.target.value)}
+                      onBlur={(event) => {
+                        void persistWorkingFolder(event.target.value);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter') return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        void persistWorkingFolder(
+                          (event.currentTarget as HTMLInputElement).value,
+                        );
+                      }}
+                      disabled={isWorkingFolderDisabled}
                       inputProps={{ 'data-testid': 'flow-working-folder' }}
                     />
                     <Button
@@ -1299,6 +1407,7 @@ export default function FlowsPage() {
                       variant="outlined"
                       size="small"
                       onClick={handleOpenDirPicker}
+                      disabled={isWorkingFolderDisabled}
                       data-testid="flow-working-folder-picker"
                       sx={{ flexShrink: 0 }}
                     >

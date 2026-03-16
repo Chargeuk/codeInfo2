@@ -341,6 +341,11 @@ Story 45 extends command and flow JSON files with repository-aware markdown load
     - visible when prompts are returned,
     - hidden for empty working folder or zero-results success,
     - inline error shown when discovery fails for a non-empty committed folder.
+- Conversation working-folder restore and lock behavior:
+  - Chat, Agents, and Flows restore the saved working folder from the selected conversation when you switch back into an existing conversation.
+  - Idle edits on an existing conversation save through the shared conversation-working-folder route; clearing the field and blurring clears the saved value.
+  - If the server clears an invalid saved folder, the picker returns to its normal empty state without a manual refresh.
+  - Working-folder pickers are read-only while the related chat, agent, command, or flow run is still active.
 - Execute Prompt flow:
   - Execute Prompt is enabled only when a valid prompt is selected.
   - Execution composes a canonical instruction preamble and replaces only the `<full path of markdown file>` placeholder with selected prompt `fullPath`.

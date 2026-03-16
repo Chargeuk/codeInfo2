@@ -2078,3 +2078,38 @@ Modified files (implementation traceability):
 Task notes:
 
 - Task 7 adds the maintained PR-summary artifact under `planning/` and keeps screenshot evidence under `test-results/screenshots/` without listing those generated image files here.
+
+## Story 0000048 Task 6 structural verification ledger
+
+Added files:
+
+- `client/src/api/conversations.ts`
+- `client/src/test/chatPage.workingFolder.test.tsx`
+- `client/src/test/conversationsApi.workingFolder.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md` — working-folder restore, idle-edit persistence, stale-clear recovery, and run-lock behavior are now documented for the user-facing chat, agent, and flow surfaces.
+- `docs/developer-reference.md` — shared client conversation-working-folder API usage and the restore or clear or lock rules for chat, agents, and flows are now documented together.
+- `client/src/hooks/useChatStream.ts` — chat run payloads now keep forwarding `working_folder` when the chat picker has a selected value.
+- `client/src/hooks/useConversations.ts` — shared conversation state now normalizes `flags.workingFolder`, persists working-folder edits through one API helper, and emits the `DEV_0000048_T6_PICKER_SYNC` browser marker contract.
+- `client/src/pages/ChatPage.tsx` — chat now exposes its first working-folder picker with restore or save or clear handling for existing conversations and run-lock behavior tied to local plus websocket inflight state.
+- `client/src/pages/AgentsPage.tsx` — agent picker restore or save or clear behavior now runs through the shared conversation-edit helper while keeping direct commands on the owning agent conversation.
+- `client/src/pages/FlowsPage.tsx` — flow picker restore or save or clear behavior now runs through the shared conversation-edit helper and locks during active flow execution.
+- `client/src/test/agentsPage.workingFolderPicker.test.tsx` — agent picker restore or empty-state or idle-save or run-lock or stale-clear cases are now covered explicitly.
+- `client/src/test/chatSendPayload.test.tsx` — chat payload coverage now proves `working_folder` still ships at run start.
+- `client/src/test/flowsPage.run.test.tsx` — flow picker restore or empty-state or idle-save or run-lock or stale-clear cases are now covered explicitly.
+- `client/src/test/useConversations.source.test.ts` — websocket restore and clear updates for `flags.workingFolder` are now covered at the shared hook layer.
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md` — Task 6 progress, implementation notes, and wrapper/manual verification evidence are updated in sequence as the work lands.
+
+Task notes:
+
+- Task 6 adds one shared client API helper and two new client test files; the surface pages stay in place and now consume the shared conversation-working-folder contract instead of owning per-page idle-edit logic.

@@ -114,3 +114,95 @@ test('chat send payload includes only conversationId and message', async () => {
   expect(submittedBody.model).toBe('m1');
   expect(submittedBody).not.toHaveProperty('messages');
 });
+
+test('chat send payload includes working_folder when selected', async () => {
+  type ChatBody = {
+    conversationId?: string;
+    message?: string;
+    provider?: string;
+    model?: string;
+    working_folder?: string;
+  };
+  let chatBody: ChatBody | null = null;
+
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+      if (url.includes('/chat/providers')) {
+        return mockJsonResponse(providerPayload);
+      }
+      if (url.includes('/chat/models')) {
+        return mockJsonResponse(modelPayload);
+      }
+      if (
+        url.includes('/conversations/') &&
+        url.includes('/working-folder') &&
+        init?.method === 'POST'
+      ) {
+        return mockJsonResponse({
+          status: 'ok',
+          conversation: {
+            conversationId: 'draft-conversation',
+            title: 'Draft conversation',
+            provider: 'lmstudio',
+            model: 'm1',
+            archived: false,
+            flags: { workingFolder: '/repo/selected' },
+          },
+        });
+      }
+      if (url.includes('/chat')) {
+        chatBody =
+          typeof init?.body === 'string'
+            ? (JSON.parse(init.body) as ChatBody)
+            : null;
+        return new Response(
+          streamFromFrames([
+            'data: {"type":"final","message":{"role":"assistant","content":"hi"}}\n\n',
+            'data: {"type":"complete"}\n\n',
+          ]),
+          { status: 200 },
+        );
+      }
+      if (url.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'draft-conversation',
+              title: 'Draft conversation',
+              provider: 'lmstudio',
+              model: 'm1',
+              lastMessageAt: '2025-01-01T00:00:00.000Z',
+              flags: { workingFolder: '/repo/selected' },
+            },
+          ],
+        });
+      }
+      return mockJsonResponse({});
+    }),
+  );
+
+  render(<ChatPage />);
+
+  const conversationRows = await screen.findAllByTestId('conversation-row');
+  fireEvent.click(conversationRows[0]);
+
+  const workingFolder = await screen.findByTestId('chat-working-folder');
+  expect(workingFolder).toHaveValue('/repo/selected');
+
+  const input = await screen.findByTestId('chat-input');
+  fireEvent.change(input, { target: { value: 'Hello with folder' } });
+  await waitFor(() =>
+    expect(screen.getByTestId('chat-send')).not.toBeDisabled(),
+  );
+  fireEvent.click(screen.getByTestId('chat-send'));
+
+  await waitFor(() => expect(chatBody).not.toBeNull());
+  if (!chatBody) {
+    throw new Error('Expected chat request body to be captured');
+  }
+  expect((chatBody as ChatBody).working_folder).toBe('/repo/selected');
+});

@@ -876,7 +876,7 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 
 ### 7. Restore And Lock Working-Folder Pickers In The Client
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -938,11 +938,11 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 
 1. [x] `npm run build:summary:client` - Use because this task changes client-only chat, agent, and flow pages plus supporting hooks. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
 2. [x] `npm run test:summary:client` - Use because this task changes client behavior covered by the full client suite. If `failed > 0`, inspect the exact log path printed by the summary, diagnose with targeted client wrapper commands only after the full wrapper fails, then rerun full `npm run test:summary:client`.
-3. [ ] `npm run test:summary:e2e` - Use because this task changes behavior that is testable from the front end. Allow up to 7 minutes; if `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted e2e wrapper commands only after the full wrapper fails, then rerun full `npm run test:summary:e2e`.
-4. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end through the Dockerized stack. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm chat, agent, and flow working-folder restore, idle edit, clear, lock, and invalid-path-reset behavior, verify there are no logged errors in the debug console, and confirm the browser console contains `DEV_0000048_T6_PICKER_SYNC` for each exercised surface with the expected action values (`restore`, `save`, `clear`, or `lock`) and the expected resulting picker state. Capture screenshots for each exercised surface and state that proves the GUI matches the task expectations, store them in `playwright-output-local/`, and have the agent review those screenshots for correct picker values, disabled states, empty states, and general layout quality.
-7. [ ] `npm run compose:down`
+3. [x] `npm run test:summary:e2e` - Use because this task changes behavior that is testable from the front end. Allow up to 7 minutes; if `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted e2e wrapper commands only after the full wrapper fails, then rerun full `npm run test:summary:e2e`.
+4. [x] `npm run compose:build:summary` - Use because this task is testable from the front end through the Dockerized stack. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [x] `npm run compose:up`
+6. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm chat, agent, and flow working-folder restore, idle edit, clear, lock, and invalid-path-reset behavior, verify there are no logged errors in the debug console, and confirm the browser console contains `DEV_0000048_T6_PICKER_SYNC` for each exercised surface with the expected action values (`restore`, `save`, `clear`, or `lock`) and the expected resulting picker state. Capture screenshots for each exercised surface and state that proves the GUI matches the task expectations, store them in `playwright-output-local/`, and have the agent review those screenshots for correct picker values, disabled states, empty states, and general layout quality.
+7. [x] `npm run compose:down`
 
 #### Implementation notes
 
@@ -958,6 +958,11 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 - `npm run test:summary:client` initially failed on the two chat idle save or clear tests; after the harness fix and a targeted rerun, the full client wrapper passed with `tests run: 568`, `passed: 568`, `failed: 0`.
 - `npm run lint --workspaces` flagged one render-time ref read in `ChatPage`; I mirrored the inflight ref into state for the lock calculation, reran `npm run format --workspaces`, and then `npm run lint --workspaces` plus `npm run format:check --workspaces` both passed.
 - Planning repair: Task 6 now owns the dockerized conversation-history visibility seam that blocked this client task. Leave Task 7 `__in_progress__` until Task 6 is complete, then rerun Task 7 testing steps 3-7 in order.
+- After Task 6 landed, reran the full `npm run test:summary:e2e` wrapper and it passed cleanly with `tests run: 43`, `passed: 43`, `failed: 0`, so the remaining Task 7 proof can proceed on the repaired dockerized history path.
+- `npm run compose:build:summary` passed cleanly with `items passed: 2` and `items failed: 0`, so the Dockerized manual-validation stack is ready to start without needing log inspection.
+- `npm run compose:up` started the Dockerized stack cleanly and reached healthy server plus running client containers, so the manual Playwright-MCP checks can use `http://host.docker.internal:5001` as required.
+- Manual Playwright-MCP validation at `http://host.docker.internal:5001` exercised restore, idle save, clear, run-lock, and stale-path reset behavior on chat, agents, and flows; captured reviewed screenshots in `playwright-output-local/`; and a clean replay tab confirmed `DEV_0000048_T6_PICKER_SYNC` restore markers for all three surfaces with no error-level browser console entries.
+- `npm run compose:down` stopped and removed the Dockerized validation stack cleanly, so Task 7 now has the full wrapper-build, wrapper-test, manual-browser, and teardown proof chain completed in order.
 ---
 
 ### 8. Rename Server And Compose Environment Variables To `CODEINFO_`

@@ -20,11 +20,18 @@
       "label": "Planner Select Next Plan",
       "agentType": "planning_agent",
       "identifier": "planner",
+      "markdownFile": "select_next_plan_and_branch.md"
+    },
+    {
+      "type": "llm",
+      "label": "Planner Select Next Plan",
+      "agentType": "planning_agent",
+      "identifier": "planner",
       "messages": [
         {
           "role": "user",
           "content": [
-            "Please tell me the next plan that has not yet been fully executed. This can be determined by looking for plans that either do NOT yet have tasks, or that include tasks that are not yet moved to the status of done/completed/complete, for example it may have tasks that are todo or in_progress. The lowest indexed story that meets one of these two criteria will be the story we will be working on. Do NOT use code_info tools for this search. Confirm to me what story that is, and provide me with an overview of the story, including what is still remaining to be done, without making file changes at this time. When you have found the story, follow the rules within the `## Branching And Phase Flow` section of the AGENTS.md to ensure we are on the correct branch to work on it, and if not, create the branch and switch to it. Then write or overwrite `codeInfoStatus/flow-state/current-plan.json` with only the selected relative plan path using the shape `{ \"plan_path\": \"planning/<story-file>.md\" }`. Do not write absolute paths. This handoff file becomes the sole plan-selection source for every later step in this flow. Commit this file, and push if you can"
+            "Now you know the selected plan/spec/story, write or overwrite `codeInfoStatus/flow-state/current-plan.json` with only the selected relative plan path using the shape `{ \"plan_path\": \"planning/<story-file>.md\" }`. Do not write absolute paths. This handoff file becomes the sole plan-selection source for every later step in this flow. Commit this file, and push if you can"
           ]
         }
       ]
@@ -220,26 +227,7 @@
           "label": "update new task testing",
           "agentType": "planning_agent",
           "identifier": "planner",
-          "messages": [
-            {
-              "role": "user",
-              "content": [
-                "Please ensure the testing steps for each new task you added contains all, or a subset, of the following items based on what changed. Do not add testing steps for specific tests; always run full app-level suites via the summary wrappers to avoid unnecessary token usage. Ensure the testing instructions state to not attempt to run tests without using the wrapper. The testing step numbers should be updated based on the steps actually used within the plan:",
-                "1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.",
-                "2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.",
-                "3. [ ] `npm run test:summary:server:unit` - Use for server node:test unit/integration coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name \"<pattern>\"`. After fixes, rerun full `npm run test:summary:server:unit`.",
-                "4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature/step coverage when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags \"<expr>\"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario \"<pattern>\"`. After fixes, rerun full `npm run test:summary:server:cucumber`.",
-                "5. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset \"<pattern>\"`, and/or `npm run test:summary:client -- --test-name \"<pattern>\"`. After fixes, rerun full `npm run test:summary:client`.",
-                "6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep \"<pattern>\"`. After fixes, rerun full `npm run test:summary:e2e`.",
-                "Note that the following items (7 to 10) are only needed if changes are testable from the front end or if this task is the final regression check.",
-                "7. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).",
-                "8. [ ] `npm run compose:up`",
-                "9. [ ] Manual Playwright-MCP testing step to manually confirm items within the story and general regression checks that should be detailed based on the task being tested. This should include a check to ensure that there are no logged errors within the debug console. The front end is accessible at http://host.docker.internal:5001 via the Playwright MCP tools.",
-                "10. [ ] `npm run compose:down`",
-                "Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts. This preserves tokens while keeping full diagnostics available."
-              ]
-            }
-          ]
+          "markdownFile": "ensure_testing_steps_are_correct.md"
         },
         {
           "type": "break",

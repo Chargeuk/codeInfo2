@@ -32,7 +32,7 @@ This host-networking work is not just a one-line Compose change. Docker's host-n
 
 Repository research also clarifies an important implementation detail for this part of the story. The current Context7 API-key behavior is not driven by built-in TOML environment interpolation. Instead, the product reads a literal placeholder in agent `config.toml` and overlays the real value in memory during runtime config normalization. This story should treat Playwright MCP the same way: do not assume generic TOML env interpolation exists for MCP server definitions. If Playwright endpoints need to vary per environment, add an explicit runtime overlay for the Playwright MCP definition rather than relying on unproven config-file interpolation behavior.
 
-Current repository evidence shows that the checked-in Compose files do not all define a Playwright MCP service today. The user has decided that files which do not currently define a `playwright-mcp` service remain out of scope for this story. The story therefore should implement host networking for every checked-in Compose file that already declares a `playwright-mcp` service, without expanding scope into adding new Playwright MCP services to additional Compose environments.
+Current repository evidence shows that the checked-in Compose files do not all define a Playwright MCP service today. The user has decided that files which do not currently define a `playwright-mcp` service remain out of scope for this story. The story therefore should implement host networking for every checked-in Compose file that already declares a `playwright-mcp` service, without expanding scope into adding new Playwright MCP services to additional Compose environments. The user has also fixed the endpoint and port contract for that implementation: the runtime override variable is `CODEINFO_PLAYWRIGHT_MCP_URL`, and the checked-in default port strategy should keep different defaults for the main and local stacks, for example `8931` in `docker-compose.yml` and `8932` in `docker-compose.local.yml`.
 
 ### Acceptance Criteria
 
@@ -55,10 +55,11 @@ Current repository evidence shows that the checked-in Compose files do not all d
 - Every checked-in Docker Compose file that defines a `playwright-mcp` service is updated to use host networking.
 - Compose files that do not currently define a `playwright-mcp` service remain unchanged for this story.
 - Each host-networked Playwright MCP service uses a deliberate host port plan so checked-in stacks do not clash when run together.
+- The checked-in default Playwright MCP port strategy uses distinct defaults for the existing stacks, for example `8931` for the main stack and `8932` for the local stack.
 - The implementation removes any incompatible bridge-style `playwright-mcp` wiring that cannot coexist with host networking.
 - Agent or wrapper MCP endpoint configuration is updated so Playwright MCP is no longer hard-coded only as `http://playwright-mcp:8931/mcp`.
 - The Playwright MCP endpoint override is implemented through an explicit runtime environment overlay rather than assuming native TOML environment interpolation.
-- The story defines one explicit environment variable contract for the Playwright MCP endpoint, with a full URL rather than only a port value, so each Compose file can set the correct control-channel address directly.
+- The story defines one explicit environment variable contract for the Playwright MCP endpoint, using `CODEINFO_PLAYWRIGHT_MCP_URL` as a full URL rather than only a port value, so each Compose file can set the correct control-channel address directly.
 - The implementation keeps the browser navigation target and the agent control-channel endpoint conceptually separate where that is required for host-networked manual testing.
 - The resulting local manual-testing setup still supports the Playwright MCP traffic patterns used by this product, including browser control, websocket flows, screenshots, and manual UI verification.
 
@@ -75,10 +76,7 @@ Current repository evidence shows that the checked-in Compose files do not all d
 
 ### Questions
 
-1. What exact environment variable name should the story standardize on for the Playwright MCP control URL?
-   - Why this is important: the story now assumes a runtime URL overlay for the Playwright MCP endpoint, so the env-var contract needs to be fixed before tasking to avoid follow-up renames across code, compose files, tests, and documentation.
-2. What checked-in default ports should the existing Playwright MCP compose services use so they do not clash if stacks run together?
-   - Why this is important: this decides the actual compose defaults, the runtime endpoint values that match those defaults, and whether the checked-in stacks can safely coexist during local development and manual testing.
+None currently. Add new planning questions here as they arise.
 
 ## Decisions
 
@@ -102,6 +100,20 @@ Current repository evidence shows that the checked-in Compose files do not all d
    - What the answer is: keep them out of scope.
    - Where the answer came from: direct user answer in this planning conversation.
    - Why it is the best answer: it keeps the story tightly focused on converting the existing Playwright MCP surfaces to host networking, which is already a substantial change without also designing new Playwright services for environments that do not currently have one.
+
+4. Standardize the Playwright MCP control URL env-var name as `CODEINFO_PLAYWRIGHT_MCP_URL`.
+   - Question being addressed: What exact environment variable name should the story standardize on for the Playwright MCP control URL?
+   - Why the question matters: this fixes the runtime-overlay contract before implementation so code, compose files, tests, and documentation all target one stable environment variable name.
+   - What the answer is: use `CODEINFO_PLAYWRIGHT_MCP_URL`.
+   - Where the answer came from: direct user answer in this planning conversation.
+   - Why it is the best answer: it matches the repository's existing `CODEINFO_` naming style, it is specific to the Playwright MCP control channel, and it makes the override intent clear without overloading a generic or ambiguous variable name.
+
+5. Use distinct checked-in default ports for the main and local Playwright MCP stacks.
+   - Question being addressed: What checked-in default ports should the existing Playwright MCP compose services use so they do not clash if stacks run together?
+   - Why the question matters: this decides the compose defaults, the runtime endpoint values that correspond to those defaults, and whether the checked-in stacks can safely coexist during local development and manual testing.
+   - What the answer is: keep one default for the main stack and a different one for the local stack, for example `8931` in `docker-compose.yml` and `8932` in `docker-compose.local.yml`.
+   - Where the answer came from: direct user answer in this planning conversation.
+   - Why it is the best answer: it keeps the checked-in defaults simple and predictable, prevents immediate host-port collisions between the two existing Playwright MCP stacks, and keeps the story focused on explicit per-environment wiring instead of leaving port separation to manual operator discipline.
 
 ## Implementation Ideas
 
@@ -143,12 +155,10 @@ Current repository evidence shows that the checked-in Compose files do not all d
   - remove incompatible `ports` and `networks` service wiring for that service;
   - remove any `extra_hosts` rules that only existed to support the old bridge-host access path if they are no longer needed;
   - keep the service startup command port aligned with the chosen host port for that stack.
-- Introduce a deliberate per-environment Playwright MCP port strategy. If multiple stacks may run together, they must not all try to bind the same host port. The story should therefore either:
-  - assign distinct checked-in default ports per stack; or
-  - drive the Playwright MCP port from explicit environment configuration with safe defaults.
+- Introduce a deliberate per-environment Playwright MCP port strategy. The current decision is to keep distinct checked-in defaults for the existing stacks, for example `8931` for the main stack and `8932` for the local stack, while still allowing explicit environment configuration where needed.
 - Introduce a deliberate per-environment MCP endpoint strategy. Because service-name DNS no longer works the same way for a host-networked service, the story should replace hard-coded `http://playwright-mcp:8931/mcp` assumptions with an explicit configuration path used by agents or wrappers.
 - Follow the existing Context7 pattern rather than assuming TOML env interpolation exists. Current repository evidence shows Context7 is overlaid in memory from an environment variable during runtime config normalization, so Playwright should use a matching runtime overlay approach for its endpoint rather than file rewriting or `${ENV_VAR}` syntax assumptions.
-- Prefer a full URL environment variable for the Playwright MCP endpoint rather than only a port variable. That gives each Compose file one explicit place to declare the control-channel address it needs, even if host, port, or path differ by environment.
+- Prefer a full URL environment variable for the Playwright MCP endpoint rather than only a port variable. The chosen contract name is `CODEINFO_PLAYWRIGHT_MCP_URL`, which gives each Compose file one explicit place to declare the control-channel address it needs, even if host, port, or path differ by environment.
 - Keep browser-navigation URLs and agent-control MCP URLs as separate concerns. Host networking is being introduced so the browser launched by Playwright can use `localhost` semantics against host-published applications. That does not automatically mean the agent control channel should use the same URL.
 - Validate the implementation through the manual-testing workflows that already depend on Playwright MCP, including screenshot capture and browser-control flows.
 - Expect likely changes in:

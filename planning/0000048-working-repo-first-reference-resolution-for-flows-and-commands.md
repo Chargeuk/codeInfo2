@@ -101,41 +101,113 @@ Repository inspection for this story also found three concrete scope facts that 
 
 ## Implementation Ideas
 
-- Add one shared repository-candidate builder that accepts:
-  - current working repository;
-  - owner repository for the referencing file;
-  - `codeInfo2` root;
-  - remaining ingested repositories;
-  and returns a de-duplicated ordered candidate list.
-- Replace the current OpenAI byte-and-word token estimator with tokenizer-backed counting via Node `tiktoken` using `cl100k_base` for `text-embedding-3-small` and `text-embedding-3-large`, and keep `js-tiktoken` documented as the fallback option if the preferred package proves impractical in this runtime.
-- Keep the provider hard limit aligned with OpenAI's documented 8192-token embedding limit for the two allowlisted models, and continue to rely on the existing ingest safety margin for chunking headroom instead of introducing an arbitrary lower hard limit such as 8000.
-- Update OpenAI guardrail and error-mapping coverage so token-overflow failures are blocked locally when possible and are still mapped cleanly if OpenAI returns wording such as maximum input length in tokens.
-- Reuse that shared candidate builder in all reference-resolution paths so command lookup and markdown lookup cannot drift apart over time.
-- Start the repository-order refactor from the current owner-first builders in `server/src/flows/service.ts` and `server/src/flows/markdownFileResolver.ts` so both current resolution paths migrate to the same helper rather than receiving parallel hand-edited ordering changes.
-- Ensure nested flow -> command -> markdown execution passes both the current working repository and the owner of the immediate referencing file into the shared resolver for each lookup.
-- Ensure direct command execution passes the selected command file's owning repository into the same resolver as the owner slot so standalone commands behave consistently with flow-invoked commands.
-- Persist the selected current folder as the absolute repository root path on the owning conversation or thread records so the GUI can restore it on conversation switch and the runtime can reuse the same canonical value for later runs or resumptions.
-- Extend the chat REST validation and persistence path because `server/src/routes/chat.ts` does not currently accept `working_folder`, even though the story requires chat conversations to share the same saved current-folder behavior as agents, flows, and commands.
-- Stamp each run record with the exact working-folder path used at run start so historical execution remains inspectable even after the editable conversation-level value changes later.
-- Ensure existing conversations and run contexts can update their saved current folder from the GUI only when execution is complete, with that edited absolute path becoming the canonical working-repo signal used for later restores and later execution.
-- Ensure flow-created or flow-linked child agent conversations inherit the folder path actually used by the flow step so cross-navigation between the flow and child agent conversation restores the same path.
-- Clear invalid saved working-folder paths automatically when they no longer exist or are no longer ingested, and emit a warning log so the fallback is observable during debugging.
-- Audit chat, agent, flow, and command execution entrypoints so they all write and read the same current-folder field instead of keeping separate page-local state.
-- Add structured lookup logging and compact execution metadata summaries so the candidate order, selected repository, fallback behavior, and missing-working-repo cases are observable without overloading unrelated high-level API responses.
-- Treat the current-folder picker's empty state as the only valid missing-working-repository UI state; do not invent a substitute repository label or a hidden fallback selection when no valid saved path exists.
-- Keep existing safety guards for command name sanitization, markdown relative paths, and path-within-root checks unchanged.
-- Inventory every repository-owned env variable currently used by server, client, compose, wrappers, tests, and docs; rename them to `CODEINFO_` or `VITE_CODEINFO_` as appropriate and update all references in one coordinated pass.
-- Validate the env rename with a repo-wide search before closing the story so no checked-in product-owned files still reference the old generic names.
-- Add explicit cutover notes and validation coverage for renamed env variables so the clean migration fails clearly if any old names remain in use.
-- Implement the OpenAI tokenizer swap behind one helper that both guardrails and the OpenAI embedding model can call, so `validateOpenAiEmbeddingGuardrails(...)`, `ProviderEmbeddingModel.countTokens(...)`, and chunk-sizing logic all stay in sync.
-- If the chosen Node tokenizer requires manual cleanup, centralize that cleanup in one OpenAI tokenizer helper instead of scattering `free()` calls across guardrails, provider, and chunker code.
-- Extend unit and integration coverage with examples for:
-  - local `codeInfo2` flow plus external working repo;
-  - ingested flow plus different working repo;
-  - nested flow -> command -> markdown lookup order restart;
-  - duplicate candidate removal;
-  - fail-fast on invalid higher-priority candidate.
-- Update `design.md`, `projectStructure.md`, and any route or runtime documentation that currently describes owner-first resolution so the working-repo-first contract becomes the documented source of truth.
+### 1. Shared Working-Repo-First Resolver
+
+- Start from the two current owner-first builders:
+  - `server/src/flows/service.ts` `buildFlowCommandCandidates(...)` for flow -> command resolution.
+  - `server/src/flows/markdownFileResolver.ts` `buildMarkdownResolutionCandidates(...)` for markdown resolution.
+- Replace those duplicated order builders with one shared helper, likely under `server/src/flows/`, that accepts:
+  - saved current working repository path;
+  - owner repository path of the referencing file;
+  - local `codeInfo2` root;
+  - remaining ingested repositories.
+- The shared helper should return:
+  - the de-duplicated ordered repository candidate list;
+  - a flag showing whether the working-repository slot was present or skipped;
+  - structured log metadata that both command and markdown resolution can emit consistently.
+- Wire that helper into every lookup path that story 48 changes:
+  - flow -> command resolution;
+  - flow -> markdown resolution;
+  - command -> markdown resolution;
+  - direct command execution outside flows.
+- Nested lookups must call the shared helper again using the immediate referencing file's owner, not the previous winner.
+- Keep all existing safety rules in place while changing only repository priority:
+  - command-name validation in `server/src/flows/service.ts`;
+  - markdown relative-path and UTF-8 validation in `server/src/flows/markdownFileResolver.ts`;
+  - fail-fast behavior for invalid, unreadable, or undecodable higher-priority candidates.
+
+### 2. Persist And Restore Working Folder Across All Surfaces
+
+- Use the owning conversation record as the canonical saved location, most likely `flags.workingFolder`, via `server/src/mongo/conversation.ts` and `server/src/mongo/repo.ts`.
+- Add or extend repository helpers so saving the working folder does not overwrite existing `flags.threadId`, `flags.flow`, or other conversation flags.
+- Reuse `server/src/agents/service.ts` `resolveWorkingFolderWorkingDirectory(...)` as the server-side validation boundary for absolute-path validation and host-to-container mapping.
+- Extend all server entry points that participate in the story so they can read, validate, persist, and reuse the same canonical working-folder signal:
+  - `server/src/routes/agentsRun.ts`;
+  - `server/src/routes/agentsCommands.ts`;
+  - `server/src/routes/flowsRun.ts`;
+  - `server/src/routes/chat.ts`, which currently has no `working_folder` support and therefore needs real new work for story 48.
+- Stamp each run or step record with the exact working-folder snapshot used at run start so historical executions remain inspectable after later edits.
+- Ensure flow-created child agent conversations inherit the exact folder path used by the flow step that created or resumed them.
+- On the client, hydrate and persist the picker state from conversation flags instead of page-local memory:
+  - `client/src/hooks/useConversations.ts` already exposes conversation `flags`;
+  - `client/src/pages/AgentsPage.tsx` and `client/src/pages/FlowsPage.tsx` already manage a working-folder picker and run payloads;
+  - `client/src/pages/ChatPage.tsx` will need equivalent support added because chat does not currently participate.
+- Lock picker edits while the related run is active by reusing existing run-state signals already present in the pages and stream hooks.
+- If the server clears an invalid saved path, the client should return the picker to its normal empty state and never show a silent fallback repository label.
+
+### 3. Env Namespace Cutover
+
+- Perform one explicit inventory of all checked-in repository-owned env families before renaming anything. The current codebase mixes `CODEINFO_*` with older product-owned names.
+- The likely server-side rename anchors include:
+  - `server/.env` and any checked-in env guidance files;
+  - `server/src/config/chatDefaults.ts` for chat-default variables;
+  - `server/src/logger.ts` for logging config;
+  - `server/src/ingest/config.ts` for ingest settings;
+  - routes and services that still read `LMSTUDIO_BASE_URL` or `OPENAI_EMBEDDING_KEY`.
+- The likely client-side rename anchors include:
+  - `client/src/api/baseUrl.ts`;
+  - `client/src/hooks/useLmStudioStatus.ts`;
+  - `client/src/logging/transport.ts`;
+  - any client tests that still set `VITE_API_URL`, `VITE_LMSTUDIO_URL`, or other unprefixed Vite variables.
+- The runtime and packaging rename anchors include:
+  - `docker-compose.yml`;
+  - `docker-compose.e2e.yml`;
+  - `client/Dockerfile`;
+  - wrapper scripts such as `scripts/docker-compose-with-env.sh`;
+  - e2e specs and test fixtures that set product-owned env vars directly.
+- The cutover should be single-pass:
+  - add the new `CODEINFO_` / `VITE_CODEINFO_` names;
+  - update all consuming code and docs to read only those names;
+  - remove old-name reads in the same story.
+- Finish the env work with a repo-wide search to prove no checked-in product-owned files still reference the old generic names.
+
+### 4. OpenAI Tokenizer-Backed Counting
+
+- Introduce one OpenAI tokenizer helper module under `server/src/ingest/providers/` so all OpenAI token counting comes from one place.
+- The helper should:
+  - prefer the Node `tiktoken` package for `text-embedding-3-small` and `text-embedding-3-large`;
+  - use `cl100k_base` or model-based encoding selection as appropriate;
+  - document and centralize any required encoder reuse and `free()` cleanup;
+  - keep `js-tiktoken` as the documented fallback only if the preferred WASM path proves impractical.
+- Replace the current heuristic in all OpenAI-specific call sites that currently influence sizing or request rejection:
+  - `server/src/ingest/providers/openaiGuardrails.ts`;
+  - `server/src/ingest/providers/openaiEmbeddingProvider.ts` `countTokens(...)`;
+  - any chunk-sizing path that relies on the OpenAI model's `countTokens(...)`, including `server/src/ingest/chunker.ts`.
+- Update `server/src/ingest/providers/openaiConstants.ts` so the local hard limit matches provider truth at 8192 tokens instead of the current 8191 constant.
+- Extend `server/src/ingest/providers/openaiErrors.ts` and related classifiers so upstream wording such as `maximum input length` still maps deterministically to `OPENAI_INPUT_TOO_LARGE`.
+- Keep `INGEST_TOKEN_MARGIN` as the soft operational headroom in `server/src/ingest/config.ts`; do not introduce a second hidden hard limit on top of the tokenizer-backed provider truth.
+
+### 5. Logging, Metadata, And Validation Coverage
+
+- Reuse the existing resolution logs in `server/src/flows/service.ts` and `server/src/flows/markdownFileResolver.ts`, but feed them from the shared resolver output so both surfaces report the same candidate order, winner, fallback status, and working-slot availability.
+- Add a compact lookup summary to run or step metadata that exposes:
+  - final selected repository path;
+  - fallback-used boolean;
+  - working-repository-available boolean;
+  - ordered candidate paths when useful.
+- Extend the most relevant test suites instead of inventing a new harness first:
+  - flow and markdown resolution integration tests for working-repo-first nested lookups;
+  - working-folder validation and persistence tests for agents, flows, commands, and chat;
+  - OpenAI guardrail, provider, and chunker tests for tokenizer-backed counts and 8192-token enforcement;
+  - env rename tests for server/runtime/client code paths that currently read legacy names.
+- The likely regression suites to extend include:
+  - `server/src/test/integration/flows.run.working-folder.test.ts`;
+  - `server/src/test/integration/flows.run.command.test.ts`;
+  - `server/src/test/unit/openai-provider-guardrails.test.ts`;
+  - `client/src/test/agentsPage.workingFolderPicker.test.tsx`;
+  - `client/src/test/flowsPage.run.test.tsx`;
+  - chat conversation and sidebar tests once chat gains working-folder persistence.
+- Close the story by updating `design.md`, `projectStructure.md`, and README sections that still describe owner-first resolution, legacy env names, or the old OpenAI heuristic behavior.
 
 ## Research Findings
 

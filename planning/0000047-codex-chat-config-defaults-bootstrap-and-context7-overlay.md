@@ -1891,8 +1891,8 @@ Do not attempt to run tests without using the summary wrappers. This task is doc
 
 ### 20. Revalidate Story 47 After Final-Proof Summary Alignment
 
-- Task Status: `__in_progress__`
-- Git Commits: _(pending)_
+- Task Status: `__done__`
+- Git Commits: `33afee9e`, `e1a83e59`
 
 #### Overview
 
@@ -1924,7 +1924,7 @@ Run one fresh full-story validation pass after Task 19 so Story 47 can close aga
 2. [x] Refresh [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md) again if the Task 20 validation pass needs any final wording adjustment so the maintained summary and the final closeout notes describe the same T05 proof scenario.
 3. [x] Update this plan file’s Task 20 `Implementation notes` after validation is complete, including which review finding was closed, which acceptance criteria remain indirect, and whether any further simplification opportunities remain intentionally deferred.
 4. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) only if the maintained docs or structure ledger changed during Task 19.
-5. [ ] Record the git commit hashes for Tasks 19 and 20 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
+5. [x] Record the git commit hashes for Tasks 19 and 20 in this plan once the reopened work is complete, then return the new review-driven tasks to `__done__`.
 
 #### Testing
 
@@ -1957,3 +1957,4 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 - Passed `npm run compose:down`, which removed the validation stack cleanly after the final host-port verification.
 - No updates were needed in [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), or [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) because Task 19 only repaired maintained Story 47 evidence wording.
 - Task 20 closes the reopened `should_fix` by pairing Task 19’s summary-alignment repair with this full wrapper/manual rerun; AC8, AC13, and AC36 remain intentionally indirect, and no further simplification opportunity was surfaced by the final pass.
+- Recorded Task 19 commit `33afee9e` and Task 20 commit `e1a83e59` in this task, then returned the reopened review-driven closeout cycle to `__done__`.

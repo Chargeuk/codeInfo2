@@ -11,4 +11,4 @@ Now the story is ready to be worked on, I want you to create a simple version of
 
 # Tasks
 <A numerical list of the tasks, based on the tasks that are in tyhe real story\plan\spec>
-<Each task should consist of a single title line explaining what change is to be made, followed by one or two bullet points adding a bit of detail. Each bullet point is only a single small sentence, as is the titiel, but they are technical, not business.>
+<Each task should consist of a single title line explaining what change is to be made, followed by one or two bullet points adding a bit of detail, such as key files to edit. Each bullet point is only a single small sentence, as is the title of the task, but they are technical, not business.>

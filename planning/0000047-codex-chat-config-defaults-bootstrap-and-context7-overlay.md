@@ -1958,3 +1958,48 @@ Do not attempt to run builds or tests without using the summary wrappers. Log re
 - No updates were needed in [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), or [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) because Task 19 only repaired maintained Story 47 evidence wording.
 - Task 20 closes the reopened `should_fix` by pairing Task 19’s summary-alignment repair with this full wrapper/manual rerun; AC8, AC13, and AC36 remain intentionally indirect, and no further simplification opportunity was surfaced by the final pass.
 - Recorded Task 19 commit `33afee9e` and Task 20 commit `e1a83e59` in this task, then returned the reopened review-driven closeout cycle to `__done__`.
+
+## Post-Implementation Code Review
+
+Story 47 was reviewed again against the active plan, the branch diff versus `main`, and the durable artifacts [codeInfoStatus/reviews/0000047-20260316T001143Z-c4ea3346-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260316T001143Z-c4ea3346-evidence.md) and [codeInfoStatus/reviews/0000047-20260316T001143Z-c4ea3346-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000047-20260316T001143Z-c4ea3346-findings.md). The branch-vs-main review re-checked `git diff --name-status main...HEAD`, the final Story 47 commits, the maintained summary in [planning/0000047-pr-summary.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000047-pr-summary.md), and the key implementation surfaces in [server/src/config/chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [server/src/codex/capabilityResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/codex/capabilityResolver.ts), [server/src/config/codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts), [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), [server/src/routes/chatModels.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatModels.ts), [server/src/routes/chatProviders.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatProviders.ts), [server/src/routes/chatValidators.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chatValidators.ts), and [server/src/mcp2/tools/codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts). The review also re-checked the final proof files and wrapper/manual results in [server/src/test/unit/runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts), [server/src/test/unit/config.chatDefaults.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/config.chatDefaults.test.ts), [server/src/test/unit/capabilityResolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/capabilityResolver.test.ts), [server/src/test/unit/chatModels.codex.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatModels.codex.test.ts), [server/src/test/unit/chatProviders.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatProviders.test.ts), [server/src/test/unit/chatValidators.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/chatValidators.test.ts), [server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts), and [server/src/test/integration/mcp-codex-wrapper.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/mcp-codex-wrapper.test.ts).
+
+Acceptance-evidence status for this final review pass:
+
+1. AC1: `direct`
+2. AC2: `direct`
+3. AC3: `direct`
+4. AC4: `direct`
+5. AC5: `direct`
+6. AC6: `direct`
+7. AC7: `direct`
+8. AC8: `indirect`
+9. AC9: `direct`
+10. AC10: `direct`
+11. AC11: `direct`
+12. AC12: `direct`
+13. AC13: `indirect`
+14. AC14: `direct`
+15. AC15: `direct`
+16. AC16: `direct`
+17. AC17: `direct`
+18. AC18: `direct`
+19. AC19: `direct`
+20. AC20: `direct`
+21. AC21: `direct`
+22. AC22: `direct`
+23. AC23: `direct`
+24. AC24: `direct`
+25. AC25: `direct`
+26. AC26: `direct`
+27. AC27: `direct`
+28. AC28: `direct`
+29. AC29: `direct`
+30. AC30: `direct`
+31. AC31: `direct`
+32. AC32: `direct`
+33. AC33: `direct`
+34. AC34: `direct`
+35. AC35: `direct`
+36. AC36: `indirect`
+
+No acceptance criterion is classified as `missing` in this final pass. AC8 remains indirect because there is still no dedicated same-surface reread artifact that captures two `codex/chat/config.toml` states in one pass; AC13 and AC36 remain indirect because the branch still relies on unchanged client/public payload contracts plus green wrapper/manual validation rather than a dedicated payload-shape snapshot artifact. The implemented code remains appropriately succinct for the required Story 47 behavior overall. [server/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts) is still the densest Story 47 surface, but this pass did not uncover another simplification opportunity that justified reopening the story. Because the current review found no adopted findings, the maintained summary now distinguishes the earlier and final T05 proof scenarios clearly enough, and the branch-vs-main checks plus wrapper/manual validation remain green, Story 47 remains complete.

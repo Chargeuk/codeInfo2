@@ -41,6 +41,16 @@
     {
       "type": "message",
       "role": "user",
+      "markdownFile": "linting_tasks_setup.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "deployment_tasks_setup.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
       "content": [
         "Please perform a feasability proof pass over the tasks. For each task in turn, confirm whether the required capabilities already exist as previous tasks, in the relevant repositories, or whether they must be first created as explicit prerequisite work. you MUST distinguish between: 1. Already existing capabilities,  2. Missing prerequisite capabilities,  3. Assumptions that are currently invalid. Update the plan so that any missing tasks are added early enough to be used by the tasks that require them. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
       ]
@@ -133,13 +143,6 @@
     {
       "type": "message",
       "role": "user",
-      "content": [
-        "Ensure that every task adding files has a subtask to explicitly update projectStructure.md after all subtasks that add or remove files and that task contains all added and removed files. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
-      ]
-    },
-    {
-      "type": "message",
-      "role": "user",
       "markdownFile": "junior_developer_tasks.md"
     },
     {
@@ -182,6 +185,11 @@
       "type": "message",
       "role": "user",
       "markdownFile": "screenshot_test_tasks.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "create_simple_story.md"
     }
   ]
 }

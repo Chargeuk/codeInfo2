@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 
 import type { LMStudioClient } from '@lmstudio/sdk';
@@ -7,6 +10,7 @@ import express from 'express';
 import request from 'supertest';
 
 import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
+import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
@@ -43,6 +47,7 @@ const defaultDetection = {
   configPresent: false,
   reason: 'not detected',
 };
+const tempDirs: string[] = [];
 
 function createClient(
   models: {
@@ -100,18 +105,41 @@ async function stopServer(server: { httpServer: http.Server }) {
   );
 }
 
+async function setCodexHome(chatToml?: string) {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-chat-providers-codex-'),
+  );
+  tempDirs.push(root);
+  const codexHome = path.join(root, 'codex');
+  if (chatToml !== undefined) {
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.writeFile(
+      path.join(codexHome, 'chat', 'config.toml'),
+      chatToml,
+      'utf8',
+    );
+  }
+  env.set('CODEX_HOME', codexHome);
+}
+
 beforeEach(() => {
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
 });
 
-afterEach(() => {
+afterEach(async () => {
   env.restore();
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
+  await Promise.all(
+    tempDirs
+      .splice(0)
+      .map((dir) => fs.rm(dir, { recursive: true, force: true })),
+  );
 });
 
 test('providers route orders lmstudio first when codex default is unavailable and lmstudio is available', async () => {
+  await setCodexHome('model = "config-model"\n');
   env.set('CHAT_DEFAULT_PROVIDER', 'codex');
   env.set('CHAT_DEFAULT_MODEL', 'gpt-5.3-codex');
   env.set('LMSTUDIO_BASE_URL', 'ws://localhost:1234');
@@ -146,7 +174,48 @@ test('providers route orders lmstudio first when codex default is unavailable an
   }
 });
 
+test('providers marker normalizes model_source and retains raw codex_model_source', async () => {
+  await setCodexHome();
+  env.set('CHAT_DEFAULT_PROVIDER', undefined);
+  env.set('CHAT_DEFAULT_MODEL', undefined);
+  env.set('LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const markerPayloads: Array<Record<string, unknown>> = [];
+  const originalInfo = console.info;
+  console.info = (...args: unknown[]) => {
+    if (args[0] === STORY_47_TASK_1_LOG_MARKER && args[1]) {
+      markerPayloads.push(args[1] as Record<string, unknown>);
+    }
+  };
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    await request(server.httpServer).get('/chat/providers').expect(200);
+
+    const marker = markerPayloads.at(-1);
+    assert.ok(marker);
+    assert.equal(marker.surface, '/chat/providers');
+    assert.equal(marker.model_source, 'fallback');
+    assert.equal(marker.codex_model_source, 'hardcoded');
+  } finally {
+    console.info = originalInfo;
+    await stopServer(server);
+  }
+});
+
 test('providers route keeps codex first when lmstudio has no selectable model', async () => {
+  await setCodexHome('model = "config-model"\n');
   env.set('CHAT_DEFAULT_PROVIDER', 'lmstudio');
   env.set('CHAT_DEFAULT_MODEL', 'model-1');
   env.set('LMSTUDIO_BASE_URL', 'ws://localhost:1234');
@@ -174,6 +243,42 @@ test('providers route keeps codex first when lmstudio has no selectable model', 
     assert.equal(res.body.providers[1].reason, 'lmstudio unavailable');
     assert.ok(res.body.codexDefaults);
     assert.ok(Array.isArray(res.body.codexWarnings));
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers route exposes the chat-config-aware Codex default and falls back cleanly when chat config is missing', async () => {
+  await setCodexHome('model = "config-model"\n');
+  env.set('CHAT_DEFAULT_PROVIDER', 'codex');
+  env.set('CHAT_DEFAULT_MODEL', 'env-model');
+  env.set('LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const configured = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+    assert.equal(configured.body.providers[0].id, 'codex');
+
+    await setCodexHome();
+
+    const fallback = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+    assert.equal(fallback.body.providers[0].id, 'codex');
+    assert.ok(Array.isArray(fallback.body.codexWarnings));
   } finally {
     await stopServer(server);
   }

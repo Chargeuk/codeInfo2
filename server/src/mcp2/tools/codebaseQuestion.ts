@@ -29,6 +29,8 @@ import {
   resolveChatDefaults,
   resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
+  STORY_47_TASK_1_LOG_MARKER,
+  toChatResolutionSource,
   type ChatDefaultProvider,
 } from '../../config/chatDefaults.js';
 import {
@@ -56,7 +58,6 @@ import {
 
 export const CODEBASE_QUESTION_TOOL_NAME = 'codebase_question';
 const TASK8_LOG_MARKER = 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED';
-
 const paramsSchema = z
   .object({
     question: z.string().min(1),
@@ -287,7 +288,17 @@ export async function runCodebaseQuestion(
         : undefined,
   });
   const requestedProvider = resolvedDefaults.provider;
-  const requestedModel = resolvedDefaults.model;
+  const codexRequestedDefaults =
+    requestedProvider === 'codex' &&
+    !(typeof parsed.model === 'string' && parsed.model.trim().length > 0)
+      ? await resolveCodexChatDefaults({
+          codexHome: process.env.CODEX_HOME,
+        })
+      : undefined;
+  const requestedModel =
+    requestedProvider === 'codex'
+      ? (codexRequestedDefaults?.values.model ?? resolvedDefaults.model)
+      : resolvedDefaults.model;
 
   const existingConversation = conversationId
     ? await getConversation(conversationId)
@@ -316,13 +327,9 @@ export async function runCodebaseQuestion(
     consumer: 'chat_validation',
     codexHome: process.env.CODEX_HOME,
   });
-  const codexChatDefaults = await resolveCodexChatDefaults({
-    codexHome: process.env.CODEX_HOME,
-  });
   const codexWarnings = [
     ...codexCapabilities.warnings,
     ...resolvedDefaults.warnings,
-    ...codexChatDefaults.warnings,
   ];
   const codexWarningFields = extractWarningFields(codexWarnings);
   const codexState = {
@@ -400,6 +407,30 @@ export async function runCodebaseQuestion(
   });
   append({
     level: 'info',
+    message: STORY_47_TASK_1_LOG_MARKER,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface: 'mcp2.codebase_question',
+      requested_provider: runtimeSelection.requestedProvider,
+      requested_model: runtimeSelection.requestedModel,
+      resolved_model: runtimeSelection.executionModel,
+      model_source:
+        requestedProvider === 'codex'
+          ? toChatResolutionSource(
+              codexRequestedDefaults?.sources.model ?? 'hardcoded',
+            )
+          : resolvedDefaults.modelSource,
+      codex_model_source:
+        requestedProvider === 'codex'
+          ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
+          : undefined,
+      success: true,
+      warning_fields: codexWarningFields,
+    },
+  });
+  append({
+    level: 'info',
     message: TASK8_LOG_MARKER,
     timestamp: new Date().toISOString(),
     source: 'server',
@@ -412,6 +443,24 @@ export async function runCodebaseQuestion(
       warningFields: codexWarningFields,
       defaults: codexCapabilities.defaults,
     },
+  });
+  console.info(STORY_47_TASK_1_LOG_MARKER, {
+    surface: 'mcp2.codebase_question',
+    requested_provider: runtimeSelection.requestedProvider,
+    requested_model: runtimeSelection.requestedModel,
+    resolved_model: runtimeSelection.executionModel,
+    model_source:
+      requestedProvider === 'codex'
+        ? toChatResolutionSource(
+            codexRequestedDefaults?.sources.model ?? 'hardcoded',
+          )
+        : resolvedDefaults.modelSource,
+    codex_model_source:
+      requestedProvider === 'codex'
+        ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
+        : undefined,
+    success: true,
+    warning_fields: codexWarningFields,
   });
   console.info(TASK8_LOG_MARKER, {
     surface: 'mcp2.codebase_question',

@@ -2,7 +2,10 @@ import {
   CODEX_MODEL_REASONING_EFFORTS,
   type CodexDefaults,
 } from '@codeinfo2/common';
-import { getCodexModelList } from '../config/codexEnvDefaults.js';
+import {
+  getCodexModelList,
+  mergeCodexModelList,
+} from '../config/codexEnvDefaults.js';
 import { resolveCodexChatDefaults } from '../config/chatDefaults.js';
 import { baseLogger } from '../logger.js';
 
@@ -97,6 +100,10 @@ export const resolveCodexCapabilities = async (
     codexHome: options.codexHome ?? process.env.CODEX_HOME,
   });
   const modelList = getCodexModelList();
+  const mergedModels = mergeCodexModelList(
+    modelList.models,
+    codexDefaults.values.model,
+  );
   const warnings = [...codexDefaults.warnings, ...modelList.warnings];
   const resolveReasoningEffortsMetadata =
     options.resolveReasoningEffortsMetadata ??
@@ -117,7 +124,7 @@ export const resolveCodexCapabilities = async (
       ? codexDefaults.values.modelReasoningEffort
       : (normalizedEfforts[0] ?? codexDefaults.values.modelReasoningEffort);
 
-    const models = modelList.models.map((model) => ({
+    const models = mergedModels.map((model) => ({
       model,
       supportedReasoningEfforts: normalizedEfforts,
       defaultReasoningEffort,
@@ -169,7 +176,7 @@ export const resolveCodexCapabilities = async (
     const normalizedFallbackEfforts = Array.from(new Set(fallbackEfforts));
     const fallbackDefault =
       codexDefaults.values.modelReasoningEffort ?? normalizedFallbackEfforts[0];
-    const models = modelList.models.map((model) => ({
+    const models = mergedModels.map((model) => ({
       model,
       supportedReasoningEfforts: normalizedFallbackEfforts,
       defaultReasoningEffort: fallbackDefault,

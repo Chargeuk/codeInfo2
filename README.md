@@ -111,14 +111,14 @@ Corporate certificate directory requirements:
 
 `CODEINFO_REFRESH_CA_CERTS_ON_START=false` is the default behavior. Only case-insensitive `true` enables refresh. If refresh is enabled and certs are missing/invalid, server startup fails fast with non-zero exit.
 
-| Variable | Default when unset | Where used |
-| --- | --- | --- |
-| `CODEINFO_NPM_REGISTRY` | npm default registry behavior | Docker build-time npm install steps in server/client images, and host helper install in `start-gcf-server.sh` |
-| `CODEINFO_PIP_INDEX_URL` | pip default index behavior | Server Docker build-time `pip install` |
-| `CODEINFO_PIP_TRUSTED_HOST` | pip default trusted-host behavior | Server Docker build-time `pip install` |
-| `CODEINFO_NODE_EXTRA_CA_CERTS` | `/etc/ssl/certs/ca-certificates.crt` | Server runtime export before Node starts |
-| `CODEINFO_CORP_CERTS_DIR` | `./certs/empty-corp-ca` compose fallback source | Compose server cert mount source to `/usr/local/share/ca-certificates/codeinfo-corp:ro` |
-| `CODEINFO_REFRESH_CA_CERTS_ON_START` | Disabled (`false` behavior unless value is `true`) | Server entrypoint CA refresh gate before `exec node dist/index.js` |
+| Variable                             | Default when unset                                 | Where used                                                                                                    |
+| ------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `CODEINFO_NPM_REGISTRY`              | npm default registry behavior                      | Docker build-time npm install steps in server/client images, and host helper install in `start-gcf-server.sh` |
+| `CODEINFO_PIP_INDEX_URL`             | pip default index behavior                         | Server Docker build-time `pip install`                                                                        |
+| `CODEINFO_PIP_TRUSTED_HOST`          | pip default trusted-host behavior                  | Server Docker build-time `pip install`                                                                        |
+| `CODEINFO_NODE_EXTRA_CA_CERTS`       | `/etc/ssl/certs/ca-certificates.crt`               | Server runtime export before Node starts                                                                      |
+| `CODEINFO_CORP_CERTS_DIR`            | `./certs/empty-corp-ca` compose fallback source    | Compose server cert mount source to `/usr/local/share/ca-certificates/codeinfo-corp:ro`                       |
+| `CODEINFO_REFRESH_CA_CERTS_ON_START` | Disabled (`false` behavior unless value is `true`) | Server entrypoint CA refresh gate before `exec node dist/index.js`                                            |
 
 # CodeInfo2 Details
 
@@ -130,20 +130,28 @@ Corporate certificate directory requirements:
 
 ## Codex config seed
 
-- The repo ships `config.toml.example` at the root. On server startup, if `${CODEINFO_CODEX_HOME:-./codex}/config.toml` is missing, it is copied from the example (the `codex/` directory is git-ignored).
+- On server startup, if `${CODEINFO_CODEX_HOME:-./codex}/config.toml` is missing, the server writes one canonical in-code base template to that path (the `codex/` directory is git-ignored).
+- `config.toml.example` may remain in the repo as a human-facing sample, but runtime bootstrap does not read, parse, or copy it.
 - Customize `./codex/config.toml` after the first run; subsequent starts leave your edits intact.
+- Fresh base bootstrap uses `model = "gpt-5.3-codex"` and seeds Context7 in the no-key local stdio form `args = ['-y', '@upstash/context7-mcp']`; it does not seed any checked-in or placeholder `--api-key` pair.
 - Chat runtime config bootstrap (`./codex/chat/config.toml`) is deterministic and non-destructive:
   - if chat config exists: no overwrite (`existing_noop`).
-  - if chat config is missing and base config exists: copy `./codex/config.toml` once (`copied`).
-  - if both chat and base configs are missing: generate a standard chat template (`generated_template`).
-  - IO/permission failures are surfaced with deterministic warnings and no silent fallback; failed copy/write paths clean up partial destination files.
+  - if chat config is missing: write the canonical in-code chat template directly (`generated_template`), regardless of whether base config exists.
+  - on-disk template files such as `codex/chat/config copy.toml` are ignored during bootstrap.
+  - IO/permission failures are surfaced with deterministic warnings and no silent fallback; failed write paths clean up partial destination files.
+- Resolved chat and agent runtime config now inherit a defined base-key set from `./codex/config.toml` instead of relying on chat bootstrap copying the full base file:
+  - inherited additively when omitted by the runtime-specific file: `projects`, `mcp_servers`, `personality`, `tools`, `model_provider`, `model_providers`
+  - still runtime-owned when present in the runtime-specific file: `model`, `approval_policy`, `sandbox_mode`, `web_search`
+  - strict runtime readers still hard-fail on invalid base/runtime TOML, while chat-default fallback reads continue to warn and fall back without rewriting invalid chat files
+  - for local stdio `[mcp_servers.context7]` definitions that use `command` plus `args`, `CODEINFO_CONTEXT7_API_KEY` is now the runtime source of truth whenever no usable key is present, including placeholder-equivalent `--api-key` values and the already-no-key args form; the overlay happens in memory only and never rewrites the TOML files on disk
+  - placeholder-equivalent Context7 values are treated as unusable and normalize to either the env overlay or the no-key args form `['-y', '@upstash/context7-mcp']`; if the args are already in that no-key form and the env var is non-empty, runtime appends `--api-key <env>` in memory
 
 ## Codex (CLI)
 
 - Install CLI (host): `npm install -g @openai/codex` and log in.
 - Login (host only): run `CODEX_HOME=./codex codex login` (or keep your existing `~/.codex`); Docker Compose mounts `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` to `/host/codex` and copies `auth.json` into `/app/codex` on startup when missing, so a separate container login is not required.
   - Note: `CODEX_HOME` is frequently set by Codex/agent environments; use `CODEINFO_HOST_CODEX_HOME` (not `CODEX_HOME`) when you need Compose to mount a specific host Codex home.
-- Codex home: `CODEINFO_CODEX_HOME=./codex` (mounted to `/app/codex` in Docker); seeded from `config.toml.example` on first start—edit `./codex/config.toml` after seeding to add MCP servers or overrides.
+- Codex home: `CODEINFO_CODEX_HOME=./codex` (mounted to `/app/codex` in Docker); seeded from the canonical in-code base template on first start. Edit `./codex/config.toml` after seeding to add MCP servers or overrides.
 - Behaviour when missing: if the CLI, `auth.json`, or `config.toml` are absent (and no host auth is available to copy), Codex stays disabled; startup logs explain which prerequisite is missing and the chat UI shows a disabled-state banner.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
 - Server SDK pin and runtime guard are coupled:
@@ -157,11 +165,27 @@ Corporate certificate directory requirements:
 - Covered fields are `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
 - Resolution precedence is deterministic per field:
   - request override -> `codex/chat/config.toml` -> legacy env fallback -> hardcoded safe fallback.
+- The `model` from `codex/chat/config.toml` is treated as the Codex chat default model and is unioned into the available Codex model list when `Codex_model_list` does not already contain it.
+- The shared Codex-aware read path is used by `/chat/models`, `/chat/providers`, `/chat` request validation, and MCP `codebase_question`, and those callers reread `codex/chat/config.toml` on each request instead of caching a snapshot.
 - `web_search` handling is canonical-first:
   - canonical `web_search` wins over alias keys;
   - alias bool values normalize to canonical modes (`true -> live`, `false -> disabled`).
 - `/chat/models?provider=codex` and `/chat/providers` return resolver-backed `codexDefaults` and `codexWarnings`.
 - `/chat` request validation applies the same resolver-backed defaults when Codex flags are omitted.
+- The existing React 19 + MUI chat selector path stays unchanged: the client keeps consuming `/chat/providers` and `/chat/models`, and the controlled `TextField select` + `MenuItem` inputs rerender from server-fed state without a Story 47 payload change.
+
+## Story 47 Verification Markers
+
+- `DEV_0000047_T01_CODEX_DEFAULTS_APPLIED`
+  Expected outcome: emitted from REST and MCP Codex-facing selection paths with `success=true`, a resolved model, and the correct `model_source`.
+- `DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP`
+  Expected outcome: emitted during base-config seeding checks with `template_source=in_code`, `outcome=seeded|existing`, and `success=true`.
+- `DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP`
+  Expected outcome: emitted during chat-config seeding checks with `source=chat_template`, `outcome=seeded|existing`, and `success=true`.
+- `DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED`
+  Expected outcome: emitted during chat and agent runtime reads with `success=true`, plus explicit `inherited_keys` and `runtime_override_keys`.
+- `DEV_0000047_T05_CONTEXT7_NORMALIZED`
+  Expected outcome: emitted after runtime inheritance with `success=true` and the expected `mode` for the active Context7 key scenario (`env_overlay`, `no_key_fallback`, `explicit_key_preserved`, or `no_context7_definition`).
 
 ## Chrome DevTools MCP
 

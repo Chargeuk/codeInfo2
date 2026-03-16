@@ -25,6 +25,10 @@ const T22_SUCCESS_LOG =
 const T22_ERROR_LOG =
   '[DEV-0000037][T22] event=final_config_minimization_completed result=error';
 const T09_BOOTSTRAP_LOG_MARKER = 'DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH';
+const T03_CHAT_BOOTSTRAP_MARKER = 'DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP';
+const T04_RUNTIME_INHERITANCE_MARKER =
+  'DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED';
+const T05_CONTEXT7_NORMALIZED_MARKER = 'DEV_0000047_T05_CONTEXT7_NORMALIZED';
 
 export type RuntimeTomlConfig = Record<string, unknown>;
 export type RuntimeConfigWarning = { path: string; message: string };
@@ -33,6 +37,20 @@ export type RuntimeConfigValidationResult = {
   warnings: RuntimeConfigWarning[];
 };
 export type RuntimeConfigSurface = 'agent' | 'chat';
+type RuntimeMergeResult = {
+  merged: RuntimeTomlConfig;
+  inheritedKeys: string[];
+  runtimeOverrideKeys: string[];
+};
+type Context7NormalizationMode =
+  | 'env_overlay'
+  | 'no_key_fallback'
+  | 'explicit_key_preserved'
+  | 'no_context7_definition';
+type Context7NormalizationResult = {
+  config: RuntimeTomlConfig;
+  mode: Context7NormalizationMode;
+};
 
 export class RuntimeConfigResolutionError extends Error {
   readonly code:
@@ -63,12 +81,9 @@ export class RuntimeConfigResolutionError extends Error {
 
 type ChatBootstrapBranch =
   | 'existing_noop'
-  | 'copied'
   | 'generated_template'
-  | 'copy_failed'
   | 'template_write_failed'
   | 'chat_stat_failed'
-  | 'base_stat_failed'
   | 'chat_dir_create_failed';
 
 export type RuntimeConfigSnapshot = {
@@ -82,6 +97,10 @@ export type RuntimeConfigSnapshot = {
 };
 
 const WEB_SEARCH_MODES = new Set(['live', 'cached', 'disabled']);
+const CONTEXT7_PLACEHOLDER_API_KEYS = new Set([
+  'REPLACE_WITH_CONTEXT7_API_KEY',
+  'ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866',
+]);
 const CHAT_CONFIG_TEMPLATE = [
   'model = "gpt-5.3-codex"',
   'model_reasoning_effort = "high"',
@@ -124,6 +143,117 @@ function cloneConfig(input: RuntimeTomlConfig): RuntimeTomlConfig {
   return structuredClone(input) as RuntimeTomlConfig;
 }
 
+function getUsableContext7EnvApiKey(): string | undefined {
+  const raw = process.env.CODEINFO_CONTEXT7_API_KEY;
+  if (typeof raw !== 'string') {
+    return undefined;
+  }
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function isPlaceholderEquivalentContext7Key(value: unknown): boolean {
+  return (
+    typeof value === 'string' && CONTEXT7_PLACEHOLDER_API_KEYS.has(value.trim())
+  );
+}
+
+function normalizeContext7Args(params: {
+  args: unknown[];
+  envApiKey: string | undefined;
+}): { args: unknown[]; mode: Context7NormalizationMode } {
+  const apiKeyIndex = params.args.findIndex((entry) => entry === '--api-key');
+  if (apiKeyIndex === -1) {
+    if (params.envApiKey) {
+      return {
+        args: [...params.args, '--api-key', params.envApiKey],
+        mode: 'env_overlay',
+      };
+    }
+
+    return {
+      args: [...params.args],
+      mode: 'no_key_fallback',
+    };
+  }
+
+  const nextValue = params.args[apiKeyIndex + 1];
+  if (typeof nextValue !== 'string') {
+    return {
+      args: [...params.args],
+      mode: 'no_context7_definition',
+    };
+  }
+
+  if (!isPlaceholderEquivalentContext7Key(nextValue)) {
+    return {
+      args: [...params.args],
+      mode: 'explicit_key_preserved',
+    };
+  }
+
+  if (params.envApiKey) {
+    const normalizedArgs = [...params.args];
+    normalizedArgs[apiKeyIndex + 1] = params.envApiKey;
+    return {
+      args: normalizedArgs,
+      mode: 'env_overlay',
+    };
+  }
+
+  return {
+    args: [
+      ...params.args.slice(0, apiKeyIndex),
+      ...params.args.slice(apiKeyIndex + 2),
+    ],
+    mode: 'no_key_fallback',
+  };
+}
+
+export function normalizeContext7RuntimeConfig(
+  input: RuntimeTomlConfig,
+): Context7NormalizationResult {
+  const normalized = cloneConfig(input);
+  if (!isRecord(normalized.mcp_servers)) {
+    return { config: normalized, mode: 'no_context7_definition' };
+  }
+
+  const context7Definition = normalized.mcp_servers.context7;
+  if (!isRecord(context7Definition)) {
+    return { config: normalized, mode: 'no_context7_definition' };
+  }
+
+  if (
+    hasOwn(context7Definition, 'url') ||
+    hasOwn(context7Definition, 'http_headers')
+  ) {
+    return { config: normalized, mode: 'no_context7_definition' };
+  }
+
+  if (
+    typeof context7Definition.command !== 'string' ||
+    !Array.isArray(context7Definition.args)
+  ) {
+    return { config: normalized, mode: 'no_context7_definition' };
+  }
+
+  const result = normalizeContext7Args({
+    args: context7Definition.args,
+    envApiKey: getUsableContext7EnvApiKey(),
+  });
+  normalized.mcp_servers = {
+    ...(normalized.mcp_servers as Record<string, unknown>),
+    context7: {
+      ...context7Definition,
+      args: result.args,
+    },
+  };
+  return {
+    config: normalized,
+    mode: result.mode,
+  };
+}
+
 export function normalizeRuntimeConfig(
   input: RuntimeTomlConfig,
 ): RuntimeTomlConfig {
@@ -131,39 +261,57 @@ export function normalizeRuntimeConfig(
 
   const rawFeatures = isRecord(normalized.features) ? normalized.features : {};
   const features: Record<string, unknown> = { ...rawFeatures };
-  const hasCanonicalTools =
-    isRecord(normalized.tools) && hasOwn(normalized.tools, 'view_image');
-  const tools = isRecord(normalized.tools)
-    ? { ...normalized.tools }
+  const rawTools = normalized.tools;
+  const hasCanonicalTools = hasOwn(normalized, 'tools');
+  const hasCanonicalViewImage =
+    isRecord(rawTools) && hasOwn(rawTools, 'view_image');
+  const tools = isRecord(rawTools)
+    ? { ...rawTools }
     : ({} as Record<string, unknown>);
 
-  if (!hasCanonicalTools && hasOwn(features, 'view_image_tool')) {
-    const viewImage = toBoolean(features.view_image_tool);
-    if (viewImage !== undefined) {
-      tools.view_image = viewImage;
+  const viewImageAlias = hasOwn(features, 'view_image_tool')
+    ? toBoolean(features.view_image_tool)
+    : undefined;
+  if (viewImageAlias !== undefined) {
+    if (!hasCanonicalViewImage) {
+      tools.view_image = viewImageAlias;
     }
+    delete features.view_image_tool;
   }
-  delete features.view_image_tool;
 
   const hasCanonicalWebSearch = hasOwn(normalized, 'web_search');
+  const rootWebSearchAlias = hasOwn(normalized, 'web_search_request')
+    ? toWebSearchMode(normalized.web_search_request)
+    : undefined;
+  const featureWebSearchAlias = hasOwn(features, 'web_search_request')
+    ? toWebSearchMode(features.web_search_request)
+    : undefined;
   if (!hasCanonicalWebSearch) {
-    const aliasWebSearch =
-      toWebSearchMode(normalized.web_search_request) ??
-      toWebSearchMode(features.web_search_request);
+    const aliasWebSearch = rootWebSearchAlias ?? featureWebSearchAlias;
     if (aliasWebSearch !== undefined) {
       normalized.web_search = aliasWebSearch;
     }
   }
 
-  if (hasOwn(normalized, 'web_search_request')) {
+  if (rootWebSearchAlias !== undefined) {
     delete normalized.web_search_request;
   }
-  delete features.web_search_request;
+  if (featureWebSearchAlias !== undefined) {
+    delete features.web_search_request;
+  }
 
-  if (Object.keys(tools).length > 0) {
+  if (hasCanonicalTools) {
+    if (isRecord(rawTools)) {
+      if (Object.keys(tools).length > 0) {
+        normalized.tools = tools;
+      } else {
+        delete normalized.tools;
+      }
+    } else {
+      normalized.tools = rawTools;
+    }
+  } else if (Object.keys(tools).length > 0) {
     normalized.tools = tools;
-  } else if (hasOwn(normalized, 'tools')) {
-    delete normalized.tools;
   }
 
   if (Object.keys(features).length > 0) {
@@ -287,6 +435,108 @@ export function mergeProjectsFromBaseIntoRuntime(
     delete merged.projects;
   }
   return merged;
+}
+
+function mergeNamedTables(
+  baseValue: unknown,
+  runtimeValue: unknown,
+): unknown {
+  if (runtimeValue !== undefined && !isRecord(runtimeValue)) {
+    return structuredClone(runtimeValue);
+  }
+  if (baseValue !== undefined && !isRecord(baseValue)) {
+    return structuredClone(baseValue);
+  }
+  const baseTable = isRecord(baseValue)
+    ? { ...(baseValue as Record<string, unknown>) }
+    : {};
+  const runtimeTable = isRecord(runtimeValue)
+    ? { ...(runtimeValue as Record<string, unknown>) }
+    : {};
+  const mergedTable = { ...baseTable, ...runtimeTable };
+  if (Object.keys(mergedTable).length === 0) {
+    return undefined;
+  }
+  return mergedTable;
+}
+
+export function mergeRuntimeConfigWithBaseConfig(
+  baseConfig: RuntimeTomlConfig | undefined,
+  runtimeConfig: RuntimeTomlConfig,
+): RuntimeMergeResult {
+  const merged = cloneConfig(runtimeConfig);
+  const inheritedKeys: string[] = [];
+  const runtimeOverrideKeys: string[] = [];
+
+  const recordOverride = (key: string) => {
+    if (
+      baseConfig &&
+      hasOwn(baseConfig, key) &&
+      hasOwn(runtimeConfig, key) &&
+      !runtimeOverrideKeys.includes(key)
+    ) {
+      runtimeOverrideKeys.push(key);
+    }
+  };
+
+  const inheritTopLevel = (key: string) => {
+    if (!baseConfig || !hasOwn(baseConfig, key)) {
+      return;
+    }
+    if (hasOwn(runtimeConfig, key)) {
+      recordOverride(key);
+      return;
+    }
+    merged[key] = cloneConfig({ [key]: baseConfig[key] })[key];
+    inheritedKeys.push(key);
+  };
+
+  const mergeTopLevelTable = (key: string) => {
+    const mergedTable = mergeNamedTables(baseConfig?.[key], runtimeConfig[key]);
+    if (mergedTable === undefined) {
+      delete merged[key];
+      return;
+    }
+    merged[key] = mergedTable;
+    if (baseConfig && hasOwn(baseConfig, key) && !hasOwn(runtimeConfig, key)) {
+      inheritedKeys.push(key);
+      return;
+    }
+    if (
+      baseConfig &&
+      hasOwn(baseConfig, key) &&
+      hasOwn(runtimeConfig, key) &&
+      !runtimeOverrideKeys.includes(key)
+    ) {
+      runtimeOverrideKeys.push(key);
+    }
+  };
+
+  merged.projects = mergeNamedTables(
+    baseConfig?.projects,
+    runtimeConfig.projects,
+  );
+  if (merged.projects === undefined) {
+    delete merged.projects;
+  } else if (baseConfig && hasOwn(baseConfig, 'projects')) {
+    if (hasOwn(runtimeConfig, 'projects')) {
+      runtimeOverrideKeys.push('projects');
+    } else {
+      inheritedKeys.push('projects');
+    }
+  }
+
+  mergeTopLevelTable('mcp_servers');
+  mergeTopLevelTable('tools');
+  mergeTopLevelTable('model_providers');
+  inheritTopLevel('personality');
+  inheritTopLevel('model_provider');
+
+  ['model', 'approval_policy', 'sandbox_mode', 'web_search'].forEach(
+    recordOverride,
+  );
+
+  return { merged, inheritedKeys, runtimeOverrideKeys };
 }
 
 export function validateRuntimeConfig(
@@ -538,6 +788,27 @@ function logTask9Bootstrap(params: {
   }
 }
 
+function logTask3Bootstrap(params: {
+  chatConfigPath: string;
+  outcome: 'seeded' | 'existing';
+  success: boolean;
+  warning?: string;
+  warningCode?: string;
+}) {
+  const payload = {
+    config_path: params.chatConfigPath,
+    outcome: params.outcome,
+    source: 'chat_template',
+    success: params.success,
+    warning: params.warning,
+    warningCode: params.warningCode,
+  };
+  console.info(T03_CHAT_BOOTSTRAP_MARKER, payload);
+  if (params.warning) {
+    console.warn(T03_CHAT_BOOTSTRAP_MARKER, payload);
+  }
+}
+
 async function cleanupPartialChatConfig(chatConfigPath: string) {
   const exists = await fs
     .stat(chatConfigPath)
@@ -564,11 +835,26 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
         required: true,
       }),
     ]);
-    const merged = mergeProjectsFromBaseIntoRuntime(baseConfig, runtimeConfig!);
-    const validated = validateRuntimeConfig(merged, {
+    const mergeResult = mergeRuntimeConfigWithBaseConfig(
+      baseConfig,
+      runtimeConfig!,
+    );
+    const context7Result = normalizeContext7RuntimeConfig(mergeResult.merged);
+    const validated = validateRuntimeConfig(context7Result.config, {
       pathLabel: params.surface,
     });
     logValidationWarnings(validated.warnings);
+    console.info(T04_RUNTIME_INHERITANCE_MARKER, {
+      surface: params.surface,
+      inherited_keys: mergeResult.inheritedKeys,
+      runtime_override_keys: mergeResult.runtimeOverrideKeys,
+      success: true,
+    });
+    console.info(T05_CONTEXT7_NORMALIZED_MARKER, {
+      mode: context7Result.mode,
+      surface: params.surface,
+      success: true,
+    });
     console.info(T04_SUCCESS_LOG, {
       surface: params.surface,
       codexHome,
@@ -632,7 +918,7 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
   const chatConfigPath = getCodexChatConfigPathForHome(codexHome);
 
   const chatExists = await fs.stat(chatConfigPath).then(
-    (stat) => stat.isFile(),
+    () => true,
     (error: unknown) => {
       if ((error as { code?: string }).code === 'ENOENT') return false;
       const code = (error as { code?: string }).code;
@@ -661,6 +947,11 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
       copied: false,
       generatedTemplate: false,
     });
+    logTask3Bootstrap({
+      chatConfigPath,
+      outcome: 'existing',
+      success: true,
+    });
     return {
       codexHome,
       baseConfigPath,
@@ -670,27 +961,6 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
       branch: 'existing_noop',
     };
   }
-
-  const baseExists = await fs.stat(baseConfigPath).then(
-    (stat) => stat.isFile(),
-    (error: unknown) => {
-      if ((error as { code?: string }).code === 'ENOENT') return false;
-      const code = (error as { code?: string }).code;
-      const warning =
-        error instanceof Error ? error.message : 'Failed to stat base config';
-      logTask9Bootstrap({
-        branch: 'base_stat_failed',
-        codexHome,
-        baseConfigPath,
-        chatConfigPath,
-        copied: false,
-        generatedTemplate: false,
-        warning,
-        warningCode: code,
-      });
-      throw error;
-    },
-  );
 
   await fs
     .mkdir(path.dirname(chatConfigPath), { recursive: true })
@@ -713,93 +983,37 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
       throw error;
     });
 
-  if (!baseExists) {
-    const tempPath = `${chatConfigPath}.tmp`;
-    try {
-      await fs.writeFile(tempPath, CHAT_CONFIG_TEMPLATE, {
-        encoding: 'utf8',
-        flag: 'wx',
-      });
-      await fs.rename(tempPath, chatConfigPath);
-      logTask9Bootstrap({
-        branch: 'generated_template',
-        codexHome,
-        baseConfigPath,
-        chatConfigPath,
-        copied: false,
-        generatedTemplate: true,
-      });
-      return {
-        codexHome,
-        baseConfigPath,
-        chatConfigPath,
-        copied: false,
-        generatedTemplate: true,
-        branch: 'generated_template',
-      };
-    } catch (error) {
-      await fs.unlink(tempPath).catch(() => undefined);
-      await cleanupPartialChatConfig(chatConfigPath);
-      if ((error as { code?: string }).code === 'EEXIST') {
-        logTask9Bootstrap({
-          branch: 'existing_noop',
-          codexHome,
-          baseConfigPath,
-          chatConfigPath,
-          copied: false,
-          generatedTemplate: false,
-        });
-        return {
-          codexHome,
-          baseConfigPath,
-          chatConfigPath,
-          copied: false,
-          generatedTemplate: false,
-          branch: 'existing_noop',
-        };
-      }
-      const code = (error as { code?: string }).code;
-      const warning =
-        error instanceof Error
-          ? error.message
-          : 'Failed to write chat config template';
-      logTask9Bootstrap({
-        branch: 'template_write_failed',
-        codexHome,
-        baseConfigPath,
-        chatConfigPath,
-        copied: false,
-        generatedTemplate: false,
-        warning,
-        warningCode: code,
-      });
-      throw error;
-    }
-  }
-
+  const tempPath = `${chatConfigPath}.tmp`;
   try {
-    await fs.copyFile(
-      baseConfigPath,
-      chatConfigPath,
-      fsConstants.COPYFILE_EXCL,
-    );
+    await fs.writeFile(tempPath, CHAT_CONFIG_TEMPLATE, {
+      encoding: 'utf8',
+      flag: 'wx',
+    });
+    await fs.rename(tempPath, chatConfigPath);
     logTask9Bootstrap({
-      branch: 'copied',
+      branch: 'generated_template',
       codexHome,
       baseConfigPath,
       chatConfigPath,
-      copied: true,
-      generatedTemplate: false,
+      copied: false,
+      generatedTemplate: true,
+    });
+    logTask3Bootstrap({
+      chatConfigPath,
+      outcome: 'seeded',
+      success: true,
     });
     return {
       codexHome,
       baseConfigPath,
       chatConfigPath,
-      copied: true,
-      generatedTemplate: false,
-      branch: 'copied',
+      copied: false,
+      generatedTemplate: true,
+      branch: 'generated_template',
     };
   } catch (error) {
+    await fs.unlink(tempPath).catch(() => undefined);
+    await cleanupPartialChatConfig(chatConfigPath);
     if ((error as { code?: string }).code === 'EEXIST') {
       logTask9Bootstrap({
         branch: 'existing_noop',
@@ -809,6 +1023,11 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
         copied: false,
         generatedTemplate: false,
       });
+      logTask3Bootstrap({
+        chatConfigPath,
+        outcome: 'existing',
+        success: true,
+      });
       return {
         codexHome,
         baseConfigPath,
@@ -818,17 +1037,24 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
         branch: 'existing_noop',
       };
     }
-    await cleanupPartialChatConfig(chatConfigPath);
     const code = (error as { code?: string }).code;
     const warning =
-      error instanceof Error ? error.message : 'Failed to copy base config';
+      error instanceof Error ? error.message : 'Failed to write chat template';
     logTask9Bootstrap({
-      branch: 'copy_failed',
+      branch: 'template_write_failed',
       codexHome,
       baseConfigPath,
       chatConfigPath,
       copied: false,
       generatedTemplate: false,
+      warning,
+      warningCode: code,
+    });
+    console.warn(T03_CHAT_BOOTSTRAP_MARKER, {
+      config_path: chatConfigPath,
+      outcome: 'seeded',
+      source: 'chat_template',
+      success: false,
       warning,
       warningCode: code,
     });

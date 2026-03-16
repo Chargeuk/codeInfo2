@@ -1,5 +1,25 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000048 Task 1 structural change ledger
+
+Added files:
+
+- `server/src/flows/repositoryCandidateOrder.ts`
+- `server/src/test/unit/repositoryCandidateOrder.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `projectStructure.md`
+
 ## Story 0000047 final implementation footprint
 
 Added files:

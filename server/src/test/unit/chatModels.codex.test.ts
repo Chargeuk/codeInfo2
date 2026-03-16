@@ -195,7 +195,9 @@ test('chat models marker normalizes model_source and retains raw codex_model_sou
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
-    await request(server.httpServer).get('/chat/models?provider=codex').expect(200);
+    await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
 
     const marker = markerPayloads.at(-1);
     assert.ok(marker);

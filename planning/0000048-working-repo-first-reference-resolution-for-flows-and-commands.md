@@ -557,9 +557,10 @@ Rewire the server path that resolves command JSON files so it uses the shared ca
 2. [ ] Update `server/src/flows/service.ts` so flow command resolution uses the shared helper from Task 1 instead of the current inline owner-first builder. Preserve the existing command-name safety checks and the current fail-fast rule for any result other than `NOT_FOUND`.
 3. [ ] Update the direct command execution path so referenced files use the same working-repo-first ordering and treat the selected command file's repository as the owner slot. Do not create any separate command-specific persistence model while doing this.
 4. [ ] Extend or add server tests that prove: a flow from `codeInfo2` prefers the selected working repository first, a flow from one ingested repo still prefers a different selected working repository first, and direct command execution outside flows still uses the command file's repository as the owner slot second.
-5. [ ] Add or update structured resolution logs for this path so they include the shared candidate order, selected repository, fallback-used flag, and whether the working slot was unavailable.
-6. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, only update this story file's Task 2 `Implementation notes`.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, fix the issues before continuing.
+5. [ ] Add or update structured resolution logs for this path so they include the shared candidate order, selected repository, fallback-used flag, and whether the working slot was unavailable. Also write the compact command-resolution lookup summary into the runtime or step metadata shape introduced in Task 4 so later debugging does not depend on logs alone.
+6. [ ] Extend the command-resolution tests so they assert the runtime or step metadata contains the selected repository path, fallback-used flag, and working-repository-available flag for both flow-owned command resolution and direct-command execution.
+7. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, only update this story file's Task 2 `Implementation notes`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, fix the issues before continuing.
 
 #### Testing
 
@@ -597,9 +598,10 @@ Update the markdown resolver so every markdown lookup uses the same shared repos
 2. [ ] Update `server/src/flows/markdownFileResolver.ts` to use the shared helper from Task 1 instead of the current owner-first builder. Preserve the existing relative-path safety checks and the current UTF-8 decode behavior.
 3. [ ] Keep the fail-fast rule for higher-priority markdown candidates that exist but cannot be decoded or read. Only true not-found outcomes should fall through to the next repository candidate.
 4. [ ] Extend or add tests that prove: markdown resolution uses the working repository first, nested command-to-markdown lookups restart the full order for each hop, and invalid UTF-8 or read failures in a higher-priority repository do not fall through silently.
-5. [ ] Update markdown-resolution logs so they emit the same candidate-order and winner metadata shape used by command resolution, plus the final resolved markdown path.
-6. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, only update this story file's Task 3 `Implementation notes`.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues before moving on.
+5. [ ] Update markdown-resolution logs so they emit the same candidate-order and winner metadata shape used by command resolution, plus the final resolved markdown path. Persist the matching markdown lookup summary into runtime or step metadata so nested-resolution debugging does not rely only on log output.
+6. [ ] Extend the markdown-resolution tests so they assert the runtime or step metadata captures the resolved markdown path, selected repository path, fallback-used flag, and working-repository-available flag for nested lookups as well as top-level flow markdown references.
+7. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, only update this story file's Task 3 `Implementation notes`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues before moving on.
 
 #### Testing
 
@@ -640,9 +642,10 @@ Add the storage shapes that story 48 needs without changing any client UI yet. T
 3. [ ] Update `server/src/flows/flowState.ts` and the related flow-state persistence helpers so flow runs can persist both the flow working-folder snapshot and per-child-agent working-folder snapshots.
 4. [ ] Update `server/src/mongo/turn.ts` and any shared turn-write helpers so turns can persist an optional `runtime` object containing the working-folder snapshot and the compact lookup summary.
 5. [ ] Update `server/src/chat/memoryPersistence.ts` and any related in-memory helpers so the same working-folder and runtime metadata shape works when Mongo is unavailable or tests are using memory-mode persistence.
-6. [ ] Add or update tests that prove these storage shapes round-trip correctly in both Mongo-backed and memory-backed code paths. Put the turn-metadata coverage in `server/src/test/integration/flows.turn-metadata.test.ts` and add a unit test under `server/src/test/unit/` for the conversation-flag and memory-persistence cases, including one test that would fail if a nested `flags` update was lost because the `Mixed` object was mutated unsafely.
-7. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, only update this story file's Task 4 `Implementation notes`.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues before continuing.
+6. [ ] Update the conversation summary and event pipeline so `flags.workingFolder` round-trips through the existing REST and websocket conversation surfaces without dropping other flags. This includes the repo helpers and any summary or sidebar emitter code that already forwards `flags` to the client.
+7. [ ] Add or update tests that prove these storage shapes round-trip correctly in both Mongo-backed and memory-backed code paths. Put the turn-metadata coverage in `server/src/test/integration/flows.turn-metadata.test.ts`, add a unit test under `server/src/test/unit/` for the conversation-flag and memory-persistence cases, include one test that would fail if a nested `flags` update was lost because the `Mixed` object was mutated unsafely, and include one test that proves conversation summaries or upsert events still contain `flags.workingFolder`.
+8. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, only update this story file's Task 4 `Implementation notes`.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues before continuing.
 
 #### Testing
 
@@ -681,9 +684,10 @@ Use the storage shapes from Task 4 to make the server actually accept, validate,
 2. [ ] Update `server/src/routes/chatValidators.ts` so `POST /chat` accepts `working_folder` and validates it with the same absolute-path and not-found rules used by the existing agent/flow routes. Return the same `WORKING_FOLDER_INVALID` and `WORKING_FOLDER_NOT_FOUND` codes instead of inventing new ones.
 3. [ ] Update `server/src/routes/chat.ts` so chat requests persist the selected working folder on the owning conversation, clear stale saved paths before the next restore/run uses them, and write the runtime snapshot/lookup summary into the turn metadata without expanding the top-level response contract.
 4. [ ] Update the existing agent/flow/direct-command server paths so they load the saved folder from the owning conversation, persist user edits back to that same conversation, lock edits while a run is active, and initialize flow-created child agent conversations with the exact folder path used by the flow step.
-5. [ ] Add or update server tests that prove: chat accepts and rejects `working_folder` correctly, stale saved folders are cleared before reuse, child agent conversations inherit the flow-step folder, and direct command execution reuses the owning agent conversation rather than inventing a new command context. Put chat-specific coverage in `server/src/test/unit/chatValidators.test.ts` and `server/src/test/unit/chat-interface-run-persistence.test.ts`, and put flow/child-conversation coverage in `server/src/test/integration/flows.run.working-folder.test.ts`.
-6. [ ] Update `design.md` if this task changes any server contract or execution-state description in a way that is not already covered by the final validation task. If no user-facing docs need changing yet, update only this story file's Task 5 `Implementation notes`.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues before moving on.
+5. [ ] Update the conversation restore and edit surfaces that existing pages already use, including the conversation list or detail routes, repo helpers, and websocket/sidebar upsert flow, so an invalid saved path is cleared before the UI restores it and so idle edits to `flags.workingFolder` persist while edit attempts during active runs are rejected consistently.
+6. [ ] Add or update server tests that prove: chat accepts and rejects `working_folder` correctly, stale saved folders are cleared before reuse and before restore, conversation summaries or upsert events expose the cleared or updated `flags.workingFolder`, child agent conversations inherit the flow-step folder, idle working-folder edits persist, edits during active runs are rejected, and direct command execution reuses the owning agent conversation rather than inventing a new command context. Put chat-specific coverage in `server/src/test/unit/chatValidators.test.ts` and `server/src/test/unit/chat-interface-run-persistence.test.ts`, and put flow or child-conversation coverage in `server/src/test/integration/flows.run.working-folder.test.ts`.
+7. [ ] Update `design.md` if this task changes any server contract or execution-state description in a way that is not already covered by the final validation task. If no user-facing docs need changing yet, update only this story file's Task 5 `Implementation notes`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues before moving on.
 
 #### Testing
 
@@ -765,8 +769,9 @@ Perform the server-side and runtime-side portion of the env rename cutover. This
 2. [ ] Update server-side env readers so they consume only the new `CODEINFO_` names for repo-owned settings. This includes startup loading, chat defaults, logging, ingest configuration, LM Studio connectivity, and OpenAI embedding credentials.
 3. [ ] Update checked-in server env files, compose files, and runtime wrapper scripts so they set only the new `CODEINFO_` names and no longer seed the old generic product-owned names.
 4. [ ] Update or add server tests that prove startup env loading, default resolution, and required-key errors all work with the renamed `CODEINFO_` variables and no longer rely on the old names.
-5. [ ] Update `docs/developer-reference.md` and this story file's Task 7 `Implementation notes` so the server/runtime env cutover is documented in one place that a junior developer can follow.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues before moving on.
+5. [ ] Run repo-wide searches for the legacy server/runtime env names listed in this story and remove or replace every checked-in product-owned occurrence so the cutover is complete rather than partial. Include compose files, wrappers, tests, docs, and any helper scripts in that sweep.
+6. [ ] Update `docs/developer-reference.md` and this story file's Task 7 `Implementation notes` so the server/runtime env cutover is documented in one place that a junior developer can follow.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues before moving on.
 
 #### Testing
 
@@ -804,8 +809,9 @@ Perform the client-side portion of the env rename cutover. This task is only abo
 2. [ ] Update client env readers so they consume the new `VITE_CODEINFO_` names in source code and no longer depend on legacy repo-owned names.
 3. [ ] Update `client/entrypoint.sh`, `client/Dockerfile`, checked-in client env files, and any e2e/build-time env injection so runtime config generation and built assets use the renamed variables together instead of mixing new and old names.
 4. [ ] Update or add client and e2e tests that prove the new `VITE_CODEINFO_` names are honored and the old checked-in names are no longer the supported repo-owned path.
-5. [ ] Update `README.md`, `docs/developer-reference.md`, and this story file's Task 8 `Implementation notes` so the client-side env cutover is documented clearly.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues before continuing.
+5. [ ] Run repo-wide searches for the legacy checked-in client and e2e env names listed in this story and remove or replace every repo-owned occurrence so the browser/runtime cutover is complete rather than partial.
+6. [ ] Update `README.md`, `docs/developer-reference.md`, and this story file's Task 8 `Implementation notes` so the client-side env cutover is documented clearly.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues before continuing.
 
 #### Testing
 

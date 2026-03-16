@@ -498,9 +498,9 @@ Create one shared server-side helper that produces the working-repo-first reposi
 
 #### Documentation Locations
 
-- Context7 `/nodejs/node` for `node:path` path normalization, absolute-path resolution, and file-system path handling
-- Official Node.js API documentation for `path.resolve(...)`, `path.normalize(...)`, and case-sensitive versus case-insensitive path considerations
-- Context7 `/nodejs/node` for `fs` or `fs/promises` behavior where candidate-order tests need safe file-path fixtures
+- Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/path.html`, for `path.resolve(...)`, `path.normalize(...)`, and absolute-path comparison rules used by the shared candidate-order helper
+- Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/fs.html`, for the file and path semantics that the candidate-order tests rely on when building safe repository fixtures
+- Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/process.html#processplatform`, for platform-sensitive path behavior that matters when deduping repository paths case-insensitively
 
 #### Subtasks
 
@@ -537,9 +537,9 @@ Rewire the server path that resolves command JSON files so it uses the shared ca
 
 #### Documentation Locations
 
-- Context7 `/nodejs/node` for `node:path` resolution and safe file-path handling used by command lookup logic
-- Official Node.js API documentation for JSON file access and filesystem error handling that informs fail-fast versus not-found behavior
-- Context7 `/nodejs/node` for standard error and path semantics used when command lookup falls back only on not-found outcomes
+- Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/path.html`, for command-file path resolution and normalized candidate construction
+- Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/fs.html`, for file-read errors and not-found handling that determine when command lookup may fall through to the next repository
+- Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/errors.html`, for distinguishing normal not-found failures from other read or parse failures that must remain fail-fast
 
 #### Subtasks
 
@@ -580,9 +580,9 @@ Update the markdown resolver so every markdown lookup uses the same shared repos
 
 #### Documentation Locations
 
-- Context7 `/nodejs/node` for `node:path` path handling, `fs` or `fs/promises` reads, and text-decoding behavior relevant to markdown resolution
-- Official Node.js API documentation for `Buffer`, UTF-8 decoding, and file-read failure behavior that informs the fail-fast rule
-- Context7 `/nodejs/node` for filesystem error handling patterns used to distinguish not-found from unreadable or undecodable files
+- Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/path.html`, for safe markdown-path resolution and relative-path handling
+- Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/fs.html`, for markdown file reads and error handling that determine not-found versus fail-fast behavior
+- Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/buffer.html`, for UTF-8 decoding behavior and how invalid text data should be treated during markdown resolution
 
 #### Subtasks
 
@@ -624,9 +624,9 @@ Add the storage shapes that story 48 needs without changing any client UI yet. T
 
 #### Documentation Locations
 
-- Context7 `/websites/mongoosejs` for schema design, nested optional objects, and update-query behavior
-- Context7 `/websites/mongoosejs` for `Mixed` field persistence rules and when `markModified(...)` is required
-- Official Mongoose documentation on subdocuments, nested paths, and atomic updates for conversation and turn persistence changes
+- Mongoose documentation via Context7 `/websites/mongoosejs`, specifically `https://mongoosejs.com/docs/schematypes.html#mixed`, for `Mixed` field persistence rules and when `markModified(...)` is required
+- Mongoose documentation via Context7 `/websites/mongoosejs`, specifically `https://mongoosejs.com/docs/subdocs.html`, for nested objects and subdocument-style storage shape design
+- Mongoose documentation via Context7 `/websites/mongoosejs`, specifically `https://mongoosejs.com/docs/tutorials/findoneandupdate.html`, for atomic update patterns that should be reused when storing `flags.workingFolder` and turn runtime metadata
 
 #### Subtasks
 
@@ -668,9 +668,10 @@ Use the storage shapes from Task 4 to make the server actually accept, validate,
 
 #### Documentation Locations
 
-- Context7 `/expressjs/express` for route handlers, request or response flow, and middleware patterns used by the server routes
-- Context7 `/nodejs/node` for absolute-path validation and filesystem existence checks used by working-folder validation
-- Context7 `/websites/mongoosejs` for conversation update semantics when routes persist or clear `flags.workingFolder`
+- Express documentation via Context7 `/expressjs/express`, specifically `https://expressjs.com/en/guide/routing.html`, for route-handler structure and parameter handling used by the server contract changes
+- Express documentation via Context7 `/expressjs/express`, specifically `https://expressjs.com/en/guide/writing-middleware.html`, for middleware and request-flow behavior used when validation and run-lock checks are enforced
+- Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/path.html` and `https://nodejs.org/api/fs.html`, for absolute-path validation and existence checks used by working-folder validation
+- Mongoose documentation via Context7 `/websites/mongoosejs`, specifically `https://mongoosejs.com/docs/tutorials/findoneandupdate.html`, for updating or clearing `flags.workingFolder` without creating a parallel persistence path
 
 #### Subtasks
 
@@ -716,9 +717,10 @@ Update the client so chats, agents, and flows all restore the saved working-fold
 
 #### Documentation Locations
 
-- Context7 `/reactjs/react.dev` for controlled inputs, state synchronization, and conditional disabled UI behavior
-- MUI MCP documentation for `@mui/material` `TextField`, specifically controlled usage, `disabled`, and helper text behavior
-- Context7 `/reactjs/react.dev` for effects and state updates that react to websocket or async conversation updates
+- React documentation via Context7 `/reactjs/react.dev`, specifically `https://react.dev/reference/react-dom/components/input`, for controlled input behavior and value or change handling
+- React documentation via Context7 `/reactjs/react.dev`, specifically `https://react.dev/reference/react/useEffect`, for syncing UI state with websocket updates and restored conversation data
+- MUI MCP documentation for `@mui/material@6.4.12`, specifically `https://llms.mui.com/material-ui/6.4.12/components/text-fields.md`, for `TextField` controlled usage, `disabled`, helper text, and accessibility guidance
+- MUI MCP API documentation for `@mui/material@6.4.12`, specifically `https://llms.mui.com/material-ui/6.4.12/api/text-field.md`, for exact `TextField` props such as `disabled`, `helperText`, `id`, and `value`
 
 #### Subtasks
 
@@ -763,9 +765,9 @@ Perform the server-side and runtime-side portion of the env rename cutover. This
 
 #### Documentation Locations
 
-- Context7 `/nodejs/node` for `process.env` access patterns and environment-variable parsing behavior
-- Docker documentation via Context7 `/docker/docs` for Compose environment variables, env files, and container runtime injection
-- Official Docker Compose environment variable documentation for `.env` files, compose overrides, and runtime environment precedence
+- Node.js documentation via Context7 `/nodejs/node`, specifically `https://nodejs.org/api/process.html#processenv`, for `process.env` access and environment-variable parsing behavior
+- Docker documentation via Context7 `/docker/docs`, specifically `https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/`, for Compose environment-variable injection and env-file wiring
+- Docker documentation via Context7 `/docker/docs`, specifically `https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/`, for `.env` interpolation rules and precedence that affect compose and wrapper updates
 
 #### Subtasks
 
@@ -803,9 +805,9 @@ Perform the client-side portion of the env rename cutover. This task is only abo
 
 #### Documentation Locations
 
-- Context7 `/vitejs/vite` for `import.meta.env`, client env exposure rules, and Vite env-prefix behavior
-- Docker documentation via Context7 `/docker/docs` for build args, runtime env injection, and container entrypoint configuration
-- Context7 `/reactjs/react.dev` for client-side state updates that consume runtime configuration values in React components
+- Vite documentation via Context7 `/vitejs/vite`, specifically `https://vite.dev/guide/env-and-mode`, for `import.meta.env`, browser-exposed env-prefix rules, and mode-specific env behavior
+- Docker documentation via Context7 `/docker/docs`, specifically `https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/`, for runtime env injection into the client container and entrypoint
+- Docker documentation via Context7 `/docker/docs`, specifically `https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/`, for compose interpolation rules that affect client build and e2e env wiring
 
 #### Subtasks
 
@@ -843,9 +845,12 @@ Replace the current OpenAI token-counting heuristic with one tokenizer-backed im
 
 #### Documentation Locations
 
-- Context7 `/websites/developers_openai_api` for embeddings limits, request constraints, and provider error behavior
-- Context7 `/openai/openai-node` for current Node SDK usage patterns relevant to embeddings requests
-- DeepWiki `dqbd/tiktoken`, especially `3.1 WASM Bindings`, `3.2 Pure JavaScript (js-tiktoken)`, and `3.3 Usage and Examples`, for tokenizer initialization, counting, reuse, and cleanup behavior
+- OpenAI API documentation via Context7 `/websites/developers_openai_api`, specifically `https://platform.openai.com/docs/guides/embeddings`, for embeddings model usage and current input-limit guidance
+- OpenAI API reference via Context7 `/websites/developers_openai_api`, specifically `https://platform.openai.com/docs/api-reference/embeddings`, for request and response contract details that affect provider integration and error handling
+- OpenAI Node SDK documentation via Context7 `/openai/openai-node` for the current Node or TypeScript client patterns used by the embeddings provider
+- DeepWiki `dqbd/tiktoken` page `3.1 WASM Bindings` for explicit `free()` and lifecycle behavior in the WASM-backed tokenizer implementation
+- DeepWiki `dqbd/tiktoken` page `3.2 Pure JavaScript (js-tiktoken)` for pure-JavaScript tokenizer construction and counting behavior when a JS fallback is needed
+- DeepWiki `dqbd/tiktoken` page `3.3 Usage and Examples` for concrete token-counting usage patterns that can be mirrored in the shared tokenizer helper
 
 #### Subtasks
 
@@ -883,11 +888,11 @@ This final task proves the full story is complete against the acceptance criteri
 
 #### Documentation Locations
 
-- Docker/Compose: Context7 `/docker/docs`
-- Playwright: Context7 `/microsoft/playwright`
-- Jest: Context7 `/jestjs/jest`
-- Cucumber guides: https://cucumber.io/docs/guides/
-- Mermaid: Context7 `/mermaid-js/mermaid`
+- Docker documentation via Context7 `/docker/docs`, especially the Compose build and environment pages, for final wrapper-based validation and container lifecycle checks
+- Playwright documentation via Context7 `/microsoft/playwright` and `https://playwright.dev/docs/intro`, for manual browser verification flow and screenshot capture expectations
+- Jest documentation via Context7 `/jestjs/jest` and `https://jestjs.io/docs/getting-started`, for interpreting client test output and rerun guidance during final validation
+- Cucumber guide `https://cucumber.io/docs/guides/testable-architecture/`, for keeping higher-level feature coverage maintainable and aligned with stable automation practices
+- Mermaid documentation via Context7 `/mermaid-js/mermaid` and `https://mermaid.js.org/intro/`, for any final diagram updates made in `design.md`
 
 #### Subtasks
 

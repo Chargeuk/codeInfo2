@@ -1,0 +1,15 @@
+{
+  "story_id": "0000047",
+  "plan_path": "planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md",
+  "branch": "feature/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay",
+  "base_branch": "main",
+  "head_commit": "c4ea3346cad9a8707d91f85efa70b7d39e24dd1b",
+  "review_pass_id": "0000047-20260316T001143Z-c4ea3346",
+  "evidence_file": "codeInfoStatus/reviews/0000047-20260316T001143Z-c4ea3346-evidence.md",
+  "findings_file": "codeInfoStatus/reviews/0000047-20260316T001143Z-c4ea3346-findings.md",
+  "findings_count": 0,
+  "must_fix_count": 0,
+  "should_fix_count": 0,
+  "optional_simplification_count": 0,
+  "disposition": "no_findings_residual_indirect_proof_only"
+}

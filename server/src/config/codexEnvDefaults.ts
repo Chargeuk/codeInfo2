@@ -197,3 +197,17 @@ export const getCodexModelList = (): {
     fallbackUsed: false,
   };
 };
+
+export const mergeCodexModelList = (
+  envModels: readonly string[],
+  chatConfigModel: string | undefined,
+): string[] => {
+  const normalizedChatModel =
+    typeof chatConfigModel === 'string' ? chatConfigModel.trim() : '';
+  return Array.from(
+    new Set([
+      ...envModels,
+      ...(normalizedChatModel.length > 0 ? [normalizedChatModel] : []),
+    ]),
+  );
+};

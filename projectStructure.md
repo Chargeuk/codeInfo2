@@ -1,5 +1,47 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000047 final implementation footprint
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Repurposed files:
+
+- `server/src/config/chatDefaults.ts`
+- `server/src/config/codexConfig.ts`
+- `server/src/config/runtimeConfig.ts`
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md`
+- `projectStructure.md`
+- `server/src/codex/capabilityResolver.ts`
+- `server/src/config/chatDefaults.ts`
+- `server/src/config/codexConfig.ts`
+- `server/src/config/codexEnvDefaults.ts`
+- `server/src/config/runtimeConfig.ts`
+- `server/src/mcp2/tools/codebaseQuestion.ts`
+- `server/src/routes/chatModels.ts`
+- `server/src/routes/chatProviders.ts`
+- `server/src/routes/chatValidators.ts`
+- `server/src/test/integration/mcp-codex-wrapper.test.ts`
+- `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+- `server/src/test/unit/capabilityResolver.test.ts`
+- `server/src/test/unit/chatModels.codex.test.ts`
+- `server/src/test/unit/chatProviders.test.ts`
+- `server/src/test/unit/chatValidators.test.ts`
+- `server/src/test/unit/codexConfig.test.ts`
+- `server/src/test/unit/codexEnvDefaults.test.ts`
+- `server/src/test/unit/config.chatDefaults.test.ts`
+- `server/src/test/unit/runtimeConfig.test.ts`
+
 ## Story 0000046 final implementation footprint
 
 Added files:
@@ -1906,3 +1948,26 @@ Modified files (implementation traceability):
 Task notes:
 
 - Task 14 changed existing runtime files only; the documentation update is limited to structure/traceability because no user-visible flow behavior or design contract changed beyond the runtime typing cleanup itself.
+
+## Story 0000047 Task 7 structural verification ledger
+
+Added files:
+
+- `planning/0000047-pr-summary.md`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `projectStructure.md` — final Story 0000047 verification ledger synchronized with the PR-summary artifact that Task 7 adds.
+- `planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md` — Task 7 verification progress, marker evidence, screenshot locations, and final closeout notes recorded in sequence.
+
+Task notes:
+
+- Task 7 adds the maintained PR-summary artifact under `planning/` and keeps screenshot evidence under `test-results/screenshots/` without listing those generated image files here.

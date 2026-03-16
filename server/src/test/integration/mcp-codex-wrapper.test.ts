@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import http from 'node:http';
 import { AddressInfo } from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import type {
   CodexOptions,
@@ -19,6 +22,28 @@ import {
   getCodexDetection,
   setCodexDetection,
 } from '../../providers/codexRegistry.js';
+
+async function withTempCodexHome(chatToml: string): Promise<{
+  codexHome: string;
+  cleanup: () => Promise<void>;
+}> {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-mcp-wrapper-'),
+  );
+  const codexHome = path.join(root, 'codex');
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    chatToml,
+    'utf8',
+  );
+  return {
+    codexHome,
+    cleanup: async () => {
+      await fs.rm(root, { recursive: true, force: true });
+    },
+  };
+}
 
 class MockThread {
   id: string;
@@ -193,6 +218,36 @@ test('MCP responder only returns the final answer segment', async () => {
     assert.deepEqual(Object.keys(segments[0]).sort(), ['text', 'type']);
   } finally {
     setCodexDetection(prev);
+  }
+});
+
+test('MCP responder payload reports the chat-config-aware default model when no override is supplied', async () => {
+  const prev = getCodexDetection();
+  const originalCodeHome = process.env.CODEX_HOME;
+  const tempHome = await withTempCodexHome('model = "config-model"\n');
+  process.env.CODEX_HOME = tempHome.codexHome;
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  try {
+    const result = await runCodebaseQuestion(
+      { question: 'Use config default please' },
+      {
+        codexFactory: () => new MockCodex(),
+        clientFactory: makeLmStudioClientFactory(),
+      },
+    );
+
+    const payload = JSON.parse(result.content[0].text);
+    assert.equal(payload.modelId, 'config-model');
+  } finally {
+    setCodexDetection(prev);
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    await tempHome.cleanup();
   }
 });
 

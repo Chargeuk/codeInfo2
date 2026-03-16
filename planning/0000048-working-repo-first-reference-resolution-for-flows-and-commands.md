@@ -411,7 +411,6 @@ Story 48 does require contract and storage-shape changes, but they can be define
 - This means story 48 should define working-folder persistence in terms of those existing conversation records, not in terms of a new generic "command context" record that does not exist in the current schema.
 
 ## Questions
-- No Further Questions
 
 ## Decisions
 
@@ -477,3 +476,434 @@ Story 48 does require contract and storage-shape changes, but they can be define
 - What the answer is: structured server-side lookup logs are the canonical full debugging surface, and execution metadata for runs or steps includes a compact lookup summary with the final selected repository and, where useful, the candidate order. General high-level API responses should not be broadly expanded with verbose lookup internals.
 - Where the answer came from: user decision in this planning conversation on 2026-03-16 after reviewing the proposed observability approach.
 - Why it is the best answer: it gives developers and support clear debugging data without cluttering every high-level response contract with low-level lookup details.
+
+Follow `planning/plan_format.md` and the repository wrapper-first workflow when implementing the tasks below. Work the tasks in order, keep task status accurate, and do not collapse multiple task scopes into one implementation commit.
+
+## Implementation Plan Instructions
+
+This is the execution checklist for the task list below. It should only be used once the story sections above are understood and the developer is ready to start implementation.
+
+1. Read the full story and the task you are starting before touching code so the acceptance criteria, contracts, and edge cases are fresh.
+2. Reuse the existing feature branch `feature/48-working-repo-first-reference-resolution-for-flows-and-commands`.
+3. Work through the tasks in order. Before touching code for a task, update that task's status to `__in_progress__`, commit that plan-file change, and push it.
+4. For each subtask, read the documentation locations listed for that task before editing code.
+5. Complete one subtask at a time and tick its checkbox as soon as it is done.
+6. After implementation subtasks are complete, run the testing steps for that task in order and tick each checkbox as it passes.
+7. After testing passes, complete every documentation subtask for that task and tick each checkbox.
+8. When a task is complete, add detailed notes to that task's `Implementation notes` section covering what changed, why it changed, and any issue that had to be solved.
+9. Record the task's git commit hashes on the `Git Commits` line, then set the task status to `__done__` and push again.
+10. Use the repository build/test wrappers. Only inspect saved logs when a wrapper reports failure, warnings that need review, or `agent_action: inspect_log`.
+
+# Tasks
+
+### 1. Create The Shared Repository Candidate Order Helper
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Create one shared server-side helper that produces the working-repo-first repository candidate order for every reference lookup. This task is only about building and unit-testing the shared ordering contract; it does not yet rewire the existing flow or markdown resolvers to use it.
+
+#### Documentation Locations
+
+- Story sections in this file: `Description`, `Acceptance Criteria`, `Implementation Ideas`, `Contracts And Storage Shapes`, and `Edge Cases And Failure Modes`
+- Existing owner-first implementations: `server/src/flows/service.ts` and `server/src/flows/markdownFileResolver.ts`
+- Existing repository ordering helpers and source-label rules in the same files
+- Node path normalization rules already used in this repo: `node:path` usage in the resolver files above
+
+#### Subtasks
+
+1. [ ] Re-read the story sections listed above and write down the exact repository-slot order for this task: working repository, owner repository, local `codeInfo2`, then other ingested repositories. Also write down the duplicate-removal rule and the nested-lookup restart rule before editing code.
+2. [ ] Create one shared helper module at `server/src/flows/repositoryCandidateOrder.ts` for repository candidate ordering. Give it explicit input fields for the working repository path, owner repository path, `codeInfo2` root, other ingested repositories, and the reference type or caller context that needs to be logged later.
+3. [ ] In that helper, normalize all repository paths to absolute paths, dedupe them case-insensitively in first-seen order, preserve the existing stable ordering for the `other` repositories, and return enough metadata to tell callers whether the working-repository slot was present or skipped.
+4. [ ] Add unit tests in `server/src/test/unit/repositoryCandidateOrder.test.ts` that prove: normal four-slot ordering, missing-working-repository behavior, working=owner dedupe, owner=`codeInfo2` dedupe, and repeated calls producing the same order for separate nested lookups.
+5. [ ] If this task adds a new file, update `projectStructure.md` with the new helper and test file after the code and tests are complete.
+6. [ ] Update this story file's Task 1 `Implementation notes` section after the task is implemented and tested.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run the appropriate fix command and resolve any remaining issues before moving on.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/repositoryCandidateOrder.test.ts`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+---
+
+### 2. Apply The Shared Order To Flow And Direct-Command Command Resolution
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Rewire the server path that resolves command JSON files so it uses the shared candidate-order helper from Task 1. This task is only about command-file resolution and its logs/metadata, including direct command execution ownership semantics; markdown resolution stays in the next task.
+
+#### Documentation Locations
+
+- Story sections in this file: `Acceptance Criteria`, `Implementation Ideas`, `Expected Outcomes`, and `Edge Cases And Failure Modes`
+- Current flow command resolver: `server/src/flows/service.ts`
+- Direct command execution path and command-runner files: `server/src/agents/service.ts`, `server/src/agents/commandsRunner.ts`, and `server/src/agents/commandItemExecutor.ts`
+- Existing tests around command resolution: `server/src/test/integration/flows.run.command.test.ts` and any command-runner tests under `server/src/test/unit/`
+
+#### Subtasks
+
+1. [ ] Re-read the command-resolution acceptance bullets in this story and note which cases this task must cover: flow-owned commands, local flows run from `codeInfo2`, cross-repo flows, and direct command execution outside flows.
+2. [ ] Update `server/src/flows/service.ts` so flow command resolution uses the shared helper from Task 1 instead of the current inline owner-first builder. Preserve the existing command-name safety checks and the current fail-fast rule for any result other than `NOT_FOUND`.
+3. [ ] Update the direct command execution path so referenced files use the same working-repo-first ordering and treat the selected command file's repository as the owner slot. Do not create any separate command-specific persistence model while doing this.
+4. [ ] Extend or add server tests that prove: a flow from `codeInfo2` prefers the selected working repository first, a flow from one ingested repo still prefers a different selected working repository first, and direct command execution outside flows still uses the command file's repository as the owner slot second.
+5. [ ] Add or update structured resolution logs for this path so they include the shared candidate order, selected repository, fallback-used flag, and whether the working slot was unavailable.
+6. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, only update this story file's Task 2 `Implementation notes`.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, fix the issues before continuing.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --test-name "direct command"`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+---
+
+### 3. Apply The Shared Order To Markdown Resolution And Nested Lookup Logging
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Update the markdown resolver so every markdown lookup uses the same shared repository order as command resolution. This task is only about markdown resolution behavior, fail-fast rules, and the nested-lookup logging/metadata contract for markdown files.
+
+#### Documentation Locations
+
+- Story sections in this file: `Acceptance Criteria`, `Implementation Ideas`, `Expected Outcomes`, and `Edge Cases And Failure Modes`
+- Markdown resolver implementation: `server/src/flows/markdownFileResolver.ts`
+- Existing nested resolution callers in `server/src/flows/service.ts` and `server/src/agents/commandItemExecutor.ts`
+- Existing markdown resolver tests under `server/src/test/unit/` and flow integration tests that exercise markdown lookups
+
+#### Subtasks
+
+1. [ ] Re-read the nested-reference examples in this story and note that the repository order must restart fresh for every markdown lookup rather than inheriting the previous winning repository.
+2. [ ] Update `server/src/flows/markdownFileResolver.ts` to use the shared helper from Task 1 instead of the current owner-first builder. Preserve the existing relative-path safety checks and the current UTF-8 decode behavior.
+3. [ ] Keep the fail-fast rule for higher-priority markdown candidates that exist but cannot be decoded or read. Only true not-found outcomes should fall through to the next repository candidate.
+4. [ ] Extend or add tests that prove: markdown resolution uses the working repository first, nested command-to-markdown lookups restart the full order for each hop, and invalid UTF-8 or read failures in a higher-priority repository do not fall through silently.
+5. [ ] Update markdown-resolution logs so they emit the same candidate-order and winner metadata shape used by command resolution, plus the final resolved markdown path.
+6. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, only update this story file's Task 3 `Implementation notes`.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues before moving on.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/markdown-file-resolver.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --test-name "nested markdown"`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+---
+
+### 4. Add Working-Folder Storage Shapes And Runtime Metadata Persistence
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Add the storage shapes that story 48 needs without changing any client UI yet. This task is only about persistence contracts: `Conversation.flags.workingFolder`, `FlowResumeState` additions, `Turn.runtime`, and keeping memory-mode behavior aligned with Mongo-backed behavior.
+
+#### Documentation Locations
+
+- Story sections in this file: `Contracts And Storage Shapes`, `Edge Cases And Failure Modes`, and `Research Findings`
+- Conversation and repo helpers: `server/src/mongo/conversation.ts` and `server/src/mongo/repo.ts`
+- Flow state: `server/src/flows/flowState.ts`
+- Turn schema: `server/src/mongo/turn.ts`
+- Memory-mode persistence: `server/src/chat/memoryPersistence.ts`
+- Mongoose documentation reference for mixed fields and optional nested objects: Context7 `/websites/mongoosejs`
+
+#### Subtasks
+
+1. [ ] Re-read the storage contract section of this story and list the exact shapes that must exist after this task: `flags.workingFolder`, `FlowResumeState.workingFolder`, `FlowResumeState.agentWorkingFolders`, and `Turn.runtime`.
+2. [ ] Update the conversation model and repo helper code so `flags.workingFolder` can be written, cleared, and returned safely through the existing conversation-summary path without overwriting unrelated flags such as `threadId` or `flow`.
+3. [ ] Update `server/src/flows/flowState.ts` and the related flow-state persistence helpers so flow runs can persist both the flow working-folder snapshot and per-child-agent working-folder snapshots.
+4. [ ] Update `server/src/mongo/turn.ts` and any shared turn-write helpers so turns can persist an optional `runtime` object containing the working-folder snapshot and the compact lookup summary.
+5. [ ] Update `server/src/chat/memoryPersistence.ts` and any related in-memory helpers so the same working-folder and runtime metadata shape works when Mongo is unavailable or tests are using memory-mode persistence.
+6. [ ] Add or update tests that prove these storage shapes round-trip correctly in both Mongo-backed and memory-backed code paths. Put the turn-metadata coverage in `server/src/test/integration/flows.turn-metadata.test.ts` and add a unit test under `server/src/test/unit/` for the conversation-flag and memory-persistence cases, including one test that would fail if a nested `flags` update was lost because the `Mixed` object was mutated unsafely.
+7. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, only update this story file's Task 4 `Implementation notes`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues before continuing.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --test-name "workingFolder"`
+6. [ ] `npm run test:summary:server:unit -- --test-name "runtime metadata"`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+---
+
+### 5. Wire The Server Working-Folder Contract Through Chat, Agents, Flows, And Child Conversations
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Use the storage shapes from Task 4 to make the server actually accept, validate, persist, restore, and clear working-folder state across the existing execution surfaces. This task is the server contract task that must be finished before the frontend task that depends on it.
+
+#### Documentation Locations
+
+- Story sections in this file: `Acceptance Criteria`, `Contracts And Storage Shapes`, `Edge Cases And Failure Modes`, and `Expected Outcomes`
+- Chat request validation and route: `server/src/routes/chatValidators.ts` and `server/src/routes/chat.ts`
+- Existing working-folder server surfaces: `server/src/routes/agentsRun.ts`, `server/src/routes/agentsCommands.ts`, `server/src/routes/flowsRun.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts`
+- Existing working-folder validation boundary: `server/src/agents/service.ts` `resolveWorkingFolderWorkingDirectory(...)`
+- Existing conversation list/detail surfaces: `server/src/routes/conversations.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the working-folder acceptance bullets in this story and note the exact server-side requirements for this task: chat must now accept `working_folder`, invalid saved paths must be cleared before reuse, child agent conversations must inherit the flow-step folder, and high-level start responses must stay compact.
+2. [ ] Update `server/src/routes/chatValidators.ts` so `POST /chat` accepts `working_folder` and validates it with the same absolute-path and not-found rules used by the existing agent/flow routes. Return the same `WORKING_FOLDER_INVALID` and `WORKING_FOLDER_NOT_FOUND` codes instead of inventing new ones.
+3. [ ] Update `server/src/routes/chat.ts` so chat requests persist the selected working folder on the owning conversation, clear stale saved paths before the next restore/run uses them, and write the runtime snapshot/lookup summary into the turn metadata without expanding the top-level response contract.
+4. [ ] Update the existing agent/flow/direct-command server paths so they load the saved folder from the owning conversation, persist user edits back to that same conversation, lock edits while a run is active, and initialize flow-created child agent conversations with the exact folder path used by the flow step.
+5. [ ] Add or update server tests that prove: chat accepts and rejects `working_folder` correctly, stale saved folders are cleared before reuse, child agent conversations inherit the flow-step folder, and direct command execution reuses the owning agent conversation rather than inventing a new command context. Put chat-specific coverage in `server/src/test/unit/chatValidators.test.ts` and `server/src/test/unit/chat-interface-run-persistence.test.ts`, and put flow/child-conversation coverage in `server/src/test/integration/flows.run.working-folder.test.ts`.
+6. [ ] Update `design.md` if this task changes any server contract or execution-state description in a way that is not already covered by the final validation task. If no user-facing docs need changing yet, update only this story file's Task 5 `Implementation notes`.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues before moving on.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --test-name "working_folder"`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+---
+
+### 6. Restore And Lock Working-Folder Pickers In The Client
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Update the client so chats, agents, and flows all restore the saved working-folder state from the server contract introduced in Task 5, and so the picker becomes read-only while the related run is active. This task is only about the frontend behavior that depends on the server contract already being in place.
+
+#### Documentation Locations
+
+- Story sections in this file: `Acceptance Criteria`, `Expected Outcomes`, and `Edge Cases And Failure Modes`
+- Conversation state hook: `client/src/hooks/useConversations.ts`
+- Chat execution hook and page: `client/src/hooks/useChatStream.ts` and `client/src/pages/ChatPage.tsx`
+- Existing working-folder pages: `client/src/pages/AgentsPage.tsx` and `client/src/pages/FlowsPage.tsx`
+- Existing client tests around working folders and runs under `client/src/test/`
+
+#### Subtasks
+
+1. [ ] Re-read the client-facing acceptance bullets in this story and note the exact UX rules for this task: restore from saved conversation state, show the normal empty state when no valid folder exists, keep direct commands tied to the owning agent conversation, and lock edits while a run is active.
+2. [ ] Update `client/src/hooks/useConversations.ts` so the active conversation state reliably exposes `flags.workingFolder` for chat, agent, and flow conversations.
+3. [ ] Update `client/src/hooks/useChatStream.ts` and `client/src/pages/ChatPage.tsx` so chat can restore, edit, commit, and send `working_folder` using the same committed-value behavior already used elsewhere. Make sure the picker is disabled whenever a chat run is active.
+4. [ ] Update `client/src/pages/AgentsPage.tsx` and `client/src/pages/FlowsPage.tsx` so they restore their working-folder pickers from `conversation.flags.workingFolder`, keep the picker locked while a run is active, and return to the normal empty state when the server has cleared an invalid path.
+5. [ ] Add or update client tests that prove restore behavior, lock behavior, request payload behavior, and invalid-path clearing behavior for chat, agents, and flows. Put chat payload coverage in `client/src/test/chatSendPayload.test.ts`, add or extend `client/src/test/chatPage.workingFolder.test.tsx` for chat restore/lock behavior, and update `client/src/test/agentsPage.workingFolderPicker.test.tsx` and `client/src/test/flowsPage.run.test.tsx` for the agent and flow paths.
+6. [ ] Update `README.md` or `docs/developer-reference.md` only if the user-visible working-folder behavior described there is now stale. Also update this story file's Task 6 `Implementation notes` after the task is complete.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues before continuing.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:client -- --file client/src/test/chatSendPayload.test.ts`
+6. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.workingFolderPicker.test.tsx`
+7. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
+8. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.workingFolder.test.tsx`
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+---
+
+### 7. Rename Server And Compose Environment Variables To `CODEINFO_`
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Perform the server-side and runtime-side portion of the env rename cutover. This task is only about server readers, server env files, wrapper/compose/runtime wiring, and the server tests that prove the new `CODEINFO_` names are the only supported repo-owned names.
+
+#### Documentation Locations
+
+- Story sections in this file: `Description`, `Acceptance Criteria`, `Implementation Ideas`, and `Edge Cases And Failure Modes`
+- Startup env loading and server env readers: `server/src/config/startupEnv.ts`, `server/src/config/chatDefaults.ts`, `server/src/logger.ts`, `server/src/ingest/config.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/ingestModels.ts`, `server/src/ingest/chromaClient.ts`, and `server/src/ingest/ingestJob.ts`
+- Server env files and runtime wrappers: `server/.env`, `server/.env.local`, `server/.env.e2e` if present, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, and `scripts/docker-compose-with-env.sh`
+- Existing env tests: `server/src/test/unit/env-loading.test.ts` and related server unit tests that currently set legacy env names
+
+#### Subtasks
+
+1. [ ] Re-read the explicit env mapping in this story and make a checklist of every server/runtime env key that must be renamed in this task. Do not start the code change until the checklist includes all currently documented `CODEINFO_` targets.
+2. [ ] Update server-side env readers so they consume only the new `CODEINFO_` names for repo-owned settings. This includes startup loading, chat defaults, logging, ingest configuration, LM Studio connectivity, and OpenAI embedding credentials.
+3. [ ] Update checked-in server env files, compose files, and runtime wrapper scripts so they set only the new `CODEINFO_` names and no longer seed the old generic product-owned names.
+4. [ ] Update or add server tests that prove startup env loading, default resolution, and required-key errors all work with the renamed `CODEINFO_` variables and no longer rely on the old names.
+5. [ ] Update `docs/developer-reference.md` and this story file's Task 7 `Implementation notes` so the server/runtime env cutover is documented in one place that a junior developer can follow.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues before moving on.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/env-loading.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --test-name "CODEINFO_"`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+---
+
+### 8. Rename Client Build And Runtime Environment Variables To `VITE_CODEINFO_`
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Perform the client-side portion of the env rename cutover. This task is only about client env readers, build/runtime injection, client/e2e tests, and the checked-in client docs that must move to the `VITE_CODEINFO_` names.
+
+#### Documentation Locations
+
+- Story sections in this file: `Description`, `Acceptance Criteria`, `Implementation Ideas`, and `Edge Cases And Failure Modes`
+- Client env readers and runtime injection: `client/src/api/baseUrl.ts`, `client/src/hooks/useLmStudioStatus.ts`, `client/src/logging/transport.ts`, `client/entrypoint.sh`, and `client/Dockerfile`
+- Client env files and e2e references under `client/` and `e2e/`
+- Existing client tests that currently use `VITE_API_URL`, `VITE_LMSTUDIO_URL`, or `VITE_LOG_*`
+
+#### Subtasks
+
+1. [ ] Re-read the explicit client env mapping in this story and make a checklist of every `VITE_CODEINFO_` name that must replace a checked-in client or e2e legacy name.
+2. [ ] Update client env readers so they consume the new `VITE_CODEINFO_` names in source code and no longer depend on legacy repo-owned names.
+3. [ ] Update `client/entrypoint.sh`, `client/Dockerfile`, checked-in client env files, and any e2e/build-time env injection so runtime config generation and built assets use the renamed variables together instead of mixing new and old names.
+4. [ ] Update or add client and e2e tests that prove the new `VITE_CODEINFO_` names are honored and the old checked-in names are no longer the supported repo-owned path.
+5. [ ] Update `README.md`, `docs/developer-reference.md`, and this story file's Task 8 `Implementation notes` so the client-side env cutover is documented clearly.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues before continuing.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:client -- --file client/src/test/logging/transport.test.ts`
+6. [ ] `npm run test:summary:client -- --file client/src/test/lmstudio.test.tsx`
+7. [ ] `npm run test:summary:e2e -- --grep "env"`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+---
+
+### 9. Replace OpenAI Heuristic Counting With Tokenizer-Backed Counting
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Replace the current OpenAI token-counting heuristic with one tokenizer-backed implementation that is used consistently by guardrails, the OpenAI provider, and chunk sizing. This task is only about the OpenAI ingest path and its tests; it must not expand into broader ingest batching redesign work.
+
+#### Documentation Locations
+
+- Story sections in this file: `Description`, `Acceptance Criteria`, `Implementation Ideas`, `Research Findings`, and `Edge Cases And Failure Modes`
+- Current OpenAI counting path: `server/src/ingest/providers/openaiGuardrails.ts`, `server/src/ingest/providers/openaiEmbeddingProvider.ts`, `server/src/ingest/chunker.ts`, `server/src/ingest/providers/openaiConstants.ts`, and `server/src/ingest/providers/openaiErrors.ts`
+- OpenAI embeddings guidance and model limits already cited in this story
+- DeepWiki `dqbd/tiktoken` guidance on initialization failure and `free()` cleanup
+
+#### Subtasks
+
+1. [ ] Re-read the OpenAI bug-fix acceptance bullets in this story and note the non-negotiable rules for this task: prefer Node `tiktoken`, keep the real 8192-token limit, preserve the existing non-token guardrails, and do not silently fall back to the old heuristic or whitespace estimate for OpenAI.
+2. [ ] Add the tokenizer dependency or dependencies under the server workspace and create one shared OpenAI tokenizer helper module that owns initialization, counting, reuse, and cleanup behavior. If a fallback implementation is needed, make it tokenizer-backed as well and document exactly when it is used.
+3. [ ] Replace `estimateOpenAiTokens(...)` usage in `server/src/ingest/providers/openaiGuardrails.ts` and `server/src/ingest/providers/openaiEmbeddingProvider.ts` so both preflight guardrails and `countTokens()` use the same tokenizer-backed logic and the corrected 8192-token limit.
+4. [ ] Update `server/src/ingest/chunker.ts` and any related classifier code so OpenAI chunk sizing sees the same tokenizer-backed counts and tokenizer failures become clear ingest errors instead of quietly falling back to whitespace estimation.
+5. [ ] Add or update tests that prove: oversized OpenAI inputs are blocked with tokenizer-backed counts, blank inputs and max-input-count checks still behave correctly, and the chunker/provider/guardrails all agree on the count path.
+6. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Also update this story file's Task 9 `Implementation notes` after the task is done.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues before continuing.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openai-provider-guardrails.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openai-provider.test.ts`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chunker.test.ts`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+---
+
+### 10. Final Validation, Documentation, And Acceptance Review
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+This final task proves the full story is complete against the acceptance criteria. It performs the full wrapper-based validation matrix, updates the final documentation, runs a manual browser check with Playwright MCP, saves evidence screenshots, and prepares the pull-request summary for the entire story.
+
+#### Documentation Locations
+
+- Docker/Compose: Context7 `/docker/docs`
+- Playwright: Context7 `/microsoft/playwright`
+- Jest: Context7 `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
+- Story acceptance and edge-case sections in this file
+- `README.md`, `design.md`, `projectStructure.md`, and `docs/developer-reference.md`
+
+#### Subtasks
+
+1. [ ] Re-read the full `Acceptance Criteria`, `Expected Outcomes`, and `Edge Cases And Failure Modes` sections in this story and make an explicit checklist that maps each acceptance item to a proof source before running final validation.
+2. [ ] Update `README.md` with any required command, env, and user-facing behavior changes introduced by this story.
+3. [ ] Update `design.md` with the final repository-order, working-folder persistence, env rename, and tokenizer-counting behavior. Include any Mermaid updates needed to keep the design documentation accurate.
+4. [ ] Update `projectStructure.md` with every file added or removed across the full story.
+5. [ ] Update `docs/developer-reference.md` with the final env naming, working-folder restore behavior, and lookup/debugging guidance if that document is affected by the completed implementation.
+6. [ ] Create a pull-request summary comment that covers all server, client, env, tokenizer, test, and documentation changes made across the story.
+7. [ ] Update this story file's Task 10 `Implementation notes` with the final acceptance-check results and the locations of any screenshots or manual proof artifacts.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit`
+6. [ ] `npm run test:summary:server:cucumber`
+7. [ ] `npm run test:summary:client`
+8. [ ] `npm run test:summary:e2e`
+9. [ ] Use the Playwright MCP tool to manually verify the finished behavior across chat, agents, and flows. Save the final evidence screenshots to `test-results/screenshots/` using names of the form `0000048-10-<short-name>.png`.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+---

@@ -4,6 +4,11 @@ import type {
   SandboxMode,
 } from '@openai/codex-sdk';
 import {
+  getCodexCapabilityForModel,
+  resolveCodexCapabilities,
+  type CodexCapabilityResolution,
+} from '../codex/capabilityResolver.js';
+import {
   resolveChatDefaults,
   resolveCodexChatDefaults,
   STORY_47_TASK_1_LOG_MARKER,
@@ -11,12 +16,8 @@ import {
   toCodexDefaultSource,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
-import {
-  getCodexCapabilityForModel,
-  resolveCodexCapabilities,
-  type CodexCapabilityResolution,
-} from '../codex/capabilityResolver.js';
 import { baseLogger } from '../logger.js';
+import { validateRequestedWorkingFolder } from '../workingFolders/state.js';
 
 type Provider = 'codex' | 'lmstudio';
 
@@ -33,6 +34,7 @@ export type ChatRequestBody = {
   webSearchEnabled?: unknown;
   approvalPolicy?: unknown;
   modelReasoningEffort?: unknown;
+  working_folder?: unknown;
 };
 
 export type ValidatedChatRequest = {
@@ -42,6 +44,7 @@ export type ValidatedChatRequest = {
   provider: Provider;
   threadId?: string;
   inflightId?: string;
+  working_folder?: string;
   codexFlags: {
     sandboxMode?: SandboxMode;
     networkAccessEnabled?: boolean;
@@ -227,6 +230,30 @@ export async function validateChatRequest(
     throw new ChatValidationError('inflightId must be a non-empty string');
   }
 
+  const rawWorkingFolder = body.working_folder;
+  if (rawWorkingFolder !== undefined && rawWorkingFolder !== null) {
+    if (typeof rawWorkingFolder !== 'string') {
+      throw new ChatValidationError('working_folder must be a string');
+    }
+  }
+  let working_folder: string | undefined;
+  try {
+    working_folder = await validateRequestedWorkingFolder({
+      workingFolder:
+        typeof rawWorkingFolder === 'string' &&
+        rawWorkingFolder.trim().length > 0
+          ? rawWorkingFolder
+          : undefined,
+    });
+  } catch (error) {
+    const err = error as { reason?: unknown };
+    throw new ChatValidationError(
+      typeof err.reason === 'string'
+        ? err.reason
+        : 'working_folder validation failed',
+    );
+  }
+
   const codexFlags: ValidatedChatRequest['codexFlags'] = {};
   const defaultedFlags: Array<keyof ValidatedChatRequest['codexFlags']> = [];
   const codexCapabilities =
@@ -390,6 +417,7 @@ export async function validateChatRequest(
     provider,
     threadId,
     inflightId,
+    working_folder,
     codexFlags,
     warnings,
     defaultsResolution: {

@@ -25,9 +25,9 @@ import {
   getRootsCollection,
   getVectorsCollection,
 } from '../../ingest/chromaClient.js';
+import { resolveConfig } from '../../ingest/config.js';
 import { discoverFiles } from '../../ingest/discovery.js';
 import { hashFile } from '../../ingest/hashing.js';
-import { resolveConfig } from '../../ingest/config.js';
 import { setIngestDeps } from '../../ingest/ingestJob.js';
 import { createRequestLogger } from '../../logger.js';
 import { isMongoConnected } from '../../mongo/connection.js';

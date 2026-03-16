@@ -4,12 +4,12 @@ import {
   type StartedTestContainer,
   Wait,
 } from 'testcontainers';
-import { IngestFileModel } from '../../mongo/ingestFile.js';
 import {
   connectMongo,
   disconnectMongo,
   isMongoConnected,
 } from '../../mongo/connection.js';
+import { IngestFileModel } from '../../mongo/ingestFile.js';
 
 let container: StartedTestContainer | null = null;
 let containerPromise: Promise<StartedTestContainer> | null = null;

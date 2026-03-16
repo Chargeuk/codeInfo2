@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { describe, test } from 'node:test';
+import express from 'express';
 import mongoose from 'mongoose';
+import request from 'supertest';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
@@ -13,6 +16,8 @@ import type {
   TurnTimingMetadata,
   TurnUsageMetadata,
 } from '../../mongo/turn.js';
+import { createChatRouter } from '../../routes/chat.js';
+import { restoreSavedWorkingFolder } from '../../workingFolders/state.js';
 
 class PersistSpyChat extends ChatInterface {
   public persisted: Array<{
@@ -69,6 +74,22 @@ class PersistSpyChat extends ChatInterface {
       type: 'complete',
       ...(this.completeEvent ?? {}),
     });
+  }
+}
+
+class RouteChat extends ChatInterface {
+  async execute(
+    _message: string,
+    _flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ): Promise<void> {
+    void _message;
+    void _flags;
+    void _model;
+    this.emitEvent({ type: 'thread', threadId: conversationId });
+    this.emitEvent({ type: 'final', content: 'assistant-reply' });
+    this.emitEvent({ type: 'complete' });
   }
 }
 
@@ -313,6 +334,151 @@ describe('ChatInterface.run persistence', () => {
     } finally {
       memoryConversations.delete('conv-runtime-memory');
       memoryTurns.delete('conv-runtime-memory');
+    }
+  });
+
+  test('a successful chat run persists the selected working folder on the owning conversation', async () => {
+    const app = express();
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: () =>
+          ({
+            system: {
+              listDownloadedModels: async () => [{ modelKey: 'lmstudio-test' }],
+            },
+          }) as never,
+        chatFactory: () => new RouteChat(),
+      }),
+    );
+
+    await withReadyState(0, 'test', async () => {
+      const res = await request(app).post('/chat').send({
+        provider: 'lmstudio',
+        model: 'lmstudio-test',
+        message: 'hello',
+        conversationId: 'chat-working-folder-save',
+        working_folder: process.cwd(),
+      });
+
+      assert.equal(res.status, 202);
+    });
+
+    try {
+      assert.equal(
+        memoryConversations.get('chat-working-folder-save')?.flags
+          ?.workingFolder,
+        process.cwd(),
+      );
+    } finally {
+      memoryConversations.delete('chat-working-folder-save');
+      memoryTurns.delete('chat-working-folder-save');
+    }
+  });
+
+  test('an invalid saved chat working folder is cleared before the chat restore path uses it', async () => {
+    let clearedConversationId: string | undefined;
+    const restored = await restoreSavedWorkingFolder({
+      conversation: {
+        conversationId: 'chat-restore-clear',
+        flags: {
+          workingFolder: path.join(process.cwd(), 'definitely-missing'),
+        },
+      },
+      surface: 'chat_run',
+      clearPersistedWorkingFolder: async (conversationId) => {
+        clearedConversationId = conversationId;
+      },
+    });
+
+    assert.equal(restored, undefined);
+    assert.equal(clearedConversationId, 'chat-restore-clear');
+  });
+
+  test('an invalid saved chat working folder is cleared before the next chat run reuses it', async () => {
+    memoryConversations.set('chat-working-folder-clear', {
+      _id: 'chat-working-folder-clear',
+      provider: 'lmstudio',
+      model: 'lmstudio-test',
+      title: 'Chat conversation',
+      source: 'REST',
+      flags: {
+        workingFolder: path.join(process.cwd(), 'definitely-missing-chat-path'),
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastMessageAt: new Date(),
+      archivedAt: null,
+    });
+
+    const app = express();
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: () =>
+          ({
+            system: {
+              listDownloadedModels: async () => [{ modelKey: 'lmstudio-test' }],
+            },
+          }) as never,
+        chatFactory: () => new RouteChat(),
+      }),
+    );
+
+    try {
+      await withReadyState(0, 'test', async () => {
+        const res = await request(app).post('/chat').send({
+          provider: 'lmstudio',
+          model: 'lmstudio-test',
+          message: 'hello',
+          conversationId: 'chat-working-folder-clear',
+        });
+
+        assert.equal(res.status, 202);
+      });
+
+      assert.equal(
+        memoryConversations.get('chat-working-folder-clear')?.flags
+          ?.workingFolder,
+        undefined,
+      );
+    } finally {
+      memoryConversations.delete('chat-working-folder-clear');
+      memoryTurns.delete('chat-working-folder-clear');
+    }
+  });
+
+  test('chat turn runtime metadata includes the working-folder snapshot when a chat run uses one', async () => {
+    const app = express();
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: () =>
+          ({
+            system: {
+              listDownloadedModels: async () => [{ modelKey: 'lmstudio-test' }],
+            },
+          }) as never,
+        chatFactory: () => new RouteChat(),
+      }),
+    );
+
+    try {
+      await withReadyState(0, 'test', async () => {
+        await request(app).post('/chat').send({
+          provider: 'lmstudio',
+          model: 'lmstudio-test',
+          message: 'hello',
+          conversationId: 'chat-runtime-working-folder',
+          working_folder: process.cwd(),
+        });
+      });
+
+      const turns = memoryTurns.get('chat-runtime-working-folder') ?? [];
+      assert.equal(turns[0]?.runtime?.workingFolder, process.cwd());
+    } finally {
+      memoryConversations.delete('chat-runtime-working-folder');
+      memoryTurns.delete('chat-runtime-working-folder');
     }
   });
 });

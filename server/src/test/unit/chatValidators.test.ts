@@ -4,11 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 
+import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 import {
   modelReasoningEfforts,
   validateChatRequest,
 } from '../../routes/chatValidators.js';
-import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 
 const ENV_KEYS = [
   'Codex_sandbox_mode',
@@ -250,6 +250,56 @@ test('rejects unsupported reasoning effort values with deterministic message', a
     new RegExp(
       `modelReasoningEffort must be one of: ${modelReasoningEfforts.join(', ')}`,
     ),
+  );
+});
+
+test('chat validation accepts a valid working_folder', async () => {
+  const workingFolder = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-working-folder-valid-'),
+  );
+  tempDirs.push(workingFolder);
+
+  const result = await validateChatRequest({
+    model: 'gpt-5.2-codex',
+    message: 'hello',
+    conversationId: 'chat-working-folder-valid',
+    provider: 'codex',
+    working_folder: workingFolder,
+  });
+
+  assert.equal(result.working_folder, workingFolder);
+});
+
+test('chat validation rejects invalid absolute-path working_folder with shared message', async () => {
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        model: 'gpt-5.2-codex',
+        message: 'hello',
+        conversationId: 'chat-working-folder-invalid',
+        provider: 'codex',
+        working_folder: 'relative/path',
+      }),
+    /working_folder must be an absolute path/,
+  );
+});
+
+test('chat validation rejects missing-on-disk working_folder with shared message', async () => {
+  const missingPath = path.join(
+    os.tmpdir(),
+    `chat-working-folder-missing-${Date.now()}`,
+  );
+
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        model: 'gpt-5.2-codex',
+        message: 'hello',
+        conversationId: 'chat-working-folder-missing',
+        provider: 'codex',
+        working_folder: missingPath,
+      }),
+    /working_folder not found/,
   );
 });
 

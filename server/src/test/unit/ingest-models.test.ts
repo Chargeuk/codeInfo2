@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import type { LMStudioClient } from '@lmstudio/sdk';
 import test from 'node:test';
+import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
 import type { LockedEmbeddingModel } from '../../ingest/chromaClient.js';

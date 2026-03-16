@@ -420,6 +420,66 @@ sequenceDiagram
   Caller->>Mongo: persist Turn.runtime with compact lookupSummary
 ```
 
+## Story 0000048 Task 5 server working-folder contract
+
+- Story 48 Task 5 makes the stored working-folder contract live across chat, agent, flow, and direct-command surfaces instead of keeping it as persistence-only metadata.
+- `POST /chat`, agent runs, direct commands, and flow runs now all validate a requested working folder, persist user changes onto the owning conversation, and restore a saved value from that same conversation when the next run omits `working_folder`.
+- The server now exposes `POST /conversations/:id/working-folder` as the idle edit surface for chat, agent, and flow conversations; it saves or clears `flags.workingFolder` without starting a run and reuses the same response shape that websocket `conversation_upsert` events publish.
+- Saved working folders are restore-or-clear values, not blindly trusted state:
+  - before `/chat`, `/agents/:agentName/run`, `/agents/:agentName/commands/:commandName/run`, `/flows/:flowName/run`, or `GET /conversations` uses a saved path, the server re-validates it;
+  - if the saved path is stale, the server clears it first, emits `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION`, and returns the normal empty-state summary instead of leaking the invalid value back to the client.
+- Idle edits are run-locked: if a conversation already has an active run lock or inflight snapshot, the idle edit route rejects the change instead of racing the running job.
+- Flow-created child agent conversations inherit the exact folder path used by the flow step, and the same folder is persisted into flow resume state so later restores stay aligned with the executed step.
+
+```mermaid
+flowchart TD
+  UI[Chat / Agents / Flows UI] --> Validate[Validate requested working folder]
+  Validate -->|valid request| Save[Save or update Conversation.flags.workingFolder]
+  Validate -->|invalid request| Reject[Reject with WORKING_FOLDER_INVALID or WORKING_FOLDER_NOT_FOUND]
+  Save --> Run[Start chat, agent, direct command, or flow run]
+  Run --> Runtime[Persist Turn.runtime.workingFolder and compact lookupSummary]
+  Run --> Child[Flow step creates child agent conversation with inherited folder]
+  Save --> Idle[POST /conversations/:id/working-folder idle edit]
+  Idle --> WS[Emit conversation_upsert]
+  Save --> WS
+  Stored[Saved Conversation.flags.workingFolder] --> Restore[Next restore or run re-validates saved folder]
+  Restore -->|still valid| Use[Reuse saved folder]
+  Restore -->|stale| Clear[Clear saved folder and emit DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION]
+  Clear --> WS
+  Clear --> Empty[Return normal empty state]
+```
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Route as Chat / Agent / Flow route
+  participant Store as Conversation store
+  participant WS as WS/sidebar summary
+
+  Client->>Route: request with optional working_folder
+  alt explicit working_folder provided
+    Route->>Route: validate absolute path + existence
+    Route->>Store: save flags.workingFolder on owning conversation
+  else request omits working_folder
+    Route->>Store: load saved flags.workingFolder
+    alt saved path still valid
+      Route->>Route: restore saved folder
+    else saved path stale
+      Route->>Store: clear flags.workingFolder
+      Route->>WS: publish cleared conversation_upsert
+    end
+  end
+
+  alt conversation idle edit
+    Client->>Route: POST /conversations/:id/working-folder
+    Route->>Route: reject if run lock or inflight state is active
+    Route->>Store: save or clear flags.workingFolder
+    Route->>WS: publish updated conversation_upsert
+  else flow creates child agent conversation
+    Route->>Store: create/update child conversation with flow-step folder
+  end
+```
+
 ## Agents prompts route contract (Story 0000039 Task 1)
 
 - Added `GET /agents/{agentName}/prompts` at the agents commands router boundary.

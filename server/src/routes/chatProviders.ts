@@ -1,5 +1,5 @@
-import type { LMStudioClient } from '@lmstudio/sdk';
 import type { ChatProviderInfo } from '@codeinfo2/common';
+import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 import {
   resolveCodexCapabilities,

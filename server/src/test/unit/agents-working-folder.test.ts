@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
-import { resolveWorkingFolderWorkingDirectory } from '../../agents/service.js';
+import { resolveWorkingFolderWorkingDirectory } from '../../workingFolders/state.js';
 
 describe('resolveWorkingFolderWorkingDirectory', () => {
   it('rejects relative working_folder inputs', async () => {

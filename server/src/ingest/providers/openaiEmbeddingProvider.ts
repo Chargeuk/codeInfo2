@@ -1,11 +1,6 @@
 import type { EmbeddingFunction } from 'chromadb';
 import { OpenAI } from 'openai';
 import { append } from '../../logStore.js';
-import type {
-  DiscoveredEmbeddingModel,
-  EmbeddingProvider,
-  ProviderEmbeddingModel,
-} from './types.js';
 import {
   OPENAI_PROVIDER_ID,
   OPENAI_REQUEST_TIMEOUT_MS,
@@ -17,6 +12,11 @@ import {
   validateOpenAiEmbeddingGuardrails,
 } from './openaiGuardrails.js';
 import { runOpenAiWithRetry } from './openaiRetry.js';
+import type {
+  DiscoveredEmbeddingModel,
+  EmbeddingProvider,
+  ProviderEmbeddingModel,
+} from './types.js';
 
 type OpenAiClientLike = {
   embeddings: {

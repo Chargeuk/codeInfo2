@@ -1,13 +1,22 @@
 import crypto from 'node:crypto';
 import { Router, type Response } from 'express';
 import { z } from 'zod';
+import { getActiveRunOwnership } from '../agents/runLock.js';
 import {
+  getInflight,
   mergeInflightTurns,
   snapshotInflight,
   snapshotInflightTurns,
 } from '../chat/inflightRegistry.js';
+import {
+  memoryConversations,
+  shouldUseMemoryPersistence,
+  updateMemoryConversationWorkingFolder,
+} from '../chat/memoryPersistence.js';
+import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
-import { ConversationModel } from '../mongo/conversation.js';
+import { ConversationModel, type Conversation } from '../mongo/conversation.js';
+import { emitConversationUpsert } from '../mongo/events.js';
 import {
   archiveConversation as defaultArchiveConversation,
   appendTurn as defaultAppendTurn,
@@ -18,10 +27,18 @@ import {
   listConversations as defaultListConversations,
   listAllTurns as defaultListAllTurns,
   restoreConversation as defaultRestoreConversation,
+  updateConversationWorkingFolder as defaultUpdateConversationWorkingFolder,
   type BulkConversationDeleteResult,
   type BulkConversationUpdateResult,
   type AppendTurnInput,
+  type ConversationSummary,
 } from '../mongo/repo.js';
+import {
+  appendWorkingFolderDecisionLog,
+  getConversationRecordType,
+  restoreSavedWorkingFolder,
+  validateRequestedWorkingFolder,
+} from '../workingFolders/state.js';
 
 const listConversationsQuerySchema = z
   .object({
@@ -47,6 +64,12 @@ const createConversationSchema = z
 const archiveActionParamsSchema = z
   .object({
     id: z.string().min(1),
+  })
+  .strict();
+
+const updateWorkingFolderSchema = z
+  .object({
+    workingFolder: z.string().min(1).optional().nullable(),
   })
   .strict();
 
@@ -115,7 +138,22 @@ const bulkConversationIdsSchema = z
   })
   .strict();
 
-type ConversationLite = { _id: string; archivedAt: Date | null };
+type ConversationLite = Pick<
+  Conversation,
+  | '_id'
+  | 'provider'
+  | 'model'
+  | 'title'
+  | 'agentName'
+  | 'flowName'
+  | 'source'
+  | 'lastMessageAt'
+  | 'archivedAt'
+  | 'flags'
+>;
+
+type ConversationLookup = Pick<Conversation, '_id' | 'archivedAt'> &
+  Partial<Pick<Conversation, 'flags' | 'agentName' | 'flowName'>>;
 
 type Deps = {
   listConversations: typeof defaultListConversations;
@@ -124,28 +162,165 @@ type Deps = {
   restoreConversation: typeof defaultRestoreConversation;
   listAllTurns: typeof defaultListAllTurns;
   appendTurn: typeof defaultAppendTurn;
+  updateConversationWorkingFolder: typeof defaultUpdateConversationWorkingFolder;
   bulkArchiveConversations: typeof defaultBulkArchiveConversations;
   bulkRestoreConversations: typeof defaultBulkRestoreConversations;
   bulkDeleteConversations: typeof defaultBulkDeleteConversations;
-  findConversationById: (id: string) => Promise<ConversationLite | null>;
+  findConversationById: (id: string) => Promise<ConversationLookup | null>;
+};
+
+const listMemoryConversations = async (params: {
+  limit: number;
+  cursor?: string;
+  state?: 'active' | 'archived' | 'all';
+  agentName?: string;
+  flowName?: string;
+}): Promise<{ items: ConversationSummary[] }> => {
+  const state = params.state ?? 'active';
+  const items = [...memoryConversations.values()]
+    .filter((conversation) => {
+      const archived = conversation.archivedAt != null;
+      if (state === 'active' && archived) return false;
+      if (state === 'archived' && !archived) return false;
+      if (params.agentName !== undefined) {
+        if (params.agentName === '__none__') {
+          if (conversation.agentName) return false;
+        } else if (conversation.agentName !== params.agentName) {
+          return false;
+        }
+      }
+      if (params.flowName !== undefined) {
+        if (params.flowName === '__none__') {
+          if (conversation.flowName) return false;
+        } else if (conversation.flowName !== params.flowName) {
+          return false;
+        }
+      }
+      if (params.cursor) {
+        const cursorDate = new Date(params.cursor);
+        if (!(conversation.lastMessageAt < cursorDate)) return false;
+      }
+      return true;
+    })
+    .sort((left, right) => {
+      const delta =
+        right.lastMessageAt.getTime() - left.lastMessageAt.getTime();
+      if (delta !== 0) return delta;
+      return right._id.localeCompare(left._id);
+    })
+    .slice(0, params.limit)
+    .map((conversation) => ({
+      conversationId: conversation._id,
+      provider: conversation.provider,
+      model: conversation.model,
+      title: conversation.title,
+      ...(conversation.agentName ? { agentName: conversation.agentName } : {}),
+      ...(conversation.flowName ? { flowName: conversation.flowName } : {}),
+      source: conversation.source ?? 'REST',
+      lastMessageAt: conversation.lastMessageAt,
+      archived: conversation.archivedAt != null,
+      flags: conversation.flags ?? {},
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
+    }));
+
+  return { items };
 };
 
 export function createConversationsRouter(deps: Partial<Deps> = {}) {
   const {
-    listConversations = defaultListConversations,
+    listConversations = shouldUseMemoryPersistence()
+      ? listMemoryConversations
+      : defaultListConversations,
     createConversation = defaultCreateConversation,
     archiveConversation = defaultArchiveConversation,
     restoreConversation = defaultRestoreConversation,
     listAllTurns = defaultListAllTurns,
     appendTurn = defaultAppendTurn,
+    updateConversationWorkingFolder = defaultUpdateConversationWorkingFolder,
     bulkArchiveConversations = defaultBulkArchiveConversations,
     bulkRestoreConversations = defaultBulkRestoreConversations,
     bulkDeleteConversations = defaultBulkDeleteConversations,
     findConversationById = (id: string) =>
-      ConversationModel.findById(id).lean().exec(),
+      shouldUseMemoryPersistence()
+        ? Promise.resolve(memoryConversations.get(id) ?? null)
+        : ConversationModel.findById(id).lean().exec(),
   } = deps;
 
   const router = Router();
+
+  const toConversationResponse = (conversation: ConversationLite) => ({
+    conversationId: conversation._id,
+    title: conversation.title,
+    provider: conversation.provider,
+    model: conversation.model,
+    source: conversation.source,
+    lastMessageAt: conversation.lastMessageAt,
+    archived: conversation.archivedAt != null,
+    ...(conversation.agentName ? { agentName: conversation.agentName } : {}),
+    ...(conversation.flowName ? { flowName: conversation.flowName } : {}),
+    flags: conversation.flags ?? {},
+  });
+
+  const toConversationEventSummary = (
+    conversation: ConversationLookup | ConversationLite,
+  ) => ({
+    conversationId: conversation._id,
+    title:
+      'title' in conversation && typeof conversation.title === 'string'
+        ? conversation.title
+        : '',
+    provider:
+      'provider' in conversation && typeof conversation.provider === 'string'
+        ? conversation.provider
+        : 'codex',
+    model:
+      'model' in conversation && typeof conversation.model === 'string'
+        ? conversation.model
+        : '',
+    source:
+      'source' in conversation && typeof conversation.source === 'string'
+        ? conversation.source
+        : 'REST',
+    lastMessageAt:
+      'lastMessageAt' in conversation &&
+      conversation.lastMessageAt instanceof Date
+        ? conversation.lastMessageAt
+        : new Date(),
+    archived: conversation.archivedAt != null,
+    ...('agentName' in conversation && conversation.agentName
+      ? { agentName: conversation.agentName }
+      : {}),
+    ...('flowName' in conversation && conversation.flowName
+      ? { flowName: conversation.flowName }
+      : {}),
+    flags: conversation.flags ?? {},
+  });
+
+  const persistConversationWorkingFolder = async (params: {
+    conversationId: string;
+    workingFolder?: string | null;
+  }) => {
+    if (deps.updateConversationWorkingFolder) {
+      return await updateConversationWorkingFolder(params);
+    }
+
+    if (shouldUseMemoryPersistence()) {
+      updateMemoryConversationWorkingFolder(params);
+      const updated = memoryConversations.get(params.conversationId) ?? null;
+      if (updated) {
+        emitConversationUpsert(toConversationEventSummary(updated));
+      }
+      return updated;
+    }
+
+    return await updateConversationWorkingFolder(params);
+  };
+
+  const knownRepositoryPaths = async () =>
+    await listIngestedRepositories()
+      .then((result) => result.repos.map((repo) => repo.containerPath))
+      .catch(() => undefined);
 
   router.get('/conversations', async (req, res) => {
     const requestId = res.locals.requestId as string | undefined;
@@ -233,10 +408,58 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         agentName,
         flowName,
       });
+      const repoPaths = await knownRepositoryPaths();
+      const normalizedItems: typeof items = [];
+      for (const item of items) {
+        const restoredWorkingFolder = await restoreSavedWorkingFolder({
+          conversation: {
+            conversationId: item.conversationId,
+            agentName: item.agentName,
+            flowName: item.flowName,
+            flags: item.flags,
+          },
+          surface: 'conversations_list',
+          clearPersistedWorkingFolder: async (conversationId) => {
+            await persistConversationWorkingFolder({
+              conversationId,
+              workingFolder: null,
+            });
+          },
+          knownRepositoryPaths: repoPaths,
+        });
+
+        if (restoredWorkingFolder === undefined) {
+          const nextFlags = { ...(item.flags ?? {}) };
+          delete nextFlags.workingFolder;
+          normalizedItems.push({
+            ...item,
+            flags: nextFlags,
+          });
+          continue;
+        }
+
+        if (
+          (item.flags?.workingFolder as string | undefined) !==
+          restoredWorkingFolder
+        ) {
+          normalizedItems.push({
+            ...item,
+            flags: {
+              ...(item.flags ?? {}),
+              workingFolder: restoredWorkingFolder,
+            },
+          });
+          continue;
+        }
+
+        normalizedItems.push(item);
+      }
 
       const nextCursor =
-        items.length === limit
-          ? items[items.length - 1]?.lastMessageAt.toISOString()
+        normalizedItems.length === limit
+          ? normalizedItems[
+              normalizedItems.length - 1
+            ]?.lastMessageAt.toISOString()
           : undefined;
 
       append({
@@ -252,11 +475,11 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
           cursorProvided,
           ...(agentName !== undefined ? { agentName } : {}),
           ...(flowName !== undefined ? { flowName } : {}),
-          returnedCount: items.length,
+          returnedCount: normalizedItems.length,
         },
       });
 
-      res.json({ items, nextCursor });
+      res.json({ items: normalizedItems, nextCursor });
     } catch (err) {
       res.status(500).json({ error: 'server_error', message: `${err}` });
     }
@@ -551,6 +774,106 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
       res.json({ status: 'ok' });
     } catch (err) {
       res.status(500).json({ error: 'server_error', message: `${err}` });
+    }
+  });
+
+  router.post('/conversations/:id/working-folder', async (req, res) => {
+    const parsedParams = archiveActionParamsSchema.safeParse(req.params);
+    const parsedBody = updateWorkingFolderSchema.safeParse(req.body);
+    if (!parsedParams.success || !parsedBody.success) {
+      return res.status(400).json({
+        error: 'validation_error',
+        details: {
+          params: parsedParams.success
+            ? undefined
+            : parsedParams.error.format(),
+          body: parsedBody.success ? undefined : parsedBody.error.format(),
+        },
+      });
+    }
+
+    const conversation = await findConversationById(parsedParams.data.id);
+    if (!conversation) return res.status(404).json({ error: 'not_found' });
+    if (conversation.archivedAt) {
+      return res.status(410).json({ error: 'archived' });
+    }
+    if (
+      getActiveRunOwnership(parsedParams.data.id) ||
+      getInflight(parsedParams.data.id)
+    ) {
+      appendWorkingFolderDecisionLog({
+        conversationId: parsedParams.data.id,
+        recordType: getConversationRecordType(conversation),
+        surface: 'conversation_edit',
+        action: 'reject',
+        decisionReason: 'run_in_progress',
+      });
+      return res.status(409).json({
+        error: 'conflict',
+        code: 'RUN_IN_PROGRESS',
+        message: 'A run is already in progress for this conversation.',
+      });
+    }
+
+    const rawWorkingFolder = parsedBody.data.workingFolder;
+    const workingFolder =
+      typeof rawWorkingFolder === 'string' && rawWorkingFolder.trim().length > 0
+        ? rawWorkingFolder.trim()
+        : undefined;
+
+    let validatedWorkingFolder: string | undefined;
+    try {
+      validatedWorkingFolder = await validateRequestedWorkingFolder({
+        workingFolder,
+        knownRepositoryPaths: await knownRepositoryPaths(),
+      });
+    } catch (error) {
+      const err = error as { code?: string; reason?: string };
+      appendWorkingFolderDecisionLog({
+        conversationId: parsedParams.data.id,
+        recordType: getConversationRecordType(conversation),
+        surface: 'conversation_edit',
+        action: 'reject',
+        decisionReason:
+          err.code === 'WORKING_FOLDER_NOT_FOUND'
+            ? 'requested_value_missing'
+            : 'requested_value_invalid',
+        ...(workingFolder ? { workingFolder } : {}),
+      });
+      return res.status(400).json({
+        error: 'invalid_request',
+        code: err.code ?? 'WORKING_FOLDER_INVALID',
+        message:
+          typeof err.reason === 'string'
+            ? err.reason
+            : 'working_folder validation failed',
+      });
+    }
+
+    try {
+      const updated = await persistConversationWorkingFolder({
+        conversationId: parsedParams.data.id,
+        workingFolder: validatedWorkingFolder ?? null,
+      });
+      if (!updated) return res.status(404).json({ error: 'not_found' });
+      appendWorkingFolderDecisionLog({
+        conversationId: parsedParams.data.id,
+        recordType: getConversationRecordType(conversation),
+        surface: 'conversation_edit',
+        action: validatedWorkingFolder ? 'save' : 'clear',
+        decisionReason: validatedWorkingFolder
+          ? 'request_value_persisted'
+          : 'request_value_cleared',
+        ...(validatedWorkingFolder
+          ? { workingFolder: validatedWorkingFolder }
+          : {}),
+      });
+      return res.json({
+        status: 'ok',
+        conversation: toConversationResponse(updated as ConversationLite),
+      });
+    } catch (err) {
+      return res.status(500).json({ error: 'server_error', message: `${err}` });
     }
   });
 

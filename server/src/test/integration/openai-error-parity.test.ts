@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import express from 'express';
 import request from 'supertest';
-import { OpenAiEmbeddingError } from '../../ingest/providers/index.js';
 import {
   __resetIngestJobsForTest,
   __setStatusForTest,
 } from '../../ingest/ingestJob.js';
+import { OpenAiEmbeddingError } from '../../ingest/providers/index.js';
 import { createMcpRouter } from '../../mcp/server.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import { createToolsVectorSearchRouter } from '../../routes/toolsVectorSearch.js';

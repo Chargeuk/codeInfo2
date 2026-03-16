@@ -14,7 +14,6 @@ import {
   releaseConversationLock,
   tryAcquireConversationLock,
 } from '../agents/runLock.js';
-import { resolveWorkingFolderWorkingDirectory } from '../agents/service.js';
 import { isTransientReconnect } from '../agents/transientReconnect.js';
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { getChatInterface, UnsupportedProviderError } from '../chat/factory.js';
@@ -41,6 +40,7 @@ import {
   recordMemoryTurn,
   shouldUseMemoryPersistence,
   updateMemoryConversationMeta,
+  updateMemoryConversationWorkingFolder,
 } from '../chat/memoryPersistence.js';
 import { runReingestStepLifecycle } from '../chat/reingestStepLifecycle.js';
 import { buildReingestToolResult } from '../chat/reingestToolResult.js';
@@ -61,6 +61,7 @@ import {
   updateConversationMeta,
   updateConversationFlowState,
   updateConversationThreadId,
+  updateConversationWorkingFolder,
 } from '../mongo/repo.js';
 import type {
   TurnCommandMetadata,
@@ -72,6 +73,13 @@ import type {
 } from '../mongo/turn.js';
 import { refreshCodexDetection } from '../providers/codexDetection.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
+import {
+  appendWorkingFolderDecisionLog,
+  getConversationRecordType,
+  restoreSavedWorkingFolder,
+  resolveWorkingFolderWorkingDirectory,
+  validateRequestedWorkingFolder,
+} from '../workingFolders/state.js';
 import { publishUserTurn } from '../ws/server.js';
 
 import {
@@ -252,12 +260,67 @@ async function getConversation(
     .exec()) as Conversation | null;
 }
 
+const persistConversationWorkingFolder = async (params: {
+  conversationId: string;
+  workingFolder?: string | null;
+}) => {
+  if (shouldUseMemoryPersistence()) {
+    updateMemoryConversationWorkingFolder(params);
+    return;
+  }
+  await updateConversationWorkingFolder(params);
+};
+
+const resolveConversationWorkingFolderForRun = async (params: {
+  conversationId: string;
+  conversation: Conversation | null;
+  requestedWorkingFolder?: string;
+  surface: 'flow_run';
+  knownRepositoryPaths?: string[];
+}): Promise<string | undefined> => {
+  if (params.requestedWorkingFolder) {
+    const validated = await validateRequestedWorkingFolder({
+      workingFolder: params.requestedWorkingFolder,
+      knownRepositoryPaths: params.knownRepositoryPaths,
+    });
+    if (params.conversation) {
+      await persistConversationWorkingFolder({
+        conversationId: params.conversationId,
+        workingFolder: validated,
+      });
+      appendWorkingFolderDecisionLog({
+        conversationId: params.conversationId,
+        recordType: getConversationRecordType(params.conversation),
+        surface: params.surface,
+        action: 'save',
+        decisionReason: 'request_value_persisted',
+        workingFolder: validated,
+      });
+    }
+    return validated;
+  }
+
+  if (!params.conversation) return undefined;
+  return await restoreSavedWorkingFolder({
+    conversation: params.conversation,
+    surface: params.surface,
+    clearPersistedWorkingFolder: async (conversationId) => {
+      await persistConversationWorkingFolder({
+        conversationId,
+        workingFolder: null,
+      });
+    },
+    knownRepositoryPaths: params.knownRepositoryPaths,
+  });
+};
+
 const ensureFlowConversation = async (params: {
   conversationId: string;
   flowName: string;
   modelId: string;
   customTitle?: string;
   source: 'REST' | 'MCP';
+  workingFolder?: string;
 }): Promise<void> => {
   const now = new Date();
   const title = buildFlowConversationTitle({
@@ -281,7 +344,9 @@ const ensureFlowConversation = async (params: {
       title,
       flowName: params.flowName,
       source: params.source,
-      flags: {},
+      flags: params.workingFolder
+        ? { workingFolder: params.workingFolder }
+        : {},
       lastMessageAt: now,
       archivedAt: null,
       createdAt: now,
@@ -313,7 +378,7 @@ const ensureFlowConversation = async (params: {
     title,
     flowName: params.flowName,
     source: params.source,
-    flags: {},
+    flags: params.workingFolder ? { workingFolder: params.workingFolder } : {},
     lastMessageAt: now,
   });
   if (params.customTitle) {
@@ -337,6 +402,7 @@ const ensureFlowAgentConversation = async (params: {
   modelId: string;
   customTitle?: string;
   source: 'REST' | 'MCP';
+  workingFolder?: string;
 }): Promise<void> => {
   const now = new Date();
   const title = buildFlowAgentConversationTitle({
@@ -346,7 +412,15 @@ const ensureFlowAgentConversation = async (params: {
   });
   if (shouldUseMemoryPersistence()) {
     const existing = memoryConversations.get(params.conversationId);
-    if (existing) return;
+    if (existing) {
+      if (params.workingFolder) {
+        updateMemoryConversationWorkingFolder({
+          conversationId: params.conversationId,
+          workingFolder: params.workingFolder,
+        });
+      }
+      return;
+    }
     memoryConversations.set(params.conversationId, {
       _id: params.conversationId,
       provider: 'codex',
@@ -354,7 +428,9 @@ const ensureFlowAgentConversation = async (params: {
       title,
       agentName: params.agentType,
       source: params.source,
-      flags: {},
+      flags: params.workingFolder
+        ? { workingFolder: params.workingFolder }
+        : {},
       lastMessageAt: now,
       archivedAt: null,
       createdAt: now,
@@ -377,7 +453,15 @@ const ensureFlowAgentConversation = async (params: {
   const existing = (await ConversationModel.findById(params.conversationId)
     .lean()
     .exec()) as Conversation | null;
-  if (existing) return;
+  if (existing) {
+    if (params.workingFolder) {
+      await updateConversationWorkingFolder({
+        conversationId: params.conversationId,
+        workingFolder: params.workingFolder,
+      });
+    }
+    return;
+  }
 
   await createConversation({
     conversationId: params.conversationId,
@@ -386,7 +470,7 @@ const ensureFlowAgentConversation = async (params: {
     title,
     agentName: params.agentType,
     source: params.source,
-    flags: {},
+    flags: params.workingFolder ? { workingFolder: params.workingFolder } : {},
     lastMessageAt: now,
   });
   if (params.customTitle) {
@@ -488,6 +572,7 @@ const ensureAgentState = async (params: {
       modelId: params.modelId,
       customTitle: params.customTitle,
       source: params.source,
+      workingFolder: params.workingFolder,
     });
     existing.workingFolder = params.workingFolder;
     return { state: existing, isNew: false };
@@ -506,6 +591,7 @@ const ensureAgentState = async (params: {
     modelId: params.modelId,
     customTitle: params.customTitle,
     source: params.source,
+    workingFolder: params.workingFolder,
   });
   return { state, isNew: true };
 };
@@ -3077,6 +3163,16 @@ export async function startFlowRun(
       throw toFlowRunError('CONVERSATION_ARCHIVED');
     }
 
+    const effectiveWorkingFolder = await resolveConversationWorkingFolderForRun(
+      {
+        conversationId,
+        conversation: existingConversation,
+        requestedWorkingFolder: params.working_folder,
+        surface: 'flow_run',
+        knownRepositoryPaths: listedRepos.map((repo) => repo.containerPath),
+      },
+    );
+
     if (resumeStepPath && params.customTitle && existingConversation) {
       baseLogger.info(
         {
@@ -3122,9 +3218,7 @@ export async function startFlowRun(
     const codeInfo2Root = codeInfo2RootForRun();
     repositoryContext = {
       flowName,
-      workingRepositoryPath: params.working_folder?.trim()
-        ? path.resolve(params.working_folder)
-        : undefined,
+      workingRepositoryPath: effectiveWorkingFolder,
       flowSourceId: sourceRepo?.containerPath
         ? path.resolve(sourceRepo.containerPath)
         : sourceId
@@ -3156,9 +3250,19 @@ export async function startFlowRun(
       modelId,
       customTitle: params.customTitle,
       source: params.source,
+      workingFolder: effectiveWorkingFolder,
     });
-
-    await resolveWorkingFolderWorkingDirectory(params.working_folder);
+    if (!existingConversation && effectiveWorkingFolder) {
+      appendWorkingFolderDecisionLog({
+        conversationId,
+        recordType: 'flow',
+        surface: 'flow_run',
+        action: 'save',
+        decisionReason: 'request_value_persisted_on_create',
+        workingFolder: effectiveWorkingFolder,
+      });
+    }
+    params.working_folder = effectiveWorkingFolder;
   } catch (err) {
     cleanupPendingConversationCancel({ conversationId, runToken });
     releaseConversationLock(conversationId, runToken);

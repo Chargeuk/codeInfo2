@@ -1,5 +1,6 @@
 import { delayWithAbort, runWithRetry } from '../../agents/retry.js';
 import { getOpenAiIngestMaxRetries } from '../../config/openaiIngestRetries.js';
+import { appendIngestFailureLog } from './ingestFailureLogging.js';
 import {
   OPENAI_RETRY_BASE_DELAY_MS,
   OPENAI_RETRY_JITTER_MAX,
@@ -11,7 +12,6 @@ import {
   isRetryableOpenAiCode,
   mapOpenAiError,
 } from './openaiErrors.js';
-import { appendIngestFailureLog } from './ingestFailureLogging.js';
 
 export type RetryHeaders = Headers | Record<string, unknown> | undefined;
 

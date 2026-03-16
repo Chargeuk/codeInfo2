@@ -6,6 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import express from 'express';
+import request from 'supertest';
 import WebSocket, { type RawData } from 'ws';
 
 import { runAgentCommandRunner } from '../../agents/commandsRunner.js';
@@ -13,6 +14,10 @@ import {
   cleanupInflight,
   createInflight,
 } from '../../chat/inflightRegistry.js';
+import {
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
 import {
   __resetIngestJobsForTest,
   __setStatusAndPublishForTest,
@@ -24,6 +29,7 @@ import {
   emitConversationUpsert,
   type ConversationEventSummary,
 } from '../../mongo/events.js';
+import { createConversationsRouter } from '../../routes/conversations.js';
 import { attachWs, publishTurnFinal } from '../../ws/server.js';
 import {
   closeWs,
@@ -34,8 +40,7 @@ import {
 
 const ORIGINAL_ENV = process.env.NODE_ENV;
 
-async function startServer() {
-  const app = express();
+async function startServer(app = express()) {
   const httpServer = http.createServer(app);
   const wsHandle = attachWs({ httpServer });
 
@@ -46,6 +51,7 @@ async function startServer() {
   const address = httpServer.address();
   assert(address && typeof address === 'object');
   return {
+    app,
     port: address.port,
     httpServer,
     wsHandle,
@@ -238,6 +244,120 @@ test('WS conversation_upsert payload preserves flags.workingFolder', async () =>
       workingFolder: '/repos/working-root',
     });
   } finally {
+    ws.close();
+    await waitForClose(ws);
+    await stopServer(server);
+  }
+});
+
+test('WS conversation edit save emits conversation_upsert with updated flags.workingFolder', async () => {
+  memoryConversations.set('conv-edit-save', {
+    _id: 'conv-edit-save',
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Title',
+    source: 'REST',
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    flags: {},
+  });
+  const app = express();
+  app.use(express.json());
+  app.use(createConversationsRouter());
+  const server = await startServer(app);
+  const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      ws.once('open', () => resolve());
+      ws.once('error', reject);
+    });
+
+    ws.send(
+      JSON.stringify({
+        protocolVersion: 'v1',
+        requestId: 'req-edit-save',
+        type: 'subscribe_sidebar',
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    const responsePromise = waitForMessage(ws);
+    await request(server.app)
+      .post('/conversations/conv-edit-save/working-folder')
+      .send({ workingFolder: process.cwd() })
+      .expect(200);
+
+    const payload = await responsePromise;
+    const event = JSON.parse(payload) as {
+      conversation: { flags: Record<string, unknown> };
+    };
+    assert.equal(event.conversation.flags.workingFolder, process.cwd());
+  } finally {
+    memoryConversations.delete('conv-edit-save');
+    memoryTurns.delete('conv-edit-save');
+    ws.close();
+    await waitForClose(ws);
+    await stopServer(server);
+  }
+});
+
+test('WS conversation edit clear emits conversation_upsert with cleared flags.workingFolder', async () => {
+  memoryConversations.set('conv-edit-clear', {
+    _id: 'conv-edit-clear',
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Title',
+    source: 'REST',
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    flags: { workingFolder: process.cwd() },
+  });
+  const app = express();
+  app.use(express.json());
+  app.use(createConversationsRouter());
+  const server = await startServer(app);
+  const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      ws.once('open', () => resolve());
+      ws.once('error', reject);
+    });
+
+    ws.send(
+      JSON.stringify({
+        protocolVersion: 'v1',
+        requestId: 'req-edit-clear',
+        type: 'subscribe_sidebar',
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    const responsePromise = waitForMessage(ws);
+    await request(server.app)
+      .post('/conversations/conv-edit-clear/working-folder')
+      .send({ workingFolder: null })
+      .expect(200);
+
+    const payload = await responsePromise;
+    const event = JSON.parse(payload) as {
+      conversation: { flags: Record<string, unknown> };
+    };
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(
+        event.conversation.flags,
+        'workingFolder',
+      ),
+      false,
+    );
+  } finally {
+    memoryConversations.delete('conv-edit-clear');
+    memoryTurns.delete('conv-edit-clear');
     ws.close();
     await waitForClose(ws);
     await stopServer(server);

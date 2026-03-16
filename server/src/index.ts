@@ -6,22 +6,22 @@ import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
 import { warmAstParserQueries } from './ast/parser.js';
 import { ensureCodexConfigSeeded, getCodexHome } from './config/codexConfig.js';
-import { resolveServerPort } from './config/serverPort.js';
-import './flows/flowSchema.js';
-import './ingest/index.js';
-import './mongo/astCoverage.js';
-import { closeAll, getClient } from './lmstudio/clientPool.js';
-import { append } from './logStore.js';
-import {
-  ensureStartupEnvLoaded,
-  resolveOpenAiEmbeddingCapabilityState,
-} from './config/startupEnv.js';
 import {
   DEV_0000037_T01_REQUIRED_VERSION,
   DEV_0000040_T10_CODEX_SDK_GUARD,
   validateAndLogCodexSdkUpgrade,
 } from './config/codexSdkUpgrade.js';
 import { getFlowAndCommandRetries } from './config/flowAndCommandRetries.js';
+import { resolveServerPort } from './config/serverPort.js';
+import './flows/flowSchema.js';
+import './ingest/index.js';
+import './mongo/astCoverage.js';
+import {
+  ensureStartupEnvLoaded,
+  resolveOpenAiEmbeddingCapabilityState,
+} from './config/startupEnv.js';
+import { closeAll, getClient } from './lmstudio/clientPool.js';
+import { append } from './logStore.js';
 import { baseLogger, createRequestLogger } from './logger.js';
 import { createMcpRouter } from './mcp/server.js';
 import { startMcp2Server, stopMcp2Server } from './mcp2/server.js';

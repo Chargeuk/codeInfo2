@@ -27,6 +27,7 @@ import {
   recordMemoryTurn,
   shouldUseMemoryPersistence,
   updateMemoryConversationMeta,
+  updateMemoryConversationWorkingFolder,
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
 import { RuntimeConfigResolutionError } from '../config/runtimeConfig.js';
@@ -39,7 +40,6 @@ import {
   type RepositoryCandidateOrderResult,
   type RepositoryCandidateOrderSlot,
 } from '../flows/repositoryCandidateOrder.js';
-import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
@@ -53,6 +53,7 @@ import {
   appendTurn,
   createConversation,
   updateConversationMeta,
+  updateConversationWorkingFolder,
 } from '../mongo/repo.js';
 import type {
   Turn,
@@ -61,6 +62,13 @@ import type {
   TurnSource,
 } from '../mongo/turn.js';
 import { refreshCodexDetection } from '../providers/codexDetection.js';
+import {
+  appendWorkingFolderDecisionLog,
+  getConversationRecordType,
+  restoreSavedWorkingFolder,
+  resolveWorkingFolderWorkingDirectory,
+  validateRequestedWorkingFolder,
+} from '../workingFolders/state.js';
 import { publishUserTurn } from '../ws/server.js';
 
 import {
@@ -189,56 +197,6 @@ function logTransitiveContractRead(params: {
   });
 }
 
-export async function resolveWorkingFolderWorkingDirectory(
-  working_folder: string | undefined,
-): Promise<string | undefined> {
-  if (!working_folder || !working_folder.trim()) return undefined;
-
-  const workingFolder = working_folder;
-  const normalized = workingFolder.replace(/\\/g, '/');
-  const raw = workingFolder;
-  if (!(path.posix.isAbsolute(normalized) || path.win32.isAbsolute(raw))) {
-    throw {
-      code: 'WORKING_FOLDER_INVALID',
-      reason: 'working_folder must be an absolute path',
-    } as const;
-  }
-
-  const hostIngestDir = process.env.HOST_INGEST_DIR;
-  const codexWorkdir =
-    process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data';
-
-  const isDirectory = async (dirPath: string): Promise<boolean> => {
-    const stat = await fs.stat(dirPath).catch(() => null);
-    return Boolean(stat && stat.isDirectory());
-  };
-
-  if (hostIngestDir && hostIngestDir.length > 0) {
-    const normalizedHostIngestDir = hostIngestDir.replace(/\\/g, '/');
-    if (
-      path.posix.isAbsolute(normalizedHostIngestDir) &&
-      path.posix.isAbsolute(normalized)
-    ) {
-      const mapped = mapHostWorkingFolderToWorkdir({
-        hostIngestDir,
-        codexWorkdir,
-        hostWorkingFolder: workingFolder,
-      });
-
-      if ('mappedPath' in mapped) {
-        if (await isDirectory(mapped.mappedPath)) return mapped.mappedPath;
-      }
-    }
-  }
-
-  if (await isDirectory(workingFolder)) return workingFolder;
-
-  throw {
-    code: 'WORKING_FOLDER_NOT_FOUND',
-    reason: 'working_folder not found',
-  } as const;
-}
-
 async function getConversation(
   conversationId: string,
 ): Promise<Conversation | null> {
@@ -250,12 +208,67 @@ async function getConversation(
     .exec()) as Conversation | null;
 }
 
+const persistConversationWorkingFolder = async (params: {
+  conversationId: string;
+  workingFolder?: string | null;
+}) => {
+  if (shouldUseMemoryPersistence()) {
+    updateMemoryConversationWorkingFolder(params);
+    return;
+  }
+  await updateConversationWorkingFolder(params);
+};
+
+const resolveConversationWorkingFolderForRun = async (params: {
+  conversationId: string;
+  conversation: Conversation | null;
+  requestedWorkingFolder?: string;
+  surface: 'agent_run' | 'agent_command_run';
+  knownRepositoryPaths?: string[];
+}): Promise<string | undefined> => {
+  if (params.requestedWorkingFolder) {
+    const validated = await validateRequestedWorkingFolder({
+      workingFolder: params.requestedWorkingFolder,
+      knownRepositoryPaths: params.knownRepositoryPaths,
+    });
+    if (params.conversation) {
+      await persistConversationWorkingFolder({
+        conversationId: params.conversationId,
+        workingFolder: validated,
+      });
+      appendWorkingFolderDecisionLog({
+        conversationId: params.conversationId,
+        recordType: getConversationRecordType(params.conversation),
+        surface: params.surface,
+        action: 'save',
+        decisionReason: 'request_value_persisted',
+        workingFolder: validated,
+      });
+    }
+    return validated;
+  }
+
+  if (!params.conversation) return undefined;
+  return await restoreSavedWorkingFolder({
+    conversation: params.conversation,
+    surface: params.surface,
+    clearPersistedWorkingFolder: async (conversationId) => {
+      await persistConversationWorkingFolder({
+        conversationId,
+        workingFolder: null,
+      });
+    },
+    knownRepositoryPaths: params.knownRepositoryPaths,
+  });
+};
+
 async function ensureAgentConversation(params: {
   conversationId: string;
   agentName: string;
   modelId: string;
   title: string;
   source: 'REST' | 'MCP';
+  workingFolder?: string;
   inflightId?: string;
   chatFactory?: typeof getChatInterface;
 }): Promise<void> {
@@ -270,7 +283,9 @@ async function ensureAgentConversation(params: {
       title: params.title,
       agentName: params.agentName,
       source: params.source,
-      flags: {},
+      flags: params.workingFolder
+        ? { workingFolder: params.workingFolder }
+        : {},
       lastMessageAt: now,
       archivedAt: null,
       createdAt: now,
@@ -291,7 +306,7 @@ async function ensureAgentConversation(params: {
     title: params.title,
     agentName: params.agentName,
     source: params.source,
-    flags: {},
+    flags: params.workingFolder ? { workingFolder: params.workingFolder } : {},
     lastMessageAt: now,
   });
 }
@@ -711,6 +726,11 @@ export async function startAgentInstruction(
       throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
     }
 
+    const listedRepos = await agentServiceDeps
+      .listIngestedRepositories()
+      .then((result) => result.repos)
+      .catch(() => []);
+
     const existingConversation = await getConversation(conversationId);
     const isNewConversation = !existingConversation;
     if (mustExist && isNewConversation) {
@@ -737,6 +757,16 @@ export async function startAgentInstruction(
     const title =
       params.instruction.trim().slice(0, 80) || 'Untitled conversation';
 
+    const effectiveWorkingFolder = await resolveConversationWorkingFolderForRun(
+      {
+        conversationId,
+        conversation: existingConversation,
+        requestedWorkingFolder: params.working_folder,
+        surface: 'agent_run',
+        knownRepositoryPaths: listedRepos.map((repo) => repo.containerPath),
+      },
+    );
+
     if (isNewConversation) {
       await ensureAgentConversation({
         conversationId,
@@ -744,12 +774,20 @@ export async function startAgentInstruction(
         modelId,
         title,
         source: params.source,
+        workingFolder: effectiveWorkingFolder,
       });
+      if (effectiveWorkingFolder) {
+        appendWorkingFolderDecisionLog({
+          conversationId,
+          recordType: 'agent',
+          surface: 'agent_run',
+          action: 'save',
+          decisionReason: 'request_value_persisted_on_create',
+          workingFolder: effectiveWorkingFolder,
+        });
+      }
     }
-
-    // Validate working folder before we return 202 so the client receives a
-    // deterministic 4xx rather than a background failure.
-    await resolveWorkingFolderWorkingDirectory(params.working_folder);
+    params.working_folder = effectiveWorkingFolder;
   } catch (err) {
     cleanupPendingConversationCancel({ conversationId, runToken });
     releaseConversationLock(conversationId, runToken);
@@ -865,6 +903,7 @@ async function prepareDirectCommandBootstrap(params: {
   commandFilePath: string;
   startStep: number;
   source: 'REST' | 'MCP';
+  workingFolder?: string;
 }): Promise<{
   initialModelId: string;
 }> {
@@ -934,6 +973,7 @@ async function prepareDirectCommandBootstrap(params: {
     modelId: initialModelId,
     title,
     source: params.source,
+    workingFolder: params.workingFolder,
   });
 
   return { initialModelId };
@@ -1038,24 +1078,6 @@ export async function startAgentCommand(params: {
       });
     }
 
-    await resolveWorkingFolderWorkingDirectory(params.working_folder);
-
-    const resolution = await resolveDirectCommandSelection({
-      agentName: agent.name,
-      agentHome: agent.home,
-      commandName,
-      workingRepositoryPath: params.working_folder,
-      sourceId,
-      repos: ingestRoots,
-    });
-
-    const parsed = await loadAgentCommandFile({
-      filePath: resolution.commandFilePath,
-    });
-    if (!parsed.ok) {
-      throw toRunAgentError('COMMAND_INVALID');
-    }
-
     const existingConversation = await getConversation(conversationId);
     const isNewConversation = !existingConversation;
     if (existingConversation?.archivedAt) {
@@ -1066,6 +1088,32 @@ export async function startAgentCommand(params: {
       (existingConversation.agentName ?? '') !== params.agentName
     ) {
       throw toRunAgentError('AGENT_MISMATCH');
+    }
+
+    const effectiveWorkingFolder = await resolveConversationWorkingFolderForRun(
+      {
+        conversationId,
+        conversation: existingConversation,
+        requestedWorkingFolder: params.working_folder,
+        surface: 'agent_command_run',
+        knownRepositoryPaths: ingestRoots.map((repo) => repo.containerPath),
+      },
+    );
+
+    const resolution = await resolveDirectCommandSelection({
+      agentName: agent.name,
+      agentHome: agent.home,
+      commandName,
+      workingRepositoryPath: effectiveWorkingFolder,
+      sourceId,
+      repos: ingestRoots,
+    });
+
+    const parsed = await loadAgentCommandFile({
+      filePath: resolution.commandFilePath,
+    });
+    if (!parsed.ok) {
+      throw toRunAgentError('COMMAND_INVALID');
     }
 
     const { modelId: configuredModelId } =
@@ -1093,7 +1141,18 @@ export async function startAgentCommand(params: {
         modelId,
         title,
         source: params.source,
+        workingFolder: effectiveWorkingFolder,
       });
+      if (effectiveWorkingFolder) {
+        appendWorkingFolderDecisionLog({
+          conversationId,
+          recordType: 'agent',
+          surface: 'agent_command_run',
+          action: 'save',
+          decisionReason: 'request_value_persisted_on_create',
+          workingFolder: effectiveWorkingFolder,
+        });
+      }
     }
 
     backgroundScheduled = true;
@@ -1109,7 +1168,7 @@ export async function startAgentCommand(params: {
           startStep,
           conversationId,
           sourceId: resolution.selectedRepositoryPath,
-          working_folder: params.working_folder,
+          working_folder: effectiveWorkingFolder,
           signal: undefined,
           source: params.source,
           initialModelId: modelId,
@@ -1229,14 +1288,20 @@ export async function runAgentCommand(params: {
       repo: matchingRoot,
     });
   }
-
-  await resolveWorkingFolderWorkingDirectory(params.working_folder);
+  const existingConversation = await getConversation(conversationId);
+  const effectiveWorkingFolder = await resolveConversationWorkingFolderForRun({
+    conversationId,
+    conversation: existingConversation,
+    requestedWorkingFolder: params.working_folder,
+    surface: 'agent_command_run',
+    knownRepositoryPaths: ingestRoots.map((repo) => repo.containerPath),
+  });
 
   const resolution = await resolveDirectCommandSelection({
     agentName: agent.name,
     agentHome: agent.home,
     commandName: params.commandName.trim(),
-    workingRepositoryPath: params.working_folder,
+    workingRepositoryPath: effectiveWorkingFolder,
     sourceId,
     repos: ingestRoots,
   });
@@ -1250,6 +1315,7 @@ export async function runAgentCommand(params: {
     commandFilePath: resolution.commandFilePath,
     startStep,
     source: params.source,
+    workingFolder: effectiveWorkingFolder,
   });
 
   return await runAgentCommandRunner({
@@ -1261,7 +1327,7 @@ export async function runAgentCommand(params: {
     startStep,
     conversationId,
     sourceId: resolution.selectedRepositoryPath,
-    working_folder: params.working_folder,
+    working_folder: effectiveWorkingFolder,
     signal: params.signal,
     source: params.source,
     initialModelId,

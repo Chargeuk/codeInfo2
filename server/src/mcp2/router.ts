@@ -1,9 +1,9 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import serverPackage from '../../package.json' with { type: 'json' };
+import { append } from '../logStore.js';
 import { dispatchJsonRpc } from '../mcpCommon/dispatch.js';
 import { isObject } from '../mcpCommon/guards.js';
 import { createKeepAliveController } from '../mcpCommon/keepAlive.js';
-import { append } from '../logStore.js';
 import {
   ArchivedConversationError,
   InvalidParamsError,

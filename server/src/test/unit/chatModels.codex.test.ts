@@ -13,10 +13,10 @@ import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
 } from '../../codex/capabilityResolver.js';
+import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 import { baseLogger } from '../../logger.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
-import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 import { createChatModelsRouter } from '../../routes/chatModels.js';
 
 type EnvSnapshot = Map<string, string | undefined>;

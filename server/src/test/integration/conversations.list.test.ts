@@ -237,7 +237,7 @@ test('conversation list responses preserve flags.workingFolder', async () => {
         items: [
           {
             ...baseItem,
-            flags: { workingFolder: '/repos/working-root' },
+            flags: { workingFolder: process.cwd() },
           },
         ],
       }),
@@ -247,7 +247,7 @@ test('conversation list responses preserve flags.workingFolder', async () => {
     .expect(200);
 
   assert.deepEqual(res.body.items[0].flags, {
-    workingFolder: '/repos/working-root',
+    workingFolder: process.cwd(),
   });
 });
 

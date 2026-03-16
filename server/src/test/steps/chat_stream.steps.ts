@@ -17,18 +17,18 @@ import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs, type WsServerHandle } from '../../ws/server.js';
 import {
-  closeWs,
-  connectWs,
-  sendJson,
-  waitForEvent,
-} from '../support/wsClient.js';
-import {
   MockLMStudioClient,
   type MockScenario,
   getLastChatHistory,
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
+import {
+  closeWs,
+  connectWs,
+  sendJson,
+  waitForEvent,
+} from '../support/wsClient.js';
 
 type ChatStartResponse = {
   status: 'started';

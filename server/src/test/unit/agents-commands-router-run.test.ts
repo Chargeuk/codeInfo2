@@ -527,6 +527,106 @@ test('direct command execution searches the working repository before the select
   }
 });
 
+test('direct command execution restores the saved folder from the owning agent conversation', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-task5-direct-command-saved-folder-'),
+  );
+  const savedWorkingRoot = path.join(tmpDir, 'saved-working-repo');
+  const sourceRoot = path.join(tmpDir, 'source-repo');
+  const commandName = 'task5_direct_command_saved_folder';
+  const conversationId = 'task5-direct-command-saved-folder';
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+
+  try {
+    process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+    await writeRepoCommand({
+      repoRoot: savedWorkingRoot,
+      commandName,
+      content: 'saved working repository command',
+    });
+    await writeRepoCommand({
+      repoRoot: sourceRoot,
+      commandName,
+      content: 'source repository command',
+    });
+    memoryConversations.set(conversationId, {
+      _id: conversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Direct command conversation',
+      agentName: 'planning_agent',
+      source: 'REST',
+      flags: { workingFolder: savedWorkingRoot },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastMessageAt: new Date(),
+      archivedAt: null,
+    });
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: async () =>
+        ({
+          repos: [
+            {
+              id: 'Saved Working Repo',
+              description: null,
+              containerPath: savedWorkingRoot,
+              hostPath: savedWorkingRoot,
+              lastIngestAt: null,
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'model',
+              embeddingDimensions: 768,
+              modelId: 'model',
+              counts: { files: 0, chunks: 0, embedded: 0 },
+              lastError: null,
+            },
+            {
+              id: 'Source Repo',
+              description: null,
+              containerPath: sourceRoot,
+              hostPath: sourceRoot,
+              lastIngestAt: null,
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'model',
+              embeddingDimensions: 768,
+              modelId: 'model',
+              counts: { files: 0, chunks: 0, embedded: 0 },
+              lastError: null,
+            },
+          ],
+        }) as never,
+    });
+
+    await runAgentCommand({
+      agentName: 'planning_agent',
+      commandName,
+      conversationId,
+      sourceId: sourceRoot,
+      source: 'REST',
+      chatFactory: () => new ScriptedChat(),
+    });
+
+    const turns = memoryTurns.get(conversationId) ?? [];
+    assert.equal(
+      turns.some((turn) => turn.content === 'saved working repository command'),
+      true,
+    );
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.workingFolder,
+      savedWorkingRoot,
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('direct command execution fails fast when a higher-priority command file exists but is schema-invalid', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'codeinfo2-task2-direct-command-invalid-'),

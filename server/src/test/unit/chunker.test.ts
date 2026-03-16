@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { ProviderEmbeddingModel } from '../../ingest/providers/types.js';
 import { exampleOne, longRun } from '../../ingest/__fixtures__/sample.js';
 import { chunkText } from '../../ingest/chunker.js';
+import type { ProviderEmbeddingModel } from '../../ingest/providers/types.js';
 
 const mockModel = (
   ctx: number,

@@ -118,6 +118,15 @@ This story also includes a repository-wide environment-variable normalization pa
 
 ## Questions
 
+1. When no current working repository is available for a lookup, should resolution simply skip the first slot and continue with owner -> `codeInfo2` -> others, and should observability explicitly log that no working repository was available?
+- Why this is important: the runtime needs one deterministic fallback rule for missing current-folder state, and debugging will be much easier if the missing first slot is visible rather than silent.
+
+2. For direct command execution outside flows, if a command is selected from an ingested repository while the current working repository is different, should the command's own repository always be treated as the owner slot for lookup?
+- Why this is important: direct commands need the same owner semantics as flows, otherwise command lookup behavior could diverge in subtle ways that are hard for users to predict.
+
+3. Which logs or API responses should expose the candidate lookup order and the selected repository so debugging remains easy without requiring deep log inspection?
+- Why this is important: this story changes core lookup behavior, so support and development workflows need a clear and consistent place to see why a particular repository won.
+
 ## Decisions
 
 1. Canonical stored identity of the current working repository

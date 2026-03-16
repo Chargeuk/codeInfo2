@@ -498,11 +498,9 @@ Create one shared server-side helper that produces the working-repo-first reposi
 
 #### Documentation Locations
 
-- Story sections in this file: `Description`, `Acceptance Criteria`, `Implementation Ideas`, `Contracts And Storage Shapes`, and `Edge Cases And Failure Modes`
-- Existing owner-first implementations: `server/src/flows/service.ts` and `server/src/flows/markdownFileResolver.ts`
-- Existing repository ordering helpers and source-label rules in the same files
-- Existing repository inventory source: `server/src/lmstudio/toolService.ts` `listIngestedRepositories(...)`
-- Node path normalization rules already used in this repo: `node:path` usage in the resolver files above
+- Context7 `/nodejs/node` for `node:path` path normalization, absolute-path resolution, and file-system path handling
+- Official Node.js API documentation for `path.resolve(...)`, `path.normalize(...)`, and case-sensitive versus case-insensitive path considerations
+- Context7 `/nodejs/node` for `fs` or `fs/promises` behavior where candidate-order tests need safe file-path fixtures
 
 #### Subtasks
 
@@ -539,11 +537,9 @@ Rewire the server path that resolves command JSON files so it uses the shared ca
 
 #### Documentation Locations
 
-- Story sections in this file: `Acceptance Criteria`, `Implementation Ideas`, `Expected Outcomes`, and `Edge Cases And Failure Modes`
-- Current flow command resolver: `server/src/flows/service.ts`
-- Direct command execution path and command-runner files: `server/src/agents/service.ts`, `server/src/agents/commandsRunner.ts`, and `server/src/agents/commandItemExecutor.ts`
-- Existing command loading and logging helpers in `server/src/flows/service.ts`: `loadCommandForAgent(...)`, `normalizeSourceLabel(...)`, and the `DEV_0000040_T11_FLOW_RESOLUTION_ORDER` log marker
-- Existing tests around command resolution: `server/src/test/integration/flows.run.command.test.ts` and any command-runner tests under `server/src/test/unit/`
+- Context7 `/nodejs/node` for `node:path` resolution and safe file-path handling used by command lookup logic
+- Official Node.js API documentation for JSON file access and filesystem error handling that informs fail-fast versus not-found behavior
+- Context7 `/nodejs/node` for standard error and path semantics used when command lookup falls back only on not-found outcomes
 
 #### Subtasks
 
@@ -584,11 +580,9 @@ Update the markdown resolver so every markdown lookup uses the same shared repos
 
 #### Documentation Locations
 
-- Story sections in this file: `Acceptance Criteria`, `Implementation Ideas`, `Expected Outcomes`, and `Edge Cases And Failure Modes`
-- Markdown resolver implementation: `server/src/flows/markdownFileResolver.ts`
-- Existing nested resolution callers in `server/src/flows/service.ts` and `server/src/agents/commandItemExecutor.ts`
-- Existing markdown logging and source-label helpers in `server/src/flows/markdownFileResolver.ts`
-- Existing markdown resolver tests under `server/src/test/unit/` and flow integration tests that exercise markdown lookups
+- Context7 `/nodejs/node` for `node:path` path handling, `fs` or `fs/promises` reads, and text-decoding behavior relevant to markdown resolution
+- Official Node.js API documentation for `Buffer`, UTF-8 decoding, and file-read failure behavior that informs the fail-fast rule
+- Context7 `/nodejs/node` for filesystem error handling patterns used to distinguish not-found from unreadable or undecodable files
 
 #### Subtasks
 
@@ -630,13 +624,9 @@ Add the storage shapes that story 48 needs without changing any client UI yet. T
 
 #### Documentation Locations
 
-- Story sections in this file: `Contracts And Storage Shapes`, `Edge Cases And Failure Modes`, and `Research Findings`
-- Conversation and repo helpers: `server/src/mongo/conversation.ts` and `server/src/mongo/repo.ts`
-- Flow state: `server/src/flows/flowState.ts`
-- Turn schema: `server/src/mongo/turn.ts`
-- Memory-mode persistence: `server/src/chat/memoryPersistence.ts`
-- Existing turn append and conversation update paths: `appendTurn(...)`, `updateConversationMeta(...)`, `recordMemoryTurn(...)`, and `updateMemoryConversationMeta(...)`
-- Mongoose documentation reference for mixed fields and optional nested objects: Context7 `/websites/mongoosejs`
+- Context7 `/websites/mongoosejs` for schema design, nested optional objects, and update-query behavior
+- Context7 `/websites/mongoosejs` for `Mixed` field persistence rules and when `markModified(...)` is required
+- Official Mongoose documentation on subdocuments, nested paths, and atomic updates for conversation and turn persistence changes
 
 #### Subtasks
 
@@ -678,12 +668,9 @@ Use the storage shapes from Task 4 to make the server actually accept, validate,
 
 #### Documentation Locations
 
-- Story sections in this file: `Acceptance Criteria`, `Contracts And Storage Shapes`, `Edge Cases And Failure Modes`, and `Expected Outcomes`
-- Chat request validation and route: `server/src/routes/chatValidators.ts` and `server/src/routes/chat.ts`
-- Existing working-folder server surfaces: `server/src/routes/agentsRun.ts`, `server/src/routes/agentsCommands.ts`, `server/src/routes/flowsRun.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts`
-- Conversation edit and restore surfaces: `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, `server/src/mongo/events.ts`, and `server/src/ws/sidebar.ts`
-- Existing working-folder validation boundary: `server/src/agents/service.ts` `resolveWorkingFolderWorkingDirectory(...)`
-- Existing run-lock and inflight lifecycle helpers: `server/src/agents/runLock.ts`, `server/src/chat/inflightRegistry.ts`, and the ownership helpers already used by the run routes
+- Context7 `/expressjs/express` for route handlers, request or response flow, and middleware patterns used by the server routes
+- Context7 `/nodejs/node` for absolute-path validation and filesystem existence checks used by working-folder validation
+- Context7 `/websites/mongoosejs` for conversation update semantics when routes persist or clear `flags.workingFolder`
 
 #### Subtasks
 
@@ -729,15 +716,9 @@ Update the client so chats, agents, and flows all restore the saved working-fold
 
 #### Documentation Locations
 
-- Story sections in this file: `Acceptance Criteria`, `Expected Outcomes`, and `Edge Cases And Failure Modes`
-- New conversation working-folder edit contract added in Task 5
-- Shared conversation fetch and update code: `client/src/hooks/useConversations.ts` and any new helper created under `client/src/api/`
-- Conversation state hook: `client/src/hooks/useConversations.ts`
-- Chat execution hook and page: `client/src/hooks/useChatStream.ts` and `client/src/pages/ChatPage.tsx`
-- Realtime subscription path for restore and lock behavior: `client/src/hooks/useChatWs.ts`
-- Existing working-folder pages: `client/src/pages/AgentsPage.tsx` and `client/src/pages/FlowsPage.tsx`
-- MUI TextField documentation via the MUI MCP server for controlled usage and `disabled`
-- Existing client tests around working folders and runs under `client/src/test/`
+- Context7 `/reactjs/react.dev` for controlled inputs, state synchronization, and conditional disabled UI behavior
+- MUI MCP documentation for `@mui/material` `TextField`, specifically controlled usage, `disabled`, and helper text behavior
+- Context7 `/reactjs/react.dev` for effects and state updates that react to websocket or async conversation updates
 
 #### Subtasks
 
@@ -782,10 +763,9 @@ Perform the server-side and runtime-side portion of the env rename cutover. This
 
 #### Documentation Locations
 
-- Story sections in this file: `Description`, `Acceptance Criteria`, `Implementation Ideas`, and `Edge Cases And Failure Modes`
-- Startup env loading and server env readers: `server/src/config/startupEnv.ts`, `server/src/config/chatDefaults.ts`, `server/src/logger.ts`, `server/src/ingest/config.ts`, `server/src/routes/chat.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chatProviders.ts`, `server/src/routes/lmstudio.ts`, `server/src/routes/ingestModels.ts`, `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, `server/src/ingest/chromaClient.ts`, `server/src/ingest/ingestJob.ts`, and `server/src/ingest/reingestService.ts`
-- Server env files and runtime wrappers: `server/.env`, `server/.env.local`, `server/.env.e2e` if present, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, and `scripts/docker-compose-with-env.sh`
-- Existing env tests and user-facing copy that still mention legacy names: `server/src/test/unit/env-loading.test.ts`, related server unit/integration/cucumber tests that currently set legacy env names, `client/src/components/ingest/IngestForm.tsx`, and `client/src/test/ingestForm.test.tsx`
+- Context7 `/nodejs/node` for `process.env` access patterns and environment-variable parsing behavior
+- Docker documentation via Context7 `/docker/docs` for Compose environment variables, env files, and container runtime injection
+- Official Docker Compose environment variable documentation for `.env` files, compose overrides, and runtime environment precedence
 
 #### Subtasks
 
@@ -823,10 +803,9 @@ Perform the client-side portion of the env rename cutover. This task is only abo
 
 #### Documentation Locations
 
-- Story sections in this file: `Description`, `Acceptance Criteria`, `Implementation Ideas`, and `Edge Cases And Failure Modes`
-- Client env readers and runtime injection: `client/src/api/baseUrl.ts`, `client/src/hooks/useLmStudioStatus.ts`, `client/src/pages/LmStudioPage.tsx`, `client/src/logging/transport.ts`, `client/entrypoint.sh`, and `client/Dockerfile`
-- Client env files, compose injection, and e2e references under `client/`, `e2e/`, `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`
-- Existing client tests that currently use `VITE_API_URL`, `VITE_LMSTUDIO_URL`, or `VITE_LOG_*`
+- Context7 `/vitejs/vite` for `import.meta.env`, client env exposure rules, and Vite env-prefix behavior
+- Docker documentation via Context7 `/docker/docs` for build args, runtime env injection, and container entrypoint configuration
+- Context7 `/reactjs/react.dev` for client-side state updates that consume runtime configuration values in React components
 
 #### Subtasks
 
@@ -864,10 +843,9 @@ Replace the current OpenAI token-counting heuristic with one tokenizer-backed im
 
 #### Documentation Locations
 
-- Story sections in this file: `Description`, `Acceptance Criteria`, `Implementation Ideas`, `Research Findings`, and `Edge Cases And Failure Modes`
-- Current OpenAI counting path: `server/src/ingest/providers/openaiGuardrails.ts`, `server/src/ingest/providers/openaiEmbeddingProvider.ts`, `server/src/ingest/chunker.ts`, `server/src/ingest/providers/openaiConstants.ts`, and `server/src/ingest/providers/openaiErrors.ts`
-- OpenAI embeddings guidance and model limits already cited in this story
-- DeepWiki `dqbd/tiktoken` guidance on initialization failure and `free()` cleanup
+- Context7 `/websites/developers_openai_api` for embeddings limits, request constraints, and provider error behavior
+- Context7 `/openai/openai-node` for current Node SDK usage patterns relevant to embeddings requests
+- DeepWiki `dqbd/tiktoken`, especially `3.1 WASM Bindings`, `3.2 Pure JavaScript (js-tiktoken)`, and `3.3 Usage and Examples`, for tokenizer initialization, counting, reuse, and cleanup behavior
 
 #### Subtasks
 
@@ -909,8 +887,7 @@ This final task proves the full story is complete against the acceptance criteri
 - Playwright: Context7 `/microsoft/playwright`
 - Jest: Context7 `/jestjs/jest`
 - Cucumber guides: https://cucumber.io/docs/guides/
-- Story acceptance and edge-case sections in this file
-- `README.md`, `design.md`, `projectStructure.md`, and `docs/developer-reference.md`
+- Mermaid: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 

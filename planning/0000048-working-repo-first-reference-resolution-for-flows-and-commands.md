@@ -74,7 +74,7 @@ Repository inspection for this story also found five concrete scope facts that s
 - Fallback continues only for not-found outcomes. Higher-priority read, parse, validation, or decode failures remain fail-fast instead of falling through to lower-priority repositories.
 - Observability logs and documentation are updated so the selected candidate order and selected repository are visible and understandable during debugging.
 - Structured server-side lookup logs are the canonical debugging surface for reference resolution and include, at minimum, the reference type, referencing file, current working repository when present, owner repository, ordered candidate list, selected repository, whether fallback occurred, and whether the working-repo slot was unavailable.
-- Execution metadata for runs or steps includes a compact lookup summary that exposes, at minimum, the final selected repository path, whether fallback occurred, and whether a working repository was available for that lookup; when useful, it may also include the ordered candidate repository path list. General high-level API responses remain focused and are not broadly expanded with verbose lookup internals.
+- Execution metadata for runs or steps includes a compact lookup summary that exposes the final selected repository path, whether fallback occurred, and whether a working repository was available for that lookup. General high-level API responses remain focused and are not broadly expanded with verbose lookup internals.
 - The behavior is documented with at least one nested-reference example that proves the lookup order restarts for each reference hop.
 - Repository-owned environment variables are renamed to uppercase `CODEINFO_` names, and Vite browser-facing variables are renamed to uppercase `VITE_CODEINFO_` names.
 - The env renaming work updates committed defaults, local override examples, compose files, e2e configuration, wrappers, and documentation so the renamed variables are used consistently across local, compose, and test workflows.
@@ -234,8 +234,7 @@ Repository inspection for this story also found five concrete scope facts that s
 - Add a compact lookup summary to run or step metadata that exposes:
   - final selected repository path;
   - fallback-used boolean;
-  - working-repository-available boolean;
-  - ordered candidate paths when useful.
+  - working-repository-available boolean.
 - Extend the most relevant test suites instead of inventing a new harness first:
   - flow and markdown resolution integration tests for working-repo-first nested lookups;
   - working-folder validation and persistence tests for agents, flows, commands, and chat;
@@ -345,21 +344,13 @@ Story 48 does require contract and storage-shape changes, but they can be define
   - `runtime?: {`
   - `  workingFolder?: string;`
   - `  lookupSummary?: {`
-  - `    referenceType: 'flow-command' | 'flow-markdown' | 'command-markdown' | 'direct-command';`
-  - `    referencingFile?: string;`
-  - `    ownerRepositoryPath?: string;`
-  - `    workingRepositoryPath?: string;`
   - `    workingRepositoryAvailable: boolean;`
-  - `    candidateRepositories?: Array<{`
-  - `      path: string;`
-  - `      rank: 'working' | 'owner' | 'codeinfo2' | 'other';`
-  - `    }>;`
   - `    selectedRepositoryPath: string;`
   - `    fallbackUsed: boolean;`
   - `  };`
   - `}`
 - `runtime.workingFolder` stores the exact resolved folder snapshot used for that persisted turn or step.
-- `runtime.lookupSummary` stores the compact lookup contract the story already requires for runs and steps.
+- `runtime.lookupSummary` stores the minimal persisted lookup contract the story already requires for runs and steps. The full ordered candidate list remains a structured-log concern rather than a persisted turn concern.
 - If a turn or step does not perform reference resolution, `runtime.lookupSummary` may be omitted while `runtime.workingFolder` still records the run snapshot.
 - Memory persistence should mirror the same `runtime` shape so in-memory and Mongo-backed execution do not diverge.
 
@@ -561,8 +552,8 @@ Rewire the server path that resolves command JSON files so it uses the shared ca
 4. [ ] Extend or add flow command tests that prove a flow from `codeInfo2` prefers the selected working repository first and that a flow from one ingested repo still prefers a different selected working repository first.
 5. [ ] Update the direct command execution path so referenced command files use the same working-repo-first ordering and treat the selected command file's repository as the owner slot. Reuse the existing agent-conversation ownership and command-runner flow while doing this; do not create any separate command-specific persistence model, command-specific conversation type, or parallel command fetch path.
 6. [ ] Extend or add direct-command tests that prove direct command execution outside flows still uses the command file's repository as the owner slot second.
-7. [ ] Write the compact command-resolution lookup summary into the runtime or step metadata shape introduced in Task 4 for both flow-owned command resolution and direct-command execution so later debugging does not depend on logs alone.
-8. [ ] Extend the command-resolution tests so they assert the runtime or step metadata contains the selected repository path, fallback-used flag, and working-repository-available flag for both flow-owned command resolution and direct-command execution.
+7. [ ] Write the minimal command-resolution lookup summary into the runtime or step metadata shape introduced in Task 4 for both flow-owned command resolution and direct-command execution. Keep the persisted shape limited to `selectedRepositoryPath`, `fallbackUsed`, and `workingRepositoryAvailable`; the full candidate order should stay in the structured logs.
+8. [ ] Extend the command-resolution tests so they assert the runtime or step metadata contains `selectedRepositoryPath`, `fallbackUsed`, and `workingRepositoryAvailable` for both flow-owned command resolution and direct-command execution.
 9. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, only update this story file's Task 2 `Implementation notes`.
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, fix the issues before continuing.
 
@@ -606,8 +597,8 @@ Update the markdown resolver so every markdown lookup uses the same shared repos
 5. [ ] Extend or add markdown-resolution tests that prove the working repository is searched first and that nested command-to-markdown lookups restart the full order for each hop.
 6. [ ] Extend or add markdown-resolution tests that prove invalid UTF-8 or read failures in a higher-priority repository do not fall through silently.
 7. [ ] Update markdown-resolution logs so they emit the same candidate-order and winner metadata shape used by command resolution, plus the final resolved markdown path.
-8. [ ] Persist the matching markdown lookup summary into runtime or step metadata so nested-resolution debugging does not rely only on log output.
-9. [ ] Extend the markdown-resolution tests so they assert the runtime or step metadata captures the resolved markdown path, selected repository path, fallback-used flag, and working-repository-available flag for nested lookups as well as top-level flow markdown references.
+8. [ ] Persist the matching markdown lookup summary into runtime or step metadata using the same minimal shape from Task 4. Keep the persisted fields limited to `selectedRepositoryPath`, `fallbackUsed`, and `workingRepositoryAvailable`; the detailed resolved path and full candidate order should stay in the structured logs.
+9. [ ] Extend the markdown-resolution tests so they assert the runtime or step metadata captures `selectedRepositoryPath`, `fallbackUsed`, and `workingRepositoryAvailable` for nested lookups as well as top-level flow markdown references.
 10. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, only update this story file's Task 3 `Implementation notes`.
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues before moving on.
 
@@ -742,7 +733,7 @@ Update the client so chats, agents, and flows all restore the saved working-fold
 - Chat execution hook and page: `client/src/hooks/useChatStream.ts` and `client/src/pages/ChatPage.tsx`
 - Realtime subscription path for restore and lock behavior: `client/src/hooks/useChatWs.ts`
 - Existing working-folder pages: `client/src/pages/AgentsPage.tsx` and `client/src/pages/FlowsPage.tsx`
-- MUI TextField documentation via the MUI MCP server for controlled usage, `disabled`, and explicit `id` plus helper-text accessibility linkage
+- MUI TextField documentation via the MUI MCP server for controlled usage and `disabled`
 - Existing client tests around working folders and runs under `client/src/test/`
 
 #### Subtasks
@@ -751,12 +742,12 @@ Update the client so chats, agents, and flows all restore the saved working-fold
 2. [ ] Create or extend one shared client helper under `client/src/api/` and `client/src/hooks/useConversations.ts` so chat, agent, and flow pages can update an existing conversation's saved `workingFolder` through the new Task 5 server route instead of each page hand-rolling its own fetch logic.
 3. [ ] Update `client/src/hooks/useConversations.ts` so the active conversation state reliably exposes `flags.workingFolder` for chat, agent, and flow conversations, and so websocket `conversation_upsert` events can apply both saved values and explicit clears without waiting for a manual refresh.
 4. [ ] Update `client/src/hooks/useChatStream.ts` and `client/src/pages/ChatPage.tsx` so chat can restore, edit, commit, save, and send `working_folder` using the new conversation-edit contract plus the existing run payload.
-5. [ ] In the new chat working-folder UI, make sure the picker is disabled whenever a chat run is active or the server reports an inflight run through websocket state, and give the new MUI `TextField` a stable explicit `id` and any required helper-text linkage so the label remains accessible before hydration.
-6. [ ] Update `client/src/pages/AgentsPage.tsx` so the agent working-folder picker restores from `conversation.flags.workingFolder`, saves idle edits through the new shared conversation-edit helper, stays locked while a run is active, returns to the normal empty state when the server clears an invalid path, and gets explicit `id` plus helper-text linkage while it is being touched for this story.
-7. [ ] Update `client/src/pages/FlowsPage.tsx` so the flow working-folder picker restores from `conversation.flags.workingFolder`, saves idle edits through the new shared conversation-edit helper, stays locked while a run is active, returns to the normal empty state when the server clears an invalid path, and gets explicit `id` plus helper-text linkage while it is being touched for this story.
+5. [ ] In the new chat working-folder UI, make sure the picker is disabled whenever a chat run is active or the server reports an inflight run through websocket state.
+6. [ ] Update `client/src/pages/AgentsPage.tsx` so the agent working-folder picker restores from `conversation.flags.workingFolder`, saves idle edits through the new shared conversation-edit helper, stays locked while a run is active, and returns to the normal empty state when the server clears an invalid path.
+7. [ ] Update `client/src/pages/FlowsPage.tsx` so the flow working-folder picker restores from `conversation.flags.workingFolder`, saves idle edits through the new shared conversation-edit helper, stays locked while a run is active, and returns to the normal empty state when the server clears an invalid path.
 8. [ ] Add or update client tests for the shared conversation working-folder update helper and chat payload behavior in `client/src/test/conversationsApi.workingFolder.test.ts` and `client/src/test/chatSendPayload.test.ts`.
-9. [ ] Add or update client tests for chat restore, lock behavior, invalid-path clearing, and accessible field wiring in `client/src/test/chatPage.workingFolder.test.tsx`.
-10. [ ] Add or update client tests for the agent and flow picker restore, idle-save, lock, invalid-path clearing, and accessible field wiring in `client/src/test/agentsPage.workingFolderPicker.test.tsx` and `client/src/test/flowsPage.run.test.tsx`.
+9. [ ] Add or update client tests for chat restore, lock behavior, and invalid-path clearing in `client/src/test/chatPage.workingFolder.test.tsx`.
+10. [ ] Add or update client tests for the agent and flow picker restore, idle-save, lock, and invalid-path clearing in `client/src/test/agentsPage.workingFolderPicker.test.tsx` and `client/src/test/flowsPage.run.test.tsx`.
 11. [ ] Update `README.md` or `docs/developer-reference.md` only if the user-visible working-folder behavior described there is now stale. Also update this story file's Task 6 `Implementation notes` after the task is complete.
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues before continuing.
 

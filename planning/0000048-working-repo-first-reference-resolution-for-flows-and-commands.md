@@ -546,7 +546,7 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 
 ### 2. Apply The Shared Order To Flow And Direct-Command Command Resolution
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: `__to_do__`
 
 #### Overview

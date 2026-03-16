@@ -74,9 +74,12 @@ Current repository evidence shows that the checked-in Compose files do not all d
 
 ### Questions
 
-- If multiple ingested repositories share the same case-insensitive repository id, should workflow re-ingest keep the existing helper behavior of selecting the latest ingest, or should workflows fail fast as ambiguous because they are automation artifacts?
-- For `target: "all"`, should conversation history record one existing re-ingest tool result per repository, or should the story introduce a new batch result payload to reduce transcript noise?
-- Should Compose files that do not currently define a `playwright-mcp` service remain out of scope for the host-networking implementation, or is this story expected to add a Playwright MCP service to those files as well?
+1. If multiple ingested repositories share the same case-insensitive repository id, should workflow re-ingest keep the existing helper behavior of selecting the latest ingest, or should workflows fail fast as ambiguous because they are automation artifacts?
+   - Why this is important: this determines whether machine-portable repository-name selectors remain convenient but potentially surprising, or become stricter and safer for automation at the cost of rejecting some existing repository layouts.
+2. For `target: "all"`, should conversation history record one existing re-ingest tool result per repository, or should the story introduce a new batch result payload to reduce transcript noise?
+   - Why this is important: this decides both the user-facing transcript experience and the implementation scope for websocket, persistence, and test coverage around multi-repository re-ingest runs.
+3. Should Compose files that do not currently define a `playwright-mcp` service remain out of scope for the host-networking implementation, or is this story expected to add a Playwright MCP service to those files as well?
+   - Why this is important: this fixes the true size of the Docker and runtime-config work up front so the story does not accidentally grow from "convert existing Playwright services" into "introduce new Playwright services to additional environments."
 
 ## Implementation Ideas
 

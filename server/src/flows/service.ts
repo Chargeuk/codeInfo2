@@ -2266,6 +2266,7 @@ async function runFlowUnlocked(params: {
       });
       resolved = await resolveMarkdownFileWithMetadata({
         markdownFile: step.markdownFile,
+        workingRepositoryPath: params.repositoryContext.workingRepositoryPath,
         flowSourceId: params.repositoryContext.flowSourceId,
       });
     } catch (error) {
@@ -2310,6 +2311,12 @@ async function runFlowUnlocked(params: {
       identifier: step.identifier,
       instruction: resolved.content,
       command,
+      runtime: {
+        ...(params.repositoryContext.workingRepositoryPath
+          ? { workingFolder: params.repositoryContext.workingRepositoryPath }
+          : {}),
+        lookupSummary: resolved.lookupSummary,
+      },
     });
     return result.status;
   };
@@ -2524,18 +2531,24 @@ async function runFlowUnlocked(params: {
             item,
             itemIndex,
             commandName: step.commandName,
+            workingRepositoryPath:
+              params.repositoryContext.workingRepositoryPath,
+            sourceId: commandLoad.sourceId,
             flowSourceId: params.repositoryContext.flowSourceId,
             flowContext: {
               flowName: params.flowName,
               stepIndex: command.stepIndex,
             },
-            executeInstruction: async ({ instruction }) =>
+            executeInstruction: async ({ instruction, lookupSummary }) =>
               runInstruction({
                 agentType: step.agentType,
                 identifier: step.identifier,
                 instruction,
                 command,
-                runtime: commandRuntime,
+                runtime: {
+                  ...commandRuntime,
+                  lookupSummary: lookupSummary ?? commandRuntime.lookupSummary,
+                },
               }),
             executeReingest: async (reingestItem) => {
               const result = await flowServiceDeps.runReingestRepository({

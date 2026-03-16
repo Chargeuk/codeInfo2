@@ -13,7 +13,12 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import {
+  __resetMarkdownFileResolverDepsForTests,
+  __setMarkdownFileResolverDepsForTests,
+} from '../../flows/markdownFileResolver.js';
 import { startFlowRun } from '../../flows/service.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { TurnSummary } from '../../mongo/repo.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
@@ -64,9 +69,27 @@ const listTurnsFromMemory = (conversationId: string): TurnSummary[] => {
     command: turn.command,
     usage: turn.usage,
     timing: turn.timing,
+    runtime: turn.runtime,
     createdAt: turn.createdAt ?? new Date(),
   }));
 };
+
+const buildRepoEntry = (params: {
+  id: string;
+  containerPath: string;
+}): RepoEntry => ({
+  id: params.id,
+  description: null,
+  containerPath: params.containerPath,
+  hostPath: params.containerPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model',
+  embeddingDimensions: 768,
+  modelId: 'model',
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
 
 test('flow turns include command metadata in snapshots and history', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -214,6 +237,132 @@ test('flow turns include command metadata in snapshots and history', async () =>
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
     await closeWs(wsPrimary);
+    await wsHandle.close();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('top-level flow markdown persists runtime lookupSummary metadata', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-markdown-meta-'),
+  );
+  const workingRepo = path.join(tmpDir, 'working-repo');
+
+  const flow = {
+    description: 'Markdown metadata flow',
+    steps: [
+      {
+        type: 'llm',
+        agentType: 'coding_agent',
+        identifier: 'flow-markdown-meta',
+        markdownFile: 'top-level.md',
+      },
+    ],
+  };
+  await fs.writeFile(
+    path.join(tmpDir, 'flow-markdown-metadata.json'),
+    JSON.stringify(flow, null, 2),
+  );
+  await fs.mkdir(path.join(workingRepo, 'codeinfo_markdown'), {
+    recursive: true,
+  });
+  await fs.writeFile(
+    path.join(workingRepo, 'codeinfo_markdown', 'top-level.md'),
+    'working repo markdown',
+    'utf8',
+  );
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new SlowChat(),
+        }),
+    }),
+  );
+  app.use(
+    createConversationsRouter({
+      findConversationById: async (id) => {
+        const convo = memoryConversations.get(id);
+        if (!convo) return null;
+        return {
+          _id: String(convo._id ?? id),
+          archivedAt: convo.archivedAt ?? null,
+        };
+      },
+      listAllTurns: async (id) => ({ items: listTurnsFromMemory(id) }),
+    }),
+  );
+
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const conversationId = 'flow-markdown-metadata-conv-1';
+
+  try {
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () =>
+        ({
+          repos: [
+            buildRepoEntry({
+              id: 'Working Repo',
+              containerPath: workingRepo,
+            }),
+          ],
+        }) as never,
+    });
+
+    await supertest(baseUrl)
+      .post('/flows/flow-markdown-metadata/run')
+      .send({ conversationId, working_folder: workingRepo })
+      .expect(202);
+
+    await delay(2000);
+
+    const turnsRes = await supertest(baseUrl)
+      .get(`/conversations/${conversationId}/turns`)
+      .expect(200);
+
+    const items = turnsRes.body.items ?? [];
+    const persistedTurns = memoryTurns.get(conversationId) ?? [];
+    assert.equal(items.length >= 2, true);
+    assert.equal(persistedTurns.length >= 2, true);
+    assert.equal(
+      persistedTurns.every(
+        (turn) =>
+          turn.command?.name === 'flow' &&
+          turn.runtime?.lookupSummary?.selectedRepositoryPath ===
+            path.resolve(workingRepo) &&
+          turn.runtime?.lookupSummary?.fallbackUsed === false &&
+          turn.runtime?.lookupSummary?.workingRepositoryAvailable === true,
+      ),
+      true,
+    );
+  } finally {
+    __resetMarkdownFileResolverDepsForTests();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;

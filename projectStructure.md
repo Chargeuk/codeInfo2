@@ -1,5 +1,32 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000048 Task 3 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `projectStructure.md`
+- `server/src/agents/commandItemExecutor.ts`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/flows/markdownFileResolver.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/commands.markdown-file.test.ts`
+- `server/src/test/integration/flows.turn-metadata.test.ts`
+- `server/src/test/unit/markdown-file-resolver.test.ts`
+
 ## Story 0000048 Task 2 structural change ledger
 
 Added files:

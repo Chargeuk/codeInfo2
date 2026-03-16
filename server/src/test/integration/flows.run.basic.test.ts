@@ -1091,7 +1091,7 @@ test('flow llm.markdownFile fails fast when a higher-priority markdown file is u
   );
 });
 
-test('flow llm.markdownFile uses deterministic full-path ordering for duplicate-label fallback repositories', async () => {
+test('flow llm.markdownFile preserves caller-supplied other-repository order for duplicate-label fallbacks', async () => {
   await withMarkdownFlowHarness(
     async ({
       tempRoot,
@@ -1143,7 +1143,7 @@ test('flow llm.markdownFile uses deterministic full-path ordering for duplicate-
           ),
       });
 
-      assert.deepEqual(messages, ['alpha-a markdown']);
+      assert.deepEqual(messages, ['alpha-b markdown']);
     },
   );
 });

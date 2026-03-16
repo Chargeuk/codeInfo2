@@ -297,6 +297,76 @@ sequenceDiagram
   end
 ```
 
+## Story 0000048 Task 3 markdown resolution
+
+- `server/src/flows/markdownFileResolver.ts` now reuses `server/src/flows/repositoryCandidateOrder.ts` instead of maintaining a separate owner-first candidate builder.
+- Every markdown hop recomputes repository order from the immediate referencing file:
+  - top-level flow `llm.markdownFile` steps use the selected working repository first and the current flow file repository as the owner slot when available;
+  - nested command `message.markdownFile` items use the selected working repository first and the resolved command file repository as the owner slot;
+  - no hop inherits the previous repository winner unless that same repository naturally reappears in the current hop as the working or owner slot.
+- The concrete markdown candidate order matches command lookup:
+  - selected working repository first when available;
+  - immediate owner repository second;
+  - local `codeInfo2` third;
+  - remaining ingested repositories last in caller-supplied order.
+- Markdown safety rules stay unchanged while order changes:
+  - only missing files fall through to the next repository candidate;
+  - a readable higher-priority file with invalid UTF-8 fails immediately;
+  - a higher-priority read failure fails immediately;
+  - path normalization still requires a relative path under `codeinfo_markdown/`.
+- Structured markdown observability now uses the compact lookup-summary contract plus markdown-only debug detail:
+  - `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER` logs the helper-produced candidate order and `workingRepositoryAvailable`;
+  - `DEV_0000048_T3_MARKDOWN_RESOLUTION_ORDER` logs `selectedRepositoryPath`, `fallbackUsed`, `workingRepositoryAvailable`, and the final `resolvedPath` for debugging only.
+- Persisted markdown runtime metadata stays compact in `Turn.runtime.lookupSummary` and matches command lookup storage:
+  - `selectedRepositoryPath`
+  - `fallbackUsed`
+  - `workingRepositoryAvailable`
+
+```mermaid
+flowchart TD
+  Start[Resolve markdown reference] --> Work{Working repository saved and available?}
+  Work -- yes --> W[Try working repository]
+  Work -- no --> Owner[Try owner repository]
+  W --> FoundW{Markdown file exists?}
+  FoundW -- valid UTF-8 --> PickW[Select working repository]
+  FoundW -- read/decode failure --> Fail[Fail fast]
+  FoundW -- missing --> Owner
+  Owner --> FoundO{Markdown file exists?}
+  FoundO -- valid UTF-8 --> PickO[Select owner repository]
+  FoundO -- read/decode failure --> Fail
+  FoundO -- missing --> Local[Try local codeInfo2]
+  Local --> FoundL{Markdown file exists?}
+  FoundL -- valid UTF-8 --> PickL[Select local codeInfo2]
+  FoundL -- read/decode failure --> Fail
+  FoundL -- missing --> Others[Try other ingested repositories in order]
+  Others --> FoundR{Markdown file exists?}
+  FoundR -- valid UTF-8 --> PickR[Select first matching repository]
+  FoundR -- read/decode failure --> Fail
+  FoundR -- missing everywhere --> NotFound[Return not found]
+```
+
+```mermaid
+sequenceDiagram
+  participant Flow as Flow or command item
+  participant Helper as repositoryCandidateOrder
+  participant Resolver as markdownFileResolver
+  participant Turn as Turn runtime metadata
+
+  Flow->>Helper: build order(working, immediate owner, codeInfo2, others)
+  Helper-->>Resolver: candidates + workingRepositoryAvailable
+  Resolver->>Resolver: try candidates in order
+  alt selected file is readable and valid UTF-8
+    Resolver-->>Flow: content + lookupSummary + resolvedPath
+    Flow->>Turn: persist runtime.lookupSummary
+  else selected file read or decode fails
+    Resolver-->>Flow: fail fast
+  else selected file missing everywhere
+    Resolver-->>Flow: not found
+  end
+
+  Note over Flow,Helper: Nested command markdown repeats the same sequence per hop using the resolved command file repository as the new owner slot.
+```
+
 ## Agents prompts route contract (Story 0000039 Task 1)
 
 - Added `GET /agents/{agentName}/prompts` at the agents commands router boundary.

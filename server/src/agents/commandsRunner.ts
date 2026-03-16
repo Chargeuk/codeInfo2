@@ -346,6 +346,7 @@ export async function runAgentCommandRunner(
         item,
         itemIndex: i,
         commandName,
+        workingRepositoryPath: params.working_folder,
         sourceId: params.sourceId,
         executeInstruction: async (instruction) => instruction,
       });
@@ -370,14 +371,19 @@ export async function runAgentCommandRunner(
       let previousError: unknown = null;
       let sanitizedErrorLength = 0;
       let currentAttempt = 0;
-      const runtime: TurnRuntimeMetadata | undefined = params.lookupSummary
-        ? {
-            ...(params.working_folder
-              ? { workingFolder: params.working_folder }
-              : {}),
-            lookupSummary: params.lookupSummary,
-          }
-        : undefined;
+      const runtimeLookupSummary =
+        preparedInstruction.lookupSummary ?? params.lookupSummary;
+      const runtime: TurnRuntimeMetadata | undefined =
+        runtimeLookupSummary || params.working_folder
+          ? {
+              ...(params.working_folder
+                ? { workingFolder: params.working_folder }
+                : {}),
+              ...(runtimeLookupSummary
+                ? { lookupSummary: runtimeLookupSummary }
+                : {}),
+            }
+          : undefined;
 
       const res = await runWithRetry({
         runStep: async () => {

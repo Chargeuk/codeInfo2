@@ -294,8 +294,8 @@ export const resolveCodexChatDefaults = async (params?: {
     field: 'model',
     overrideValue: parseModelValue(params?.overrides?.model),
     configValue: configModel,
-    envValue: parseModelValue(process.env.CHAT_DEFAULT_MODEL),
-    envName: 'CHAT_DEFAULT_MODEL',
+    envValue: parseModelValue(process.env.CODEINFO_CHAT_DEFAULT_MODEL),
+    envName: 'CODEINFO_CHAT_DEFAULT_MODEL',
     hardcoded: FALLBACK_CODEX_MODEL,
     warnings,
   });
@@ -419,13 +419,13 @@ const parseEnvProvider = (
   const trimmed = value.trim();
   if (!trimmed) {
     warnings.push(
-      'CHAT_DEFAULT_PROVIDER is empty; using fallback provider defaults.',
+      'CODEINFO_CHAT_DEFAULT_PROVIDER is empty; using fallback provider defaults.',
     );
     return undefined;
   }
   if (!VALID_PROVIDERS.includes(trimmed as ChatDefaultProvider)) {
     warnings.push(
-      `CHAT_DEFAULT_PROVIDER must be one of ${VALID_PROVIDERS.join(', ')}; received "${trimmed}". Using fallback provider defaults.`,
+      `CODEINFO_CHAT_DEFAULT_PROVIDER must be one of ${VALID_PROVIDERS.join(', ')}; received "${trimmed}". Using fallback provider defaults.`,
     );
     return undefined;
   }
@@ -440,7 +440,7 @@ const parseEnvModel = (
   const trimmed = value.trim();
   if (!trimmed) {
     warnings.push(
-      'CHAT_DEFAULT_MODEL is empty; using fallback model defaults.',
+      'CODEINFO_CHAT_DEFAULT_MODEL is empty; using fallback model defaults.',
     );
     return undefined;
   }
@@ -456,10 +456,13 @@ export const resolveChatDefaults = ({
 }): ChatDefaultsResolution => {
   const warnings: string[] = [];
   const envProvider = parseEnvProvider(
-    process.env.CHAT_DEFAULT_PROVIDER,
+    process.env.CODEINFO_CHAT_DEFAULT_PROVIDER,
     warnings,
   );
-  const envModel = parseEnvModel(process.env.CHAT_DEFAULT_MODEL, warnings);
+  const envModel = parseEnvModel(
+    process.env.CODEINFO_CHAT_DEFAULT_MODEL,
+    warnings,
+  );
 
   const provider = requestProvider ?? envProvider ?? FALLBACK_PROVIDER;
   const model = requestModel ?? envModel ?? FALLBACK_MODEL;

@@ -22,7 +22,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Express 5 app with CORS enabled and env-driven port (default 5010 via `SERVER_PORT` in `server/.env`, with legacy `PORT` fallback).
 - Routes: `/health` returns `{ status: 'ok', uptime, timestamp }`; `/version` returns `VersionInfo` using `package.json` version; `/info` echoes a friendly message plus VersionInfo.
 - Depends on `@codeinfo2/common` for DTO helper; built with `tsc -b`, started via `npm run start --workspace server`.
-- Shared chat provider/model defaults are resolved in `server/src/config/chatDefaults.ts`. Provider selection still follows explicit request -> `CHAT_DEFAULT_PROVIDER` env -> hardcoded fallback (`codex`), while Codex model selection now follows explicit request -> `codex/chat/config.toml` -> `CHAT_DEFAULT_MODEL` env -> hardcoded fallback (`gpt-5.3-codex`).
+- Shared chat provider/model defaults are resolved in `server/src/config/chatDefaults.ts`. Provider selection still follows explicit request -> `CODEINFO_CHAT_DEFAULT_PROVIDER` env -> hardcoded fallback (`codex`), while Codex model selection now follows explicit request -> `codex/chat/config.toml` -> `CODEINFO_CHAT_DEFAULT_MODEL` env -> hardcoded fallback (`gpt-5.3-codex`).
 - `validateChatRequest` now accepts omitted `provider`/`model`, resolves both through the shared resolver, and keeps existing REST validation envelopes unchanged.
 - Codex-facing selection paths share the same chat-config-aware model/default behavior across `/chat/models`, `/chat/providers`, `validateChatRequest`, and MCP `codebase_question`.
 - The shared capability path unions `Codex_model_list` with the current `codex/chat/config.toml` model using first-seen order, and route presentation still performs its own preferred-model prioritization after capability resolution.
@@ -45,14 +45,14 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 flowchart LR
   Req[Codex-facing request] --> P{provider override?}
   P -- yes --> RP[provider=request]
-  P -- no --> PE{CHAT_DEFAULT_PROVIDER valid?}
+  P -- no --> PE{CODEINFO_CHAT_DEFAULT_PROVIDER valid?}
   PE -- yes --> RPE[provider=env]
   PE -- no --> RPF[provider=codex fallback]
   Req --> M{model override?}
   M -- yes --> RM[model=request]
   M -- no --> Cfg{codex/chat/config.toml model valid?}
   Cfg -- yes --> RMC[model=config]
-  Cfg -- no --> Env{CHAT_DEFAULT_MODEL valid?}
+  Cfg -- no --> Env{CODEINFO_CHAT_DEFAULT_MODEL valid?}
   Env -- yes --> RME[model=env]
   Env -- no --> RMF[model=gpt-5.3-codex fallback]
   RM --> Shared[Shared Codex-aware resolution]
@@ -1049,14 +1049,14 @@ flowchart LR
 ```mermaid
 flowchart TD
   A[GET /ingest/models] --> B[Resolve canonical lock]
-  B --> C{OPENAI_EMBEDDING_KEY usable?}
+  B --> C{CODEINFO_OPENAI_EMBEDDING_KEY usable?}
   C -- no --> D[openai: OPENAI_DISABLED]
   C -- yes --> E[List OpenAI models]
   E -->|mapped failure| F[openai warning statusCode]
   E -->|success| G[allowlist intersection + deterministic ordering]
   G -->|empty| H[OPENAI_ALLOWLIST_NO_MATCH]
   G -->|non-empty| I[OPENAI_OK]
-  B --> J{LMSTUDIO_BASE_URL valid + list ok?}
+  B --> J{CODEINFO_LMSTUDIO_BASE_URL valid + list ok?}
   J -- yes --> K[LMSTUDIO_OK + lmstudio models]
   J -- no --> L[LMSTUDIO warning envelope]
   D --> M[merge models + lock + envelopes]
@@ -1113,13 +1113,13 @@ flowchart LR
 ## Startup env loading parity (Task 3)
 
 - Startup now uses deterministic env precedence that matches compose env-file behavior for unset values: `server/.env` first, then `server/.env.local`.
-- Runtime/container-preseeded env vars are preserved and are not clobbered by file loading (for example an externally injected `OPENAI_EMBEDDING_KEY`).
+- Runtime/container-preseeded env vars are preserved and are not clobbered by file loading (for example an externally injected `CODEINFO_OPENAI_EMBEDDING_KEY`).
 - Env bootstrap is centralized in `server/src/config/startupEnv.ts` and is loaded before logger config resolution so env-driven logger/runtime settings use the same startup precedence.
 - Missing `server/.env.local` is a valid state and does not fail startup.
 - Startup emits deterministic diagnostic events:
   - `DEV-0000036:T3:env_load_order_applied` with ordered files and whether local override was applied.
   - `DEV-0000036:T3:openai_embedding_capability_state` with `enabled=true|false` only.
-- Capability logging is secret-safe: no `OPENAI_EMBEDDING_KEY` value is logged or appended.
+- Capability logging is secret-safe: no `CODEINFO_OPENAI_EMBEDDING_KEY` value is logged or appended.
 
 ```mermaid
 flowchart LR
@@ -4198,7 +4198,7 @@ The proxy does not cache results and times out after 60s. Invalid base URLs are 
 
 ### Chat models endpoint
 
-- `GET /chat/models?provider=lmstudio` uses `LMSTUDIO_BASE_URL` (converted to ws/wss for the SDK) to call `system.listDownloadedModels()`.
+- `GET /chat/models?provider=lmstudio` uses `CODEINFO_LMSTUDIO_BASE_URL` (converted to ws/wss for the SDK) to call `system.listDownloadedModels()`.
 - Success returns `200` with `[ { key, displayName, type } ]` and the chat UI defaults to the first entry when none is selected.
 - Failure or invalid/unreachable base URL returns `503 { error: "lmstudio unavailable" }`.
 - Logging: start, success, and failure entries record the sanitized base URL origin; success logs the model count for visibility.
@@ -4657,7 +4657,7 @@ flowchart LR
 - Behaviour: runs the selected `ChatInterface` and buffers normalized events via `McpResponder`, then filters the MCP response to answer-only segments (no thinking/vector-summary data). The MCP transport remains single-response (not streaming) and returns JSON `{ conversationId, modelId, segments: [{ type: 'answer', text }] }` inside the single `content` text payload.
 - Provider specifics:
   - `provider=codex`: uses Codex thread options (workingDirectory, sandbox, web search, reasoning effort) and relies on Codex thread history (only the latest message is submitted per turn).
-  - `provider=lmstudio`: uses `LMSTUDIO_BASE_URL` and the requested/default LM Studio model; history comes from stored turns for `conversationId`.
+  - `provider=lmstudio`: uses `CODEINFO_LMSTUDIO_BASE_URL` and the requested/default LM Studio model; history comes from stored turns for `conversationId`.
 - Error handling: MCP v2 `tools/list` and `tools/call` are no longer globally Codex-gated. Provider availability is resolved inside `codebase_question`, so LM Studio fallback remains reachable; terminal unavailable remains `CODE_INFO_LLM_UNAVAILABLE` (`-32001`) only when neither provider can execute.
 
 ```mermaid
@@ -4729,9 +4729,9 @@ sequenceDiagram
 ## Logging schema (shared)
 
 - Shared DTO lives in `common/src/logging.ts` and exports `LogEntry` / `LogLevel` plus an `isLogEntry` guard. Fields: `level`, `message`, ISO `timestamp`, `source` (`server|client`), optional `requestId`, `correlationId`, `userAgent`, `url`, `route`, `tags`, `context`, `sequence` (assigned server-side).
-- Server logger lives in `server/src/logger.ts` (pino + pino-http + pino-roll); request middleware is registered in `server/src/index.ts`. Env knobs: `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE` (defaults `true`). Files write to `./logs` (gitignored/bind-mounted later).
+- Server logger lives in `server/src/logger.ts` (pino + pino-http + pino-roll); request middleware is registered in `server/src/index.ts`. Env knobs: `CODEINFO_LOG_LEVEL`, `CODEINFO_LOG_BUFFER_MAX`, `CODEINFO_LOG_MAX_CLIENT_BYTES`, `CODEINFO_LOG_FILE_PATH` (default `./logs/server.log`), `CODEINFO_LOG_FILE_ROTATE` (defaults `true`). Files write to `./logs` (gitignored/bind-mounted later).
 - Startup logs emit `DEV-0000032:T12:verification-ready` once the server is ready, including `event` and `port` in the payload for manual verification.
-- Client logging stubs reside in `client/src/logging/*` with a console tee, queue placeholder, and forwarding toggle. Env knobs: `VITE_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`.
+- Client logging stubs reside in `client/src/logging/*` with a console tee, queue placeholder, and forwarding toggle. Env knobs: `VITE_CODEINFO_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`.
 - Privacy: redact obvious secrets (auth headers/passwords) before storage/streaming; keep payload size limits to avoid accidental PII capture.
 
 ```mermaid
@@ -4747,17 +4747,17 @@ flowchart TD
 
 ### Logging storage & retention
 
-- In-memory log buffer in `server/src/logStore.ts` caps entries using `LOG_BUFFER_MAX` (default 5000), assigns monotonic `sequence` numbers, and trims oldest-first to keep memory bounded.
-- File output writes to `LOG_FILE_PATH` (default `./logs/server.log`) with rotation controlled by `LOG_FILE_ROTATE` (`true` = daily via pino-roll); the directory is created on startup so hosts can bind-mount it.
+- In-memory log buffer in `server/src/logStore.ts` caps entries using `CODEINFO_LOG_BUFFER_MAX` (default 5000), assigns monotonic `sequence` numbers, and trims oldest-first to keep memory bounded.
+- File output writes to `CODEINFO_LOG_FILE_PATH` (default `./logs/server.log`) with rotation controlled by `CODEINFO_LOG_FILE_ROTATE` (`true` = daily via pino-roll); the directory is created on startup so hosts can bind-mount it.
 - Host persistence for compose runs uses `- ./logs:/app/logs` (to be added in compose) while keeping `logs/` gitignored and excluded from the server Docker build context.
-- `LOG_MAX_CLIENT_BYTES` will guard incoming log payload sizes when the ingestion endpoint is added, preventing oversized client submissions.
+- `CODEINFO_LOG_MAX_CLIENT_BYTES` will guard incoming log payload sizes when the ingestion endpoint is added, preventing oversized client submissions.
 
 ### Server log APIs & streaming
 
-- `POST /logs` validates `LogEntry`, whitelists levels (`error|warn|info|debug`) and sources (`client|server`), enforces the 32KB payload cap from `LOG_MAX_CLIENT_BYTES`, redacts obvious secrets (`authorization`, `password`, `token`) in contexts, attaches the middleware `requestId`, appends to the in-memory store, and forwards client-originated entries into the pino log file as JSON with a `CLIENT_LOG` marker and `clientId` (lifted from `entry.context.clientId`).
+- `POST /logs` validates `LogEntry`, whitelists levels (`error|warn|info|debug`) and sources (`client|server`), enforces the 32KB payload cap from `CODEINFO_LOG_MAX_CLIENT_BYTES`, redacts obvious secrets (`authorization`, `password`, `token`) in contexts, attaches the middleware `requestId`, appends to the in-memory store, and forwards client-originated entries into the pino log file as JSON with a `CLIENT_LOG` marker and `clientId` (lifted from `entry.context.clientId`).
 - `GET /logs` returns `{ items, lastSequence, hasMore }` sorted by sequence and filtered via `level`, `source`, `text`, `since`, `until` with a hard limit of 200 items per call.
 - `GET /logs/stream` keeps an SSE connection alive with `text/event-stream`, heartbeats every 15s (`:\n\n`), and replays missed entries when `Last-Event-ID` or `?sinceSequence=` is provided. SSE payloads carry `id: <sequence>` so clients can resume accurately.
-- Redaction + retention defaults: contexts strip obvious secrets; buffer defaults to 5000 entries; payload cap 32KB; file rotation daily unless `LOG_FILE_ROTATE=false`.
+- Redaction + retention defaults: contexts strip obvious secrets; buffer defaults to 5000 entries; payload cap 32KB; file rotation daily unless `CODEINFO_LOG_FILE_ROTATE=false`.
 
 ```mermaid
 sequenceDiagram
@@ -5303,12 +5303,12 @@ sequenceDiagram
   - `GET /tools/ingested-repos`
   - `POST /tools/vector-search`
   - classic MCP `ListIngestedRepositories` / `VectorSearch`
-- OpenAI enablement and model visibility are runtime-configured by `OPENAI_EMBEDDING_KEY` and server allowlist intersection, with deterministic warning/disabled envelopes for partial failures.
+- OpenAI enablement and model visibility are runtime-configured by `CODEINFO_OPENAI_EMBEDDING_KEY` and server allowlist intersection, with deterministic warning/disabled envelopes for partial failures.
 - Query embedding execution is lock-bound and dimension-validated prior to Chroma queries so mismatch handling is deterministic (`EMBEDDING_DIMENSION_MISMATCH`) rather than raw backend leakage.
 
 ```mermaid
 flowchart TD
-  A[OPENAI_EMBEDDING_KEY + provider discovery] --> B[/ingest/models envelopes]
+  A[CODEINFO_OPENAI_EMBEDDING_KEY + provider discovery] --> B[/ingest/models envelopes]
   B --> C[Ingest UI provider-qualified selection]
   C --> D[POST /ingest/start canonical request]
   D --> E[Canonical lock write]

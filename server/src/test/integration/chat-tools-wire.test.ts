@@ -138,7 +138,7 @@ class ScriptedChat extends ChatInterface {
 }
 
 beforeEach(() => {
-  process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';
   process.env.HOST_INGEST_DIR = '/host/base';
   memoryConversations.clear();
   memoryTurns.clear();

@@ -48,7 +48,7 @@ export function createChatProvidersRouter({
     const capabilities = await codexCapabilityResolver({
       consumer: 'chat_models',
     });
-    const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
+    const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
     const safeBase = scrubBaseUrl(baseUrl);
     let lmstudioReason: string | undefined;
     let lmstudioModels: string[] = [];

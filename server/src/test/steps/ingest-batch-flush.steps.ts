@@ -38,11 +38,11 @@ let previousFlushEvery: string | undefined;
 setDefaultTimeout(20000);
 
 async function startTestServer() {
-  previousLmStudioUrl = process.env.LMSTUDIO_BASE_URL;
-  previousFlushEvery = process.env.INGEST_FLUSH_EVERY;
+  previousLmStudioUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
+  previousFlushEvery = process.env.CODEINFO_INGEST_FLUSH_EVERY;
 
-  process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
-  process.env.INGEST_FLUSH_EVERY = '1';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  process.env.CODEINFO_INGEST_FLUSH_EVERY = '1';
 
   const app = express();
   app.use(cors());
@@ -87,11 +87,13 @@ After({ tags: '@batch-flush' }, async () => {
   }
   lastRunId = null;
 
-  if (previousFlushEvery === undefined) delete process.env.INGEST_FLUSH_EVERY;
-  else process.env.INGEST_FLUSH_EVERY = previousFlushEvery;
+  if (previousFlushEvery === undefined)
+    delete process.env.CODEINFO_INGEST_FLUSH_EVERY;
+  else process.env.CODEINFO_INGEST_FLUSH_EVERY = previousFlushEvery;
 
-  if (previousLmStudioUrl === undefined) delete process.env.LMSTUDIO_BASE_URL;
-  else process.env.LMSTUDIO_BASE_URL = previousLmStudioUrl;
+  if (previousLmStudioUrl === undefined)
+    delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
+  else process.env.CODEINFO_LMSTUDIO_BASE_URL = previousLmStudioUrl;
 });
 
 Given('a batch flush temp repo with {int} files', async (count: number) => {

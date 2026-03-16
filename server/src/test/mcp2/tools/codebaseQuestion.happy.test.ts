@@ -445,11 +445,12 @@ test('vector summary match uses the lowest distance', () => {
 test('codebase_question parity fixture aligns MCP defaults with REST resolver expectations', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalCodeHome = process.env.CODEX_HOME;
-  const originalChatDefaultProvider = process.env.CHAT_DEFAULT_PROVIDER;
-  const originalChatDefaultModel = process.env.CHAT_DEFAULT_MODEL;
+  const originalChatDefaultProvider =
+    process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  const originalChatDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
-  delete process.env.CHAT_DEFAULT_PROVIDER;
-  delete process.env.CHAT_DEFAULT_MODEL;
+  delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
   resetStore();
   const tempHome = await withTempCodexHome({
     chatToml: [
@@ -513,14 +514,14 @@ test('codebase_question parity fixture aligns MCP defaults with REST resolver ex
     if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
     else process.env.CODEX_HOME = originalCodeHome;
     if (originalChatDefaultProvider === undefined) {
-      delete process.env.CHAT_DEFAULT_PROVIDER;
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
     } else {
-      process.env.CHAT_DEFAULT_PROVIDER = originalChatDefaultProvider;
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalChatDefaultProvider;
     }
     if (originalChatDefaultModel === undefined) {
-      delete process.env.CHAT_DEFAULT_MODEL;
+      delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
     } else {
-      process.env.CHAT_DEFAULT_MODEL = originalChatDefaultModel;
+      process.env.CODEINFO_CHAT_DEFAULT_MODEL = originalChatDefaultModel;
     }
     await tempHome.cleanup();
     server.closeAllConnections();

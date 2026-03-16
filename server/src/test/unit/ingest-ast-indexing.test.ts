@@ -54,7 +54,7 @@ const createTempRepo = async (files: Record<string, string>) => {
       await fs.writeFile(fullPath, contents, 'utf8');
     }),
   );
-  process.env.INGEST_TEST_GIT_PATHS = Object.keys(files).join(',');
+  process.env.CODEINFO_INGEST_TEST_GIT_PATHS = Object.keys(files).join(',');
   return {
     root,
     cleanup: async () => {
@@ -234,7 +234,7 @@ afterEach(() => {
     (mongoose.connection as unknown as { readyState: number }).readyState =
       ORIGINAL_READY_STATE;
   }
-  delete process.env.INGEST_TEST_GIT_PATHS;
+  delete process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
 });
 
 test('ingest tracks supported AST file count', async () => {
@@ -313,8 +313,8 @@ test('ingest counts new language extensions as supported', async () => {
 });
 
 test('ingest logs unsupported extension skips with reason', async () => {
-  const originalIncludes = process.env.INGEST_INCLUDE;
-  process.env.INGEST_INCLUDE = 'pyw';
+  const originalIncludes = process.env.CODEINFO_INGEST_INCLUDE;
+  process.env.CODEINFO_INGEST_INCLUDE = 'pyw';
   mockParseAstSource();
   const { root, cleanup } = await createTempRepo({
     'python/unsupported.pyw': 'print("hi")',
@@ -344,9 +344,9 @@ test('ingest logs unsupported extension skips with reason', async () => {
   } finally {
     await cleanup();
     if (originalIncludes === undefined) {
-      delete process.env.INGEST_INCLUDE;
+      delete process.env.CODEINFO_INGEST_INCLUDE;
     } else {
-      process.env.INGEST_INCLUDE = originalIncludes;
+      process.env.CODEINFO_INGEST_INCLUDE = originalIncludes;
     }
   }
 });
@@ -806,7 +806,7 @@ test('delta reembed deletions-only returns completed and does not claim no chang
       { relPath: 'src/deleted.ts', fileHash: deletedHash },
     ]);
     await fs.rm(path.join(root, 'src/deleted.ts'));
-    process.env.INGEST_TEST_GIT_PATHS = '';
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = '';
 
     const runId = await startIngest(
       { path: root, name: 'repo', model: 'embed-model', operation: 'reembed' },

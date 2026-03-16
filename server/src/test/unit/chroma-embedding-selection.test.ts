@@ -12,7 +12,7 @@ import {
 } from '../../ingest/chromaClient.js';
 import { vectorSearch } from '../../lmstudio/toolService.js';
 
-const ORIGINAL_BASE_URL = process.env.LMSTUDIO_BASE_URL;
+const ORIGINAL_BASE_URL = process.env.CODEINFO_LMSTUDIO_BASE_URL;
 
 const defaultRoots = {
   ids: ['root-1'],
@@ -100,7 +100,7 @@ beforeEach(() => {
   mock.restoreAll();
   mock.reset();
   resetCollectionsForTests();
-  process.env.LMSTUDIO_BASE_URL =
+  process.env.CODEINFO_LMSTUDIO_BASE_URL =
     ORIGINAL_BASE_URL ?? 'http://host.docker.internal:1234';
 });
 
@@ -110,9 +110,9 @@ afterEach(() => {
   resetCollectionsForTests();
   resetLmClientResolver();
   if (ORIGINAL_BASE_URL === undefined) {
-    delete process.env.LMSTUDIO_BASE_URL;
+    delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
   } else {
-    process.env.LMSTUDIO_BASE_URL = ORIGINAL_BASE_URL;
+    process.env.CODEINFO_LMSTUDIO_BASE_URL = ORIGINAL_BASE_URL;
   }
 });
 

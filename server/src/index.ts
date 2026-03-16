@@ -18,6 +18,7 @@ import './ingest/index.js';
 import './mongo/astCoverage.js';
 import {
   ensureStartupEnvLoaded,
+  resolveCodeinfoEnvResolutions,
   resolveOpenAiEmbeddingCapabilityState,
 } from './config/startupEnv.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
@@ -65,6 +66,9 @@ import { ensureCodexAuthFromHost } from './utils/codexAuthCopy.js';
 import { attachWs, type WsServerHandle } from './ws/server.js';
 
 const startupEnvLoad = ensureStartupEnvLoaded();
+const codeinfoEnvResolutions = resolveCodeinfoEnvResolutions({
+  loadResult: startupEnvLoad,
+});
 ensureCodexConfigSeeded();
 const installedCodexSdkVersion = pkg.dependencies?.['@openai/codex-sdk'];
 const codexSdkGuardAccepted = validateAndLogCodexSdkUpgrade(
@@ -112,6 +116,22 @@ append({
     orderedFiles: startupEnvLoad.orderedFiles,
     loadedFiles: startupEnvLoad.loadedFiles,
     overrideApplied: startupEnvLoad.overrideApplied,
+  },
+});
+baseLogger.info(
+  {
+    event: 'DEV_0000048_T7_CODEINFO_ENV_RESOLVED',
+    envs: codeinfoEnvResolutions,
+  },
+  'DEV_0000048_T7_CODEINFO_ENV_RESOLVED',
+);
+append({
+  level: 'info',
+  message: 'DEV_0000048_T7_CODEINFO_ENV_RESOLVED',
+  timestamp: new Date().toISOString(),
+  source: 'server',
+  context: {
+    envs: codeinfoEnvResolutions,
   },
 });
 const flowAndCommandRetries = getFlowAndCommandRetries();

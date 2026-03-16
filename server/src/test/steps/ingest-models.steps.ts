@@ -27,8 +27,8 @@ let openAiScenario:
   | 'allowlist-no-match' = 'ok';
 
 Before(async () => {
-  process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
-  process.env.OPENAI_EMBEDDING_KEY = 'sk-test';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  process.env.CODEINFO_OPENAI_EMBEDDING_KEY = 'sk-test';
   openAiScenario = 'ok';
   const app = express();
   app.use(cors());
@@ -95,9 +95,9 @@ Given('ingest models OpenAI scenario {string}', (name: string) => {
   const next = name as typeof openAiScenario;
   openAiScenario = next;
   if (next === 'disabled') {
-    process.env.OPENAI_EMBEDDING_KEY = '   ';
+    process.env.CODEINFO_OPENAI_EMBEDDING_KEY = '   ';
   } else {
-    process.env.OPENAI_EMBEDDING_KEY = 'sk-test';
+    process.env.CODEINFO_OPENAI_EMBEDDING_KEY = 'sk-test';
   }
 });
 

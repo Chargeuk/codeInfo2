@@ -1147,7 +1147,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”‚  â””â”€ 0000045-summary.md â€” Story 0000045 PR summary artifact covering markdown-backed workflow steps, structured re-ingest paths, and final validation evidence
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores
-â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)
+â”‚  â”œâ”€ .env â€” server default env (PORT, CODEINFO_LMSTUDIO_BASE_URL)
 â”‚  â”œâ”€ .env.local â€” server local overrides (ignored by git consumers)
 â”‚  â”œâ”€ .prettierignore â€” server-specific Prettier ignore
 â”‚  â”œâ”€ Dockerfile â€” server image build with stage-local corporate override args and conditional npm/pip install wiring (defaults preserved when unset)

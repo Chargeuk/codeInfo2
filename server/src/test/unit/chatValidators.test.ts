@@ -16,8 +16,8 @@ const ENV_KEYS = [
   'Codex_reasoning_effort',
   'Codex_network_access_enabled',
   'Codex_web_search_enabled',
-  'CHAT_DEFAULT_PROVIDER',
-  'CHAT_DEFAULT_MODEL',
+  'CODEINFO_CHAT_DEFAULT_PROVIDER',
+  'CODEINFO_CHAT_DEFAULT_MODEL',
   'CODEX_HOME',
 ];
 
@@ -104,8 +104,8 @@ web_search = "disabled"
 test('chat request resolves provider and model from shared env defaults', async () => {
   await setChatConfig('');
   setEnv({
-    CHAT_DEFAULT_PROVIDER: 'codex',
-    CHAT_DEFAULT_MODEL: 'gpt-5.3-codex',
+    CODEINFO_CHAT_DEFAULT_PROVIDER: 'codex',
+    CODEINFO_CHAT_DEFAULT_MODEL: 'gpt-5.3-codex',
   });
 
   const result = await validateChatRequest({
@@ -122,8 +122,8 @@ test('chat request resolves provider and model from shared env defaults', async 
 test('invalid shared env defaults fallback without leaking invalid state', async () => {
   await setChatConfig('');
   setEnv({
-    CHAT_DEFAULT_PROVIDER: 'not-a-provider',
-    CHAT_DEFAULT_MODEL: '',
+    CODEINFO_CHAT_DEFAULT_PROVIDER: 'not-a-provider',
+    CODEINFO_CHAT_DEFAULT_MODEL: '',
   });
 
   const result = await validateChatRequest({
@@ -137,12 +137,12 @@ test('invalid shared env defaults fallback without leaking invalid state', async
   assert.equal(result.defaultsResolution.modelSource, 'fallback');
   assert.ok(
     result.warnings.some((warning) =>
-      warning.includes('CHAT_DEFAULT_PROVIDER must be one of'),
+      warning.includes('CODEINFO_CHAT_DEFAULT_PROVIDER must be one of'),
     ),
   );
   assert.ok(
     result.warnings.some((warning) =>
-      warning.includes('CHAT_DEFAULT_MODEL is empty'),
+      warning.includes('CODEINFO_CHAT_DEFAULT_MODEL is empty'),
     ),
   );
 });

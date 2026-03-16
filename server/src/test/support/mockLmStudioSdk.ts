@@ -187,7 +187,9 @@ const wsProtocolError = (url: string) =>
 export class MockLMStudioClient {
   constructor(baseUrl?: string) {
     const candidate =
-      baseUrl ?? process.env.LMSTUDIO_BASE_URL ?? 'ws://localhost:1234';
+      baseUrl ??
+      process.env.CODEINFO_LMSTUDIO_BASE_URL ??
+      'ws://localhost:1234';
     if (!candidate.startsWith('ws://') && !candidate.startsWith('wss://')) {
       throw new Error(wsProtocolError(candidate));
     }

@@ -140,9 +140,9 @@ afterEach(async () => {
 
 test('providers route orders lmstudio first when codex default is unavailable and lmstudio is available', async () => {
   await setCodexHome('model = "config-model"\n');
-  env.set('CHAT_DEFAULT_PROVIDER', 'codex');
-  env.set('CHAT_DEFAULT_MODEL', 'gpt-5.3-codex');
-  env.set('LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'gpt-5.3-codex');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
   setCodexDetection({
     available: false,
     authPresent: false,
@@ -176,9 +176,9 @@ test('providers route orders lmstudio first when codex default is unavailable an
 
 test('providers marker normalizes model_source and retains raw codex_model_source', async () => {
   await setCodexHome();
-  env.set('CHAT_DEFAULT_PROVIDER', undefined);
-  env.set('CHAT_DEFAULT_MODEL', undefined);
-  env.set('LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', undefined);
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', undefined);
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -216,9 +216,9 @@ test('providers marker normalizes model_source and retains raw codex_model_sourc
 
 test('providers route keeps codex first when lmstudio has no selectable model', async () => {
   await setCodexHome('model = "config-model"\n');
-  env.set('CHAT_DEFAULT_PROVIDER', 'lmstudio');
-  env.set('CHAT_DEFAULT_MODEL', 'model-1');
-  env.set('LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'lmstudio');
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'model-1');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -250,9 +250,9 @@ test('providers route keeps codex first when lmstudio has no selectable model', 
 
 test('providers route exposes the chat-config-aware Codex default and falls back cleanly when chat config is missing', async () => {
   await setCodexHome('model = "config-model"\n');
-  env.set('CHAT_DEFAULT_PROVIDER', 'codex');
-  env.set('CHAT_DEFAULT_MODEL', 'env-model');
-  env.set('LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'env-model');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -313,7 +313,7 @@ test('providers route exposes shared resolver-backed codex defaults and warnings
     warnings: ['fixture warning'],
     fallbackUsed: false,
   };
-  env.set('LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
   setCodexDetection({
     available: true,
     authPresent: true,

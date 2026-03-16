@@ -170,7 +170,7 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     const history = Array.isArray((flags as LmStudioRunFlags)?.history)
       ? (flags as LmStudioRunFlags).history
       : undefined;
-    const safeBase = baseUrl ?? process.env.LMSTUDIO_BASE_URL ?? '';
+    const safeBase = baseUrl ?? process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
     const wsBase = toWebSocketUrl(safeBase);
 
     const storedTurns =

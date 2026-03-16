@@ -203,14 +203,14 @@ async function stopServer(server: {
 }
 
 beforeEach(() => {
-  process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   memoryConversations.clear();
   memoryTurns.clear();
   resetStore();
 });
 
 afterEach(() => {
-  delete process.env.LMSTUDIO_BASE_URL;
+  delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
   memoryConversations.clear();
   memoryTurns.clear();
   resetStore();

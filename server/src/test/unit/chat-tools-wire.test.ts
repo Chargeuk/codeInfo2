@@ -40,7 +40,7 @@ test('chat router injects LM Studio tools into act call', async () => {
     }),
   );
 
-  process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';
 
   const res = await request(app).post('/chat').send({
     provider: 'lmstudio',

@@ -339,7 +339,8 @@ export async function runCodebaseQuestion(
   };
 
   const baseUrl =
-    process.env.LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234';
+    process.env.CODEINFO_LMSTUDIO_BASE_URL ??
+    'http://host.docker.internal:1234';
   let lmstudioModels: string[] = [];
   let lmstudioReason: string | undefined;
   if (!BASE_URL_REGEX.test(baseUrl)) {

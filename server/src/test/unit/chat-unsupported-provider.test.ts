@@ -7,8 +7,8 @@ import request from 'supertest';
 import { UnsupportedProviderError } from '../../chat/factory.js';
 
 test('REST /chat responds 400 for unsupported provider from factory', async () => {
-  const originalBase = process.env.LMSTUDIO_BASE_URL;
-  process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
+  const originalBase = process.env.CODEINFO_LMSTUDIO_BASE_URL;
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';
 
   const { createChatRouter } = await import('../../routes/chat.js');
 
@@ -38,9 +38,9 @@ test('REST /chat responds 400 for unsupported provider from factory', async () =
   });
 
   if (originalBase === undefined) {
-    delete process.env.LMSTUDIO_BASE_URL;
+    delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
   } else {
-    process.env.LMSTUDIO_BASE_URL = originalBase;
+    process.env.CODEINFO_LMSTUDIO_BASE_URL = originalBase;
   }
 
   assert.equal(res.status, 400);

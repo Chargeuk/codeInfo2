@@ -36,7 +36,7 @@ export type GitTrackedResult =
   | { ok: false; error: Error };
 
 export async function listGitTracked(root: string): Promise<GitTrackedResult> {
-  const testPaths = process.env.INGEST_TEST_GIT_PATHS;
+  const testPaths = process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
   if (testPaths) {
     const paths = testPaths
       .split(',')

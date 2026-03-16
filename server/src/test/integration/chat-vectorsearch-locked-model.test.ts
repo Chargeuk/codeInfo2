@@ -19,7 +19,7 @@ import {
   waitForEvent,
 } from '../support/wsClient.js';
 
-const ORIGINAL_BASE_URL = process.env.LMSTUDIO_BASE_URL;
+const ORIGINAL_BASE_URL = process.env.CODEINFO_LMSTUDIO_BASE_URL;
 
 type EmbedCall = { model: string; text?: string };
 type VectorTool = {
@@ -176,7 +176,7 @@ function toolContext() {
 beforeEach(() => {
   resetCollectionsForTests();
   process.env.HOST_INGEST_DIR = '/host/base';
-  process.env.LMSTUDIO_BASE_URL =
+  process.env.CODEINFO_LMSTUDIO_BASE_URL =
     ORIGINAL_BASE_URL ?? 'http://host.docker.internal:1234';
 });
 
@@ -185,9 +185,9 @@ afterEach(() => {
   resetCollectionsForTests();
   resetLmClientResolver();
   if (ORIGINAL_BASE_URL === undefined) {
-    delete process.env.LMSTUDIO_BASE_URL;
+    delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
   } else {
-    process.env.LMSTUDIO_BASE_URL = ORIGINAL_BASE_URL;
+    process.env.CODEINFO_LMSTUDIO_BASE_URL = ORIGINAL_BASE_URL;
   }
 });
 

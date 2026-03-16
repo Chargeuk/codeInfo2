@@ -205,11 +205,11 @@ export function createChatRouter({
       requestedProvider: defaultsResolution.requestedProvider,
       requestedModel: defaultsResolution.requestedModel,
       envProviderPresent:
-        typeof process.env.CHAT_DEFAULT_PROVIDER === 'string' &&
-        process.env.CHAT_DEFAULT_PROVIDER.trim().length > 0,
+        typeof process.env.CODEINFO_CHAT_DEFAULT_PROVIDER === 'string' &&
+        process.env.CODEINFO_CHAT_DEFAULT_PROVIDER.trim().length > 0,
       envModelPresent:
-        typeof process.env.CHAT_DEFAULT_MODEL === 'string' &&
-        process.env.CHAT_DEFAULT_MODEL.trim().length > 0,
+        typeof process.env.CODEINFO_CHAT_DEFAULT_MODEL === 'string' &&
+        process.env.CODEINFO_CHAT_DEFAULT_MODEL.trim().length > 0,
     };
     append({
       level: 'info',
@@ -238,7 +238,7 @@ export function createChatRouter({
 
     const requestedProvider = provider as ChatDefaultProvider;
     const requestedModel = model;
-    const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
+    const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
     const safeBase = scrubBaseUrl(baseUrl);
 
     const codexDetection = getCodexDetection();

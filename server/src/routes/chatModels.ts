@@ -167,7 +167,7 @@ export function createChatModelsRouter({
       return res.json(response);
     }
 
-    const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
+    const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
     const safeBase = scrubBaseUrl(baseUrl);
 
     if (!BASE_URL_REGEX.test(baseUrl)) {

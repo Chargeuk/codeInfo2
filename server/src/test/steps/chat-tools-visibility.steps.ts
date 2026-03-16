@@ -62,7 +62,7 @@ let tempCodexHomeForScenario: string | null = null;
 
 Before(async () => {
   resetStore();
-  process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   tempCodexHomeForScenario = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-tools-codex-home-'),
   );

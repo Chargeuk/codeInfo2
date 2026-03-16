@@ -120,7 +120,7 @@ function logLockResolverState(
 }
 
 function isOpenAiEnabled(env = process.env) {
-  const key = env.OPENAI_EMBEDDING_KEY;
+  const key = env.CODEINFO_OPENAI_EMBEDDING_KEY;
   return typeof key === 'string' && key.trim().length > 0;
 }
 
@@ -138,7 +138,7 @@ function mapOpenAiListFailure(error: unknown): {
         warning: {
           code: 'OPENAI_MODELS_LIST_AUTH_FAILED',
           message:
-            'OpenAI model listing failed authentication. Check OPENAI_EMBEDDING_KEY.',
+            'OpenAI model listing failed authentication. Check CODEINFO_OPENAI_EMBEDDING_KEY.',
           retryable: false,
         },
       };
@@ -216,7 +216,7 @@ export function createIngestModelsRouter({
   const router = Router();
   router.get('/ingest/models', async (_req, res) => {
     const requestId = res.locals.requestId as string | undefined;
-    const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
+    const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
     const safeBase = scrubBaseUrl(baseUrl);
 
     append({
@@ -247,7 +247,7 @@ export function createIngestModelsRouter({
       let lmStudioModels: IngestModelEntry[] = [];
       if (!BASE_URL_REGEX.test(baseUrl)) {
         const mapped = mapLmStudioFailure(
-          new Error('LMSTUDIO_BASE_URL is invalid or missing'),
+          new Error('CODEINFO_LMSTUDIO_BASE_URL is invalid or missing'),
         );
         lmstudio = {
           status: 'warning',
@@ -292,7 +292,7 @@ export function createIngestModelsRouter({
           const listed = openAiListModels
             ? await openAiListModels()
             : await createOpenAiEmbeddingProvider({
-                apiKey: process.env.OPENAI_EMBEDDING_KEY,
+                apiKey: process.env.CODEINFO_OPENAI_EMBEDDING_KEY,
               }).listModels();
           const available = new Set(
             listed

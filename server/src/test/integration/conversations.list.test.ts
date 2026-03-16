@@ -4,7 +4,10 @@ import test from 'node:test';
 import express from 'express';
 import request from 'supertest';
 import type { Conversation } from '../../mongo/conversation.js';
-import { type AppendTurnInput, type ConversationSummary } from '../../mongo/repo.js';
+import {
+  type AppendTurnInput,
+  type ConversationSummary,
+} from '../../mongo/repo.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 
 const baseItem: ConversationSummary = {
@@ -306,30 +309,32 @@ test('REST-seeded conversations become visible through GET /conversations after 
         createdAt,
       };
     },
-    resolveListConversations: () => async ({ limit }) => {
-      const items = [...storedConversations.values()]
-        .sort(
-          (left, right) =>
-            right.lastMessageAt.getTime() - left.lastMessageAt.getTime(),
-        )
-        .slice(0, limit)
-        .map(
-          (conversation) =>
-            ({
-              conversationId: conversation._id,
-              provider: conversation.provider,
-              model: conversation.model,
-              title: conversation.title,
-              source: conversation.source ?? 'REST',
-              lastMessageAt: conversation.lastMessageAt,
-              archived: conversation.archivedAt != null,
-              flags: conversation.flags ?? {},
-              createdAt: conversation.createdAt,
-              updatedAt: conversation.updatedAt,
-            }) satisfies ConversationSummary,
-        );
-      return { items };
-    },
+    resolveListConversations:
+      () =>
+      async ({ limit }) => {
+        const items = [...storedConversations.values()]
+          .sort(
+            (left, right) =>
+              right.lastMessageAt.getTime() - left.lastMessageAt.getTime(),
+          )
+          .slice(0, limit)
+          .map(
+            (conversation) =>
+              ({
+                conversationId: conversation._id,
+                provider: conversation.provider,
+                model: conversation.model,
+                title: conversation.title,
+                source: conversation.source ?? 'REST',
+                lastMessageAt: conversation.lastMessageAt,
+                archived: conversation.archivedAt != null,
+                flags: conversation.flags ?? {},
+                createdAt: conversation.createdAt,
+                updatedAt: conversation.updatedAt,
+              }) satisfies ConversationSummary,
+          );
+        return { items };
+      },
   });
 
   try {

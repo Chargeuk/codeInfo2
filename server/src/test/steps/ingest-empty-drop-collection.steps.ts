@@ -28,7 +28,8 @@ import { createIngestRemoveRouter } from '../../routes/ingestRemove.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import { MockLMStudioClient, stopMock } from '../support/mockLmStudioSdk.js';
 
-const VECTOR_COLLECTION = process.env.INGEST_COLLECTION ?? 'ingest_vectors';
+const VECTOR_COLLECTION =
+  process.env.CODEINFO_INGEST_COLLECTION ?? 'ingest_vectors';
 
 let server: Server | null = null;
 let baseUrl = '';
@@ -58,7 +59,7 @@ async function vectorsState() {
 }
 
 Before(async () => {
-  process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   const app = express();
   app.use(cors());
   app.use(express.json());
@@ -67,7 +68,7 @@ Before(async () => {
   setIngestDeps({
     lmClientFactory: () =>
       new MockLMStudioClient() as unknown as LMStudioClient,
-    baseUrl: process.env.LMSTUDIO_BASE_URL ?? '',
+    baseUrl: process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
   });
 
   app.use(

@@ -118,7 +118,7 @@ export function createOpenAiEmbeddingProvider(params: {
   if (!apiKey) {
     throw new OpenAiEmbeddingError(
       'OPENAI_AUTH_FAILED',
-      'OpenAI embedding models require OPENAI_EMBEDDING_KEY',
+      'OpenAI embedding models require CODEINFO_OPENAI_EMBEDDING_KEY',
       false,
       401,
     );

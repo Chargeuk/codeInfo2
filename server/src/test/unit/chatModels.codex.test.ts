@@ -112,8 +112,8 @@ async function stopServer(server: { httpServer: http.Server }) {
 }
 
 async function setCodexHome(chatToml?: string) {
-  env.set('CHAT_DEFAULT_MODEL', undefined);
-  env.set('CHAT_DEFAULT_PROVIDER', undefined);
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', undefined);
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', undefined);
   const root = await fs.mkdtemp(
     path.join(os.tmpdir(), 'codeinfo2-chat-models-codex-'),
   );
@@ -664,7 +664,7 @@ test('codex defaults include SDK-native minimal reasoning effort when configured
 });
 
 test('non-codex provider omits codex defaults fields', async () => {
-  env.set('LMSTUDIO_BASE_URL', 'http://localhost:1234');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
 
   const server = await startServer({
     mcpAvailable: true,
@@ -917,10 +917,10 @@ test('codex payload includes non-standard reasoning effort values from shared ca
   }
 });
 
-test('codex models prioritize CHAT_DEFAULT_MODEL when codex is default provider', async () => {
+test('codex models prioritize CODEINFO_CHAT_DEFAULT_MODEL when codex is default provider', async () => {
   await setCodexHome('model = "config-model"\n');
-  env.set('CHAT_DEFAULT_PROVIDER', 'codex');
-  env.set('CHAT_DEFAULT_MODEL', 'gpt-5.1');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'gpt-5.1');
   env.set('Codex_model_list', 'config-model,gpt-5.1,gpt-5.2');
   setCodexDetection({
     available: true,
@@ -1003,7 +1003,7 @@ test('chat models route rereads codex chat config between requests', async () =>
 });
 
 test('lmstudio models mark provider unavailable when no chat-capable model is returned', async () => {
-  env.set('LMSTUDIO_BASE_URL', 'http://localhost:1234');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
 
   const server = await startServer({
     mcpAvailable: true,

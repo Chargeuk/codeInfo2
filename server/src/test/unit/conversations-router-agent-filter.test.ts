@@ -124,9 +124,7 @@ test('GET /conversations resolves the list backing store at request time', async
 
   const app = buildApp({
     resolveListConversations: () =>
-      useMemoryList
-        ? (memoryList as never)
-        : (mongoList as never),
+      useMemoryList ? (memoryList as never) : (mongoList as never),
   });
 
   await request(app).get('/conversations').expect(200);

@@ -510,13 +510,14 @@ Create one shared server-side helper that produces the working-repo-first reposi
 - Story sections in this file: `Description`, `Acceptance Criteria`, `Implementation Ideas`, `Contracts And Storage Shapes`, and `Edge Cases And Failure Modes`
 - Existing owner-first implementations: `server/src/flows/service.ts` and `server/src/flows/markdownFileResolver.ts`
 - Existing repository ordering helpers and source-label rules in the same files
+- Existing repository inventory source: `server/src/lmstudio/toolService.ts` `listIngestedRepositories(...)`
 - Node path normalization rules already used in this repo: `node:path` usage in the resolver files above
 
 #### Subtasks
 
 1. [ ] Re-read the story sections listed above and write down the exact repository-slot order for this task: working repository, owner repository, local `codeInfo2`, then other ingested repositories. Also write down the duplicate-removal rule and the nested-lookup restart rule before editing code.
-2. [ ] Create one shared helper module at `server/src/flows/repositoryCandidateOrder.ts` for repository candidate ordering. Give it explicit input fields for the working repository path, owner repository path, `codeInfo2` root, other ingested repositories, and the reference type or caller context that needs to be logged later.
-3. [ ] In that helper, normalize all repository paths to absolute paths, dedupe them case-insensitively in first-seen order, preserve the existing stable ordering for the `other` repositories, and return enough metadata to tell callers whether the working-repository slot was present or skipped.
+2. [ ] Create one shared helper module at `server/src/flows/repositoryCandidateOrder.ts` for repository candidate ordering by extracting the common ordering behavior that already exists in `buildFlowCommandCandidates(...)` and `buildMarkdownResolutionCandidates(...)`. Give it explicit input fields for the working repository path, owner repository path, `codeInfo2` root, other ingested repositories, and the reference type or caller context that needs to be logged later.
+3. [ ] In that helper, normalize all repository paths to absolute paths, dedupe them case-insensitively in first-seen order using the same kind of resolved-path `seen` logic the current resolvers already use, preserve the existing stable ordering for the `other` repositories, and reuse the repo-label normalization patterns already present in the flow and markdown resolvers instead of adding a second labeling scheme.
 4. [ ] Add unit tests in `server/src/test/unit/repositoryCandidateOrder.test.ts` that prove: normal four-slot ordering, missing-working-repository behavior, working=owner dedupe, owner=`codeInfo2` dedupe, and repeated calls producing the same order for separate nested lookups.
 5. [ ] If this task adds a new file, update `projectStructure.md` with the new helper and test file after the code and tests are complete.
 6. [ ] Update this story file's Task 1 `Implementation notes` section after the task is implemented and tested.
@@ -549,13 +550,14 @@ Rewire the server path that resolves command JSON files so it uses the shared ca
 - Story sections in this file: `Acceptance Criteria`, `Implementation Ideas`, `Expected Outcomes`, and `Edge Cases And Failure Modes`
 - Current flow command resolver: `server/src/flows/service.ts`
 - Direct command execution path and command-runner files: `server/src/agents/service.ts`, `server/src/agents/commandsRunner.ts`, and `server/src/agents/commandItemExecutor.ts`
+- Existing command loading and logging helpers in `server/src/flows/service.ts`: `loadCommandForAgent(...)`, `normalizeSourceLabel(...)`, and the `DEV_0000040_T11_FLOW_RESOLUTION_ORDER` log marker
 - Existing tests around command resolution: `server/src/test/integration/flows.run.command.test.ts` and any command-runner tests under `server/src/test/unit/`
 
 #### Subtasks
 
 1. [ ] Re-read the command-resolution acceptance bullets in this story and note which cases this task must cover: flow-owned commands, local flows run from `codeInfo2`, cross-repo flows, and direct command execution outside flows.
-2. [ ] Update `server/src/flows/service.ts` so flow command resolution uses the shared helper from Task 1 instead of the current inline owner-first builder. Preserve the existing command-name safety checks and the current fail-fast rule for any result other than `NOT_FOUND`.
-3. [ ] Update the direct command execution path so referenced files use the same working-repo-first ordering and treat the selected command file's repository as the owner slot. Do not create any separate command-specific persistence model while doing this.
+2. [ ] Update `server/src/flows/service.ts` so flow command resolution uses the shared helper from Task 1 instead of the current inline owner-first builder. Preserve the existing command-name safety checks, `loadCommandForAgent(...)` file-loading path, the current fail-fast rule for any result other than `NOT_FOUND`, and the existing resolution log marker rather than creating a second command-resolution loop.
+3. [ ] Update the direct command execution path so referenced files use the same working-repo-first ordering and treat the selected command file's repository as the owner slot. Reuse the existing agent-conversation ownership and command-runner flow while doing this; do not create any separate command-specific persistence model, command-specific conversation type, or parallel command fetch path.
 4. [ ] Extend or add server tests that prove: a flow from `codeInfo2` prefers the selected working repository first, a flow from one ingested repo still prefers a different selected working repository first, and direct command execution outside flows still uses the command file's repository as the owner slot second.
 5. [ ] Add or update structured resolution logs for this path so they include the shared candidate order, selected repository, fallback-used flag, and whether the working slot was unavailable. Also write the compact command-resolution lookup summary into the runtime or step metadata shape introduced in Task 4 so later debugging does not depend on logs alone.
 6. [ ] Extend the command-resolution tests so they assert the runtime or step metadata contains the selected repository path, fallback-used flag, and working-repository-available flag for both flow-owned command resolution and direct-command execution.
@@ -590,12 +592,13 @@ Update the markdown resolver so every markdown lookup uses the same shared repos
 - Story sections in this file: `Acceptance Criteria`, `Implementation Ideas`, `Expected Outcomes`, and `Edge Cases And Failure Modes`
 - Markdown resolver implementation: `server/src/flows/markdownFileResolver.ts`
 - Existing nested resolution callers in `server/src/flows/service.ts` and `server/src/agents/commandItemExecutor.ts`
+- Existing markdown logging and source-label helpers in `server/src/flows/markdownFileResolver.ts`
 - Existing markdown resolver tests under `server/src/test/unit/` and flow integration tests that exercise markdown lookups
 
 #### Subtasks
 
 1. [ ] Re-read the nested-reference examples in this story and note that the repository order must restart fresh for every markdown lookup rather than inheriting the previous winning repository.
-2. [ ] Update `server/src/flows/markdownFileResolver.ts` to use the shared helper from Task 1 instead of the current owner-first builder. Preserve the existing relative-path safety checks and the current UTF-8 decode behavior.
+2. [ ] Update `server/src/flows/markdownFileResolver.ts` to use the shared helper from Task 1 instead of the current owner-first builder. Keep the existing `resolveMarkdownFileWithMetadata(...)` entry point, relative-path safety checks, UTF-8 decode behavior, and resolved-path logging shape so the change stays focused on repository order rather than replacing the resolver contract.
 3. [ ] Keep the fail-fast rule for higher-priority markdown candidates that exist but cannot be decoded or read. Only true not-found outcomes should fall through to the next repository candidate.
 4. [ ] Extend or add tests that prove: markdown resolution uses the working repository first, nested command-to-markdown lookups restart the full order for each hop, and invalid UTF-8 or read failures in a higher-priority repository do not fall through silently.
 5. [ ] Update markdown-resolution logs so they emit the same candidate-order and winner metadata shape used by command resolution, plus the final resolved markdown path. Persist the matching markdown lookup summary into runtime or step metadata so nested-resolution debugging does not rely only on log output.
@@ -633,15 +636,16 @@ Add the storage shapes that story 48 needs without changing any client UI yet. T
 - Flow state: `server/src/flows/flowState.ts`
 - Turn schema: `server/src/mongo/turn.ts`
 - Memory-mode persistence: `server/src/chat/memoryPersistence.ts`
+- Existing turn append and conversation update paths: `appendTurn(...)`, `updateConversationMeta(...)`, `recordMemoryTurn(...)`, and `updateMemoryConversationMeta(...)`
 - Mongoose documentation reference for mixed fields and optional nested objects: Context7 `/websites/mongoosejs`
 
 #### Subtasks
 
 1. [ ] Re-read the storage contract section of this story and list the exact shapes that must exist after this task: `flags.workingFolder`, `FlowResumeState.workingFolder`, `FlowResumeState.agentWorkingFolders`, and `Turn.runtime`.
-2. [ ] Update the conversation model and repo helper code so `flags.workingFolder` can be written, cleared, and returned safely through the existing conversation-summary path without overwriting unrelated flags such as `threadId` or `flow`.
-3. [ ] Update `server/src/flows/flowState.ts` and the related flow-state persistence helpers so flow runs can persist both the flow working-folder snapshot and per-child-agent working-folder snapshots.
-4. [ ] Update `server/src/mongo/turn.ts` and any shared turn-write helpers so turns can persist an optional `runtime` object containing the working-folder snapshot and the compact lookup summary.
-5. [ ] Update `server/src/chat/memoryPersistence.ts` and any related in-memory helpers so the same working-folder and runtime metadata shape works when Mongo is unavailable or tests are using memory-mode persistence.
+2. [ ] Update the conversation model and repo helper code so `flags.workingFolder` can be written, cleared, and returned safely through the existing conversation-summary path without overwriting unrelated flags such as `threadId` or `flow`. Extend `updateConversationMeta(...)` or adjacent repo helpers rather than adding a second conversation-update persistence path.
+3. [ ] Update `server/src/flows/flowState.ts` and the related flow-state persistence helpers so flow runs can persist both the flow working-folder snapshot and per-child-agent working-folder snapshots. Reuse the existing `flags.flow` resume-state path rather than inventing a second resume store.
+4. [ ] Update `server/src/mongo/turn.ts` and the existing turn append helpers so turns can persist an optional `runtime` object containing the working-folder snapshot and the compact lookup summary. Extend `appendTurn(...)` rather than creating a parallel runtime-metadata writer.
+5. [ ] Update `server/src/chat/memoryPersistence.ts` and the existing in-memory helpers so the same working-folder and runtime metadata shape works when Mongo is unavailable or tests are using memory-mode persistence. Reuse `recordMemoryTurn(...)` and `updateMemoryConversationMeta(...)` rather than adding a second memory-only path.
 6. [ ] Update the conversation summary and event pipeline so `flags.workingFolder` round-trips through the existing REST and websocket conversation surfaces without dropping other flags. This includes the repo helpers and any summary or sidebar emitter code that already forwards `flags` to the client.
 7. [ ] Add or update tests that prove these storage shapes round-trip correctly in both Mongo-backed and memory-backed code paths. Put the turn-metadata coverage in `server/src/test/integration/flows.turn-metadata.test.ts`, add a unit test under `server/src/test/unit/` for the conversation-flag and memory-persistence cases, include one test that would fail if a nested `flags` update was lost because the `Mixed` object was mutated unsafely, and include one test that proves conversation summaries or upsert events still contain `flags.workingFolder`.
 8. [ ] If this task adds or removes files, update `projectStructure.md` after the implementation is complete. Otherwise, only update this story file's Task 4 `Implementation notes`.
@@ -775,7 +779,7 @@ Perform the server-side and runtime-side portion of the env rename cutover. This
 #### Subtasks
 
 1. [ ] Re-read the explicit env mapping in this story and make a checklist of every server/runtime env key that must be renamed in this task. Do not start the code change until the checklist includes all currently documented `CODEINFO_` targets.
-2. [ ] Update server-side env readers so they consume only the new `CODEINFO_` names for repo-owned settings. This includes startup loading, chat defaults, logging, ingest configuration, LM Studio connectivity, OpenAI embedding credentials, and any checked-in user-facing copy or test fixture that still tells the user to set the old server env names.
+2. [ ] Update server-side env readers so they consume only the new `CODEINFO_` names for repo-owned settings. Reuse the existing `loadStartupEnv(...)` and `ensureStartupEnvLoaded(...)` flow in `server/src/config/startupEnv.ts` instead of introducing another loader, and keep the existing parsing helpers in chat defaults, logging, and ingest code while swapping only the env keys they read. This includes startup loading, chat defaults, logging, ingest configuration, LM Studio connectivity, OpenAI embedding credentials, and any checked-in user-facing copy or test fixture that still tells the user to set the old server env names.
 3. [ ] Update checked-in server env files, compose files, and runtime wrapper scripts so they set only the new `CODEINFO_` names and no longer seed the old generic product-owned names.
 4. [ ] Update or add server tests that prove startup env loading, default resolution, and required-key errors all work with the renamed `CODEINFO_` variables and no longer rely on the old names.
 5. [ ] Run repo-wide searches for the legacy server/runtime env names listed in this story and remove or replace every checked-in product-owned occurrence so the cutover is complete rather than partial. Include compose files, wrappers, tests, docs, and any helper scripts in that sweep.
@@ -815,7 +819,7 @@ Perform the client-side portion of the env rename cutover. This task is only abo
 #### Subtasks
 
 1. [ ] Re-read the explicit client env mapping in this story and make a checklist of every `VITE_CODEINFO_` name that must replace a checked-in client or e2e legacy name. Record separately which legacy names are documentation-only today so the task does not invent new runtime readers for them.
-2. [ ] Update client env readers so they consume the new `VITE_CODEINFO_` names in source code and no longer depend on legacy repo-owned names. This task must cover the real checked-in readers for API URL, LM Studio URL, log forwarding, and log max bytes, and it must not add new runtime support for documentation-only names unless another task has added an actual consumer on purpose.
+2. [ ] Update client env readers so they consume the new `VITE_CODEINFO_` names in source code and no longer depend on legacy repo-owned names. Reuse the existing runtime config and env helper flow in `client/src/api/baseUrl.ts`, `client/src/logging/transport.ts`, and related files instead of introducing a second client config loader. This task must cover the real checked-in readers for API URL, LM Studio URL, log forwarding, and log max bytes, and it must not add new runtime support for documentation-only names unless another task has added an actual consumer on purpose.
 3. [ ] Update `client/entrypoint.sh`, `client/Dockerfile`, checked-in client env files, compose injection, and any e2e/build-time env injection so runtime config generation and built assets use the renamed variables together instead of mixing new and old names.
 4. [ ] Update or add client and e2e tests that prove the new `VITE_CODEINFO_` names are honored and the old checked-in names are no longer the supported repo-owned path for the real runtime readers listed above.
 5. [ ] Run repo-wide searches for the legacy checked-in client and e2e env names listed in this story and remove or replace every repo-owned occurrence so the browser/runtime cutover is complete rather than partial. Treat `VITE_LOG_LEVEL` and `VITE_LOG_STREAM_ENABLED` as documentation cleanup unless a checked-in runtime consumer has been introduced earlier in the story.

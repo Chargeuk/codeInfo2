@@ -753,6 +753,7 @@ Update the client so chats, agents, and flows all restore the saved working-fold
 - React documentation via Context7 `/reactjs/react.dev`, specifically `https://react.dev/reference/react/useEffect`, for syncing UI state with websocket updates and restored conversation data
 - MUI MCP documentation for `@mui/material@6.4.12`, specifically `https://llms.mui.com/material-ui/6.4.12/components/text-fields.md`, for `TextField` controlled usage, `disabled`, helper text, and accessibility guidance
 - MUI MCP API documentation for `@mui/material@6.4.12`, specifically `https://llms.mui.com/material-ui/6.4.12/api/text-field.md`, for exact `TextField` props such as `disabled`, `helperText`, `id`, and `value`
+- Jest documentation via Context7 `/jestjs/jest` and `https://jestjs.io/docs/getting-started`, for client unit and component test structure, assertions, and rerun guidance used by the planned `client/src/test/` updates
 
 #### Subtasks
 
@@ -859,6 +860,8 @@ Perform the client-side portion of the env rename cutover. This task is only abo
 - Vite documentation via Context7 `/vitejs/vite`, specifically `https://vite.dev/guide/env-and-mode`, for `import.meta.env`, browser-exposed env-prefix rules, and mode-specific env behavior
 - Docker documentation via Context7 `/docker/docs`, specifically `https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/`, for runtime env injection into the client container and entrypoint
 - Docker documentation via Context7 `/docker/docs`, specifically `https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/`, for compose interpolation rules that affect client build and e2e env wiring
+- Jest documentation via Context7 `/jestjs/jest` and `https://jestjs.io/docs/getting-started`, for the client unit and component tests in `client/src/test/` that verify the renamed `VITE_CODEINFO_` readers
+- Playwright documentation via Context7 `/microsoft/playwright` and `https://playwright.dev/docs/intro`, for the browser e2e env-drift test planned in `e2e/env-runtime-config.spec.ts`
 
 #### Subtasks
 
@@ -954,7 +957,7 @@ This final task proves the full story is complete against the acceptance criteri
 - Docker documentation via Context7 `/docker/docs`, especially the Compose build and environment pages, for final wrapper-based validation and container lifecycle checks
 - Playwright documentation via Context7 `/microsoft/playwright` and `https://playwright.dev/docs/intro`, for manual browser verification flow and screenshot capture expectations
 - Jest documentation via Context7 `/jestjs/jest` and `https://jestjs.io/docs/getting-started`, for interpreting client test output and rerun guidance during final validation
-- Cucumber guide `https://cucumber.io/docs/guides/testable-architecture/`, for keeping higher-level feature coverage maintainable and aligned with stable automation practices
+- Cucumber guides `https://cucumber.io/docs/guides/`, especially `https://cucumber.io/docs/guides/testable-architecture/`, for keeping higher-level feature coverage maintainable and aligned with stable automation practices
 - Mermaid documentation via Context7 `/mermaid-js/mermaid` and `https://mermaid.js.org/intro/`, for any final diagram updates made in `design.md`
 
 #### Subtasks

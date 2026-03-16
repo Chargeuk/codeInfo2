@@ -678,7 +678,7 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 ### 4. Add Working-Folder Storage Shapes And Runtime Metadata Persistence
 
 - Task Status: `__done__`
-- Git Commits: `__to_do__`
+- Git Commits: `6aafe3f4`
 
 #### Overview
 

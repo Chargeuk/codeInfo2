@@ -489,7 +489,7 @@ This is the execution checklist for the task list below. It should only be used 
 
 ### 1. Create The Shared Repository Candidate Order Helper
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: `__to_do__`
 
 #### Overview

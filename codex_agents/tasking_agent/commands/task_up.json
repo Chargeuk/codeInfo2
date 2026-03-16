@@ -5,7 +5,7 @@
       "type": "message",
       "role": "user",
       "content": [
-        "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan for this flow. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. Do not independently search for or select a different plan. Does the selected story contain tasks? If not, please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked separately and prior to the front-end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail, and structure of the tasks on `planning/plan_format.md`. If it is already tasked up, then just state this and give an overview of the tasks. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
+        "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan for this flow. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. Do not independently search for or select a different plan. Does the selected story contain tasks? If not, please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked separately and prior to the front-end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail, and structure of the tasks on the `plan_format.md` file within this repository (search for it yourself). If it is already tasked up, then just state this and give an overview of the tasks. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
     {
@@ -22,6 +22,7 @@
         "If this plan requires new test harnesses to be created, ensure that each one is properly defined and detailed within it's own task and that there is at least one test that proves the harness can be executed and checked for errors. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
+
     {
       "type": "message",
       "role": "user",
@@ -36,6 +37,13 @@
       "type": "message",
       "role": "user",
       "markdownFile": "code_info_task_search.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Please perform a feasability proof pass over the tasks. For each task in turn, confirm whether the required capabilities already exist as previous tasks, in the relevant repositories, or whether they must be first created as explicit prerequisite work. you MUST distinguish between: 1. Already existing capabilities,  2. Missing prerequisite capabilities,  3. Assumptions that are currently invalid. Update the plan so that any missing tasks are added early enough to be used by the tasks that require them. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
     },
     {
       "type": "message",
@@ -101,28 +109,7 @@
     {
       "type": "message",
       "role": "user",
-      "content": [
-        "Ensure that any task adding files has a subtask to explicitly update projectStructure.md after all subtasks that add or remove files. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
-      ]
-    },
-    {
-      "type": "message",
-      "role": "user",
-      "content": [
-        "Ensure the tasks that update archetecture or add flows also update design.md with the required information and mermaid diagrams. These tasks should reference the mermaid docs via context 7 so the created diagrams correctly match the Mermaid specification. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
-      ]
-    },
-    {
-      "type": "message",
-      "role": "user",
       "markdownFile": "documentation_tasks_update.md"
-    },
-    {
-      "type": "message",
-      "role": "user",
-      "content": [
-        "In various tasks you have a single subtask to update multiple markdown documents. This is ambiguous. please separate these out to separate subtasks and be explicit about what needs updating - For each task, seperate each required markdown document update into it's own subtask. Include document name, location, description & purpose. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
-      ]
     },
     {
       "type": "message",
@@ -159,6 +146,13 @@
       "type": "message",
       "role": "user",
       "content": [
+        "Prove that the story's planned taskproof steps are actually runnable at the point they would be reached. For every planned validation approach, confirm whether the necessary runtime, harness, dependencies, and scripts will exist by then. If not, update the story to add the missing prerequisite work and make the task proof path realistic. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
         "A Task's Subtask section should not contain subtasks to build code or run tests unless there is a specific need to, this is because all building and testing should be executed once all subtasks of a task are completed and the developer has moved on to the testing section, which must contain builds and running tests. Likewise the testing section should not contain steps to write code. Please move any build or test commands from within the subtask list to the Testing section, and remove any code writing steps from the testing section to the Subtask section of each Task. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
@@ -171,6 +165,13 @@
       "type": "message",
       "role": "user",
       "markdownFile": "ensure_testing_steps_are_correct.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Please ensure that each of the testing steps can actually be run for the task they are part of and they are not within tasks before the scripts themselves actually work as expected, or were even created. For example, task 4 should not contain a testing step that requires code that wont be implemented until task 5, and if task 5 is the one that creates the script to start the server, then task 4 should not contain a testing step that requires that script to be run successfully. If there are any issues with the testing steps, please move them to the correct task or update them based on the actual scripts and functionality that will be available at that point in the story. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
+      ]
     },
     {
       "type": "message",

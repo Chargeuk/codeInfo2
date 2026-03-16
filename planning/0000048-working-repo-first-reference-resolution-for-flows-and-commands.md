@@ -250,6 +250,87 @@ No new test harness type needs to be created for story 48. The repository alread
 - This existing compose harness is sufficient for manual acceptance checks around working-folder restore, repository resolution visibility, and env cutover behavior.
 - If story 48 needs any additional shared test scaffolding, create it inside the existing support directories above rather than introducing a new top-level harness type.
 
+## Contracts And Storage Shapes
+
+Story 48 does require contract and storage-shape changes, but they can be defined up front without introducing a new collection or a separate persistence subsystem. The existing conversation, flow-state, and turn storage already provide the right anchor points.
+
+### 1. Conversation Storage Contract
+
+- Reuse the existing `Conversation.flags` object in `server/src/mongo/conversation.ts` as the canonical persisted location for the selected current working repository.
+- Add one well-known field:
+  - `flags.workingFolder?: string`
+- `flags.workingFolder` stores the canonical absolute repository root path selected in the GUI.
+- If the saved path becomes invalid or is cleared by the user, `flags.workingFolder` should be removed or set to an absent state rather than replaced with a synthetic fallback path.
+- This story should not create a separate collection for working-folder persistence because the state belongs to the owning chat, agent, flow, or command conversation and should travel with that conversation's existing `flags`.
+
+### 2. Flow Resume-State Contract
+
+- Extend `FlowResumeState` in `server/src/flows/flowState.ts` so the flow persistence layer can remember the exact folder snapshots used during flow execution.
+- The minimal new fields should be:
+  - `workingFolder?: string`
+  - `agentWorkingFolders?: Record<string, string>`
+- `workingFolder` stores the flow conversation's resolved working-folder snapshot for the current or most recent run state.
+- `agentWorkingFolders` stores child agent working-folder snapshots keyed consistently with the existing flow-owned child-conversation state, so child agent conversations can restore the exact path the flow used when it created or resumed them.
+
+### 3. Request Contract Changes
+
+- `POST /chat` must add the same optional field already used by agents, commands, and flows:
+  - `working_folder?: string`
+- `working_folder` in chat requests must use the same absolute-path validation contract and the same error codes already used elsewhere:
+  - `WORKING_FOLDER_INVALID`
+  - `WORKING_FOLDER_NOT_FOUND`
+- Existing request shapes for:
+  - `POST /agents/:agentName/run`
+  - `POST /agents/:agentName/commands/run`
+  - `POST /flows/:flowName/run`
+  already include `working_folder?: string` and should keep that field rather than introducing a second alias.
+- The client-side request helpers should mirror the same field name across all four surfaces so the server and UI are not translating between multiple working-folder names.
+
+### 4. Response And Conversation-Summary Contract
+
+- High-level run-start responses should remain compact. Story 48 should not add verbose lookup details to the top-level `started` responses from chat, agent, command, or flow routes.
+- Conversation list and detail responses can continue to expose the saved working folder through the existing generic `flags` object rather than introducing a new top-level `workingFolder` field on every summary shape.
+- The client should therefore restore the selected folder from `conversation.flags.workingFolder` instead of expecting a separate conversation-summary property.
+
+### 5. Turn And Runtime Metadata Contract
+
+- Extend `Turn` storage in `server/src/mongo/turn.ts` with one new optional nested metadata object rather than overloading the existing `command`, `usage`, or `timing` fields.
+- The new shape should be:
+  - `runtime?: {`
+  - `  workingFolder?: string;`
+  - `  lookupSummary?: {`
+  - `    referenceType: 'flow-command' | 'flow-markdown' | 'command-markdown' | 'direct-command';`
+  - `    referencingFile?: string;`
+  - `    ownerRepositoryPath?: string;`
+  - `    workingRepositoryPath?: string;`
+  - `    workingRepositoryAvailable: boolean;`
+  - `    candidateRepositories?: Array<{`
+  - `      path: string;`
+  - `      rank: 'working' | 'owner' | 'codeinfo2' | 'other';`
+  - `    }>;`
+  - `    selectedRepositoryPath: string;`
+  - `    fallbackUsed: boolean;`
+  - `  };`
+  - `}`
+- `runtime.workingFolder` stores the exact resolved folder snapshot used for that persisted turn or step.
+- `runtime.lookupSummary` stores the compact lookup contract the story already requires for runs and steps.
+- If a turn or step does not perform reference resolution, `runtime.lookupSummary` may be omitted while `runtime.workingFolder` still records the run snapshot.
+- Memory persistence should mirror the same `runtime` shape so in-memory and Mongo-backed execution do not diverge.
+
+### 6. Structured Lookup Log Contract
+
+- The shared resolver log context should use the same core fields as `runtime.lookupSummary` so logs, persisted turn metadata, and flow-step debugging all describe the same contract.
+- Each structured lookup log should include:
+  - `referenceType`
+  - `referencingFile` when available
+  - `workingRepositoryPath` when available
+  - `workingRepositoryAvailable`
+  - `ownerRepositoryPath`
+  - `candidateRepositories`
+  - `selectedRepositoryPath`
+  - `fallbackUsed`
+- Markdown resolution logs may additionally include the final resolved file path because that is part of the existing markdown contract.
+
 ## Research Findings
 
 1. Current reference resolution is owner-first in two different places

@@ -517,16 +517,17 @@ Single-subtask rule: assume a junior developer may read only one subtask from th
 9. [ ] Add or extend one server unit test in `server/src/test/unit/repositoryCandidateOrder.test.ts` that proves two separate nested-lookup calls each get a fresh candidate order rather than leaking the previous winner. The purpose of this test is to protect the nested restart rule in the shared helper.
 10. [ ] After all file-adding or file-removal subtasks in Task 1 are complete, update [`projectStructure.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) to list every file added or removed by this task, including `server/src/flows/repositoryCandidateOrder.ts`, `server/src/test/unit/repositoryCandidateOrder.test.ts`, and any additional support files created or deleted while completing the helper work.
 11. [ ] Update this story file's Task 1 `Implementation notes` section with the final helper signature, the dedupe approach you chose, and any issue you hit while matching the existing resolver label behavior.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. If either wrapper reports issues, fix them before marking the task complete.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/repositoryCandidateOrder.test.ts`
-6. [ ] `npm run compose:down`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build:summary:server`
+4. [ ] `npm run build:summary:client`
+5. [ ] `npm run compose:build:summary`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/repositoryCandidateOrder.test.ts`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -569,17 +570,18 @@ Single-subtask rule: assume a junior developer may read only one subtask from th
 15. [ ] Update [`design.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) with the final command-resolution architecture introduced by this task. Document the working-repository-first candidate order, the direct-command owner-slot rule, the fail-fast stop point, and the Mermaid diagram that shows the implemented flow-owned and direct-command lookup sequence. The purpose of this document update is to keep the architecture reference aligned with the shipped command-resolution behavior.
 16. [ ] After all file-adding or file-removal subtasks in Task 2 are complete, update [`projectStructure.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) to list every file added or removed by this task, including every helper, route, support file, and test file created or deleted by the command-resolution work. The purpose of this document update is to keep the repository structure map accurate for later contributors.
 17. [ ] Update this story file's Task 2 `Implementation notes` section in [`planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md) with the final command-resolution functions changed and any issue solved during the direct-command alignment work. The purpose of this document update is to preserve story-local implementation context for reviewers and future follow-up tasks.
-18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. If either fails, fix the issues before marking the task complete.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --test-name "direct command"`
-7. [ ] `npm run compose:down`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build:summary:server`
+4. [ ] `npm run build:summary:client`
+5. [ ] `npm run compose:build:summary`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts`
+8. [ ] `npm run test:summary:server:unit -- --test-name "direct command"`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -623,17 +625,18 @@ Single-subtask rule: assume a junior developer may read only one subtask from th
 16. [ ] Update [`design.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) with the markdown-resolution architecture introduced by this task. Document the per-hop restart rule, the fail-fast read or decode branch, and the Mermaid diagram that shows how top-level and nested markdown references recompute repository order. The purpose of this document update is to keep the architecture reference aligned with the shipped markdown-resolution behavior.
 17. [ ] After all file-adding or file-removal subtasks in Task 3 are complete, update [`projectStructure.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) to list every file added or removed by this task, including every resolver, support file, and test file created or deleted by the markdown-resolution work. The purpose of this document update is to keep the repository structure map accurate for later contributors.
 18. [ ] Update this story file's Task 3 `Implementation notes` section in [`planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md) with the final resolver entry points changed and any issue solved during nested-caller alignment. The purpose of this document update is to preserve story-local implementation context for reviewers and future follow-up tasks.
-19. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix any issues before moving on.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/markdown-file-resolver.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --test-name "nested markdown"`
-7. [ ] `npm run compose:down`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build:summary:server`
+4. [ ] `npm run build:summary:client`
+5. [ ] `npm run compose:build:summary`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/markdown-file-resolver.test.ts`
+8. [ ] `npm run test:summary:server:unit -- --test-name "nested markdown"`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -680,20 +683,21 @@ Single-subtask rule: assume a junior developer may read only one subtask from th
 19. [ ] Update [`design.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) with the persistence architecture introduced by this task. Document the new `Conversation.flags.workingFolder`, `FlowResumeState` additions, `Turn.runtime` contract, and the Mermaid diagram that shows how working-folder state moves between conversation storage, flow state, turn runtime metadata, and memory mode. The purpose of this document update is to keep the architecture reference aligned with the shipped persistence behavior.
 20. [ ] After all file-adding or file-removal subtasks in Task 4 are complete, update [`projectStructure.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) to list every file added or removed by this task, including every persistence, support, and test file created or deleted by the storage work. The purpose of this document update is to keep the repository structure map accurate for later contributors.
 21. [ ] Update this story file's Task 4 `Implementation notes` section in [`planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md) with the final persistence helpers changed and any issue solved while aligning Mongo and memory-mode storage. The purpose of this document update is to preserve story-local implementation context for reviewers and future follow-up tasks.
-22. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix any issues before continuing.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flows.flags.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts`
-8. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.list.test.ts`
-9. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/ws-server.test.ts`
-10. [ ] `npm run compose:down`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build:summary:server`
+4. [ ] `npm run build:summary:client`
+5. [ ] `npm run compose:build:summary`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flows.flags.test.ts`
+8. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-run-persistence.test.ts`
+9. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts`
+10. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.list.test.ts`
+11. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/ws-server.test.ts`
+12. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -747,20 +751,21 @@ Single-subtask rule: assume a junior developer may read only one subtask from th
 25. [ ] Add or extend one server integration test in `server/src/test/integration/flows.run.working-folder.test.ts` that proves a flow-created child agent conversation inherits the exact folder path used by the flow step. The purpose of this test is to verify child conversation initialization behavior end to end.
 26. [ ] Add or extend one server unit test in `server/src/test/unit/agents-commands-router-run.test.ts` that proves direct command execution continues to use the owning agent conversation for saved-folder restore and update behavior. The purpose of this test is to prevent direct commands from drifting into a separate persistence model.
 27. [ ] Update `design.md` with the server contract and flow behavior introduced by this task. Include the idle-edit conversation route, restore-or-clear lifecycle, active-run lock behavior, child agent conversation inheritance, and at least one Mermaid diagram that shows the chat, agent, and flow working-folder lifecycle through validation, persistence, restore, and websocket updates.
-28. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix any issues before moving on.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/conversations-router-agent-filter.test.ts`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/ws-server.test.ts`
-8. [ ] `npm run test:summary:server:unit -- --test-name "working_folder"`
-9. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts`
-10. [ ] `npm run compose:down`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build:summary:server`
+4. [ ] `npm run build:summary:client`
+5. [ ] `npm run compose:build:summary`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts`
+8. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/conversations-router-agent-filter.test.ts`
+9. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/ws-server.test.ts`
+10. [ ] `npm run test:summary:server:unit -- --test-name "working_folder"`
+11. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts`
+12. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -822,21 +827,22 @@ Single-subtask rule: assume a junior developer may read only one subtask from th
 33. [ ] Update [`README.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) if the user-facing working-folder behavior described there is stale after the client changes. Document the saved-folder restore behavior, idle-edit behavior, and lock behavior visible to users. The purpose of this document update is to keep the main setup and usage guide aligned with the shipped client behavior.
 34. [ ] Update [`docs/developer-reference.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) if its working-folder guidance is stale after the client changes. Document the shared conversation-edit API usage, restore semantics, and lock rules for chat, agent, and flow pages. The purpose of this document update is to keep the developer-facing reference aligned with the shipped client behavior.
 35. [ ] Update this story file's Task 6 `Implementation notes` section in [`planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md) with the shared helper location and the final lock rules used by each page. The purpose of this document update is to preserve story-local implementation context for reviewers and future follow-up tasks.
-36. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix any issues before continuing.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/chatSendPayload.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/conversationsApi.workingFolder.test.ts`
-7. [ ] `npm run test:summary:client -- --file client/src/test/useConversations.source.test.ts`
-8. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.workingFolderPicker.test.tsx`
-9. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
-10. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.workingFolder.test.tsx`
-11. [ ] `npm run compose:down`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build:summary:server`
+4. [ ] `npm run build:summary:client`
+5. [ ] `npm run compose:build:summary`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run test:summary:client -- --file client/src/test/chatSendPayload.test.tsx`
+8. [ ] `npm run test:summary:client -- --file client/src/test/conversationsApi.workingFolder.test.ts`
+9. [ ] `npm run test:summary:client -- --file client/src/test/useConversations.source.test.ts`
+10. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.workingFolderPicker.test.tsx`
+11. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
+12. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.workingFolder.test.tsx`
+13. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -876,19 +882,20 @@ Single-subtask rule: assume a junior developer may read only one subtask from th
 13. [ ] Add or extend one server unit test in `server/src/test/unit/ingest-models.test.ts` that proves `CODEINFO_OPENAI_EMBEDDING_KEY` and `CODEINFO_LMSTUDIO_BASE_URL` drive ingest model availability after the rename. The purpose of this test is to catch any remaining direct-reader drift in the ingest-models route.
 14. [ ] Update [`docs/developer-reference.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) with the final `CODEINFO_` names, the files that load them, and the legacy server env names removed by this task. The purpose of this document update is to keep the developer-facing env reference aligned with the shipped server configuration.
 15. [ ] Update this story file's Task 7 `Implementation notes` section in [`planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md) with the final `CODEINFO_` mapping and any issue solved during the repo-wide cutover. The purpose of this document update is to preserve story-local implementation context for reviewers and future follow-up tasks.
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix issues before moving on.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/env-loading.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/config.chatDefaults.test.ts`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-models.test.ts`
-8. [ ] `npm run test:summary:server:unit -- --test-name "CODEINFO_"`
-9. [ ] `npm run compose:down`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build:summary:server`
+4. [ ] `npm run build:summary:client`
+5. [ ] `npm run compose:build:summary`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/env-loading.test.ts`
+8. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/config.chatDefaults.test.ts`
+9. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-models.test.ts`
+10. [ ] `npm run test:summary:server:unit -- --test-name "CODEINFO_"`
+11. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -930,19 +937,20 @@ Single-subtask rule: assume a junior developer may read only one subtask from th
 13. [ ] Update [`docs/developer-reference.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) with the final client-side env contract, including which `VITE_CODEINFO_` names are real runtime readers and which old log env names were documentation-only cleanup. The purpose of this document update is to keep the developer-facing env reference aligned with the shipped client configuration.
 14. [ ] Update [`design.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md) with the client runtime-config architecture introduced by this task, including how built assets and injected runtime config share the same renamed `VITE_CODEINFO_` values. The purpose of this document update is to keep the architecture reference aligned with the shipped client env behavior.
 15. [ ] Update this story file's Task 8 `Implementation notes` section in [`planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md) with the final runtime-reader names and any issue solved during the client env cutover. The purpose of this document update is to preserve story-local implementation context for reviewers and future follow-up tasks.
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix issues before continuing.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:client -- --file client/src/test/baseUrl.env.test.ts`
-6. [ ] `npm run test:summary:client -- --file client/src/test/logging/transport.test.ts`
-7. [ ] `npm run test:summary:client -- --file client/src/test/lmstudio.test.tsx`
-8. [ ] `npm run test:summary:e2e -- --grep "env"`
-9. [ ] `npm run compose:down`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build:summary:server`
+4. [ ] `npm run build:summary:client`
+5. [ ] `npm run compose:build:summary`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run test:summary:client -- --file client/src/test/baseUrl.env.test.ts`
+8. [ ] `npm run test:summary:client -- --file client/src/test/logging/transport.test.ts`
+9. [ ] `npm run test:summary:client -- --file client/src/test/lmstudio.test.tsx`
+10. [ ] `npm run test:summary:e2e -- --grep "env"`
+11. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -985,18 +993,19 @@ Single-subtask rule: assume a junior developer may read only one subtask from th
 13. [ ] Add or extend one server unit test in `server/src/test/unit/chunker.test.ts` that proves tokenizer counting failure during execution also produces a clear ingest error and does not fall back to whitespace estimation. The purpose of this test is to cover the runtime failure path separately from initialization failure.
 14. [ ] After all file-adding or file-removal subtasks in Task 9 are complete, update [`projectStructure.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md) to list every file added or removed by this task, including every tokenizer helper, dependency-related support file, and test file created or deleted by the OpenAI counting work. The purpose of this document update is to keep the repository structure map accurate for later contributors.
 15. [ ] Update this story file's Task 9 `Implementation notes` section in [`planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md) with the chosen tokenizer package, the helper location, and any cleanup or initialization behavior that mattered. The purpose of this document update is to preserve story-local implementation context for reviewers and future follow-up tasks.
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`. Fix issues before continuing.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openai-provider-guardrails.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openai-provider.test.ts`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chunker.test.ts`
-8. [ ] `npm run compose:down`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build:summary:server`
+4. [ ] `npm run build:summary:client`
+5. [ ] `npm run compose:build:summary`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openai-provider-guardrails.test.ts`
+8. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/openai-provider.test.ts`
+9. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chunker.test.ts`
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 

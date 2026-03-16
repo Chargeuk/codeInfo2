@@ -877,7 +877,7 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 ### 7. Restore And Lock Working-Folder Pickers In The Client
 
 - Task Status: `__done__`
-- Git Commits: `__to_do__`
+- Git Commits: `9c3cc066, 028e7a1c`
 
 #### Overview
 

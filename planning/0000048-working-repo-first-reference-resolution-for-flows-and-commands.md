@@ -24,7 +24,7 @@ This story therefore changes reference resolution from an owner-first model to a
 
 This order should be applied consistently for every reference lookup, not only the first one in a run. Nested references must restart the same lookup order for each new lookup. In other words, if a flow resolves a command file and that command later resolves a markdown file, the markdown lookup must again start at the current working repository, then the owner of the referencing command file, then `codeInfo2`, then the remaining repositories. The previous lookup winner must not become an implicit new root for the next lookup unless that winner is also the owner of the file making the new reference.
 
-The story is about deterministic lookup priority and user expectation. It is not about inventing a new free-form path syntax. References should continue to resolve through their established subfolders inside each candidate repository. A command reference should still map to the candidate repository's `codex_agents/<agent>/commands/<commandName>.json` location, and a markdown reference should still map to the candidate repository's `codeinfo_markdown/<relativePath>` location. The change is the repository candidate order, not the subfolder conventions.
+The story is about deterministic lookup priority and user expectation. It is not about inventing a new free-form path syntax. References should continue to resolve through their established subfolders inside each candidate repository. A command reference should still map to the candidate repository's `codex_agents/<agent>/commands/<commandName>.json` location, and a markdown reference should still map to the candidate repository's `codeinfo_markdown/<relativePath>` location. The change is the repository candidate order, not the subfolder conventions. Direct command execution outside flows follows the same ownership rule: the current working repository remains first, and the repository that owns the selected command file is the owner slot used second for any references that command makes.
 
 This story also needs one explicit contract for duplicate candidates. In common cases the same repository can appear in more than one conceptual position, such as when the current working repository is also the owner of the referencing file, or when the owner of the referencing file is `codeInfo2`. In those cases the runtime should keep the first occurrence and skip later duplicates while preserving the order of the remaining distinct repositories.
 
@@ -44,6 +44,7 @@ This story also includes a repository-wide environment-variable normalization pa
 - A flow step that references a command file uses the four-place order to choose the repository candidate before applying the existing command subfolder convention.
 - A flow step that references a markdown file uses the four-place order to choose the repository candidate before applying the existing markdown subfolder convention.
 - A command item that references a markdown file uses the same four-place order, including when that command is being executed from inside a flow.
+- A directly executed command outside a flow uses the same ownership semantics: the current working repository is still searched first, and the repository that owns the selected command file is used as the owner slot second for any referenced files.
 - Running a local flow from `codeInfo2/flows/<name>.json` while the current working repository is another repo causes referenced commands and markdown files to be searched in the working repository first.
 - Running a flow owned by an ingested repository while the current working repository is a different repo still searches the working repository first, then the flow-owner repository second.
 - The selected current folder is persisted for agent conversations, chat conversations, flow runs, and command runs and is restored when the user switches between existing conversations in the GUI.
@@ -58,6 +59,8 @@ This story also includes a repository-wide environment-variable normalization pa
 - Existing relative-path safety rules remain in place for command names and markdown paths; this story changes repository candidate priority, not path traversal policy.
 - Fallback continues only for not-found outcomes. Higher-priority read, parse, validation, or decode failures remain fail-fast instead of falling through to lower-priority repositories.
 - Observability logs and documentation are updated so the selected candidate order and selected repository are visible and understandable during debugging.
+- Structured server-side lookup logs are the canonical debugging surface for reference resolution and include, at minimum, the reference type, referencing file, current working repository when present, owner repository, ordered candidate list, selected repository, whether fallback occurred, and whether the working-repo slot was unavailable.
+- Execution metadata for runs or steps includes a compact lookup summary that exposes the final selected repository and, where useful, the ordered candidate list, while general high-level API responses remain focused and are not broadly expanded with verbose lookup internals.
 - The behavior is documented with at least one nested-reference example that proves the lookup order restarts for each reference hop.
 - Repository-owned environment variables are renamed to uppercase `CODEINFO_` names, and Vite browser-facing variables are renamed to uppercase `VITE_CODEINFO_` names.
 - The env renaming work updates committed defaults, local override examples, compose files, e2e configuration, wrappers, and documentation so the renamed variables are used consistently across local, compose, and test workflows.
@@ -83,9 +86,6 @@ This story also includes a repository-wide environment-variable normalization pa
 
 ### Questions
 
-- Should direct command execution outside flows use the command file itself as the owner slot when the command was selected from an ingested repository, even if the current working repository is different?
-- Which existing logs and API responses should expose the resolved lookup order so debugging remains easy without requiring deep log inspection?
-
 ## Implementation Ideas
 
 - Add one shared repository-candidate builder that accepts:
@@ -99,12 +99,14 @@ This story also includes a repository-wide environment-variable normalization pa
 - Update OpenAI guardrail and error-mapping coverage so token-overflow failures are blocked locally when possible and are still mapped cleanly if OpenAI returns wording such as maximum input length in tokens.
 - Reuse that shared candidate builder in all reference-resolution paths so command lookup and markdown lookup cannot drift apart over time.
 - Ensure nested flow -> command -> markdown execution passes both the current working repository and the owner of the immediate referencing file into the shared resolver for each lookup.
+- Ensure direct command execution passes the selected command file's owning repository into the same resolver as the owner slot so standalone commands behave consistently with flow-invoked commands.
 - Persist the selected current folder as the absolute repository root path on the owning conversation or thread records so the GUI can restore it on conversation switch and the runtime can reuse the same canonical value for later runs or resumptions.
 - Stamp each run record with the exact working-folder path used at run start so historical execution remains inspectable even after the editable conversation-level value changes later.
 - Ensure existing conversations and run contexts can update their saved current folder from the GUI only when execution is complete, with that edited absolute path becoming the canonical working-repo signal used for later restores and later execution.
 - Ensure flow-created or flow-linked child agent conversations inherit the folder path actually used by the flow step so cross-navigation between the flow and child agent conversation restores the same path.
 - Clear invalid saved working-folder paths automatically when they no longer exist or are no longer ingested, and emit a warning log so the fallback is observable during debugging.
 - Audit chat, agent, flow, and command execution entrypoints so they all write and read the same current-folder field instead of keeping separate page-local state.
+- Add structured lookup logging and compact execution metadata summaries so the candidate order, selected repository, fallback behavior, and missing-working-repo cases are observable without overloading unrelated high-level API responses.
 - Keep existing safety guards for command name sanitization, markdown relative paths, and path-within-root checks unchanged.
 - Inventory every repository-owned env variable currently used by server, client, compose, wrappers, tests, and docs; rename them to `CODEINFO_` or `VITE_CODEINFO_` as appropriate and update all references in one coordinated pass.
 - Add explicit cutover notes and validation coverage for renamed env variables so the clean migration fails clearly if any old names remain in use.
@@ -117,12 +119,6 @@ This story also includes a repository-wide environment-variable normalization pa
 - Update `design.md`, `projectStructure.md`, and any route or runtime documentation that currently describes owner-first resolution so the working-repo-first contract becomes the documented source of truth.
 
 ## Questions
-
-1. For direct command execution outside flows, if a command is selected from an ingested repository while the current working repository is different, should the command's own repository always be treated as the owner slot for lookup?
-- Why this is important: direct commands need the same owner semantics as flows, otherwise command lookup behavior could diverge in subtle ways that are hard for users to predict.
-
-2. Which logs or API responses should expose the candidate lookup order and the selected repository so debugging remains easy without requiring deep log inspection?
-- Why this is important: this story changes core lookup behavior, so support and development workflows need a clear and consistent place to see why a particular repository won.
 
 ## Decisions
 
@@ -174,3 +170,17 @@ This story also includes a repository-wide environment-variable normalization pa
 - What the answer is: yes. Skip the first slot, continue with owner -> `codeInfo2` -> others, and emit observability that explicitly records that no current working repository was available.
 - Where the answer came from: user decision in this planning conversation on 2026-03-16.
 - Why it is the best answer: it keeps lookup deterministic without inventing a fake working repo, while still making the degraded behavior obvious during debugging.
+
+8. Direct command ownership semantics outside flows
+- Question being addressed: For direct command execution outside flows, if a command is selected from an ingested repository while the current working repository is different, should the command's own repository always be treated as the owner slot for lookup?
+- Why this question matters: direct commands need the same owner semantics as flows, otherwise command lookup behavior could diverge in subtle ways that are hard for users to predict.
+- What the answer is: yes. The current working repository stays first, and the repository that owns the selected command file becomes the owner slot second for any references that direct command resolves.
+- Where the answer came from: user decision in this planning conversation on 2026-03-16 after reviewing a concrete example.
+- Why it is the best answer: it keeps standalone command behavior aligned with flow behavior and matches the mental model that the referencing file still contributes the owner slot even when the current working repository is different.
+
+9. Observability surfaces for lookup resolution
+- Question being addressed: Which logs or API responses should expose the candidate lookup order and the selected repository so debugging remains easy without requiring deep log inspection?
+- Why this question matters: this story changes core lookup behavior, so support and development workflows need a clear and consistent place to see why a particular repository won.
+- What the answer is: structured server-side lookup logs are the canonical full debugging surface, and execution metadata for runs or steps includes a compact lookup summary with the final selected repository and, where useful, the candidate order. General high-level API responses should not be broadly expanded with verbose lookup internals.
+- Where the answer came from: user decision in this planning conversation on 2026-03-16 after reviewing the proposed observability approach.
+- Why it is the best answer: it gives developers and support clear debugging data without cluttering every high-level response contract with low-level lookup details.

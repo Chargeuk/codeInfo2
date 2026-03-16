@@ -21,7 +21,16 @@ The second target is all currently ingested repositories. This is useful for mai
 
 This story should preserve the current blocking re-ingest semantics. A workflow step should still wait for each re-ingest target to reach a terminal outcome before moving on. Pre-start validation failures should still fail the relevant workflow step early with a clear message. Terminal ingest failures should still be recorded as structured outcomes rather than being silently swallowed.
 
-In addition to the workflow re-ingest work, this story also includes the manual-testing `playwright-mcp` host-networking investigation documented in `future ideas.md`. The local manual-testing stack currently exposes a dedicated `playwright-mcp` container on bridge networking and relies on service-name DNS plus `host.docker.internal`. The user wants this story to research and potentially implement a host-networking-based setup so that the browser launched by Playwright MCP can reach host-published services through `localhost` when that is safer or more reliable for secure-context-sensitive manual testing. This part of the story includes Docker Desktop for Mac research, Compose wiring changes if the approach is viable, and MCP endpoint updates if service-name DNS can no longer be used.
+In addition to the workflow re-ingest work, this story also includes an explicit host-networking implementation for the manual-testing `playwright-mcp` container behavior described in `future ideas.md`. The local stack currently exposes Playwright MCP through bridge networking and relies on service-name DNS plus `host.docker.internal`. The user has now fixed the desired direction for this story: implement host networking for every checked-in Docker Compose file that defines a `playwright-mcp` service, so the browser launched by Playwright MCP can use `localhost` against host-published services.
+
+This host-networking work is not just a one-line Compose change. Docker's host-networking behavior means the service can no longer rely on the current bridge-only wiring assumptions. The story therefore must also plan the supporting changes that make that implementation safe and usable in real workflows:
+
+- remove incompatible bridge-style wiring from each host-networked Playwright MCP service;
+- give each Playwright MCP service a deliberate host port strategy so multiple stacks do not clash if run together;
+- replace the hard-coded service-DNS MCP endpoint with an explicit environment-aware endpoint configuration for agents or wrappers;
+- keep browser navigation targets and agent control-channel endpoints as separate concerns rather than assuming they are the same URL.
+
+Current repository evidence shows that the checked-in Compose files do not all define a Playwright MCP service today. The story therefore needs to be precise: implement host networking for every checked-in Compose file that actually declares a `playwright-mcp` service, and explicitly decide whether files that do not currently define such a service are out of scope or must gain one as part of this story.
 
 ### Acceptance Criteria
 
@@ -41,10 +50,13 @@ In addition to the workflow re-ingest work, this story also includes the manual-
 - Structured re-ingest result recording remains intact for direct commands, dedicated flow re-ingest steps, and command items executed inside flows.
 - The plan clearly defines whether duplicate case-insensitive repository ids are allowed to resolve via the current latest-ingest helper behavior or must fail as ambiguous before implementation begins.
 - The plan clearly defines how "all repositories" results should be represented in conversation history before implementation begins.
-- The manual-testing `playwright-mcp` host-networking work is researched using the scope described in `future ideas.md`.
-- The story determines whether the `playwright-mcp` service can reliably use host networking on Docker Desktop for Mac for CodeInfo2 manual testing.
-- If the host-networking approach is viable, the local manual-testing stack is updated accordingly, including any required Compose wiring and agent MCP endpoint changes.
-- If the host-networking approach is not viable, the story records that outcome clearly with the observed blocker and leaves the existing local manual-testing setup working.
+- Every checked-in Docker Compose file that defines a `playwright-mcp` service is updated to use host networking.
+- The story explicitly defines whether Compose files that do not currently define a `playwright-mcp` service are unchanged or must gain one, rather than leaving that ambiguous.
+- Each host-networked Playwright MCP service uses a deliberate host port plan so checked-in stacks do not clash when run together.
+- The implementation removes any incompatible bridge-style `playwright-mcp` wiring that cannot coexist with host networking.
+- Agent or wrapper MCP endpoint configuration is updated so Playwright MCP is no longer hard-coded only as `http://playwright-mcp:8931/mcp`.
+- The implementation keeps the browser navigation target and the agent control-channel endpoint conceptually separate where that is required for host-networked manual testing.
+- The resulting local manual-testing setup still supports the Playwright MCP traffic patterns used by this product, including browser control, websocket flows, screenshots, and manual UI verification.
 
 ### Out Of Scope
 
@@ -53,14 +65,14 @@ In addition to the workflow re-ingest work, this story also includes the manual-
 - General-purpose repository selector changes for every unrelated workflow field in the product unless those fields are required for this story's re-ingest behavior.
 - Renaming every existing `sourceId` field across all product surfaces only for terminology cleanup.
 - Reworking unrelated workflow step types beyond what is needed to support portable re-ingest selectors, current/all targets, and the resulting runtime metadata.
-- Reworking unrelated Playwright MCP behavior outside the manual-testing networking and endpoint concerns captured in `future ideas.md`.
-- Reworking the whole Docker networking model for the local stack beyond what is required for the `playwright-mcp` investigation and any resulting targeted implementation.
+- Reworking unrelated Playwright MCP behavior outside the manual-testing networking, endpoint, and port-management concerns captured in this story.
+- Reworking the whole Docker networking model for the local stack beyond what is required for the `playwright-mcp` host-networking implementation.
 
 ### Questions
 
 - If multiple ingested repositories share the same case-insensitive repository id, should workflow re-ingest keep the existing helper behavior of selecting the latest ingest, or should workflows fail fast as ambiguous because they are automation artifacts?
 - For `target: "all"`, should conversation history record one existing re-ingest tool result per repository, or should the story introduce a new batch result payload to reduce transcript noise?
-- For the `playwright-mcp` host-networking work, is the required outcome "investigate and document the decision" or "switch to host networking if the investigation does not uncover a blocker"?
+- Should Compose files that do not currently define a `playwright-mcp` service remain out of scope for the host-networking implementation, or is this story expected to add a Playwright MCP service to those files as well?
 
 ## Implementation Ideas
 
@@ -91,15 +103,24 @@ In addition to the workflow re-ingest work, this story also includes the manual-
   - current-repository resolution chooses the right owning file;
   - all-repositories mode runs sequentially and records outcomes deterministically;
   - non-ingested `current` repositories fail fast with a clear message.
-- For the `playwright-mcp` host-networking investigation, begin with the already captured research in `future ideas.md` and validate it against the checked-in local stack:
-  - `docker-compose.local.yml` currently exposes `playwright-mcp` on bridge networking with published port `8931` and `host.docker.internal`;
+- For the `playwright-mcp` host-networking implementation, use the already captured `future ideas.md` notes only as starting context, not as the final scope. The story should now plan and implement the host-networked end state.
+- The current checked-in stacks show that:
+  - `docker-compose.yml` defines a `playwright-mcp` service on bridge-style wiring without an explicit published `8931:8931` mapping;
+  - `docker-compose.local.yml` defines a `playwright-mcp` service with bridge-style wiring and a published `8931:8931` mapping;
   - agent configs currently point to `http://playwright-mcp:8931/mcp`;
-  - moving only `playwright-mcp` to host networking is the candidate direction, not a whole-stack networking rewrite.
-- Validate Docker Desktop for Mac host-networking behavior carefully before changing Compose wiring, especially:
-  - how bridged containers in the same project reach a host-networked `playwright-mcp` service;
-  - what MCP endpoint agents should use once Docker service-name DNS is no longer available;
-  - whether Chrome and Playwright MCP manual-testing traffic remains reliable for websocket, screenshot, and browser-control flows.
-- If implementation proceeds, expect likely changes in:
+  - not every checked-in Compose file currently defines a `playwright-mcp` service.
+- For each Compose file that declares `playwright-mcp`, implement host networking in a way that also updates the surrounding assumptions:
+  - remove incompatible `ports` and `networks` service wiring for that service;
+  - remove any `extra_hosts` rules that only existed to support the old bridge-host access path if they are no longer needed;
+  - keep the service startup command port aligned with the chosen host port for that stack.
+- Introduce a deliberate per-environment Playwright MCP port strategy. If multiple stacks may run together, they must not all try to bind the same host port. The story should therefore either:
+  - assign distinct checked-in default ports per stack; or
+  - drive the Playwright MCP port from explicit environment configuration with safe defaults.
+- Introduce a deliberate per-environment MCP endpoint strategy. Because service-name DNS no longer works the same way for a host-networked service, the story should replace hard-coded `http://playwright-mcp:8931/mcp` assumptions with an explicit configuration path used by agents or wrappers.
+- Keep browser-navigation URLs and agent-control MCP URLs as separate concerns. Host networking is being introduced so the browser launched by Playwright can use `localhost` semantics against host-published applications. That does not automatically mean the agent control channel should use the same URL.
+- Validate the implementation through the manual-testing workflows that already depend on Playwright MCP, including screenshot capture and browser-control flows.
+- Expect likely changes in:
   - `docker-compose.local.yml`;
+  - `docker-compose.yml`;
   - agent MCP config files under `codex_agents/`;
   - any local run or documentation notes that assume the old `http://playwright-mcp:8931/mcp` control endpoint.

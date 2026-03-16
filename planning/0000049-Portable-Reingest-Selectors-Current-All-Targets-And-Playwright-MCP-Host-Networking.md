@@ -21,6 +21,8 @@ The second target is all currently ingested repositories. This is useful for mai
 
 This story should preserve the current blocking re-ingest semantics. A workflow step should still wait for each re-ingest target to reach a terminal outcome before moving on. Pre-start validation failures should still fail the relevant workflow step early with a clear message. Terminal ingest failures should still be recorded as structured outcomes rather than being silently swallowed.
 
+This story also tightens one part of the markdown-file workflow contract used by commands and flows. If a loaded markdown file resolves successfully but its content is empty or contains only whitespace, the runtime should not try to execute that instruction as an empty prompt. Instead, that specific flow or command step should be skipped, and the system should emit an info-level log entry that makes it clear the step was skipped because the resolved markdown content was empty. This keeps reusable prompt files safe to leave temporarily blank without turning them into confusing no-op agent calls or avoidable failures.
+
 In addition to the workflow re-ingest work, this story also includes an explicit host-networking implementation for the manual-testing `playwright-mcp` container behavior described in `future ideas.md`. The local stack currently exposes Playwright MCP through bridge networking and relies on service-name DNS plus `host.docker.internal`. The user has now fixed the desired direction for this story: implement host networking for every checked-in Docker Compose file that defines a `playwright-mcp` service, so the browser launched by Playwright MCP can use `localhost` against host-published services.
 
 This host-networking work is not just a one-line Compose change. Docker's host-networking behavior means the service can no longer rely on the current bridge-only wiring assumptions. The story therefore must also plan the supporting changes that make that implementation safe and usable in real workflows:
@@ -52,6 +54,8 @@ Current repository evidence shows that the checked-in Compose files do not all d
 - If a "current repository" target resolves to a repository that is not currently ingested, the step fails fast with a clear pre-start error instead of silently falling back to another repository.
 - The low-level single-repository re-ingest service remains the canonical strict container-path execution layer, with selector expansion handled above it.
 - Structured re-ingest result recording remains intact for direct commands, dedicated flow re-ingest steps, and command items executed inside flows.
+- If a command or flow markdown file resolves successfully but contains only empty or whitespace-only content, that step is skipped rather than executed as an empty prompt.
+- Empty-markdown skips emit an info-level log entry that clearly states the step was skipped because the resolved markdown content was empty.
 - Every checked-in Docker Compose file that defines a `playwright-mcp` service is updated to use host networking.
 - Compose files that do not currently define a `playwright-mcp` service remain unchanged for this story.
 - Each host-networked Playwright MCP service uses a deliberate host port plan so checked-in stacks do not clash when run together.
@@ -143,7 +147,9 @@ None currently. Add new planning questions here as they arise.
   - host-path selectors work when available;
   - current-repository resolution chooses the right owning file;
   - all-repositories mode runs sequentially and records outcomes deterministically;
-  - non-ingested `current` repositories fail fast with a clear message.
+  - non-ingested `current` repositories fail fast with a clear message;
+  - resolved markdown files that are empty or whitespace-only are skipped with an info-level log instead of being executed as empty prompts.
+- Implement the empty-markdown behavior at the shared markdown-file execution layer used by both flows and commands so both surfaces stay aligned and do not drift into separate edge-case handling.
 - For the `playwright-mcp` host-networking implementation, use the already captured `future ideas.md` notes only as starting context, not as the final scope. The story should now plan and implement the host-networked end state.
 - The current checked-in stacks show that:
   - `docker-compose.yml` defines a `playwright-mcp` service on bridge-style wiring without an explicit published `8931:8931` mapping;

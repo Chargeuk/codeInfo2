@@ -26,6 +26,8 @@ This order should be applied consistently for every reference lookup, not only t
 
 The story is about deterministic lookup priority and user expectation. It is not about inventing a new free-form path syntax. References should continue to resolve through their established subfolders inside each candidate repository. A command reference should still map to the candidate repository's `codex_agents/<agent>/commands/<commandName>.json` location, and a markdown reference should still map to the candidate repository's `codeinfo_markdown/<relativePath>` location. The change is the repository candidate order, not the subfolder conventions. Direct command execution outside flows follows the same ownership rule: the current working repository remains first, and the repository that owns the selected command file is the owner slot used second for any references that command makes.
 
+The persistence side of this story should also use the repository's existing product nouns instead of inventing new storage concepts. In this codebase, chats, direct agent runs, direct command runs, and flows all persist against the existing `Conversation` record in `server/src/mongo/conversation.ts`. A direct command run does not create a separate command-specific collection or command-specific conversation type; it runs inside the owning agent conversation. A top-level flow run uses a flow conversation, and a flow-created child agent conversation remains a normal agent conversation. Story 48 should therefore extend the current conversation and turn storage shapes rather than creating a new working-folder table, command-run collection, or alternate persistence path just for this feature.
+
 This story also needs one explicit contract for duplicate candidates. In common cases the same repository can appear in more than one conceptual position, such as when the current working repository is also the owner of the referencing file, or when the owner of the referencing file is `codeInfo2`. In those cases the runtime should keep the first occurrence and skip later duplicates while preserving the order of the remaining distinct repositories.
 
 Finally, the current working repository must be defined by one stable runtime signal so the server, websocket events, and REST-triggered execution all behave the same way. The chosen canonical identity for this story is the absolute repository root path because that is what the GUI already selects and displays to the user. If the product cannot identify a current working repository for a particular request, lookup should skip the first slot and proceed deterministically with owner -> `codeInfo2` -> others, and observability should explicitly log that no working repository was available for that lookup. The user has also chosen that the selected current folder must no longer be ephemeral UI state. Agent conversations, chat conversations, flow runs, and command runs should all persist the selected current folder and restore it when the user switches between conversations in the GUI. The editable canonical value should live on the owning conversation or thread record for each chat, agent, flow, or command context, while each individual run stores the exact working-folder snapshot that it actually used at run start. Existing conversations must also remain editable from the GUI: if the user changes the selected folder path for an existing chat, agent conversation, command run context, or flow run context, that new value should become the saved current working repository for future restores and future reference resolution. However, this editability only applies when the relevant chat, agent conversation, flow run, or command run is not currently in progress. While execution is active, the working folder must be locked against edits so runtime behavior cannot change underneath an in-flight operation. If a flow creates or uses a child agent conversation, that child conversation should inherit and save the folder path actually used by the flow step so that switching into that agent conversation later shows the same path the flow used. If a saved working-folder path later becomes invalid because it no longer exists or is no longer ingested, the product should clear it automatically and log a warning rather than preserving stale state. Without that persistence, editability, inheritance, invalid-path recovery behavior, and explicit missing-working-repo handling, the new working-repo-first lookup rule would be hard to reason about and would appear to drift unexpectedly between runs.
@@ -33,6 +35,8 @@ Finally, the current working repository must be defined by one stable runtime si
 The user-visible restore behavior should also be treated as explicit scope for this story. When the user switches to an existing chat, agent conversation, flow run context, or command run context, the same current-folder picker already shown in the GUI should immediately show the saved absolute repository path if that path is still valid. If there is no saved path, or if the saved path has been cleared because it is invalid, the picker should show its normal empty or no-folder-selected state rather than a placeholder, stale label, or silently substituted repository. In that empty state the runtime should behave exactly like the missing-working-repository contract described above.
 
 This story also includes a repository-wide environment-variable normalization pass because current env names are colliding with variables in user repositories. The desired end state is that repository-owned environment variables should use an uppercase `CODEINFO_` namespace, with browser-exposed Vite variables using uppercase `VITE_CODEINFO_` names. This includes updating committed `.env` files, `.env.local` examples and guidance, e2e configuration, docker-compose files, wrappers, and documentation so the product stops depending on generic names that can clash with unrelated repositories. The env rename should ship as one clean cutover once documentation, compose files, wrappers, tests, and committed defaults are updated. The goal is consistent naming and safer overrides, not cosmetic renaming for its own sake.
+
+For this story, the env cutover target names should be treated as explicit scope rather than something left for implementation-time interpretation. The currently checked-in product-owned server names should move to the following `CODEINFO_` forms at minimum: `LMSTUDIO_BASE_URL -> CODEINFO_LMSTUDIO_BASE_URL`, `OPENAI_EMBEDDING_KEY -> CODEINFO_OPENAI_EMBEDDING_KEY`, `CHAT_DEFAULT_PROVIDER -> CODEINFO_CHAT_DEFAULT_PROVIDER`, `CHAT_DEFAULT_MODEL -> CODEINFO_CHAT_DEFAULT_MODEL`, `INGEST_INCLUDE -> CODEINFO_INGEST_INCLUDE`, `INGEST_EXCLUDE -> CODEINFO_INGEST_EXCLUDE`, `INGEST_TOKEN_MARGIN -> CODEINFO_INGEST_TOKEN_MARGIN`, `INGEST_FALLBACK_TOKENS -> CODEINFO_INGEST_FALLBACK_TOKENS`, `INGEST_FLUSH_EVERY -> CODEINFO_INGEST_FLUSH_EVERY`, `INGEST_COLLECTION -> CODEINFO_INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION -> CODEINFO_INGEST_ROOTS_COLLECTION`, `LOG_FILE_PATH -> CODEINFO_LOG_FILE_PATH`, `LOG_LEVEL -> CODEINFO_LOG_LEVEL`, `LOG_BUFFER_MAX -> CODEINFO_LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES -> CODEINFO_LOG_MAX_CLIENT_BYTES`, and `LOG_INGEST_WS_THROTTLE_MS -> CODEINFO_LOG_INGEST_WS_THROTTLE_MS`. Browser-facing names should move to `VITE_CODEINFO_` forms at minimum: `VITE_API_URL -> VITE_CODEINFO_API_URL`, `VITE_LMSTUDIO_URL -> VITE_CODEINFO_LMSTUDIO_URL`, `VITE_LOG_LEVEL -> VITE_CODEINFO_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED -> VITE_CODEINFO_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES -> VITE_CODEINFO_LOG_MAX_BYTES`, and `VITE_LOG_STREAM_ENABLED -> VITE_CODEINFO_LOG_STREAM_ENABLED`. If checked-in test helpers still depend on repo-owned env names such as `INGEST_TEST_GIT_PATHS`, they should follow the same prefix rule in the same cutover rather than being left behind as a hidden legacy exception.
 
 Repository inspection for this story also found three concrete scope facts that should stay explicit when the plan is taskified. First, the current owner-first lookup logic is duplicated in `server/src/flows/service.ts` for flow-to-command resolution and in `server/src/flows/markdownFileResolver.ts` for markdown resolution, so this story is not only a ranking tweak; it should consolidate those ordered-repository rules behind one shared contract so the two paths cannot drift. Second, `working_folder` already exists for agent, flow, and command entrypoints, but chat REST currently does not accept or persist a working-folder field, so the requirement that chat conversations also persist and restore the selected current folder is real net-new scope rather than a small wiring change. Third, OpenAI token heuristics currently drive both preflight guardrails and the OpenAI provider model's `countTokens()` path, while chunking still falls back to whitespace estimates when token counting fails, so the OpenAI bug fix must keep those counting paths aligned instead of patching only one of them.
 
@@ -53,6 +57,8 @@ Repository inspection for this story also found three concrete scope facts that 
 - Running a local flow from `codeInfo2/flows/<name>.json` while the current working repository is another repo causes referenced commands and markdown files to be searched in the working repository first.
 - Running a flow owned by an ingested repository while the current working repository is a different repo still searches the working repository first, then the flow-owner repository second.
 - The selected current folder is persisted for agent conversations, chat conversations, flow runs, and command runs and is restored when the user switches between existing conversations in the GUI.
+- Direct agent command runs persist their editable saved working folder on the existing owning agent conversation record; this story does not introduce a separate command-conversation type or command-only storage record.
+- Top-level flow runs persist their editable saved working folder on the existing flow conversation record, and any child agent conversation created or resumed by that flow persists the inherited folder on that child agent conversation record.
 - Chat conversations fully participate in the working-folder contract even though chat does not currently accept `working_folder`: chat request validation, persistence, restore, and GUI switching all use the same canonical absolute repository root path model used by agents, flows, and commands.
 - When the user switches into an existing chat, agent conversation, flow run context, or command run context, the current-folder picker shows the saved absolute repository path before a new run starts; if no valid saved path exists, the picker shows its normal empty or no-folder-selected state.
 - The canonical stored identity of the current working repository is the absolute repository root path selected in the GUI.
@@ -75,14 +81,16 @@ Repository inspection for this story also found three concrete scope facts that 
 - The env renaming work is a single clean cutover with no temporary dual-read compatibility for old variable names once the coordinated updates are in place.
 - After the env rename cutover, no checked-in repository-owned file should still reference the old generic environment-variable names; repo-wide search should only find the new `CODEINFO_` and `VITE_CODEINFO_` names for product-owned variables.
 - The env rename inventory explicitly includes currently unprefixed repository-owned families that are already checked in today, including chat-default variables, ingest settings, LM Studio base URL settings, OpenAI embedding credentials, log-config variables, and browser-exposed client variables, so tasking does not silently leave legacy product-owned names behind.
+- The env cutover target names are defined up front in this plan and should be implemented exactly unless a checked-in file proves an additional repo-owned variable also needs the same prefix treatment.
 - OpenAI embedding token counting no longer uses the current byte-and-word heuristic for local guardrails and chunk sizing; it uses tokenizer-backed counting that matches OpenAI tokenization behavior closely enough to prevent avoidable upstream rejections.
 - The OpenAI embedding implementation uses a real tokenizer library recommendation that is documented in this story: prefer Node `tiktoken`, with `js-tiktoken` noted only as a fallback if WASM/runtime constraints block the preferred option.
 - The OpenAI per-input hard limit is corrected from the current local 8191-token constant to the provider-truth 8192-token limit for `text-embedding-3-small` and `text-embedding-3-large`, while the existing ingest safety margin continues to provide operational headroom.
-- The OpenAI token-counting implementation documents that the existing `INGEST_TOKEN_MARGIN` behavior remains the soft safety mechanism, so developers do not accidentally layer a second hidden hard limit on top of the tokenizer-backed provider truth.
+- The OpenAI token-counting implementation documents that the current token-margin behavior remains the soft safety mechanism after the env rename cutover, so developers do not accidentally layer a second hidden hard limit on top of the tokenizer-backed provider truth.
 - Oversized OpenAI embedding inputs are classified deterministically as input-too-large failures even when the upstream provider message uses wording such as maximum input length in tokens.
 - The OpenAI bug-fix portion of this story is intentionally limited to tokenizer-backed counting, oversized-input classification, and regression coverage; it does not expand into a broader ingest-batching redesign unless a separate story is created later.
 - Tokenizer-backed OpenAI counting replaces the current heuristic everywhere that heuristic currently influences OpenAI ingest decisions in this repository, including local oversized-input checks, chunk-sizing decisions, and regression coverage for overflow handling.
 - Tokenizer-backed counting replaces the current OpenAI heuristic in both `validateOpenAiEmbeddingGuardrails(...)` and the OpenAI provider model's `countTokens(...)` path so preflight blocking and chunk sizing cannot disagree about whether a chunk or request is too large.
+- Once tokenizer-backed OpenAI counting is introduced, OpenAI-specific ingest paths do not silently fall back to the old heuristic or to whitespace estimation when tokenizer setup or counting fails; those OpenAI paths should fail closed with a clear error unless the story's documented fallback implementation has already supplied an equivalent tokenizer-backed counter.
 - Any Node/TypeScript tokenizer package introduced for this story has explicit lifecycle handling documented in the implementation notes and code comments where needed, such as safe encoder reuse and/or required `free()` cleanup, so long-running ingest execution does not leak tokenizer resources across runs.
 
 ### Out Of Scope
@@ -129,6 +137,11 @@ Repository inspection for this story also found three concrete scope facts that 
 ### 2. Persist And Restore Working Folder Across All Surfaces
 
 - Use the owning conversation record as the canonical saved location, most likely `flags.workingFolder`, via `server/src/mongo/conversation.ts` and `server/src/mongo/repo.ts`.
+- Keep the current surface ownership model explicit while implementing this:
+  - plain chat uses the chat conversation record with no `agentName` and no `flowName`;
+  - direct agent instructions and direct agent command runs both persist on the owning agent conversation record;
+  - top-level flows persist on the flow conversation record;
+  - flow-created child agent conversations persist on the child agent conversation record created from the flow step.
 - Add or extend repository helpers so saving the working folder does not overwrite existing `flags.threadId`, `flags.flow`, or other conversation flags.
 - Reuse `server/src/agents/service.ts` `resolveWorkingFolderWorkingDirectory(...)` as the server-side validation boundary for absolute-path validation and host-to-container mapping.
 - Extend all server entry points that participate in the story so they can read, validate, persist, and reuse the same canonical working-folder signal:
@@ -148,6 +161,7 @@ Repository inspection for this story also found three concrete scope facts that 
 ### 3. Env Namespace Cutover
 
 - Perform one explicit inventory of all checked-in repository-owned env families before renaming anything. The current codebase mixes `CODEINFO_*` with older product-owned names.
+- Use the explicit target mapping already documented in the Description as the minimum rename set, so implementation is not guessing which checked-in names are in scope.
 - The likely server-side rename anchors include:
   - `server/.env` and any checked-in env guidance files;
   - `server/src/config/chatDefaults.ts` for chat-default variables;
@@ -170,6 +184,7 @@ Repository inspection for this story also found three concrete scope facts that 
   - update all consuming code and docs to read only those names;
   - remove old-name reads in the same story.
 - Finish the env work with a repo-wide search to prove no checked-in product-owned files still reference the old generic names.
+- Treat checked-in tests, e2e helpers, Dockerfile build args, and compose environment wiring as first-class consumers in that search, not as follow-up cleanup.
 
 ### 4. OpenAI Tokenizer-Backed Counting
 
@@ -183,9 +198,10 @@ Repository inspection for this story also found three concrete scope facts that 
   - `server/src/ingest/providers/openaiGuardrails.ts`;
   - `server/src/ingest/providers/openaiEmbeddingProvider.ts` `countTokens(...)`;
   - any chunk-sizing path that relies on the OpenAI model's `countTokens(...)`, including `server/src/ingest/chunker.ts`.
+- Do not preserve the current OpenAI whitespace-estimate fallback in `server/src/ingest/chunker.ts` once the tokenizer-backed helper is available. For OpenAI providers, a tokenizer initialization or counting failure should raise a clear ingest error instead of silently reintroducing the undercount bug that this story exists to remove.
 - Update `server/src/ingest/providers/openaiConstants.ts` so the local hard limit matches provider truth at 8192 tokens instead of the current 8191 constant.
 - Extend `server/src/ingest/providers/openaiErrors.ts` and related classifiers so upstream wording such as `maximum input length` still maps deterministically to `OPENAI_INPUT_TOO_LARGE`.
-- Keep `INGEST_TOKEN_MARGIN` as the soft operational headroom in `server/src/ingest/config.ts`; do not introduce a second hidden hard limit on top of the tokenizer-backed provider truth.
+- Keep the current token-margin behavior from `server/src/ingest/config.ts` as the soft operational headroom after it is renamed into the `CODEINFO_` namespace; do not introduce a second hidden hard limit on top of the tokenizer-backed provider truth.
 
 ### 5. Logging, Metadata, And Validation Coverage
 
@@ -257,6 +273,11 @@ Story 48 does require contract and storage-shape changes, but they can be define
 ### 1. Conversation Storage Contract
 
 - Reuse the existing `Conversation.flags` object in `server/src/mongo/conversation.ts` as the canonical persisted location for the selected current working repository.
+- Keep the storage owner aligned with the current conversation model instead of inventing a new record type:
+  - chats store `flags.workingFolder` on the chat conversation;
+  - direct agent instructions and direct agent command runs store `flags.workingFolder` on the agent conversation they already use;
+  - top-level flow runs store `flags.workingFolder` on the flow conversation;
+  - flow-created child agent conversations store `flags.workingFolder` on the child agent conversation.
 - Add one well-known field:
   - `flags.workingFolder?: string`
 - `flags.workingFolder` stores the canonical absolute repository root path selected in the GUI.
@@ -357,6 +378,12 @@ Story 48 does require contract and storage-shape changes, but they can be define
 - Official OpenAI documentation says `text-embedding-3-small` and `text-embedding-3-large` support up to 8192 input tokens.
 - Context7 documentation for the current JavaScript `tiktoken` package shows Node/TypeScript usage and notes that encoder instances may require explicit `free()` cleanup.
 - Story 48 should therefore treat encoder lifecycle handling as part of the implementation contract, not as an afterthought discovered during coding.
+
+6. Working-folder persistence has to follow the existing conversation ownership model
+- `server/src/routes/chat.ts` creates and updates plain chat conversations with no `agentName` or `flowName`.
+- `server/src/agents/service.ts` uses agent conversations for both normal agent instructions and direct command execution.
+- `server/src/flows/service.ts` creates top-level flow conversations and separate child agent conversations for flow-owned agent steps.
+- This means story 48 should define working-folder persistence in terms of those existing conversation records, not in terms of a new generic "command context" record that does not exist in the current schema.
 
 ## Questions
 - No Further Questions

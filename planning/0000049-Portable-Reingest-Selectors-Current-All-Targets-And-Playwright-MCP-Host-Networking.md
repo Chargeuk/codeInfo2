@@ -75,7 +75,10 @@ Current repository evidence shows that the checked-in Compose files do not all d
 
 ### Questions
 
-None currently. Add new planning questions here as they arise.
+1. What exact environment variable name should the story standardize on for the Playwright MCP control URL?
+   - Why this is important: the story now assumes a runtime URL overlay for the Playwright MCP endpoint, so the env-var contract needs to be fixed before tasking to avoid follow-up renames across code, compose files, tests, and documentation.
+2. What checked-in default ports should the existing Playwright MCP compose services use so they do not clash if stacks run together?
+   - Why this is important: this decides the actual compose defaults, the runtime endpoint values that match those defaults, and whether the checked-in stacks can safely coexist during local development and manual testing.
 
 ## Decisions
 

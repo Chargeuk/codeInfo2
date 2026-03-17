@@ -3,7 +3,7 @@ import { Router, json } from 'express';
 import { startFlowRun } from '../flows/service.js';
 import type { FlowRunError } from '../flows/types.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
-import { getWorkingFolderErrorMessage } from '../workingFolders/state.js';
+import { getWorkingFolderClientMessage } from '../workingFolders/state.js';
 
 type Deps = {
   startFlowRun: typeof startFlowRun;
@@ -224,7 +224,7 @@ export function createFlowsRunRouter(
           return res.status(503).json({
             error: 'working_folder_unavailable',
             code: err.code,
-            message: getWorkingFolderErrorMessage(err),
+            message: getWorkingFolderClientMessage(err),
           });
         }
         if (err.code === 'INVALID_REQUEST') {

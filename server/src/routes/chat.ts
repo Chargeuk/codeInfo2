@@ -55,7 +55,7 @@ import { getCodexDetection } from '../providers/codexRegistry.js';
 import {
   appendWorkingFolderDecisionLog,
   getConversationRecordType,
-  getWorkingFolderErrorMessage,
+  getWorkingFolderClientMessage,
   resolveKnownRepositoryPathsState,
   restoreSavedWorkingFolder,
 } from '../workingFolders/state.js';
@@ -197,7 +197,7 @@ export function createChatRouter({
         return res.status(503).json({
           status: 'error',
           code: workingFolderError.code,
-          message: getWorkingFolderErrorMessage(workingFolderError),
+          message: getWorkingFolderClientMessage(workingFolderError),
         });
       }
       throw err;
@@ -432,7 +432,7 @@ export function createChatRouter({
         return res.status(503).json({
           status: 'error',
           code: workingFolderError.code,
-          message: getWorkingFolderErrorMessage(workingFolderError),
+          message: getWorkingFolderClientMessage(workingFolderError),
         });
       }
       throw err;

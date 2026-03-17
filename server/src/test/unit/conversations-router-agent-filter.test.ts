@@ -229,7 +229,7 @@ test('GET /conversations surfaces operational working-folder diagnostics without
   assert.deepEqual(res.body, {
     error: 'working_folder_unavailable',
     code: 'WORKING_FOLDER_UNAVAILABLE',
-    message: 'working_folder could not be validated (EACCES)',
+    message: 'working_folder is temporarily unavailable',
   });
 
   const marker = query({

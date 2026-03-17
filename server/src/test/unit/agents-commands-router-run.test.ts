@@ -242,7 +242,7 @@ test('POST /agents/:agentName/commands/run maps invalid commandName to 400 + COM
   assert.equal(res.body.code, 'COMMAND_INVALID');
 });
 
-test('POST /agents/:agentName/commands/run maps WORKING_FOLDER_UNAVAILABLE to 503 + message', async () => {
+test('POST /agents/:agentName/commands/run maps WORKING_FOLDER_UNAVAILABLE to a safe 503 message', async () => {
   const res = await request(
     buildApp({
       startAgentCommand: async () => {
@@ -261,7 +261,7 @@ test('POST /agents/:agentName/commands/run maps WORKING_FOLDER_UNAVAILABLE to 50
   assert.deepEqual(res.body, {
     error: 'working_folder_unavailable',
     code: 'WORKING_FOLDER_UNAVAILABLE',
-    message: 'working_folder could not be validated (EACCES)',
+    message: 'working_folder is temporarily unavailable',
   });
 });
 

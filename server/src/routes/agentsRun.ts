@@ -2,7 +2,7 @@ import { Router, json } from 'express';
 
 import { startAgentInstruction } from '../agents/service.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
-import { getWorkingFolderErrorMessage } from '../workingFolders/state.js';
+import { getWorkingFolderClientMessage } from '../workingFolders/state.js';
 
 type Deps = {
   startAgentInstruction: typeof startAgentInstruction;
@@ -205,7 +205,7 @@ export function createAgentsRunRouter(
           return res.status(503).json({
             error: 'working_folder_unavailable',
             code: err.code,
-            message: getWorkingFolderErrorMessage(err),
+            message: getWorkingFolderClientMessage(err),
           });
         }
       }

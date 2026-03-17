@@ -29,17 +29,18 @@ export const isWorkingFolderOperationalError = (
     (error as WorkingFolderValidationError).code ===
       'WORKING_FOLDER_REPOSITORY_UNAVAILABLE');
 
-export const getWorkingFolderErrorMessage = (
+export const getWorkingFolderClientMessage = (
   error:
     | {
-        reason?: string;
+        code?: string;
       }
     | undefined,
-  fallback = 'working_folder validation failed',
-) =>
-  typeof error?.reason === 'string' && error.reason.trim().length > 0
-    ? error.reason
-    : fallback;
+) => {
+  if (error?.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE') {
+    return 'working_folder repository validation is temporarily unavailable';
+  }
+  return 'working_folder is temporarily unavailable';
+};
 
 export type KnownRepositoryPathsState =
   | {

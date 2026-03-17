@@ -113,7 +113,7 @@ test('POST /flows/:flowName/run validates working_folder', async () => {
   }
 });
 
-test('POST /flows/:flowName/run surfaces WORKING_FOLDER_UNAVAILABLE without object stringification', async () => {
+test('POST /flows/:flowName/run surfaces a safe WORKING_FOLDER_UNAVAILABLE message', async () => {
   const app = express();
   app.use(
     createFlowsRunRouter({
@@ -135,7 +135,7 @@ test('POST /flows/:flowName/run surfaces WORKING_FOLDER_UNAVAILABLE without obje
   assert.deepEqual(res.body, {
     error: 'working_folder_unavailable',
     code: 'WORKING_FOLDER_UNAVAILABLE',
-    message: 'working_folder could not be validated (EACCES)',
+    message: 'working_folder is temporarily unavailable',
   });
 });
 

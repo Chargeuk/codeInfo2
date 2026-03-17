@@ -35,7 +35,7 @@ import {
 } from '../mongo/repo.js';
 import {
   appendWorkingFolderDecisionLog,
-  getWorkingFolderErrorMessage,
+  getWorkingFolderClientMessage,
   getConversationRecordType,
   isWorkingFolderOperationalError,
   resolveKnownRepositoryPathsState,
@@ -501,7 +501,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         return res.status(503).json({
           error: 'working_folder_unavailable',
           code: workingFolderError.code,
-          message: getWorkingFolderErrorMessage(workingFolderError),
+          message: getWorkingFolderClientMessage(workingFolderError),
         });
       }
       res.status(500).json({
@@ -874,7 +874,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         return res.status(503).json({
           error: 'working_folder_unavailable',
           code: err.code,
-          message: getWorkingFolderErrorMessage(err),
+          message: getWorkingFolderClientMessage(err),
         });
       }
       appendWorkingFolderDecisionLog({

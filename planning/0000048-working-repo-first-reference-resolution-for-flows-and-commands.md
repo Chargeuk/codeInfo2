@@ -1436,7 +1436,7 @@ Use only the wrapper commands below. Do not attempt to run builds or tests witho
 
 ### 15. Surface Malformed Canonical Client Runtime Config Instead Of Silently Defaulting It Away
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -1445,7 +1445,7 @@ Close the review finding in the shared client runtime-config helper by making ma
 
 #### Subtasks
 
-1. [ ] Re-read the review finding in `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, then inspect `client/src/config/runtimeConfig.ts`, `client/src/api/baseUrl.ts`, `client/src/logging/transport.ts`, `client/src/pages/LmStudioPage.tsx`, `client/src/test/baseUrl.env.test.ts`, and `client/src/test/logging/transport.test.ts`. Record in Task 15 `Implementation notes` which malformed canonical inputs are currently normalized away and what observable behavior should replace that silent success.
+1. [x] Re-read the review finding in `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, then inspect `client/src/config/runtimeConfig.ts`, `client/src/api/baseUrl.ts`, `client/src/logging/transport.ts`, `client/src/pages/LmStudioPage.tsx`, `client/src/test/baseUrl.env.test.ts`, and `client/src/test/logging/transport.test.ts`. Record in Task 15 `Implementation notes` which malformed canonical inputs are currently normalized away and what observable behavior should replace that silent success.
 2. [ ] Update the shared runtime-config helper so malformed canonical runtime/env values do not disappear without an explicit diagnostic. Keep the final runtime object shape stable, but make the invalid-canonical path visible through one consistent diagnostic mechanism instead of silently defaulting to a clean success path.
 3. [ ] Ensure the invalid-canonical handling does not reintroduce legacy env-name compatibility and does not let runtime/default precedence override an explicitly present but malformed canonical value without first recording why.
 4. [ ] Add or extend one client test that proves malformed canonical log config values are surfaced through the new diagnostic path instead of being silently treated as a normal default.
@@ -1465,6 +1465,8 @@ Use only the wrapper commands below. Do not attempt to run builds or tests witho
 7. [ ] `npm run compose:down`
 
 #### Implementation notes
+
+- Re-read the review finding plus the shared runtime-config, URL, log transport, LM Studio page, and current client tests. Right now malformed canonical booleans/numbers normalize to `undefined`, blank canonical URLs trim to empty strings, and the helper silently falls through to env/default values with no diagnostic; Task 15 will replace that with one shared runtime-config diagnostic trail while keeping the returned config shape stable.
 
 ---
 

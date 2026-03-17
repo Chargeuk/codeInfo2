@@ -1482,7 +1482,7 @@ Use only the wrapper commands below. Do not attempt to run builds or tests witho
 
 ### 16. Re-Run Full Story 48 Validation After Code Review Fixes
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -1491,7 +1491,7 @@ After Tasks 12-15 land, rerun the full Story 48 validation matrix so the reopene
 
 #### Subtasks
 
-1. [ ] Re-read the Story 48 acceptance criteria, the `Code Review Findings` section above, and the durable review artifacts `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md` plus `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`. Record in Task 16 `Implementation notes` how the review-fix tasks map back onto the original acceptance criteria.
+1. [x] Re-read the Story 48 acceptance criteria, the `Code Review Findings` section above, and the durable review artifacts `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md` plus `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`. Record in Task 16 `Implementation notes` how the review-fix tasks map back onto the original acceptance criteria.
 2. [ ] Update `README.md`, `design.md`, `projectStructure.md`, and `docs/developer-reference.md` if any review-fix implementation changes made the existing Story 48 closeout notes stale.
 3. [ ] Update this story file's Task 16 `Implementation notes` with the final rerun results, review-fix proof points, and any final screenshot or log-marker evidence captured during this post-review validation pass.
 4. [ ] Preserve the durable review artifacts from this review pass in the commit that closes the reopened story. Do not rely on the transient `codeInfoStatus/reviews/0000048-current-review.json` handoff file as the durable record.
@@ -1513,5 +1513,7 @@ Use only the wrapper commands below. Do not attempt to run builds or tests witho
 10. [ ] `npm run compose:down`
 
 #### Implementation notes
+
+- Re-read the story acceptance criteria plus the durable review findings/evidence. The reopened fixes map cleanly back onto the original acceptance themes: Task 12 restores chat to the shared ingested-working-folder contract, Task 13 preserves the stale-path-clear contract without destructive overcatching, Task 14 narrows shared repository dedupe back to true duplicate identities, and Task 15 makes the canonical client runtime-config marker reviewable when malformed canonical values are present.
 
 ---

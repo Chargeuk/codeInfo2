@@ -112,7 +112,14 @@ export function setupChatWsHarness(params: {
 
   mockFetch.mockImplementation(
     asFetchImplementation((url: RequestInfo | URL, opts?: RequestInit) => {
-      const href = typeof url === 'string' ? url : url.toString();
+      const href =
+        typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.toString()
+            : url.url;
+      const method =
+        opts?.method ?? (url instanceof Request ? url.method : undefined);
 
       if (href.includes('/health')) {
         return mockJsonResponse(healthPayload);
@@ -130,11 +137,20 @@ export function setupChatWsHarness(params: {
         return mockJsonResponse(turnsPayload);
       }
 
-      if (href.includes('/conversations') && opts?.method !== 'POST') {
+      if (
+        href.includes('/conversations/') &&
+        href.includes('/working-folder')
+      ) {
+        if (params.fallbackFetch) {
+          return params.fallbackFetch(url, opts);
+        }
+      }
+
+      if (href.includes('/conversations') && method !== 'POST') {
         return mockJsonResponse(conversationsPayload);
       }
 
-      if (href.includes('/chat') && opts?.method === 'POST') {
+      if (href.includes('/chat') && method === 'POST') {
         const body =
           typeof opts?.body === 'string'
             ? (JSON.parse(opts.body) as Record<string, unknown>)

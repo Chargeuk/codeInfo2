@@ -37,7 +37,7 @@ test('cross-tab follow-up creates a new assistant bubble in passive window', asy
         w.process = w.process ?? { env: {} };
         w.process.env = {
           ...(w.process.env ?? {}),
-          VITE_API_URL: String(value),
+          VITE_CODEINFO_API_URL: String(value),
         };
       }, apiBase);
     }
@@ -379,7 +379,7 @@ test('stale stop from one context does not cancel a later replacement run in ano
         w.process = w.process ?? { env: {} };
         w.process.env = {
           ...(w.process.env ?? {}),
-          VITE_API_URL: String(value),
+          VITE_CODEINFO_API_URL: String(value),
         };
       }, apiBase);
     }

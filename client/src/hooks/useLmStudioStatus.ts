@@ -5,14 +5,9 @@ import {
 } from '@codeinfo2/common';
 import { useCallback, useMemo, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
+import { getLmStudioBaseUrl } from '../config/runtimeConfig';
 
 const LS_KEY = 'lmstudio.baseUrl';
-const DEFAULT_LM_URL = 'http://host.docker.internal:1234';
-
-const envLmUrl =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as ImportMeta)?.env?.VITE_LMSTUDIO_URL) ??
-  undefined;
 const serverBase = getApiBaseUrl();
 
 type HookState =
@@ -24,7 +19,7 @@ type HookState =
 export function useLmStudioStatus() {
   const stored =
     typeof localStorage !== 'undefined' ? localStorage.getItem(LS_KEY) : null;
-  const initialBaseUrl = stored ?? envLmUrl ?? DEFAULT_LM_URL;
+  const initialBaseUrl = stored ?? getLmStudioBaseUrl();
   const [baseUrl, setBaseUrl] = useState(initialBaseUrl);
   const [state, setState] = useState<HookState>({ status: 'idle' });
 

@@ -11,8 +11,8 @@ import {
 import { ensureChatRuntimeConfigBootstrapped } from '../../config/runtimeConfig.js';
 
 const ENV_KEYS = [
-  'CHAT_DEFAULT_PROVIDER',
-  'CHAT_DEFAULT_MODEL',
+  'CODEINFO_CHAT_DEFAULT_PROVIDER',
+  'CODEINFO_CHAT_DEFAULT_MODEL',
   'Codex_sandbox_mode',
   'Codex_approval_policy',
   'Codex_reasoning_effort',
@@ -42,8 +42,8 @@ afterEach(async () => {
 });
 
 test('explicit values win', () => {
-  process.env.CHAT_DEFAULT_PROVIDER = 'lmstudio';
-  process.env.CHAT_DEFAULT_MODEL = 'env-model';
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'env-model';
 
   const result = resolveChatDefaults({
     requestProvider: 'codex',
@@ -57,8 +57,8 @@ test('explicit values win', () => {
 });
 
 test('env values apply when explicit values are missing', () => {
-  process.env.CHAT_DEFAULT_PROVIDER = 'lmstudio';
-  process.env.CHAT_DEFAULT_MODEL = 'env-model';
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'env-model';
 
   const result = resolveChatDefaults({});
 
@@ -69,8 +69,8 @@ test('env values apply when explicit values are missing', () => {
 });
 
 test('hardcoded fallback applies when env is missing or invalid', () => {
-  process.env.CHAT_DEFAULT_PROVIDER = 'invalid-provider';
-  process.env.CHAT_DEFAULT_MODEL = '   ';
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'invalid-provider';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = '   ';
 
   const result = resolveChatDefaults({});
 
@@ -81,7 +81,7 @@ test('hardcoded fallback applies when env is missing or invalid', () => {
 });
 
 test('partial env override resolves missing fields via fallback', () => {
-  process.env.CHAT_DEFAULT_PROVIDER = 'lmstudio';
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
 
   const result = resolveChatDefaults({});
 
@@ -92,8 +92,8 @@ test('partial env override resolves missing fields via fallback', () => {
 });
 
 test('invalid and empty env values are ignored', () => {
-  process.env.CHAT_DEFAULT_PROVIDER = '';
-  process.env.CHAT_DEFAULT_MODEL = '';
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = '';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = '';
 
   const result = resolveChatDefaults({});
 
@@ -103,12 +103,12 @@ test('invalid and empty env values are ignored', () => {
   assert.equal(result.modelSource, 'fallback');
   assert.ok(
     result.warnings.some((warning) =>
-      warning.includes('CHAT_DEFAULT_PROVIDER is empty'),
+      warning.includes('CODEINFO_CHAT_DEFAULT_PROVIDER is empty'),
     ),
   );
   assert.ok(
     result.warnings.some((warning) =>
-      warning.includes('CHAT_DEFAULT_MODEL is empty'),
+      warning.includes('CODEINFO_CHAT_DEFAULT_MODEL is empty'),
     ),
   );
 });
@@ -151,7 +151,7 @@ test('resolver rejects invalid field values from parsed config and falls back by
   process.env.Codex_sandbox_mode = 'workspace-write';
   process.env.Codex_approval_policy = 'never';
   process.env.Codex_reasoning_effort = 'medium';
-  process.env.CHAT_DEFAULT_MODEL = 'env-model';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'env-model';
   process.env.Codex_web_search_enabled = 'false';
 
   const codexHome = await createCodexHome(`
@@ -302,7 +302,7 @@ test('model_reasoning_effort precedence is override > config > env > hardcoded',
 });
 
 test('model precedence is override > config > env > hardcoded', async () => {
-  process.env.CHAT_DEFAULT_MODEL = 'env-model';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'env-model';
   const codexHome = await createCodexHome('model = "config-model"\n');
 
   const withOverride = await resolveCodexChatDefaults({
@@ -323,11 +323,12 @@ test('model precedence is override > config > env > hardcoded', async () => {
   assert.ok(
     withEnv.warnings.some(
       (warning) =>
-        warning.includes('model') && warning.includes('CHAT_DEFAULT_MODEL'),
+        warning.includes('model') &&
+        warning.includes('CODEINFO_CHAT_DEFAULT_MODEL'),
     ),
   );
 
-  delete process.env.CHAT_DEFAULT_MODEL;
+  delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
   const withHardcoded = await resolveCodexChatDefaults({
     codexHome: noConfigHome,
   });
@@ -336,7 +337,7 @@ test('model precedence is override > config > env > hardcoded', async () => {
 });
 
 test('missing codex chat config falls back without creating the file', async () => {
-  process.env.CHAT_DEFAULT_MODEL = 'env-model';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'env-model';
   const codexHome = await createCodexHome();
   const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
 
@@ -347,7 +348,7 @@ test('missing codex chat config falls back without creating the file', async () 
 });
 
 test('unreadable codex chat config warns and falls back without repair', async () => {
-  process.env.CHAT_DEFAULT_MODEL = 'env-model';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'env-model';
   const codexHome = await createCodexHome('model = "config-model"\n');
   const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
 
@@ -367,7 +368,7 @@ test('unreadable codex chat config warns and falls back without repair', async (
 });
 
 test('bootstrap leaves invalid existing chat config untouched while defaults still warn and fall back', async () => {
-  process.env.CHAT_DEFAULT_MODEL = 'env-model';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'env-model';
   const codexHome = await createCodexHome('[broken');
   const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
 

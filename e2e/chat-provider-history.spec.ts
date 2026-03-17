@@ -98,6 +98,21 @@ test('historical conversation uses its provider and shows turns', async ({
   );
   await seedConversation('lmstudio', 'lm', lmTitle, 'lm reply');
 
+  await expect
+    .poll(async () => {
+      const res = await page.request.get(`${apiBase}/conversations?limit=20`);
+      if (!res.ok()) {
+        return [];
+      }
+      const data = (await res.json()) as { items?: Array<{ title?: string }> };
+      return Array.isArray(data.items)
+        ? data.items
+            .map((item) => (typeof item.title === 'string' ? item.title : ''))
+            .filter(Boolean)
+        : [];
+    })
+    .toContain(codexTitle);
+
   await page.goto(`${baseUrl}/chat`);
   await hideMcpOverlay(page);
   await page.waitForTimeout(500);

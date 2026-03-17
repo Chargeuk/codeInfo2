@@ -24,7 +24,9 @@ export function createIngestReembedRouter({
       return res.status(429).json({ status: 'error', code: 'BUSY' });
     }
     const { root } = req.params;
-    const baseUrl = toWebSocketUrl(process.env.LMSTUDIO_BASE_URL ?? '');
+    const baseUrl = toWebSocketUrl(
+      process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
+    );
     try {
       const runId = await reembedOverride(root, {
         lmClientFactory: clientFactory,

@@ -3,11 +3,11 @@ import test, { afterEach, beforeEach, mock } from 'node:test';
 import { ChromaClient } from 'chromadb';
 import express from 'express';
 import request from 'supertest';
-import { OpenAiEmbeddingError } from '../../ingest/providers/index.js';
 import {
   resetCollectionsForTests,
   setLockedModel,
 } from '../../ingest/chromaClient.js';
+import { OpenAiEmbeddingError } from '../../ingest/providers/index.js';
 import { createMcpRouter } from '../../mcp/server.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';

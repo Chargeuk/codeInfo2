@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  updateConversationWorkingFolder as updateConversationWorkingFolderApi,
+  type ConversationApiSummary,
+} from '../api/conversations';
 import { getApiBaseUrl } from '../api/baseUrl';
 import { createLogger } from '../logging/logger';
 
@@ -26,6 +30,9 @@ export type ConversationBulkError = Error & {
   httpStatus?: number;
 };
 
+export type WorkingFolderPickerSurface = 'chat' | 'agents' | 'flows';
+export type WorkingFolderPickerAction = 'restore' | 'save' | 'clear' | 'lock';
+
 type State = {
   conversations: ConversationSummary[];
   filterState: ConversationFilterState;
@@ -40,6 +47,20 @@ type State = {
   bulkArchive: (conversationIds: string[]) => Promise<{ updatedCount: number }>;
   bulkRestore: (conversationIds: string[]) => Promise<{ updatedCount: number }>;
   bulkDelete: (conversationIds: string[]) => Promise<{ deletedCount: number }>;
+  readWorkingFolder: (
+    conversation?: ConversationSummary | null,
+  ) => string | undefined;
+  updateWorkingFolder: (params: {
+    conversationId: string;
+    workingFolder: string | null;
+    surface: WorkingFolderPickerSurface;
+  }) => Promise<ConversationSummary>;
+  emitWorkingFolderPickerSync: (params: {
+    surface: WorkingFolderPickerSurface;
+    conversationId?: string | null;
+    action: WorkingFolderPickerAction;
+    pickerState?: string | null;
+  }) => void;
   applyWsUpsert: (conversation: ConversationSummary) => void;
   applyWsDelete: (conversationId: string) => void;
   setFilterState: (state: ConversationFilterState) => void;
@@ -75,6 +96,32 @@ const isBulkErrorResponse = (
   );
 
 const PAGE_SIZE = 20;
+
+function normalizeFlags(
+  flags: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  if (!flags || typeof flags !== 'object') return {};
+  return { ...flags };
+}
+
+function readWorkingFolderFromFlags(
+  flags: Record<string, unknown> | null | undefined,
+): string | undefined {
+  const candidate =
+    flags && typeof flags.workingFolder === 'string' ? flags.workingFolder : '';
+  const trimmed = candidate.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function normalizeConversationSummary(
+  item: ConversationSummary | ConversationApiSummary,
+): ConversationSummary {
+  return {
+    ...item,
+    source: item.source === 'MCP' ? 'MCP' : 'REST',
+    flags: normalizeFlags(item.flags),
+  };
+}
 
 export function useConversations(params?: {
   agentName?: string;
@@ -130,6 +177,29 @@ export function useConversations(params?: {
       });
   }, []);
 
+  const emitWorkingFolderPickerSync = useCallback(
+    (params: {
+      surface: WorkingFolderPickerSurface;
+      conversationId?: string | null;
+      action: WorkingFolderPickerAction;
+      pickerState?: string | null;
+    }) => {
+      console.info('DEV_0000048_T6_PICKER_SYNC', {
+        surface: params.surface,
+        conversationId: params.conversationId ?? null,
+        action: params.action,
+        pickerState: params.pickerState ?? '',
+      });
+    },
+    [],
+  );
+
+  const readWorkingFolder = useCallback(
+    (conversation?: ConversationSummary | null) =>
+      readWorkingFolderFromFlags(conversation?.flags),
+    [],
+  );
+
   const fetchPage = useCallback(
     async (mode: 'replace' | 'append' = 'replace') => {
       controllerRef.current?.abort();
@@ -162,10 +232,7 @@ export function useConversations(params?: {
         }
         const data = (await res.json()) as ApiResponse;
         const items = (Array.isArray(data.items) ? data.items : []).map(
-          (item) => ({
-            ...item,
-            source: item.source ?? 'REST',
-          }),
+          (item) => normalizeConversationSummary(item),
         );
         setHasMore(Boolean(data.nextCursor));
         cursorRef.current = data.nextCursor;
@@ -371,32 +438,107 @@ export function useConversations(params?: {
     [applyFilter, dedupeAndSort, postBulk],
   );
 
+  const updateWorkingFolder = useCallback(
+    async (params: {
+      conversationId: string;
+      workingFolder: string | null;
+      surface: WorkingFolderPickerSurface;
+    }) => {
+      const result = await updateConversationWorkingFolderApi({
+        conversationId: params.conversationId,
+        workingFolder: params.workingFolder,
+      });
+      const normalizedConversation = normalizeConversationSummary(
+        result.conversation,
+      );
+      const nextWorkingFolder = readWorkingFolder(normalizedConversation);
+
+      setConversations((prev) => {
+        const existing = prev.find(
+          (item) =>
+            item.conversationId === normalizedConversation.conversationId,
+        );
+        const merged: ConversationSummary = {
+          ...existing,
+          ...normalizedConversation,
+          source: normalizedConversation.source ?? existing?.source ?? 'REST',
+          flags:
+            normalizedConversation.flags !== undefined
+              ? normalizeFlags(normalizedConversation.flags)
+              : normalizeFlags(existing?.flags),
+          flowName:
+            normalizedConversation.flowName !== undefined
+              ? normalizedConversation.flowName
+              : existing?.flowName,
+          agentName:
+            normalizedConversation.agentName !== undefined
+              ? normalizedConversation.agentName
+              : existing?.agentName,
+        };
+
+        return dedupeAndSort(
+          applyFilter([
+            merged,
+            ...prev.filter(
+              (item) =>
+                item.conversationId !== normalizedConversation.conversationId,
+            ),
+          ]),
+        );
+      });
+
+      emitWorkingFolderPickerSync({
+        surface: params.surface,
+        conversationId: normalizedConversation.conversationId,
+        action: nextWorkingFolder ? 'save' : 'clear',
+        pickerState: nextWorkingFolder ?? '',
+      });
+
+      return normalizedConversation;
+    },
+    [
+      applyFilter,
+      dedupeAndSort,
+      emitWorkingFolderPickerSync,
+      readWorkingFolder,
+    ],
+  );
+
   const applyWsUpsert = useCallback(
     (conversation: ConversationSummary) => {
       setConversations((prev) => {
         const existing = prev.find(
           (c) => c.conversationId === conversation.conversationId,
         );
+        const normalizedConversation =
+          normalizeConversationSummary(conversation);
         const flowName =
-          conversation.flowName !== undefined
-            ? conversation.flowName
+          normalizedConversation.flowName !== undefined
+            ? normalizedConversation.flowName
             : existing?.flowName;
         const agentName =
-          conversation.agentName !== undefined
-            ? conversation.agentName
+          normalizedConversation.agentName !== undefined
+            ? normalizedConversation.agentName
             : existing?.agentName;
 
-        if (conversation.flowName === undefined && existing?.flowName) {
+        if (
+          normalizedConversation.flowName === undefined &&
+          existing?.flowName
+        ) {
           log('info', 'flows.ws.upsert.merge_flowName', {
-            conversationId: conversation.conversationId,
+            conversationId: normalizedConversation.conversationId,
             flowName: existing.flowName,
           });
         }
 
         const merged: ConversationSummary = {
           ...existing,
-          ...conversation,
-          source: conversation.source ?? existing?.source ?? 'REST',
+          ...normalizedConversation,
+          source: normalizedConversation.source ?? existing?.source ?? 'REST',
+          flags:
+            normalizedConversation.flags !== undefined
+              ? normalizeFlags(normalizedConversation.flags)
+              : normalizeFlags(existing?.flags),
           flowName,
           agentName,
         };
@@ -405,7 +547,7 @@ export function useConversations(params?: {
           applyFilter([
             merged,
             ...prev.filter(
-              (c) => c.conversationId !== conversation.conversationId,
+              (c) => c.conversationId !== normalizedConversation.conversationId,
             ),
           ]),
         );
@@ -440,6 +582,9 @@ export function useConversations(params?: {
       bulkArchive,
       bulkRestore,
       bulkDelete,
+      readWorkingFolder,
+      updateWorkingFolder,
+      emitWorkingFolderPickerSync,
       applyWsUpsert,
       applyWsDelete,
       setFilterState,
@@ -458,6 +603,9 @@ export function useConversations(params?: {
       bulkArchive,
       bulkRestore,
       bulkDelete,
+      readWorkingFolder,
+      updateWorkingFolder,
+      emitWorkingFolderPickerSync,
       applyWsUpsert,
       applyWsDelete,
       setFilterState,

@@ -326,7 +326,7 @@ async function getEmbeddingModel(
   const selection = resolveEmbeddingModelSelection(modelKey);
   if (selection.providerId === 'openai') {
     const provider = createOpenAiEmbeddingProvider({
-      apiKey: process.env.OPENAI_EMBEDDING_KEY,
+      apiKey: process.env.CODEINFO_OPENAI_EMBEDDING_KEY,
       ingestFailureContext: options?.ingestFailureContext,
     });
     return provider.getModel(selection.modelKey);

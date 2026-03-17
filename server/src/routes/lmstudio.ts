@@ -19,7 +19,7 @@ export function createLmStudioRouter({
     const baseUrlParam = req.query.baseUrl;
     const baseUrl =
       (typeof baseUrlParam === 'string' ? baseUrlParam : undefined) ??
-      process.env.LMSTUDIO_BASE_URL ??
+      process.env.CODEINFO_LMSTUDIO_BASE_URL ??
       '';
     const safeBase = scrubBaseUrl(baseUrl);
 

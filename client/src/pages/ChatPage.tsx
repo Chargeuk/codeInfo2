@@ -41,6 +41,7 @@ import {
 import Markdown from '../components/Markdown';
 import CodexFlagsPanel from '../components/chat/CodexFlagsPanel';
 import ConversationList from '../components/chat/ConversationList';
+import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
 import CodexDeviceAuthDialog from '../components/codex/CodexDeviceAuthDialog';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
@@ -229,6 +230,9 @@ export default function ChatPage() {
     bulkArchive,
     bulkRestore,
     bulkDelete,
+    readWorkingFolder,
+    updateWorkingFolder,
+    emitWorkingFolderPickerSync,
     applyWsUpsert,
     applyWsDelete,
   } = useConversations({ agentName: '__none__', flowName: '__none__' });
@@ -248,6 +252,8 @@ export default function ChatPage() {
   const codexDocsLoggedRef = useRef(false);
   const codexDynamicReasoningStateKeyRef = useRef<string | null>(null);
   const [input, setInput] = useState('');
+  const [workingFolder, setWorkingFolder] = useState('');
+  const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [thinkOpen, setThinkOpen] = useState<Record<string, boolean>>({});
   const [toolOpen, setToolOpen] = useState<Record<string, boolean>>({});
   const [toolErrorOpen, setToolErrorOpen] = useState<Record<string, boolean>>(
@@ -257,15 +263,27 @@ export default function ChatPage() {
   const metadataLoggedRef = useRef(new Set<string>());
   const stepLoggedRef = useRef(new Set<string>());
   const toolDistanceLoggedRef = useRef(new Set<string>());
+  const workingFolderRestoreKeyRef = useRef<string | null>(null);
+  const workingFolderLockKeyRef = useRef<string | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const stoppingVisibleLoggedRef = useRef<string | null>(null);
   const stoppedVisibleLoggedRef = useRef(new Set<string>());
   const serverVisibleInflightIdRef = useRef<string | null>(null);
+  const [serverVisibleInflightId, setServerVisibleInflightId] = useState<
+    string | null
+  >(null);
   const knownConversationIds = useMemo(
     () => new Set(conversations.map((c) => c.conversationId)),
     [conversations],
   );
   const persistenceUnavailable = mongoConnected === false;
+
+  const syncServerVisibleInflightId = useCallback((nextId: string | null) => {
+    serverVisibleInflightIdRef.current = nextId;
+    setServerVisibleInflightId((current) =>
+      current === nextId ? current : nextId,
+    );
+  }, []);
 
   const toolMatchCountByKey = useMemo(() => {
     const map = new Map<string, number>();
@@ -329,6 +347,7 @@ export default function ChatPage() {
       ),
     [activeConversationId, conversations],
   );
+  const selectedConversationId = selectedConversation?.conversationId;
   const turnsConversationId = persistenceUnavailable
     ? undefined
     : activeConversationId;
@@ -398,19 +417,19 @@ export default function ChatPage() {
         targetEvent: ChatWsTranscriptEvent | ChatWsCancelAckEvent,
       ) => {
         if (targetEvent.type === 'inflight_snapshot') {
-          serverVisibleInflightIdRef.current = targetEvent.inflight.inflightId;
+          syncServerVisibleInflightId(targetEvent.inflight.inflightId);
         } else if (
           targetEvent.type !== 'turn_final' &&
           'inflightId' in targetEvent &&
           typeof targetEvent.inflightId === 'string'
         ) {
-          serverVisibleInflightIdRef.current = targetEvent.inflightId;
+          syncServerVisibleInflightId(targetEvent.inflightId);
         }
         if (
           targetEvent.type === 'turn_final' &&
           serverVisibleInflightIdRef.current === targetEvent.inflightId
         ) {
-          serverVisibleInflightIdRef.current = null;
+          syncServerVisibleInflightId(null);
         }
         handleWsEvent(targetEvent);
       };
@@ -488,24 +507,24 @@ export default function ChatPage() {
     (window as unknown as { __chatTest?: unknown }).__chatTest = {
       handleWsEvent: (event: ChatWsTranscriptEvent | ChatWsCancelAckEvent) => {
         if (event.type === 'inflight_snapshot') {
-          serverVisibleInflightIdRef.current = event.inflight.inflightId;
+          syncServerVisibleInflightId(event.inflight.inflightId);
         } else if (
           event.type !== 'turn_final' &&
           'inflightId' in event &&
           typeof event.inflightId === 'string'
         ) {
-          serverVisibleInflightIdRef.current = event.inflightId;
+          syncServerVisibleInflightId(event.inflightId);
         }
         if (
           event.type === 'turn_final' &&
           serverVisibleInflightIdRef.current === event.inflightId
         ) {
-          serverVisibleInflightIdRef.current = null;
+          syncServerVisibleInflightId(null);
         }
         handleWsEvent(event);
       },
     };
-  }, [handleWsEvent]);
+  }, [handleWsEvent, syncServerVisibleInflightId]);
   const providerIsCodex = provider === 'codex';
   const codexDefaultsReady = providerIsCodex && Boolean(codexDefaults);
   const codexWarningList = useMemo(
@@ -562,6 +581,11 @@ export default function ChatPage() {
     selectedConversation && isStopping && !inflightSnapshot?.inflightId,
   );
   const showStop = isSending || isStopping;
+  const chatWorkingFolderLocked =
+    isSending ||
+    isStopping ||
+    Boolean(inflightSnapshot?.inflightId) ||
+    Boolean(serverVisibleInflightId);
   const combinedError =
     providerErrorMessage ?? errorMessage ?? 'Failed to load chat options.';
   const retryFetch = useCallback(() => {
@@ -640,9 +664,9 @@ export default function ChatPage() {
 
   useEffect(() => {
     setActiveConversationId(conversationId);
-    serverVisibleInflightIdRef.current = null;
+    syncServerVisibleInflightId(null);
     console.info('[chat-history] conversationId changed', { conversationId });
-  }, [conversationId]);
+  }, [conversationId, syncServerVisibleInflightId]);
 
   useEffect(() => {
     if (persistenceUnavailable) return;
@@ -873,9 +897,36 @@ export default function ChatPage() {
       rawLength: input.length,
       trimmedLength: input.trim().length,
     });
-    void send(input).then(() => refreshConversations());
+    void send(input, {
+      workingFolder: workingFolder.trim() || undefined,
+    }).then(() => refreshConversations());
     setInput('');
   };
+
+  const persistWorkingFolder = useCallback(
+    async (nextValue?: string) => {
+      const trimmedWorkingFolder = (nextValue ?? workingFolder).trim();
+      setWorkingFolder(trimmedWorkingFolder);
+      if (!selectedConversationId || chatWorkingFolderLocked) {
+        return;
+      }
+      try {
+        await updateWorkingFolder({
+          conversationId: selectedConversationId,
+          workingFolder: trimmedWorkingFolder || null,
+          surface: 'chat',
+        });
+      } catch (error) {
+        console.error('chat working-folder persistence failed', error);
+      }
+    },
+    [
+      chatWorkingFolderLocked,
+      selectedConversationId,
+      updateWorkingFolder,
+      workingFolder,
+    ],
+  );
 
   const handleStop = () => {
     if (!activeConversationId || isStopping) {
@@ -897,6 +948,22 @@ export default function ChatPage() {
     inputRef.current?.focus();
   };
 
+  const handleOpenDirPicker = () => {
+    if (chatWorkingFolderLocked) return;
+    setDirPickerOpen(true);
+  };
+
+  const handlePickDir = (path: string) => {
+    const trimmedWorkingFolder = path.trim();
+    setWorkingFolder(trimmedWorkingFolder);
+    setDirPickerOpen(false);
+    void persistWorkingFolder(trimmedWorkingFolder);
+  };
+
+  const handleCloseDirPicker = () => {
+    setDirPickerOpen(false);
+  };
+
   const handleNewConversation = (options?: {
     reason?: 'provider-change' | 'new-conversation' | 'model-change';
     nextProvider?: string;
@@ -914,11 +981,12 @@ export default function ChatPage() {
     setConversation(nextId, { clearMessages: true });
     setActiveConversationId(nextId);
     setInput('');
+    setWorkingFolder('');
     lastSentRef.current = '';
     inputRef.current?.focus();
     setThinkOpen({});
     setToolOpen({});
-    serverVisibleInflightIdRef.current = null;
+    syncServerVisibleInflightId(null);
     if (resetReason === 'new-conversation') {
       log('info', 'DEV-0000046:T8:new-conversation-local-reset', {
         previousConversationId: activeConversationId ?? null,
@@ -1046,7 +1114,7 @@ export default function ChatPage() {
     resetTurns();
     setConversation(conversation, { clearMessages: true });
     setActiveConversationId(conversation);
-    serverVisibleInflightIdRef.current = null;
+    syncServerVisibleInflightId(null);
     if (isMobile) {
       setMobileDrawerOpen(false);
     }
@@ -1067,6 +1135,52 @@ export default function ChatPage() {
     await restoreConversation(id);
     void refreshConversations();
   };
+
+  useEffect(() => {
+    if (!selectedConversation?.conversationId) {
+      workingFolderRestoreKeyRef.current = null;
+      return;
+    }
+
+    const restoredWorkingFolder = readWorkingFolder(selectedConversation) ?? '';
+    setWorkingFolder((current) =>
+      current === restoredWorkingFolder ? current : restoredWorkingFolder,
+    );
+
+    const restoreKey = `${selectedConversation.conversationId}:${restoredWorkingFolder}`;
+    if (workingFolderRestoreKeyRef.current === restoreKey) return;
+    workingFolderRestoreKeyRef.current = restoreKey;
+    emitWorkingFolderPickerSync({
+      surface: 'chat',
+      conversationId: selectedConversation.conversationId,
+      action: restoredWorkingFolder ? 'restore' : 'clear',
+      pickerState: restoredWorkingFolder,
+    });
+  }, [emitWorkingFolderPickerSync, readWorkingFolder, selectedConversation]);
+
+  useEffect(() => {
+    if (!chatWorkingFolderLocked) {
+      workingFolderLockKeyRef.current = null;
+      return;
+    }
+
+    const conversationKey = activeConversationId ?? conversationId;
+    const lockKey = `${conversationKey}:${workingFolder.trim()}`;
+    if (workingFolderLockKeyRef.current === lockKey) return;
+    workingFolderLockKeyRef.current = lockKey;
+    emitWorkingFolderPickerSync({
+      surface: 'chat',
+      conversationId: conversationKey,
+      action: 'lock',
+      pickerState: workingFolder.trim(),
+    });
+  }, [
+    activeConversationId,
+    chatWorkingFolderLocked,
+    conversationId,
+    emitWorkingFolderPickerSync,
+    workingFolder,
+  ]);
 
   const handleTranscriptScroll = () => {};
 
@@ -1166,9 +1280,14 @@ export default function ChatPage() {
     const inflightKey = `${activeConversationId}-${inflightSnapshot.inflightId}-${inflightSnapshot.seq}`;
     if (lastInflightHydratedRef.current === inflightKey) return;
     lastInflightHydratedRef.current = inflightKey;
-    serverVisibleInflightIdRef.current = inflightSnapshot.inflightId;
+    syncServerVisibleInflightId(inflightSnapshot.inflightId);
     hydrateInflightSnapshot(activeConversationId, inflightSnapshot);
-  }, [activeConversationId, hydrateInflightSnapshot, inflightSnapshot]);
+  }, [
+    activeConversationId,
+    hydrateInflightSnapshot,
+    inflightSnapshot,
+    syncServerVisibleInflightId,
+  ]);
 
   useEffect(() => {
     if (!activeConversationId || !turnsConversationId) return;
@@ -1994,6 +2113,52 @@ export default function ChatPage() {
                         alignItems={{ xs: 'stretch', sm: 'flex-start' }}
                       >
                         <TextField
+                          fullWidth
+                          size="small"
+                          label="Working folder"
+                          placeholder="Absolute host path (optional)"
+                          value={workingFolder}
+                          onChange={(event) =>
+                            setWorkingFolder(event.target.value)
+                          }
+                          onBlur={(event) => {
+                            void persistWorkingFolder(event.target.value);
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter') return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            void persistWorkingFolder(
+                              (event.currentTarget as HTMLInputElement).value,
+                            );
+                          }}
+                          disabled={chatWorkingFolderLocked}
+                          helperText="Saved per conversation while idle."
+                          slotProps={{
+                            htmlInput: {
+                              'data-testid': 'chat-working-folder',
+                            },
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outlined"
+                          size="small"
+                          onClick={handleOpenDirPicker}
+                          disabled={chatWorkingFolderLocked}
+                          data-testid="chat-working-folder-picker"
+                          sx={{ flexShrink: 0, minWidth: 160 }}
+                        >
+                          Choose folder…
+                        </Button>
+                      </Stack>
+
+                      <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                      >
+                        <TextField
                           inputRef={inputRef}
                           fullWidth
                           multiline
@@ -2045,6 +2210,12 @@ export default function ChatPage() {
                       </Stack>
                     </Stack>
                   </form>
+                  <DirectoryPickerDialog
+                    open={dirPickerOpen}
+                    path={workingFolder}
+                    onClose={handleCloseDirPicker}
+                    onPick={handlePickDir}
+                  />
                   {(isSending || isStopping) && (
                     <Typography variant="body2" color="text.secondary">
                       {isStopping ? 'Stopping…' : 'Responding...'}

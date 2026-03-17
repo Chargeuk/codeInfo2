@@ -16,17 +16,17 @@ import { createRequestLogger } from '../../logger.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs, type WsServerHandle } from '../../ws/server.js';
 import {
-  closeWs,
-  connectWs,
-  sendJson,
-  waitForEvent,
-} from '../support/wsClient.js';
-import {
   MockLMStudioClient,
   startMock,
   stopMock,
   type MockScenario,
 } from '../support/mockLmStudioSdk.js';
+import {
+  closeWs,
+  connectWs,
+  sendJson,
+  waitForEvent,
+} from '../support/wsClient.js';
 
 type ChatStartResponse = {
   status: 'started';
@@ -62,7 +62,7 @@ let tempCodexHomeForScenario: string | null = null;
 
 Before(async () => {
   resetStore();
-  process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   tempCodexHomeForScenario = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-tools-codex-home-'),
   );

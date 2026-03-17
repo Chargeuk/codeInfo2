@@ -181,8 +181,8 @@ describe('POST /codex/device-auth', () => {
   });
 
   test('oversized payload returns standardized invalid_request contract', async () => {
-    const prevLimit = process.env.LOG_MAX_CLIENT_BYTES;
-    process.env.LOG_MAX_CLIENT_BYTES = '10';
+    const prevLimit = process.env.CODEINFO_LOG_MAX_CLIENT_BYTES;
+    process.env.CODEINFO_LOG_MAX_CLIENT_BYTES = '10';
     try {
       const res = await supertest(buildApp())
         .post('/codex/device-auth')
@@ -197,9 +197,9 @@ describe('POST /codex/device-auth', () => {
       assert.equal(res.body.error === 'payload too large', false);
     } finally {
       if (prevLimit === undefined) {
-        delete process.env.LOG_MAX_CLIENT_BYTES;
+        delete process.env.CODEINFO_LOG_MAX_CLIENT_BYTES;
       } else {
-        process.env.LOG_MAX_CLIENT_BYTES = prevLimit;
+        process.env.CODEINFO_LOG_MAX_CLIENT_BYTES = prevLimit;
       }
     }
   });

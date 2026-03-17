@@ -28,17 +28,20 @@ export function parseNumber(value: string | undefined, fallback: number) {
 }
 
 export function resolveLogConfig(): LogConfig {
-  const filePath = process.env.LOG_FILE_PATH ?? './logs/server.log';
+  const filePath = process.env.CODEINFO_LOG_FILE_PATH ?? './logs/server.log';
   const config: LogConfig = {
-    level: process.env.LOG_LEVEL ?? 'info',
-    bufferMax: parseNumber(process.env.LOG_BUFFER_MAX, 5000),
-    maxClientBytes: parseNumber(process.env.LOG_MAX_CLIENT_BYTES, 32768),
+    level: process.env.CODEINFO_LOG_LEVEL ?? 'info',
+    bufferMax: parseNumber(process.env.CODEINFO_LOG_BUFFER_MAX, 5000),
+    maxClientBytes: parseNumber(
+      process.env.CODEINFO_LOG_MAX_CLIENT_BYTES,
+      32768,
+    ),
     ingestWsThrottleMs: parseNumber(
-      process.env.LOG_INGEST_WS_THROTTLE_MS,
+      process.env.CODEINFO_LOG_INGEST_WS_THROTTLE_MS,
       10_000,
     ),
     filePath,
-    rotate: process.env.LOG_FILE_ROTATE !== 'false',
+    rotate: process.env.CODEINFO_LOG_FILE_ROTATE !== 'false',
   };
   const logDir = path.dirname(filePath);
   fs.mkdirSync(logDir, { recursive: true });

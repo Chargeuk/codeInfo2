@@ -4,11 +4,15 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 
+import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 import {
   modelReasoningEfforts,
   validateChatRequest,
 } from '../../routes/chatValidators.js';
-import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
+import {
+  knownRepositoryPathsAvailable,
+  knownRepositoryPathsUnavailable,
+} from '../../workingFolders/state.js';
 
 const ENV_KEYS = [
   'Codex_sandbox_mode',
@@ -16,8 +20,8 @@ const ENV_KEYS = [
   'Codex_reasoning_effort',
   'Codex_network_access_enabled',
   'Codex_web_search_enabled',
-  'CHAT_DEFAULT_PROVIDER',
-  'CHAT_DEFAULT_MODEL',
+  'CODEINFO_CHAT_DEFAULT_PROVIDER',
+  'CODEINFO_CHAT_DEFAULT_MODEL',
   'CODEX_HOME',
 ];
 
@@ -104,8 +108,8 @@ web_search = "disabled"
 test('chat request resolves provider and model from shared env defaults', async () => {
   await setChatConfig('');
   setEnv({
-    CHAT_DEFAULT_PROVIDER: 'codex',
-    CHAT_DEFAULT_MODEL: 'gpt-5.3-codex',
+    CODEINFO_CHAT_DEFAULT_PROVIDER: 'codex',
+    CODEINFO_CHAT_DEFAULT_MODEL: 'gpt-5.3-codex',
   });
 
   const result = await validateChatRequest({
@@ -122,8 +126,8 @@ test('chat request resolves provider and model from shared env defaults', async 
 test('invalid shared env defaults fallback without leaking invalid state', async () => {
   await setChatConfig('');
   setEnv({
-    CHAT_DEFAULT_PROVIDER: 'not-a-provider',
-    CHAT_DEFAULT_MODEL: '',
+    CODEINFO_CHAT_DEFAULT_PROVIDER: 'not-a-provider',
+    CODEINFO_CHAT_DEFAULT_MODEL: '',
   });
 
   const result = await validateChatRequest({
@@ -137,12 +141,12 @@ test('invalid shared env defaults fallback without leaking invalid state', async
   assert.equal(result.defaultsResolution.modelSource, 'fallback');
   assert.ok(
     result.warnings.some((warning) =>
-      warning.includes('CHAT_DEFAULT_PROVIDER must be one of'),
+      warning.includes('CODEINFO_CHAT_DEFAULT_PROVIDER must be one of'),
     ),
   );
   assert.ok(
     result.warnings.some((warning) =>
-      warning.includes('CHAT_DEFAULT_MODEL is empty'),
+      warning.includes('CODEINFO_CHAT_DEFAULT_MODEL is empty'),
     ),
   );
 });
@@ -250,6 +254,139 @@ test('rejects unsupported reasoning effort values with deterministic message', a
     new RegExp(
       `modelReasoningEffort must be one of: ${modelReasoningEfforts.join(', ')}`,
     ),
+  );
+});
+
+test('chat validation accepts a valid working_folder', async () => {
+  const workingFolder = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-working-folder-valid-'),
+  );
+  tempDirs.push(workingFolder);
+
+  const result = await validateChatRequest({
+    model: 'gpt-5.2-codex',
+    message: 'hello',
+    conversationId: 'chat-working-folder-valid',
+    provider: 'codex',
+    working_folder: workingFolder,
+  }, {
+    knownRepositoryPathsState: knownRepositoryPathsAvailable([workingFolder]),
+  });
+
+  assert.equal(result.working_folder, workingFolder);
+});
+
+test('chat validation rejects existing absolute working_folder when it is not ingested', async () => {
+  const ingestedWorkingFolder = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-working-folder-ingested-'),
+  );
+  const nonIngestedWorkingFolder = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-working-folder-non-ingested-'),
+  );
+  tempDirs.push(ingestedWorkingFolder, nonIngestedWorkingFolder);
+
+  await assert.rejects(
+    async () =>
+      await validateChatRequest(
+        {
+          model: 'gpt-5.2-codex',
+          message: 'hello',
+          conversationId: 'chat-working-folder-non-ingested',
+          provider: 'codex',
+          working_folder: nonIngestedWorkingFolder,
+        },
+        {
+          knownRepositoryPathsState: knownRepositoryPathsAvailable([
+            ingestedWorkingFolder,
+          ]),
+        },
+      ),
+    /working_folder not found/,
+  );
+});
+
+test('chat validation accepts an ingested absolute working_folder', async () => {
+  const workingFolder = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-working-folder-ingested-valid-'),
+  );
+  tempDirs.push(workingFolder);
+
+  const result = await validateChatRequest(
+    {
+      model: 'gpt-5.2-codex',
+      message: 'hello',
+      conversationId: 'chat-working-folder-ingested-valid',
+      provider: 'codex',
+      working_folder: workingFolder,
+    },
+    {
+      knownRepositoryPathsState: knownRepositoryPathsAvailable([workingFolder]),
+    },
+  );
+
+  assert.equal(result.working_folder, workingFolder);
+});
+
+test('chat validation surfaces repository-enumeration failure instead of accepting a non-ingested directory', async () => {
+  const nonIngestedWorkingFolder = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-working-folder-enum-unavailable-'),
+  );
+  tempDirs.push(nonIngestedWorkingFolder);
+
+  await assert.rejects(
+    async () =>
+      await validateChatRequest(
+        {
+          model: 'gpt-5.2-codex',
+          message: 'hello',
+          conversationId: 'chat-working-folder-enum-unavailable',
+          provider: 'codex',
+          working_folder: nonIngestedWorkingFolder,
+        },
+        {
+          knownRepositoryPathsState: knownRepositoryPathsUnavailable(
+            new Error('repo list offline'),
+          ),
+        },
+      ),
+    (error) =>
+      (error as { code?: string; reason?: string }).code ===
+        'WORKING_FOLDER_REPOSITORY_UNAVAILABLE' &&
+      (error as { code?: string; reason?: string }).reason ===
+        'repo list offline',
+  );
+});
+
+test('chat validation rejects invalid absolute-path working_folder with shared message', async () => {
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        model: 'gpt-5.2-codex',
+        message: 'hello',
+        conversationId: 'chat-working-folder-invalid',
+        provider: 'codex',
+        working_folder: 'relative/path',
+      }),
+    /working_folder must be an absolute path/,
+  );
+});
+
+test('chat validation rejects missing-on-disk working_folder with shared message', async () => {
+  const missingPath = path.join(
+    os.tmpdir(),
+    `chat-working-folder-missing-${Date.now()}`,
+  );
+
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        model: 'gpt-5.2-codex',
+        message: 'hello',
+        conversationId: 'chat-working-folder-missing',
+        provider: 'codex',
+        working_folder: missingPath,
+      }),
+    /working_folder not found/,
   );
 });
 

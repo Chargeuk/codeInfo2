@@ -1554,6 +1554,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
   });
 
   it('still inherits valid runtime tables for Story 47 merged keys', async () => {
+    delete process.env.CODEINFO_CONTEXT7_API_KEY;
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -1591,6 +1592,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
   });
 
   it('resolves chat runtime with inherited base mcp servers and provider routing', async () => {
+    delete process.env.CODEINFO_CONTEXT7_API_KEY;
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');

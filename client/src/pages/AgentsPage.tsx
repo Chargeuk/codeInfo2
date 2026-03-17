@@ -199,6 +199,7 @@ export default function AgentsPage() {
     hydrateInflightSnapshot,
     handleWsEvent,
     getInflightId,
+    getConversationId,
   } = useChatStream(agentModelId, 'codex');
   const isStopping = status === 'stopping';
   const serverVisibleInflightIdRef = useRef<string | null>(null);
@@ -262,9 +263,21 @@ export default function AgentsPage() {
   const [selectedPromptFullPath, setSelectedPromptFullPath] = useState('');
   const [committedWorkingFolder, setCommittedWorkingFolder] = useState('');
   const lastCommittedWorkingFolderRef = useRef('');
+  const persistConversationWorkingFolderRef = useRef<
+    | null
+    | ((params: {
+        conversationId: string;
+        workingFolder: string | null;
+        surface: 'agents';
+      }) => Promise<unknown>)
+  >(null);
+  const selectedConversationIdRef = useRef<string | undefined>(undefined);
+  const workingFolderDisabledRef = useRef(false);
   const promptsRequestSeqRef = useRef(0);
   const promptSelectorVisibilityLogRef = useRef('');
   const promptSelectionLogRef = useRef('');
+  const workingFolderRestoreKeyRef = useRef<string | null>(null);
+  const workingFolderLockKeyRef = useRef<string | null>(null);
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [input, setInput] = useState('');
   const lastSentRef = useRef('');
@@ -378,7 +391,7 @@ export default function AgentsPage() {
   );
 
   const commitWorkingFolder = useCallback(
-    (source: 'blur' | 'enter' | 'picker', nextValue?: string) => {
+    async (source: 'blur' | 'enter' | 'picker', nextValue?: string) => {
       const committed = (nextValue ?? workingFolder).trim();
       console.info(
         `[agents.prompts.discovery.commit] source=${source} workingFolder=${committed}`,
@@ -393,6 +406,21 @@ export default function AgentsPage() {
       });
       lastCommittedWorkingFolderRef.current = committed;
       setCommittedWorkingFolder(committed);
+      if (
+        !selectedConversationIdRef.current ||
+        workingFolderDisabledRef.current
+      ) {
+        return;
+      }
+      try {
+        await persistConversationWorkingFolderRef.current?.({
+          conversationId: selectedConversationIdRef.current,
+          workingFolder: committed || null,
+          surface: 'agents',
+        });
+      } catch (error) {
+        console.error('agent working-folder persistence failed', error);
+      }
     },
     [invalidatePromptDiscoveryState, workingFolder],
   );
@@ -401,7 +429,7 @@ export default function AgentsPage() {
     log('info', 'DEV-0000028[T5] agents folder picker picked', { path });
     setWorkingFolder(path);
     setDirPickerOpen(false);
-    commitWorkingFolder('picker', path);
+    void commitWorkingFolder('picker', path);
   };
 
   const handleCloseDirPicker = () => {
@@ -833,12 +861,28 @@ export default function AgentsPage() {
     bulkArchive,
     bulkRestore,
     bulkDelete,
+    readWorkingFolder,
+    updateWorkingFolder,
+    emitWorkingFolderPickerSync,
     applyWsUpsert,
     applyWsDelete,
   } = useConversations({
     agentName: effectiveAgentName,
     flowName: '__none__',
   });
+
+  const selectedConversation = useMemo(
+    () =>
+      conversations.find(
+        (conversation) => conversation.conversationId === activeConversationId,
+      ),
+    [activeConversationId, conversations],
+  );
+  const selectedConversationId = selectedConversation?.conversationId;
+
+  useEffect(() => {
+    persistConversationWorkingFolderRef.current = updateWorkingFolder;
+  }, [updateWorkingFolder]);
 
   const turnsConversationId = persistenceUnavailable
     ? undefined
@@ -1463,6 +1507,45 @@ export default function AgentsPage() {
     setToolErrorOpen({});
   };
 
+  useEffect(() => {
+    if (!selectedConversationId) {
+      workingFolderRestoreKeyRef.current = null;
+      return;
+    }
+
+    const restoredWorkingFolder = readWorkingFolder(selectedConversation) ?? '';
+    setWorkingFolder((current) =>
+      current === restoredWorkingFolder ? current : restoredWorkingFolder,
+    );
+    if (restoredWorkingFolder !== lastCommittedWorkingFolderRef.current) {
+      if (restoredWorkingFolder) {
+        lastCommittedWorkingFolderRef.current = restoredWorkingFolder;
+        setCommittedWorkingFolder(restoredWorkingFolder);
+      } else {
+        invalidatePromptDiscoveryState({
+          reason: 'committed_working_folder_cleared',
+          clearCommittedWorkingFolder: true,
+        });
+      }
+    }
+
+    const restoreKey = `${selectedConversationId}:${restoredWorkingFolder}`;
+    if (workingFolderRestoreKeyRef.current === restoreKey) return;
+    workingFolderRestoreKeyRef.current = restoreKey;
+    emitWorkingFolderPickerSync({
+      surface: 'agents',
+      conversationId: selectedConversationId,
+      action: restoredWorkingFolder ? 'restore' : 'clear',
+      pickerState: restoredWorkingFolder,
+    });
+  }, [
+    emitWorkingFolderPickerSync,
+    invalidatePromptDiscoveryState,
+    readWorkingFolder,
+    selectedConversation,
+    selectedConversationId,
+  ]);
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setRunError(null);
@@ -1695,6 +1778,10 @@ export default function AgentsPage() {
   const controlsDisabled =
     agentsLoading || !!agentsError || !selectedAgentName || persistenceLoading;
   const submitDisabledForRun = isRunActive;
+  const agentWorkingFolderLocked =
+    isRunActive ||
+    Boolean(inflightSnapshot?.inflightId) ||
+    Boolean(serverVisibleInflightIdRef.current);
   const startStepDisabled =
     controlsDisabled ||
     submitDisabledForRun ||
@@ -1707,13 +1794,45 @@ export default function AgentsPage() {
   const sidebarSelectableDuringRun = true;
   const isWorkingFolderDisabled =
     controlsDisabled ||
-    submitDisabledForRun ||
+    agentWorkingFolderLocked ||
     !wsTranscriptReady ||
-    selectedAgent?.disabled;
+    Boolean(selectedAgent?.disabled);
   const isInstructionInputDisabled =
     !inputEditableDuringRun || !wsTranscriptReady || selectedAgent?.disabled;
   const conversationListDisabled =
     !sidebarSelectableDuringRun || persistenceUnavailable;
+
+  useEffect(() => {
+    selectedConversationIdRef.current = selectedConversationId;
+  }, [selectedConversationId]);
+
+  useEffect(() => {
+    workingFolderDisabledRef.current = isWorkingFolderDisabled;
+  }, [isWorkingFolderDisabled]);
+
+  useEffect(() => {
+    if (!agentWorkingFolderLocked) {
+      workingFolderLockKeyRef.current = null;
+      return;
+    }
+
+    const conversationKey = activeConversationId ?? getConversationId();
+    const lockKey = `${conversationKey}:${workingFolder.trim()}`;
+    if (workingFolderLockKeyRef.current === lockKey) return;
+    workingFolderLockKeyRef.current = lockKey;
+    emitWorkingFolderPickerSync({
+      surface: 'agents',
+      conversationId: conversationKey,
+      action: 'lock',
+      pickerState: workingFolder.trim(),
+    });
+  }, [
+    activeConversationId,
+    agentWorkingFolderLocked,
+    emitWorkingFolderPickerSync,
+    getConversationId,
+    workingFolder,
+  ]);
 
   const hasFilters = true;
   const hasBulkActions = Boolean(bulkArchive || bulkRestore || bulkDelete);
@@ -2623,13 +2742,13 @@ export default function AgentsPage() {
                       value={workingFolder}
                       onChange={(event) => setWorkingFolder(event.target.value)}
                       onBlur={(event) =>
-                        commitWorkingFolder('blur', event.target.value)
+                        void commitWorkingFolder('blur', event.target.value)
                       }
                       onKeyDown={(event) => {
                         if (event.key !== 'Enter') return;
                         event.preventDefault();
                         event.stopPropagation();
-                        commitWorkingFolder(
+                        void commitWorkingFolder(
                           'enter',
                           (event.currentTarget as HTMLInputElement).value,
                         );

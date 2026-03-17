@@ -28,7 +28,7 @@ Before(async () => {
   app.get('/lmstudio/probe', async (_req, res) => {
     try {
       const client = new MockLMStudioClient(
-        process.env.LMSTUDIO_BASE_URL,
+        process.env.CODEINFO_LMSTUDIO_BASE_URL,
       ) as unknown as LMStudioClient;
       const models = await client.system.listDownloadedModels();
       res.status(200).json({ status: 'ok', modelsCount: models.length });
@@ -58,11 +58,11 @@ After(() => {
     server = null;
   }
   response = null;
-  process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
 });
 
 Given('LM Studio base url {string}', (url: string) => {
-  process.env.LMSTUDIO_BASE_URL = url;
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = url;
 });
 
 When('I call the LM Studio probe endpoint', async () => {

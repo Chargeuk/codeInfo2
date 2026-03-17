@@ -135,7 +135,7 @@ testArgs.push(...unitFiles);
 
 const unitEnv = {
   ...process.env,
-  LOG_FILE_PATH: '../logs/server-test.log',
+  CODEINFO_LOG_FILE_PATH: '../logs/server-test.log',
   CHROMA_URL: '',
   MONGO_URI: '',
   TS_NODE_DEBUG: 'false',

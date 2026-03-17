@@ -37,9 +37,9 @@ test('tools/list remains available when Codex is unavailable', async () => {
 
 test('tools/call(codebase_question) is not globally pre-blocked when Codex is unavailable', async () => {
   const originalCodexAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
-  const originalLmBaseUrl = process.env.LMSTUDIO_BASE_URL;
+  const originalLmBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'false';
-  process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
 
   setToolDeps({
     clientFactory: () =>
@@ -94,9 +94,9 @@ test('tools/call(codebase_question) is not globally pre-blocked when Codex is un
     resetToolDeps();
     process.env.MCP_FORCE_CODEX_AVAILABLE = originalCodexAvailable;
     if (originalLmBaseUrl === undefined) {
-      delete process.env.LMSTUDIO_BASE_URL;
+      delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
     } else {
-      process.env.LMSTUDIO_BASE_URL = originalLmBaseUrl;
+      process.env.CODEINFO_LMSTUDIO_BASE_URL = originalLmBaseUrl;
     }
     server.close();
   }

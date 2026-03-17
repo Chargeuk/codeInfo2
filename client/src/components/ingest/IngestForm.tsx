@@ -130,7 +130,7 @@ export default function IngestForm({
         testId: 'ingest-openai-banner-openai-disabled',
         statusCode,
         message:
-          'OpenAI embedding models are unavailable. Set OPENAI_EMBEDDING_KEY on the server to enable them.',
+          'OpenAI embedding models are unavailable. Set CODEINFO_OPENAI_EMBEDDING_KEY on the server to enable them.',
       };
     }
     if (statusCode === 'OPENAI_MODELS_LIST_TEMPORARY_FAILURE') {
@@ -148,7 +148,7 @@ export default function IngestForm({
         testId: 'ingest-openai-banner-openai-models-list-auth-failed',
         statusCode,
         message:
-          'OpenAI embedding model listing failed authentication. Verify OPENAI_EMBEDDING_KEY and account access.',
+          'OpenAI embedding model listing failed authentication. Verify CODEINFO_OPENAI_EMBEDDING_KEY and account access.',
       };
     }
     if (statusCode === 'OPENAI_MODELS_LIST_UNAVAILABLE') {

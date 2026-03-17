@@ -228,7 +228,7 @@ describe('IngestForm', () => {
     expect(
       screen.getByTestId('ingest-openai-banner-openai-disabled'),
     ).toHaveTextContent(
-      /OpenAI embedding models are unavailable\. Set OPENAI_EMBEDDING_KEY on the server to enable them\./i,
+      /OpenAI embedding models are unavailable\. Set CODEINFO_OPENAI_EMBEDDING_KEY on the server to enable them\./i,
     );
   });
 

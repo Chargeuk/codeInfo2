@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import express from 'express';
 import test, { beforeEach } from 'node:test';
+import express from 'express';
 import request from 'supertest';
 import {
   __resetIngestJobsForTest,

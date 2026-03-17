@@ -6,8 +6,8 @@ import {
   __resetIngestJobsForTest,
   __setStatusForTest,
 } from '../../ingest/ingestJob.js';
-import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import { createIngestRootsRouter } from '../../routes/ingestRoots.js';
+import { createIngestStartRouter } from '../../routes/ingestStart.js';
 
 afterEach(() => {
   __resetIngestJobsForTest();

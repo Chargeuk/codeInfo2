@@ -2,11 +2,11 @@ import {
   CODEX_MODEL_REASONING_EFFORTS,
   type CodexDefaults,
 } from '@codeinfo2/common';
+import { resolveCodexChatDefaults } from '../config/chatDefaults.js';
 import {
   getCodexModelList,
   mergeCodexModelList,
 } from '../config/codexEnvDefaults.js';
-import { resolveCodexChatDefaults } from '../config/chatDefaults.js';
 import { baseLogger } from '../logger.js';
 
 const T13_SUCCESS_LOG =

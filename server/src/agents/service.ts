@@ -27,10 +27,19 @@ import {
   recordMemoryTurn,
   shouldUseMemoryPersistence,
   updateMemoryConversationMeta,
+  updateMemoryConversationWorkingFolder,
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
 import { RuntimeConfigResolutionError } from '../config/runtimeConfig.js';
-import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
+import {
+  buildRepositoryCandidateLookupSummary,
+  buildRepositoryCandidateOrder,
+  DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
+  normalizeRepositoryCandidateLabel,
+  type RepositoryCandidateLookupSummary,
+  type RepositoryCandidateOrderResult,
+  type RepositoryCandidateOrderSlot,
+} from '../flows/repositoryCandidateOrder.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
@@ -44,9 +53,24 @@ import {
   appendTurn,
   createConversation,
   updateConversationMeta,
+  updateConversationWorkingFolder,
 } from '../mongo/repo.js';
-import type { Turn, TurnCommandMetadata, TurnSource } from '../mongo/turn.js';
+import type {
+  Turn,
+  TurnCommandMetadata,
+  TurnRuntimeMetadata,
+  TurnSource,
+} from '../mongo/turn.js';
 import { refreshCodexDetection } from '../providers/codexDetection.js';
+import {
+  appendWorkingFolderDecisionLog,
+  getConversationRecordType,
+  knownRepositoryPathsUnavailable,
+  knownRepositoryPathsAvailable,
+  restoreSavedWorkingFolder,
+  resolveWorkingFolderWorkingDirectory,
+  validateRequestedWorkingFolder,
+} from '../workingFolders/state.js';
 import { publishUserTurn } from '../ws/server.js';
 
 import {
@@ -110,15 +134,26 @@ type RunAgentErrorCode =
   | 'INVALID_START_STEP'
   | 'CODEX_UNAVAILABLE'
   | 'WORKING_FOLDER_INVALID'
-  | 'WORKING_FOLDER_NOT_FOUND';
+  | 'WORKING_FOLDER_NOT_FOUND'
+  | 'WORKING_FOLDER_UNAVAILABLE'
+  | 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE';
 
 type RunAgentError = {
   code: RunAgentErrorCode;
   reason?: string;
+  causeCode?: string;
 };
 
-const toRunAgentError = (code: RunAgentErrorCode, reason?: string) =>
-  ({ code, reason }) satisfies RunAgentError;
+const toRunAgentError = (
+  code: RunAgentErrorCode,
+  reason?: string,
+  causeCode?: string,
+) =>
+  ({
+    code,
+    ...(reason ? { reason } : {}),
+    ...(causeCode ? { causeCode } : {}),
+  }) satisfies RunAgentError;
 
 const T06_SUCCESS_LOG =
   '[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=success';
@@ -175,56 +210,6 @@ function logTransitiveContractRead(params: {
   });
 }
 
-export async function resolveWorkingFolderWorkingDirectory(
-  working_folder: string | undefined,
-): Promise<string | undefined> {
-  if (!working_folder || !working_folder.trim()) return undefined;
-
-  const workingFolder = working_folder;
-  const normalized = workingFolder.replace(/\\/g, '/');
-  const raw = workingFolder;
-  if (!(path.posix.isAbsolute(normalized) || path.win32.isAbsolute(raw))) {
-    throw {
-      code: 'WORKING_FOLDER_INVALID',
-      reason: 'working_folder must be an absolute path',
-    } as const;
-  }
-
-  const hostIngestDir = process.env.HOST_INGEST_DIR;
-  const codexWorkdir =
-    process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data';
-
-  const isDirectory = async (dirPath: string): Promise<boolean> => {
-    const stat = await fs.stat(dirPath).catch(() => null);
-    return Boolean(stat && stat.isDirectory());
-  };
-
-  if (hostIngestDir && hostIngestDir.length > 0) {
-    const normalizedHostIngestDir = hostIngestDir.replace(/\\/g, '/');
-    if (
-      path.posix.isAbsolute(normalizedHostIngestDir) &&
-      path.posix.isAbsolute(normalized)
-    ) {
-      const mapped = mapHostWorkingFolderToWorkdir({
-        hostIngestDir,
-        codexWorkdir,
-        hostWorkingFolder: workingFolder,
-      });
-
-      if ('mappedPath' in mapped) {
-        if (await isDirectory(mapped.mappedPath)) return mapped.mappedPath;
-      }
-    }
-  }
-
-  if (await isDirectory(workingFolder)) return workingFolder;
-
-  throw {
-    code: 'WORKING_FOLDER_NOT_FOUND',
-    reason: 'working_folder not found',
-  } as const;
-}
-
 async function getConversation(
   conversationId: string,
 ): Promise<Conversation | null> {
@@ -236,12 +221,67 @@ async function getConversation(
     .exec()) as Conversation | null;
 }
 
+const persistConversationWorkingFolder = async (params: {
+  conversationId: string;
+  workingFolder?: string | null;
+}) => {
+  if (shouldUseMemoryPersistence()) {
+    updateMemoryConversationWorkingFolder(params);
+    return;
+  }
+  await updateConversationWorkingFolder(params);
+};
+
+const resolveConversationWorkingFolderForRun = async (params: {
+  conversationId: string;
+  conversation: Conversation | null;
+  requestedWorkingFolder?: string;
+  surface: 'agent_run' | 'agent_command_run';
+  knownRepositoryPathsState?: import('../workingFolders/state.js').KnownRepositoryPathsState;
+}): Promise<string | undefined> => {
+  if (params.requestedWorkingFolder) {
+    const validated = await validateRequestedWorkingFolder({
+      workingFolder: params.requestedWorkingFolder,
+      knownRepositoryPathsState: params.knownRepositoryPathsState,
+    });
+    if (params.conversation) {
+      await persistConversationWorkingFolder({
+        conversationId: params.conversationId,
+        workingFolder: validated,
+      });
+      appendWorkingFolderDecisionLog({
+        conversationId: params.conversationId,
+        recordType: getConversationRecordType(params.conversation),
+        surface: params.surface,
+        action: 'save',
+        decisionReason: 'request_value_persisted',
+        workingFolder: validated,
+      });
+    }
+    return validated;
+  }
+
+  if (!params.conversation) return undefined;
+  return await restoreSavedWorkingFolder({
+    conversation: params.conversation,
+    surface: params.surface,
+    clearPersistedWorkingFolder: async (conversationId) => {
+      await persistConversationWorkingFolder({
+        conversationId,
+        workingFolder: null,
+      });
+    },
+    knownRepositoryPathsState: params.knownRepositoryPathsState,
+  });
+};
+
 async function ensureAgentConversation(params: {
   conversationId: string;
   agentName: string;
   modelId: string;
   title: string;
   source: 'REST' | 'MCP';
+  workingFolder?: string;
   inflightId?: string;
   chatFactory?: typeof getChatInterface;
 }): Promise<void> {
@@ -256,7 +296,9 @@ async function ensureAgentConversation(params: {
       title: params.title,
       agentName: params.agentName,
       source: params.source,
-      flags: {},
+      flags: params.workingFolder
+        ? { workingFolder: params.workingFolder }
+        : {},
       lastMessageAt: now,
       archivedAt: null,
       createdAt: now,
@@ -277,7 +319,7 @@ async function ensureAgentConversation(params: {
     title: params.title,
     agentName: params.agentName,
     source: params.source,
-    flags: {},
+    flags: params.workingFolder ? { workingFolder: params.workingFolder } : {},
     lastMessageAt: now,
   });
 }
@@ -287,6 +329,204 @@ class NoopChat extends ChatInterface {
     return undefined;
   }
 }
+
+type DirectCommandResolution = {
+  commandsRoot: string;
+  commandFilePath: string;
+  selectedRepositoryPath: string;
+  selectedRepositoryLabel: string;
+  selectedRepositorySlot: RepositoryCandidateOrderSlot;
+  orderedCandidates: RepositoryCandidateOrderResult;
+  lookupSummary: RepositoryCandidateLookupSummary;
+};
+
+const codeInfo2RootForAgent = (agentHome: string) =>
+  path.resolve(agentHome, '..', '..');
+
+const mapCandidateRepositoriesForLog = (
+  orderedCandidates: RepositoryCandidateOrderResult,
+) =>
+  orderedCandidates.candidates.map((candidate) => ({
+    sourceId: candidate.sourceId,
+    sourceLabel: candidate.sourceLabel,
+    slot: candidate.slot,
+  }));
+
+const appendDirectCommandResolutionLogs = (params: {
+  agentName: string;
+  commandName: string;
+  selectedCandidate?: {
+    sourceId: string;
+    sourceLabel: string;
+    slot: RepositoryCandidateOrderSlot;
+  };
+  orderedCandidates: RepositoryCandidateOrderResult;
+  decision: 'selected' | 'fail_fast' | 'not_found';
+  failureReason?: string;
+  failureMessage?: string;
+}) => {
+  append({
+    level: params.decision === 'selected' ? 'info' : 'warn',
+    message: DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      caller: params.orderedCandidates.caller,
+      workingRepositoryAvailable:
+        params.orderedCandidates.workingRepositoryAvailable,
+      candidateRepositories: mapCandidateRepositoriesForLog(
+        params.orderedCandidates,
+      ),
+    },
+  });
+
+  const lookupSummary = params.selectedCandidate
+    ? buildRepositoryCandidateLookupSummary({
+        orderedCandidates: params.orderedCandidates,
+        selectedRepositoryPath: params.selectedCandidate.sourceId,
+      })
+    : undefined;
+
+  append({
+    level: params.decision === 'selected' ? 'info' : 'warn',
+    message: 'DEV-0000034:T2:command_run_resolved',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      agentName: params.agentName,
+      commandName: params.commandName,
+      decision: params.decision,
+      selectedRepositoryPath: lookupSummary?.selectedRepositoryPath ?? null,
+      selectedRepositoryLabel: params.selectedCandidate?.sourceLabel ?? null,
+      selectedRepositorySlot: params.selectedCandidate?.slot ?? null,
+      fallbackUsed: lookupSummary?.fallbackUsed ?? false,
+      workingRepositoryAvailable:
+        params.orderedCandidates.workingRepositoryAvailable,
+      candidateRepositories: mapCandidateRepositoriesForLog(
+        params.orderedCandidates,
+      ),
+      ...(params.failureReason ? { failureReason: params.failureReason } : {}),
+      ...(params.failureMessage
+        ? { failureMessage: params.failureMessage }
+        : {}),
+    },
+  });
+};
+
+const resolveDirectCommandSelection = async (params: {
+  agentName: string;
+  agentHome: string;
+  commandName: string;
+  workingRepositoryPath?: string;
+  sourceId?: string;
+  repos: RepoEntry[];
+}): Promise<DirectCommandResolution> => {
+  const codeInfo2Root = codeInfo2RootForAgent(params.agentHome);
+  const ownerRepositoryPath = params.sourceId?.trim()
+    ? path.resolve(params.sourceId)
+    : codeInfo2Root;
+  const ownerRepository = params.repos.find(
+    (repo) => path.resolve(repo.containerPath) === ownerRepositoryPath,
+  );
+  const ownerRepositoryLabel =
+    ownerRepository?.id ??
+    normalizeRepositoryCandidateLabel({
+      sourceId: ownerRepositoryPath,
+      sourceLabel: params.sourceId ? undefined : path.basename(codeInfo2Root),
+    });
+
+  const orderedCandidates = buildRepositoryCandidateOrder({
+    caller: 'direct-command',
+    workingRepositoryPath: params.workingRepositoryPath,
+    ownerRepositoryPath,
+    ownerRepositoryLabel,
+    codeInfo2Root,
+    otherRepositoryRoots: params.repos.map((repo) => ({
+      sourceId: repo.containerPath,
+      sourceLabel: repo.id,
+    })),
+  });
+
+  for (const candidate of orderedCandidates.candidates) {
+    const commandsRoot =
+      candidate.sourceId === codeInfo2Root
+        ? path.join(params.agentHome, 'commands')
+        : path.join(
+            candidate.sourceId,
+            'codex_agents',
+            params.agentName,
+            'commands',
+          );
+    const commandFilePath = path.resolve(
+      commandsRoot,
+      `${params.commandName}.json`,
+    );
+    const relativePath = path.relative(commandsRoot, commandFilePath);
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+      appendDirectCommandResolutionLogs({
+        agentName: params.agentName,
+        commandName: params.commandName,
+        orderedCandidates,
+        selectedCandidate: candidate,
+        decision: 'fail_fast',
+        failureReason: 'INVALID',
+        failureMessage: 'commandName must be a valid file name',
+      });
+      throw toRunAgentError('COMMAND_INVALID');
+    }
+
+    const commandStat = await fs.stat(commandFilePath).catch((error) => {
+      if ((error as { code?: string }).code === 'ENOENT') return null;
+      throw error;
+    });
+    if (!commandStat?.isFile()) {
+      continue;
+    }
+
+    const parsed = await loadAgentCommandFile({ filePath: commandFilePath });
+    if (!parsed.ok) {
+      appendDirectCommandResolutionLogs({
+        agentName: params.agentName,
+        commandName: params.commandName,
+        orderedCandidates,
+        selectedCandidate: candidate,
+        decision: 'fail_fast',
+        failureReason: 'INVALID',
+        failureMessage: `Command ${params.commandName} failed schema validation`,
+      });
+      throw toRunAgentError('COMMAND_INVALID');
+    }
+
+    const lookupSummary = buildRepositoryCandidateLookupSummary({
+      orderedCandidates,
+      selectedRepositoryPath: candidate.sourceId,
+    });
+    appendDirectCommandResolutionLogs({
+      agentName: params.agentName,
+      commandName: params.commandName,
+      orderedCandidates,
+      selectedCandidate: candidate,
+      decision: 'selected',
+    });
+    return {
+      commandsRoot,
+      commandFilePath,
+      selectedRepositoryPath: candidate.sourceId,
+      selectedRepositoryLabel: candidate.sourceLabel,
+      selectedRepositorySlot: candidate.slot,
+      orderedCandidates,
+      lookupSummary,
+    };
+  }
+
+  appendDirectCommandResolutionLogs({
+    agentName: params.agentName,
+    commandName: params.commandName,
+    orderedCandidates,
+    decision: 'not_found',
+  });
+  throw toRunAgentError('COMMAND_NOT_FOUND');
+};
 
 async function persistSyntheticAgentTurn(params: {
   conversationId: string;
@@ -298,6 +538,7 @@ async function persistSyntheticAgentTurn(params: {
   status: Turn['status'];
   toolCalls: Record<string, unknown> | null;
   command: TurnCommandMetadata;
+  runtime?: TurnRuntimeMetadata;
   createdAt: Date;
 }): Promise<{ turnId?: string }> {
   if (shouldUseMemoryPersistence()) {
@@ -311,6 +552,7 @@ async function persistSyntheticAgentTurn(params: {
       toolCalls: params.toolCalls,
       status: params.status,
       command: params.command,
+      runtime: params.runtime,
       createdAt: params.createdAt,
     } as Turn);
     updateMemoryConversationMeta(params.conversationId, {
@@ -330,6 +572,7 @@ async function persistSyntheticAgentTurn(params: {
     toolCalls: params.toolCalls,
     status: params.status,
     command: params.command,
+    runtime: params.runtime,
     createdAt: params.createdAt,
   });
 
@@ -496,6 +739,20 @@ export async function startAgentInstruction(
       throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
     }
 
+    const listedReposResult = await agentServiceDeps
+      .listIngestedRepositories()
+      .then((result) => ({
+        repos: result.repos,
+        knownRepositoryPathsState: knownRepositoryPathsAvailable(
+          result.repos.map((repo) => repo.containerPath),
+        ),
+      }))
+      .catch((error) => ({
+        repos: [] as RepoEntry[],
+        knownRepositoryPathsState: knownRepositoryPathsUnavailable(error),
+      }));
+    const listedRepos = listedReposResult.repos;
+
     const existingConversation = await getConversation(conversationId);
     const isNewConversation = !existingConversation;
     if (mustExist && isNewConversation) {
@@ -522,6 +779,16 @@ export async function startAgentInstruction(
     const title =
       params.instruction.trim().slice(0, 80) || 'Untitled conversation';
 
+    const effectiveWorkingFolder = await resolveConversationWorkingFolderForRun(
+      {
+        conversationId,
+        conversation: existingConversation,
+        requestedWorkingFolder: params.working_folder,
+        surface: 'agent_run',
+        knownRepositoryPathsState: listedReposResult.knownRepositoryPathsState,
+      },
+    );
+
     if (isNewConversation) {
       await ensureAgentConversation({
         conversationId,
@@ -529,12 +796,20 @@ export async function startAgentInstruction(
         modelId,
         title,
         source: params.source,
+        workingFolder: effectiveWorkingFolder,
       });
+      if (effectiveWorkingFolder) {
+        appendWorkingFolderDecisionLog({
+          conversationId,
+          recordType: 'agent',
+          surface: 'agent_run',
+          action: 'save',
+          decisionReason: 'request_value_persisted_on_create',
+          workingFolder: effectiveWorkingFolder,
+        });
+      }
     }
-
-    // Validate working folder before we return 202 so the client receives a
-    // deterministic 4xx rather than a background failure.
-    await resolveWorkingFolderWorkingDirectory(params.working_folder);
+    params.working_folder = effectiveWorkingFolder;
   } catch (err) {
     cleanupPendingConversationCancel({ conversationId, runToken });
     releaseConversationLock(conversationId, runToken);
@@ -650,6 +925,7 @@ async function prepareDirectCommandBootstrap(params: {
   commandFilePath: string;
   startStep: number;
   source: 'REST' | 'MCP';
+  workingFolder?: string;
 }): Promise<{
   initialModelId: string;
 }> {
@@ -719,6 +995,7 @@ async function prepareDirectCommandBootstrap(params: {
     modelId: initialModelId,
     title,
     source: params.source,
+    workingFolder: params.workingFolder,
   });
 
   return { initialModelId };
@@ -805,66 +1082,31 @@ export async function startAgentCommand(params: {
       throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
     }
 
-    // Validate command file before returning 202 so errors map cleanly to 4xx.
-    let commandsDir = path.join(agent.home, 'commands');
-    let commandFilePath = path.join(commandsDir, commandName + '.json');
-
-    if (sourceId) {
-      const ingestRoots = await agentServiceDeps
-        .listIngestedRepositories()
-        .then((result) => result.repos)
-        .catch(() => null);
-      const matchingRoot = ingestRoots?.find(
-        (repo) => repo.containerPath === sourceId,
-      );
-      if (!matchingRoot) {
-        throw toRunAgentError('COMMAND_NOT_FOUND');
-      }
-      logTransitiveContractRead({
-        consumer: 'agents.service.startAgentCommand',
-        sourceId,
-        repo: matchingRoot,
-      });
-
-      commandsDir = path.join(
-        matchingRoot.containerPath,
-        'codex_agents',
-        agent.name,
-        'commands',
-      );
-
-      const resolved = path.resolve(commandsDir, `${commandName}.json`);
-      const relativePath = path.relative(commandsDir, resolved);
-      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-        throw toRunAgentError('COMMAND_INVALID');
-      }
-      commandFilePath = resolved;
-    }
-
-    append({
-      level: 'info',
-      message: 'DEV-0000034:T2:command_run_resolved',
-      timestamp: new Date().toISOString(),
-      source: 'server',
-      context: {
-        agentName: params.agentName,
-        commandName,
-        sourceId: sourceId ?? 'local',
-        commandPath: commandFilePath,
-      },
-    });
-
-    const commandStat = await fs.stat(commandFilePath).catch((error) => {
-      if ((error as { code?: string }).code === 'ENOENT') return null;
-      throw error;
-    });
-    if (!commandStat?.isFile()) {
+    const ingestRootsResult = await agentServiceDeps
+      .listIngestedRepositories()
+      .then((result) => ({
+        repos: result.repos,
+        knownRepositoryPathsState: knownRepositoryPathsAvailable(
+          result.repos.map((repo) => repo.containerPath),
+        ),
+      }))
+      .catch((error) => ({
+        repos: [] as RepoEntry[],
+        knownRepositoryPathsState: knownRepositoryPathsUnavailable(error),
+      }));
+    const ingestRoots = ingestRootsResult.repos;
+    const matchingRoot = sourceId
+      ? ingestRoots.find((repo) => repo.containerPath === sourceId)
+      : undefined;
+    if (sourceId && !matchingRoot) {
       throw toRunAgentError('COMMAND_NOT_FOUND');
     }
-
-    const parsed = await loadAgentCommandFile({ filePath: commandFilePath });
-    if (!parsed.ok) {
-      throw toRunAgentError('COMMAND_INVALID');
+    if (matchingRoot) {
+      logTransitiveContractRead({
+        consumer: 'agents.service.startAgentCommand',
+        sourceId: matchingRoot.containerPath,
+        repo: matchingRoot,
+      });
     }
 
     const existingConversation = await getConversation(conversationId);
@@ -877,6 +1119,33 @@ export async function startAgentCommand(params: {
       (existingConversation.agentName ?? '') !== params.agentName
     ) {
       throw toRunAgentError('AGENT_MISMATCH');
+    }
+
+    const effectiveWorkingFolder = await resolveConversationWorkingFolderForRun(
+      {
+        conversationId,
+        conversation: existingConversation,
+        requestedWorkingFolder: params.working_folder,
+        surface: 'agent_command_run',
+        knownRepositoryPathsState:
+          ingestRootsResult.knownRepositoryPathsState,
+      },
+    );
+
+    const resolution = await resolveDirectCommandSelection({
+      agentName: agent.name,
+      agentHome: agent.home,
+      commandName,
+      workingRepositoryPath: effectiveWorkingFolder,
+      sourceId,
+      repos: ingestRoots,
+    });
+
+    const parsed = await loadAgentCommandFile({
+      filePath: resolution.commandFilePath,
+    });
+    if (!parsed.ok) {
+      throw toRunAgentError('COMMAND_INVALID');
     }
 
     const { modelId: configuredModelId } =
@@ -904,10 +1173,19 @@ export async function startAgentCommand(params: {
         modelId,
         title,
         source: params.source,
+        workingFolder: effectiveWorkingFolder,
       });
+      if (effectiveWorkingFolder) {
+        appendWorkingFolderDecisionLog({
+          conversationId,
+          recordType: 'agent',
+          surface: 'agent_command_run',
+          action: 'save',
+          decisionReason: 'request_value_persisted_on_create',
+          workingFolder: effectiveWorkingFolder,
+        });
+      }
     }
-
-    await resolveWorkingFolderWorkingDirectory(params.working_folder);
 
     backgroundScheduled = true;
 
@@ -916,16 +1194,17 @@ export async function startAgentCommand(params: {
         await runAgentCommandRunner({
           agentName: params.agentName,
           agentHome: agent.home,
-          commandsRoot: commandsDir,
-          commandFilePath,
+          commandsRoot: resolution.commandsRoot,
+          commandFilePath: resolution.commandFilePath,
           commandName,
           startStep,
           conversationId,
-          sourceId,
-          working_folder: params.working_folder,
+          sourceId: resolution.selectedRepositoryPath,
+          working_folder: effectiveWorkingFolder,
           signal: undefined,
           source: params.source,
           initialModelId: modelId,
+          lookupSummary: resolution.lookupSummary,
           onPrestartFailure: async (failure) => {
             await emitFailedAgentCommandStep({
               conversationId,
@@ -1024,82 +1303,76 @@ export async function runAgentCommand(params: {
     },
   });
 
-  let commandsRoot: string | undefined;
-  let commandFilePath: string | undefined;
-
-  if (sourceId) {
-    const ingestRoots = await agentServiceDeps
-      .listIngestedRepositories()
-      .then((result) => result.repos)
-      .catch(() => null);
-    const matchingRoot = ingestRoots?.find(
-      (repo) => repo.containerPath === sourceId,
-    );
-    if (!matchingRoot) {
-      throw toRunAgentError('COMMAND_NOT_FOUND');
-    }
+  const ingestRootsResult = await agentServiceDeps
+    .listIngestedRepositories()
+    .then((result) => ({
+      repos: result.repos,
+      knownRepositoryPathsState: knownRepositoryPathsAvailable(
+        result.repos.map((repo) => repo.containerPath),
+      ),
+    }))
+    .catch((error) => ({
+      repos: [] as RepoEntry[],
+      knownRepositoryPathsState: knownRepositoryPathsUnavailable(error),
+    }));
+  const ingestRoots = ingestRootsResult.repos;
+  const matchingRoot = sourceId
+    ? ingestRoots.find((repo) => repo.containerPath === sourceId)
+    : undefined;
+  if (sourceId && !matchingRoot) {
+    throw toRunAgentError('COMMAND_NOT_FOUND');
+  }
+  if (matchingRoot) {
     logTransitiveContractRead({
       consumer: 'agents.service.runAgentCommand',
-      sourceId,
+      sourceId: matchingRoot.containerPath,
       repo: matchingRoot,
     });
-
-    commandsRoot = path.join(
-      matchingRoot.containerPath,
-      'codex_agents',
-      agent.name,
-      'commands',
-    );
-    const resolved = path.resolve(commandsRoot, `${params.commandName}.json`);
-    const relativePath = path.relative(commandsRoot, resolved);
-    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-      throw toRunAgentError('COMMAND_INVALID');
-    }
-    commandFilePath = resolved;
   }
-
-  append({
-    level: 'info',
-    message: 'DEV-0000034:T2:command_run_resolved',
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: {
-      agentName: params.agentName,
-      commandName: params.commandName,
-      sourceId: sourceId ?? 'local',
-      commandPath:
-        commandFilePath ??
-        path.join(agent.home, 'commands', `${params.commandName}.json`),
-    },
+  const existingConversation = await getConversation(conversationId);
+  const effectiveWorkingFolder = await resolveConversationWorkingFolderForRun({
+    conversationId,
+    conversation: existingConversation,
+    requestedWorkingFolder: params.working_folder,
+    surface: 'agent_command_run',
+    knownRepositoryPathsState: ingestRootsResult.knownRepositoryPathsState,
   });
 
-  const resolvedCommandFilePath =
-    commandFilePath ??
-    path.join(agent.home, 'commands', `${params.commandName}.json`);
+  const resolution = await resolveDirectCommandSelection({
+    agentName: agent.name,
+    agentHome: agent.home,
+    commandName: params.commandName.trim(),
+    workingRepositoryPath: effectiveWorkingFolder,
+    sourceId,
+    repos: ingestRoots,
+  });
+
   const { initialModelId } = await prepareDirectCommandBootstrap({
     agentName: params.agentName,
     commandName: params.commandName.trim(),
     agentHome: agent.home,
     configPath: agent.configPath,
     conversationId,
-    commandFilePath: resolvedCommandFilePath,
+    commandFilePath: resolution.commandFilePath,
     startStep,
     source: params.source,
+    workingFolder: effectiveWorkingFolder,
   });
 
   return await runAgentCommandRunner({
     agentName: params.agentName,
     agentHome: agent.home,
-    commandsRoot,
-    commandFilePath,
+    commandsRoot: resolution.commandsRoot,
+    commandFilePath: resolution.commandFilePath,
     commandName: params.commandName,
     startStep,
     conversationId,
-    sourceId,
-    working_folder: params.working_folder,
+    sourceId: resolution.selectedRepositoryPath,
+    working_folder: effectiveWorkingFolder,
     signal: params.signal,
     source: params.source,
     initialModelId,
+    lookupSummary: resolution.lookupSummary,
     runAgentInstructionUnlocked: (runParams) =>
       runAgentInstructionUnlocked({
         ...runParams,
@@ -1115,6 +1388,7 @@ export async function runAgentInstructionUnlocked(params: {
   conversationId: string;
   mustExist?: boolean;
   command?: TurnCommandMetadata;
+  runtime?: TurnRuntimeMetadata;
   signal?: AbortSignal;
   source: 'REST' | 'MCP';
   inflightId?: string;
@@ -1420,6 +1694,7 @@ export async function runAgentInstructionUnlocked(params: {
           signal: getInflight(conversationId)?.abortController.signal,
           source: params.source,
           ...(params.command ? { command: params.command } : {}),
+          ...(params.runtime ? { runtime: params.runtime } : {}),
         },
         conversationId,
         modelId,

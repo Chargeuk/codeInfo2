@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { query, resetStore } from '../../logStore.js';
 import { runOpenAiWithRetry } from '../../ingest/providers/openaiRetry.js';
+import { query, resetStore } from '../../logStore.js';
 
 test.beforeEach(() => {
   resetStore();

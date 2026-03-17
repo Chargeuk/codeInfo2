@@ -13,6 +13,8 @@ export type FlowRunErrorCode =
   | 'CODEX_UNAVAILABLE'
   | 'WORKING_FOLDER_INVALID'
   | 'WORKING_FOLDER_NOT_FOUND'
+  | 'WORKING_FOLDER_UNAVAILABLE'
+  | 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
   | 'AGENT_NOT_FOUND'
   | 'AGENT_MISMATCH'
   | 'COMMAND_INVALID'
@@ -22,6 +24,7 @@ export type FlowRunErrorCode =
 export type FlowRunError = {
   code: FlowRunErrorCode;
   reason?: string;
+  causeCode?: string;
 };
 
 export type FlowRunStartParams = {
@@ -53,6 +56,7 @@ export type FlowRunStartResult = {
 export type FlowAgentState = {
   conversationId: string;
   threadId?: string;
+  workingFolder?: string;
 };
 
 export type FlowChatFactory = (

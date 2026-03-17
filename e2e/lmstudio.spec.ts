@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
 const apiBase = process.env.E2E_API_URL ?? 'http://localhost:5010';
 const lmBaseUrl =
-  process.env.LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234';
 
 test('LM Studio models render', async ({ page }) => {
   let statusJson: LmStudioStatusResponse;

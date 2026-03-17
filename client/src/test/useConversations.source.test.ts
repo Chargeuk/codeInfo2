@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { useConversations } from '../hooks/useConversations';
 import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
@@ -84,5 +84,60 @@ describe('useConversations source metadata', () => {
     const firstUrl =
       conversationCall?.[0]?.toString?.() ?? String(conversationCall?.[0]);
     expect(firstUrl).toContain('flowName=__none__');
+  });
+
+  it('applies websocket upserts that restore flags.workingFolder', async () => {
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => expect(result.current.conversations.length).toBe(2));
+
+    act(() => {
+      result.current.applyWsUpsert({
+        conversationId: 'c1',
+        title: 'Rest convo',
+        provider: 'lmstudio',
+        model: 'llama',
+        lastMessageAt: '2025-01-03T00:00:00.000Z',
+        flags: { workingFolder: '/repos/demo' },
+      });
+    });
+
+    const updated = result.current.conversations.find(
+      (item) => item.conversationId === 'c1',
+    );
+    expect(result.current.readWorkingFolder(updated)).toBe('/repos/demo');
+  });
+
+  it('applies websocket upserts that clear flags.workingFolder', async () => {
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => expect(result.current.conversations.length).toBe(2));
+
+    act(() => {
+      result.current.applyWsUpsert({
+        conversationId: 'c1',
+        title: 'Rest convo',
+        provider: 'lmstudio',
+        model: 'llama',
+        lastMessageAt: '2025-01-03T00:00:00.000Z',
+        flags: { workingFolder: '/repos/demo' },
+      });
+    });
+
+    act(() => {
+      result.current.applyWsUpsert({
+        conversationId: 'c1',
+        title: 'Rest convo',
+        provider: 'lmstudio',
+        model: 'llama',
+        lastMessageAt: '2025-01-04T00:00:00.000Z',
+        flags: {},
+      });
+    });
+
+    const updated = result.current.conversations.find(
+      (item) => item.conversationId === 'c1',
+    );
+    expect(result.current.readWorkingFolder(updated)).toBeUndefined();
   });
 });

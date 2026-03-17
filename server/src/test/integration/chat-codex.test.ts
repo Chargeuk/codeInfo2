@@ -14,16 +14,16 @@ import type {
 import express from 'express';
 import request from 'supertest';
 import pkg from '../../../package.json' with { type: 'json' };
-import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
-import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
 import {
   getMemoryTurns,
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
+import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
-import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
 import { createChatRouter } from '../../routes/chat.js';
+import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
 import { attachWs } from '../../ws/server.js';
 import {
   closeWs,

@@ -1105,7 +1105,12 @@ export function useChatStream(
   );
 
   const send = useCallback(
-    async (text: string) => {
+    async (
+      text: string,
+      options?: {
+        workingFolder?: string;
+      },
+    ) => {
       const hasNonWhitespaceContent = text.trim().length > 0;
       logWithChannel('info', 'DEV-0000035:T9:chat_raw_send_evaluated', {
         source: 'useChatStream',
@@ -1361,6 +1366,9 @@ export function useChatStream(
             conversationId: currentConversationId,
             inflightId: nextInflightId,
             message: text,
+            ...(options?.workingFolder?.trim()
+              ? { working_folder: options.workingFolder.trim() }
+              : {}),
             ...codexPayload,
           }),
         });

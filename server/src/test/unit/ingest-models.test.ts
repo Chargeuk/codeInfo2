@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import type { LMStudioClient } from '@lmstudio/sdk';
 import test from 'node:test';
+import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
 import type { LockedEmbeddingModel } from '../../ingest/chromaClient.js';
@@ -53,25 +53,25 @@ function buildApp({
   return app;
 }
 
-const ORIGINAL_BASE_URL = process.env.LMSTUDIO_BASE_URL;
-const ORIGINAL_OPENAI_KEY = process.env.OPENAI_EMBEDDING_KEY;
+const ORIGINAL_BASE_URL = process.env.CODEINFO_LMSTUDIO_BASE_URL;
+const ORIGINAL_OPENAI_KEY = process.env.CODEINFO_OPENAI_EMBEDDING_KEY;
 
 test.beforeEach(() => {
-  process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
-  process.env.OPENAI_EMBEDDING_KEY = 'sk-test';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';
+  process.env.CODEINFO_OPENAI_EMBEDDING_KEY = 'sk-test';
 });
 
 test.afterEach(() => {
   if (ORIGINAL_BASE_URL === undefined) {
-    delete process.env.LMSTUDIO_BASE_URL;
+    delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
   } else {
-    process.env.LMSTUDIO_BASE_URL = ORIGINAL_BASE_URL;
+    process.env.CODEINFO_LMSTUDIO_BASE_URL = ORIGINAL_BASE_URL;
   }
 
   if (ORIGINAL_OPENAI_KEY === undefined) {
-    delete process.env.OPENAI_EMBEDDING_KEY;
+    delete process.env.CODEINFO_OPENAI_EMBEDDING_KEY;
   } else {
-    process.env.OPENAI_EMBEDDING_KEY = ORIGINAL_OPENAI_KEY;
+    process.env.CODEINFO_OPENAI_EMBEDDING_KEY = ORIGINAL_OPENAI_KEY;
   }
 });
 
@@ -106,7 +106,7 @@ test('lock resolver returns canonical lock envelope and alias parity', async () 
 });
 
 test('missing key maps openai to disabled and does not require OpenAI list', async () => {
-  delete process.env.OPENAI_EMBEDDING_KEY;
+  delete process.env.CODEINFO_OPENAI_EMBEDDING_KEY;
   const response = await request(
     buildApp({
       lock: null,
@@ -130,7 +130,7 @@ test('missing key maps openai to disabled and does not require OpenAI list', asy
 });
 
 test('blank key maps openai to disabled', async () => {
-  process.env.OPENAI_EMBEDDING_KEY = '   ';
+  process.env.CODEINFO_OPENAI_EMBEDDING_KEY = '   ';
   const response = await request(
     buildApp({
       lock: null,
@@ -255,8 +255,8 @@ test('OpenAI unavailable failure maps to unavailable warning', async () => {
   );
 });
 
-test('invalid LMSTUDIO_BASE_URL yields warning envelope and preserves OpenAI options', async () => {
-  process.env.LMSTUDIO_BASE_URL = 'not-a-url';
+test('invalid CODEINFO_LMSTUDIO_BASE_URL yields warning envelope and preserves OpenAI options', async () => {
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'not-a-url';
   const response = await request(
     buildApp({
       lock: null,

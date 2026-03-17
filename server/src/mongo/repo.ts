@@ -24,13 +24,17 @@ import {
   Turn,
   TurnCommandMetadata,
   TurnRole,
-  TurnStatus,
   TurnSource,
+  TurnStatus,
+  TurnRuntimeMetadata,
   TurnTimingMetadata,
   TurnUsageMetadata,
 } from './turn.js';
 
 const repoReadyTimestamp = new Date().toISOString();
+export const DEV_0000048_T4_WORKING_FOLDER_STATE_STORED =
+  'DEV_0000048_T4_WORKING_FOLDER_STATE_STORED';
+
 append({
   level: 'info',
   message: '0000020 ingest_files repo helpers ready',
@@ -75,6 +79,11 @@ export interface UpdateConversationMetaInput {
   lastMessageAt?: Date;
 }
 
+export interface UpdateConversationWorkingFolderInput {
+  conversationId: string;
+  workingFolder?: string | null;
+}
+
 export interface AppendTurnInput {
   conversationId: string;
   role: TurnRole;
@@ -87,6 +96,7 @@ export interface AppendTurnInput {
   command?: TurnCommandMetadata;
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
+  runtime?: TurnRuntimeMetadata;
   createdAt?: Date;
 }
 
@@ -185,6 +195,39 @@ export async function updateConversationFlowState({
   return updated;
 }
 
+export async function updateConversationWorkingFolder({
+  conversationId,
+  workingFolder,
+}: UpdateConversationWorkingFolderInput): Promise<Conversation | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const trimmedWorkingFolder = workingFolder?.trim();
+  const update = trimmedWorkingFolder
+    ? { $set: { 'flags.workingFolder': trimmedWorkingFolder } }
+    : { $unset: { 'flags.workingFolder': 1 } };
+
+  const updated = await ConversationModel.findByIdAndUpdate(
+    conversationId,
+    update,
+    { new: true },
+  ).exec();
+  if (updated) {
+    append({
+      level: 'info',
+      message: DEV_0000048_T4_WORKING_FOLDER_STATE_STORED,
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        conversationId,
+        persistenceMode: 'mongo',
+        action: trimmedWorkingFolder ? 'save' : 'clear',
+      },
+    });
+    emitConversationUpsert(toConversationEvent(updated));
+  }
+  return updated;
+}
+
 export async function archiveConversation(
   conversationId: string,
 ): Promise<Conversation | null> {
@@ -223,6 +266,7 @@ export async function appendTurn(input: AppendTurnInput): Promise<Turn> {
     command: input.command,
     usage: input.usage,
     timing: input.timing,
+    runtime: input.runtime,
     createdAt,
   });
 
@@ -364,6 +408,7 @@ export interface TurnSummary {
   command?: TurnCommandMetadata;
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
+  runtime?: TurnRuntimeMetadata;
   createdAt: Date;
 }
 
@@ -396,6 +441,7 @@ export async function listTurns(
     command: doc.command,
     usage: doc.usage,
     timing: doc.timing,
+    runtime: doc.runtime,
     createdAt: doc.createdAt,
   }));
 
@@ -422,6 +468,7 @@ export async function listAllTurns(
     command: doc.command,
     usage: doc.usage,
     timing: doc.timing,
+    runtime: doc.runtime,
     createdAt: doc.createdAt,
   }));
 

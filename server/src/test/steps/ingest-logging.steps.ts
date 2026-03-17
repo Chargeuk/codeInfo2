@@ -41,7 +41,7 @@ let tempDir: string | null = null;
 setDefaultTimeout(20000);
 
 async function startTestServer() {
-  process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
 
   const app = express();
   app.use(cors());
@@ -56,7 +56,7 @@ async function startTestServer() {
   setIngestDeps({
     lmClientFactory: () =>
       new MockLMStudioClient() as unknown as LMStudioClient,
-    baseUrl: process.env.LMSTUDIO_BASE_URL ?? '',
+    baseUrl: process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
   });
 
   app.use(

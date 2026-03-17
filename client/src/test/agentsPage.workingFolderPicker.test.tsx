@@ -1,5 +1,11 @@
 import { jest } from '@jest/globals';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
@@ -60,6 +66,7 @@ function mockAgentsFetch(options?: {
     workingFolder: string | undefined,
     init?: RequestInit,
   ) => Response | Promise<Response>;
+  conversations?: unknown;
 }) {
   mockFetch.mockImplementation(
     asFetchImplementation(
@@ -78,8 +85,35 @@ function mockAgentsFetch(options?: {
           return okJson({ commands: [] });
         }
 
+        if (
+          target.includes('/conversations/') &&
+          target.includes('/working-folder') &&
+          init?.method === 'POST'
+        ) {
+          const body =
+            typeof init.body === 'string'
+              ? (JSON.parse(init.body) as Record<string, unknown>)
+              : {};
+          const workingFolder =
+            typeof body.workingFolder === 'string'
+              ? body.workingFolder
+              : undefined;
+          return okJson({
+            status: 'ok',
+            conversation: {
+              conversationId: 'agent-conv-1',
+              title: 'Agent conversation',
+              provider: 'codex',
+              model: 'gpt-5.2-codex',
+              archived: false,
+              agentName: 'coding_agent',
+              flags: workingFolder ? { workingFolder } : {},
+            },
+          });
+        }
+
         if (target.includes('/conversations')) {
-          return okJson({ items: [] });
+          return okJson({ items: options?.conversations ?? [] });
         }
 
         if (target.includes('/ingest/dirs')) {
@@ -136,6 +170,29 @@ function getRunCalls() {
       '/agents/coding_agent/run',
     ),
   );
+}
+
+async function selectFirstConversation() {
+  const rows = await screen.findAllByTestId('conversation-row');
+  await userEvent.click(rows[0]);
+}
+
+function emitConversationUpsert(conversation: Record<string, unknown>) {
+  const wsRegistry = (
+    globalThis as unknown as {
+      __wsMock?: { last: () => { _receive: (data: unknown) => void } | null };
+    }
+  ).__wsMock;
+  const ws = wsRegistry?.last();
+  if (!ws) throw new Error('No WebSocket instance created');
+  act(() => {
+    ws._receive({
+      protocolVersion: 'v1',
+      type: 'conversation_upsert',
+      seq: 1,
+      conversation,
+    });
+  });
 }
 
 describe('Agents page - working folder picker', () => {
@@ -436,5 +493,243 @@ describe('Agents page - working folder picker', () => {
     await user.tab();
 
     expect(getPromptDiscoveryCalls()).toHaveLength(0);
+  });
+
+  it('restores the saved working folder from conversation state', async () => {
+    mockAgentsFetch({
+      conversations: [
+        {
+          conversationId: 'agent-conv-1',
+          title: 'Agent conversation',
+          provider: 'codex',
+          model: 'gpt-5.2-codex',
+          lastMessageAt: '2025-01-01T00:00:00.000Z',
+          archived: false,
+          agentName: 'coding_agent',
+          flags: { workingFolder: '/repos/agent' },
+        },
+      ],
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForAgentSelection();
+    await selectFirstConversation();
+
+    expect(await screen.findByTestId('agent-working-folder')).toHaveValue(
+      '/repos/agent',
+    );
+  });
+
+  it('shows the normal empty state when no saved working folder exists', async () => {
+    mockAgentsFetch({
+      conversations: [
+        {
+          conversationId: 'agent-conv-1',
+          title: 'Agent conversation',
+          provider: 'codex',
+          model: 'gpt-5.2-codex',
+          lastMessageAt: '2025-01-01T00:00:00.000Z',
+          archived: false,
+          agentName: 'coding_agent',
+          flags: {},
+        },
+      ],
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForAgentSelection();
+    await selectFirstConversation();
+
+    expect(await screen.findByTestId('agent-working-folder')).toHaveValue('');
+  });
+
+  it('saves idle edits through the shared conversation helper', async () => {
+    const user = userEvent.setup();
+    mockAgentsFetch({
+      conversations: [
+        {
+          conversationId: 'agent-conv-1',
+          title: 'Agent conversation',
+          provider: 'codex',
+          model: 'gpt-5.2-codex',
+          lastMessageAt: '2025-01-01T00:00:00.000Z',
+          archived: false,
+          agentName: 'coding_agent',
+          flags: {},
+        },
+      ],
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForAgentSelection();
+    await selectFirstConversation();
+
+    const workingFolder = await screen.findByTestId('agent-working-folder');
+    await user.clear(workingFolder);
+    await user.type(workingFolder, '/repos/edited');
+    fireEvent.blur(workingFolder);
+
+    await waitFor(() => {
+      const updateCall = mockFetch.mock.calls.find(([url, init]) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        return (
+          href.includes('/conversations/agent-conv-1/working-folder') &&
+          init?.method === 'POST'
+        );
+      });
+      expect(updateCall).toBeDefined();
+      const body =
+        typeof updateCall?.[1]?.body === 'string'
+          ? JSON.parse(updateCall[1].body)
+          : null;
+      expect(body).toEqual({ workingFolder: '/repos/edited' });
+    });
+  });
+
+  it('locks the picker while an agent run is active', async () => {
+    const user = userEvent.setup();
+    let resolveRun: ((value: Response) => void) | undefined;
+    const runPromise = new Promise<Response>((resolve) => {
+      resolveRun = resolve;
+    });
+
+    mockAgentsFetch({
+      conversations: [
+        {
+          conversationId: 'agent-conv-1',
+          title: 'Agent conversation',
+          provider: 'codex',
+          model: 'gpt-5.2-codex',
+          lastMessageAt: '2025-01-01T00:00:00.000Z',
+          archived: false,
+          agentName: 'coding_agent',
+          flags: { workingFolder: '/repos/agent' },
+        },
+      ],
+      runResponse: () => runPromise as unknown as Response,
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForAgentSelection();
+    await selectFirstConversation();
+
+    const input = await screen.findByTestId('agent-input');
+    await user.type(input, 'Run now');
+    await user.click(screen.getByTestId('agent-send'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('agent-working-folder')).toBeDisabled(),
+    );
+
+    resolveRun?.(
+      mockJsonResponse(
+        {
+          status: 'started',
+          agentName: 'coding_agent',
+          conversationId: 'agent-conv-1',
+          inflightId: 'i1',
+          modelId: 'gpt-5.2-codex',
+        },
+        { status: 202 },
+      ),
+    );
+  });
+
+  it('returns to the empty state after the server clears an invalid saved path', async () => {
+    mockAgentsFetch({
+      conversations: [
+        {
+          conversationId: 'agent-conv-1',
+          title: 'Agent conversation',
+          provider: 'codex',
+          model: 'gpt-5.2-codex',
+          lastMessageAt: '2025-01-01T00:00:00.000Z',
+          archived: false,
+          agentName: 'coding_agent',
+          flags: { workingFolder: '/repos/agent' },
+        },
+      ],
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForAgentSelection();
+    await selectFirstConversation();
+    expect(await screen.findByTestId('agent-working-folder')).toHaveValue(
+      '/repos/agent',
+    );
+
+    emitConversationUpsert({
+      conversationId: 'agent-conv-1',
+      title: 'Agent conversation',
+      provider: 'codex',
+      model: 'gpt-5.2-codex',
+      source: 'REST',
+      lastMessageAt: '2025-01-01T00:00:01.000Z',
+      archived: false,
+      agentName: 'coding_agent',
+      flags: {},
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('agent-working-folder')).toHaveValue(''),
+    );
+  });
+
+  it('clears through the shared conversation helper and returns to the empty state', async () => {
+    const user = userEvent.setup();
+    mockAgentsFetch({
+      conversations: [
+        {
+          conversationId: 'agent-conv-1',
+          title: 'Agent conversation',
+          provider: 'codex',
+          model: 'gpt-5.2-codex',
+          lastMessageAt: '2025-01-01T00:00:00.000Z',
+          archived: false,
+          agentName: 'coding_agent',
+          flags: { workingFolder: '/repos/agent' },
+        },
+      ],
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitForAgentSelection();
+    await selectFirstConversation();
+
+    const workingFolder = await screen.findByTestId('agent-working-folder');
+    await user.clear(workingFolder);
+    fireEvent.blur(workingFolder);
+
+    await waitFor(() => {
+      const updateCall = mockFetch.mock.calls.find(([url, init]) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        return (
+          href.includes('/conversations/agent-conv-1/working-folder') &&
+          init?.method === 'POST'
+        );
+      });
+      expect(updateCall).toBeDefined();
+      const body =
+        typeof updateCall?.[1]?.body === 'string'
+          ? JSON.parse(updateCall[1].body)
+          : null;
+      expect(body).toEqual({ workingFolder: null });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('agent-working-folder')).toHaveValue(''),
+    );
   });
 });

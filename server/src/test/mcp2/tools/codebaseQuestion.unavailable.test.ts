@@ -17,9 +17,9 @@ async function postJson(port: number, body: unknown) {
 
 test('codebase_question returns CODE_INFO_LLM_UNAVAILABLE when Codex is missing', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
-  const originalLmBaseUrl = process.env.LMSTUDIO_BASE_URL;
+  const originalLmBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'false';
-  process.env.LMSTUDIO_BASE_URL = 'invalid-url';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'invalid-url';
   resetStore();
 
   const server = http.createServer(handleRpc);
@@ -60,9 +60,9 @@ test('codebase_question returns CODE_INFO_LLM_UNAVAILABLE when Codex is missing'
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
     if (originalLmBaseUrl === undefined) {
-      delete process.env.LMSTUDIO_BASE_URL;
+      delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
     } else {
-      process.env.LMSTUDIO_BASE_URL = originalLmBaseUrl;
+      process.env.CODEINFO_LMSTUDIO_BASE_URL = originalLmBaseUrl;
     }
     server.close();
   }

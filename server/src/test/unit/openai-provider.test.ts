@@ -4,6 +4,8 @@ import {
   OPENAI_REQUEST_TIMEOUT_MS,
   OpenAiEmbeddingError,
   createOpenAiEmbeddingProvider,
+  disposeOpenAiTokenizer,
+  setOpenAiTokenizerFactoryForTests,
 } from '../../ingest/providers/index.js';
 import { query, resetStore } from '../../logStore.js';
 
@@ -41,6 +43,11 @@ function createClientDouble(options: {
     },
   };
 }
+
+test.afterEach(() => {
+  disposeOpenAiTokenizer();
+  setOpenAiTokenizerFactoryForTests();
+});
 
 test('embeddings call uses timeout 30000 and SDK maxRetries=0', async () => {
   const double = createClientDouble({});
@@ -167,4 +174,50 @@ test('rejects a mixed batch when one OpenAI input is blank', async () => {
   );
 
   assert.equal(double.calls.length, 0);
+});
+
+test('provider count path uses the shared tokenizer-backed helper', async () => {
+  const calls: string[] = [];
+  setOpenAiTokenizerFactoryForTests(() => ({
+    encode(value: string) {
+      calls.push(value);
+      return new Uint32Array(value.length + 4);
+    },
+    free() {},
+  }));
+
+  const provider = createOpenAiEmbeddingProvider({
+    apiKey: 'sk-test',
+    clientFactory: () => createClientDouble({}).client,
+  });
+
+  const model = await provider.getModel('text-embedding-3-small');
+  const count = await model.countTokens('hello');
+
+  assert.equal(count, 9);
+  assert.deepEqual(calls, ['hello']);
+});
+
+test('tokenizer initialization failure produces a clear ingest error without heuristic fallback', async () => {
+  setOpenAiTokenizerFactoryForTests(() => {
+    throw new Error('wasm bootstrap failed');
+  });
+
+  const provider = createOpenAiEmbeddingProvider({
+    apiKey: 'sk-test',
+    clientFactory: () => createClientDouble({}).client,
+  });
+
+  const model = await provider.getModel('text-embedding-3-small');
+
+  await assert.rejects(
+    () => model.countTokens('hello'),
+    (error: unknown) => {
+      assert.ok(error instanceof OpenAiEmbeddingError);
+      assert.equal(error.code, 'OPENAI_TOKENIZER_FAILED');
+      assert.match(error.message, /initialization failed/i);
+      assert.doesNotMatch(error.message, /heuristic|whitespace/i);
+      return true;
+    },
+  );
 });

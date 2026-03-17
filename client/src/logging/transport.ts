@@ -1,5 +1,9 @@
 import { LogEntry } from '@codeinfo2/common';
-import { getApiBaseUrl } from '../api/baseUrl';
+import {
+  getApiBaseUrl,
+  getLogForwardEnabled,
+  getLogMaxBytes,
+} from '../config/runtimeConfig';
 
 const queue: LogEntry[] = [];
 const MAX_BATCH = 10;
@@ -7,23 +11,17 @@ const BACKOFF = [500, 1000, 2000, 4000];
 let backoffIndex = 0;
 let inFlight = false;
 
-type Env = { [key: string]: string | undefined };
-function getEnv(): Env {
-  // import.meta is available in ESM; env may be undefined outside Vite so we guard it.
-  const metaEnv = ((import.meta as unknown as { env?: Env }).env ?? {}) as Env;
-  const processEnv =
-    typeof process !== 'undefined' ? (process.env as unknown as Env) : {};
-  return { ...metaEnv, ...processEnv };
-}
-
 export async function flushQueue() {
   if (inFlight || queue.length === 0) return;
-  const env = getEnv();
+  const env =
+    typeof process !== 'undefined'
+      ? ((process.env as unknown as { MODE?: string }) ?? {})
+      : {};
   if (env.MODE === 'test') {
     queue.length = 0;
     return;
   }
-  if (env.VITE_LOG_FORWARD_ENABLED === 'false') {
+  if (!getLogForwardEnabled()) {
     queue.length = 0;
     return;
   }
@@ -52,8 +50,7 @@ export async function flushQueue() {
 }
 
 export function sendLogs(entries: LogEntry[]) {
-  const env = getEnv();
-  const maxBytes = Number(env.VITE_LOG_MAX_BYTES || 32768);
+  const maxBytes = getLogMaxBytes();
   entries.forEach((e) => {
     if (JSON.stringify(e).length <= maxBytes) queue.push(e);
   });

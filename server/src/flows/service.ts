@@ -14,7 +14,6 @@ import {
   releaseConversationLock,
   tryAcquireConversationLock,
 } from '../agents/runLock.js';
-import { resolveWorkingFolderWorkingDirectory } from '../agents/service.js';
 import { isTransientReconnect } from '../agents/transientReconnect.js';
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { getChatInterface, UnsupportedProviderError } from '../chat/factory.js';
@@ -41,6 +40,7 @@ import {
   recordMemoryTurn,
   shouldUseMemoryPersistence,
   updateMemoryConversationMeta,
+  updateMemoryConversationWorkingFolder,
 } from '../chat/memoryPersistence.js';
 import { runReingestStepLifecycle } from '../chat/reingestStepLifecycle.js';
 import { buildReingestToolResult } from '../chat/reingestToolResult.js';
@@ -61,16 +61,27 @@ import {
   updateConversationMeta,
   updateConversationFlowState,
   updateConversationThreadId,
+  updateConversationWorkingFolder,
 } from '../mongo/repo.js';
 import type {
   TurnCommandMetadata,
   Turn,
+  TurnRuntimeMetadata,
   TurnStatus,
   TurnTimingMetadata,
   TurnUsageMetadata,
 } from '../mongo/turn.js';
 import { refreshCodexDetection } from '../providers/codexDetection.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
+import {
+  appendWorkingFolderDecisionLog,
+  getConversationRecordType,
+  knownRepositoryPathsAvailable,
+  knownRepositoryPathsUnavailable,
+  restoreSavedWorkingFolder,
+  resolveWorkingFolderWorkingDirectory,
+  validateRequestedWorkingFolder,
+} from '../workingFolders/state.js';
 import { publishUserTurn } from '../ws/server.js';
 
 import {
@@ -85,10 +96,18 @@ import {
 } from './flowSchema.js';
 import type { FlowResumeState } from './flowState.js';
 import {
-  compareSourceCandidates,
   normalizeSourceLabel,
   resolveMarkdownFileWithMetadata,
 } from './markdownFileResolver.js';
+import {
+  buildRepositoryCandidateLookupSummary,
+  buildRepositoryCandidateOrder,
+  DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
+  type RepositoryCandidateLookupSummary,
+  type RepositoryCandidateOrderEntry,
+  type RepositoryCandidateOrderResult,
+  type RepositoryCandidateOrderSlot,
+} from './repositoryCandidateOrder.js';
 import type {
   FlowAgentState,
   FlowChatFactory,
@@ -136,8 +155,16 @@ export function __resetFlowServiceDepsForTests() {
   Object.assign(flowServiceDeps, defaultFlowServiceDeps);
 }
 
-const toFlowRunError = (code: FlowRunErrorCode, reason?: string) =>
-  ({ code, reason }) satisfies FlowRunError;
+const toFlowRunError = (
+  code: FlowRunErrorCode,
+  reason?: string,
+  causeCode?: string,
+) =>
+  ({
+    code,
+    ...(reason ? { reason } : {}),
+    ...(causeCode ? { causeCode } : {}),
+  }) satisfies FlowRunError;
 
 const isFlowRunError = (error: unknown): error is FlowRunError =>
   Boolean(error) &&
@@ -243,12 +270,67 @@ async function getConversation(
     .exec()) as Conversation | null;
 }
 
+const persistConversationWorkingFolder = async (params: {
+  conversationId: string;
+  workingFolder?: string | null;
+}) => {
+  if (shouldUseMemoryPersistence()) {
+    updateMemoryConversationWorkingFolder(params);
+    return;
+  }
+  await updateConversationWorkingFolder(params);
+};
+
+const resolveConversationWorkingFolderForRun = async (params: {
+  conversationId: string;
+  conversation: Conversation | null;
+  requestedWorkingFolder?: string;
+  surface: 'flow_run';
+  knownRepositoryPathsState?: import('../workingFolders/state.js').KnownRepositoryPathsState;
+}): Promise<string | undefined> => {
+  if (params.requestedWorkingFolder) {
+    const validated = await validateRequestedWorkingFolder({
+      workingFolder: params.requestedWorkingFolder,
+      knownRepositoryPathsState: params.knownRepositoryPathsState,
+    });
+    if (params.conversation) {
+      await persistConversationWorkingFolder({
+        conversationId: params.conversationId,
+        workingFolder: validated,
+      });
+      appendWorkingFolderDecisionLog({
+        conversationId: params.conversationId,
+        recordType: getConversationRecordType(params.conversation),
+        surface: params.surface,
+        action: 'save',
+        decisionReason: 'request_value_persisted',
+        workingFolder: validated,
+      });
+    }
+    return validated;
+  }
+
+  if (!params.conversation) return undefined;
+  return await restoreSavedWorkingFolder({
+    conversation: params.conversation,
+    surface: params.surface,
+    clearPersistedWorkingFolder: async (conversationId) => {
+      await persistConversationWorkingFolder({
+        conversationId,
+        workingFolder: null,
+      });
+    },
+    knownRepositoryPathsState: params.knownRepositoryPathsState,
+  });
+};
+
 const ensureFlowConversation = async (params: {
   conversationId: string;
   flowName: string;
   modelId: string;
   customTitle?: string;
   source: 'REST' | 'MCP';
+  workingFolder?: string;
 }): Promise<void> => {
   const now = new Date();
   const title = buildFlowConversationTitle({
@@ -272,7 +354,9 @@ const ensureFlowConversation = async (params: {
       title,
       flowName: params.flowName,
       source: params.source,
-      flags: {},
+      flags: params.workingFolder
+        ? { workingFolder: params.workingFolder }
+        : {},
       lastMessageAt: now,
       archivedAt: null,
       createdAt: now,
@@ -304,7 +388,7 @@ const ensureFlowConversation = async (params: {
     title,
     flowName: params.flowName,
     source: params.source,
-    flags: {},
+    flags: params.workingFolder ? { workingFolder: params.workingFolder } : {},
     lastMessageAt: now,
   });
   if (params.customTitle) {
@@ -328,6 +412,7 @@ const ensureFlowAgentConversation = async (params: {
   modelId: string;
   customTitle?: string;
   source: 'REST' | 'MCP';
+  workingFolder?: string;
 }): Promise<void> => {
   const now = new Date();
   const title = buildFlowAgentConversationTitle({
@@ -337,7 +422,15 @@ const ensureFlowAgentConversation = async (params: {
   });
   if (shouldUseMemoryPersistence()) {
     const existing = memoryConversations.get(params.conversationId);
-    if (existing) return;
+    if (existing) {
+      if (params.workingFolder) {
+        updateMemoryConversationWorkingFolder({
+          conversationId: params.conversationId,
+          workingFolder: params.workingFolder,
+        });
+      }
+      return;
+    }
     memoryConversations.set(params.conversationId, {
       _id: params.conversationId,
       provider: 'codex',
@@ -345,7 +438,9 @@ const ensureFlowAgentConversation = async (params: {
       title,
       agentName: params.agentType,
       source: params.source,
-      flags: {},
+      flags: params.workingFolder
+        ? { workingFolder: params.workingFolder }
+        : {},
       lastMessageAt: now,
       archivedAt: null,
       createdAt: now,
@@ -368,7 +463,15 @@ const ensureFlowAgentConversation = async (params: {
   const existing = (await ConversationModel.findById(params.conversationId)
     .lean()
     .exec()) as Conversation | null;
-  if (existing) return;
+  if (existing) {
+    if (params.workingFolder) {
+      await updateConversationWorkingFolder({
+        conversationId: params.conversationId,
+        workingFolder: params.workingFolder,
+      });
+    }
+    return;
+  }
 
   await createConversation({
     conversationId: params.conversationId,
@@ -377,7 +480,7 @@ const ensureFlowAgentConversation = async (params: {
     title,
     agentName: params.agentType,
     source: params.source,
-    flags: {},
+    flags: params.workingFolder ? { workingFolder: params.workingFolder } : {},
     lastMessageAt: now,
   });
   if (params.customTitle) {
@@ -464,6 +567,7 @@ const ensureAgentState = async (params: {
   identifier: string;
   flowName: string;
   modelId: string;
+  workingFolder?: string;
   customTitle?: string;
   source: 'REST' | 'MCP';
 }): Promise<{ state: FlowAgentState; isNew: boolean }> => {
@@ -478,12 +582,15 @@ const ensureAgentState = async (params: {
       modelId: params.modelId,
       customTitle: params.customTitle,
       source: params.source,
+      workingFolder: params.workingFolder,
     });
+    existing.workingFolder = params.workingFolder;
     return { state: existing, isNew: false };
   }
 
   const state = {
     conversationId: crypto.randomUUID(),
+    ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
   } satisfies FlowAgentState;
   agentConversationState.set(key, state);
   await ensureFlowAgentConversation({
@@ -494,6 +601,7 @@ const ensureAgentState = async (params: {
     modelId: params.modelId,
     customTitle: params.customTitle,
     source: params.source,
+    workingFolder: params.workingFolder,
   });
   return { state, isNew: true };
 };
@@ -544,9 +652,11 @@ const hydrateFlowAgentState = (resumeState: FlowResumeState | null) => {
   Object.entries(resumeState.agentConversations).forEach(
     ([key, conversationId]) => {
       const threadId = resumeState.agentThreads[key];
+      const workingFolder = resumeState.agentWorkingFolders?.[key];
       agentConversationState.set(key, {
         conversationId,
         threadId,
+        ...(workingFolder ? { workingFolder } : {}),
       });
     },
   );
@@ -641,6 +751,7 @@ async function persistFlowTurn(params: {
   status: TurnStatus;
   toolCalls: Record<string, unknown> | null;
   command?: TurnCommandMetadata;
+  runtime?: TurnRuntimeMetadata;
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
   createdAt: Date;
@@ -656,6 +767,7 @@ async function persistFlowTurn(params: {
       toolCalls: params.toolCalls,
       status: params.status,
       command: params.command,
+      runtime: params.runtime,
       usage: params.usage,
       timing: params.timing,
       createdAt: params.createdAt,
@@ -677,6 +789,7 @@ async function persistFlowTurn(params: {
     toolCalls: params.toolCalls,
     status: params.status,
     command: params.command,
+    runtime: params.runtime,
     usage: params.usage,
     timing: params.timing,
     createdAt: params.createdAt,
@@ -755,6 +868,7 @@ const runFlowInstruction = async (params: {
   attempt?: number;
   onThreadId: (threadId: string) => void;
   command?: TurnCommandMetadata;
+  runtime?: TurnRuntimeMetadata;
   runToken?: string;
   cleanupInflightFn?: typeof cleanupInflight;
 }): Promise<FlowInstructionResult> => {
@@ -954,6 +1068,7 @@ const runFlowInstruction = async (params: {
       status: 'ok',
       toolCalls: null,
       command: params.command,
+      runtime: params.runtime,
       createdAt: userCreatedAt,
     });
 
@@ -968,6 +1083,7 @@ const runFlowInstruction = async (params: {
       status: result.status,
       toolCalls,
       command: params.command,
+      runtime: params.runtime,
       usage: result.usage,
       timing: result.timing,
       createdAt: assistantCreatedAt,
@@ -983,6 +1099,7 @@ const runFlowInstruction = async (params: {
       status: 'ok',
       toolCalls: null,
       command: params.command,
+      runtime: params.runtime,
       createdAt: userCreatedAt,
     });
     logAgentTurnPersisted({
@@ -1004,6 +1121,7 @@ const runFlowInstruction = async (params: {
       status: result.status,
       toolCalls,
       command: params.command,
+      runtime: params.runtime,
       usage: result.usage,
       timing: result.timing,
       createdAt: assistantCreatedAt,
@@ -1271,11 +1389,16 @@ type LoopFrame = {
 const buildFlowResumeState = (params: {
   stepPath: number[];
   loopStack: LoopFrame[];
+  workingFolder?: string;
 }): FlowResumeState => {
   const agentConversations: Record<string, string> = {};
+  const agentWorkingFolders: Record<string, string> = {};
   const agentThreads: Record<string, string> = {};
   agentConversationState.forEach((state, key) => {
     agentConversations[key] = state.conversationId;
+    if (state.workingFolder) {
+      agentWorkingFolders[key] = state.workingFolder;
+    }
     if (state.threadId) {
       agentThreads[key] = state.threadId;
     }
@@ -1287,7 +1410,11 @@ const buildFlowResumeState = (params: {
       loopStepPath: [...frame.loopStepPath],
       iteration: frame.iteration,
     })),
+    ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
     agentConversations,
+    ...(Object.keys(agentWorkingFolders).length > 0
+      ? { agentWorkingFolders }
+      : {}),
     agentThreads,
   };
 };
@@ -1296,10 +1423,12 @@ const persistFlowResumeState = async (params: {
   conversationId: string;
   stepPath: number[];
   loopStack: LoopFrame[];
+  workingFolder?: string;
 }) => {
   const flowState = buildFlowResumeState({
     stepPath: params.stepPath,
     loopStack: params.loopStack,
+    workingFolder: params.workingFolder,
   });
 
   if (shouldUseMemoryPersistence()) {
@@ -1653,7 +1782,8 @@ type LoadCommandResult =
       command: AgentCommandFile;
       sourceId: string;
       sourceLabel: string;
-      sourceRank: 'same_source' | 'codeinfo2' | 'other';
+      sourceRank: RepositoryCandidateOrderSlot;
+      lookupSummary: RepositoryCandidateLookupSummary;
     }
   | {
       ok: false;
@@ -1663,6 +1793,7 @@ type LoadCommandResult =
 
 type FlowCommandRepositoryContext = {
   flowName: string;
+  workingRepositoryPath?: string;
   flowSourceId?: string;
   flowSourceLabel?: string;
   codeInfo2Root: string;
@@ -1672,79 +1803,118 @@ type FlowCommandRepositoryContext = {
 type FlowCommandCandidate = {
   sourceId: string;
   sourceLabel: string;
-  rank: 'same_source' | 'codeinfo2' | 'other';
+  slot: RepositoryCandidateOrderSlot;
   agentHome: string;
 };
-
-const normalizeAsciiLower = (value: string) => value.toLowerCase();
 
 const buildFlowCommandCandidates = (params: {
   context: FlowCommandRepositoryContext;
   agentType: string;
-}): FlowCommandCandidate[] => {
-  const candidates: FlowCommandCandidate[] = [];
-  const seen = new Set<string>();
-  const addCandidate = (
-    sourceId: string,
-    sourceLabel: string,
-    rank: FlowCommandCandidate['rank'],
-  ) => {
-    const resolvedSourceId = path.resolve(sourceId);
-    const key = normalizeAsciiLower(resolvedSourceId);
-    if (seen.has(key)) return;
-    seen.add(key);
-    candidates.push({
-      sourceId: resolvedSourceId,
-      sourceLabel: normalizeSourceLabel({
-        sourceId: resolvedSourceId,
-        sourceLabel,
-      }),
-      rank,
-      agentHome: path.join(resolvedSourceId, 'codex_agents', params.agentType),
-    });
+}): {
+  orderedCandidates: RepositoryCandidateOrderResult;
+  candidates: FlowCommandCandidate[];
+} => {
+  const ownerRepositoryPath = params.context.flowSourceId?.trim()
+    ? params.context.flowSourceId
+    : params.context.codeInfo2Root;
+  const ownerRepositoryLabel = params.context.flowSourceId?.trim()
+    ? params.context.flowSourceLabel
+    : normalizeSourceLabel({ sourceId: params.context.codeInfo2Root });
+
+  const orderedCandidates = buildRepositoryCandidateOrder({
+    caller: 'flow-command',
+    workingRepositoryPath: params.context.workingRepositoryPath,
+    ownerRepositoryPath,
+    ownerRepositoryLabel,
+    codeInfo2Root: params.context.codeInfo2Root,
+    otherRepositoryRoots: params.context.repos,
+  });
+
+  return {
+    orderedCandidates,
+    candidates: orderedCandidates.candidates.map((candidate) => ({
+      sourceId: candidate.sourceId,
+      sourceLabel: candidate.sourceLabel,
+      slot: candidate.slot,
+      agentHome: path.join(
+        candidate.sourceId,
+        'codex_agents',
+        params.agentType,
+      ),
+    })),
   };
+};
 
-  const sameSourceId = params.context.flowSourceId
-    ? path.resolve(params.context.flowSourceId)
-    : path.resolve(params.context.codeInfo2Root);
-  addCandidate(
-    sameSourceId,
-    normalizeSourceLabel({
-      sourceId: sameSourceId,
-      sourceLabel: params.context.flowSourceLabel,
-    }),
-    'same_source',
-  );
+const mapRepositoryCandidateForLog = (
+  candidate: RepositoryCandidateOrderEntry,
+) => ({
+  sourceId: candidate.sourceId,
+  sourceLabel: candidate.sourceLabel,
+  slot: candidate.slot,
+});
 
-  addCandidate(
-    params.context.codeInfo2Root,
-    normalizeSourceLabel({ sourceId: params.context.codeInfo2Root }),
-    'codeinfo2',
-  );
+const appendFlowCommandResolutionLog = (params: {
+  level: 'info' | 'warn';
+  phase: 'validation' | 'execution';
+  flowName: string;
+  commandName: string;
+  agentType: string;
+  flowSourceId?: string;
+  decision: 'selected' | 'fail_fast' | 'not_found';
+  orderedCandidates: RepositoryCandidateOrderResult;
+  selectedCandidate?: FlowCommandCandidate;
+  failureReason?: string;
+  failureMessage?: string;
+}) => {
+  append({
+    level: params.level,
+    message: DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      caller: params.orderedCandidates.caller,
+      workingRepositoryAvailable:
+        params.orderedCandidates.workingRepositoryAvailable,
+      candidateRepositories: params.orderedCandidates.candidates.map(
+        mapRepositoryCandidateForLog,
+      ),
+    },
+  });
 
-  const sortedOthers = params.context.repos
-    .map((repo) => ({
-      sourceId: path.resolve(repo.sourceId),
-      sourceLabel: normalizeSourceLabel({
-        sourceId: repo.sourceId,
-        sourceLabel: repo.sourceLabel,
-      }),
-    }))
-    .filter((repo) => {
-      const repoId = normalizeAsciiLower(path.resolve(repo.sourceId));
-      return (
-        repoId !== normalizeAsciiLower(sameSourceId) &&
-        repoId !==
-          normalizeAsciiLower(path.resolve(params.context.codeInfo2Root))
-      );
-    })
-    .sort(compareSourceCandidates);
+  const lookupSummary = params.selectedCandidate
+    ? buildRepositoryCandidateLookupSummary({
+        orderedCandidates: params.orderedCandidates,
+        selectedRepositoryPath: params.selectedCandidate.sourceId,
+      })
+    : undefined;
 
-  for (const repo of sortedOthers) {
-    addCandidate(repo.sourceId, repo.sourceLabel, 'other');
-  }
-
-  return candidates;
+  append({
+    level: params.level,
+    message: DEV_0000040_T11_FLOW_RESOLUTION_ORDER,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      phase: params.phase,
+      flowName: params.flowName,
+      commandName: params.commandName,
+      agentType: params.agentType,
+      flowSourceId: params.flowSourceId ?? null,
+      decision: params.decision,
+      selectedRepositoryPath: lookupSummary?.selectedRepositoryPath ?? null,
+      selectedRepositoryLabel: params.selectedCandidate?.sourceLabel ?? null,
+      selectedRepositorySlot: params.selectedCandidate?.slot ?? null,
+      fallbackUsed: lookupSummary?.fallbackUsed ?? false,
+      workingRepositoryAvailable:
+        params.orderedCandidates.workingRepositoryAvailable,
+      candidateRepositories: params.orderedCandidates.candidates.map(
+        mapRepositoryCandidateForLog,
+      ),
+      ...(params.failureReason ? { failureReason: params.failureReason } : {}),
+      ...(params.failureMessage
+        ? { failureMessage: params.failureMessage }
+        : {}),
+    },
+  });
 };
 
 const loadCommandForAgent = async (params: {
@@ -1804,7 +1974,12 @@ const loadCommandForAgent = async (params: {
     command: parsed.command,
     sourceId: params.agentHome,
     sourceLabel: path.posix.basename(params.agentHome.replace(/\\/g, '/')),
-    sourceRank: 'other',
+    sourceRank: 'other_repository',
+    lookupSummary: {
+      selectedRepositoryPath: params.agentHome,
+      fallbackUsed: false,
+      workingRepositoryAvailable: false,
+    },
   };
 };
 
@@ -1813,7 +1988,7 @@ const resolveFlowCommandForAgent = async (params: {
   context: FlowCommandRepositoryContext;
   phase: 'validation' | 'execution';
 }): Promise<LoadCommandResult> => {
-  const candidates = buildFlowCommandCandidates({
+  const { orderedCandidates, candidates } = buildFlowCommandCandidates({
     context: params.context,
     agentType: params.step.agentType,
   });
@@ -1824,82 +1999,56 @@ const resolveFlowCommandForAgent = async (params: {
       commandName: params.step.commandName,
     });
     if (loaded.ok) {
-      append({
+      const lookupSummary = buildRepositoryCandidateLookupSummary({
+        orderedCandidates,
+        selectedRepositoryPath: candidate.sourceId,
+      });
+      appendFlowCommandResolutionLog({
         level: 'info',
-        message: DEV_0000040_T11_FLOW_RESOLUTION_ORDER,
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        context: {
-          phase: params.phase,
-          flowName: params.context.flowName,
-          commandName: params.step.commandName,
-          agentType: params.step.agentType,
-          flowSourceId: params.context.flowSourceId ?? null,
-          decision: 'selected',
-          selectedSourceId: candidate.sourceId,
-          selectedSourceLabel: candidate.sourceLabel,
-          selectedSourceRank: candidate.rank,
-          candidates: candidates.map((item) => ({
-            sourceId: item.sourceId,
-            sourceLabel: item.sourceLabel,
-            rank: item.rank,
-          })),
-        },
+        phase: params.phase,
+        flowName: params.context.flowName,
+        commandName: params.step.commandName,
+        agentType: params.step.agentType,
+        flowSourceId: params.context.flowSourceId,
+        decision: 'selected',
+        orderedCandidates,
+        selectedCandidate: candidate,
       });
       return {
         ...loaded,
         sourceId: candidate.sourceId,
         sourceLabel: candidate.sourceLabel,
-        sourceRank: candidate.rank,
+        sourceRank: candidate.slot,
+        lookupSummary,
       };
     }
     if (loaded.reason !== 'NOT_FOUND') {
-      append({
+      appendFlowCommandResolutionLog({
         level: 'warn',
-        message: DEV_0000040_T11_FLOW_RESOLUTION_ORDER,
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        context: {
-          phase: params.phase,
-          flowName: params.context.flowName,
-          commandName: params.step.commandName,
-          agentType: params.step.agentType,
-          flowSourceId: params.context.flowSourceId ?? null,
-          decision: 'fail_fast',
-          selectedSourceId: candidate.sourceId,
-          selectedSourceLabel: candidate.sourceLabel,
-          selectedSourceRank: candidate.rank,
-          failureReason: loaded.reason,
-          failureMessage: loaded.message,
-          candidates: candidates.map((item) => ({
-            sourceId: item.sourceId,
-            sourceLabel: item.sourceLabel,
-            rank: item.rank,
-          })),
-        },
+        phase: params.phase,
+        flowName: params.context.flowName,
+        commandName: params.step.commandName,
+        agentType: params.step.agentType,
+        flowSourceId: params.context.flowSourceId,
+        decision: 'fail_fast',
+        orderedCandidates,
+        selectedCandidate: candidate,
+        failureReason: loaded.reason,
+        failureMessage: loaded.message,
       });
       return loaded;
     }
   }
 
-  append({
+  appendFlowCommandResolutionLog({
     level: 'warn',
-    message: DEV_0000040_T11_FLOW_RESOLUTION_ORDER,
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: {
-      phase: params.phase,
-      flowName: params.context.flowName,
-      commandName: params.step.commandName,
-      agentType: params.step.agentType,
-      flowSourceId: params.context.flowSourceId ?? null,
-      decision: 'not_found',
-      candidates: candidates.map((item) => ({
-        sourceId: item.sourceId,
-        sourceLabel: item.sourceLabel,
-        rank: item.rank,
-      })),
-    },
+    phase: params.phase,
+    flowName: params.context.flowName,
+    commandName: params.step.commandName,
+    agentType: params.step.agentType,
+    flowSourceId: params.context.flowSourceId,
+    decision: 'not_found',
+    orderedCandidates,
   });
 
   return {
@@ -2024,6 +2173,7 @@ async function runFlowUnlocked(params: {
     deferFinal?: boolean;
     postProcess?: FlowInstructionPostProcess;
     command?: TurnCommandMetadata;
+    runtime?: TurnRuntimeMetadata;
   }): Promise<FlowInstructionResult> => {
     const agent = agentByName.get(instructionParams.agentType);
     if (!agent) {
@@ -2045,6 +2195,7 @@ async function runFlowUnlocked(params: {
       identifier: instructionParams.identifier,
       flowName: params.flowName,
       modelId,
+      workingFolder: params.repositoryContext.workingRepositoryPath,
       customTitle: params.customTitle,
       source: params.source,
     });
@@ -2053,6 +2204,7 @@ async function runFlowUnlocked(params: {
         conversationId: params.conversationId,
         stepPath: lastCompletedStepPath,
         loopStack,
+        workingFolder: params.repositoryContext.workingRepositoryPath,
       });
     }
 
@@ -2099,6 +2251,7 @@ async function runFlowUnlocked(params: {
         deferFinal: true,
         postProcess: instructionParams.postProcess,
         command: instructionParams.command,
+        runtime: instructionParams.runtime,
         attempt,
         runToken: params.runToken,
         cleanupInflightFn,
@@ -2126,6 +2279,7 @@ async function runFlowUnlocked(params: {
             conversationId: params.conversationId,
             stepPath: lastCompletedStepPath,
             loopStack,
+            workingFolder: params.repositoryContext.workingRepositoryPath,
           });
         },
       });
@@ -2227,6 +2381,7 @@ async function runFlowUnlocked(params: {
       });
       resolved = await resolveMarkdownFileWithMetadata({
         markdownFile: step.markdownFile,
+        workingRepositoryPath: params.repositoryContext.workingRepositoryPath,
         flowSourceId: params.repositoryContext.flowSourceId,
       });
     } catch (error) {
@@ -2271,6 +2426,12 @@ async function runFlowUnlocked(params: {
       identifier: step.identifier,
       instruction: resolved.content,
       command,
+      runtime: {
+        ...(params.repositoryContext.workingRepositoryPath
+          ? { workingFolder: params.repositoryContext.workingRepositoryPath }
+          : {}),
+        lookupSummary: resolved.lookupSummary,
+      },
     });
     return result.status;
   };
@@ -2468,6 +2629,13 @@ async function runFlowUnlocked(params: {
         return 'failed';
       }
 
+      const commandRuntime: TurnRuntimeMetadata = {
+        ...(params.repositoryContext.workingRepositoryPath
+          ? { workingFolder: params.repositoryContext.workingRepositoryPath }
+          : {}),
+        lookupSummary: commandLoad.lookupSummary,
+      };
+
       for (const [itemIndex, item] of commandLoad.command.items.entries()) {
         if (await stopCommandBeforeHandoff()) {
           return 'stopped';
@@ -2478,17 +2646,24 @@ async function runFlowUnlocked(params: {
             item,
             itemIndex,
             commandName: step.commandName,
+            workingRepositoryPath:
+              params.repositoryContext.workingRepositoryPath,
+            sourceId: commandLoad.sourceId,
             flowSourceId: params.repositoryContext.flowSourceId,
             flowContext: {
               flowName: params.flowName,
               stepIndex: command.stepIndex,
             },
-            executeInstruction: async ({ instruction }) =>
+            executeInstruction: async ({ instruction, lookupSummary }) =>
               runInstruction({
                 agentType: step.agentType,
                 identifier: step.identifier,
                 instruction,
                 command,
+                runtime: {
+                  ...commandRuntime,
+                  lookupSummary: lookupSummary ?? commandRuntime.lookupSummary,
+                },
               }),
             executeReingest: async (reingestItem) => {
               const result = await flowServiceDeps.runReingestRepository({
@@ -2695,6 +2870,7 @@ async function runFlowUnlocked(params: {
       conversationId: params.conversationId,
       stepPath: lastCompletedStepPath,
       loopStack,
+      workingFolder: params.repositoryContext.workingRepositoryPath,
     });
     return 'ok';
   };
@@ -2765,6 +2941,7 @@ async function runFlowUnlocked(params: {
             conversationId: params.conversationId,
             stepPath: lastCompletedStepPath,
             loopStack,
+            workingFolder: params.repositoryContext.workingRepositoryPath,
           });
           return status;
         }
@@ -2773,6 +2950,7 @@ async function runFlowUnlocked(params: {
           conversationId: params.conversationId,
           stepPath: lastCompletedStepPath,
           loopStack,
+          workingFolder: params.repositoryContext.workingRepositoryPath,
         });
         continue;
       }
@@ -2800,6 +2978,7 @@ async function runFlowUnlocked(params: {
             conversationId: params.conversationId,
             stepPath: lastCompletedStepPath,
             loopStack,
+            workingFolder: params.repositoryContext.workingRepositoryPath,
           });
           return status;
         }
@@ -2808,6 +2987,7 @@ async function runFlowUnlocked(params: {
           conversationId: params.conversationId,
           stepPath: lastCompletedStepPath,
           loopStack,
+          workingFolder: params.repositoryContext.workingRepositoryPath,
         });
         if (shouldBreak) return 'break';
         continue;
@@ -2842,6 +3022,7 @@ async function runFlowUnlocked(params: {
             conversationId: params.conversationId,
             stepPath: lastCompletedStepPath,
             loopStack,
+            workingFolder: params.repositoryContext.workingRepositoryPath,
           });
           return status;
         }
@@ -2850,6 +3031,7 @@ async function runFlowUnlocked(params: {
           conversationId: params.conversationId,
           stepPath: lastCompletedStepPath,
           loopStack,
+          workingFolder: params.repositoryContext.workingRepositoryPath,
         });
         continue;
       }
@@ -2877,6 +3059,7 @@ async function runFlowUnlocked(params: {
             conversationId: params.conversationId,
             stepPath: lastCompletedStepPath,
             loopStack,
+            workingFolder: params.repositoryContext.workingRepositoryPath,
           });
           return status;
         }
@@ -2885,6 +3068,7 @@ async function runFlowUnlocked(params: {
           conversationId: params.conversationId,
           stepPath: lastCompletedStepPath,
           loopStack,
+          workingFolder: params.repositoryContext.workingRepositoryPath,
         });
         continue;
       }
@@ -2939,9 +3123,18 @@ export async function startFlowRun(
     let flowsRoot = flowsDirForRun();
     const listRepos =
       params.listIngestedRepositories ?? listIngestedRepositories;
-    const listedRepos = await listRepos()
-      .then((result) => result.repos)
-      .catch(() => []);
+    const listedReposResult = await listRepos()
+      .then((result) => ({
+        repos: result.repos,
+        knownRepositoryPathsState: knownRepositoryPathsAvailable(
+          result.repos.map((repo) => repo.containerPath),
+        ),
+      }))
+      .catch((error) => ({
+        repos: [] as Awaited<ReturnType<typeof listRepos>>['repos'],
+        knownRepositoryPathsState: knownRepositoryPathsUnavailable(error),
+      }));
+    const listedRepos = listedReposResult.repos;
     const sourceRepo = sourceId
       ? listedRepos.find(
           (item) => path.resolve(item.containerPath) === path.resolve(sourceId),
@@ -2989,6 +3182,16 @@ export async function startFlowRun(
       throw toFlowRunError('CONVERSATION_ARCHIVED');
     }
 
+    const effectiveWorkingFolder = await resolveConversationWorkingFolderForRun(
+      {
+        conversationId,
+        conversation: existingConversation,
+        requestedWorkingFolder: params.working_folder,
+        surface: 'flow_run',
+        knownRepositoryPathsState: listedReposResult.knownRepositoryPathsState,
+      },
+    );
+
     if (resumeStepPath && params.customTitle && existingConversation) {
       baseLogger.info(
         {
@@ -3034,6 +3237,7 @@ export async function startFlowRun(
     const codeInfo2Root = codeInfo2RootForRun();
     repositoryContext = {
       flowName,
+      workingRepositoryPath: effectiveWorkingFolder,
       flowSourceId: sourceRepo?.containerPath
         ? path.resolve(sourceRepo.containerPath)
         : sourceId
@@ -3065,9 +3269,19 @@ export async function startFlowRun(
       modelId,
       customTitle: params.customTitle,
       source: params.source,
+      workingFolder: effectiveWorkingFolder,
     });
-
-    await resolveWorkingFolderWorkingDirectory(params.working_folder);
+    if (!existingConversation && effectiveWorkingFolder) {
+      appendWorkingFolderDecisionLog({
+        conversationId,
+        recordType: 'flow',
+        surface: 'flow_run',
+        action: 'save',
+        decisionReason: 'request_value_persisted_on_create',
+        workingFolder: effectiveWorkingFolder,
+      });
+    }
+    params.working_folder = effectiveWorkingFolder;
   } catch (err) {
     cleanupPendingConversationCancel({ conversationId, runToken });
     releaseConversationLock(conversationId, runToken);

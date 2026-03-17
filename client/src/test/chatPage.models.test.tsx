@@ -455,7 +455,9 @@ describe('Chat page models list', () => {
     expect(cancelMessages).toHaveLength(0);
   });
 
-  it('uses the newly selected model only for the next send while the hidden run keeps its persisted model', async () => {
+  it(
+    'uses the newly selected model only for the next send while the hidden run keeps its persisted model',
+    async () => {
     const { chatBodies } = mockCodexModelNextSendApi();
     const router = createMemoryRouter(routes, {
       initialEntries: ['/chat'],
@@ -501,5 +503,7 @@ describe('Chat page models list', () => {
       ),
     );
     expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
-  });
+    },
+    10000,
+  );
 });

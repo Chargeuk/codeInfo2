@@ -901,6 +901,102 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ---
 
+## Code Review Findings (Fifth Pass)
+
+Review pass `0000048-review-20260317T121229Z-36689200` re-checked the completed branch against `main` using the durable artifacts [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md). That review found one remaining localized correctness gap in the Story 48 runtime-config normalization path, so the story must reopen once more before it can close honestly.
+
+### Findings Summary
+
+- `should_fix` `generic_engineering_issue`: [client/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/config/runtimeConfig.ts) still treats object-like but non-record `window.__CODEINFO_CONFIG__` values as valid containers, so malformed values such as `new Date()`, `new URL(...)`, `new Map()`, or other exotic objects can still default away without emitting the top-level `invalid_container` diagnostic introduced by Task 20.
+
+### Acceptance Criteria Proof Snapshot
+
+The fifth review pass re-checked the active Story 48 acceptance criteria against the completed branch and the new finding above. The current proof state is:
+
+- `direct`: AC1, AC2, AC4, AC5, AC6, AC7, AC11, AC13, AC14, AC15, AC16, AC17, AC18, AC19, AC20, AC23, AC24, AC26, AC27, AC28, AC29, AC31, AC32, AC33, AC34, AC35, AC37, AC38, AC39, AC40, AC43, AC44, AC45, AC46.
+- `indirect`: AC3, AC8, AC9, AC10, AC12, AC21, AC22, AC25, AC30, AC36, AC41, AC42.
+- `missing`: none for the original Story 48 acceptance criteria. The remaining reopen reason is a localized malformed-input normalization defect in the fifth-pass runtime-config review, not a newly missing original acceptance criterion.
+
+### Succinctness Review
+
+The implementation still remains appropriately succinct for the story’s required behavior overall. The lookup-order, working-folder, env-cutover, tokenizer, and review-artifact contracts do not need another broad restructure. The remaining issue is a narrow normalization rule inside one already-changed runtime-config helper, so the follow-up below should stay tightly local to that helper, its direct tests, and the final rerun matrix.
+
+### 29. Reject Object-Like Non-Record Canonical Runtime Config Containers
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Close the fifth-pass `should_fix` finding by treating object-like but non-record `window.__CODEINFO_CONFIG__` values as malformed top-level canonical runtime config containers instead of silently treating them like empty or absent config. This is a localized runtime-config validation cleanup; it should preserve the existing env/default fallback behavior and the existing `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` marker contract for valid inputs.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md), then inspect [client/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/config/runtimeConfig.ts), [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts), [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts), and [e2e/env-runtime-config.spec.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/e2e/env-runtime-config.spec.ts). Record in Task 29 `Implementation notes` exactly which top-level container shapes are currently rejected, which object-like malformed shapes still slip through, and why they are still being normalized into success.
+2. [ ] Tighten the top-level runtime-config container rule in [client/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/config/runtimeConfig.ts) so only plain config-record containers are accepted. `undefined` must remain the only “absent” case. `null`, arrays, primitives, class instances, built-in object instances, and other non-record objects must all emit the same top-level `invalid_container` diagnostic instead of silently falling through to field-level missing behavior.
+3. [ ] Preserve the existing resolved-config precedence and marker vocabulary for valid inputs. Valid runtime values must still beat env/default values, env/default fallback must still work when the runtime container is malformed, and `hasInvalidCanonicalConfig` plus the existing `diagnostics` payload must stay truthful without introducing a second marker schema.
+4. [ ] Add or extend direct client tests proving that object-like malformed top-level containers are now rejected explicitly. At minimum, cover one built-in exotic object on the API-base-url path and one on the logging-config path so the helper no longer relies only on primitive/array coverage.
+5. [ ] If the malformed-object container behavior is observable in the browser bootstrap path, keep the full-stack proof aligned by extending or reusing the existing runtime-config browser/e2e verification so the same marker contract still proves the bad-runtime/good-fallback path without adding a second bootstrap seam.
+6. [ ] Update Task 29 `Implementation notes` with the final plain-object acceptance rule, the exact malformed object shapes now rejected, and where the proof lives.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes client runtime-config/bootstrap behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client/common runtime-config behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Use because this task changes a browser-visible runtime marker contract. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+4. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end and should still prove the runtime bootstrap stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including runtime-marker checks for malformed object-like canonical containers versus valid env/default fallback and a debug-console check confirming there are no logged errors.
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the fifth review pass found one remaining malformed-input normalization gap in the runtime-config helper. Story 48 therefore needs one more narrow validation cleanup and a fresh full rerun before it can close honestly again.
+
+---
+
+### 30. Re-Run Full Story 48 Validation After Fifth Review Fixes
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+After Task 29 lands, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, all prior review-fix tasks, and the fifth-pass runtime-config cleanup. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
+
+#### Subtasks
+
+1. [ ] Re-read the Story 48 acceptance criteria, all five `Code Review Findings` sections above, and the durable review artifacts [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md), and [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md). Record in Task 30 `Implementation notes` how Task 29 restores the remaining runtime-config proof.
+2. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) if the fifth review-fix implementation changes any final Story 48 closeout notes or runtime-config guidance.
+3. [ ] Update Task 30 `Implementation notes` with the final rerun results, the fifth-review-fix proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
+4. [ ] Preserve the durable fifth-pass review artifacts in the commit that closes the reopened story. Do not rely on the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file as the durable record.
+5. [ ] Remove or leave untracked the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file before the closing commit so later review passes cannot consume stale state.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, env-cutover contract, fifth-review runtime-config cleanup checks, and a debug-console check confirming there are no logged errors.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the fifth review pass found one remaining localized malformed-input normalization gap in the runtime-config helper. Story 48 therefore needs one more narrow cleanup task and a fresh full rerun before it can close honestly again.
+
+---
+
 ### 2. Apply The Shared Order To Flow And Direct-Command Command Resolution
 
 - Task Status: `__done__`

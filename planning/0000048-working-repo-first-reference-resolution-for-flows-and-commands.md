@@ -1092,7 +1092,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 32. Fail Closed When Lookup-Summary Inputs Contradict The Candidate Order
 
 - Task Status: `__done__`
-- Git Commits: `f6b162bf`
+- Git Commits: `f6b162bf, 84893f8a`
 
 #### Overview
 

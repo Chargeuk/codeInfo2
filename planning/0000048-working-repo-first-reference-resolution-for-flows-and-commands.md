@@ -1684,7 +1684,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 19. Fail Closed When Repository Enumeration Cannot Prove Working-Folder Membership
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `5d3d0b0f, 68ab53fb`
 
 #### Overview
@@ -1698,7 +1698,7 @@ Close the first second-pass `must_fix` finding by making every Story 48 working-
 3. [x] Update the chat, conversation restore/edit, agent run, direct-command run, and flow run paths so they all use that same fail-closed contract when repository enumeration is unavailable. Preserve the happy-path behavior where canonical ingested repositories still validate and restore normally.
 4. [x] Ensure saved-folder restore paths do not clear valid persisted data as “stale” merely because repository enumeration is temporarily unavailable. This path should surface an operational failure, not a stale-path clear.
 5. [x] Add or extend server tests that prove a repository-enumeration failure does not let a non-ingested absolute directory pass request validation or saved-folder restore validation.
-6. [ ] Update Task 19 `Implementation notes` with the final error vocabulary, the shared validation seam chosen, and where the fail-closed behavior now surfaces.
+6. [x] Update Task 19 `Implementation notes` with the final error vocabulary, the shared validation seam chosen, and where the fail-closed behavior now surfaces.
 
 #### Testing
 
@@ -1707,7 +1707,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 1. [x] `npm run build:summary:server` - Use because this task changes server/common working-folder validation behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
 2. [x] `npm run test:summary:server:unit` - Use because this task changes server/common request/restore validation logic. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes server/common working-folder behavior that still needs feature-level regression coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+3. [x] `npm run test:summary:server:cucumber` - Use because this task changes server/common working-folder behavior that still needs feature-level regression coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -1721,6 +1721,8 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Planning repair: the active blocker turned out not to be “more Task 19 feature code” but a missing prerequisite validation seam. Story 48 now inserts Task 18 ahead of this task so the flow-loop stop harness regains an honest full server-unit wrapper result before this feature task is asked to close Testing step 2 or proceed to cucumber.
 - Task 18’s prerequisite wrapper rerun also completed this task’s server-unit validation honestly. The first rerun after the harness fix exposed one normal assertion failure in `server/src/test/integration/flows.run.working-folder.test.ts`, so `68ab53fb` updated that child-flow integration test to seed its ingested repository explicitly under the new fail-closed contract and then reran full `npm run test:summary:server:unit`, which passed at `tests run: 1281`, `passed: 1281`, and `failed: 0`.
 - Task 19 no longer has a live blocker. What remains here is ordinary completion work: update the final Task 19 implementation-note vocabulary summary and run the still-pending cucumber wrapper.
+- Final Task 19 contract summary: `KnownRepositoryPathsState` in `server/src/workingFolders/state.ts` is now the shared validation seam, `WORKING_FOLDER_REPOSITORY_UNAVAILABLE` is the operational fail-closed vocabulary when ingested-repository enumeration cannot prove membership, and that 503 path now surfaces consistently through chat, conversation restore/edit, agent run, direct-command run, and flow run instead of silently widening acceptance to any existing absolute directory.
+- Testing step 3 passed via full `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`, so the fail-closed working-folder contract now has both unit and feature-level wrapper proof.
 
 ---
 

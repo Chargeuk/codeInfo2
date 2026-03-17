@@ -617,8 +617,8 @@ The resolver, persistence, env-cutover, tokenizer, and prior review-fix work oth
 
 ### 23. Narrow Runtime Marker Canonical-Invalid Reporting To Runtime Diagnostics Only
 
-- Task Status: `__in_progress__`
-- Git Commits: `none yet`
+- Task Status: `__done__`
+- Git Commits: `7db145f0, fd238625`
 
 #### Overview
 

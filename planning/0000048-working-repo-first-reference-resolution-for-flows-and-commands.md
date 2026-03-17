@@ -2597,8 +2597,8 @@ The user has now requested one extra env-prefix completion pass for a narrow set
 
 ### 34. Rename Remaining Repo-Owned Server Runtime Variables To `CODEINFO_`
 
-- Task Status: `__in_progress__`
-- Git Commits: `__none__`
+- Task Status: `__done__`
+- Git Commits: `292ec5a3, 74cb1305`
 
 #### Overview
 

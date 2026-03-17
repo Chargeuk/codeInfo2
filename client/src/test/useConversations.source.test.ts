@@ -188,4 +188,69 @@ describe('useConversations source metadata', () => {
     );
     expect(result.current.readWorkingFolder(updated)).toBeUndefined();
   });
+
+  it('ignores websocket upserts with malformed present source values instead of relabeling them as REST', async () => {
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => expect(result.current.conversations.length).toBe(2));
+
+    const before = result.current.conversations.find(
+      (item) => item.conversationId === 'c1',
+    );
+
+    act(() => {
+      result.current.applyWsUpsert({
+        conversationId: 'c1',
+        title: 'Rest convo',
+        provider: 'lmstudio',
+        model: 'llama',
+        source: 'BROKEN',
+        lastMessageAt: '2025-01-05T00:00:00.000Z',
+      });
+    });
+
+    const after = result.current.conversations.find(
+      (item) => item.conversationId === 'c1',
+    );
+    expect(after).toEqual(before);
+    expect(result.current.conversations).toHaveLength(2);
+  });
+
+  it('ignores websocket upserts with malformed present flags values instead of flattening them into object state', async () => {
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => expect(result.current.conversations.length).toBe(2));
+
+    act(() => {
+      result.current.applyWsUpsert({
+        conversationId: 'c1',
+        title: 'Rest convo',
+        provider: 'lmstudio',
+        model: 'llama',
+        lastMessageAt: '2025-01-03T00:00:00.000Z',
+        flags: { workingFolder: '/repos/demo' },
+      });
+    });
+
+    const before = result.current.conversations.find(
+      (item) => item.conversationId === 'c1',
+    );
+
+    act(() => {
+      result.current.applyWsUpsert({
+        conversationId: 'c1',
+        title: 'Rest convo',
+        provider: 'lmstudio',
+        model: 'llama',
+        lastMessageAt: '2025-01-06T00:00:00.000Z',
+        flags: ['not-an-object'],
+      });
+    });
+
+    const after = result.current.conversations.find(
+      (item) => item.conversationId === 'c1',
+    );
+    expect(result.current.readWorkingFolder(after)).toBe('/repos/demo');
+    expect(after).toEqual(before);
+  });
 });

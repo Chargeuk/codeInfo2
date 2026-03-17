@@ -62,7 +62,7 @@ type State = {
     action: WorkingFolderPickerAction;
     pickerState?: string | null;
   }) => void;
-  applyWsUpsert: (conversation: ConversationSummary) => void;
+  applyWsUpsert: (conversation: unknown) => void;
   applyWsDelete: (conversationId: string) => void;
   setFilterState: (state: ConversationFilterState) => void;
 };
@@ -506,13 +506,24 @@ export function useConversations(params?: {
   );
 
   const applyWsUpsert = useCallback(
-    (conversation: ConversationSummary) => {
+    (conversation: unknown) => {
+      let normalizedConversation: ConversationSummary;
+      try {
+        normalizedConversation = normalizeConversationSummary(
+          parseConversationSummary(conversation),
+        );
+      } catch (error) {
+        log('warn', 'conversations.ws.upsert.invalid_summary', {
+          error: error instanceof Error ? error.message : String(error),
+          conversation,
+        });
+        return;
+      }
+
       setConversations((prev) => {
         const existing = prev.find(
-          (c) => c.conversationId === conversation.conversationId,
+          (c) => c.conversationId === normalizedConversation.conversationId,
         );
-        const normalizedConversation =
-          normalizeConversationSummary(conversation);
         const flowName =
           normalizedConversation.flowName !== undefined
             ? normalizedConversation.flowName

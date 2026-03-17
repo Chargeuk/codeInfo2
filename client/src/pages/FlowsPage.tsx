@@ -483,18 +483,7 @@ export default function FlowsPage() {
           if (typeof agentName === 'string' && agentName.trim().length > 0) {
             return;
           }
-          applyWsUpsert({
-            conversationId: event.conversation.conversationId,
-            title: event.conversation.title,
-            provider: event.conversation.provider,
-            model: event.conversation.model,
-            source: event.conversation.source === 'MCP' ? 'MCP' : 'REST',
-            lastMessageAt: event.conversation.lastMessageAt,
-            archived: event.conversation.archived,
-            flags: event.conversation.flags,
-            agentName: event.conversation.agentName,
-            flowName: event.conversation.flowName,
-          });
+          applyWsUpsert(event.conversation);
           return;
         }
         case 'conversation_delete':

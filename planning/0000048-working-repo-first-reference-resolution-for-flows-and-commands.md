@@ -701,6 +701,9 @@ Close the third third-pass `should_fix` finding by removing the tracked transien
 
 #### Testing
 
+Use only the wrapper commands below when testing is required. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
 No wrapper build or test steps are required for this task because it only removes stale transient workflow state and does not change executable code, runtime configuration, or documentation behavior.
 
 #### Implementation notes

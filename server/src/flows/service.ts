@@ -155,8 +155,16 @@ export function __resetFlowServiceDepsForTests() {
   Object.assign(flowServiceDeps, defaultFlowServiceDeps);
 }
 
-const toFlowRunError = (code: FlowRunErrorCode, reason?: string) =>
-  ({ code, reason }) satisfies FlowRunError;
+const toFlowRunError = (
+  code: FlowRunErrorCode,
+  reason?: string,
+  causeCode?: string,
+) =>
+  ({
+    code,
+    ...(reason ? { reason } : {}),
+    ...(causeCode ? { causeCode } : {}),
+  }) satisfies FlowRunError;
 
 const isFlowRunError = (error: unknown): error is FlowRunError =>
   Boolean(error) &&

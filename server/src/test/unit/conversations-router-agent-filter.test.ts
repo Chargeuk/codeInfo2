@@ -12,7 +12,9 @@ import {
   createInflight,
 } from '../../chat/inflightRegistry.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
+import { query, resetStore } from '../../logStore.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
+import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
 
 function buildApp(deps: Parameters<typeof createConversationsRouter>[0]) {
   const app = express();
@@ -46,6 +48,11 @@ const buildRepoEntry = (containerPath: string): RepoEntry => ({
   modelId: 'text-embedding-nomic-embed-text-v1.5',
   counts: { files: 0, chunks: 0, embedded: 0 },
   lastError: null,
+});
+
+test.afterEach(() => {
+  setWorkingFolderStatForTests(undefined);
+  resetStore();
 });
 
 test('GET /conversations forwards agentName=__none__ to repo layer', async () => {
@@ -177,6 +184,69 @@ test('POST /conversations/:id/working-folder saves flags.workingFolder while idl
   });
   assert.equal(res.body.status, 'ok');
   assert.equal(res.body.conversation.flags.workingFolder, process.cwd());
+});
+
+test('GET /conversations surfaces operational working-folder diagnostics without object stringification', async () => {
+  const workingFolder = '/tmp/temporarily-unreadable-working-folder';
+  setWorkingFolderStatForTests(async (targetPath) => {
+    if (targetPath === workingFolder) {
+      const error = new Error('permission denied') as NodeJS.ErrnoException;
+      error.code = 'EACCES';
+      throw error;
+    }
+    return {
+      isDirectory: () => true,
+    } as never;
+  });
+
+  const res = await request(
+    buildApp({
+      listConversations: async () => ({
+        items: [
+          {
+            conversationId: 'conv-working-folder',
+            provider: 'codex',
+            model: 'gpt-5.1-codex-max',
+            title: 'Conversation',
+            source: 'REST',
+            lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+            createdAt: new Date('2025-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+            archived: false,
+            flags: { workingFolder },
+          },
+        ],
+      }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(workingFolder)],
+        lockedModelId: null,
+      }),
+    }),
+  )
+    .get('/conversations')
+    .expect(503);
+
+  assert.deepEqual(res.body, {
+    error: 'working_folder_unavailable',
+    code: 'WORKING_FOLDER_UNAVAILABLE',
+    message: 'working_folder could not be validated (EACCES)',
+  });
+
+  const marker = query({
+    text: 'DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION',
+    level: ['warn'],
+  }).find(
+    (entry) =>
+      entry.context?.conversationId === 'conv-working-folder' &&
+      entry.context?.decisionReason === 'saved_value_unavailable',
+  );
+  assert.ok(marker);
+  assert.equal(marker?.context?.errorCode, 'WORKING_FOLDER_UNAVAILABLE');
+  assert.equal(
+    marker?.context?.errorReason,
+    'working_folder could not be validated (EACCES)',
+  );
+  assert.equal(marker?.context?.causeCode, 'EACCES');
 });
 
 test('POST /conversations/:id/working-folder clears flags.workingFolder while idle', async () => {

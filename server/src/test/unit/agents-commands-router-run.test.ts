@@ -242,6 +242,29 @@ test('POST /agents/:agentName/commands/run maps invalid commandName to 400 + COM
   assert.equal(res.body.code, 'COMMAND_INVALID');
 });
 
+test('POST /agents/:agentName/commands/run maps WORKING_FOLDER_UNAVAILABLE to 503 + message', async () => {
+  const res = await request(
+    buildApp({
+      startAgentCommand: async () => {
+        throw {
+          code: 'WORKING_FOLDER_UNAVAILABLE',
+          reason: 'working_folder could not be validated (EACCES)',
+          causeCode: 'EACCES',
+        };
+      },
+    }),
+  )
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'improve_plan' });
+
+  assert.equal(res.status, 503);
+  assert.deepEqual(res.body, {
+    error: 'working_folder_unavailable',
+    code: 'WORKING_FOLDER_UNAVAILABLE',
+    message: 'working_folder could not be validated (EACCES)',
+  });
+});
+
 test("POST /agents/:agentName/commands/run maps COMMAND_NOT_FOUND to 404 { error: 'not_found' }", async () => {
   const res = await request(
     buildApp({

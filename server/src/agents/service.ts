@@ -135,15 +135,25 @@ type RunAgentErrorCode =
   | 'CODEX_UNAVAILABLE'
   | 'WORKING_FOLDER_INVALID'
   | 'WORKING_FOLDER_NOT_FOUND'
+  | 'WORKING_FOLDER_UNAVAILABLE'
   | 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE';
 
 type RunAgentError = {
   code: RunAgentErrorCode;
   reason?: string;
+  causeCode?: string;
 };
 
-const toRunAgentError = (code: RunAgentErrorCode, reason?: string) =>
-  ({ code, reason }) satisfies RunAgentError;
+const toRunAgentError = (
+  code: RunAgentErrorCode,
+  reason?: string,
+  causeCode?: string,
+) =>
+  ({
+    code,
+    ...(reason ? { reason } : {}),
+    ...(causeCode ? { causeCode } : {}),
+  }) satisfies RunAgentError;
 
 const T06_SUCCESS_LOG =
   '[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=success';

@@ -35,7 +35,9 @@ import {
 } from '../mongo/repo.js';
 import {
   appendWorkingFolderDecisionLog,
+  getWorkingFolderErrorMessage,
   getConversationRecordType,
+  isWorkingFolderOperationalError,
   resolveKnownRepositoryPathsState,
   restoreSavedWorkingFolder,
   validateRequestedWorkingFolder,
@@ -490,19 +492,22 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
 
       res.json({ items: normalizedItems, nextCursor });
     } catch (err) {
-      const workingFolderError = err as { code?: string; reason?: string };
-      if (
-        workingFolderError.code === 'WORKING_FOLDER_UNAVAILABLE' ||
-        workingFolderError.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
-      ) {
+      const workingFolderError = err as {
+        code?: string;
+        reason?: string;
+        causeCode?: string;
+      };
+      if (isWorkingFolderOperationalError(workingFolderError)) {
         return res.status(503).json({
           error: 'working_folder_unavailable',
           code: workingFolderError.code,
-          message:
-            workingFolderError.reason ?? 'working_folder validation failed',
+          message: getWorkingFolderErrorMessage(workingFolderError),
         });
       }
-      res.status(500).json({ error: 'server_error', message: `${err}` });
+      res.status(500).json({
+        error: 'server_error',
+        message: 'failed to list conversations',
+      });
     }
   });
 
@@ -849,11 +854,12 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         knownRepositoryPathsState: await knownRepositoryPathsState(),
       });
     } catch (error) {
-      const err = error as { code?: string; reason?: string };
-      if (
-        err.code === 'WORKING_FOLDER_UNAVAILABLE' ||
-        err.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
-      ) {
+      const err = error as {
+        code?: string;
+        reason?: string;
+        causeCode?: string;
+      };
+      if (isWorkingFolderOperationalError(err)) {
         appendWorkingFolderDecisionLog({
           conversationId: parsedParams.data.id,
           recordType: getConversationRecordType(conversation),
@@ -861,11 +867,14 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
           action: 'reject',
           decisionReason: 'repository_membership_unavailable',
           ...(workingFolder ? { workingFolder } : {}),
+          ...(err.code ? { errorCode: err.code } : {}),
+          ...(err.reason ? { errorReason: err.reason } : {}),
+          ...(err.causeCode ? { causeCode: err.causeCode } : {}),
         });
         return res.status(503).json({
           error: 'working_folder_unavailable',
           code: err.code,
-          message: err.reason ?? 'working_folder validation failed',
+          message: getWorkingFolderErrorMessage(err),
         });
       }
       appendWorkingFolderDecisionLog({

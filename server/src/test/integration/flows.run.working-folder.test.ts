@@ -113,6 +113,32 @@ test('POST /flows/:flowName/run validates working_folder', async () => {
   }
 });
 
+test('POST /flows/:flowName/run surfaces WORKING_FOLDER_UNAVAILABLE without object stringification', async () => {
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: async () => {
+        throw {
+          code: 'WORKING_FOLDER_UNAVAILABLE',
+          reason: 'working_folder could not be validated (EACCES)',
+          causeCode: 'EACCES',
+        };
+      },
+    }),
+  );
+
+  const res = await supertest(app)
+    .post('/flows/llm-basic/run')
+    .send({ conversationId: 'flow-unavailable' })
+    .expect(503);
+
+  assert.deepEqual(res.body, {
+    error: 'working_folder_unavailable',
+    code: 'WORKING_FOLDER_UNAVAILABLE',
+    message: 'working_folder could not be validated (EACCES)',
+  });
+});
+
 test('a stale saved path is cleared before a flow restore uses it', async () => {
   resetStore();
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;

@@ -1778,7 +1778,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 21. Preserve Operational Working-Folder Diagnostics Through Shared Logs And Route Errors
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `none yet`
 
 #### Overview
@@ -1787,24 +1787,32 @@ Close the second-pass `should_fix` finding by making operational working-folder 
 
 #### Subtasks
 
-1. [ ] Re-read `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, then inspect `server/src/workingFolders/state.ts`, `server/src/routes/conversations.ts`, and any other changed caller that catches or logs `WORKING_FOLDER_UNAVAILABLE`. Record in Task 21 `Implementation notes` where `reason` and `causeCode` are currently produced and then dropped.
-2. [ ] Update the shared working-folder logging path so operational failures preserve actionable diagnostics, such as the existing reason and/or errno code, without conflating them with stale-path clears.
-3. [ ] Replace route-level `` `${err}` `` object stringification in the affected Story 48 paths with an explicit error-to-response/log mapping that keeps client messages safe while preserving actionable server-side diagnostics.
-4. [ ] Add or extend server tests that prove the operational-failure path now surfaces a meaningful message or log detail instead of `[object Object]`, while stale-path clears continue to use the existing warning contract.
-5. [ ] Update Task 21 `Implementation notes` with the final diagnostic vocabulary and where it is now observable.
+1. [x] Re-read `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, then inspect `server/src/workingFolders/state.ts`, `server/src/routes/conversations.ts`, and any other changed caller that catches or logs `WORKING_FOLDER_UNAVAILABLE`. Record in Task 21 `Implementation notes` where `reason` and `causeCode` are currently produced and then dropped.
+2. [x] Update the shared working-folder logging path so operational failures preserve actionable diagnostics, such as the existing reason and/or errno code, without conflating them with stale-path clears.
+3. [x] Replace route-level `` `${err}` `` object stringification in the affected Story 48 paths with an explicit error-to-response/log mapping that keeps client messages safe while preserving actionable server-side diagnostics.
+4. [x] Add or extend server tests that prove the operational-failure path now surfaces a meaningful message or log detail instead of `[object Object]`, while stale-path clears continue to use the existing warning contract.
+5. [x] Update Task 21 `Implementation notes` with the final diagnostic vocabulary and where it is now observable.
 
 #### Testing
 
 Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
 
-1. [ ] `npm run build:summary:server` - Use because this task changes server/common logging and route error behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` - Use because this task changes server/common error handling and logging behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use because this task still touches server/common behavior that must retain feature-level coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+1. [x] `npm run build:summary:server` - Use because this task changes server/common logging and route error behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes server/common error handling and logging behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use because this task still touches server/common behavior that must retain feature-level coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
 - Review finding only: `WORKING_FOLDER_UNAVAILABLE` preserves `causeCode`, but the shared log marker currently drops it and some route catches still stringify the object to `[object Object]`.
+- Re-read the second-pass review finding plus `server/src/workingFolders/state.ts`, `server/src/routes/conversations.ts`, `server/src/routes/chat.ts`, `server/src/routes/agentsRun.ts`, `server/src/routes/agentsCommands.ts`, and `server/src/routes/flowsRun.ts`; today `toUnavailableWorkingFolderError(...)` already produces `reason` and `causeCode`, but `appendWorkingFolderDecisionLog(...)` drops those details from the shared `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` marker, conversations list/edit paths do not preserve them consistently through route-level error handling, and the agent/flow REST route error unions still omit `WORKING_FOLDER_UNAVAILABLE`, so true operational failures can lose diagnostics or fall through to a generic 500 path.
+- Subtask 2: extended `appendWorkingFolderDecisionLog(...)` and the saved-folder restore operational path in `server/src/workingFolders/state.ts` so `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` now preserves `errorCode`, `errorReason`, and `causeCode` for `WORKING_FOLDER_UNAVAILABLE` without changing stale-clear markers.
+- Subtask 3: replaced the remaining affected Story 48 route stringification paths with explicit operational-error mapping in conversations, agents run, agent commands, and flows run, reusing one safe message helper while keeping non-working-folder failures off the old `` `${err}` `` fallback.
+- Subtask 4: added focused server coverage for conversations, agents run, agent commands run, and flows run so operational failures now prove a real 503 message/log path while the existing stale-path warning contract stays untouched.
+- Subtask 5: the final diagnostic vocabulary stays `WORKING_FOLDER_UNAVAILABLE` plus optional `causeCode`; it is now observable in safe 503 route payloads, in the shared `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` marker as `errorCode`/`errorReason`/`causeCode`, and in the focused server tests that assert both surfaces directly.
+- Testing step 1: `npm run build:summary:server` first exposed a helper typing mismatch in the new safe-message path, so I narrowed `getWorkingFolderErrorMessage(...)` to the only field it actually consumes and reran the full wrapper to a clean `status: passed`, `warning_count: 0`.
+- Testing step 2: `npm run test:summary:server:unit` passed cleanly with `tests run: 1285`, `passed: 1285`, `failed: 0`; the full wrapper now covers the new conversation log-marker assertions plus the added agent and flow 503 message mapping checks.
+- Testing step 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 71`, `passed: 71`, `failed: 0`, confirming the server feature suite still holds after the operational-diagnostics cleanup.
 
 ---
 

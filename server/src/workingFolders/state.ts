@@ -19,6 +19,28 @@ export type WorkingFolderValidationError = {
   causeCode?: string;
 };
 
+export const isWorkingFolderOperationalError = (
+  error: unknown,
+): error is WorkingFolderValidationError =>
+  Boolean(error) &&
+  typeof error === 'object' &&
+  (((error as WorkingFolderValidationError).code ===
+    'WORKING_FOLDER_UNAVAILABLE') ||
+    (error as WorkingFolderValidationError).code ===
+      'WORKING_FOLDER_REPOSITORY_UNAVAILABLE');
+
+export const getWorkingFolderErrorMessage = (
+  error:
+    | {
+        reason?: string;
+      }
+    | undefined,
+  fallback = 'working_folder validation failed',
+) =>
+  typeof error?.reason === 'string' && error.reason.trim().length > 0
+    ? error.reason
+    : fallback;
+
 export type KnownRepositoryPathsState =
   | {
       status: 'available';
@@ -204,6 +226,9 @@ export function appendWorkingFolderDecisionLog(params: {
   workingFolder?: string;
   stalePath?: string;
   level?: 'info' | 'warn';
+  errorCode?: WorkingFolderErrorCode;
+  errorReason?: string;
+  causeCode?: string;
 }): void {
   append({
     level: params.level ?? (params.action === 'clear' ? 'warn' : 'info'),
@@ -218,6 +243,9 @@ export function appendWorkingFolderDecisionLog(params: {
       decisionReason: params.decisionReason,
       ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
       ...(params.stalePath ? { stalePath: params.stalePath } : {}),
+      ...(params.errorCode ? { errorCode: params.errorCode } : {}),
+      ...(params.errorReason ? { errorReason: params.errorReason } : {}),
+      ...(params.causeCode ? { causeCode: params.causeCode } : {}),
     },
   });
 }
@@ -328,6 +356,9 @@ export async function restoreSavedWorkingFolder(params: {
         decisionReason: 'saved_value_unavailable',
         workingFolder: savedWorkingFolder,
         level: 'warn',
+        ...(err?.code ? { errorCode: err.code } : {}),
+        ...(err?.reason ? { errorReason: err.reason } : {}),
+        ...(err?.causeCode ? { causeCode: err.causeCode } : {}),
       });
       throw error;
     }

@@ -7,6 +7,7 @@ import {
 } from '../agents/service.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
+import { getWorkingFolderErrorMessage } from '../workingFolders/state.js';
 
 type Deps = {
   listAgentCommands: typeof listAgentCommands;
@@ -33,7 +34,13 @@ type AgentCommandsError =
   | { code: 'CODEX_UNAVAILABLE'; reason?: string }
   | { code: 'WORKING_FOLDER_INVALID'; reason?: string }
   | { code: 'WORKING_FOLDER_NOT_FOUND'; reason?: string }
-  | { code: 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'; reason?: string };
+  | {
+      code:
+        | 'WORKING_FOLDER_UNAVAILABLE'
+        | 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE';
+      reason?: string;
+      causeCode?: string;
+    };
 
 const isAgentCommandsError = (err: unknown): err is AgentCommandsError =>
   Boolean(err) &&
@@ -248,7 +255,10 @@ export function createAgentsCommandsRouter(
             message: err.reason ?? 'working_folder validation failed',
           });
         }
-        if (err.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE') {
+        if (
+          err.code === 'WORKING_FOLDER_UNAVAILABLE' ||
+          err.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
+        ) {
           baseLogger.warn(
             {
               requestId,
@@ -261,7 +271,7 @@ export function createAgentsCommandsRouter(
           return res.status(503).json({
             error: 'working_folder_unavailable',
             code: err.code,
-            message: err.reason ?? 'working_folder validation failed',
+            message: getWorkingFolderErrorMessage(err),
           });
         }
       }
@@ -444,11 +454,14 @@ export function createAgentsCommandsRouter(
             message: err.reason ?? 'working_folder validation failed',
           });
         }
-        if (err.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE') {
+        if (
+          err.code === 'WORKING_FOLDER_UNAVAILABLE' ||
+          err.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
+        ) {
           return res.status(503).json({
             error: 'working_folder_unavailable',
             code: err.code,
-            message: err.reason ?? 'working_folder validation failed',
+            message: getWorkingFolderErrorMessage(err),
           });
         }
       }

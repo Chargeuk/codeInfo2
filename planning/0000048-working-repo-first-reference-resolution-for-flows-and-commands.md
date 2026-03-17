@@ -3239,3 +3239,96 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Final Task 44 rerun result: the full wrapper matrix passed end to end after Task 43's shared-log-schema fix, so the tenth-pass reopen closes without reopening any unrelated Story 48 seams.
 - The durable tenth-pass review record remains [codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-evidence.md) plus [codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-findings.md); this closeout uses those committed markdown artifacts rather than any transient workflow handoff file.
 - The transient handoff file [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) remains untracked in the worktree and is intentionally excluded from the closing commit so later review passes cannot consume stale state.
+
+## Code Review Findings (Eleventh Pass)
+
+### Review Artifacts
+
+- Evidence: [codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-findings.md)
+
+### Finding Summary
+
+- One `should_fix` finding remains open. The shared canonical lookup-order marker `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER` now uses one field set across emitters, but the command-resolution emitters in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) and [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) still publish `referenceType: null` while markdown resolution in [server/src/flows/markdownFileResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/markdownFileResolver.ts) publishes `referenceType: 'markdownFile'`. Because Story 48 treats structured lookup logs as the canonical debugging surface and explicitly requires the reference type, this shared marker contract is still semantically incomplete on the command-resolution surfaces.
+
+### Acceptance Proof Snapshot
+
+- Direct proof: `AC01-AC48`
+- Indirect proof: `__none__`
+- Missing proof: `__none__`
+
+### Succinctness Assessment
+
+- The implemented Story 48 behavior remains appropriately succinct for the required feature set. The remaining cleanup is localized to one shared log-marker vocabulary issue in files already changed by the story and does not require reopening broader lookup, persistence, env, or OpenAI behavior.
+
+---
+
+### 45. Make The Canonical Lookup-Order Marker Emit An Explicit Command Reference Type
+
+- Task Status: `__to_do__`
+- Git Commits: `__none__`
+
+#### Overview
+
+Close the eleventh-pass `should_fix` finding by tightening the shared `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER` marker vocabulary. The intent is that every Story 48 lookup-order emitter publishes a meaningful `referenceType` value, so downstream debugging and parsing do not need to infer command lookups from `caller` or from secondary markers.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-findings.md), then inspect [server/src/flows/repositoryCandidateOrder.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/repositoryCandidateOrder.ts), [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts), and [server/src/flows/markdownFileResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/markdownFileResolver.ts). Record in Task 45 `Implementation notes` the exact final `referenceType` vocabulary that Story 48 will use for command and markdown lookups.
+2. [ ] Update the shared marker builder and its current command-resolution callers so flow-command and direct-command lookups emit an explicit command reference type instead of `null`, while markdown resolution keeps its explicit markdown vocabulary. Do not broaden public API payloads or change lookup-order runtime behavior.
+3. [ ] Extend the existing direct server assertions in [server/src/test/integration/flows.run.command.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.command.test.ts), [server/src/test/unit/agents-commands-router-run.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-run.test.ts), and [server/src/test/unit/markdown-file-resolver.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/markdown-file-resolver.test.ts) so the canonical marker now proves a meaningful non-null `referenceType` on all three resolution surfaces.
+4. [ ] Update Task 45 `Implementation notes` with the final shared marker vocabulary, the exact emitters changed, and where the direct proof now lives.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes shared server-side lookup logging helpers and emitter call sites. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Mandatory proof because this task changes the canonical Story 48 lookup-order log contract and its direct regression coverage lives in the server unit/integration suite. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because Story 48 lookup-order behavior still has higher-level server coverage and the shared canonical logging vocabulary should remain consistent there too. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Review reopening only: the eleventh review pass found one remaining semantic gap in Story 48's canonical lookup-order marker. The shared field set is already aligned, but the command-resolution emitters still publish `referenceType: null`, which leaves the canonical debugging surface weaker than the acceptance contract requires.
+- Pending.
+
+---
+
+### 46. Re-Run Full Story 48 Validation After Eleventh Review Fix
+
+- Task Status: `__to_do__`
+- Git Commits: `__none__`
+
+#### Overview
+
+After Task 45 lands, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria plus the eleventh-pass canonical-log-vocabulary fix. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 48 acceptance criteria, all eleven `Code Review Findings` sections above, the historical post-implementation review record, Tasks 43-45, and the durable eleventh-pass review artifacts [codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-evidence.md) plus [codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-findings.md). Record in Task 46 `Implementation notes` how Task 45 closes the last remaining canonical-log-vocabulary gap without reopening unrelated Story 48 behavior.
+2. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) only if Task 45 changes any final Story 48 closeout notes or log-contract guidance.
+3. [ ] Update Task 46 `Implementation notes` with the final rerun results, the eleventh-pass proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
+4. [ ] Preserve the durable eleventh-pass review artifacts [codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-findings.md) in the closing commit. Do not rely on the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file as the durable record.
+5. [ ] Remove or leave untracked the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file before the closing commit so later review passes cannot consume stale state.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Mandatory final regression check because the story still has client/common acceptance surfaces that must remain green after the review fix. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Mandatory final regression check because the story still has client/common acceptance surfaces that must remain green after the review fix. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, the env/runtime markers, the canonical lookup-log vocabulary where visible, general regression checks, and a debug-console check confirming there are no logged errors.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the eleventh review pass found one remaining semantic gap in the canonical `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER` marker. This task exists to rerun the full acceptance matrix after that narrow shared-log-vocabulary fix lands.
+- Pending.

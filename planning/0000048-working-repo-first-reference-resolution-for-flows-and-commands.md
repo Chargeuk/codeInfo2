@@ -1025,6 +1025,133 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ---
 
+## Code Review Findings (Sixth Pass)
+
+### Review Artifacts
+
+- Evidence: [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md)
+
+### Findings Summary
+
+1. `must_fix` `generic_engineering_issue`: the conversation working-folder edit route in [server/src/routes/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/conversations.ts) still normalizes missing or whitespace-only `workingFolder` input into a successful clear, so invalid or omitted input can erase saved state instead of being rejected.
+2. `should_fix` `generic_engineering_issue`: [server/src/flows/repositoryCandidateOrder.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/repositoryCandidateOrder.ts) still lets `buildRepositoryCandidateLookupSummary(...)` report `fallbackUsed: false` when the selected repository is not present in the ordered candidates, which hides an impossible state behind a misleading success-shaped summary.
+
+### Acceptance Criteria Proof Snapshot
+
+- Direct proof in the sixth-pass evidence artifact: `AC01`, `AC02`, `AC04`, `AC05`, `AC06`, `AC07`, `AC11`, `AC12`, `AC13`, `AC14`, `AC15`, `AC16`, `AC17`, `AC18`, `AC19`, `AC20`, `AC23`, `AC24`, `AC26`, `AC27`, `AC28`, `AC29`, `AC31`, `AC32`, `AC33`, `AC34`, `AC35`, `AC37`, `AC38`, `AC39`, `AC40`, `AC43`, `AC44`, `AC45`, `AC46`.
+- Indirect proof in the sixth-pass evidence artifact: `AC03`, `AC08`, `AC09`, `AC10`, `AC21`, `AC22`, `AC25`, `AC30`, `AC36`, `AC41`, `AC42`.
+- Missing proof in the sixth-pass evidence artifact: none at the acceptance-criterion level, but the review did identify one missing direct route-contract proof for omitted/blank `workingFolder` edit payloads and one missing direct invariant proof for contradictory `selectedRepositoryPath` lookup-summary inputs.
+
+### Succinctness Review
+
+The implementation still remains appropriately succinct for the story’s required behavior overall. The sixth-pass findings are both narrow follow-ups in already-changed seams rather than evidence that Story 48 needs another broad restructure. The route contract in [server/src/routes/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/conversations.ts) and the invariant handling in [server/src/flows/repositoryCandidateOrder.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/repositoryCandidateOrder.ts) should be tightened locally, then the story should be rerun through one fresh full validation pass.
+
+### 31. Require Explicit Clear Semantics On Conversation Working-Folder Edits
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Close the sixth-pass `must_fix` finding by making the conversation working-folder edit route require an explicit caller choice. A non-empty string must continue to mean “save this folder”, explicit `null` must continue to mean “clear the saved folder”, and omitted or whitespace-only `workingFolder` input must stop being normalized into a successful clear.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md), then inspect [server/src/routes/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/conversations.ts), [client/src/api/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/conversations.ts), and the existing conversation working-folder tests. Record in Task 31 `Implementation notes` exactly how omitted, blank, explicit `null`, and non-empty string payloads are handled today, and why the current omitted/blank path is incorrectly normalized into success.
+2. [ ] Tighten the edit-route request contract in [server/src/routes/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/conversations.ts) so the route only accepts two explicit states: a non-empty string to save, or `null` to clear. Do not let an omitted `workingFolder` field, an empty string, or a whitespace-only string clear the saved value silently.
+3. [ ] Preserve the existing safe-message and operational-error behavior for true validation failures and temporary repository-membership failures. This task is only about explicit clear semantics and invalid-input rejection; it must not reopen the safe 503-message work from Task 24.
+4. [ ] Add or extend server route tests that prove all four input cases explicitly: omitted field rejects, blank/whitespace field rejects, explicit `null` clears, and a non-empty string saves. The purpose of these tests is to stop the route from ever again normalizing missing input into success.
+5. [ ] If any client-side API helper or page-level caller assumptions need to be clarified while keeping the public contract explicit, update those tests too, but do not broaden the change into a new client workflow. The intended outcome is that the existing helper continues to send only explicit save or clear payloads, and route-level rejection catches malformed callers.
+6. [ ] Update Task 31 `Implementation notes` with the final explicit-clear contract, the exact rejected payload shapes, and where the proof lives.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes a server REST contract. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server route validation and persistence behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes server/common behavior and the full server regression suite should still pass. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Review reopening only: the sixth review pass found that the conversation working-folder edit route still lets omitted or blank input clear saved state. Story 48 therefore needs one more localized route-contract fix before it can close honestly again.
+
+---
+
+### 32. Fail Closed When Lookup-Summary Inputs Contradict The Candidate Order
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Close the sixth-pass `should_fix` finding by making the shared lookup-summary helper fail closed when a caller asks it to summarize a repository path that is not actually present in the ordered candidate list. This is a localized consistency fix in the shared helper and its direct proofs; it must keep the existing success-path summary shape unchanged for valid inputs.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md), then inspect [server/src/flows/repositoryCandidateOrder.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/repositoryCandidateOrder.ts), [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), [server/src/flows/markdownFileResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/markdownFileResolver.ts), and [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts). Record in Task 32 `Implementation notes` exactly how the helper behaves today when the selected repository path is missing from the ordered candidates and which changed callers depend on the happy-path summary.
+2. [ ] Tighten [server/src/flows/repositoryCandidateOrder.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/repositoryCandidateOrder.ts) so a contradictory `selectedRepositoryPath` cannot be summarized as a false “first-choice” success. The helper should either throw or otherwise make the invariant break explicit, but it must not keep returning `fallbackUsed: false` for a path that was never in the candidate order.
+3. [ ] Keep the existing persisted and logged summary contract unchanged for valid inputs: `selectedRepositoryPath`, `fallbackUsed`, and `workingRepositoryAvailable`. This task is only about fail-closed invariant handling and direct proof for the contradictory-input path.
+4. [ ] Add or extend one direct unit test in [server/src/test/unit/repositoryCandidateOrder.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/repositoryCandidateOrder.test.ts) that proves a contradictory `selectedRepositoryPath` does not silently produce a success-shaped summary. The purpose of this test is to close the missing-proof gap identified in the sixth-pass review.
+5. [ ] Reconfirm that the changed happy-path callers in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), [server/src/flows/markdownFileResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/markdownFileResolver.ts), and [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) still behave identically for valid selections. The intended outcome is a narrower fail-closed helper, not a new summary schema or caller-specific workaround.
+6. [ ] Update Task 32 `Implementation notes` with the final invariant rule, the contradictory-input behavior you chose, and where the direct proof lives.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes a shared server helper used by flows, markdown resolution, and direct commands. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes shared server lookup-summary behavior covered by node:test unit/integration suites. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes shared server/common behavior and the full server regression suite should still pass. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Review reopening only: the sixth review pass found one remaining lookup-summary invariant gap in the shared repository-order helper. Story 48 therefore needs one more narrow helper fix and direct proof before it can close honestly again.
+
+---
+
+### 33. Re-Run Full Story 48 Validation After Sixth Review Fixes
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+After Tasks 31 and 32 land, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, all prior review-fix tasks, and the sixth-pass route-contract and lookup-summary consistency fixes. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
+
+#### Subtasks
+
+1. [ ] Re-read the Story 48 acceptance criteria, all six `Code Review Findings` sections above, and the durable review artifacts [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-evidence.md), and [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md). Record in Task 33 `Implementation notes` how Tasks 31 and 32 restore the remaining route-contract and lookup-summary proof.
+2. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) if the sixth review-fix implementation changes any final Story 48 closeout notes or route/runtime-config guidance.
+3. [ ] Update Task 33 `Implementation notes` with the final rerun results, the sixth-review-fix proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
+4. [ ] Preserve the durable sixth-pass review artifacts in the commit that closes the reopened story. Do not rely on the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file as the durable record.
+5. [ ] Remove or leave untracked the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file before the closing commit so later review passes cannot consume stale state.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Mandatory final regression check because the story’s client/common behavior must remain green after the sixth-pass server fixes. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Mandatory final regression check because the story’s client/common behavior must remain green after the sixth-pass fixes. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, explicit-clear edit-route checks, lookup-summary regression checks, env-cutover contract, and a debug-console check confirming there are no logged errors.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the sixth review pass found one remaining explicit-clear route-contract bug and one remaining lookup-summary invariant gap. Story 48 therefore needs one more narrow server-side cleanup wave and a fresh full rerun before it can close honestly again.
+
+---
+
 ### 2. Apply The Shared Order To Flow And Direct-Command Command Resolution
 
 - Task Status: `__done__`

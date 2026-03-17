@@ -1729,7 +1729,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 20. Surface Malformed Top-Level Canonical Runtime Config Containers
 
 - Task Status: `__done__`
-- Git Commits: `none yet`
+- Git Commits: `6f4d7ba6`
 
 #### Overview
 

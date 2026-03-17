@@ -3147,7 +3147,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 43. Normalize Shared Lookup-Order Log Schema Across Resolution Surfaces
 
 - Task Status: `__done__`
-- Git Commits: `__none__`
+- Git Commits: `e16e4fff`
 
 #### Overview
 

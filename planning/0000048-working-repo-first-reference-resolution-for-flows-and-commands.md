@@ -1115,7 +1115,7 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 ### 10. Replace OpenAI Heuristic Counting With Tokenizer-Backed Counting
 
 - Task Status: `__done__`
-- Git Commits: `__to_do__`
+- Git Commits: `df44e055`
 
 #### Overview
 

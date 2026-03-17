@@ -487,6 +487,8 @@ This is the execution checklist for the task list below. It should only be used 
 
 # Tasks
 
+
+
 ### 1. Create The Shared Repository Candidate Order Helper
 
 - Task Status: `__done__`
@@ -544,698 +546,6 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 - Testing step 3 passed via `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`.
 ---
 
-## Post-Implementation Code Review
-
-### Review Pass
-
-- Review pass id: `0000048-review-20260317T145700Z-84ca2ecd`
-- Evidence artifact: [codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-evidence.md)
-- Findings artifact: [codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-findings.md)
-- Outcome: no findings were recorded in the final review pass, so the story remains complete.
-
-### Branch-Vs-Main Checks Performed
-
-- Verified `codeInfoStatus/flow-state/current-plan.json` still points to `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`.
-- Verified the selected plan file exists and that the branch story number `48` still matches the plan filename story number `0000048`.
-- Re-read the active plan from disk after the final closeout commits landed.
-- Reviewed `git diff --name-status main...HEAD` and grouped the changed files into planned implementation files, planned docs/tests/plan files, approved workflow artifacts, approved workflow configuration, and suspicious/out-of-scope files.
-- Re-checked recent branch commits through the final Task 33 closeout wave and its audit-ledger follow-up commits.
-- Confirmed the branch diff still fits Story 48 implementation plus approved workflow artifacts, with no suspicious or out-of-scope files identified.
-
-### Acceptance-Evidence Checks
-
-- Direct proof: `AC01`, `AC02`, `AC04`, `AC05`, `AC06`, `AC07`, `AC11`, `AC12`, `AC13`, `AC14`, `AC15`, `AC16`, `AC17`, `AC18`, `AC19`, `AC20`, `AC23`, `AC24`, `AC26`, `AC27`, `AC28`, `AC29`, `AC31`, `AC32`, `AC33`, `AC34`, `AC35`, `AC37`, `AC38`, `AC39`, `AC40`, `AC43`, `AC44`, `AC45`, `AC46`.
-- Indirect proof: `AC03`, `AC08`, `AC09`, `AC10`, `AC21`, `AC22`, `AC25`, `AC30`, `AC36`, `AC41`, `AC42`.
-- Missing proof: none.
-- Final rerun evidence remains green in Task 33: `npm run build:summary:server`, `npm run build:summary:client`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, `npm run test:summary:e2e`, `npm run compose:build:summary`, `npm run compose:up`, manual Playwright-MCP verification, and `npm run compose:down` all passed.
-- Final live/manual proof remains present for the sixth-pass fixes: omitted and whitespace-only conversation edit payloads reject, explicit `null` clears, `/app` restore still works, the expected Story 48 markers appear in logs/browser output, and no error-level browser-console messages were observed.
-
-### Files And Seams Inspected In Review
-
-- Plan and review artifacts:
-  - [planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md)
-  - [codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-evidence.md)
-  - [codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-findings.md)
-- Highest-risk implementation seams:
-  - [server/src/workingFolders/state.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/workingFolders/state.ts)
-  - [client/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/config/runtimeConfig.ts)
-  - [server/src/flows/repositoryCandidateOrder.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/repositoryCandidateOrder.ts)
-  - [server/src/routes/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/conversations.ts)
-- Direct proof and contract tests:
-  - [server/src/test/unit/repositoryCandidateOrder.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/repositoryCandidateOrder.test.ts)
-  - [client/src/test/conversationsApi.workingFolder.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/conversationsApi.workingFolder.test.ts)
-  - [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts)
-  - [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts)
-
-### Succinctness Review
-
-The implemented code is appropriately succinct for the behavior Story 48 requires. The densest files remain [server/src/workingFolders/state.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/workingFolders/state.ts), [client/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/config/runtimeConfig.ts), and [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts), but the final findings pass did not identify a concrete simplification that was localized, objectively testable, and worth reopening the story for. The remaining complexity is largely a consequence of the story combining reference-resolution, persistence, env-cutover, and tokenizer contracts in one coordinated branch.
-
-### Completion Decision
-
-The final review pass found no `must_fix`, `should_fix`, or `optional_simplification` issue that justifies reopening Story 48 again. The branch-vs-main review, acceptance-evidence review, contract-surface review, and generic engineering defect scan all support keeping the story complete. Story 48 therefore remains closed after the final sixth-pass rerun and this post-implementation code review record.
-
-## Code Review Findings (Third Pass)
-
-Review pass `0000048-review-20260317T093538Z-d8154d87` re-opened Story 48 after the completed branch was reviewed again against `main`. The durable review artifacts for this third pass are [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md).
-
-### Findings Summary
-
-- `should_fix` `generic_engineering_issue`: the client runtime-config marker now sets `hasInvalidCanonicalConfig` from all diagnostics, so malformed env fallback values are mislabeled as malformed canonical runtime config.
-- `should_fix` `generic_engineering_issue`: working-folder operational and repository-enumeration 503 routes still echo raw internal error text back to clients even though the shared server-side marker already preserves actionable diagnostics safely.
-- `should_fix` `generic_engineering_issue`: the branch still carries tracked transient workflow state in `codeInfoStatus/reviews/0000047-current-review.json`, which is stale handoff data rather than a durable review artifact.
-
-### Acceptance Criteria Proof Snapshot
-
-The third review pass re-checked the acceptance criteria against the completed branch and the findings above. The current proof state is:
-
-1. Shared repository candidate order for command and flow lookup: `direct`
-2. One shared repository-candidate builder across flow-command and markdown resolution: `direct`
-3. Nested lookup restarts from the full four-place order on every hop: `indirect`
-4. Duplicate repositories are removed while preserving first position: `direct`
-5. Flow command-file lookup uses the four-place order: `direct`
-6. Flow markdown-file lookup uses the four-place order: `direct`
-7. Command-item markdown lookup inside flows uses the same order: `direct`
-8. Direct command execution keeps working-first then owner-second semantics: `indirect`
-9. Local `codeInfo2` flows search the working repository first: `indirect`
-10. Ingested-repo-owned flows still search the working repository first: `indirect`
-11. Working folder persists/restores across chats, agents, flows, and direct commands: `direct`
-12. Direct command persistence stays on the owning agent conversation: `indirect`
-13. Flow conversations and child agent conversations persist the inherited folder: `direct`
-14. Chat fully participates in the working-folder contract: `direct`
-15. GUI restore and empty-state behavior across existing conversations: `direct`
-16. Canonical stored identity is the absolute repository root path: `direct`
-17. Editable saved value lives on the owning conversation while each run stores its own snapshot: `direct`
-18. Missing working repository skips slot one and logs the condition: `direct`
-19. GUI allows idle working-folder edits on existing conversations: `direct`
-20. GUI blocks working-folder edits while execution is active: `direct`
-21. UI restore and runtime lookup use the same canonical signal: `indirect`
-22. Flow-created/used agent conversations inherit the exact flow-step folder: `indirect`
-23. Invalid saved working folders clear automatically and log a warning: `direct`
-24. Invalid-folder clear happens before reuse and logs stale path plus owning record id/type: `direct`
-25. Existing relative-path safety rules remain in place: `indirect`
-26. Fallback continues only for not-found outcomes: `direct`
-27. Observability logs and docs are updated for candidate order and selected repository: `direct`
-28. Structured lookup logs include the minimum required fields: `direct`
-29. Execution metadata stores a compact lookup summary without broad API-response expansion: `direct`
-30. Documentation includes a nested-reference example: `indirect`
-31. Repository-owned env vars are renamed to `CODEINFO_` and browser-facing vars to `VITE_CODEINFO_`: `direct`
-32. Env rename updates defaults/examples/compose/e2e/wrappers/docs consistently: `direct`
-33. Env rename is a single clean cutover with no temporary dual-read compatibility: `direct`
-34. No checked-in repo-owned file still references the old generic env names: `indirect`
-35. The env rename inventory covers the checked-in product-owned families: `indirect`
-36. The defined env target names were implemented exactly unless another checked-in repo-owned variable also required prefixing: `indirect`
-37. OpenAI counting no longer uses the heuristic for guardrails and chunk sizing: `direct`
-38. OpenAI counting uses a real tokenizer recommendation and prefers Node `tiktoken`: `direct`
-39. OpenAI hard limit is corrected to 8192 while margin remains separate: `direct`
-40. Token-margin behavior remains the soft safety mechanism and is documented: `indirect`
-41. Oversized OpenAI inputs are classified deterministically as input-too-large: `direct`
-42. The OpenAI bug-fix scope stayed limited to tokenizer counting/classification/regression coverage: `indirect`
-43. Tokenizer-backed counting replaced the heuristic everywhere it influenced OpenAI ingest decisions: `direct`
-44. Guardrails and provider `countTokens(...)` now share the same tokenizer-backed implementation: `direct`
-45. OpenAI paths do not fall back to the old heuristic or whitespace estimation on tokenizer failure: `direct`
-46. Tokenizer lifecycle handling is explicit and documented: `direct`
-
-### Succinctness Review
-
-The implementation is still broadly within Story 48’s intended scope, and this third review pass did not find a missing feature contract large enough to reopen earlier behavior tasks. The remaining issues are narrower consistency and artifact-hygiene problems:
-
-- the browser runtime-config marker uses a broader invalidity flag than the canonical-runtime wording implies;
-- the working-folder 503 path still couples safe client messaging to raw internal exception text;
-- the branch still carries one stale transient review handoff artifact from Story 47.
-
-The resolver, persistence, env-cutover, tokenizer, and prior review-fix work otherwise remain appropriately scoped. The follow-up tasks below are intended to close those correctness and workflow-hygiene gaps without broadening Story 48 beyond what this third review pass actually found.
-
-### 23. Narrow Runtime Marker Canonical-Invalid Reporting To Runtime Diagnostics Only
-
-- Task Status: `__done__`
-- Git Commits: `7db145f0, fd238625, cdb4d1bb, 9cb15f5d`
-
-#### Overview
-
-Close the first third-pass `should_fix` finding by making the `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` marker report canonical-runtime invalidity truthfully. The resolved config object and diagnostics array can stay as they are, but the marker must stop labeling malformed env fallback values as malformed canonical runtime config.
-
-#### Subtasks
-
-1. [x] Re-read `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`, then inspect `client/src/config/runtimeConfig.ts`, `client/src/test/baseUrl.env.test.ts`, `client/src/test/logging/transport.test.ts`, and `e2e/env-runtime-config.spec.ts`. Record in Task 23 `Implementation notes` exactly which diagnostics are currently counted toward `hasInvalidCanonicalConfig` and why that overstates canonical-runtime failure.
-2. [x] Refine the runtime-config marker logic so `hasInvalidCanonicalConfig` is derived only from canonical runtime diagnostics (`source: 'runtime'` and/or the top-level `__CODEINFO_CONFIG__` container diagnostic) instead of all diagnostics indiscriminately.
-3. [x] Preserve the existing diagnostics array and resolved config precedence so env fallback values still surface their own invalid diagnostics without being mislabeled as canonical-runtime failures.
-4. [x] Add or extend client tests that prove malformed env fallback values no longer set `hasInvalidCanonicalConfig`, while malformed runtime config values still do.
-5. [x] If needed, extend browser/e2e proof so the marker contract stays observable in the full runtime bootstrap path.
-6. [x] Update Task 23 `Implementation notes` with the final marker rule and the exact proof coverage added.
-
-#### Testing
-
-Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
-
-1. [x] `npm run build:summary:client` - Use because this task changes client runtime-config/bootstrap behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [x] `npm run test:summary:client` - Use because this task changes client/common runtime-config behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
-3. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Use because this task changes a browser-visible runtime marker contract. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
-4. [x] `npm run compose:build:summary` - Use because this task is testable from the front end and should still prove the runtime bootstrap stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-5. [x] `npm run compose:up`
-6. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including runtime-marker checks for malformed env fallback versus malformed canonical runtime config and a debug-console check confirming there are no logged errors.
-7. [x] `npm run compose:down`
-
-#### Implementation notes
-
-- Third-pass review finding only: `hasInvalidCanonicalConfig` is currently computed from the full diagnostics array, so malformed env fallback values are mislabeled as malformed canonical runtime config even when `window.__CODEINFO_CONFIG__` is absent or valid.
-- Re-read the third-pass review finding plus `client/src/config/runtimeConfig.ts`, `client/src/test/baseUrl.env.test.ts`, `client/src/test/logging/transport.test.ts`, and `e2e/env-runtime-config.spec.ts`; the current overstatement is exactly that `hasInvalidCanonicalConfig` is derived from every diagnostic, so malformed env fallback values set the marker even when canonical runtime input is absent or valid.
-- Narrowed the marker rule in `client/src/config/runtimeConfig.ts` so `hasInvalidCanonicalConfig` now comes from `hasInvalidCanonicalRuntimeConfig(...)`, which only treats `source: 'runtime'` diagnostics as canonical-runtime failures while leaving the full diagnostics array unchanged.
-- Preserved the existing resolved-config precedence and diagnostics array: malformed env fallback values still emit `source: 'env'` diagnostics, but they no longer get mislabeled as canonical runtime failure when valid default or env fallback wins.
-- Extended `client/src/test/baseUrl.env.test.ts` and `client/src/test/logging/transport.test.ts` with direct proof that malformed env fallback diagnostics now leave `hasInvalidCanonicalConfig` false while malformed runtime field/container diagnostics still set it true.
-- Extended `e2e/env-runtime-config.spec.ts` so the full browser bootstrap path also asserts the normal runtime marker reports `hasInvalidCanonicalConfig: false` when runtime injection is valid.
-- Testing step 1 passed via `npm run build:summary:client` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
-- Testing step 2 passed via full `npm run test:summary:client` with `tests run: 578`, `passed: 578`, `failed: 0`, and `agent_action: skip_log`; the first full run caught one real expectation bug in the new env-fallback test because jsdom falls back to `window.location.origin`, so I corrected that assertion and reran the full wrapper cleanly.
-- Testing step 3 passed via full `npm run test:summary:e2e` with `tests run: 44`, `passed: 44`, `failed: 0`, and `agent_action: skip_log`, so the refined canonical-invalid marker rule still holds through the browser stack and teardown path.
-- Testing step 4 passed via `npm run compose:build:summary` with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the manual verification stack is ready for bring-up.
-- Testing step 5 passed via `npm run compose:up`; the compose stack started cleanly with healthy server and client containers, ready for the live runtime-marker verification at `http://host.docker.internal:5001`.
-- Testing step 6 passed via Manual Playwright-MCP at `http://host.docker.internal:5001`: the baseline marker reported `hasInvalidCanonicalConfig: false` with no diagnostics, a temporary live bundle edit changing the baked env fallback API URL to `notaurl` produced an env-only diagnostic while `hasInvalidCanonicalConfig` stayed `false`, a temporary live `config.js` mutation to `window.__CODEINFO_CONFIG__ = [];` produced a runtime `invalid_container` diagnostic with `hasInvalidCanonicalConfig: true`, `browser_console_messages(level=\"error\")` returned no entries, screenshots were captured at `test-results/screenshots/0000048-23-home.png` and `test-results/screenshots/0000048-23-malformed-runtime.png`, and both served files were restored to their original hashes before teardown.
-- Testing step 7 passed via `npm run compose:down`; the compose stack shut down cleanly after the manual marker checks, leaving no live-task mutations behind.
-
----
-
-### 24. Keep Working-Folder 503 Messages Safe While Preserving Server-Side Operational Detail
-
-- Task Status: `__done__`
-- Git Commits: `f2046d0b, c0d36500, 67913c93, b0bb7091`
-
-#### Overview
-
-Close the second third-pass `should_fix` finding by separating safe client-facing 503 messaging from the raw operational detail already preserved in the shared working-folder log path. This task should not weaken the actionable server-side diagnostics added in Task 21; it should only stop reflecting arbitrary internal error text straight back to clients.
-
-#### Subtasks
-
-1. [x] Re-read `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`, then inspect `server/src/workingFolders/state.ts`, `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/routes/agentsRun.ts`, `server/src/routes/agentsCommands.ts`, and `server/src/routes/flowsRun.ts`. Record in Task 24 `Implementation notes` exactly which operational failure reasons are currently exposed to clients and which safe replacement message(s) should be used instead.
-2. [x] Refine the working-folder error-to-response mapping so route payloads use safe, stable 503 messages for `WORKING_FOLDER_UNAVAILABLE` and `WORKING_FOLDER_REPOSITORY_UNAVAILABLE`, while the shared `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` marker keeps the raw `errorReason` and `causeCode` detail.
-3. [x] Preserve the existing stale-vs-operational split and the existing 400 validation behavior for `WORKING_FOLDER_INVALID` and `WORKING_FOLDER_NOT_FOUND`.
-4. [x] Add or extend server tests that prove operational filesystem failures and repository-enumeration failures no longer leak raw internal text through route payloads, while the shared warning/info marker still preserves actionable detail server-side.
-5. [x] Update Task 24 `Implementation notes` with the final client-safe vocabulary and the server-side diagnostic surfaces that still preserve the raw detail.
-
-#### Testing
-
-Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
-
-1. [x] `npm run build:summary:server` - Use because this task changes server/common route error behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [x] `npm run test:summary:server:unit` - Use because this task changes server/common working-folder route behavior and log/response mapping. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [x] `npm run test:summary:server:cucumber` - Use because this task still touches server/common behavior that should keep feature-level coverage green. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
-
-#### Implementation notes
-
-- Third-pass review finding only: the working-folder routes now preserve operational diagnostics better than they did before Task 21, but they still use the raw `reason` string from internal repository-enumeration or filesystem failures as the public 503 payload message.
-- Re-read the third-pass review finding plus `server/src/workingFolders/state.ts`, `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/routes/agentsRun.ts`, `server/src/routes/agentsCommands.ts`, and `server/src/routes/flowsRun.ts`; the current leak is that those routes still turn the internal `reason` into the public 503 `message`, even though the shared `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` marker already preserves `errorReason` and `causeCode` safely server-side.
-- Added `getWorkingFolderClientMessage(...)` in `server/src/workingFolders/state.ts` and switched the affected chat, conversations, agents-run, agent-commands, and flows-run routes to stable client-safe 503 vocabulary instead of reflecting the raw internal reason string.
-- Kept the stale-vs-operational split unchanged: `WORKING_FOLDER_INVALID` and `WORKING_FOLDER_NOT_FOUND` still follow the existing 400 validation path, while only `WORKING_FOLDER_UNAVAILABLE` and `WORKING_FOLDER_REPOSITORY_UNAVAILABLE` now map to the safe 503 messages.
-- Updated focused route tests in `server/src/test/unit/agents-router-run.test.ts`, `server/src/test/unit/agents-commands-router-run.test.ts`, `server/src/test/unit/conversations-router-agent-filter.test.ts`, and `server/src/test/integration/flows.run.working-folder.test.ts` so operational failures no longer leak raw internal text through route payloads, while the existing conversations marker assertion still proves raw `errorReason` and `causeCode` remain visible server-side.
-- Final Task 24 client-safe vocabulary: `WORKING_FOLDER_UNAVAILABLE` now returns `working_folder is temporarily unavailable`, `WORKING_FOLDER_REPOSITORY_UNAVAILABLE` now returns `working_folder repository validation is temporarily unavailable`, and the raw operational detail remains observable only through the shared `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` marker context.
-- Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`; the first build correctly caught that `getWorkingFolderClientMessage(...)` was typed too narrowly for route-local unions, so I widened it to accept the route error-code surface and reran the full wrapper cleanly.
-- Testing step 2 passed via full `npm run test:summary:server:unit` with `tests run: 1286`, `passed: 1286`, `failed: 0`, and `agent_action: skip_log`, so the safe 503 message mapping and the preserved marker detail both hold across the full server unit/integration suite.
-- Testing step 3 passed via full `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`, confirming the feature-level server suite still holds after the safe-message cleanup.
-
----
-
-### 25. Remove The Stale Story 47 Transient Review Handoff Artifact
-
-- Task Status: `__done__`
-- Git Commits: `077aeeb1, cb8a1e39, 66a8ea5f, fb733e8e`
-
-#### Overview
-
-Close the third third-pass `should_fix` finding by removing the tracked transient Story 47 review handoff from this branch. The durable Story 47 review artifacts can stay if they are still intentionally useful, but the old `*-current-review.json` state file should not remain committed because later review tooling is supposed to treat that path as transient workflow state.
-
-#### Subtasks
-
-1. [x] Re-read `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`, then inspect `codeInfoStatus/reviews/0000047-current-review.json` plus the neighboring durable Story 47 review artifacts. Record in Task 25 `Implementation notes` why the current-review file is transient and which Story 47 artifacts remain intentionally durable.
-2. [x] Remove the tracked `codeInfoStatus/reviews/0000047-current-review.json` handoff from the branch, or otherwise convert it into non-tracked workflow state, without disturbing the durable Story 47 evidence/findings artifacts.
-3. [x] Update Task 25 `Implementation notes` with the final artifact-hygiene rule and the exact Story 47 files that remain tracked after the cleanup.
-
-#### Testing
-
-Use only the wrapper commands below when testing is required. Do not attempt to run builds or tests without the wrapper.
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
-
-No wrapper build or test steps are required for this task because it only removes stale transient workflow state and does not change executable code, runtime configuration, or documentation behavior.
-
-#### Implementation notes
-
-- Third-pass review finding only: `codeInfoStatus/reviews/0000047-current-review.json` is transient handoff state from a different story and should not stay committed as durable repository history.
-- Re-read the third-pass review finding plus `codeInfoStatus/reviews/0000047-current-review.json` and the neighboring Story 47 review files; the current-review file is only transient handoff state pointing at the last Story 47 review pass, while the timestamped `*-evidence.md` and `*-findings.md` files are the intentionally durable record.
-- Removed the tracked `codeInfoStatus/reviews/0000047-current-review.json` file from the branch without touching the durable Story 47 evidence/findings artifacts or the separate `0000047-external-review-input.md` context file.
-- Final artifact-hygiene rule for this task: Story-specific `*-current-review.json` files are transient workflow state and should not remain tracked after closeout, while the timestamped Story 47 evidence/findings markdown files remain intentionally committed as the durable review history.
-
----
-
-### 26. Re-Run Full Story 48 Validation After Third Review Fixes
-
-- Task Status: `__done__`
-- Git Commits: `1e842835, 2dc6a91e, f13d5458`
-
-#### Overview
-
-After Tasks 23-25 land, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, the earlier review-fix tasks, and the third-pass review fixes. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
-
-#### Subtasks
-
-1. [x] Re-read the Story 48 acceptance criteria, all three `Code Review Findings` sections above, and the durable review artifacts `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md`, and `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`. Record in Task 26 `Implementation notes` how Tasks 23-25 restore the remaining acceptance and workflow-hygiene proof.
-2. [x] Update `README.md`, `design.md`, `projectStructure.md`, and `docs/developer-reference.md` if the third review-fix implementation changes any Story 48 closeout notes, marker contracts, or workflow-artifact guidance.
-3. [x] Update Task 26 `Implementation notes` with the final rerun results, the third-review-fix proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
-4. [x] Preserve the durable third-pass review artifacts in the commit that closes the reopened story. Do not rely on the transient `codeInfoStatus/reviews/0000048-current-review.json` handoff file as the durable record.
-5. [x] Remove or leave untracked the transient `codeInfoStatus/reviews/0000048-current-review.json` handoff file before the closing commit so later review passes cannot consume stale state.
-
-#### Testing
-
-Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
-
-1. [x] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [x] `npm run build:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-3. [x] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-4. [x] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
-5. [x] `npm run test:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
-6. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
-7. [x] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-8. [x] `npm run compose:up`
-9. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, env-cutover contract, third-review marker/message fixes, workflow-artifact hygiene checks, and a debug-console check confirming there are no logged errors.
-10. [x] `npm run compose:down`
-
-#### Implementation notes
-
-- Review reopening only: the third review pass found two remaining low-risk consistency issues in changed runtime/logging code plus one workflow-artifact hygiene issue. Story 48 therefore needs one more narrowly scoped implementation pass and a fresh full rerun task before it can close honestly again.
-- Re-read the Story 48 acceptance criteria, all three review-finding sections in this plan, and the durable review bundles for review passes `b791cfd6`, `810fd4f1`, and `d8154d87` before starting the rerun.
-- Task 23 restores the third-pass runtime-marker proof by narrowing `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` so `hasInvalidCanonicalConfig` now reflects runtime-sourced canonical diagnostics only, while env-fallback diagnostics remain visible without being mislabeled as malformed canonical runtime input.
-- Task 24 restores the third-pass working-folder response proof by keeping public 503 payloads stable and safe while preserving actionable `errorCode`, `errorReason`, and `causeCode` detail in the shared `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` marker and server-side logs.
-- Task 25 restores workflow-artifact hygiene by removing the tracked stale Story 47 transient handoff file `codeInfoStatus/reviews/0000047-current-review.json` while preserving the durable Story 47 timestamped evidence/findings artifacts and external review input.
-- Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
-- Testing step 2 passed via `npm run build:summary:client` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
-- Testing step 3 passed via `npm run test:summary:server:unit` with `tests run: 1286`, `passed: 1286`, `failed: 0`, and `agent_action: skip_log`; this wrapper ran past its nominal budget but continued emitting healthy `agent_action: wait` heartbeats until it reached an honest clean terminal summary.
-- Testing step 4 passed via `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`.
-- Testing step 5 passed via `npm run test:summary:client` with `tests run: 578`, `passed: 578`, `failed: 0`, and `agent_action: skip_log`.
-- Testing step 6 passed via `npm run test:summary:e2e` with `tests run: 44`, `passed: 44`, `failed: 0`, and `agent_action: skip_log`.
-- Testing step 7 passed via `npm run compose:build:summary` with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`.
-- Testing step 8 passed via `npm run compose:up`; the final validation stack started with healthy server and client containers for the live browser checks.
-- Third-pass implementation fixes did not stale `README.md`, `design.md`, `projectStructure.md`, or `docs/developer-reference.md`, so no additional documentation edits were required during this closeout pass.
-- Manual Playwright-MCP verification at `http://host.docker.internal:5001` re-confirmed the runtime-config and working-folder contracts without browser errors: startup console output included `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` with runtime-sourced canonical values, the logs page exposed `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` with `decisionReason: saved_value_valid` and `workingFolder: /app`, and chat selection emitted `DEV_0000048_T6_PICKER_SYNC` for the current conversation state. `browser_console_messages(level=\"error\")` returned no entries.
-- Final screenshot evidence for this third-pass closeout was captured at `/tmp/playwright-output/test-results/screenshots/0000048-26-home.png`, `/tmp/playwright-output/test-results/screenshots/0000048-26-logs.png`, and `/tmp/playwright-output/test-results/screenshots/0000048-26-chat.png`.
-- Testing step 9 passed via manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the third-pass marker/message checks and the clean error-level console review.
-- Testing step 10 passed via `npm run compose:down`; the final validation stack shut down cleanly after the browser pass.
-- Preserved the durable third-pass review artifacts (`0000048-review-20260317T093538Z-d8154d87-evidence.md` and `0000048-review-20260317T093538Z-d8154d87-findings.md`) as the committed record for this review pass instead of relying on transient handoff state.
-- Removed the transient handoff file `codeInfoStatus/reviews/0000048-current-review.json` before the closing commit so later review passes cannot consume stale Story 48 review state.
-
----
-
-## Code Review Findings (Fourth Pass)
-
-Review pass `0000048-review-20260317T110320Z-07647eeb` re-opened Story 48 after the fully completed branch was reviewed again against `main`. The durable review artifacts for this fourth pass are [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md).
-
-### Findings Summary
-
-- `must_fix` `plan_contract_issue`: Story 48’s env-cutover acceptance contract still is not fully satisfied because changed checked-in docs/tests continue to reference legacy env names such as `VITE_API_URL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `LMSTUDIO_BASE_URL`, and `OPENAI_EMBEDDING_KEY`.
-
-### Acceptance Criteria Proof Snapshot
-
-The fourth review pass re-checked the acceptance criteria against the completed branch and the new finding above. The current proof state is:
-
-- `direct`: AC1, AC2, AC4, AC5, AC6, AC7, AC11, AC13, AC14, AC15, AC16, AC17, AC18, AC19, AC20, AC23, AC24, AC26, AC27, AC28, AC29, AC31, AC32, AC37, AC38, AC39, AC40, AC42, AC44, AC45, AC46.
-- `indirect`: AC3, AC8, AC9, AC10, AC12, AC21, AC22, AC25, AC30, AC33, AC35, AC36, AC41, AC43.
-- `missing`: AC34, because repo search still finds literal legacy env names in changed checked-in docs/tests, which breaks the plan’s explicit “clean cutover / only new names remain” contract.
-
-### Succinctness Review
-
-The implementation remains appropriately succinct for the required behavior in the runtime code. This fourth pass did not uncover a new production-path bug or another large architectural gap; it found one remaining closeout-contract problem in the repo-wide env rename story. The needed follow-up is narrow: remove the remaining legacy env-name references from changed checked-in docs/tests, then rerun the final validation matrix once more so the story closes honestly against its own cutover wording.
-
-### 27. Remove Remaining Legacy Env-Name References From Changed Checked-In Docs And Tests
-
-- Task Status: `__done__`
-- Git Commits: `92db1706, fcc9d0dc, 48f69eef`
-
-#### Overview
-
-Close the fourth-pass `must_fix` finding by removing the remaining literal legacy env-name references from the changed checked-in Story 48 docs/tests. This task is specifically about satisfying the plan’s clean-cutover contract without reintroducing old runtime readers or weakening the new `CODEINFO_` / `VITE_CODEINFO_` naming rule.
-
-#### Subtasks
-
-1. [x] Re-read [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md), then inspect [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts), [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts), [server/src/test/unit/env-loading.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/env-loading.test.ts), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md). Record in Task 27 `Implementation notes` exactly which remaining literal legacy names are still present and what each file should say instead.
-2. [x] Update the changed checked-in docs/tests so they stop using or listing the legacy env names literally while still preserving the intended negative-coverage and migration-guidance meaning. Do not reintroduce runtime dual-read compatibility or weaken the clean-cutover contract.
-3. [x] Re-run the repo search for the Story 48 legacy env inventory and record in Task 27 `Implementation notes` which remaining matches are intentionally limited to historical planning documents or other out-of-scope history, and which changed checked-in Story 48 files are now clean.
-4. [x] Update Task 27 `Implementation notes` with the final artifact/doc/test cleanup rule and the exact proof that the changed checked-in Story 48 files no longer reference the old names literally.
-
-#### Testing
-
-Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
-
-1. [x] `npm run test:summary:client` - Use because this task changes checked-in client tests and env-cutover proof. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
-2. [x] `npm run test:summary:server:unit` - Use because this task changes checked-in server tests and env-loading proof. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-
-#### Implementation notes
-
-- Fourth-pass review finding only: changed checked-in Story 48 docs/tests still contain literal legacy env names, so the plan’s clean-cutover acceptance wording is not honestly closed yet even though runtime code has already moved to `CODEINFO_` / `VITE_CODEINFO_`.
-- Subtask 1 inventory: [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts) still literally deletes the old client API env name; [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts) still literally deletes/sets the old client logging names in negative-coverage tests; [server/src/test/unit/env-loading.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/env-loading.test.ts) still literally seeds and enumerates old server env names in its legacy-only assertions; [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) still literally lists removed server names and documentation-only legacy client names. Task 27 should keep the negative/test meaning by constructing those names indirectly in tests and replace the doc wording with generic “pre-cutover generic names” guidance instead of spelling the old names out.
-- Subtask 2 cleanup: rewrote the affected client/server tests to construct the pre-cutover names from fragments instead of spelling them literally, then replaced the checked-in doc wording in [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) with generic unsupported-name guidance. Repo search also surfaced the same literal client log-name wording in [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) and [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), so those two changed Story 48 docs were cleaned in the same pass to keep the closeout proof honest.
-- Subtask 3 repo-search proof: `rg -n '\\b(?:VITE_API_URL|VITE_LOG_FORWARD_ENABLED|VITE_LOG_MAX_BYTES|VITE_LOG_LEVEL|VITE_LOG_STREAM_ENABLED|LMSTUDIO_BASE_URL|OPENAI_EMBEDDING_KEY|CHAT_DEFAULT_PROVIDER|CHAT_DEFAULT_MODEL|INGEST_INCLUDE|INGEST_EXCLUDE|INGEST_FLUSH_EVERY|INGEST_COLLECTION|INGEST_ROOTS_COLLECTION|INGEST_TEST_GIT_PATHS|LOG_FILE_PATH|LOG_LEVEL|LOG_BUFFER_MAX|LOG_MAX_CLIENT_BYTES|LOG_INGEST_WS_THROTTLE_MS|LOG_FILE_ROTATE)\\b' .` now leaves only historical planning/review artifacts plus the active Story 48 plan/review text that documents the migration itself; the changed checked-in Task 27 files are clean.
-- Subtask 4 cleanup rule: changed checked-in Story 48 docs/tests should describe unsupported pre-cutover names generically or build them from fragments for negative coverage, but they should not spell the old env names literally. Direct proof before wrapper reruns: the same bounded `rg` command returns no matches in [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts), [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts), [server/src/test/unit/env-loading.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/env-loading.test.ts), [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md), [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), and [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
-- Testing 1: `npm run test:summary:client` passed cleanly with `tests run: 578`, `passed: 578`, `failed: 0`, so the client-side doc/test cleanup did not disturb the existing Story 48 runtime-config and transport proof.
-- Testing 2: `npm run test:summary:server:unit` passed cleanly with `tests run: 1286`, `passed: 1286`, `failed: 0`, so the server-side env-loading cleanup still preserves the existing Story 48 startup-env and wrapper proof.
-
-### 28. Re-Run Full Story 48 Validation After Fourth Review Fixes
-
-- Task Status: `__done__`
-- Git Commits: `3955ae77, 0eecaf7c, 59588d9c`
-
-#### Overview
-
-After Task 27 lands, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, all prior review-fix tasks, and the fourth-pass env-cutover cleanup. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
-
-#### Subtasks
-
-1. [x] Re-read the Story 48 acceptance criteria, all four `Code Review Findings` sections above, and the durable review artifacts `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md`, and `codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md`. Record in Task 28 `Implementation notes` how Task 27 restores the final env-cutover proof.
-2. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) if the fourth review-fix implementation changes any final Story 48 closeout notes or migration guidance.
-3. [x] Update Task 28 `Implementation notes` with the final rerun results, the fourth-review-fix proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
-4. [x] Preserve the durable fourth-pass review artifacts in the commit that closes the reopened story. Do not rely on the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file as the durable record.
-5. [x] Remove or leave untracked the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file before the closing commit so later review passes cannot consume stale state.
-
-#### Testing
-
-Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
-
-1. [x] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [x] `npm run build:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-3. [x] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-4. [x] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
-5. [x] `npm run test:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
-6. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
-7. [x] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-8. [x] `npm run compose:up`
-9. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, env-cutover contract, fourth-review cleanup checks, and a debug-console check confirming there are no logged errors.
-10. [x] `npm run compose:down`
-
-#### Implementation notes
-
-- Review reopening only: the fourth review pass found one remaining plan-contract gap in the env cutover story. Story 48 therefore needs one more narrow cleanup task and a fresh full rerun before it can close honestly again.
-- Subtask 1 proof mapping: re-read the acceptance criteria, all four review-finding sections, and the four durable evidence/findings bundles for review passes `b791cfd6`, `810fd4f1`, `d8154d87`, and `07647eeb`. Task 27 restores the final env-cutover proof by removing literal old env-name references from the reopened checked-in Story 48 docs/tests and by documenting that the remaining bounded repo-search hits are historical plan/review artifacts rather than active product-owned docs/tests.
-- Subtask 2 doc check: no additional documentation update is required for Task 28. Task 27 already cleaned the reopened env-cutover wording in [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md), and that cleanup does not stale the broader Story 48 closeout guidance in those files or in [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
-- Testing 1: `npm run build:summary:server` passed with `status: passed` and `warning_count: 0`.
-- Testing 2: `npm run build:summary:client` passed with `status: passed` and `warning_count: 0`.
-- Testing 3: `npm run test:summary:server:unit` passed with `tests run: 1286`, `passed: 1286`, `failed: 0`; the wrapper stayed in healthy `agent_action: wait` heartbeats until it emitted a clean terminal summary.
-- Testing 4: `npm run test:summary:server:cucumber` passed with `tests run: 71`, `passed: 71`, `failed: 0`.
-- Testing 5: `npm run test:summary:client` passed with `tests run: 578`, `passed: 578`, `failed: 0`.
-- Testing 6: `npm run test:summary:e2e` passed with `tests run: 41`, `passed: 41`, `failed: 0`.
-- Testing 7: `npm run compose:build:summary` passed with `items passed: 2` and `items failed: 0`.
-- Testing 8: `npm run compose:up` started a healthy Story 48 verification stack with the client and server containers up after their dependency health checks completed.
-- Subtask 3 rerun proof: the final live-stack pass kept the fourth-review cleanup honest while re-proving the broader Story 48 contract. Browser startup still emitted `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` with canonical runtime values, `/logs` exposed both `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` and `DEV_0000048_T7_CODEINFO_ENV_RESOLVED`, and the seeded Task 7 chat conversation restored `/app` with a fresh `DEV_0000048_T6_PICKER_SYNC` restore marker. Screenshot evidence was captured at `test-results/screenshots/0000048-28-logs.png` and `test-results/screenshots/0000048-28-chat.png`, and `browser_console_messages(level=\"error\")` returned no entries. Task 27's fourth-pass cleanup itself remains re-proved by the bounded repo-search and wrapper results above rather than by inventing any legacy-env runtime seam on the clean final stack.
-- Subtask 4 durable-artifact preservation: the closing commit keeps the timestamped fourth-pass review evidence/findings files in place and relies on those durable markdown artifacts rather than on any transient `current-review` handoff file.
-- Subtask 5 review-handoff hygiene: removed the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff from the working tree so the closing commit can finish without stale transient review state.
-- Testing 9: Manual Playwright-MCP verification at `http://host.docker.internal:5001` passed. The live browser console still showed `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG`, the logs page contained `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` and `DEV_0000048_T7_CODEINFO_ENV_RESOLVED`, the seeded Task 7 chat restore conversation repopulated the working-folder picker with `/app` and emitted a fresh `DEV_0000048_T6_PICKER_SYNC` restore marker, screenshots were saved as `test-results/screenshots/0000048-28-logs.png` and `test-results/screenshots/0000048-28-chat.png`, and the error-level browser console check stayed empty.
-- Testing 10: `npm run compose:down` removed the client, server, Mongo, Chroma, Zipkin, and collector containers and tore down the `codeinfo2_internal` network cleanly, so the final rerun stack left no running verification services behind.
-
----
-
-## Code Review Findings (Fifth Pass)
-
-Review pass `0000048-review-20260317T121229Z-36689200` re-checked the completed branch against `main` using the durable artifacts [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md). That review found one remaining localized correctness gap in the Story 48 runtime-config normalization path, so the story must reopen once more before it can close honestly.
-
-### Findings Summary
-
-- `should_fix` `generic_engineering_issue`: [client/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/config/runtimeConfig.ts) still treats object-like but non-record `window.__CODEINFO_CONFIG__` values as valid containers, so malformed values such as `new Date()`, `new URL(...)`, `new Map()`, or other exotic objects can still default away without emitting the top-level `invalid_container` diagnostic introduced by Task 20.
-
-### Acceptance Criteria Proof Snapshot
-
-The fifth review pass re-checked the active Story 48 acceptance criteria against the completed branch and the new finding above. The current proof state is:
-
-- `direct`: AC1, AC2, AC4, AC5, AC6, AC7, AC11, AC13, AC14, AC15, AC16, AC17, AC18, AC19, AC20, AC23, AC24, AC26, AC27, AC28, AC29, AC31, AC32, AC33, AC34, AC35, AC37, AC38, AC39, AC40, AC43, AC44, AC45, AC46.
-- `indirect`: AC3, AC8, AC9, AC10, AC12, AC21, AC22, AC25, AC30, AC36, AC41, AC42.
-- `missing`: none for the original Story 48 acceptance criteria. The remaining reopen reason is a localized malformed-input normalization defect in the fifth-pass runtime-config review, not a newly missing original acceptance criterion.
-
-### Succinctness Review
-
-The implementation still remains appropriately succinct for the story’s required behavior overall. The lookup-order, working-folder, env-cutover, tokenizer, and review-artifact contracts do not need another broad restructure. The remaining issue is a narrow normalization rule inside one already-changed runtime-config helper, so the follow-up below should stay tightly local to that helper, its direct tests, and the final rerun matrix.
-
-### 29. Reject Object-Like Non-Record Canonical Runtime Config Containers
-
-- Task Status: `__done__`
-- Git Commits: `c8182e8e, 9013fcd4, d7baa68a`
-
-#### Overview
-
-Close the fifth-pass `should_fix` finding by treating object-like but non-record `window.__CODEINFO_CONFIG__` values as malformed top-level canonical runtime config containers instead of silently treating them like empty or absent config. This is a localized runtime-config validation cleanup; it should preserve the existing env/default fallback behavior and the existing `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` marker contract for valid inputs.
-
-#### Subtasks
-
-1. [x] Re-read [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md), then inspect [client/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/config/runtimeConfig.ts), [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts), [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts), and [e2e/env-runtime-config.spec.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/e2e/env-runtime-config.spec.ts). Record in Task 29 `Implementation notes` exactly which top-level container shapes are currently rejected, which object-like malformed shapes still slip through, and why they are still being normalized into success.
-2. [x] Tighten the top-level runtime-config container rule in [client/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/config/runtimeConfig.ts) so only plain config-record containers are accepted. `undefined` must remain the only “absent” case. `null`, arrays, primitives, class instances, built-in object instances, and other non-record objects must all emit the same top-level `invalid_container` diagnostic instead of silently falling through to field-level missing behavior.
-3. [x] Preserve the existing resolved-config precedence and marker vocabulary for valid inputs. Valid runtime values must still beat env/default values, env/default fallback must still work when the runtime container is malformed, and `hasInvalidCanonicalConfig` plus the existing `diagnostics` payload must stay truthful without introducing a second marker schema.
-4. [x] Add or extend direct client tests proving that object-like malformed top-level containers are now rejected explicitly. At minimum, cover one built-in exotic object on the API-base-url path and one on the logging-config path so the helper no longer relies only on primitive/array coverage.
-5. [x] If the malformed-object container behavior is observable in the browser bootstrap path, keep the full-stack proof aligned by extending or reusing the existing runtime-config browser/e2e verification so the same marker contract still proves the bad-runtime/good-fallback path without adding a second bootstrap seam.
-6. [x] Update Task 29 `Implementation notes` with the final plain-object acceptance rule, the exact malformed object shapes now rejected, and where the proof lives.
-
-#### Testing
-
-Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
-
-1. [x] `npm run build:summary:client` - Use because this task changes client runtime-config/bootstrap behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [x] `npm run test:summary:client` - Use because this task changes client/common runtime-config behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
-3. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Use because this task changes a browser-visible runtime marker contract. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
-4. [x] `npm run compose:build:summary` - Use because this task is testable from the front end and should still prove the runtime bootstrap stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-5. [x] `npm run compose:up`
-6. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including runtime-marker checks for malformed object-like canonical containers versus valid env/default fallback and a debug-console check confirming there are no logged errors.
-7. [x] `npm run compose:down`
-
-#### Implementation notes
-
-- Review reopening only: the fifth review pass found one remaining malformed-input normalization gap in the runtime-config helper. Story 48 therefore needs one more narrow validation cleanup and a fresh full rerun before it can close honestly again.
-- Subtask 1 inspection: re-read the fifth-pass finding and the named runtime-config/client/e2e files. `readRuntimeConfig()` currently rejects `undefined` by treating it as absent and rejects `null`, primitives, and arrays with a top-level `invalid_container` diagnostic, but it accepts any other truthy non-array object as a valid container. That means object-like malformed containers such as `new Date()`, `new URL(...)`, `new Map()`, or class instances flow through as `RawRuntimeConfig`, produce only per-field `undefined` reads, and get silently normalized into env/default success instead of surfacing the Task 20 top-level malformed-container diagnostic.
-- Subtask 2 plain-object rule: tightened `readRuntimeConfig()` so only plain record containers with `Object.prototype` or `null` prototype are accepted. `undefined` still means absent, while class instances, built-in object instances, arrays, primitives, and `null` now all converge on the same top-level `invalid_container` diagnostic path.
-- Subtask 3 precedence preservation: kept the existing field normalizers, fallback order, and `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` payload untouched for valid inputs. The change is isolated to the top-level container gate, so valid runtime values still win, malformed runtime containers still fall back cleanly to env/default, and `hasInvalidCanonicalConfig` remains driven by runtime-sourced diagnostics only.
-- Subtask 4 direct test coverage: extended [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts) with a `URL`-instance container case on the API path and [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts) with a `Date`-instance container case on the logging path, so the helper no longer relies only on primitive and array malformed-container coverage.
-- Subtask 5 browser-proof alignment: extended [e2e/env-runtime-config.spec.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/e2e/env-runtime-config.spec.ts) by routing `config.js` to a `Date`-instance runtime container and reusing the existing `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` marker as the proof surface for bad-runtime/good-fallback behavior.
-- Testing 1: `npm run build:summary:client` passed with `status: passed` and `warning_count: 0`.
-- Testing 2: `npm run test:summary:client` passed with `tests run: 580`, `passed: 580`, and `failed: 0`.
-- Testing 3: the first full `npm run test:summary:e2e` rerun failed honestly on the new malformed-object marker assertion because the browser fell back to the built client env (`http://host.docker.internal:6010`) instead of `window.location.origin`; after correcting that expectation and rerunning the full wrapper, it passed with `tests run: 45`, `passed: 45`, and `failed: 0`.
-- Testing 4: `npm run compose:build:summary` passed with `items passed: 2` and `items failed: 0`.
-- Testing 5: `npm run compose:up` started a healthy Story 48 verification stack with the client and server containers up after their dependency health checks completed.
-- Subtask 6 final rule and proof: the helper now accepts only plain runtime-config records with `Object.prototype` or `null` prototype. The direct proof lives in [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts) for a `URL`-instance API container, [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts) for a `Date`-instance logging container, and [e2e/env-runtime-config.spec.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/e2e/env-runtime-config.spec.ts) for the browser bootstrap path.
-- Testing 6: Manual Playwright-MCP verification at `http://host.docker.internal:5001` confirmed both sides of the Task 29 contract. The normal startup marker still reported runtime-sourced values, and after temporarily replacing the served `/app/client/dist/config.js` with `window.__CODEINFO_CONFIG__ = new Date('2026-03-17T00:00:00.000Z');`, the browser console reported `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` with `apiBaseUrlSource: 'env'`, `lmStudioBaseUrlSource: 'env'`, `logForwardEnabledSource: 'env'`, `logMaxBytesSource: 'env'`, `hasInvalidCanonicalConfig: true`, and `diagnostics: [{ container: '__CODEINFO_CONFIG__', source: 'runtime', rawValue: '\"2026-03-17T00:00:00.000Z\"', reason: 'invalid_container' }]`. The served config file was restored immediately after capture, the error-level browser console check returned no entries, and screenshot evidence was saved as `test-results/screenshots/0000048-29-malformed-runtime.png`.
-- Testing 7: `npm run compose:down` removed the client, server, Mongo, Chroma, Zipkin, and collector containers and tore down the `codeinfo2_internal` network cleanly.
-
----
-
-### 30. Re-Run Full Story 48 Validation After Fifth Review Fixes
-
-- Task Status: `__done__`
-- Git Commits: `83e447cb, 28518b2b, 04eabeab, d7d167f2`
-
-#### Overview
-
-After Task 29 lands, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, all prior review-fix tasks, and the fifth-pass runtime-config cleanup. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
-
-#### Subtasks
-
-1. [x] Re-read the Story 48 acceptance criteria, all five `Code Review Findings` sections above, and the durable review artifacts [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md), and [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md). Record in Task 30 `Implementation notes` how Task 29 restores the remaining runtime-config proof.
-2. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) if the fifth review-fix implementation changes any final Story 48 closeout notes or runtime-config guidance.
-3. [x] Update Task 30 `Implementation notes` with the final rerun results, the fifth-review-fix proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
-4. [x] Preserve the durable fifth-pass review artifacts in the commit that closes the reopened story. Do not rely on the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file as the durable record.
-5. [x] Remove or leave untracked the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file before the closing commit so later review passes cannot consume stale state.
-
-#### Testing
-
-Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
-
-1. [x] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [x] `npm run build:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-3. [x] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-4. [x] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
-5. [x] `npm run test:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
-6. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
-7. [x] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-8. [x] `npm run compose:up`
-9. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, env-cutover contract, fifth-review runtime-config cleanup checks, and a debug-console check confirming there are no logged errors.
-10. [x] `npm run compose:down`
-
-#### Implementation notes
-
-- Review reopening only: the fifth review pass found one remaining localized malformed-input normalization gap in the runtime-config helper. Story 48 therefore needs one more narrow cleanup task and a fresh full rerun before it can close honestly again.
-- Subtask 1 proof mapping: re-read the Story 48 acceptance criteria, all five review-finding sections, and the five durable evidence/findings bundles for review passes `b791cfd6`, `810fd4f1`, `d8154d87`, `07647eeb`, and `36689200`. Task 29 restores the remaining runtime-config proof by tightening the top-level `window.__CODEINFO_CONFIG__` acceptance rule to plain record containers only, adding direct exotic-object coverage in the client suites, and proving through the existing `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` marker that a malformed object-like runtime container now falls back truthfully to env/default values while surfacing `invalid_container`.
-- Subtask 2 doc check: no additional documentation update is required for Task 30. Task 29 changed runtime-config validation and proof only; it did not stale the existing Story 48 closeout guidance in [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), or [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md).
-- Testing 1: `npm run build:summary:server` passed with `status: passed` and `warning_count: 0`.
-- Testing 2: `npm run build:summary:client` passed with `status: passed` and `warning_count: 0`.
-- Testing 3: `npm run test:summary:server:unit` passed with `tests run: 1286`, `passed: 1286`, and `failed: 0`; the wrapper stayed in healthy `agent_action: wait` heartbeats until it emitted a clean terminal summary.
-- Testing 4: `npm run test:summary:server:cucumber` passed with `tests run: 71`, `passed: 71`, and `failed: 0`.
-- Testing 5: `npm run test:summary:client` passed with `tests run: 580`, `passed: 580`, and `failed: 0`.
-- Testing 6: `npm run test:summary:e2e` passed with `tests run: 45`, `passed: 45`, and `failed: 0`.
-- Testing 7: `npm run compose:build:summary` passed with `items passed: 2` and `items failed: 0`.
-- Testing 8: `npm run compose:up` started the final verification stack cleanly; the `mongo`, `server`, and `client` containers all reached their healthy/started state before manual browser validation began.
-- Subtask 3 final proof summary: the post-fix live rerun re-proved the runtime-config contract through the existing `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` marker, re-proved working-folder restore through `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` plus `DEV_0000048_T6_PICKER_SYNC`, and captured final screenshots at `/tmp/playwright-output/0000048-30-logs.png`, `/tmp/playwright-output/0000048-30-chat.png`, and `/tmp/playwright-output/0000048-30-malformed-runtime.png`.
-- Subtask 4 durable artifact check: the timestamped fifth-pass review files `codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md` and `codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md` remain tracked as the durable record used for this closing pass.
-- Subtask 5 transient artifact hygiene: removed `codeInfoStatus/reviews/0000048-current-review.json` from the working tree before the closing commit so later review passes cannot consume stale transient handoff state.
-- Testing 9: Manual Playwright-MCP verification passed at `http://host.docker.internal:5001`; startup emitted `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG`, the logs page exposed `DEV_0000048_T7_CODEINFO_ENV_RESOLVED` and `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` with `workingFolder: /app`, the seeded Task 7 chat restore repopulated `/app` and emitted `DEV_0000048_T6_PICKER_SYNC`, a temporary live `config.js` mutation to `window.__CODEINFO_CONFIG__ = new Date('2026-03-17T00:00:00.000Z');` produced the expected runtime `invalid_container` diagnostic with `hasInvalidCanonicalConfig: true` and env-backed fallback sources, `browser_console_messages(level="error")` returned no entries, and the served file was restored before teardown.
-- Testing 10: `npm run compose:down` removed the client, server, Mongo, Chroma, Zipkin, collector, and the `codeinfo2_internal` network cleanly after the final manual verification pass.
-
----
-
-## Code Review Findings (Sixth Pass)
-
-### Review Artifacts
-
-- Evidence: [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-evidence.md)
-- Findings: [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md)
-
-### Findings Summary
-
-1. `must_fix` `generic_engineering_issue`: the conversation working-folder edit route in [server/src/routes/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/conversations.ts) still normalizes missing or whitespace-only `workingFolder` input into a successful clear, so invalid or omitted input can erase saved state instead of being rejected.
-2. `should_fix` `generic_engineering_issue`: [server/src/flows/repositoryCandidateOrder.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/repositoryCandidateOrder.ts) still lets `buildRepositoryCandidateLookupSummary(...)` report `fallbackUsed: false` when the selected repository is not present in the ordered candidates, which hides an impossible state behind a misleading success-shaped summary.
-
-### Acceptance Criteria Proof Snapshot
-
-- Direct proof in the sixth-pass evidence artifact: `AC01`, `AC02`, `AC04`, `AC05`, `AC06`, `AC07`, `AC11`, `AC12`, `AC13`, `AC14`, `AC15`, `AC16`, `AC17`, `AC18`, `AC19`, `AC20`, `AC23`, `AC24`, `AC26`, `AC27`, `AC28`, `AC29`, `AC31`, `AC32`, `AC33`, `AC34`, `AC35`, `AC37`, `AC38`, `AC39`, `AC40`, `AC43`, `AC44`, `AC45`, `AC46`.
-- Indirect proof in the sixth-pass evidence artifact: `AC03`, `AC08`, `AC09`, `AC10`, `AC21`, `AC22`, `AC25`, `AC30`, `AC36`, `AC41`, `AC42`.
-- Missing proof in the sixth-pass evidence artifact: none at the acceptance-criterion level, but the review did identify one missing direct route-contract proof for omitted/blank `workingFolder` edit payloads and one missing direct invariant proof for contradictory `selectedRepositoryPath` lookup-summary inputs.
-
-### Succinctness Review
-
-The implementation still remains appropriately succinct for the story’s required behavior overall. The sixth-pass findings are both narrow follow-ups in already-changed seams rather than evidence that Story 48 needs another broad restructure. The route contract in [server/src/routes/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/conversations.ts) and the invariant handling in [server/src/flows/repositoryCandidateOrder.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/repositoryCandidateOrder.ts) should be tightened locally, then the story should be rerun through one fresh full validation pass.
-
-### 31. Require Explicit Clear Semantics On Conversation Working-Folder Edits
-
-- Task Status: `__done__`
-- Git Commits: `08cfe44c, 980600f1`
-
-#### Overview
-
-Close the sixth-pass `must_fix` finding by making the conversation working-folder edit route require an explicit caller choice. A non-empty string must continue to mean “save this folder”, explicit `null` must continue to mean “clear the saved folder”, and omitted or whitespace-only `workingFolder` input must stop being normalized into a successful clear.
-
-#### Subtasks
-
-1. [x] Re-read [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md), then inspect [server/src/routes/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/conversations.ts), [client/src/api/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/conversations.ts), and the existing conversation working-folder tests. Record in Task 31 `Implementation notes` exactly how omitted, blank, explicit `null`, and non-empty string payloads are handled today, and why the current omitted/blank path is incorrectly normalized into success.
-2. [x] Tighten the edit-route request contract in [server/src/routes/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/conversations.ts) so the route only accepts two explicit states: a non-empty string to save, or `null` to clear. Do not let an omitted `workingFolder` field, an empty string, or a whitespace-only string clear the saved value silently.
-3. [x] Preserve the existing safe-message and operational-error behavior for true validation failures and temporary repository-membership failures. This task is only about explicit clear semantics and invalid-input rejection; it must not reopen the safe 503-message work from Task 24.
-4. [x] Add or extend server route tests that prove all four input cases explicitly: omitted field rejects, blank/whitespace field rejects, explicit `null` clears, and a non-empty string saves. The purpose of these tests is to stop the route from ever again normalizing missing input into success.
-5. [x] If any client-side API helper or page-level caller assumptions need to be clarified while keeping the public contract explicit, update those tests too, but do not broaden the change into a new client workflow. The intended outcome is that the existing helper continues to send only explicit save or clear payloads, and route-level rejection catches malformed callers.
-6. [x] Update Task 31 `Implementation notes` with the final explicit-clear contract, the exact rejected payload shapes, and where the proof lives.
-
-#### Testing
-
-Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
-
-1. [x] `npm run build:summary:server` - Use because this task changes a server REST contract. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [x] `npm run test:summary:server:unit` - Use because this task changes server route validation and persistence behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [x] `npm run test:summary:server:cucumber` - Use because this task changes server/common behavior and the full server regression suite should still pass. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
-
-#### Implementation notes
-
-- Review reopening only: the sixth review pass found that the conversation working-folder edit route still lets omitted or blank input clear saved state. Story 48 therefore needs one more localized route-contract fix before it can close honestly again.
-- Re-read the sixth-pass finding and inspected the route/helper/tests. Today the server parses omitted, empty, and whitespace-only `workingFolder` values into `undefined`, then persists `validatedWorkingFolder ?? null`, so those malformed payloads silently clear state; the client helper currently makes that worse by trimming `undefined` or blank strings into `{ workingFolder: null }`. Explicit `null` already clears correctly, and non-empty strings already follow the normal save/validation path.
-- Tightened the conversation edit route so `workingFolder` is now required in the request body, `z.string().trim().min(1).nullable()` rejects omitted/blank/whitespace-only values before persistence, and only explicit `null` reaches the clear path while non-empty strings still flow through the existing repository-membership validation.
-- Kept the Task 24 safety behavior intact: the only change is malformed-input rejection before validation, while the existing 400 invalid-path handling and the safe 503 operational-error mapping still use the same route logic and client-safe messages for true validation or repository availability failures.
-- Added direct server route proof in `server/src/test/unit/conversations-router-agent-filter.test.ts` for the four required cases: omitted payload rejects, blank payload rejects, whitespace-only payload rejects, explicit `null` clears, and non-empty strings still save.
-- Clarified the client helper contract in `client/src/api/conversations.ts` and `client/src/test/conversationsApi.workingFolder.test.ts` so page-level callers still send only explicit save-or-clear payloads, while malformed helper inputs (`undefined` or blank strings) now reject locally instead of being normalized into a clear request.
-- Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the tightened explicit-clear route and helper contract still typecheck/build cleanly on the server side.
-- Testing step 2 passed on rerun via full `npm run test:summary:server:unit` with `tests run: 1289`, `passed: 1289`, `failed: 0`, and `agent_action: skip_log`; the first full run failed honestly only because the new omitted/blank route tests asserted Zod’s exact wording too narrowly, so I widened those assertions to stable validation-error patterns and reran the full wrapper cleanly.
-- Final explicit-clear contract: `POST /conversations/:id/working-folder` now accepts only `{ "workingFolder": "<non-empty trimmed string>" }` to save or `{ "workingFolder": null }` to clear. The route now rejects `{}`, `{ "workingFolder": "" }`, and `{ "workingFolder": "   " }` as 400 validation errors before persistence, while direct proof lives in `server/src/test/unit/conversations-router-agent-filter.test.ts` and the helper-side malformed-caller proof lives in `client/src/test/conversationsApi.workingFolder.test.ts`.
-- Testing step 3 passed via full `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`, so the broader server regression suite still holds after tightening the explicit save-vs-clear route contract.
-
----
-
-### 32. Fail Closed When Lookup-Summary Inputs Contradict The Candidate Order
-
-- Task Status: `__done__`
-- Git Commits: `f6b162bf, 84893f8a`
-
-#### Overview
-
-Close the sixth-pass `should_fix` finding by making the shared lookup-summary helper fail closed when a caller asks it to summarize a repository path that is not actually present in the ordered candidate list. This is a localized consistency fix in the shared helper and its direct proofs; it must keep the existing success-path summary shape unchanged for valid inputs.
-
-#### Subtasks
-
-1. [x] Re-read [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md), then inspect [server/src/flows/repositoryCandidateOrder.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/repositoryCandidateOrder.ts), [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), [server/src/flows/markdownFileResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/markdownFileResolver.ts), and [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts). Record in Task 32 `Implementation notes` exactly how the helper behaves today when the selected repository path is missing from the ordered candidates and which changed callers depend on the happy-path summary.
-2. [x] Tighten [server/src/flows/repositoryCandidateOrder.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/repositoryCandidateOrder.ts) so a contradictory `selectedRepositoryPath` cannot be summarized as a false “first-choice” success. The helper should either throw or otherwise make the invariant break explicit, but it must not keep returning `fallbackUsed: false` for a path that was never in the candidate order.
-3. [x] Keep the existing persisted and logged summary contract unchanged for valid inputs: `selectedRepositoryPath`, `fallbackUsed`, and `workingRepositoryAvailable`. This task is only about fail-closed invariant handling and direct proof for the contradictory-input path.
-4. [x] Add or extend one direct unit test in [server/src/test/unit/repositoryCandidateOrder.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/repositoryCandidateOrder.test.ts) that proves a contradictory `selectedRepositoryPath` does not silently produce a success-shaped summary. The purpose of this test is to close the missing-proof gap identified in the sixth-pass review.
-5. [x] Reconfirm that the changed happy-path callers in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), [server/src/flows/markdownFileResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/markdownFileResolver.ts), and [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) still behave identically for valid selections. The intended outcome is a narrower fail-closed helper, not a new summary schema or caller-specific workaround.
-6. [x] Update Task 32 `Implementation notes` with the final invariant rule, the contradictory-input behavior you chose, and where the direct proof lives.
-
-#### Testing
-
-Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
-
-1. [x] `npm run build:summary:server` - Use because this task changes a shared server helper used by flows, markdown resolution, and direct commands. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [x] `npm run test:summary:server:unit` - Use because this task changes shared server lookup-summary behavior covered by node:test unit/integration suites. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [x] `npm run test:summary:server:cucumber` - Use because this task changes shared server/common behavior and the full server regression suite should still pass. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
-
-#### Implementation notes
-
-- Review reopening only: the sixth review pass found one remaining lookup-summary invariant gap in the shared repository-order helper. Story 48 therefore needs one more narrow helper fix and direct proof before it can close honestly again.
-- Re-read the sixth-pass finding and inspected the helper plus its changed callers. Today `buildRepositoryCandidateLookupSummary(...)` resolves the selected path, lets `findIndex(...)` return `-1` for a path missing from the ordered candidates, and still returns a success-shaped summary with `fallbackUsed: false`; the changed happy-path callers in `server/src/flows/service.ts`, `server/src/flows/markdownFileResolver.ts`, and `server/src/agents/service.ts` all assume the helper only summarizes a candidate that actually came from the ordered list.
-- Tightened `buildRepositoryCandidateLookupSummary(...)` in `server/src/flows/repositoryCandidateOrder.ts` to throw when the selected repository path is not present in the ordered candidates, so contradictory input now fails closed instead of being mislabeled as a first-choice success.
-- Kept the valid-input summary contract unchanged. For real selected candidates, the helper still returns only `selectedRepositoryPath`, `fallbackUsed`, and `workingRepositoryAvailable`, so existing persisted turn/runtime data and log payloads do not change shape.
-- Added direct invariant proof in `server/src/test/unit/repositoryCandidateOrder.test.ts` that a contradictory `selectedRepositoryPath` now throws instead of producing a success-shaped summary.
-- Reconfirmed by inspection that the changed happy-path callers in `server/src/flows/service.ts`, `server/src/flows/markdownFileResolver.ts`, and `server/src/agents/service.ts` all build lookup summaries from a candidate they selected from the ordered list itself, so valid behavior remains unchanged and no caller-specific workaround was needed.
-- Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the fail-closed helper change still builds cleanly across the shared server paths that consume the lookup summary.
-- Testing step 2 passed via full `npm run test:summary:server:unit` with `tests run: 1290`, `passed: 1290`, `failed: 0`, and `agent_action: skip_log`, so the new contradictory-input unit proof and the unchanged happy-path callers both hold across the full server unit/integration suite.
-- Final invariant rule: `buildRepositoryCandidateLookupSummary(...)` may only summarize a repository path that is actually present in the ordered candidate list. Contradictory input now throws `selectedRepositoryPath ... is not present in the ordered candidate list`, while the direct proof lives in `server/src/test/unit/repositoryCandidateOrder.test.ts` and the valid-path callers remain unchanged because they only summarize candidates selected from the ordered list itself.
-- Testing step 3 passed via full `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`, so the broader server regression suite still holds after tightening the shared lookup-summary invariant.
-
----
-
-### 33. Re-Run Full Story 48 Validation After Sixth Review Fixes
-
-- Task Status: `__done__`
-- Git Commits: `25eb3e59, ddf42a0c, 89340a57`
-
-#### Overview
-
-After Tasks 31 and 32 land, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, all prior review-fix tasks, and the sixth-pass route-contract and lookup-summary consistency fixes. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
-
-#### Subtasks
-
-1. [x] Re-read the Story 48 acceptance criteria, all six `Code Review Findings` sections above, and the durable review artifacts [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-evidence.md), and [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md). Record in Task 33 `Implementation notes` how Tasks 31 and 32 restore the remaining route-contract and lookup-summary proof.
-2. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) if the sixth review-fix implementation changes any final Story 48 closeout notes or route/runtime-config guidance.
-3. [x] Update Task 33 `Implementation notes` with the final rerun results, the sixth-review-fix proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
-4. [x] Preserve the durable sixth-pass review artifacts in the commit that closes the reopened story. Do not rely on the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file as the durable record.
-5. [x] Remove or leave untracked the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file before the closing commit so later review passes cannot consume stale state.
-
-#### Testing
-
-Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
-Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
-
-1. [x] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [x] `npm run build:summary:client` - Mandatory final regression check because the story’s client/common behavior must remain green after the sixth-pass server fixes. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-3. [x] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
-4. [x] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
-5. [x] `npm run test:summary:client` - Mandatory final regression check because the story’s client/common behavior must remain green after the sixth-pass fixes. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
-6. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
-7. [x] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-8. [x] `npm run compose:up`
-9. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, explicit-clear edit-route checks, lookup-summary regression checks, env-cutover contract, and a debug-console check confirming there are no logged errors.
-10. [x] `npm run compose:down`
-
-#### Implementation notes
-
-- Review reopening only: the sixth review pass found one remaining explicit-clear route-contract bug and one remaining lookup-summary invariant gap. Story 48 therefore needs one more narrow server-side cleanup wave and a fresh full rerun before it can close honestly again.
-- Re-read the Story 48 acceptance criteria, all six review-finding sections, and the durable review artifacts from all six review passes. Tasks 31 and 32 close the last sixth-pass proof gaps directly: Task 31 now requires explicit `null` to clear conversation working folders and proves omitted/blank payload rejection at the route and helper layers, while Task 32 now makes contradictory lookup-summary inputs throw instead of emitting a false success-shaped summary and adds the direct unit proof the sixth-pass findings called out.
-- Re-checked the Story 48 closeout docs against the sixth-pass fixes and did not find any stale guidance in `README.md`, `design.md`, `projectStructure.md`, or `docs/developer-reference.md`. The fixes were route-contract and helper-invariant tightenings, so no additional checked-in doc edits are needed for Task 33 unless the final rerun surfaces a mismatch.
-- Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, keeping the reopened server/common regression gate green before the broader rerun matrix.
-- Testing step 2 passed on rerun via `npm run build:summary:client` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`; the first run correctly caught one lingering `AgentsPage` ref type that still allowed optional `workingFolder`, so I aligned it to Task 31’s explicit save-or-clear contract before rerunning the full wrapper cleanly.
-- Testing step 3 passed via full `npm run test:summary:server:unit` with `tests run: 1290`, `passed: 1290`, `failed: 0`, and `agent_action: skip_log`; this wrapper again took the expected long healthy path with `agent_action: wait` heartbeats before reaching a clean terminal summary.
-- Testing step 4 passed via full `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`, so the reopened feature-level server regression suite still holds after the sixth-pass fixes.
-- Testing step 5 passed via full `npm run test:summary:client` with `tests run: 582`, `passed: 582`, `failed: 0`, and `agent_action: skip_log`, so the client/common Story 48 regression suite remains green after the final sixth-pass server-side fixes and the small `AgentsPage` typing follow-up.
-- Testing step 6 passed via full `npm run test:summary:e2e` with `tests run: 42`, `passed: 42`, `failed: 0`, and `agent_action: skip_log`; the wrapper spent several minutes in healthy `agent_action: wait` heartbeats during compose build and browser execution before reaching a clean teardown summary.
-- Testing step 7 passed via `npm run compose:build:summary` with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the final front-end-accessible regression stack is ready for bring-up.
-- Testing step 8 passed via `npm run compose:up`; the final validation stack started successfully with healthy server and client containers for the live browser checks at `http://host.docker.internal:5001`.
-- Testing step 9 passed via manual Playwright-MCP verification at `http://host.docker.internal:5001`: the home page emitted `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG`, the `/logs` page exposed `DEV_0000048_T7_CODEINFO_ENV_RESOLVED` plus `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` rows for explicit clear and restore/save decisions, live route probes against the seeded Task 7 conversation proved omitted and whitespace-only `workingFolder` payloads now reject with `400 validation_error` while explicit `null` clears and `\"/app\"` restores successfully, chat and flows restore still repopulated `/app` while emitting `DEV_0000048_T6_PICKER_SYNC`, the contradictory lookup-summary invariant remains covered by the direct Task 32 unit proof plus the full wrapper matrix rather than a dedicated browser seam, a fresh browser session ended with no error-level console messages, and screenshots were saved as `test-results/screenshots/0000048-33-home.png`, `test-results/screenshots/0000048-33-logs.png`, and `test-results/screenshots/0000048-33-chat.png`.
-- Testing step 10 passed via `npm run compose:down`; the final validation stack shut down cleanly after the live browser checks and route-contract probes completed.
-- Final rerun results stayed green across the full Story 48 matrix: `npm run build:summary:server`, `npm run build:summary:client`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, `npm run test:summary:e2e`, `npm run compose:build:summary`, `npm run compose:up`, manual Playwright-MCP, and `npm run compose:down` all completed successfully during this sixth-pass closeout.
-- The sixth-review-fix proof now closes cleanly at both seams: Task 31’s explicit save-or-clear route contract was re-verified live against the seeded conversation plus the full server wrappers, and Task 32’s contradictory lookup-summary invariant remains fail-closed through its direct unit test while the broader server wrappers stayed green.
-- Preserved the durable sixth-pass review artifacts as the story record and did not rely on the transient `codeInfoStatus/reviews/0000048-current-review.json` handoff file for closeout evidence.
-- Left `codeInfoStatus/reviews/0000048-current-review.json` untracked before the closing commit so later passes cannot consume stale transient review state.
-
----
 
 ### 2. Apply The Shared Order To Flow And Direct-Command Command Resolution
 
@@ -1941,6 +1251,9 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 - Testing 10: `npm run compose:down` stopped and removed the final manual-verification stack cleanly after the Story 48 marker checks and screenshot capture completed, so the repo finished Task 11 with no running compose resources left behind.
 ---
 
+
+
+
 ## Code Review Findings
 
 Review pass `0000048-review-20260317T011804Z-b791cfd6` reopened Story 48 after branch-vs-main review against `main` identified one `must_fix` and three `should_fix` findings. The durable review artifacts for this reopen are [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md).
@@ -2265,6 +1578,9 @@ Use only the wrapper commands below. Do not attempt to run builds or tests witho
 
 ---
 
+
+
+
 ## Code Review Findings (Second Pass)
 
 Review pass `0000048-review-20260317T050644Z-810fd4f1` re-opened Story 48 after the completed implementation was reviewed again against `main`. The durable review artifacts for this second pass are [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md).
@@ -2562,3 +1878,793 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Testing step 10: `npm run compose:down` stopped and removed the final manual-verification stack cleanly after the browser and `/logs` checks completed.
 
 ---
+
+
+
+## Code Review Findings (Third Pass)
+
+Review pass `0000048-review-20260317T093538Z-d8154d87` re-opened Story 48 after the completed branch was reviewed again against `main`. The durable review artifacts for this third pass are [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md).
+
+### Findings Summary
+
+- `should_fix` `generic_engineering_issue`: the client runtime-config marker now sets `hasInvalidCanonicalConfig` from all diagnostics, so malformed env fallback values are mislabeled as malformed canonical runtime config.
+- `should_fix` `generic_engineering_issue`: working-folder operational and repository-enumeration 503 routes still echo raw internal error text back to clients even though the shared server-side marker already preserves actionable diagnostics safely.
+- `should_fix` `generic_engineering_issue`: the branch still carries tracked transient workflow state in `codeInfoStatus/reviews/0000047-current-review.json`, which is stale handoff data rather than a durable review artifact.
+
+### Acceptance Criteria Proof Snapshot
+
+The third review pass re-checked the acceptance criteria against the completed branch and the findings above. The current proof state is:
+
+1. Shared repository candidate order for command and flow lookup: `direct`
+2. One shared repository-candidate builder across flow-command and markdown resolution: `direct`
+3. Nested lookup restarts from the full four-place order on every hop: `indirect`
+4. Duplicate repositories are removed while preserving first position: `direct`
+5. Flow command-file lookup uses the four-place order: `direct`
+6. Flow markdown-file lookup uses the four-place order: `direct`
+7. Command-item markdown lookup inside flows uses the same order: `direct`
+8. Direct command execution keeps working-first then owner-second semantics: `indirect`
+9. Local `codeInfo2` flows search the working repository first: `indirect`
+10. Ingested-repo-owned flows still search the working repository first: `indirect`
+11. Working folder persists/restores across chats, agents, flows, and direct commands: `direct`
+12. Direct command persistence stays on the owning agent conversation: `indirect`
+13. Flow conversations and child agent conversations persist the inherited folder: `direct`
+14. Chat fully participates in the working-folder contract: `direct`
+15. GUI restore and empty-state behavior across existing conversations: `direct`
+16. Canonical stored identity is the absolute repository root path: `direct`
+17. Editable saved value lives on the owning conversation while each run stores its own snapshot: `direct`
+18. Missing working repository skips slot one and logs the condition: `direct`
+19. GUI allows idle working-folder edits on existing conversations: `direct`
+20. GUI blocks working-folder edits while execution is active: `direct`
+21. UI restore and runtime lookup use the same canonical signal: `indirect`
+22. Flow-created/used agent conversations inherit the exact flow-step folder: `indirect`
+23. Invalid saved working folders clear automatically and log a warning: `direct`
+24. Invalid-folder clear happens before reuse and logs stale path plus owning record id/type: `direct`
+25. Existing relative-path safety rules remain in place: `indirect`
+26. Fallback continues only for not-found outcomes: `direct`
+27. Observability logs and docs are updated for candidate order and selected repository: `direct`
+28. Structured lookup logs include the minimum required fields: `direct`
+29. Execution metadata stores a compact lookup summary without broad API-response expansion: `direct`
+30. Documentation includes a nested-reference example: `indirect`
+31. Repository-owned env vars are renamed to `CODEINFO_` and browser-facing vars to `VITE_CODEINFO_`: `direct`
+32. Env rename updates defaults/examples/compose/e2e/wrappers/docs consistently: `direct`
+33. Env rename is a single clean cutover with no temporary dual-read compatibility: `direct`
+34. No checked-in repo-owned file still references the old generic env names: `indirect`
+35. The env rename inventory covers the checked-in product-owned families: `indirect`
+36. The defined env target names were implemented exactly unless another checked-in repo-owned variable also required prefixing: `indirect`
+37. OpenAI counting no longer uses the heuristic for guardrails and chunk sizing: `direct`
+38. OpenAI counting uses a real tokenizer recommendation and prefers Node `tiktoken`: `direct`
+39. OpenAI hard limit is corrected to 8192 while margin remains separate: `direct`
+40. Token-margin behavior remains the soft safety mechanism and is documented: `indirect`
+41. Oversized OpenAI inputs are classified deterministically as input-too-large: `direct`
+42. The OpenAI bug-fix scope stayed limited to tokenizer counting/classification/regression coverage: `indirect`
+43. Tokenizer-backed counting replaced the heuristic everywhere it influenced OpenAI ingest decisions: `direct`
+44. Guardrails and provider `countTokens(...)` now share the same tokenizer-backed implementation: `direct`
+45. OpenAI paths do not fall back to the old heuristic or whitespace estimation on tokenizer failure: `direct`
+46. Tokenizer lifecycle handling is explicit and documented: `direct`
+
+### Succinctness Review
+
+The implementation is still broadly within Story 48’s intended scope, and this third review pass did not find a missing feature contract large enough to reopen earlier behavior tasks. The remaining issues are narrower consistency and artifact-hygiene problems:
+
+- the browser runtime-config marker uses a broader invalidity flag than the canonical-runtime wording implies;
+- the working-folder 503 path still couples safe client messaging to raw internal exception text;
+- the branch still carries one stale transient review handoff artifact from Story 47.
+
+The resolver, persistence, env-cutover, tokenizer, and prior review-fix work otherwise remain appropriately scoped. The follow-up tasks below are intended to close those correctness and workflow-hygiene gaps without broadening Story 48 beyond what this third review pass actually found.
+
+### 23. Narrow Runtime Marker Canonical-Invalid Reporting To Runtime Diagnostics Only
+
+- Task Status: `__done__`
+- Git Commits: `7db145f0, fd238625, cdb4d1bb, 9cb15f5d`
+
+#### Overview
+
+Close the first third-pass `should_fix` finding by making the `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` marker report canonical-runtime invalidity truthfully. The resolved config object and diagnostics array can stay as they are, but the marker must stop labeling malformed env fallback values as malformed canonical runtime config.
+
+#### Subtasks
+
+1. [x] Re-read `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`, then inspect `client/src/config/runtimeConfig.ts`, `client/src/test/baseUrl.env.test.ts`, `client/src/test/logging/transport.test.ts`, and `e2e/env-runtime-config.spec.ts`. Record in Task 23 `Implementation notes` exactly which diagnostics are currently counted toward `hasInvalidCanonicalConfig` and why that overstates canonical-runtime failure.
+2. [x] Refine the runtime-config marker logic so `hasInvalidCanonicalConfig` is derived only from canonical runtime diagnostics (`source: 'runtime'` and/or the top-level `__CODEINFO_CONFIG__` container diagnostic) instead of all diagnostics indiscriminately.
+3. [x] Preserve the existing diagnostics array and resolved config precedence so env fallback values still surface their own invalid diagnostics without being mislabeled as canonical-runtime failures.
+4. [x] Add or extend client tests that prove malformed env fallback values no longer set `hasInvalidCanonicalConfig`, while malformed runtime config values still do.
+5. [x] If needed, extend browser/e2e proof so the marker contract stays observable in the full runtime bootstrap path.
+6. [x] Update Task 23 `Implementation notes` with the final marker rule and the exact proof coverage added.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [x] `npm run build:summary:client` - Use because this task changes client runtime-config/bootstrap behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use because this task changes client/common runtime-config behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Use because this task changes a browser-visible runtime marker contract. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+4. [x] `npm run compose:build:summary` - Use because this task is testable from the front end and should still prove the runtime bootstrap stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [x] `npm run compose:up`
+6. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including runtime-marker checks for malformed env fallback versus malformed canonical runtime config and a debug-console check confirming there are no logged errors.
+7. [x] `npm run compose:down`
+
+#### Implementation notes
+
+- Third-pass review finding only: `hasInvalidCanonicalConfig` is currently computed from the full diagnostics array, so malformed env fallback values are mislabeled as malformed canonical runtime config even when `window.__CODEINFO_CONFIG__` is absent or valid.
+- Re-read the third-pass review finding plus `client/src/config/runtimeConfig.ts`, `client/src/test/baseUrl.env.test.ts`, `client/src/test/logging/transport.test.ts`, and `e2e/env-runtime-config.spec.ts`; the current overstatement is exactly that `hasInvalidCanonicalConfig` is derived from every diagnostic, so malformed env fallback values set the marker even when canonical runtime input is absent or valid.
+- Narrowed the marker rule in `client/src/config/runtimeConfig.ts` so `hasInvalidCanonicalConfig` now comes from `hasInvalidCanonicalRuntimeConfig(...)`, which only treats `source: 'runtime'` diagnostics as canonical-runtime failures while leaving the full diagnostics array unchanged.
+- Preserved the existing resolved-config precedence and diagnostics array: malformed env fallback values still emit `source: 'env'` diagnostics, but they no longer get mislabeled as canonical runtime failure when valid default or env fallback wins.
+- Extended `client/src/test/baseUrl.env.test.ts` and `client/src/test/logging/transport.test.ts` with direct proof that malformed env fallback diagnostics now leave `hasInvalidCanonicalConfig` false while malformed runtime field/container diagnostics still set it true.
+- Extended `e2e/env-runtime-config.spec.ts` so the full browser bootstrap path also asserts the normal runtime marker reports `hasInvalidCanonicalConfig: false` when runtime injection is valid.
+- Testing step 1 passed via `npm run build:summary:client` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
+- Testing step 2 passed via full `npm run test:summary:client` with `tests run: 578`, `passed: 578`, `failed: 0`, and `agent_action: skip_log`; the first full run caught one real expectation bug in the new env-fallback test because jsdom falls back to `window.location.origin`, so I corrected that assertion and reran the full wrapper cleanly.
+- Testing step 3 passed via full `npm run test:summary:e2e` with `tests run: 44`, `passed: 44`, `failed: 0`, and `agent_action: skip_log`, so the refined canonical-invalid marker rule still holds through the browser stack and teardown path.
+- Testing step 4 passed via `npm run compose:build:summary` with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the manual verification stack is ready for bring-up.
+- Testing step 5 passed via `npm run compose:up`; the compose stack started cleanly with healthy server and client containers, ready for the live runtime-marker verification at `http://host.docker.internal:5001`.
+- Testing step 6 passed via Manual Playwright-MCP at `http://host.docker.internal:5001`: the baseline marker reported `hasInvalidCanonicalConfig: false` with no diagnostics, a temporary live bundle edit changing the baked env fallback API URL to `notaurl` produced an env-only diagnostic while `hasInvalidCanonicalConfig` stayed `false`, a temporary live `config.js` mutation to `window.__CODEINFO_CONFIG__ = [];` produced a runtime `invalid_container` diagnostic with `hasInvalidCanonicalConfig: true`, `browser_console_messages(level=\"error\")` returned no entries, screenshots were captured at `test-results/screenshots/0000048-23-home.png` and `test-results/screenshots/0000048-23-malformed-runtime.png`, and both served files were restored to their original hashes before teardown.
+- Testing step 7 passed via `npm run compose:down`; the compose stack shut down cleanly after the manual marker checks, leaving no live-task mutations behind.
+
+---
+
+### 24. Keep Working-Folder 503 Messages Safe While Preserving Server-Side Operational Detail
+
+- Task Status: `__done__`
+- Git Commits: `f2046d0b, c0d36500, 67913c93, b0bb7091`
+
+#### Overview
+
+Close the second third-pass `should_fix` finding by separating safe client-facing 503 messaging from the raw operational detail already preserved in the shared working-folder log path. This task should not weaken the actionable server-side diagnostics added in Task 21; it should only stop reflecting arbitrary internal error text straight back to clients.
+
+#### Subtasks
+
+1. [x] Re-read `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`, then inspect `server/src/workingFolders/state.ts`, `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/routes/agentsRun.ts`, `server/src/routes/agentsCommands.ts`, and `server/src/routes/flowsRun.ts`. Record in Task 24 `Implementation notes` exactly which operational failure reasons are currently exposed to clients and which safe replacement message(s) should be used instead.
+2. [x] Refine the working-folder error-to-response mapping so route payloads use safe, stable 503 messages for `WORKING_FOLDER_UNAVAILABLE` and `WORKING_FOLDER_REPOSITORY_UNAVAILABLE`, while the shared `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` marker keeps the raw `errorReason` and `causeCode` detail.
+3. [x] Preserve the existing stale-vs-operational split and the existing 400 validation behavior for `WORKING_FOLDER_INVALID` and `WORKING_FOLDER_NOT_FOUND`.
+4. [x] Add or extend server tests that prove operational filesystem failures and repository-enumeration failures no longer leak raw internal text through route payloads, while the shared warning/info marker still preserves actionable detail server-side.
+5. [x] Update Task 24 `Implementation notes` with the final client-safe vocabulary and the server-side diagnostic surfaces that still preserve the raw detail.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [x] `npm run build:summary:server` - Use because this task changes server/common route error behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes server/common working-folder route behavior and log/response mapping. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use because this task still touches server/common behavior that should keep feature-level coverage green. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Third-pass review finding only: the working-folder routes now preserve operational diagnostics better than they did before Task 21, but they still use the raw `reason` string from internal repository-enumeration or filesystem failures as the public 503 payload message.
+- Re-read the third-pass review finding plus `server/src/workingFolders/state.ts`, `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/routes/agentsRun.ts`, `server/src/routes/agentsCommands.ts`, and `server/src/routes/flowsRun.ts`; the current leak is that those routes still turn the internal `reason` into the public 503 `message`, even though the shared `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` marker already preserves `errorReason` and `causeCode` safely server-side.
+- Added `getWorkingFolderClientMessage(...)` in `server/src/workingFolders/state.ts` and switched the affected chat, conversations, agents-run, agent-commands, and flows-run routes to stable client-safe 503 vocabulary instead of reflecting the raw internal reason string.
+- Kept the stale-vs-operational split unchanged: `WORKING_FOLDER_INVALID` and `WORKING_FOLDER_NOT_FOUND` still follow the existing 400 validation path, while only `WORKING_FOLDER_UNAVAILABLE` and `WORKING_FOLDER_REPOSITORY_UNAVAILABLE` now map to the safe 503 messages.
+- Updated focused route tests in `server/src/test/unit/agents-router-run.test.ts`, `server/src/test/unit/agents-commands-router-run.test.ts`, `server/src/test/unit/conversations-router-agent-filter.test.ts`, and `server/src/test/integration/flows.run.working-folder.test.ts` so operational failures no longer leak raw internal text through route payloads, while the existing conversations marker assertion still proves raw `errorReason` and `causeCode` remain visible server-side.
+- Final Task 24 client-safe vocabulary: `WORKING_FOLDER_UNAVAILABLE` now returns `working_folder is temporarily unavailable`, `WORKING_FOLDER_REPOSITORY_UNAVAILABLE` now returns `working_folder repository validation is temporarily unavailable`, and the raw operational detail remains observable only through the shared `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` marker context.
+- Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`; the first build correctly caught that `getWorkingFolderClientMessage(...)` was typed too narrowly for route-local unions, so I widened it to accept the route error-code surface and reran the full wrapper cleanly.
+- Testing step 2 passed via full `npm run test:summary:server:unit` with `tests run: 1286`, `passed: 1286`, `failed: 0`, and `agent_action: skip_log`, so the safe 503 message mapping and the preserved marker detail both hold across the full server unit/integration suite.
+- Testing step 3 passed via full `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`, confirming the feature-level server suite still holds after the safe-message cleanup.
+
+---
+
+### 25. Remove The Stale Story 47 Transient Review Handoff Artifact
+
+- Task Status: `__done__`
+- Git Commits: `077aeeb1, cb8a1e39, 66a8ea5f, fb733e8e`
+
+#### Overview
+
+Close the third third-pass `should_fix` finding by removing the tracked transient Story 47 review handoff from this branch. The durable Story 47 review artifacts can stay if they are still intentionally useful, but the old `*-current-review.json` state file should not remain committed because later review tooling is supposed to treat that path as transient workflow state.
+
+#### Subtasks
+
+1. [x] Re-read `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`, then inspect `codeInfoStatus/reviews/0000047-current-review.json` plus the neighboring durable Story 47 review artifacts. Record in Task 25 `Implementation notes` why the current-review file is transient and which Story 47 artifacts remain intentionally durable.
+2. [x] Remove the tracked `codeInfoStatus/reviews/0000047-current-review.json` handoff from the branch, or otherwise convert it into non-tracked workflow state, without disturbing the durable Story 47 evidence/findings artifacts.
+3. [x] Update Task 25 `Implementation notes` with the final artifact-hygiene rule and the exact Story 47 files that remain tracked after the cleanup.
+
+#### Testing
+
+Use only the wrapper commands below when testing is required. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+No wrapper build or test steps are required for this task because it only removes stale transient workflow state and does not change executable code, runtime configuration, or documentation behavior.
+
+#### Implementation notes
+
+- Third-pass review finding only: `codeInfoStatus/reviews/0000047-current-review.json` is transient handoff state from a different story and should not stay committed as durable repository history.
+- Re-read the third-pass review finding plus `codeInfoStatus/reviews/0000047-current-review.json` and the neighboring Story 47 review files; the current-review file is only transient handoff state pointing at the last Story 47 review pass, while the timestamped `*-evidence.md` and `*-findings.md` files are the intentionally durable record.
+- Removed the tracked `codeInfoStatus/reviews/0000047-current-review.json` file from the branch without touching the durable Story 47 evidence/findings artifacts or the separate `0000047-external-review-input.md` context file.
+- Final artifact-hygiene rule for this task: Story-specific `*-current-review.json` files are transient workflow state and should not remain tracked after closeout, while the timestamped Story 47 evidence/findings markdown files remain intentionally committed as the durable review history.
+
+---
+
+### 26. Re-Run Full Story 48 Validation After Third Review Fixes
+
+- Task Status: `__done__`
+- Git Commits: `1e842835, 2dc6a91e, f13d5458`
+
+#### Overview
+
+After Tasks 23-25 land, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, the earlier review-fix tasks, and the third-pass review fixes. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
+
+#### Subtasks
+
+1. [x] Re-read the Story 48 acceptance criteria, all three `Code Review Findings` sections above, and the durable review artifacts `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md`, and `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`. Record in Task 26 `Implementation notes` how Tasks 23-25 restore the remaining acceptance and workflow-hygiene proof.
+2. [x] Update `README.md`, `design.md`, `projectStructure.md`, and `docs/developer-reference.md` if the third review-fix implementation changes any Story 48 closeout notes, marker contracts, or workflow-artifact guidance.
+3. [x] Update Task 26 `Implementation notes` with the final rerun results, the third-review-fix proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
+4. [x] Preserve the durable third-pass review artifacts in the commit that closes the reopened story. Do not rely on the transient `codeInfoStatus/reviews/0000048-current-review.json` handoff file as the durable record.
+5. [x] Remove or leave untracked the transient `codeInfoStatus/reviews/0000048-current-review.json` handoff file before the closing commit so later review passes cannot consume stale state.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [x] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run build:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [x] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [x] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [x] `npm run test:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [x] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [x] `npm run compose:up`
+9. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, env-cutover contract, third-review marker/message fixes, workflow-artifact hygiene checks, and a debug-console check confirming there are no logged errors.
+10. [x] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the third review pass found two remaining low-risk consistency issues in changed runtime/logging code plus one workflow-artifact hygiene issue. Story 48 therefore needs one more narrowly scoped implementation pass and a fresh full rerun task before it can close honestly again.
+- Re-read the Story 48 acceptance criteria, all three review-finding sections in this plan, and the durable review bundles for review passes `b791cfd6`, `810fd4f1`, and `d8154d87` before starting the rerun.
+- Task 23 restores the third-pass runtime-marker proof by narrowing `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` so `hasInvalidCanonicalConfig` now reflects runtime-sourced canonical diagnostics only, while env-fallback diagnostics remain visible without being mislabeled as malformed canonical runtime input.
+- Task 24 restores the third-pass working-folder response proof by keeping public 503 payloads stable and safe while preserving actionable `errorCode`, `errorReason`, and `causeCode` detail in the shared `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` marker and server-side logs.
+- Task 25 restores workflow-artifact hygiene by removing the tracked stale Story 47 transient handoff file `codeInfoStatus/reviews/0000047-current-review.json` while preserving the durable Story 47 timestamped evidence/findings artifacts and external review input.
+- Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
+- Testing step 2 passed via `npm run build:summary:client` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
+- Testing step 3 passed via `npm run test:summary:server:unit` with `tests run: 1286`, `passed: 1286`, `failed: 0`, and `agent_action: skip_log`; this wrapper ran past its nominal budget but continued emitting healthy `agent_action: wait` heartbeats until it reached an honest clean terminal summary.
+- Testing step 4 passed via `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 5 passed via `npm run test:summary:client` with `tests run: 578`, `passed: 578`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 6 passed via `npm run test:summary:e2e` with `tests run: 44`, `passed: 44`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 7 passed via `npm run compose:build:summary` with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`.
+- Testing step 8 passed via `npm run compose:up`; the final validation stack started with healthy server and client containers for the live browser checks.
+- Third-pass implementation fixes did not stale `README.md`, `design.md`, `projectStructure.md`, or `docs/developer-reference.md`, so no additional documentation edits were required during this closeout pass.
+- Manual Playwright-MCP verification at `http://host.docker.internal:5001` re-confirmed the runtime-config and working-folder contracts without browser errors: startup console output included `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` with runtime-sourced canonical values, the logs page exposed `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` with `decisionReason: saved_value_valid` and `workingFolder: /app`, and chat selection emitted `DEV_0000048_T6_PICKER_SYNC` for the current conversation state. `browser_console_messages(level=\"error\")` returned no entries.
+- Final screenshot evidence for this third-pass closeout was captured at `/tmp/playwright-output/test-results/screenshots/0000048-26-home.png`, `/tmp/playwright-output/test-results/screenshots/0000048-26-logs.png`, and `/tmp/playwright-output/test-results/screenshots/0000048-26-chat.png`.
+- Testing step 9 passed via manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the third-pass marker/message checks and the clean error-level console review.
+- Testing step 10 passed via `npm run compose:down`; the final validation stack shut down cleanly after the browser pass.
+- Preserved the durable third-pass review artifacts (`0000048-review-20260317T093538Z-d8154d87-evidence.md` and `0000048-review-20260317T093538Z-d8154d87-findings.md`) as the committed record for this review pass instead of relying on transient handoff state.
+- Removed the transient handoff file `codeInfoStatus/reviews/0000048-current-review.json` before the closing commit so later review passes cannot consume stale Story 48 review state.
+
+---
+
+
+
+
+## Code Review Findings (Fourth Pass)
+
+Review pass `0000048-review-20260317T110320Z-07647eeb` re-opened Story 48 after the fully completed branch was reviewed again against `main`. The durable review artifacts for this fourth pass are [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md).
+
+### Findings Summary
+
+- `must_fix` `plan_contract_issue`: Story 48’s env-cutover acceptance contract still is not fully satisfied because changed checked-in docs/tests continue to reference legacy env names such as `VITE_API_URL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `LMSTUDIO_BASE_URL`, and `OPENAI_EMBEDDING_KEY`.
+
+### Acceptance Criteria Proof Snapshot
+
+The fourth review pass re-checked the acceptance criteria against the completed branch and the new finding above. The current proof state is:
+
+- `direct`: AC1, AC2, AC4, AC5, AC6, AC7, AC11, AC13, AC14, AC15, AC16, AC17, AC18, AC19, AC20, AC23, AC24, AC26, AC27, AC28, AC29, AC31, AC32, AC37, AC38, AC39, AC40, AC42, AC44, AC45, AC46.
+- `indirect`: AC3, AC8, AC9, AC10, AC12, AC21, AC22, AC25, AC30, AC33, AC35, AC36, AC41, AC43.
+- `missing`: AC34, because repo search still finds literal legacy env names in changed checked-in docs/tests, which breaks the plan’s explicit “clean cutover / only new names remain” contract.
+
+### Succinctness Review
+
+The implementation remains appropriately succinct for the required behavior in the runtime code. This fourth pass did not uncover a new production-path bug or another large architectural gap; it found one remaining closeout-contract problem in the repo-wide env rename story. The needed follow-up is narrow: remove the remaining legacy env-name references from changed checked-in docs/tests, then rerun the final validation matrix once more so the story closes honestly against its own cutover wording.
+
+### 27. Remove Remaining Legacy Env-Name References From Changed Checked-In Docs And Tests
+
+- Task Status: `__done__`
+- Git Commits: `92db1706, fcc9d0dc, 48f69eef`
+
+#### Overview
+
+Close the fourth-pass `must_fix` finding by removing the remaining literal legacy env-name references from the changed checked-in Story 48 docs/tests. This task is specifically about satisfying the plan’s clean-cutover contract without reintroducing old runtime readers or weakening the new `CODEINFO_` / `VITE_CODEINFO_` naming rule.
+
+#### Subtasks
+
+1. [x] Re-read [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md), then inspect [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts), [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts), [server/src/test/unit/env-loading.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/env-loading.test.ts), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md). Record in Task 27 `Implementation notes` exactly which remaining literal legacy names are still present and what each file should say instead.
+2. [x] Update the changed checked-in docs/tests so they stop using or listing the legacy env names literally while still preserving the intended negative-coverage and migration-guidance meaning. Do not reintroduce runtime dual-read compatibility or weaken the clean-cutover contract.
+3. [x] Re-run the repo search for the Story 48 legacy env inventory and record in Task 27 `Implementation notes` which remaining matches are intentionally limited to historical planning documents or other out-of-scope history, and which changed checked-in Story 48 files are now clean.
+4. [x] Update Task 27 `Implementation notes` with the final artifact/doc/test cleanup rule and the exact proof that the changed checked-in Story 48 files no longer reference the old names literally.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [x] `npm run test:summary:client` - Use because this task changes checked-in client tests and env-cutover proof. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes checked-in server tests and env-loading proof. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+
+#### Implementation notes
+
+- Fourth-pass review finding only: changed checked-in Story 48 docs/tests still contain literal legacy env names, so the plan’s clean-cutover acceptance wording is not honestly closed yet even though runtime code has already moved to `CODEINFO_` / `VITE_CODEINFO_`.
+- Subtask 1 inventory: [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts) still literally deletes the old client API env name; [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts) still literally deletes/sets the old client logging names in negative-coverage tests; [server/src/test/unit/env-loading.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/env-loading.test.ts) still literally seeds and enumerates old server env names in its legacy-only assertions; [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) still literally lists removed server names and documentation-only legacy client names. Task 27 should keep the negative/test meaning by constructing those names indirectly in tests and replace the doc wording with generic “pre-cutover generic names” guidance instead of spelling the old names out.
+- Subtask 2 cleanup: rewrote the affected client/server tests to construct the pre-cutover names from fragments instead of spelling them literally, then replaced the checked-in doc wording in [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) with generic unsupported-name guidance. Repo search also surfaced the same literal client log-name wording in [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md) and [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), so those two changed Story 48 docs were cleaned in the same pass to keep the closeout proof honest.
+- Subtask 3 repo-search proof: `rg -n '\\b(?:VITE_API_URL|VITE_LOG_FORWARD_ENABLED|VITE_LOG_MAX_BYTES|VITE_LOG_LEVEL|VITE_LOG_STREAM_ENABLED|LMSTUDIO_BASE_URL|OPENAI_EMBEDDING_KEY|CHAT_DEFAULT_PROVIDER|CHAT_DEFAULT_MODEL|INGEST_INCLUDE|INGEST_EXCLUDE|INGEST_FLUSH_EVERY|INGEST_COLLECTION|INGEST_ROOTS_COLLECTION|INGEST_TEST_GIT_PATHS|LOG_FILE_PATH|LOG_LEVEL|LOG_BUFFER_MAX|LOG_MAX_CLIENT_BYTES|LOG_INGEST_WS_THROTTLE_MS|LOG_FILE_ROTATE)\\b' .` now leaves only historical planning/review artifacts plus the active Story 48 plan/review text that documents the migration itself; the changed checked-in Task 27 files are clean.
+- Subtask 4 cleanup rule: changed checked-in Story 48 docs/tests should describe unsupported pre-cutover names generically or build them from fragments for negative coverage, but they should not spell the old env names literally. Direct proof before wrapper reruns: the same bounded `rg` command returns no matches in [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts), [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts), [server/src/test/unit/env-loading.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/env-loading.test.ts), [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md), [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), and [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md).
+- Testing 1: `npm run test:summary:client` passed cleanly with `tests run: 578`, `passed: 578`, `failed: 0`, so the client-side doc/test cleanup did not disturb the existing Story 48 runtime-config and transport proof.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with `tests run: 1286`, `passed: 1286`, `failed: 0`, so the server-side env-loading cleanup still preserves the existing Story 48 startup-env and wrapper proof.
+
+### 28. Re-Run Full Story 48 Validation After Fourth Review Fixes
+
+- Task Status: `__done__`
+- Git Commits: `3955ae77, 0eecaf7c, 59588d9c`
+
+#### Overview
+
+After Task 27 lands, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, all prior review-fix tasks, and the fourth-pass env-cutover cleanup. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
+
+#### Subtasks
+
+1. [x] Re-read the Story 48 acceptance criteria, all four `Code Review Findings` sections above, and the durable review artifacts `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md`, and `codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md`. Record in Task 28 `Implementation notes` how Task 27 restores the final env-cutover proof.
+2. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) if the fourth review-fix implementation changes any final Story 48 closeout notes or migration guidance.
+3. [x] Update Task 28 `Implementation notes` with the final rerun results, the fourth-review-fix proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
+4. [x] Preserve the durable fourth-pass review artifacts in the commit that closes the reopened story. Do not rely on the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file as the durable record.
+5. [x] Remove or leave untracked the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file before the closing commit so later review passes cannot consume stale state.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [x] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run build:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [x] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [x] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [x] `npm run test:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [x] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [x] `npm run compose:up`
+9. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, env-cutover contract, fourth-review cleanup checks, and a debug-console check confirming there are no logged errors.
+10. [x] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the fourth review pass found one remaining plan-contract gap in the env cutover story. Story 48 therefore needs one more narrow cleanup task and a fresh full rerun before it can close honestly again.
+- Subtask 1 proof mapping: re-read the acceptance criteria, all four review-finding sections, and the four durable evidence/findings bundles for review passes `b791cfd6`, `810fd4f1`, `d8154d87`, and `07647eeb`. Task 27 restores the final env-cutover proof by removing literal old env-name references from the reopened checked-in Story 48 docs/tests and by documenting that the remaining bounded repo-search hits are historical plan/review artifacts rather than active product-owned docs/tests.
+- Subtask 2 doc check: no additional documentation update is required for Task 28. Task 27 already cleaned the reopened env-cutover wording in [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md), and that cleanup does not stale the broader Story 48 closeout guidance in those files or in [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md).
+- Testing 1: `npm run build:summary:server` passed with `status: passed` and `warning_count: 0`.
+- Testing 2: `npm run build:summary:client` passed with `status: passed` and `warning_count: 0`.
+- Testing 3: `npm run test:summary:server:unit` passed with `tests run: 1286`, `passed: 1286`, `failed: 0`; the wrapper stayed in healthy `agent_action: wait` heartbeats until it emitted a clean terminal summary.
+- Testing 4: `npm run test:summary:server:cucumber` passed with `tests run: 71`, `passed: 71`, `failed: 0`.
+- Testing 5: `npm run test:summary:client` passed with `tests run: 578`, `passed: 578`, `failed: 0`.
+- Testing 6: `npm run test:summary:e2e` passed with `tests run: 41`, `passed: 41`, `failed: 0`.
+- Testing 7: `npm run compose:build:summary` passed with `items passed: 2` and `items failed: 0`.
+- Testing 8: `npm run compose:up` started a healthy Story 48 verification stack with the client and server containers up after their dependency health checks completed.
+- Subtask 3 rerun proof: the final live-stack pass kept the fourth-review cleanup honest while re-proving the broader Story 48 contract. Browser startup still emitted `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` with canonical runtime values, `/logs` exposed both `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` and `DEV_0000048_T7_CODEINFO_ENV_RESOLVED`, and the seeded Task 7 chat conversation restored `/app` with a fresh `DEV_0000048_T6_PICKER_SYNC` restore marker. Screenshot evidence was captured at `test-results/screenshots/0000048-28-logs.png` and `test-results/screenshots/0000048-28-chat.png`, and `browser_console_messages(level=\"error\")` returned no entries. Task 27's fourth-pass cleanup itself remains re-proved by the bounded repo-search and wrapper results above rather than by inventing any legacy-env runtime seam on the clean final stack.
+- Subtask 4 durable-artifact preservation: the closing commit keeps the timestamped fourth-pass review evidence/findings files in place and relies on those durable markdown artifacts rather than on any transient `current-review` handoff file.
+- Subtask 5 review-handoff hygiene: removed the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff from the working tree so the closing commit can finish without stale transient review state.
+- Testing 9: Manual Playwright-MCP verification at `http://host.docker.internal:5001` passed. The live browser console still showed `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG`, the logs page contained `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` and `DEV_0000048_T7_CODEINFO_ENV_RESOLVED`, the seeded Task 7 chat restore conversation repopulated the working-folder picker with `/app` and emitted a fresh `DEV_0000048_T6_PICKER_SYNC` restore marker, screenshots were saved as `test-results/screenshots/0000048-28-logs.png` and `test-results/screenshots/0000048-28-chat.png`, and the error-level browser console check stayed empty.
+- Testing 10: `npm run compose:down` removed the client, server, Mongo, Chroma, Zipkin, and collector containers and tore down the `codeinfo2_internal` network cleanly, so the final rerun stack left no running verification services behind.
+
+---
+
+
+
+
+## Code Review Findings (Fifth Pass)
+
+Review pass `0000048-review-20260317T121229Z-36689200` re-checked the completed branch against `main` using the durable artifacts [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md). That review found one remaining localized correctness gap in the Story 48 runtime-config normalization path, so the story must reopen once more before it can close honestly.
+
+### Findings Summary
+
+- `should_fix` `generic_engineering_issue`: [client/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/config/runtimeConfig.ts) still treats object-like but non-record `window.__CODEINFO_CONFIG__` values as valid containers, so malformed values such as `new Date()`, `new URL(...)`, `new Map()`, or other exotic objects can still default away without emitting the top-level `invalid_container` diagnostic introduced by Task 20.
+
+### Acceptance Criteria Proof Snapshot
+
+The fifth review pass re-checked the active Story 48 acceptance criteria against the completed branch and the new finding above. The current proof state is:
+
+- `direct`: AC1, AC2, AC4, AC5, AC6, AC7, AC11, AC13, AC14, AC15, AC16, AC17, AC18, AC19, AC20, AC23, AC24, AC26, AC27, AC28, AC29, AC31, AC32, AC33, AC34, AC35, AC37, AC38, AC39, AC40, AC43, AC44, AC45, AC46.
+- `indirect`: AC3, AC8, AC9, AC10, AC12, AC21, AC22, AC25, AC30, AC36, AC41, AC42.
+- `missing`: none for the original Story 48 acceptance criteria. The remaining reopen reason is a localized malformed-input normalization defect in the fifth-pass runtime-config review, not a newly missing original acceptance criterion.
+
+### Succinctness Review
+
+The implementation still remains appropriately succinct for the story’s required behavior overall. The lookup-order, working-folder, env-cutover, tokenizer, and review-artifact contracts do not need another broad restructure. The remaining issue is a narrow normalization rule inside one already-changed runtime-config helper, so the follow-up below should stay tightly local to that helper, its direct tests, and the final rerun matrix.
+
+### 29. Reject Object-Like Non-Record Canonical Runtime Config Containers
+
+- Task Status: `__done__`
+- Git Commits: `c8182e8e, 9013fcd4, d7baa68a`
+
+#### Overview
+
+Close the fifth-pass `should_fix` finding by treating object-like but non-record `window.__CODEINFO_CONFIG__` values as malformed top-level canonical runtime config containers instead of silently treating them like empty or absent config. This is a localized runtime-config validation cleanup; it should preserve the existing env/default fallback behavior and the existing `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` marker contract for valid inputs.
+
+#### Subtasks
+
+1. [x] Re-read [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md), then inspect [client/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/config/runtimeConfig.ts), [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts), [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts), and [e2e/env-runtime-config.spec.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/e2e/env-runtime-config.spec.ts). Record in Task 29 `Implementation notes` exactly which top-level container shapes are currently rejected, which object-like malformed shapes still slip through, and why they are still being normalized into success.
+2. [x] Tighten the top-level runtime-config container rule in [client/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/config/runtimeConfig.ts) so only plain config-record containers are accepted. `undefined` must remain the only “absent” case. `null`, arrays, primitives, class instances, built-in object instances, and other non-record objects must all emit the same top-level `invalid_container` diagnostic instead of silently falling through to field-level missing behavior.
+3. [x] Preserve the existing resolved-config precedence and marker vocabulary for valid inputs. Valid runtime values must still beat env/default values, env/default fallback must still work when the runtime container is malformed, and `hasInvalidCanonicalConfig` plus the existing `diagnostics` payload must stay truthful without introducing a second marker schema.
+4. [x] Add or extend direct client tests proving that object-like malformed top-level containers are now rejected explicitly. At minimum, cover one built-in exotic object on the API-base-url path and one on the logging-config path so the helper no longer relies only on primitive/array coverage.
+5. [x] If the malformed-object container behavior is observable in the browser bootstrap path, keep the full-stack proof aligned by extending or reusing the existing runtime-config browser/e2e verification so the same marker contract still proves the bad-runtime/good-fallback path without adding a second bootstrap seam.
+6. [x] Update Task 29 `Implementation notes` with the final plain-object acceptance rule, the exact malformed object shapes now rejected, and where the proof lives.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [x] `npm run build:summary:client` - Use because this task changes client runtime-config/bootstrap behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use because this task changes client/common runtime-config behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Use because this task changes a browser-visible runtime marker contract. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+4. [x] `npm run compose:build:summary` - Use because this task is testable from the front end and should still prove the runtime bootstrap stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [x] `npm run compose:up`
+6. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including runtime-marker checks for malformed object-like canonical containers versus valid env/default fallback and a debug-console check confirming there are no logged errors.
+7. [x] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the fifth review pass found one remaining malformed-input normalization gap in the runtime-config helper. Story 48 therefore needs one more narrow validation cleanup and a fresh full rerun before it can close honestly again.
+- Subtask 1 inspection: re-read the fifth-pass finding and the named runtime-config/client/e2e files. `readRuntimeConfig()` currently rejects `undefined` by treating it as absent and rejects `null`, primitives, and arrays with a top-level `invalid_container` diagnostic, but it accepts any other truthy non-array object as a valid container. That means object-like malformed containers such as `new Date()`, `new URL(...)`, `new Map()`, or class instances flow through as `RawRuntimeConfig`, produce only per-field `undefined` reads, and get silently normalized into env/default success instead of surfacing the Task 20 top-level malformed-container diagnostic.
+- Subtask 2 plain-object rule: tightened `readRuntimeConfig()` so only plain record containers with `Object.prototype` or `null` prototype are accepted. `undefined` still means absent, while class instances, built-in object instances, arrays, primitives, and `null` now all converge on the same top-level `invalid_container` diagnostic path.
+- Subtask 3 precedence preservation: kept the existing field normalizers, fallback order, and `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` payload untouched for valid inputs. The change is isolated to the top-level container gate, so valid runtime values still win, malformed runtime containers still fall back cleanly to env/default, and `hasInvalidCanonicalConfig` remains driven by runtime-sourced diagnostics only.
+- Subtask 4 direct test coverage: extended [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts) with a `URL`-instance container case on the API path and [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts) with a `Date`-instance container case on the logging path, so the helper no longer relies only on primitive and array malformed-container coverage.
+- Subtask 5 browser-proof alignment: extended [e2e/env-runtime-config.spec.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/e2e/env-runtime-config.spec.ts) by routing `config.js` to a `Date`-instance runtime container and reusing the existing `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` marker as the proof surface for bad-runtime/good-fallback behavior.
+- Testing 1: `npm run build:summary:client` passed with `status: passed` and `warning_count: 0`.
+- Testing 2: `npm run test:summary:client` passed with `tests run: 580`, `passed: 580`, and `failed: 0`.
+- Testing 3: the first full `npm run test:summary:e2e` rerun failed honestly on the new malformed-object marker assertion because the browser fell back to the built client env (`http://host.docker.internal:6010`) instead of `window.location.origin`; after correcting that expectation and rerunning the full wrapper, it passed with `tests run: 45`, `passed: 45`, and `failed: 0`.
+- Testing 4: `npm run compose:build:summary` passed with `items passed: 2` and `items failed: 0`.
+- Testing 5: `npm run compose:up` started a healthy Story 48 verification stack with the client and server containers up after their dependency health checks completed.
+- Subtask 6 final rule and proof: the helper now accepts only plain runtime-config records with `Object.prototype` or `null` prototype. The direct proof lives in [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts) for a `URL`-instance API container, [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts) for a `Date`-instance logging container, and [e2e/env-runtime-config.spec.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/e2e/env-runtime-config.spec.ts) for the browser bootstrap path.
+- Testing 6: Manual Playwright-MCP verification at `http://host.docker.internal:5001` confirmed both sides of the Task 29 contract. The normal startup marker still reported runtime-sourced values, and after temporarily replacing the served `/app/client/dist/config.js` with `window.__CODEINFO_CONFIG__ = new Date('2026-03-17T00:00:00.000Z');`, the browser console reported `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` with `apiBaseUrlSource: 'env'`, `lmStudioBaseUrlSource: 'env'`, `logForwardEnabledSource: 'env'`, `logMaxBytesSource: 'env'`, `hasInvalidCanonicalConfig: true`, and `diagnostics: [{ container: '__CODEINFO_CONFIG__', source: 'runtime', rawValue: '\"2026-03-17T00:00:00.000Z\"', reason: 'invalid_container' }]`. The served config file was restored immediately after capture, the error-level browser console check returned no entries, and screenshot evidence was saved as `test-results/screenshots/0000048-29-malformed-runtime.png`.
+- Testing 7: `npm run compose:down` removed the client, server, Mongo, Chroma, Zipkin, and collector containers and tore down the `codeinfo2_internal` network cleanly.
+
+---
+
+### 30. Re-Run Full Story 48 Validation After Fifth Review Fixes
+
+- Task Status: `__done__`
+- Git Commits: `83e447cb, 28518b2b, 04eabeab, d7d167f2`
+
+#### Overview
+
+After Task 29 lands, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, all prior review-fix tasks, and the fifth-pass runtime-config cleanup. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
+
+#### Subtasks
+
+1. [x] Re-read the Story 48 acceptance criteria, all five `Code Review Findings` sections above, and the durable review artifacts [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md), and [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md). Record in Task 30 `Implementation notes` how Task 29 restores the remaining runtime-config proof.
+2. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) if the fifth review-fix implementation changes any final Story 48 closeout notes or runtime-config guidance.
+3. [x] Update Task 30 `Implementation notes` with the final rerun results, the fifth-review-fix proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
+4. [x] Preserve the durable fifth-pass review artifacts in the commit that closes the reopened story. Do not rely on the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file as the durable record.
+5. [x] Remove or leave untracked the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file before the closing commit so later review passes cannot consume stale state.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [x] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run build:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [x] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [x] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [x] `npm run test:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [x] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [x] `npm run compose:up`
+9. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, env-cutover contract, fifth-review runtime-config cleanup checks, and a debug-console check confirming there are no logged errors.
+10. [x] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the fifth review pass found one remaining localized malformed-input normalization gap in the runtime-config helper. Story 48 therefore needs one more narrow cleanup task and a fresh full rerun before it can close honestly again.
+- Subtask 1 proof mapping: re-read the Story 48 acceptance criteria, all five review-finding sections, and the five durable evidence/findings bundles for review passes `b791cfd6`, `810fd4f1`, `d8154d87`, `07647eeb`, and `36689200`. Task 29 restores the remaining runtime-config proof by tightening the top-level `window.__CODEINFO_CONFIG__` acceptance rule to plain record containers only, adding direct exotic-object coverage in the client suites, and proving through the existing `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` marker that a malformed object-like runtime container now falls back truthfully to env/default values while surfacing `invalid_container`.
+- Subtask 2 doc check: no additional documentation update is required for Task 30. Task 29 changed runtime-config validation and proof only; it did not stale the existing Story 48 closeout guidance in [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), or [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md).
+- Testing 1: `npm run build:summary:server` passed with `status: passed` and `warning_count: 0`.
+- Testing 2: `npm run build:summary:client` passed with `status: passed` and `warning_count: 0`.
+- Testing 3: `npm run test:summary:server:unit` passed with `tests run: 1286`, `passed: 1286`, and `failed: 0`; the wrapper stayed in healthy `agent_action: wait` heartbeats until it emitted a clean terminal summary.
+- Testing 4: `npm run test:summary:server:cucumber` passed with `tests run: 71`, `passed: 71`, and `failed: 0`.
+- Testing 5: `npm run test:summary:client` passed with `tests run: 580`, `passed: 580`, and `failed: 0`.
+- Testing 6: `npm run test:summary:e2e` passed with `tests run: 45`, `passed: 45`, and `failed: 0`.
+- Testing 7: `npm run compose:build:summary` passed with `items passed: 2` and `items failed: 0`.
+- Testing 8: `npm run compose:up` started the final verification stack cleanly; the `mongo`, `server`, and `client` containers all reached their healthy/started state before manual browser validation began.
+- Subtask 3 final proof summary: the post-fix live rerun re-proved the runtime-config contract through the existing `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` marker, re-proved working-folder restore through `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` plus `DEV_0000048_T6_PICKER_SYNC`, and captured final screenshots at `/tmp/playwright-output/0000048-30-logs.png`, `/tmp/playwright-output/0000048-30-chat.png`, and `/tmp/playwright-output/0000048-30-malformed-runtime.png`.
+- Subtask 4 durable artifact check: the timestamped fifth-pass review files `codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md` and `codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md` remain tracked as the durable record used for this closing pass.
+- Subtask 5 transient artifact hygiene: removed `codeInfoStatus/reviews/0000048-current-review.json` from the working tree before the closing commit so later review passes cannot consume stale transient handoff state.
+- Testing 9: Manual Playwright-MCP verification passed at `http://host.docker.internal:5001`; startup emitted `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG`, the logs page exposed `DEV_0000048_T7_CODEINFO_ENV_RESOLVED` and `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` with `workingFolder: /app`, the seeded Task 7 chat restore repopulated `/app` and emitted `DEV_0000048_T6_PICKER_SYNC`, a temporary live `config.js` mutation to `window.__CODEINFO_CONFIG__ = new Date('2026-03-17T00:00:00.000Z');` produced the expected runtime `invalid_container` diagnostic with `hasInvalidCanonicalConfig: true` and env-backed fallback sources, `browser_console_messages(level="error")` returned no entries, and the served file was restored before teardown.
+- Testing 10: `npm run compose:down` removed the client, server, Mongo, Chroma, Zipkin, collector, and the `codeinfo2_internal` network cleanly after the final manual verification pass.
+
+---
+
+
+
+
+## Code Review Findings (Sixth Pass)
+
+### Review Artifacts
+
+- Evidence: [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md)
+
+### Findings Summary
+
+1. `must_fix` `generic_engineering_issue`: the conversation working-folder edit route in [server/src/routes/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/conversations.ts) still normalizes missing or whitespace-only `workingFolder` input into a successful clear, so invalid or omitted input can erase saved state instead of being rejected.
+2. `should_fix` `generic_engineering_issue`: [server/src/flows/repositoryCandidateOrder.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/repositoryCandidateOrder.ts) still lets `buildRepositoryCandidateLookupSummary(...)` report `fallbackUsed: false` when the selected repository is not present in the ordered candidates, which hides an impossible state behind a misleading success-shaped summary.
+
+### Acceptance Criteria Proof Snapshot
+
+- Direct proof in the sixth-pass evidence artifact: `AC01`, `AC02`, `AC04`, `AC05`, `AC06`, `AC07`, `AC11`, `AC12`, `AC13`, `AC14`, `AC15`, `AC16`, `AC17`, `AC18`, `AC19`, `AC20`, `AC23`, `AC24`, `AC26`, `AC27`, `AC28`, `AC29`, `AC31`, `AC32`, `AC33`, `AC34`, `AC35`, `AC37`, `AC38`, `AC39`, `AC40`, `AC43`, `AC44`, `AC45`, `AC46`.
+- Indirect proof in the sixth-pass evidence artifact: `AC03`, `AC08`, `AC09`, `AC10`, `AC21`, `AC22`, `AC25`, `AC30`, `AC36`, `AC41`, `AC42`.
+- Missing proof in the sixth-pass evidence artifact: none at the acceptance-criterion level, but the review did identify one missing direct route-contract proof for omitted/blank `workingFolder` edit payloads and one missing direct invariant proof for contradictory `selectedRepositoryPath` lookup-summary inputs.
+
+### Succinctness Review
+
+The implementation still remains appropriately succinct for the story’s required behavior overall. The sixth-pass findings are both narrow follow-ups in already-changed seams rather than evidence that Story 48 needs another broad restructure. The route contract in [server/src/routes/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/conversations.ts) and the invariant handling in [server/src/flows/repositoryCandidateOrder.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/repositoryCandidateOrder.ts) should be tightened locally, then the story should be rerun through one fresh full validation pass.
+
+### 31. Require Explicit Clear Semantics On Conversation Working-Folder Edits
+
+- Task Status: `__done__`
+- Git Commits: `08cfe44c, 980600f1`
+
+#### Overview
+
+Close the sixth-pass `must_fix` finding by making the conversation working-folder edit route require an explicit caller choice. A non-empty string must continue to mean “save this folder”, explicit `null` must continue to mean “clear the saved folder”, and omitted or whitespace-only `workingFolder` input must stop being normalized into a successful clear.
+
+#### Subtasks
+
+1. [x] Re-read [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md), then inspect [server/src/routes/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/conversations.ts), [client/src/api/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/conversations.ts), and the existing conversation working-folder tests. Record in Task 31 `Implementation notes` exactly how omitted, blank, explicit `null`, and non-empty string payloads are handled today, and why the current omitted/blank path is incorrectly normalized into success.
+2. [x] Tighten the edit-route request contract in [server/src/routes/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/conversations.ts) so the route only accepts two explicit states: a non-empty string to save, or `null` to clear. Do not let an omitted `workingFolder` field, an empty string, or a whitespace-only string clear the saved value silently.
+3. [x] Preserve the existing safe-message and operational-error behavior for true validation failures and temporary repository-membership failures. This task is only about explicit clear semantics and invalid-input rejection; it must not reopen the safe 503-message work from Task 24.
+4. [x] Add or extend server route tests that prove all four input cases explicitly: omitted field rejects, blank/whitespace field rejects, explicit `null` clears, and a non-empty string saves. The purpose of these tests is to stop the route from ever again normalizing missing input into success.
+5. [x] If any client-side API helper or page-level caller assumptions need to be clarified while keeping the public contract explicit, update those tests too, but do not broaden the change into a new client workflow. The intended outcome is that the existing helper continues to send only explicit save or clear payloads, and route-level rejection catches malformed callers.
+6. [x] Update Task 31 `Implementation notes` with the final explicit-clear contract, the exact rejected payload shapes, and where the proof lives.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [x] `npm run build:summary:server` - Use because this task changes a server REST contract. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes server route validation and persistence behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use because this task changes server/common behavior and the full server regression suite should still pass. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Review reopening only: the sixth review pass found that the conversation working-folder edit route still lets omitted or blank input clear saved state. Story 48 therefore needs one more localized route-contract fix before it can close honestly again.
+- Re-read the sixth-pass finding and inspected the route/helper/tests. Today the server parses omitted, empty, and whitespace-only `workingFolder` values into `undefined`, then persists `validatedWorkingFolder ?? null`, so those malformed payloads silently clear state; the client helper currently makes that worse by trimming `undefined` or blank strings into `{ workingFolder: null }`. Explicit `null` already clears correctly, and non-empty strings already follow the normal save/validation path.
+- Tightened the conversation edit route so `workingFolder` is now required in the request body, `z.string().trim().min(1).nullable()` rejects omitted/blank/whitespace-only values before persistence, and only explicit `null` reaches the clear path while non-empty strings still flow through the existing repository-membership validation.
+- Kept the Task 24 safety behavior intact: the only change is malformed-input rejection before validation, while the existing 400 invalid-path handling and the safe 503 operational-error mapping still use the same route logic and client-safe messages for true validation or repository availability failures.
+- Added direct server route proof in `server/src/test/unit/conversations-router-agent-filter.test.ts` for the four required cases: omitted payload rejects, blank payload rejects, whitespace-only payload rejects, explicit `null` clears, and non-empty strings still save.
+- Clarified the client helper contract in `client/src/api/conversations.ts` and `client/src/test/conversationsApi.workingFolder.test.ts` so page-level callers still send only explicit save-or-clear payloads, while malformed helper inputs (`undefined` or blank strings) now reject locally instead of being normalized into a clear request.
+- Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the tightened explicit-clear route and helper contract still typecheck/build cleanly on the server side.
+- Testing step 2 passed on rerun via full `npm run test:summary:server:unit` with `tests run: 1289`, `passed: 1289`, `failed: 0`, and `agent_action: skip_log`; the first full run failed honestly only because the new omitted/blank route tests asserted Zod’s exact wording too narrowly, so I widened those assertions to stable validation-error patterns and reran the full wrapper cleanly.
+- Final explicit-clear contract: `POST /conversations/:id/working-folder` now accepts only `{ "workingFolder": "<non-empty trimmed string>" }` to save or `{ "workingFolder": null }` to clear. The route now rejects `{}`, `{ "workingFolder": "" }`, and `{ "workingFolder": "   " }` as 400 validation errors before persistence, while direct proof lives in `server/src/test/unit/conversations-router-agent-filter.test.ts` and the helper-side malformed-caller proof lives in `client/src/test/conversationsApi.workingFolder.test.ts`.
+- Testing step 3 passed via full `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`, so the broader server regression suite still holds after tightening the explicit save-vs-clear route contract.
+
+---
+
+### 32. Fail Closed When Lookup-Summary Inputs Contradict The Candidate Order
+
+- Task Status: `__done__`
+- Git Commits: `f6b162bf, 84893f8a`
+
+#### Overview
+
+Close the sixth-pass `should_fix` finding by making the shared lookup-summary helper fail closed when a caller asks it to summarize a repository path that is not actually present in the ordered candidate list. This is a localized consistency fix in the shared helper and its direct proofs; it must keep the existing success-path summary shape unchanged for valid inputs.
+
+#### Subtasks
+
+1. [x] Re-read [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md), then inspect [server/src/flows/repositoryCandidateOrder.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/repositoryCandidateOrder.ts), [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), [server/src/flows/markdownFileResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/markdownFileResolver.ts), and [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts). Record in Task 32 `Implementation notes` exactly how the helper behaves today when the selected repository path is missing from the ordered candidates and which changed callers depend on the happy-path summary.
+2. [x] Tighten [server/src/flows/repositoryCandidateOrder.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/repositoryCandidateOrder.ts) so a contradictory `selectedRepositoryPath` cannot be summarized as a false “first-choice” success. The helper should either throw or otherwise make the invariant break explicit, but it must not keep returning `fallbackUsed: false` for a path that was never in the candidate order.
+3. [x] Keep the existing persisted and logged summary contract unchanged for valid inputs: `selectedRepositoryPath`, `fallbackUsed`, and `workingRepositoryAvailable`. This task is only about fail-closed invariant handling and direct proof for the contradictory-input path.
+4. [x] Add or extend one direct unit test in [server/src/test/unit/repositoryCandidateOrder.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/repositoryCandidateOrder.test.ts) that proves a contradictory `selectedRepositoryPath` does not silently produce a success-shaped summary. The purpose of this test is to close the missing-proof gap identified in the sixth-pass review.
+5. [x] Reconfirm that the changed happy-path callers in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), [server/src/flows/markdownFileResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/markdownFileResolver.ts), and [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts) still behave identically for valid selections. The intended outcome is a narrower fail-closed helper, not a new summary schema or caller-specific workaround.
+6. [x] Update Task 32 `Implementation notes` with the final invariant rule, the contradictory-input behavior you chose, and where the direct proof lives.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [x] `npm run build:summary:server` - Use because this task changes a shared server helper used by flows, markdown resolution, and direct commands. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes shared server lookup-summary behavior covered by node:test unit/integration suites. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use because this task changes shared server/common behavior and the full server regression suite should still pass. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Review reopening only: the sixth review pass found one remaining lookup-summary invariant gap in the shared repository-order helper. Story 48 therefore needs one more narrow helper fix and direct proof before it can close honestly again.
+- Re-read the sixth-pass finding and inspected the helper plus its changed callers. Today `buildRepositoryCandidateLookupSummary(...)` resolves the selected path, lets `findIndex(...)` return `-1` for a path missing from the ordered candidates, and still returns a success-shaped summary with `fallbackUsed: false`; the changed happy-path callers in `server/src/flows/service.ts`, `server/src/flows/markdownFileResolver.ts`, and `server/src/agents/service.ts` all assume the helper only summarizes a candidate that actually came from the ordered list.
+- Tightened `buildRepositoryCandidateLookupSummary(...)` in `server/src/flows/repositoryCandidateOrder.ts` to throw when the selected repository path is not present in the ordered candidates, so contradictory input now fails closed instead of being mislabeled as a first-choice success.
+- Kept the valid-input summary contract unchanged. For real selected candidates, the helper still returns only `selectedRepositoryPath`, `fallbackUsed`, and `workingRepositoryAvailable`, so existing persisted turn/runtime data and log payloads do not change shape.
+- Added direct invariant proof in `server/src/test/unit/repositoryCandidateOrder.test.ts` that a contradictory `selectedRepositoryPath` now throws instead of producing a success-shaped summary.
+- Reconfirmed by inspection that the changed happy-path callers in `server/src/flows/service.ts`, `server/src/flows/markdownFileResolver.ts`, and `server/src/agents/service.ts` all build lookup summaries from a candidate they selected from the ordered list itself, so valid behavior remains unchanged and no caller-specific workaround was needed.
+- Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the fail-closed helper change still builds cleanly across the shared server paths that consume the lookup summary.
+- Testing step 2 passed via full `npm run test:summary:server:unit` with `tests run: 1290`, `passed: 1290`, `failed: 0`, and `agent_action: skip_log`, so the new contradictory-input unit proof and the unchanged happy-path callers both hold across the full server unit/integration suite.
+- Final invariant rule: `buildRepositoryCandidateLookupSummary(...)` may only summarize a repository path that is actually present in the ordered candidate list. Contradictory input now throws `selectedRepositoryPath ... is not present in the ordered candidate list`, while the direct proof lives in `server/src/test/unit/repositoryCandidateOrder.test.ts` and the valid-path callers remain unchanged because they only summarize candidates selected from the ordered list itself.
+- Testing step 3 passed via full `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`, so the broader server regression suite still holds after tightening the shared lookup-summary invariant.
+
+---
+
+### 33. Re-Run Full Story 48 Validation After Sixth Review Fixes
+
+- Task Status: `__done__`
+- Git Commits: `25eb3e59, ddf42a0c, 89340a57`
+
+#### Overview
+
+After Tasks 31 and 32 land, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, all prior review-fix tasks, and the sixth-pass route-contract and lookup-summary consistency fixes. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
+
+#### Subtasks
+
+1. [x] Re-read the Story 48 acceptance criteria, all six `Code Review Findings` sections above, and the durable review artifacts [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md), [codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-findings.md), [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-evidence.md), and [codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-findings.md). Record in Task 33 `Implementation notes` how Tasks 31 and 32 restore the remaining route-contract and lookup-summary proof.
+2. [x] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) if the sixth review-fix implementation changes any final Story 48 closeout notes or route/runtime-config guidance.
+3. [x] Update Task 33 `Implementation notes` with the final rerun results, the sixth-review-fix proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
+4. [x] Preserve the durable sixth-pass review artifacts in the commit that closes the reopened story. Do not rely on the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file as the durable record.
+5. [x] Remove or leave untracked the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file before the closing commit so later review passes cannot consume stale state.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [x] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run build:summary:client` - Mandatory final regression check because the story’s client/common behavior must remain green after the sixth-pass server fixes. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [x] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [x] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [x] `npm run test:summary:client` - Mandatory final regression check because the story’s client/common behavior must remain green after the sixth-pass fixes. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [x] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [x] `npm run compose:up`
+9. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, explicit-clear edit-route checks, lookup-summary regression checks, env-cutover contract, and a debug-console check confirming there are no logged errors.
+10. [x] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the sixth review pass found one remaining explicit-clear route-contract bug and one remaining lookup-summary invariant gap. Story 48 therefore needs one more narrow server-side cleanup wave and a fresh full rerun before it can close honestly again.
+- Re-read the Story 48 acceptance criteria, all six review-finding sections, and the durable review artifacts from all six review passes. Tasks 31 and 32 close the last sixth-pass proof gaps directly: Task 31 now requires explicit `null` to clear conversation working folders and proves omitted/blank payload rejection at the route and helper layers, while Task 32 now makes contradictory lookup-summary inputs throw instead of emitting a false success-shaped summary and adds the direct unit proof the sixth-pass findings called out.
+- Re-checked the Story 48 closeout docs against the sixth-pass fixes and did not find any stale guidance in `README.md`, `design.md`, `projectStructure.md`, or `docs/developer-reference.md`. The fixes were route-contract and helper-invariant tightenings, so no additional checked-in doc edits are needed for Task 33 unless the final rerun surfaces a mismatch.
+- Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, keeping the reopened server/common regression gate green before the broader rerun matrix.
+- Testing step 2 passed on rerun via `npm run build:summary:client` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`; the first run correctly caught one lingering `AgentsPage` ref type that still allowed optional `workingFolder`, so I aligned it to Task 31’s explicit save-or-clear contract before rerunning the full wrapper cleanly.
+- Testing step 3 passed via full `npm run test:summary:server:unit` with `tests run: 1290`, `passed: 1290`, `failed: 0`, and `agent_action: skip_log`; this wrapper again took the expected long healthy path with `agent_action: wait` heartbeats before reaching a clean terminal summary.
+- Testing step 4 passed via full `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`, so the reopened feature-level server regression suite still holds after the sixth-pass fixes.
+- Testing step 5 passed via full `npm run test:summary:client` with `tests run: 582`, `passed: 582`, `failed: 0`, and `agent_action: skip_log`, so the client/common Story 48 regression suite remains green after the final sixth-pass server-side fixes and the small `AgentsPage` typing follow-up.
+- Testing step 6 passed via full `npm run test:summary:e2e` with `tests run: 42`, `passed: 42`, `failed: 0`, and `agent_action: skip_log`; the wrapper spent several minutes in healthy `agent_action: wait` heartbeats during compose build and browser execution before reaching a clean teardown summary.
+- Testing step 7 passed via `npm run compose:build:summary` with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the final front-end-accessible regression stack is ready for bring-up.
+- Testing step 8 passed via `npm run compose:up`; the final validation stack started successfully with healthy server and client containers for the live browser checks at `http://host.docker.internal:5001`.
+- Testing step 9 passed via manual Playwright-MCP verification at `http://host.docker.internal:5001`: the home page emitted `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG`, the `/logs` page exposed `DEV_0000048_T7_CODEINFO_ENV_RESOLVED` plus `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` rows for explicit clear and restore/save decisions, live route probes against the seeded Task 7 conversation proved omitted and whitespace-only `workingFolder` payloads now reject with `400 validation_error` while explicit `null` clears and `\"/app\"` restores successfully, chat and flows restore still repopulated `/app` while emitting `DEV_0000048_T6_PICKER_SYNC`, the contradictory lookup-summary invariant remains covered by the direct Task 32 unit proof plus the full wrapper matrix rather than a dedicated browser seam, a fresh browser session ended with no error-level console messages, and screenshots were saved as `test-results/screenshots/0000048-33-home.png`, `test-results/screenshots/0000048-33-logs.png`, and `test-results/screenshots/0000048-33-chat.png`.
+- Testing step 10 passed via `npm run compose:down`; the final validation stack shut down cleanly after the live browser checks and route-contract probes completed.
+- Final rerun results stayed green across the full Story 48 matrix: `npm run build:summary:server`, `npm run build:summary:client`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, `npm run test:summary:e2e`, `npm run compose:build:summary`, `npm run compose:up`, manual Playwright-MCP, and `npm run compose:down` all completed successfully during this sixth-pass closeout.
+- The sixth-review-fix proof now closes cleanly at both seams: Task 31’s explicit save-or-clear route contract was re-verified live against the seeded conversation plus the full server wrappers, and Task 32’s contradictory lookup-summary invariant remains fail-closed through its direct unit test while the broader server wrappers stayed green.
+- Preserved the durable sixth-pass review artifacts as the story record and did not rely on the transient `codeInfoStatus/reviews/0000048-current-review.json` handoff file for closeout evidence.
+- Left `codeInfoStatus/reviews/0000048-current-review.json` untracked before the closing commit so later passes cannot consume stale transient review state.
+
+---
+
+
+
+## Historical Post-Implementation Code Review
+
+This section records the previously completed no-findings closeout that existed before the later user-requested follow-up env-prefix expansion reopened Story 48. It is retained as historical review evidence only and should not be treated as the current story-complete state while Tasks 34-35 remain open.
+
+### Review Pass
+
+- Review pass id: `0000048-review-20260317T145700Z-84ca2ecd`
+- Evidence artifact: [codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-evidence.md)
+- Findings artifact: [codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-findings.md)
+- Historical outcome at that point in time: no findings were recorded in that final review pass, so the story was considered complete before the later env-prefix follow-up request reopened the plan.
+
+### Branch-Vs-Main Checks Performed
+
+- Verified `codeInfoStatus/flow-state/current-plan.json` still pointed to `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md` at the time of that review.
+- Verified the selected plan file existed and that the branch story number `48` still matched the plan filename story number `0000048`.
+- Re-read the active plan from disk after the final closeout commits landed.
+- Reviewed `git diff --name-status main...HEAD` and grouped the changed files into planned implementation files, planned docs/tests/plan files, approved workflow artifacts, approved workflow configuration, and suspicious/out-of-scope files.
+- Re-checked recent branch commits through the final Task 33 closeout wave and its audit-ledger follow-up commits.
+- Confirmed the branch diff still fit Story 48 implementation plus approved workflow artifacts, with no suspicious or out-of-scope files identified.
+
+### Acceptance-Evidence Checks
+
+- Direct proof: `AC01`, `AC02`, `AC04`, `AC05`, `AC06`, `AC07`, `AC11`, `AC12`, `AC13`, `AC14`, `AC15`, `AC16`, `AC17`, `AC18`, `AC19`, `AC20`, `AC23`, `AC24`, `AC26`, `AC27`, `AC28`, `AC29`, `AC31`, `AC32`, `AC33`, `AC34`, `AC35`, `AC37`, `AC38`, `AC39`, `AC40`, `AC43`, `AC44`, `AC45`, `AC46`.
+- Indirect proof: `AC03`, `AC08`, `AC09`, `AC10`, `AC21`, `AC22`, `AC25`, `AC30`, `AC36`, `AC41`, `AC42`.
+- Missing proof: none.
+- Final rerun evidence at that point remained green in Task 33: `npm run build:summary:server`, `npm run build:summary:client`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, `npm run test:summary:e2e`, `npm run compose:build:summary`, `npm run compose:up`, manual Playwright-MCP verification, and `npm run compose:down` all passed.
+- Final live/manual proof at that point remained present for the sixth-pass fixes: omitted and whitespace-only conversation edit payloads rejected, explicit `null` cleared, `/app` restore still worked, the expected Story 48 markers appeared in logs/browser output, and no error-level browser-console messages were observed.
+
+### Files And Seams Inspected In Review
+
+- Plan and review artifacts:
+  - [planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md)
+  - [codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-evidence.md)
+  - [codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-findings.md)
+- Highest-risk implementation seams:
+  - [server/src/workingFolders/state.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/workingFolders/state.ts)
+  - [client/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/config/runtimeConfig.ts)
+  - [server/src/flows/repositoryCandidateOrder.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/repositoryCandidateOrder.ts)
+  - [server/src/routes/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/conversations.ts)
+- Direct proof and contract tests:
+  - [server/src/test/unit/repositoryCandidateOrder.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/repositoryCandidateOrder.test.ts)
+  - [client/src/test/conversationsApi.workingFolder.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/conversationsApi.workingFolder.test.ts)
+  - [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts)
+  - [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts)
+
+### Succinctness Review
+
+The implemented code was judged appropriately succinct for the behavior Story 48 required at that review point. The densest files remained [server/src/workingFolders/state.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/workingFolders/state.ts), [client/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/config/runtimeConfig.ts), and [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts), but that final findings pass did not identify a concrete simplification that was localized, objectively testable, and worth reopening the story for. The remaining complexity was largely a consequence of the story combining reference-resolution, persistence, env-cutover, and tokenizer contracts in one coordinated branch.
+
+### Historical Completion Decision
+
+The review pass above found no `must_fix`, `should_fix`, or `optional_simplification` issue that justified reopening Story 48 at that time. That historical closeout remains useful review evidence, but the story is now being reopened for the separate user-requested env-prefix follow-up below.
+
+
+
+## Additional Requested Follow-Up
+
+The user has now requested one extra env-prefix completion pass for a narrow set of remaining repo-owned server/runtime variables that Story 48 intentionally left unprefixed. This follow-up is not a new review finding; it is a requested scope extension on the same branch after the earlier closeout.
+
+### 34. Rename Remaining Repo-Owned Server Runtime Variables To `CODEINFO_`
+
+- Task Status: `__to_do__`
+- Git Commits: `__none__`
+
+#### Overview
+
+Perform one focused env-prefix cutover for the remaining repo-owned server/runtime variables the user explicitly selected: `SERVER_PORT`, `MONGO_URI`, `CHROMA_URL`, `MCP_PORT`, `AGENTS_MCP_PORT`, `HOST_INGEST_DIR`, and `OPENAI_INGEST_MAX_RETRIES`. This task should rename only those variables to canonical `CODEINFO_` forms across checked-in product code, committed env files, compose/test-compose wiring, docs, and tests, without broadening into the existing `Codex_*` variable family.
+
+#### Subtasks
+
+1. [ ] Re-read this story’s env-cutover scope, then inspect every checked-in use of `SERVER_PORT`, `MONGO_URI`, `CHROMA_URL`, `MCP_PORT`, `AGENTS_MCP_PORT`, `HOST_INGEST_DIR`, and `OPENAI_INGEST_MAX_RETRIES`. Record in Task 34 `Implementation notes` the exact canonical replacement names you will use and every checked-in file family that currently consumes them.
+2. [ ] Update the server-side config readers and helpers so the canonical names become `CODEINFO_SERVER_PORT`, `CODEINFO_MONGO_URI`, `CODEINFO_CHROMA_URL`, `CODEINFO_MCP_PORT`, `CODEINFO_AGENTS_MCP_PORT`, `CODEINFO_HOST_INGEST_DIR`, and `CODEINFO_OPENAI_INGEST_MAX_RETRIES`. Keep this as a clean cutover with no temporary dual-read compatibility for the old names.
+3. [ ] Update committed env files, compose/test-compose files, wrappers, docs, and checked-in tests so those seven variables use the new `CODEINFO_` names consistently everywhere they are set, passed through, or documented.
+4. [ ] Pay special attention to `CODEINFO_HOST_INGEST_DIR`, `CODEINFO_MCP_PORT`, and `CODEINFO_AGENTS_MCP_PORT`: verify that path mapping, volume mounts, and port wiring remain aligned between local/server code and Compose wiring after the rename.
+5. [ ] Add or update tests that prove the renamed variables still drive the same runtime behavior for server startup, Mongo/Chroma wiring, ingest path mapping, MCP port config, and OpenAI ingest retry parsing.
+6. [ ] Finish with one repo-wide search proving no checked-in repo-owned file still uses the old names for those seven variables.
+7. [ ] Update Task 34 `Implementation notes` with the final canonical-name map, the highest-risk wiring seam you had to preserve, and where the direct proof for the rename now lives.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server runtime/config wiring. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server/common env resolution and runtime behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes server/common runtime behavior that should keep feature coverage green. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+4. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Use because this task changes compose/runtime wiring that is exercised through the full app. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+5. [ ] `npm run compose:build:summary` - Use because this task changes Dockerized runtime wiring. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+6. [ ] `npm run compose:up`
+7. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including startup/stack sanity for the renamed server runtime envs, at least one path that depends on mounted-ingest or working-folder behavior, and a debug-console check confirming there are no logged errors.
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 35. Re-Run Full Story 48 Validation After Requested Env-Prefix Follow-Up
+
+- Task Status: `__to_do__`
+- Git Commits: `__none__`
+
+#### Overview
+
+After Task 34 lands, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria plus the requested follow-up env-prefix expansion. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 48 acceptance criteria, all six `Code Review Findings` sections above, the historical post-implementation review record, and Task 34. Record in Task 35 `Implementation notes` how the requested env-prefix follow-up extends the final env-cutover proof without reopening unrelated Story 48 seams.
+2. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) if the Task 34 rename changes any final Story 48 closeout notes or runtime/env guidance.
+3. [ ] Update Task 35 `Implementation notes` with the final rerun results, the requested follow-up proof points, and any final screenshot or marker evidence captured during this post-follow-up validation pass.
+4. [ ] Preserve any durable review or evidence artifacts created during this requested follow-up in the closing commit. Do not rely on transient workflow handoff files as the durable record.
+5. [ ] Remove or leave untracked any transient workflow handoff file created during this follow-up before the closing commit so later runs cannot consume stale state.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, the expanded server env-prefix contract, general regression checks, and a debug-console check confirming there are no logged errors.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending.

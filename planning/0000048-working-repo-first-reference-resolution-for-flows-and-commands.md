@@ -1247,3 +1247,217 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 - Testing 9: Manual Playwright-MCP verification at `http://host.docker.internal:5001` reconfirmed `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` on home load, restored `/app` in the seeded chat, agent, and flow conversations with fresh `DEV_0000048_T6_PICKER_SYNC` browser-console entries, showed `http://host.docker.internal:1234` on LM Studio, returned no error-level browser console messages, and verified the server `/logs` markers `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER`, `DEV_0000040_T11_FLOW_RESOLUTION_ORDER`, `DEV_0000048_T3_MARKDOWN_RESOLUTION_ORDER`, `DEV_0000048_T4_WORKING_FOLDER_STATE_STORED`, `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION`, `DEV_0000048_T7_CODEINFO_ENV_RESOLVED`, and `DEV_0000048_T9_OPENAI_TOKENIZER_COUNT` with success-path fields after exercising the real conversation-edit, flow-command, markdown, env, and OpenAI ingest routes. Final GUI evidence was saved as `test-results/screenshots/0000048-11-home.png`, `test-results/screenshots/0000048-11-chat-restore.png`, `test-results/screenshots/0000048-11-agents-restore.png`, `test-results/screenshots/0000048-11-flows-restore.png`, `test-results/screenshots/0000048-11-lmstudio.png`, and mirrored into `playwright-output-local/playwright-output-local/` with the same names.
 - Testing 10: `npm run compose:down` stopped and removed the final manual-verification stack cleanly after the Story 48 marker checks and screenshot capture completed, so the repo finished Task 11 with no running compose resources left behind.
 ---
+
+## Code Review Findings
+
+Review pass `0000048-review-20260317T011804Z-b791cfd6` reopened Story 48 after branch-vs-main review against `main` identified one `must_fix` and three `should_fix` findings. The durable review artifacts for this reopen are [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md).
+
+### Findings Summary
+
+- `must_fix` `plan_contract_issue`: chat validation still accepts non-ingested absolute `working_folder` paths, so chat does not yet enforce the same canonical ingested-repository contract already used by agents, flows, and the new conversation working-folder edit route.
+- `should_fix` `generic_engineering_issue`: working-folder restore currently collapses every `fs.stat(...)` failure into `WORKING_FOLDER_NOT_FOUND`, so unreadable or transient filesystem failures are treated as stale-path clears instead of actionable operational errors.
+- `should_fix` `generic_engineering_issue`: repository candidate de-duplication lowercases resolved paths, which can collapse two distinct repositories on case-sensitive filesystems even though the story only intended true duplicate identities to be removed.
+- `should_fix` `generic_engineering_issue`: the shared client runtime-config helper silently defaults malformed canonical `VITE_CODEINFO_*` inputs to env/default success values without any explicit warning path, which hides misconfiguration after the env cutover.
+
+### Acceptance Criteria Proof Snapshot
+
+The review evidence pass explicitly classified the current proof status for every acceptance criterion before reopening the story. Those statuses remain the baseline for the follow-up tasks below:
+
+1. Shared repository candidate order for command and flow lookup: `direct`
+2. One shared repository-candidate builder across flow-command and markdown resolution: `direct`
+3. Nested lookup restarts from the full four-place order on every hop: `indirect`
+4. Duplicate repositories are removed while preserving first position: `direct`
+5. Flow command-file lookup uses the four-place order: `direct`
+6. Flow markdown-file lookup uses the four-place order: `direct`
+7. Command-item markdown lookup inside flows uses the same order: `direct`
+8. Direct command execution keeps working-first then owner-second semantics: `indirect`
+9. Local `codeInfo2` flows search the working repository first: `indirect`
+10. Ingested-repo-owned flows still search the working repository first: `indirect`
+11. Working folder persists/restores across chats, agents, flows, and direct commands: `direct`
+12. Direct command persistence stays on the owning agent conversation: `indirect`
+13. Flow conversations and child agent conversations persist the inherited folder: `direct`
+14. Chat fully participates in the working-folder contract: `direct`
+15. GUI restore and empty-state behavior across existing conversations: `direct`
+16. Canonical stored identity is the absolute repository root path: `direct`
+17. Editable saved value lives on the owning conversation while each run stores its own snapshot: `direct`
+18. Missing working repository skips slot one and logs the condition: `direct`
+19. GUI allows idle working-folder edits on existing conversations: `direct`
+20. GUI blocks working-folder edits while execution is active: `direct`
+21. UI restore and runtime lookup use the same canonical signal: `indirect`
+22. Flow-created/used agent conversations inherit the exact flow-step folder: `indirect`
+23. Invalid saved working folders clear automatically and log a warning: `direct`
+24. Invalid-folder clear happens before reuse and logs stale path plus owning record id/type: `direct`
+25. Existing relative-path safety rules remain in place: `indirect`
+26. Fallback continues only for not-found outcomes: `direct`
+27. Observability logs and docs are updated for candidate order and selected repository: `direct`
+28. Structured lookup logs include the minimum required fields: `direct`
+29. Execution metadata stores a compact lookup summary without broad API-response expansion: `direct`
+30. Documentation includes a nested-reference example: `indirect`
+31. Repository-owned env vars are renamed to `CODEINFO_` and browser-facing vars to `VITE_CODEINFO_`: `direct`
+32. Env rename updates defaults/examples/compose/e2e/wrappers/docs consistently: `direct`
+33. Env rename is a single clean cutover with no temporary dual-read compatibility: `direct`
+34. No checked-in repo-owned file still references the old generic env names: `indirect`
+35. The env rename inventory covers the checked-in product-owned families: `indirect`
+36. The defined env target names were implemented exactly unless another checked-in repo-owned variable also required prefixing: `indirect`
+37. OpenAI counting no longer uses the heuristic for guardrails and chunk sizing: `direct`
+38. OpenAI counting uses a real tokenizer recommendation and prefers Node `tiktoken`: `direct`
+39. OpenAI hard limit is corrected to 8192 while margin remains separate: `direct`
+40. Token-margin behavior remains the soft safety mechanism and is documented: `indirect`
+41. Oversized OpenAI inputs are classified deterministically as input-too-large: `direct`
+42. The OpenAI bug-fix scope stayed limited to tokenizer counting/classification/regression coverage: `indirect`
+43. Tokenizer-backed counting replaced the heuristic everywhere it influenced OpenAI ingest decisions: `direct`
+44. Guardrails and provider `countTokens(...)` now share the same tokenizer-backed implementation: `direct`
+45. OpenAI paths do not fall back to the old heuristic or whitespace estimation on tokenizer failure: `direct`
+46. Tokenizer lifecycle handling is explicit and documented: `direct`
+
+### Succinctness Review
+
+The implemented behavior mostly matches the required scope, but the review identified three areas where the code is more permissive or more implicit than the plan intended and therefore needs follow-up rather than simplification-only notes:
+
+- chat validation currently uses a looser working-folder contract than the other surfaces;
+- stale-path detection currently hides too much filesystem detail by treating all `fs.stat(...)` failures as stale/not-found;
+- the shared candidate-order and runtime-config helpers currently default or normalize in ways that can hide contradictions instead of surfacing them clearly.
+
+The resolver, persistence, env-cutover, and tokenizer work otherwise remain within the planned scope. The follow-up tasks below are intended to tighten those weak spots without broadening Story 48 beyond the review findings.
+
+### 12. Align Chat Working-Folder Validation With The Ingested-Repository Contract
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Close the `must_fix` review finding by making chat use the same ingested-repository validation contract already enforced by agents, flows, and the conversation working-folder edit route. This task is only about chat request validation and the immediate chat-run call path; it must not broaden the working-folder feature beyond parity with the existing Story 48 surfaces.
+
+#### Subtasks
+
+1. [ ] Re-read the review finding in `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, then inspect `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts`. Record in Task 12 `Implementation notes` the current contract mismatch: chat validation accepts any existing absolute directory, while the other surfaces also enforce known-ingested repository membership.
+2. [ ] Update the chat request path so a provided `working_folder` is validated against the same known repository set used by the other Story 48 working-folder entry points. Keep the canonical absolute-path contract unchanged and do not add a legacy fallback for non-ingested directories.
+3. [ ] Ensure the final chat-run persistence/logging path still records the requested working folder only after the ingested-repository check succeeds. Do not leave two different validation decisions in `chatValidators` and `chat.ts`.
+4. [ ] Add or extend one server unit or integration test that proves `POST /chat` rejects an existing absolute directory when it is not one of the ingested repositories.
+5. [ ] Add or extend one server unit or integration test that proves `POST /chat` still accepts an existing absolute directory when it is ingested and otherwise valid.
+6. [ ] Update this story file's Task 12 `Implementation notes` with the chosen validation point and the exact parity rule now shared with the other working-folder surfaces.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run test:summary:server:unit`
+
+#### Implementation notes
+
+---
+
+### 13. Distinguish Stale Working Folders From Operational Filesystem Failures
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Close the review finding in `server/src/workingFolders/state.ts` by preserving the difference between a truly missing/non-ingested working folder and a folder that exists but cannot currently be validated because of an operational filesystem problem. This task is only about working-folder validation and stale-path clearing behavior; it must keep the plan's explicit stale-path clear contract for genuinely invalid values.
+
+#### Subtasks
+
+1. [ ] Re-read the review finding in `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, then inspect `server/src/workingFolders/state.ts`, `server/src/routes/conversations.ts`, `server/src/routes/chat.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts`. Record in Task 13 `Implementation notes` exactly which error cases should still clear stale saved folders and which error cases must surface as operational failures instead.
+2. [ ] Refine the working-folder existence/validation helpers so missing/not-ingested paths still map to the current stale-path behavior, but non-not-found filesystem failures are not silently normalized into `WORKING_FOLDER_NOT_FOUND`.
+3. [ ] Ensure callers that currently clear saved folders on restore only do so for the genuine stale-path contract and preserve actionable diagnostics for operational failures.
+4. [ ] Add or extend one focused unit test that proves a missing working folder still clears/preserves the current stale-path behavior.
+5. [ ] Add or extend one focused unit test that proves an unreadable or otherwise operationally failing path does not get silently cleared as stale.
+6. [ ] Update this story file's Task 13 `Implementation notes` with the final error vocabulary and where those diagnostics now surface.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run test:summary:server:unit`
+
+#### Implementation notes
+
+---
+
+### 14. Keep Distinct Case-Sensitive Repository Paths In Candidate Ordering
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Close the review finding in the shared repository-candidate helper by ensuring only genuinely duplicate repository identities are removed. This task is only about the de-duplication key and its coverage; it must not change the four-place precedence order chosen for Story 48.
+
+#### Subtasks
+
+1. [ ] Re-read the review finding in `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, then inspect `server/src/flows/repositoryCandidateOrder.ts`, `server/src/flows/service.ts`, `server/src/flows/markdownFileResolver.ts`, and `server/src/test/unit/repositoryCandidateOrder.test.ts`. Record in Task 14 `Implementation notes` the current over-broad de-duplication rule and the exact contract that should replace it.
+2. [ ] Update the repository candidate de-duplication key so it removes true duplicates without collapsing two distinct repository roots solely because their resolved paths differ only by letter case on a case-sensitive filesystem.
+3. [ ] Keep the existing first-position-wins behavior for genuine duplicates, including the working-repo, owner-repo, and `codeInfo2` slots.
+4. [ ] Add or extend one unit test that proves truly duplicate repository identities are still removed.
+5. [ ] Add or extend one unit test that proves two distinct case-sensitive repository paths both survive candidate ordering when they are different real paths under the story contract.
+6. [ ] Update this story file's Task 14 `Implementation notes` with the new de-duplication rule and why it still satisfies the Story 48 duplicate-candidate contract.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run test:summary:server:unit`
+
+#### Implementation notes
+
+---
+
+### 15. Surface Malformed Canonical Client Runtime Config Instead Of Silently Defaulting It Away
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Close the review finding in the shared client runtime-config helper by making malformed canonical `VITE_CODEINFO_*` values observable instead of silently turning them into a clean-looking success path. This task is only about client runtime-config parsing, diagnostics, and tests; it must keep the renamed env contract and the existing runtime-first precedence model.
+
+#### Subtasks
+
+1. [ ] Re-read the review finding in `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, then inspect `client/src/config/runtimeConfig.ts`, `client/src/api/baseUrl.ts`, `client/src/logging/transport.ts`, `client/src/pages/LmStudioPage.tsx`, `client/src/test/baseUrl.env.test.ts`, and `client/src/test/logging/transport.test.ts`. Record in Task 15 `Implementation notes` which malformed canonical inputs are currently normalized away and what observable behavior should replace that silent success.
+2. [ ] Update the shared runtime-config helper so malformed canonical runtime/env values do not disappear without an explicit diagnostic. Keep the final runtime object shape stable, but make the invalid-canonical path visible through one consistent diagnostic mechanism instead of silently defaulting to a clean success path.
+3. [ ] Ensure the invalid-canonical handling does not reintroduce legacy env-name compatibility and does not let runtime/default precedence override an explicitly present but malformed canonical value without first recording why.
+4. [ ] Add or extend one client test that proves malformed canonical log config values are surfaced through the new diagnostic path instead of being silently treated as a normal default.
+5. [ ] Add or extend one client test that proves malformed canonical URL values are surfaced through the new diagnostic path instead of being silently treated as a normal default.
+6. [ ] Update this story file's Task 15 `Implementation notes` with the chosen diagnostic mechanism and the exact malformed-input behaviors now covered by tests.
+
+#### Testing
+
+1. [ ] `npm run build:summary:client`
+2. [ ] `npm run test:summary:client`
+
+#### Implementation notes
+
+---
+
+### 16. Re-Run Full Story 48 Validation After Code Review Fixes
+
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+After Tasks 12-15 land, rerun the full Story 48 validation matrix so the reopened story closes again against the original acceptance criteria plus the review-fix findings. This task is intentionally a full revalidation task and must not be skipped or reduced to targeted-only reruns.
+
+#### Subtasks
+
+1. [ ] Re-read the Story 48 acceptance criteria, the `Code Review Findings` section above, and the durable review artifacts `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md` plus `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`. Record in Task 16 `Implementation notes` how the review-fix tasks map back onto the original acceptance criteria.
+2. [ ] Update `README.md`, `design.md`, `projectStructure.md`, and `docs/developer-reference.md` if any review-fix implementation changes made the existing Story 48 closeout notes stale.
+3. [ ] Update this story file's Task 16 `Implementation notes` with the final rerun results, review-fix proof points, and any final screenshot or log-marker evidence captured during this post-review validation pass.
+4. [ ] Preserve the durable review artifacts from this review pass in the commit that closes the reopened story. Do not rely on the transient `codeInfoStatus/reviews/0000048-current-review.json` handoff file as the durable record.
+5. [ ] Remove or leave untracked the transient `codeInfoStatus/reviews/0000048-current-review.json` handoff file before the closing commit so future review steps do not accidentally consume stale review state.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run test:summary:server:unit`
+4. [ ] `npm run test:summary:server:cucumber`
+5. [ ] `npm run test:summary:client`
+6. [ ] `npm run test:summary:e2e`
+7. [ ] `npm run compose:build:summary`
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder, env-cutover, and log-marker checks plus explicit re-checks for the review-fix scenarios added by Tasks 12-15.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+---

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  parseConversationSummary,
   updateConversationWorkingFolder as updateConversationWorkingFolderApi,
   type ConversationApiSummary,
 } from '../api/conversations';
@@ -232,7 +233,7 @@ export function useConversations(params?: {
         }
         const data = (await res.json()) as ApiResponse;
         const items = (Array.isArray(data.items) ? data.items : []).map(
-          (item) => normalizeConversationSummary(item),
+          (item) => normalizeConversationSummary(parseConversationSummary(item)),
         );
         setHasMore(Boolean(data.nextCursor));
         cursorRef.current = data.nextCursor;

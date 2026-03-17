@@ -102,27 +102,41 @@ function parseConversationSummary(data: unknown): ConversationApiSummary {
     throw new Error('Invalid conversation response');
   }
 
+  const hasSource = Object.hasOwn(record, 'source');
+  const source = record.source;
+  if (hasSource && source !== 'REST' && source !== 'MCP') {
+    throw new Error('Invalid conversation response');
+  }
+
+  const hasFlags = Object.hasOwn(record, 'flags');
+  const flags = record.flags;
+  if (
+    hasFlags &&
+    (flags === null || typeof flags !== 'object' || Array.isArray(flags))
+  ) {
+    throw new Error('Invalid conversation response');
+  }
+
   return {
     conversationId,
     title,
     provider,
     model,
-    source: record.source === 'MCP' ? 'MCP' : 'REST',
+    source: hasSource ? (source as 'REST' | 'MCP') : undefined,
     lastMessageAt:
       typeof record.lastMessageAt === 'string'
         ? record.lastMessageAt
         : undefined,
     archived:
       typeof record.archived === 'boolean' ? record.archived : undefined,
-    flags:
-      record.flags && typeof record.flags === 'object'
-        ? (record.flags as Record<string, unknown>)
-        : {},
+    flags: hasFlags ? (flags as Record<string, unknown>) : undefined,
     agentName:
       typeof record.agentName === 'string' ? record.agentName : undefined,
     flowName: typeof record.flowName === 'string' ? record.flowName : undefined,
   };
 }
+
+export { parseConversationSummary };
 
 export async function updateConversationWorkingFolder(params: {
   conversationId: string;

@@ -54,6 +54,54 @@ describe('useConversations source metadata', () => {
     expect(mcpItem?.source).toBe('MCP');
   });
 
+  it('surfaces malformed present source values as a fetch error instead of normalizing them to REST', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Broken convo',
+            provider: 'lmstudio',
+            model: 'llama',
+            source: 'BROKEN',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+          },
+        ],
+      }),
+    );
+
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(result.current.error).toBe('Invalid conversation response');
+    expect(result.current.conversations).toEqual([]);
+  });
+
+  it('surfaces malformed present flags values as a fetch error instead of normalizing them to an empty object', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Broken convo',
+            provider: 'lmstudio',
+            model: 'llama',
+            flags: ['not-an-object'],
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+          },
+        ],
+      }),
+    );
+
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(result.current.error).toBe('Invalid conversation response');
+    expect(result.current.conversations).toEqual([]);
+  });
+
   it('includes agentName when provided', async () => {
     const { result } = renderHook(() =>
       useConversations({ agentName: '__none__' }),

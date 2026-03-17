@@ -816,7 +816,7 @@ The implementation remains appropriately succinct for the required behavior in t
 ### 27. Remove Remaining Legacy Env-Name References From Changed Checked-In Docs And Tests
 
 - Task Status: `__done__`
-- Git Commits: `92db1706`
+- Git Commits: `92db1706, fcc9d0dc`
 
 #### Overview
 

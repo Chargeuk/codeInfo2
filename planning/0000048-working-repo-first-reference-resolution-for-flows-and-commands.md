@@ -2702,3 +2702,94 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - The requested follow-up proof extends only the env-cutover acceptance surface: the final browser/log/curl checks proved the newly renamed runtime vars are active at startup (`DEV_0000048_T7_CODEINFO_ENV_RESOLVED`), in browser bootstrap (`DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG`), in working-folder restore (`DEV_0000048_T6_PICKER_SYNC` with `/app`), in ingest host-path mapping (`/ingest/dirs` base/path `/Users/danielstapleton/Documents/dev`), and in MCP listener wiring (`initialize` success on ports `5011` and `5012`).
 - Durable evidence preserved for this follow-up is the Task 35 implementation record in this story file plus the captured screenshot set under `test-results/screenshots/0000048-35-*.png`; those artifacts will be included in the closing commit rather than relying on transient review handoff state.
 - Transient workflow-state hygiene remains satisfied before the closing commit: `git status -sb` shows [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) as untracked, so it is being left out of the durable story closeout record.
+
+---
+
+## Code Review Findings (Seventh Pass)
+
+### Review Artifacts
+
+- Evidence: [codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-findings.md)
+
+### Findings Summary
+
+1. `must_fix` `plan_contract_issue`: root [`.env.e2e`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/.env.e2e) still contains legacy repo-owned env names (`VITE_API_URL`, `VITE_LMSTUDIO_URL`, and `LMSTUDIO_BASE_URL`) even though Story 48 now treats the env cutover as a single clean `CODEINFO_*` / `VITE_CODEINFO_*` migration with no checked-in legacy names remaining.
+
+### Acceptance Criteria Proof Snapshot
+
+- Direct proof in the seventh-pass evidence artifact: `AC01`, `AC02`, `AC03`, `AC04`, `AC05`, `AC06`, `AC07`, `AC08`, `AC09`, `AC10`, `AC11`, `AC12`, `AC13`, `AC14`, `AC15`, `AC16`, `AC17`, `AC18`, `AC19`, `AC20`, `AC22`, `AC23`, `AC24`, `AC27`, `AC28`, `AC29`, `AC31`, `AC36`, `AC37`, `AC39`, `AC40`, `AC41`, `AC43`, `AC45`, `AC46`.
+- Indirect proof in the seventh-pass evidence artifact: `AC21`, `AC25`, `AC26`, `AC30`, `AC38`, `AC42`, `AC44`.
+- Missing proof in the seventh-pass evidence artifact: `AC32`, `AC33`, `AC34`, `AC35`. The review found a direct checked-in counterexample in root [`.env.e2e`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/.env.e2e), so the env-cutover acceptance surface is not yet fully proven even though the underlying runtime readers and most related files already use the canonical names.
+
+### Succinctness Review
+
+The implemented code still appears appropriately succinct for the required repository-order, working-folder, runtime-marker, and tokenizer behavior. This seventh-pass finding does not justify another broad refactor. The remaining issue is a localized workflow-config inconsistency in a file already changed by Story 48, so the plan should reopen only for that cleanup and then rerun one fresh full validation pass.
+
+### 36. Remove Remaining Legacy Env Names From Root E2E Interpolation Config
+
+- Task Status: `__to_do__`
+- Git Commits: `__none__`
+
+#### Overview
+
+Close the seventh-pass `must_fix` finding by finishing the env cutover in the root e2e interpolation file. Root [`.env.e2e`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/.env.e2e) must stop advertising legacy repo-owned names and must instead use the canonical `VITE_CODEINFO_API_URL`, `VITE_CODEINFO_LMSTUDIO_URL`, and `CODEINFO_LMSTUDIO_BASE_URL` keys that the changed runtime and compose stack already consume.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-findings.md), then inspect root [`.env.e2e`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/.env.e2e), [`docker-compose.e2e.yml`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.e2e.yml), [`client/.env.e2e`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/.env.e2e), [`server/.env.e2e`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/.env.e2e), and the e2e wrapper entrypoints in [`package.json`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/package.json). Record in Task 36 `Implementation notes` exactly which legacy keys are still present in root `.env.e2e`, which canonical keys replace them, and why the root file is still part of the active e2e workflow contract.
+2. [ ] Update root [`.env.e2e`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/.env.e2e) so its repo-owned keys use only the canonical names `VITE_CODEINFO_API_URL`, `VITE_CODEINFO_LMSTUDIO_URL`, and `CODEINFO_LMSTUDIO_BASE_URL`. Do not add dual-read compatibility or duplicate legacy aliases in that file.
+3. [ ] Re-check the checked-in e2e/runtime wiring that still consumes root `.env.e2e` so the cleanup remains aligned with the current contract documented in [`README.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [`design.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), and [`package.json`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/package.json). Update docs only if the root-file cleanup changes the final guidance or examples.
+4. [ ] Add or update direct proof only where the branch currently lacks it. At minimum, finish this task with a repo search that proves the three legacy env names above no longer appear in checked-in repo-owned workflow files outside allowed historical planning/review artifacts.
+5. [ ] Update Task 36 `Implementation notes` with the final canonical key map, the exact checked-in search command and result, and why this task closes the seventh-pass env-cutover proof gap without reopening unrelated Story 48 seams.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run compose:build:summary` - Use because root [`.env.e2e`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/.env.e2e) is part of the Docker Compose e2e interpolation path. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+2. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Use because this task changes the checked-in e2e env-file contract used by the full browser workflow. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+
+#### Implementation notes
+
+- Review reopening only: the seventh review pass found one remaining env-cutover contract gap. Root `.env.e2e` still contains legacy repo-owned keys even though the branch runtime and compose wiring now consume only canonical `CODEINFO_*` / `VITE_CODEINFO_*` names.
+
+---
+
+### 37. Re-Run Full Story 48 Validation After Seventh Review Fixes
+
+- Task Status: `__to_do__`
+- Git Commits: `__none__`
+
+#### Overview
+
+After Task 36 lands, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, the requested env-prefix follow-up, and the seventh-pass review finding. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 48 acceptance criteria, all seven `Code Review Findings` sections above, the historical post-implementation review record, Tasks 34-36, and the durable seventh-pass review artifacts [codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-evidence.md) plus [codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-findings.md). Record in Task 37 `Implementation notes` how Task 36 restores the missing env-cutover proof without reopening unrelated Story 48 behavior.
+2. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) only if the Task 36 cleanup changes any final Story 48 closeout notes or e2e env guidance.
+3. [ ] Update Task 37 `Implementation notes` with the final rerun results, the seventh-pass proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
+4. [ ] Preserve the durable seventh-pass review artifacts [codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-findings.md) in the closing commit. Do not rely on the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file as the durable record.
+5. [ ] Remove or leave untracked the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file before the closing commit so later review passes cannot consume stale state.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, the final env-cutover contract with root `.env.e2e` aligned to canonical names, general regression checks, and a debug-console check confirming there are no logged errors.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the seventh review pass found one remaining checked-in env-file inconsistency. Story 48 therefore needs one more narrow env cleanup and one fresh full rerun before it can close honestly again.

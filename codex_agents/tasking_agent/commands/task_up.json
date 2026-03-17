@@ -185,6 +185,20 @@
     {
       "type": "message",
       "role": "user",
+      "content": [
+        "Perform a pre-implementation review of the plan as if you are an external reviewer trying to find the issues that would normally only be discovered after implementation. Re-read the Description, Acceptance Criteria, Out Of Scope, Questions, every Task, every Subtask, every Testing step, and every Documentation Locations section. Identify any missing work, hidden dependencies, invalid assumptions, missing edge cases, missing error or recovery paths, missing env/config/docs/deployment changes, missing observability proof, or places where a reviewer would later say the tasking did not fully cover the story. Update the plan so each issue is resolved by either adding or updating tasks, subtasks, testing steps, or by making the scope decision explicit in the plan itself. Do not leave open review comments or TODO placeholders. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Now perform a traceability and proof pass over the finalised plan. For every Acceptance Criterion, every important requirement stated in the Description, and every explicit Out Of Scope boundary, confirm that the plan contains: 1. the task or subtasks that implement it, 2. the testing step or steps that prove it, and 3. any required regression, error-case, and corner-case coverage. If any item is not fully implemented and provable from the task list, update the plan so the missing work and proof are added in the correct place. Ensure the final story validation proves the whole story rather than only isolated task-level behaviour. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
       "markdownFile": "logline_tasks.md"
     },
     {

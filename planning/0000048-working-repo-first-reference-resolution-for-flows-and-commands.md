@@ -1643,7 +1643,41 @@ The implementation is still broadly within Story 48’s planned scope, but the s
 
 The resolver, persistence, env-cutover, tokenizer, and wrapper-cleanup work otherwise remain appropriately scoped. The follow-up tasks below are intended to close those correctness gaps without broadening the story beyond what this second review pass actually found.
 
-### 18. Fail Closed When Repository Enumeration Cannot Prove Working-Folder Membership
+### 18. Repair The Flow-Loop Stop Harness So Full Server-Unit Validation Can Terminate Honestly
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Repair the newly-proved prerequisite seam behind the Task 19 validation blocker. The full `npm run test:summary:server:unit` wrapper cannot currently serve as an honest validation gate for the reopened Story 48 review-fix work because the flow-loop stop integration harness still contains an uninterruptible delayed-response path that can keep runtime cleanup from draining promptly after cancellation.
+
+#### Subtasks
+
+1. [ ] Re-read the Task 18 `**BLOCKING ANSWER**` notes below, then inspect `server/src/test/integration/flows.run.loop.test.ts`, `server/src/agents/retry.ts`, and `server/src/test/support/mockLmStudioSdk.ts`. Record in Task 18 `Implementation notes` exactly which `__delay:` and cleanup paths still ignore cancellation long enough to hold the full server-unit wrapper open.
+2. [ ] Replace the remaining plain delayed-response wait in `server/src/test/integration/flows.run.loop.test.ts` with the repo’s existing abort-aware wait pattern (`delayWithAbort(...)` or an equivalent signal-driven timer cancellation). Keep the stop-loop repro semantics the same, but make the scripted test double react to cancellation promptly instead of sleeping until the timer elapses.
+3. [ ] Preserve the existing `cleanupConversationRuntime(...)` `finally` path, and extend or adjust the loop-stop integration assertions only as needed to prove the stop-boundary repro still reaches terminal `stopped` behavior while now draining runtime state cleanly.
+4. [ ] Update Task 18 `Implementation notes` with the final abort-aware helper choice, the exact loop-stop path repaired, and why this prerequisite restores the server-unit wrapper as a trustworthy validation seam for Task 19 and the final closeout task.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Use because this prerequisite changes server-side integration-test harness code. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this prerequisite exists specifically to restore a trustworthy full server-unit wrapper result. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+
+#### Implementation notes
+
+- Planning repair: the Task 19 fail-closed feature work is real, but the latest blocker research proved its open validation step actually depends on a separate test-harness seam. The full server-unit wrapper is still not a trustworthy gate until the flow-loop stop integration harness stops holding cleanup open after cancellation, so this prerequisite task now owns that seam explicitly instead of leaving it as an implicit blocker on the feature task.
+- **BLOCKER** Testing step 2 `npm run test:summary:server:unit` cannot honestly be closed for the downstream fail-closed task until the wrapper reaches a terminal state instead of staying in heartbeat-only `agent_action: wait`.
+- **BLOCKING ANSWER** Repository precedents point to another abort/cleanup seam in the flow-loop integration test harness, not to a broken summary-wrapper protocol and not to the fail-closed feature diff itself. `scripts/test-summary-server-unit.mjs` only emits a terminal summary after the wrapped `node --test` child exits, and `scripts/summary-wrapper-protocol.mjs` is designed to keep printing `agent_action: wait` until that close event happens. The latest local failure log `test-results/server-unit-tests-2026-03-17T06-13-59-103Z.log` now narrows the blocker to `not ok 238 - flow stop during a looped flow prevents later iterations from continuing`, failing with `Timed out waiting for flow runtime cleanup` inside `cleanupConversationRuntime(...)`. In `server/src/test/integration/flows.run.loop.test.ts`, that exact repro still depends on a test-double delay path that is not abort-aware: `ScriptedChat.execute()` uses `await delay(...)` for `__delay:...` responses and only checks `signal.aborted` after the timer finishes. Local repo precedent says long waits should respect cancellation instead of forcing cleanup to wait on dead time: `server/src/agents/retry.ts` already provides `delayWithAbort(...)`, `server/src/test/support/mockLmStudioSdk.ts` uses abort listeners to stop scripted test activity early, and `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` proves the repo’s preferred test pattern is `resolve on abort` rather than `sleep until timeout and check later`.
+- **BLOCKING ANSWER** External library and framework precedents support the same fix direction. Official Node `node:test` docs treat asynchronous activity that outlives the test as a real failure mode and guarantee `after()` / `afterEach()` cleanup hooks even when earlier assertions fail, while official Node CLI docs describe `--test-force-exit` as a mechanism to force process exit after known tests finish rather than as the preferred leak fix (`https://nodejs.org/api/test.html`, `https://nodejs.org/api/cli.html`). Official Node timers docs also show that promise-based waits should be cancellable with an `AbortSignal`, and official process docs recommend `process.getActiveResourcesInfo()` when you need to prove which live resources are still keeping the event loop open (`https://nodejs.org/download/release/v22.4.1/docs/api/timers.html`, `https://nodejs.org/api/process.html`). DeepWiki’s `nodejs/node` summary matches that guidance: clean exits come from awaited teardown and cleaned-up async resources, while force-exit is a workaround. Issue-resolution references from other engineers also converge on the same practice: hanging websocket/socket/timer tests are fixed by making waits abortable and by closing resources in teardown, not by stretching the suite timeout or masking the leak with forced exit (`https://stackoverflow.com/questions/55963562/how-to-stop-jest-from-hanging-when-testing-websockets`, `https://stackoverflow.com/questions/71309844/how-to-close-listening-udp-sockets-when-mocha-times-out`, `https://stackoverflow.com/questions/78836115/how-to-force-exit-after-all-tests-are-done-with-node-test-runner`).
+- **BLOCKING ANSWER** The chosen fix is therefore to repair `server/src/test/integration/flows.run.loop.test.ts` so the loop-stop repro becomes abort-aware before the final cleanup wait, then rerun the full wrapper. Concretely: replace the current plain `await delay(...)` in the `ScriptedChat` `__delay:` path with the repo’s existing abort-aware wait pattern (`delayWithAbort(...)` or an equivalent signal-driven timer cancellation), keep `cleanupConversationRuntime(conversationId)` in `finally`, and only fall back to a narrow `process.getActiveResourcesInfo()` diagnostic if the targeted repro still leaves runtime state behind after that change. This fits the current local repo state because the active failing log now shows the test already reaches the cleanup helper and then waits forever for runtime state to drain, while the remaining uninterruptible delay lives in the test harness rather than in the Story 48 production validation code. Rejected alternatives: increasing the wrapper budget or `just waiting longer` would only hide the stuck cleanup seam; adding `--test-force-exit` would let Story 48 appear green while still leaving a real resource leak in the suite; broad wrapper-level hard-kill logic would make every summary wrapper less trustworthy; and weakening the review-fix or final-validation task contracts would bypass the exact blocker the story is supposed to prove closed.
+
+---
+
+### 19. Fail Closed When Repository Enumeration Cannot Prove Working-Folder Membership
 
 - Task Status: `__in_progress__`
 - Git Commits: `5d3d0b0f`
@@ -1654,12 +1688,12 @@ Close the first second-pass `must_fix` finding by making every Story 48 working-
 
 #### Subtasks
 
-1. [x] Re-read `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, then inspect `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/workingFolders/state.ts`. Record in Task 18 `Implementation notes` exactly which paths currently swallow repository-enumeration failure and how that weakens the story contract.
+1. [x] Re-read `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, then inspect `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/workingFolders/state.ts`. Record in Task 19 `Implementation notes` exactly which paths currently swallow repository-enumeration failure and how that weakens the story contract.
 2. [x] Introduce one explicit server-side contract for “repository membership could not be validated because repository enumeration failed.” Do not reuse the existing stale-path vocabulary for this case, and do not silently coerce it into success by passing `undefined` or `[]` into the shared validator.
 3. [x] Update the chat, conversation restore/edit, agent run, direct-command run, and flow run paths so they all use that same fail-closed contract when repository enumeration is unavailable. Preserve the happy-path behavior where canonical ingested repositories still validate and restore normally.
 4. [x] Ensure saved-folder restore paths do not clear valid persisted data as “stale” merely because repository enumeration is temporarily unavailable. This path should surface an operational failure, not a stale-path clear.
 5. [x] Add or extend server tests that prove a repository-enumeration failure does not let a non-ingested absolute directory pass request validation or saved-folder restore validation.
-6. [ ] Update Task 18 `Implementation notes` with the final error vocabulary, the shared validation seam chosen, and where the fail-closed behavior now surfaces.
+6. [ ] Update Task 19 `Implementation notes` with the final error vocabulary, the shared validation seam chosen, and where the fail-closed behavior now surfaces.
 
 #### Testing
 
@@ -1679,14 +1713,12 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Kept restore-path semantics honest by routing repository-enumeration failure through `WORKING_FOLDER_REPOSITORY_UNAVAILABLE`; saved working folders are no longer cleared as stale when the product simply cannot enumerate ingested repositories at that moment.
 - Extended `server/src/test/unit/chatValidators.test.ts` with the direct request-validation proof for repository-enumeration failure and `server/src/test/unit/chat-interface-run-persistence.test.ts` with the restore-path proof that the saved value is not cleared when repository enumeration is unavailable.
 - Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
-- **BLOCKER** Testing step 2 `npm run test:summary:server:unit` has not reached an honest passing terminal state yet. I fixed the real Task 18 fallout the wrapper surfaced first: route/service call sites now fail closed, older request/restore tests were updated to pass explicit ingested-repo state, `createChatRouter(...)` / `createConversationsRouter(...)` gained injectable repo-list deps for tests, and the full wrapper improved from 10 failures to 2 failures to 1 failure. After those fixes, the next full rerun stayed in heartbeat-only `agent_action: wait` for well beyond the wrapper’s normal budget without producing a pass/fail result or `inspect_log` guidance, while `log_size_bytes` continued climbing from `224931` to `2652410`. The missing capability is a deterministic terminal result from the full server-unit wrapper after the remaining Task 18 test-harness changes; until that exists, I cannot truthfully mark Testing step 2 complete or move on to cucumber. If the wrapper keeps behaving this way on the next pass, the task should be split or reordered again the same way Task 16 was, because the blocking seam is once more the full-wrapper termination path rather than the feature diff itself.
-- **BLOCKING ANSWER** Repository precedents point to another abort/cleanup seam in the flow-loop integration test harness, not to a broken summary-wrapper protocol and not to the Task 18 fail-closed feature diff itself. `scripts/test-summary-server-unit.mjs` only emits a terminal summary after the wrapped `node --test` child exits, and `scripts/summary-wrapper-protocol.mjs` is designed to keep printing `agent_action: wait` until that close event happens. The latest local failure log `test-results/server-unit-tests-2026-03-17T06-13-59-103Z.log` now narrows the blocker to `not ok 238 - flow stop during a looped flow prevents later iterations from continuing`, failing with `Timed out waiting for flow runtime cleanup` inside `cleanupConversationRuntime(...)`. In `server/src/test/integration/flows.run.loop.test.ts`, that exact repro still depends on a test-double delay path that is not abort-aware: `ScriptedChat.execute()` uses `await delay(...)` for `__delay:...` responses and only checks `signal.aborted` after the timer finishes. Local repo precedent says long waits should respect cancellation instead of forcing cleanup to wait on dead time: `server/src/agents/retry.ts` already provides `delayWithAbort(...)`, `server/src/test/support/mockLmStudioSdk.ts` uses abort listeners to stop scripted test activity early, and `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` proves the repo’s preferred test pattern is “resolve on abort” rather than “sleep until timeout and check later.”
-- **BLOCKING ANSWER** External library and framework precedents support the same fix direction. Official Node `node:test` docs treat asynchronous activity that outlives the test as a real failure mode and guarantee `after()` / `afterEach()` cleanup hooks even when earlier assertions fail, while official Node CLI docs describe `--test-force-exit` as a mechanism to force process exit after known tests finish rather than as the preferred leak fix (`https://nodejs.org/api/test.html`, `https://nodejs.org/api/cli.html`). Official Node timers docs also show that promise-based waits should be cancellable with an `AbortSignal`, and official process docs recommend `process.getActiveResourcesInfo()` when you need to prove which live resources are still keeping the event loop open (`https://nodejs.org/download/release/v22.4.1/docs/api/timers.html`, `https://nodejs.org/api/process.html`). DeepWiki’s `nodejs/node` summary matches that guidance: clean exits come from awaited teardown and cleaned-up async resources, while force-exit is a workaround. Issue-resolution references from other engineers also converge on the same practice: hanging websocket/socket/timer tests are fixed by making waits abortable and by closing resources in teardown, not by stretching the suite timeout or masking the leak with forced exit (`https://stackoverflow.com/questions/55963562/how-to-stop-jest-from-hanging-when-testing-websockets`, `https://stackoverflow.com/questions/71309844/how-to-close-listening-udp-sockets-when-mocha-times-out`, `https://stackoverflow.com/questions/78836115/how-to-force-exit-after-all-tests-are-done-with-node-test-runner`).
-- **BLOCKING ANSWER** The chosen fix is therefore to repair `server/src/test/integration/flows.run.loop.test.ts` so the loop-stop repro becomes abort-aware before the final cleanup wait, then rerun the full wrapper. Concretely: replace the current plain `await delay(...)` in the `ScriptedChat` `__delay:` path with the repo’s existing abort-aware wait pattern (`delayWithAbort(...)` or an equivalent signal-driven timer cancellation), keep `cleanupConversationRuntime(conversationId)` in `finally`, and only fall back to a narrow `process.getActiveResourcesInfo()` diagnostic if the targeted repro still leaves runtime state behind after that change. This fits the current local repo state because the active failing log now shows the test already reaches the cleanup helper and then waits forever for runtime state to drain, while the remaining uninterruptible delay lives in the test harness rather than in the Story 48 production validation code. Rejected alternatives: increasing the wrapper budget or “just waiting longer” would only hide the stuck cleanup seam; adding `--test-force-exit` would let Story 48 appear green while still leaving a real resource leak in the suite; broad wrapper-level hard-kill logic would make every summary wrapper less trustworthy; and weakening the Task 18 or Task 21 validation contract would bypass the exact blocker the plan is supposed to prove closed.
+- Planning repair: the active blocker turned out not to be “more Task 19 feature code” but a missing prerequisite validation seam. Story 48 now inserts Task 18 ahead of this task so the flow-loop stop harness regains an honest full server-unit wrapper result before this feature task is asked to close Testing step 2 or proceed to cucumber.
+- Tasks 19 testing steps 2-3 now depend on Task 18 completing first. Once the repaired harness proves `npm run test:summary:server:unit` can terminate honestly again, this feature task can rerun the full wrapper and finish its remaining validation without carrying a hidden infrastructure blocker.
 
 ---
 
-### 19. Surface Malformed Top-Level Canonical Runtime Config Containers
+### 20. Surface Malformed Top-Level Canonical Runtime Config Containers
 
 - Task Status: `__to_do__`
 - Git Commits: `none yet`
@@ -1697,12 +1729,12 @@ Close the second second-pass `must_fix` finding by extending the Task 15 runtime
 
 #### Subtasks
 
-1. [ ] Re-read `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, then inspect `client/src/config/runtimeConfig.ts`, `client/src/api/baseUrl.ts`, `client/src/logging/transport.ts`, and the existing runtime-config tests. Record in Task 19 `Implementation notes` which malformed top-level `window.__CODEINFO_CONFIG__` shapes are still silently treated as “missing.”
+1. [ ] Re-read `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, then inspect `client/src/config/runtimeConfig.ts`, `client/src/api/baseUrl.ts`, `client/src/logging/transport.ts`, and the existing runtime-config tests. Record in Task 20 `Implementation notes` which malformed top-level `window.__CODEINFO_CONFIG__` shapes are still silently treated as “missing.”
 2. [ ] Refine the runtime-config reader so there is a clear distinction between “runtime config absent” and “runtime config present but malformed.” Treat non-object and array-shaped canonical containers as malformed canonical inputs that produce diagnostics and marker evidence instead of silently defaulting away.
 3. [ ] Preserve the existing fallback behavior for valid env/default sources after a malformed canonical container is detected, but ensure the winning source attribution and `hasInvalidCanonicalConfig` output stay truthful.
 4. [ ] Add or extend client tests that prove non-object and array-shaped canonical runtime config containers now surface diagnostics instead of being treated as absent.
 5. [ ] If the malformed-container behavior is observable in the browser bootstrap path, keep the existing Story 48 browser/runtime marker contract aligned so manual and e2e verification can still prove the bad-canonical/good-fallback path.
-6. [ ] Update Task 19 `Implementation notes` with the chosen malformed-container rule and the exact diagnostics now emitted.
+6. [ ] Update Task 20 `Implementation notes` with the chosen malformed-container rule and the exact diagnostics now emitted.
 
 #### Testing
 
@@ -1723,7 +1755,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ---
 
-### 20. Preserve Operational Working-Folder Diagnostics Through Shared Logs And Route Errors
+### 21. Preserve Operational Working-Folder Diagnostics Through Shared Logs And Route Errors
 
 - Task Status: `__to_do__`
 - Git Commits: `none yet`
@@ -1734,11 +1766,11 @@ Close the second-pass `should_fix` finding by making operational working-folder 
 
 #### Subtasks
 
-1. [ ] Re-read `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, then inspect `server/src/workingFolders/state.ts`, `server/src/routes/conversations.ts`, and any other changed caller that catches or logs `WORKING_FOLDER_UNAVAILABLE`. Record in Task 20 `Implementation notes` where `reason` and `causeCode` are currently produced and then dropped.
+1. [ ] Re-read `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, then inspect `server/src/workingFolders/state.ts`, `server/src/routes/conversations.ts`, and any other changed caller that catches or logs `WORKING_FOLDER_UNAVAILABLE`. Record in Task 21 `Implementation notes` where `reason` and `causeCode` are currently produced and then dropped.
 2. [ ] Update the shared working-folder logging path so operational failures preserve actionable diagnostics, such as the existing reason and/or errno code, without conflating them with stale-path clears.
 3. [ ] Replace route-level `` `${err}` `` object stringification in the affected Story 48 paths with an explicit error-to-response/log mapping that keeps client messages safe while preserving actionable server-side diagnostics.
 4. [ ] Add or extend server tests that prove the operational-failure path now surfaces a meaningful message or log detail instead of `[object Object]`, while stale-path clears continue to use the existing warning contract.
-5. [ ] Update Task 20 `Implementation notes` with the final diagnostic vocabulary and where it is now observable.
+5. [ ] Update Task 21 `Implementation notes` with the final diagnostic vocabulary and where it is now observable.
 
 #### Testing
 
@@ -1755,20 +1787,20 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ---
 
-### 21. Re-Run Full Story 48 Validation After Second Review Fixes
+### 22. Re-Run Full Story 48 Validation After Second Review Fixes
 
 - Task Status: `__to_do__`
 - Git Commits: `none yet`
 
 #### Overview
 
-After Tasks 18-20 land, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, the first review-fix tasks, and the second review-fix tasks. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
+After Tasks 18-21 land, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, the first review-fix tasks, and the second review-fix tasks. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
 
 #### Subtasks
 
-1. [ ] Re-read the Story 48 acceptance criteria, the first and second `Code Review Findings` sections above, and the durable review artifacts `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md`, and `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`. Record in Task 21 `Implementation notes` how Tasks 18-20 restore the missing acceptance proof.
+1. [ ] Re-read the Story 48 acceptance criteria, the first and second `Code Review Findings` sections above, and the durable review artifacts `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md`, and `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`. Record in Task 22 `Implementation notes` how Tasks 18-21 restore the missing acceptance proof.
 2. [ ] Update `README.md`, `design.md`, `projectStructure.md`, and `docs/developer-reference.md` if the second review-fix implementation changed any Story 48 closeout notes or runtime/diagnostic contracts.
-3. [ ] Update Task 21 `Implementation notes` with the final rerun results, the second-review-fix proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
+3. [ ] Update Task 22 `Implementation notes` with the final rerun results, the second-review-fix proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
 4. [ ] Preserve the durable second-pass review artifacts in the commit that closes the reopened story. Do not rely on the transient `codeInfoStatus/reviews/0000048-current-review.json` handoff file as the durable record.
 5. [ ] Remove or leave untracked the transient `codeInfoStatus/reviews/0000048-current-review.json` handoff file before the closing commit so later review passes cannot consume stale state.
 
@@ -1790,6 +1822,6 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 #### Implementation notes
 
-- Review reopening only: the second review pass found two remaining contract gaps plus one diagnostic-surfacing cleanup, so the story must re-run the full closeout matrix after Tasks 18-20 land instead of treating the prior Task 17 closeout as final.
+- Review reopening only: the second review pass found two remaining contract gaps plus one diagnostic-surfacing cleanup, and the later blocker research added one explicit validation-seam prerequisite. The story must therefore re-run the full closeout matrix after Tasks 18-21 land instead of treating the prior Task 17 closeout as final.
 
 ---

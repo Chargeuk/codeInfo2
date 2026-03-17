@@ -1322,8 +1322,8 @@ The resolver, persistence, env-cutover, and tokenizer work otherwise remain with
 
 ### 12. Align Chat Working-Folder Validation With The Ingested-Repository Contract
 
-- Task Status: `__in_progress__`
-- Git Commits: `__to_do__`
+- Task Status: `__done__`
+- Git Commits: `e437214b, 60215a78`
 
 #### Overview
 

@@ -1,5 +1,9 @@
 import { LogEntry } from '@codeinfo2/common';
 import { jest } from '@jest/globals';
+import {
+  getClientRuntimeConfigDiagnostics,
+  resetClientRuntimeConfigLogForTests,
+} from '../../config/runtimeConfig';
 import { flushQueue, sendLogs, _getQueue } from '../../logging/transport';
 import { getFetchMock, mockJsonResponse } from '../support/fetchMock';
 
@@ -16,6 +20,7 @@ beforeEach(() => {
   process.env.VITE_CODEINFO_LOG_MAX_BYTES = '32768';
   process.env.VITE_CODEINFO_LOG_FORWARD_ENABLED = 'true';
   _getQueue().length = 0;
+  resetClientRuntimeConfigLogForTests();
   jest.clearAllMocks();
   jest.useRealTimers();
   global.fetch = getFetchMock();
@@ -126,6 +131,37 @@ describe('transport', () => {
         method: 'POST',
       }),
     );
+    expect(_getQueue().length).toBe(0);
+  });
+
+  it('surfaces malformed canonical log config before falling back to defaults', async () => {
+    process.env.VITE_CODEINFO_LOG_FORWARD_ENABLED = 'maybe';
+    process.env.VITE_CODEINFO_LOG_MAX_BYTES = 'zero';
+    getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
+
+    sendLogs([baseEntry]);
+    await flushQueue();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:5010/logs',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([
+      {
+        field: 'logForwardEnabled',
+        source: 'env',
+        rawValue: 'maybe',
+        reason: 'invalid_boolean',
+      },
+      {
+        field: 'logMaxBytes',
+        source: 'env',
+        rawValue: 'zero',
+        reason: 'invalid_number',
+      },
+    ]);
     expect(_getQueue().length).toBe(0);
   });
 });

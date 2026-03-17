@@ -1,4 +1,8 @@
-import { getApiBaseUrl } from '../api/baseUrl';
+import {
+  getApiBaseUrl,
+  getClientRuntimeConfigDiagnostics,
+  resetClientRuntimeConfigLogForTests,
+} from '../config/runtimeConfig';
 
 describe('baseUrl env rename', () => {
   const originalRuntimeConfig = (
@@ -15,6 +19,7 @@ describe('baseUrl env rename', () => {
     process.env = { ...originalEnv };
     delete process.env.VITE_CODEINFO_API_URL;
     delete process.env.VITE_API_URL;
+    resetClientRuntimeConfigLogForTests();
   });
 
   afterEach(() => {
@@ -28,5 +33,24 @@ describe('baseUrl env rename', () => {
     process.env.VITE_CODEINFO_API_URL = 'http://renamed.example:5010';
 
     expect(getApiBaseUrl()).toBe('http://renamed.example:5010');
+  });
+
+  it('surfaces malformed canonical runtime api urls instead of silently treating them as missing', () => {
+    (
+      globalThis as typeof globalThis & {
+        __CODEINFO_CONFIG__?: { apiBaseUrl?: string };
+      }
+    ).__CODEINFO_CONFIG__ = { apiBaseUrl: '   ' };
+    process.env.VITE_CODEINFO_API_URL = 'http://renamed.example:5010';
+
+    expect(getApiBaseUrl()).toBe('http://renamed.example:5010');
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([
+      {
+        field: 'apiBaseUrl',
+        source: 'runtime',
+        rawValue: '   ',
+        reason: 'empty_string',
+      },
+    ]);
   });
 });

@@ -1436,7 +1436,7 @@ Use only the wrapper commands below. Do not attempt to run builds or tests witho
 
 ### 15. Surface Malformed Canonical Client Runtime Config Instead Of Silently Defaulting It Away
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -1446,27 +1446,37 @@ Close the review finding in the shared client runtime-config helper by making ma
 #### Subtasks
 
 1. [x] Re-read the review finding in `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, then inspect `client/src/config/runtimeConfig.ts`, `client/src/api/baseUrl.ts`, `client/src/logging/transport.ts`, `client/src/pages/LmStudioPage.tsx`, `client/src/test/baseUrl.env.test.ts`, and `client/src/test/logging/transport.test.ts`. Record in Task 15 `Implementation notes` which malformed canonical inputs are currently normalized away and what observable behavior should replace that silent success.
-2. [ ] Update the shared runtime-config helper so malformed canonical runtime/env values do not disappear without an explicit diagnostic. Keep the final runtime object shape stable, but make the invalid-canonical path visible through one consistent diagnostic mechanism instead of silently defaulting to a clean success path.
-3. [ ] Ensure the invalid-canonical handling does not reintroduce legacy env-name compatibility and does not let runtime/default precedence override an explicitly present but malformed canonical value without first recording why.
-4. [ ] Add or extend one client test that proves malformed canonical log config values are surfaced through the new diagnostic path instead of being silently treated as a normal default.
-5. [ ] Add or extend one client test that proves malformed canonical URL values are surfaced through the new diagnostic path instead of being silently treated as a normal default.
-6. [ ] Update this story file's Task 15 `Implementation notes` with the chosen diagnostic mechanism and the exact malformed-input behaviors now covered by tests.
+2. [x] Update the shared runtime-config helper so malformed canonical runtime/env values do not disappear without an explicit diagnostic. Keep the final runtime object shape stable, but make the invalid-canonical path visible through one consistent diagnostic mechanism instead of silently defaulting to a clean success path.
+3. [x] Ensure the invalid-canonical handling does not reintroduce legacy env-name compatibility and does not let runtime/default precedence override an explicitly present but malformed canonical value without first recording why.
+4. [x] Add or extend one client test that proves malformed canonical log config values are surfaced through the new diagnostic path instead of being silently treated as a normal default.
+5. [x] Add or extend one client test that proves malformed canonical URL values are surfaced through the new diagnostic path instead of being silently treated as a normal default.
+6. [x] Update this story file's Task 15 `Implementation notes` with the chosen diagnostic mechanism and the exact malformed-input behaviors now covered by tests.
 
 #### Testing
 
 Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:client` - Use because this task changes shared client/runtime-config behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use because this task changes client/common runtime-config behavior covered by the full client suite. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run test:summary:e2e` - Allow up to 7 minutes because this task changes browser/runtime env behavior that should still hold end to end. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:e2e`.
-4. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end through the Dockerized stack. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including malformed canonical runtime-config scenarios introduced by this task and a debug-console check for any error-level entries.
-7. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use because this task changes shared client/runtime-config behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use because this task changes client/common runtime-config behavior covered by the full client suite. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run test:summary:e2e` - Allow up to 7 minutes because this task changes browser/runtime env behavior that should still hold end to end. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:e2e`.
+4. [x] `npm run compose:build:summary` - Use because this task is testable from the front end through the Dockerized stack. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [x] `npm run compose:up`
+6. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including malformed canonical runtime-config scenarios introduced by this task and a debug-console check for any error-level entries.
+7. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - Re-read the review finding plus the shared runtime-config, URL, log transport, LM Studio page, and current client tests. Right now malformed canonical booleans/numbers normalize to `undefined`, blank canonical URLs trim to empty strings, and the helper silently falls through to env/default values with no diagnostic; Task 15 will replace that with one shared runtime-config diagnostic trail while keeping the returned config shape stable.
+- Added a shared runtime-config diagnostic side channel in `client/src/config/runtimeConfig.ts` so malformed canonical runtime/env values now produce structured diagnostics while the resolved config object shape stays unchanged. The existing `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` marker now includes `hasInvalidCanonicalConfig` plus `diagnostics`, which makes malformed overrides visible before env/default fallback wins.
+- Kept the clean `VITE_CODEINFO_*` cutover intact by validating only canonical runtime/env inputs and leaving legacy names ignored. Runtime-first precedence still applies for valid values, but malformed runtime/env inputs now record why they were skipped instead of disappearing into a clean-looking fallback.
+- Extended `client/src/test/logging/transport.test.ts` to prove malformed canonical log booleans/numbers surface through diagnostics, and extended `client/src/test/baseUrl.env.test.ts` to prove a blank canonical runtime API URL is recorded as malformed before the helper falls back to the valid canonical env URL.
+- `npm run build:summary:client` passed cleanly with `warning_count: 0`, so the shared runtime-config helper changes still satisfy the full client typecheck/build path before the broader client and e2e wrappers.
+- `npm run test:summary:client` passed cleanly with `tests run: 574`, `passed: 574`, `failed: 0`, which confirms the new diagnostics path does not regress the broader client suite outside the focused malformed-value coverage added for this task.
+- `npm run test:summary:e2e` passed cleanly with `tests run: 41`, `passed: 41`, `failed: 0`, so the browser/runtime-config path still holds end to end after the malformed-canonical diagnostic changes.
+- `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, which confirms the Dockerized client/runtime-config stack still builds after the Task 15 helper changes.
+- `npm run compose:up` brought the Dockerized stack up cleanly with healthy server and started client containers, which set up the required manual Playwright-MCP proof path at `http://host.docker.internal:5001`.
+- Manual Playwright-MCP verification at `http://host.docker.internal:5001` passed for both the normal runtime-config marker and a deliberately malformed canonical runtime injection. The browser console showed `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` with `hasInvalidCanonicalConfig: true` plus diagnostics for blank runtime `apiBaseUrl`, invalid runtime `logForwardEnabled`, and invalid runtime `logMaxBytes`, while the effective sources cleanly fell back to env/runtime defaults and the error-level console check stayed empty. Screenshot evidence was captured at `/tmp/playwright-output/task15-home.png`.
+- `npm run compose:down` removed the Task 15 validation stack cleanly, so the task closes with the full wrapper/manual sequence completed in order and no lingering containers.
 
 ---
 

@@ -17,15 +17,55 @@ type ResolvedRuntimeConfig = RuntimeConfig & {
 };
 
 type Env = { [key: string]: string | undefined };
-type RawRuntimeConfig = RuntimeConfig & {
-  logForwardEnabled?: boolean | string;
-  logMaxBytes?: number | string;
+type RawRuntimeConfig = {
+  apiBaseUrl?: unknown;
+  lmStudioBaseUrl?: unknown;
+  logForwardEnabled?: unknown;
+  logMaxBytes?: unknown;
+};
+
+type RuntimeConfigField = keyof RuntimeConfig;
+type RuntimeConfigSource = 'runtime' | 'env';
+type RuntimeConfigReason =
+  | 'empty_string'
+  | 'invalid_url'
+  | 'invalid_boolean'
+  | 'invalid_number';
+
+type RuntimeConfigDiagnostic = {
+  field: RuntimeConfigField;
+  source: RuntimeConfigSource;
+  rawValue: string;
+  reason: RuntimeConfigReason;
 };
 
 const DEFAULT_LM_STUDIO_BASE_URL = 'http://host.docker.internal:1234';
 const DEFAULT_LOG_MAX_BYTES = 32768;
 
 let runtimeConfigLogged = false;
+
+function stringifyRawValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function createDiagnostic(
+  field: RuntimeConfigField,
+  source: RuntimeConfigSource,
+  value: unknown,
+  reason: RuntimeConfigReason,
+): RuntimeConfigDiagnostic {
+  return {
+    field,
+    source,
+    rawValue: stringifyRawValue(value),
+    reason,
+  };
+}
 
 function readEnv(): Env {
   const metaEnv =
@@ -47,25 +87,89 @@ function readRuntimeConfig(): RawRuntimeConfig {
 }
 
 function normalizeBoolean(
-  value: boolean | string | undefined,
-): boolean | undefined {
-  if (typeof value === 'boolean') return value;
-  if (typeof value !== 'string') return undefined;
+  field: Extract<RuntimeConfigField, 'logForwardEnabled'>,
+  source: RuntimeConfigSource,
+  value: unknown,
+): {
+  value: boolean | undefined;
+  diagnostic?: RuntimeConfigDiagnostic;
+} {
+  if (value === undefined) return { value: undefined };
+  if (typeof value === 'boolean') return { value };
+  if (typeof value !== 'string') {
+    return {
+      value: undefined,
+      diagnostic: createDiagnostic(field, source, value, 'invalid_boolean'),
+    };
+  }
   const normalized = value.trim().toLowerCase();
-  if (normalized === 'true') return true;
-  if (normalized === 'false') return false;
-  return undefined;
+  if (normalized === 'true') return { value: true };
+  if (normalized === 'false') return { value: false };
+  return {
+    value: undefined,
+    diagnostic: createDiagnostic(field, source, value, 'invalid_boolean'),
+  };
 }
 
 function normalizeNumber(
-  value: number | string | undefined,
-): number | undefined {
+  field: Extract<RuntimeConfigField, 'logMaxBytes'>,
+  source: RuntimeConfigSource,
+  value: unknown,
+): {
+  value: number | undefined;
+  diagnostic?: RuntimeConfigDiagnostic;
+} {
+  if (value === undefined) return { value: undefined };
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
-    return value;
+    return { value };
   }
-  if (typeof value !== 'string') return undefined;
+  if (typeof value !== 'string') {
+    return {
+      value: undefined,
+      diagnostic: createDiagnostic(field, source, value, 'invalid_number'),
+    };
+  }
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return { value: parsed };
+  }
+  return {
+    value: undefined,
+    diagnostic: createDiagnostic(field, source, value, 'invalid_number'),
+  };
+}
+
+function normalizeUrl(
+  field: Extract<RuntimeConfigField, 'apiBaseUrl' | 'lmStudioBaseUrl'>,
+  source: RuntimeConfigSource,
+  value: unknown,
+): {
+  value: string | undefined;
+  diagnostic?: RuntimeConfigDiagnostic;
+} {
+  if (value === undefined) return { value: undefined };
+  if (typeof value !== 'string') {
+    return {
+      value: undefined,
+      diagnostic: createDiagnostic(field, source, value, 'invalid_url'),
+    };
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return {
+      value: undefined,
+      diagnostic: createDiagnostic(field, source, value, 'empty_string'),
+    };
+  }
+  try {
+    new URL(trimmed);
+    return { value: trimmed };
+  } catch {
+    return {
+      value: undefined,
+      diagnostic: createDiagnostic(field, source, value, 'invalid_url'),
+    };
+  }
 }
 
 function getFallbackApiBaseUrl() {
@@ -84,7 +188,10 @@ function shouldSkipRuntimeConfigLog() {
   return testFlag.__CODEINFO_TEST__ === true;
 }
 
-function logRuntimeConfigOnce(config: ResolvedRuntimeConfig) {
+function logRuntimeConfigOnce(
+  config: ResolvedRuntimeConfig,
+  diagnostics: RuntimeConfigDiagnostic[],
+) {
   if (runtimeConfigLogged || shouldSkipRuntimeConfigLog()) {
     return;
   }
@@ -98,34 +205,86 @@ function logRuntimeConfigOnce(config: ResolvedRuntimeConfig) {
     logForwardEnabledSource: config.sources.logForwardEnabled,
     logMaxBytes: config.logMaxBytes,
     logMaxBytesSource: config.sources.logMaxBytes,
+    hasInvalidCanonicalConfig: diagnostics.length > 0,
+    diagnostics,
   });
 }
 
-export function getClientRuntimeConfig(): ResolvedRuntimeConfig {
+function resolveClientRuntimeConfig(): {
+  config: ResolvedRuntimeConfig;
+  diagnostics: RuntimeConfigDiagnostic[];
+} {
   const runtime = readRuntimeConfig();
   const env = readEnv();
+  const diagnostics: RuntimeConfigDiagnostic[] = [];
 
-  const runtimeApiBaseUrl = runtime.apiBaseUrl?.trim();
-  const envApiBaseUrl = env.VITE_CODEINFO_API_URL?.trim();
+  const runtimeApiBaseUrl = normalizeUrl(
+    'apiBaseUrl',
+    'runtime',
+    runtime.apiBaseUrl,
+  );
+  const envApiBaseUrl = normalizeUrl(
+    'apiBaseUrl',
+    'env',
+    env.VITE_CODEINFO_API_URL,
+  );
   const apiBaseUrl =
-    runtimeApiBaseUrl || envApiBaseUrl || getFallbackApiBaseUrl();
+    runtimeApiBaseUrl.value || envApiBaseUrl.value || getFallbackApiBaseUrl();
+  if (runtimeApiBaseUrl.diagnostic) diagnostics.push(runtimeApiBaseUrl.diagnostic);
+  if (envApiBaseUrl.diagnostic) diagnostics.push(envApiBaseUrl.diagnostic);
 
-  const runtimeLmStudioBaseUrl = runtime.lmStudioBaseUrl?.trim();
-  const envLmStudioBaseUrl = env.VITE_CODEINFO_LMSTUDIO_URL?.trim();
+  const runtimeLmStudioBaseUrl = normalizeUrl(
+    'lmStudioBaseUrl',
+    'runtime',
+    runtime.lmStudioBaseUrl,
+  );
+  const envLmStudioBaseUrl = normalizeUrl(
+    'lmStudioBaseUrl',
+    'env',
+    env.VITE_CODEINFO_LMSTUDIO_URL,
+  );
   const lmStudioBaseUrl =
-    runtimeLmStudioBaseUrl || envLmStudioBaseUrl || DEFAULT_LM_STUDIO_BASE_URL;
+    runtimeLmStudioBaseUrl.value ||
+    envLmStudioBaseUrl.value ||
+    DEFAULT_LM_STUDIO_BASE_URL;
+  if (runtimeLmStudioBaseUrl.diagnostic) {
+    diagnostics.push(runtimeLmStudioBaseUrl.diagnostic);
+  }
+  if (envLmStudioBaseUrl.diagnostic) diagnostics.push(envLmStudioBaseUrl.diagnostic);
 
-  const runtimeLogForwardEnabled = normalizeBoolean(runtime.logForwardEnabled);
+  const runtimeLogForwardEnabled = normalizeBoolean(
+    'logForwardEnabled',
+    'runtime',
+    runtime.logForwardEnabled,
+  );
   const envLogForwardEnabled = normalizeBoolean(
+    'logForwardEnabled',
+    'env',
     env.VITE_CODEINFO_LOG_FORWARD_ENABLED,
   );
   const logForwardEnabled =
-    runtimeLogForwardEnabled ?? envLogForwardEnabled ?? true;
+    runtimeLogForwardEnabled.value ?? envLogForwardEnabled.value ?? true;
+  if (runtimeLogForwardEnabled.diagnostic) {
+    diagnostics.push(runtimeLogForwardEnabled.diagnostic);
+  }
+  if (envLogForwardEnabled.diagnostic) {
+    diagnostics.push(envLogForwardEnabled.diagnostic);
+  }
 
-  const runtimeLogMaxBytes = normalizeNumber(runtime.logMaxBytes);
-  const envLogMaxBytes = normalizeNumber(env.VITE_CODEINFO_LOG_MAX_BYTES);
+  const runtimeLogMaxBytes = normalizeNumber(
+    'logMaxBytes',
+    'runtime',
+    runtime.logMaxBytes,
+  );
+  const envLogMaxBytes = normalizeNumber(
+    'logMaxBytes',
+    'env',
+    env.VITE_CODEINFO_LOG_MAX_BYTES,
+  );
   const logMaxBytes =
-    runtimeLogMaxBytes ?? envLogMaxBytes ?? DEFAULT_LOG_MAX_BYTES;
+    runtimeLogMaxBytes.value ?? envLogMaxBytes.value ?? DEFAULT_LOG_MAX_BYTES;
+  if (runtimeLogMaxBytes.diagnostic) diagnostics.push(runtimeLogMaxBytes.diagnostic);
+  if (envLogMaxBytes.diagnostic) diagnostics.push(envLogMaxBytes.diagnostic);
 
   const config: ResolvedRuntimeConfig = {
     apiBaseUrl,
@@ -133,33 +292,42 @@ export function getClientRuntimeConfig(): ResolvedRuntimeConfig {
     logForwardEnabled,
     logMaxBytes,
     sources: {
-      apiBaseUrl: runtimeApiBaseUrl
+      apiBaseUrl: runtimeApiBaseUrl.value
         ? 'runtime'
-        : envApiBaseUrl
+        : envApiBaseUrl.value
           ? 'env'
           : 'default',
-      lmStudioBaseUrl: runtimeLmStudioBaseUrl
+      lmStudioBaseUrl: runtimeLmStudioBaseUrl.value
         ? 'runtime'
-        : envLmStudioBaseUrl
+        : envLmStudioBaseUrl.value
           ? 'env'
           : 'default',
       logForwardEnabled:
-        runtimeLogForwardEnabled !== undefined
+        runtimeLogForwardEnabled.value !== undefined
           ? 'runtime'
-          : envLogForwardEnabled !== undefined
+          : envLogForwardEnabled.value !== undefined
             ? 'env'
             : 'default',
       logMaxBytes:
-        runtimeLogMaxBytes !== undefined
+        runtimeLogMaxBytes.value !== undefined
           ? 'runtime'
-          : envLogMaxBytes !== undefined
+          : envLogMaxBytes.value !== undefined
             ? 'env'
             : 'default',
     },
   };
 
-  logRuntimeConfigOnce(config);
+  return { config, diagnostics };
+}
+
+export function getClientRuntimeConfig(): ResolvedRuntimeConfig {
+  const { config, diagnostics } = resolveClientRuntimeConfig();
+  logRuntimeConfigOnce(config, diagnostics);
   return config;
+}
+
+export function getClientRuntimeConfigDiagnostics(): RuntimeConfigDiagnostic[] {
+  return resolveClientRuntimeConfig().diagnostics;
 }
 
 export function getApiBaseUrl(): string {
@@ -178,4 +346,8 @@ export function getLogMaxBytes(): number {
   return getClientRuntimeConfig().logMaxBytes ?? DEFAULT_LOG_MAX_BYTES;
 }
 
-export type { RuntimeConfig, ResolvedRuntimeConfig };
+export function resetClientRuntimeConfigLogForTests() {
+  runtimeConfigLogged = false;
+}
+
+export type { RuntimeConfig, ResolvedRuntimeConfig, RuntimeConfigDiagnostic };

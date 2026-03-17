@@ -12,7 +12,7 @@ You are a going to work with a user to document additional scope and requirement
 2. For each question you add, you should add a bullet point explaining WHY the question is important.
 3. For each question you add, perform a thorough search using the code_info mcp tool to see if you can find how similar questions have been answered or implemented accross all ingested repositories as the answer may lie there.
 4. THEN perform a second search using deepwiki, context7 and web searches for answers to the question - perhaps finding other people who have hit the question and see how they handles it.
-5. Prioritising the results from code_info, ass a new Best Answer bullet point to each of the question, that provides what you think the answer should be, why you think this is the best answer, and Where you got the information from that made you think this is the best option.
+5. Prioritising the results from code_info, as a new Best Answer bullet point to each of the question, that provides what you think the answer should be, why you think this is the best answer, and Where you got the information from that made you think this is the best option.
 6. Commit all your question changes.
 
 - Once all Questions follow the above structure, output the written questions to the user an your response, and indicate that this information has been committed to. the file.

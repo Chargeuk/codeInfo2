@@ -715,9 +715,9 @@ Close the third third-pass `should_fix` finding by removing the tracked transien
 
 #### Subtasks
 
-1. [ ] Re-read `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`, then inspect `codeInfoStatus/reviews/0000047-current-review.json` plus the neighboring durable Story 47 review artifacts. Record in Task 25 `Implementation notes` why the current-review file is transient and which Story 47 artifacts remain intentionally durable.
-2. [ ] Remove the tracked `codeInfoStatus/reviews/0000047-current-review.json` handoff from the branch, or otherwise convert it into non-tracked workflow state, without disturbing the durable Story 47 evidence/findings artifacts.
-3. [ ] Update Task 25 `Implementation notes` with the final artifact-hygiene rule and the exact Story 47 files that remain tracked after the cleanup.
+1. [x] Re-read `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`, then inspect `codeInfoStatus/reviews/0000047-current-review.json` plus the neighboring durable Story 47 review artifacts. Record in Task 25 `Implementation notes` why the current-review file is transient and which Story 47 artifacts remain intentionally durable.
+2. [x] Remove the tracked `codeInfoStatus/reviews/0000047-current-review.json` handoff from the branch, or otherwise convert it into non-tracked workflow state, without disturbing the durable Story 47 evidence/findings artifacts.
+3. [x] Update Task 25 `Implementation notes` with the final artifact-hygiene rule and the exact Story 47 files that remain tracked after the cleanup.
 
 #### Testing
 
@@ -729,6 +729,9 @@ No wrapper build or test steps are required for this task because it only remove
 #### Implementation notes
 
 - Third-pass review finding only: `codeInfoStatus/reviews/0000047-current-review.json` is transient handoff state from a different story and should not stay committed as durable repository history.
+- Re-read the third-pass review finding plus `codeInfoStatus/reviews/0000047-current-review.json` and the neighboring Story 47 review files; the current-review file is only transient handoff state pointing at the last Story 47 review pass, while the timestamped `*-evidence.md` and `*-findings.md` files are the intentionally durable record.
+- Removed the tracked `codeInfoStatus/reviews/0000047-current-review.json` file from the branch without touching the durable Story 47 evidence/findings artifacts or the separate `0000047-external-review-input.md` context file.
+- Final artifact-hygiene rule for this task: Story-specific `*-current-review.json` files are transient workflow state and should not remain tracked after closeout, while the timestamped Story 47 evidence/findings markdown files remain intentionally committed as the durable review history.
 
 ---
 

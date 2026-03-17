@@ -737,7 +737,7 @@ No wrapper build or test steps are required for this task because it only remove
 
 ### 26. Re-Run Full Story 48 Validation After Third Review Fixes
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: `none yet`
 
 #### Overview
@@ -746,7 +746,7 @@ After Tasks 23-25 land, rerun the full Story 48 validation matrix again so the s
 
 #### Subtasks
 
-1. [ ] Re-read the Story 48 acceptance criteria, all three `Code Review Findings` sections above, and the durable review artifacts `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md`, and `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`. Record in Task 26 `Implementation notes` how Tasks 23-25 restore the remaining acceptance and workflow-hygiene proof.
+1. [x] Re-read the Story 48 acceptance criteria, all three `Code Review Findings` sections above, and the durable review artifacts `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md`, and `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`. Record in Task 26 `Implementation notes` how Tasks 23-25 restore the remaining acceptance and workflow-hygiene proof.
 2. [ ] Update `README.md`, `design.md`, `projectStructure.md`, and `docs/developer-reference.md` if the third review-fix implementation changes any Story 48 closeout notes, marker contracts, or workflow-artifact guidance.
 3. [ ] Update Task 26 `Implementation notes` with the final rerun results, the third-review-fix proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
 4. [ ] Preserve the durable third-pass review artifacts in the commit that closes the reopened story. Do not rely on the transient `codeInfoStatus/reviews/0000048-current-review.json` handoff file as the durable record.
@@ -771,6 +771,10 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 #### Implementation notes
 
 - Review reopening only: the third review pass found two remaining low-risk consistency issues in changed runtime/logging code plus one workflow-artifact hygiene issue. Story 48 therefore needs one more narrowly scoped implementation pass and a fresh full rerun task before it can close honestly again.
+- Re-read the Story 48 acceptance criteria, all three review-finding sections in this plan, and the durable review bundles for review passes `b791cfd6`, `810fd4f1`, and `d8154d87` before starting the rerun.
+- Task 23 restores the third-pass runtime-marker proof by narrowing `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` so `hasInvalidCanonicalConfig` now reflects runtime-sourced canonical diagnostics only, while env-fallback diagnostics remain visible without being mislabeled as malformed canonical runtime input.
+- Task 24 restores the third-pass working-folder response proof by keeping public 503 payloads stable and safe while preserving actionable `errorCode`, `errorReason`, and `causeCode` detail in the shared `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` marker and server-side logs.
+- Task 25 restores workflow-artifact hygiene by removing the tracked stale Story 47 transient handoff file `codeInfoStatus/reviews/0000047-current-review.json` while preserving the durable Story 47 timestamped evidence/findings artifacts and external review input.
 
 ---
 

@@ -241,6 +241,13 @@
     },
     {
       "type": "llm",
+      "label": "Create Final Summary",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "create_final_summary.md"
+    },
+    {
+      "type": "llm",
       "label": "Remove current plan handoff",
       "agentType": "planning_agent",
       "identifier": "planner",

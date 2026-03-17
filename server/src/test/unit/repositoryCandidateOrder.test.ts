@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import {
   buildRepositoryCandidateOrder,
+  buildRepositoryCandidateLookupSummary,
   DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
 } from '../../flows/repositoryCandidateOrder.js';
 
@@ -186,5 +187,25 @@ test('starts from scratch for each nested lookup call', () => {
       path.resolve('/tmp/other-b'),
       path.resolve('/tmp/other-c'),
     ],
+  );
+});
+
+test('rejects lookup summaries for selected repositories outside the ordered candidates', () => {
+  const orderedCandidates = buildRepositoryCandidateOrder({
+    caller: 'flow-command',
+    workingRepositoryPath: '/tmp/work-repo',
+    ownerRepositoryPath: '/tmp/owner-repo',
+    ownerRepositoryLabel: 'Owner Repo',
+    codeInfo2Root: '/tmp/codeinfo2',
+    otherRepositoryRoots: [buildOtherRepo('/tmp/other-repo', 'Other Repo')],
+  });
+
+  assert.throws(
+    () =>
+      buildRepositoryCandidateLookupSummary({
+        orderedCandidates,
+        selectedRepositoryPath: '/tmp/missing-repo',
+      }),
+    /is not present in the ordered candidate list/,
   );
 });

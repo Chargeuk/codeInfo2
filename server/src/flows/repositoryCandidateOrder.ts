@@ -115,6 +115,11 @@ export const buildRepositoryCandidateLookupSummary = (params: {
   const selectedIndex = params.orderedCandidates.candidates.findIndex(
     (candidate) => candidate.sourceId === selectedRepositoryPath,
   );
+  if (selectedIndex < 0) {
+    throw new Error(
+      `selectedRepositoryPath ${selectedRepositoryPath} is not present in the ordered candidate list`,
+    );
+  }
 
   return {
     selectedRepositoryPath,

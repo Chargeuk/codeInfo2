@@ -65,6 +65,8 @@ import { refreshCodexDetection } from '../providers/codexDetection.js';
 import {
   appendWorkingFolderDecisionLog,
   getConversationRecordType,
+  knownRepositoryPathsUnavailable,
+  knownRepositoryPathsAvailable,
   restoreSavedWorkingFolder,
   resolveWorkingFolderWorkingDirectory,
   validateRequestedWorkingFolder,
@@ -132,7 +134,8 @@ type RunAgentErrorCode =
   | 'INVALID_START_STEP'
   | 'CODEX_UNAVAILABLE'
   | 'WORKING_FOLDER_INVALID'
-  | 'WORKING_FOLDER_NOT_FOUND';
+  | 'WORKING_FOLDER_NOT_FOUND'
+  | 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE';
 
 type RunAgentError = {
   code: RunAgentErrorCode;
@@ -224,12 +227,12 @@ const resolveConversationWorkingFolderForRun = async (params: {
   conversation: Conversation | null;
   requestedWorkingFolder?: string;
   surface: 'agent_run' | 'agent_command_run';
-  knownRepositoryPaths?: string[];
+  knownRepositoryPathsState?: import('../workingFolders/state.js').KnownRepositoryPathsState;
 }): Promise<string | undefined> => {
   if (params.requestedWorkingFolder) {
     const validated = await validateRequestedWorkingFolder({
       workingFolder: params.requestedWorkingFolder,
-      knownRepositoryPaths: params.knownRepositoryPaths,
+      knownRepositoryPathsState: params.knownRepositoryPathsState,
     });
     if (params.conversation) {
       await persistConversationWorkingFolder({
@@ -258,7 +261,7 @@ const resolveConversationWorkingFolderForRun = async (params: {
         workingFolder: null,
       });
     },
-    knownRepositoryPaths: params.knownRepositoryPaths,
+    knownRepositoryPathsState: params.knownRepositoryPathsState,
   });
 };
 
@@ -726,10 +729,19 @@ export async function startAgentInstruction(
       throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
     }
 
-    const listedRepos = await agentServiceDeps
+    const listedReposResult = await agentServiceDeps
       .listIngestedRepositories()
-      .then((result) => result.repos)
-      .catch(() => []);
+      .then((result) => ({
+        repos: result.repos,
+        knownRepositoryPathsState: knownRepositoryPathsAvailable(
+          result.repos.map((repo) => repo.containerPath),
+        ),
+      }))
+      .catch((error) => ({
+        repos: [] as RepoEntry[],
+        knownRepositoryPathsState: knownRepositoryPathsUnavailable(error),
+      }));
+    const listedRepos = listedReposResult.repos;
 
     const existingConversation = await getConversation(conversationId);
     const isNewConversation = !existingConversation;
@@ -763,7 +775,7 @@ export async function startAgentInstruction(
         conversation: existingConversation,
         requestedWorkingFolder: params.working_folder,
         surface: 'agent_run',
-        knownRepositoryPaths: listedRepos.map((repo) => repo.containerPath),
+        knownRepositoryPathsState: listedReposResult.knownRepositoryPathsState,
       },
     );
 
@@ -1060,10 +1072,19 @@ export async function startAgentCommand(params: {
       throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
     }
 
-    const ingestRoots = await agentServiceDeps
+    const ingestRootsResult = await agentServiceDeps
       .listIngestedRepositories()
-      .then((result) => result.repos)
-      .catch(() => []);
+      .then((result) => ({
+        repos: result.repos,
+        knownRepositoryPathsState: knownRepositoryPathsAvailable(
+          result.repos.map((repo) => repo.containerPath),
+        ),
+      }))
+      .catch((error) => ({
+        repos: [] as RepoEntry[],
+        knownRepositoryPathsState: knownRepositoryPathsUnavailable(error),
+      }));
+    const ingestRoots = ingestRootsResult.repos;
     const matchingRoot = sourceId
       ? ingestRoots.find((repo) => repo.containerPath === sourceId)
       : undefined;
@@ -1096,7 +1117,8 @@ export async function startAgentCommand(params: {
         conversation: existingConversation,
         requestedWorkingFolder: params.working_folder,
         surface: 'agent_command_run',
-        knownRepositoryPaths: ingestRoots.map((repo) => repo.containerPath),
+        knownRepositoryPathsState:
+          ingestRootsResult.knownRepositoryPathsState,
       },
     );
 
@@ -1271,10 +1293,19 @@ export async function runAgentCommand(params: {
     },
   });
 
-  const ingestRoots = await agentServiceDeps
+  const ingestRootsResult = await agentServiceDeps
     .listIngestedRepositories()
-    .then((result) => result.repos)
-    .catch(() => []);
+    .then((result) => ({
+      repos: result.repos,
+      knownRepositoryPathsState: knownRepositoryPathsAvailable(
+        result.repos.map((repo) => repo.containerPath),
+      ),
+    }))
+    .catch((error) => ({
+      repos: [] as RepoEntry[],
+      knownRepositoryPathsState: knownRepositoryPathsUnavailable(error),
+    }));
+  const ingestRoots = ingestRootsResult.repos;
   const matchingRoot = sourceId
     ? ingestRoots.find((repo) => repo.containerPath === sourceId)
     : undefined;
@@ -1294,7 +1325,7 @@ export async function runAgentCommand(params: {
     conversation: existingConversation,
     requestedWorkingFolder: params.working_folder,
     surface: 'agent_command_run',
-    knownRepositoryPaths: ingestRoots.map((repo) => repo.containerPath),
+    knownRepositoryPathsState: ingestRootsResult.knownRepositoryPathsState,
   });
 
   const resolution = await resolveDirectCommandSelection({

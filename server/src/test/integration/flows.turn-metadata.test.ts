@@ -295,6 +295,15 @@ test('top-level flow markdown persists runtime lookupSummary metadata', async ()
         startFlowRun({
           ...params,
           chatFactory: () => new SlowChat(),
+          listIngestedRepositories: async () => ({
+            repos: [
+              buildRepoEntry({
+                id: 'Working Repo',
+                containerPath: workingRepo,
+              }),
+            ],
+            lockedModelId: null,
+          }),
         }),
     }),
   );

@@ -76,6 +76,8 @@ import { formatRetryInstruction } from '../utils/retryContext.js';
 import {
   appendWorkingFolderDecisionLog,
   getConversationRecordType,
+  knownRepositoryPathsAvailable,
+  knownRepositoryPathsUnavailable,
   restoreSavedWorkingFolder,
   resolveWorkingFolderWorkingDirectory,
   validateRequestedWorkingFolder,
@@ -276,12 +278,12 @@ const resolveConversationWorkingFolderForRun = async (params: {
   conversation: Conversation | null;
   requestedWorkingFolder?: string;
   surface: 'flow_run';
-  knownRepositoryPaths?: string[];
+  knownRepositoryPathsState?: import('../workingFolders/state.js').KnownRepositoryPathsState;
 }): Promise<string | undefined> => {
   if (params.requestedWorkingFolder) {
     const validated = await validateRequestedWorkingFolder({
       workingFolder: params.requestedWorkingFolder,
-      knownRepositoryPaths: params.knownRepositoryPaths,
+      knownRepositoryPathsState: params.knownRepositoryPathsState,
     });
     if (params.conversation) {
       await persistConversationWorkingFolder({
@@ -310,7 +312,7 @@ const resolveConversationWorkingFolderForRun = async (params: {
         workingFolder: null,
       });
     },
-    knownRepositoryPaths: params.knownRepositoryPaths,
+    knownRepositoryPathsState: params.knownRepositoryPathsState,
   });
 };
 
@@ -3113,9 +3115,18 @@ export async function startFlowRun(
     let flowsRoot = flowsDirForRun();
     const listRepos =
       params.listIngestedRepositories ?? listIngestedRepositories;
-    const listedRepos = await listRepos()
-      .then((result) => result.repos)
-      .catch(() => []);
+    const listedReposResult = await listRepos()
+      .then((result) => ({
+        repos: result.repos,
+        knownRepositoryPathsState: knownRepositoryPathsAvailable(
+          result.repos.map((repo) => repo.containerPath),
+        ),
+      }))
+      .catch((error) => ({
+        repos: [] as Awaited<ReturnType<typeof listRepos>>['repos'],
+        knownRepositoryPathsState: knownRepositoryPathsUnavailable(error),
+      }));
+    const listedRepos = listedReposResult.repos;
     const sourceRepo = sourceId
       ? listedRepos.find(
           (item) => path.resolve(item.containerPath) === path.resolve(sourceId),
@@ -3169,7 +3180,7 @@ export async function startFlowRun(
         conversation: existingConversation,
         requestedWorkingFolder: params.working_folder,
         surface: 'flow_run',
-        knownRepositoryPaths: listedRepos.map((repo) => repo.containerPath),
+        knownRepositoryPathsState: listedReposResult.knownRepositoryPathsState,
       },
     );
 

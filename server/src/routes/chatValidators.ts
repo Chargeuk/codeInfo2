@@ -138,7 +138,7 @@ const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
 export async function validateChatRequest(
   body: ChatRequestBody | unknown,
   options?: {
-    knownRepositoryPaths?: string[];
+    knownRepositoryPathsState?: import('../workingFolders/state.js').KnownRepositoryPathsState;
     codexCapabilityResolver?: (options: {
       consumer: 'chat_models' | 'chat_validation';
     }) => Promise<CodexCapabilityResolution>;
@@ -245,10 +245,16 @@ export async function validateChatRequest(
         rawWorkingFolder.trim().length > 0
           ? rawWorkingFolder
           : undefined,
-      knownRepositoryPaths: options?.knownRepositoryPaths,
+      knownRepositoryPathsState: options?.knownRepositoryPathsState,
     });
   } catch (error) {
-    const err = error as { reason?: unknown };
+    const err = error as { code?: unknown; reason?: unknown };
+    if (
+      err.code === 'WORKING_FOLDER_UNAVAILABLE' ||
+      err.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
+    ) {
+      throw error;
+    }
     throw new ChatValidationError(
       typeof err.reason === 'string'
         ? err.reason

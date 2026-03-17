@@ -12,10 +12,25 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { startFlowRun } from '../../flows/service.js';
 import { query, resetStore } from '../../logStore.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
+
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
+  id: path.basename(containerPath) || 'repo',
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'text-embedding-nomic-embed-text-v1.5',
+  embeddingDimensions: 768,
+  modelId: 'text-embedding-nomic-embed-text-v1.5',
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
 
 class MinimalChat extends ChatInterface {
   async execute(
@@ -57,6 +72,10 @@ test('POST /flows/:flowName/run validates working_folder', async () => {
         startFlowRun({
           ...params,
           chatFactory: () => new MinimalChat(),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(process.cwd())],
+            lockedModelId: null,
+          }),
         }),
     }),
   );
@@ -124,7 +143,14 @@ test('a stale saved path is cleared before a flow restore uses it', async () => 
 
   const app = express();
   app.use(express.json());
-  app.use(createConversationsRouter());
+  app.use(
+    createConversationsRouter({
+      listIngestedRepositories: async () => ({
+        repos: [],
+        lockedModelId: null,
+      }),
+    }),
+  );
 
   try {
     const res = await supertest(app).get('/conversations?flowName=llm-basic');

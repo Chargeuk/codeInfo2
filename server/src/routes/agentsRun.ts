@@ -20,7 +20,8 @@ type AgentRunError =
   | { code: 'RUN_IN_PROGRESS'; reason?: string }
   | { code: 'CODEX_UNAVAILABLE'; reason?: string }
   | { code: 'WORKING_FOLDER_INVALID'; reason?: string }
-  | { code: 'WORKING_FOLDER_NOT_FOUND'; reason?: string };
+  | { code: 'WORKING_FOLDER_NOT_FOUND'; reason?: string }
+  | { code: 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'; reason?: string };
 
 const isAgentRunError = (err: unknown): err is AgentRunError =>
   Boolean(err) &&
@@ -186,6 +187,13 @@ export function createAgentsRunRouter(
         ) {
           return res.status(400).json({
             error: 'invalid_request',
+            code: err.code,
+            message: err.reason ?? 'working_folder validation failed',
+          });
+        }
+        if (err.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE') {
+          return res.status(503).json({
+            error: 'working_folder_unavailable',
             code: err.code,
             message: err.reason ?? 'working_folder validation failed',
           });

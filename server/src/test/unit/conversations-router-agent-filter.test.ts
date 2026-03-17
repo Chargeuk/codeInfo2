@@ -11,6 +11,7 @@ import {
   cleanupInflight,
   createInflight,
 } from '../../chat/inflightRegistry.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 
 function buildApp(deps: Parameters<typeof createConversationsRouter>[0]) {
@@ -32,6 +33,20 @@ const baseConversation = {
   archivedAt: null,
   flags: {},
 };
+
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
+  id: 'repo-' + containerPath,
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'text-embedding-nomic-embed-text-v1.5',
+  embeddingDimensions: 768,
+  modelId: 'text-embedding-nomic-embed-text-v1.5',
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
 
 test('GET /conversations forwards agentName=__none__ to repo layer', async () => {
   let captured: unknown;
@@ -138,6 +153,10 @@ test('POST /conversations/:id/working-folder saves flags.workingFolder while idl
   let captured: unknown;
   const res = await request(
     buildApp({
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(process.cwd())],
+        lockedModelId: null,
+      }),
       findConversationById: async () => baseConversation,
       updateConversationWorkingFolder: async (params: unknown) => {
         captured = params;

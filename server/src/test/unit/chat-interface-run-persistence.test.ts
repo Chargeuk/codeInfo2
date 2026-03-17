@@ -9,6 +9,7 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { AppendTurnInput } from '../../mongo/repo.js';
 import type {
   TurnRuntimeMetadata,
@@ -18,9 +19,24 @@ import type {
 } from '../../mongo/turn.js';
 import { createChatRouter } from '../../routes/chat.js';
 import {
+  knownRepositoryPathsUnavailable,
   restoreSavedWorkingFolder,
   setWorkingFolderStatForTests,
 } from '../../workingFolders/state.js';
+
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
+  id: path.basename(containerPath) || 'repo',
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'text-embedding-nomic-embed-text-v1.5',
+  embeddingDimensions: 768,
+  modelId: 'text-embedding-nomic-embed-text-v1.5',
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
 
 class PersistSpyChat extends ChatInterface {
   public persisted: Array<{
@@ -358,6 +374,10 @@ describe('ChatInterface.run persistence', () => {
             },
           }) as never,
         chatFactory: () => new RouteChat(),
+        listIngestedRepositoriesFn: async () => ({
+          repos: [buildRepoEntry(process.cwd())],
+          lockedModelId: null,
+        }),
       }),
     );
 
@@ -444,6 +464,36 @@ describe('ChatInterface.run persistence', () => {
     assert.equal(clearedConversationId, undefined);
   });
 
+  test('repository enumeration failure does not clear a saved chat working folder as stale', async () => {
+    let clearedConversationId: string | undefined;
+
+    await assert.rejects(
+      async () =>
+        await restoreSavedWorkingFolder({
+          conversation: {
+            conversationId: 'chat-restore-repo-enumeration-unavailable',
+            flags: {
+              workingFolder: process.cwd(),
+            },
+          },
+          surface: 'chat_run',
+          clearPersistedWorkingFolder: async (conversationId) => {
+            clearedConversationId = conversationId;
+          },
+          knownRepositoryPathsState: knownRepositoryPathsUnavailable(
+            new Error('repo list offline'),
+          ),
+        }),
+      (error) =>
+        (error as { code?: string; reason?: string }).code ===
+          'WORKING_FOLDER_REPOSITORY_UNAVAILABLE' &&
+        (error as { code?: string; reason?: string }).reason ===
+          'repo list offline',
+    );
+
+    assert.equal(clearedConversationId, undefined);
+  });
+
   test('an invalid saved chat working folder is cleared before the next chat run reuses it', async () => {
     memoryConversations.set('chat-working-folder-clear', {
       _id: 'chat-working-folder-clear',
@@ -471,6 +521,10 @@ describe('ChatInterface.run persistence', () => {
             },
           }) as never,
         chatFactory: () => new RouteChat(),
+        listIngestedRepositoriesFn: async () => ({
+          repos: [buildRepoEntry(process.cwd())],
+          lockedModelId: null,
+        }),
       }),
     );
 
@@ -509,6 +563,10 @@ describe('ChatInterface.run persistence', () => {
             },
           }) as never,
         chatFactory: () => new RouteChat(),
+        listIngestedRepositoriesFn: async () => ({
+          repos: [buildRepoEntry(process.cwd())],
+          lockedModelId: null,
+        }),
       }),
     );
 

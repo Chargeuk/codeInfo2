@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import test from 'node:test';
 import express from 'express';
 import request from 'supertest';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import {
   type AppendTurnInput,
@@ -22,6 +23,20 @@ const baseItem: ConversationSummary = {
   createdAt: new Date('2025-01-01T00:00:00Z'),
   updatedAt: new Date('2025-01-01T00:00:00Z'),
 };
+
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
+  id: crypto.randomUUID(),
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'text-embedding-nomic-embed-text-v1.5',
+  embeddingDimensions: 768,
+  modelId: 'text-embedding-nomic-embed-text-v1.5',
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
 
 const appWith = (
   overrides: Parameters<typeof createConversationsRouter>[0],
@@ -245,6 +260,10 @@ test('conversation list responses preserve flags.workingFolder', async () => {
             flags: { workingFolder: process.cwd() },
           },
         ],
+      }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(process.cwd())],
+        lockedModelId: null,
       }),
     }),
   )

@@ -1645,7 +1645,7 @@ The resolver, persistence, env-cutover, tokenizer, and wrapper-cleanup work othe
 
 ### 18. Fail Closed When Repository Enumeration Cannot Prove Working-Folder Membership
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: `none yet`
 
 #### Overview
@@ -1654,11 +1654,11 @@ Close the first second-pass `must_fix` finding by making every Story 48 working-
 
 #### Subtasks
 
-1. [ ] Re-read `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, then inspect `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/workingFolders/state.ts`. Record in Task 18 `Implementation notes` exactly which paths currently swallow repository-enumeration failure and how that weakens the story contract.
-2. [ ] Introduce one explicit server-side contract for “repository membership could not be validated because repository enumeration failed.” Do not reuse the existing stale-path vocabulary for this case, and do not silently coerce it into success by passing `undefined` or `[]` into the shared validator.
-3. [ ] Update the chat, conversation restore/edit, agent run, direct-command run, and flow run paths so they all use that same fail-closed contract when repository enumeration is unavailable. Preserve the happy-path behavior where canonical ingested repositories still validate and restore normally.
-4. [ ] Ensure saved-folder restore paths do not clear valid persisted data as “stale” merely because repository enumeration is temporarily unavailable. This path should surface an operational failure, not a stale-path clear.
-5. [ ] Add or extend server tests that prove a repository-enumeration failure does not let a non-ingested absolute directory pass request validation or saved-folder restore validation.
+1. [x] Re-read `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, then inspect `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/workingFolders/state.ts`. Record in Task 18 `Implementation notes` exactly which paths currently swallow repository-enumeration failure and how that weakens the story contract.
+2. [x] Introduce one explicit server-side contract for “repository membership could not be validated because repository enumeration failed.” Do not reuse the existing stale-path vocabulary for this case, and do not silently coerce it into success by passing `undefined` or `[]` into the shared validator.
+3. [x] Update the chat, conversation restore/edit, agent run, direct-command run, and flow run paths so they all use that same fail-closed contract when repository enumeration is unavailable. Preserve the happy-path behavior where canonical ingested repositories still validate and restore normally.
+4. [x] Ensure saved-folder restore paths do not clear valid persisted data as “stale” merely because repository enumeration is temporarily unavailable. This path should surface an operational failure, not a stale-path clear.
+5. [x] Add or extend server tests that prove a repository-enumeration failure does not let a non-ingested absolute directory pass request validation or saved-folder restore validation.
 6. [ ] Update Task 18 `Implementation notes` with the final error vocabulary, the shared validation seam chosen, and where the fail-closed behavior now surfaces.
 
 #### Testing
@@ -1666,13 +1666,20 @@ Close the first second-pass `must_fix` finding by making every Story 48 working-
 Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
 
-1. [ ] `npm run build:summary:server` - Use because this task changes server/common working-folder validation behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+1. [x] `npm run build:summary:server` - Use because this task changes server/common working-folder validation behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
 2. [ ] `npm run test:summary:server:unit` - Use because this task changes server/common request/restore validation logic. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
 3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes server/common working-folder behavior that still needs feature-level regression coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
 - Review finding only: repository-list failure is currently swallowed to `undefined` or `[]` in chat, conversations, agents, and flows, which causes `validateKnownRepository(...)` in `server/src/workingFolders/state.ts` to skip the ingested-repository membership check entirely.
+- Re-read the second-pass review finding plus `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/workingFolders/state.ts`; every Story 48 working-folder entry point currently swallows repository-enumeration failure to `undefined` or `[]`, which disables the ingested-repository membership check and weakens the contract back to “any existing absolute directory.”
+- Added one explicit fail-closed contract in `server/src/workingFolders/state.ts`: `KnownRepositoryPathsState` now distinguishes `status: 'available'` from `status: 'unavailable'`, and `validateRequestedWorkingFolder(...)` throws `WORKING_FOLDER_REPOSITORY_UNAVAILABLE` instead of silently skipping repository membership validation when enumeration cannot prove the ingested-repository set.
+- Updated `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/agents/service.ts`, `server/src/routes/agentsRun.ts`, `server/src/routes/agentsCommands.ts`, `server/src/flows/service.ts`, and `server/src/routes/flowsRun.ts` so chat, conversation restore/edit, agent run, direct-command run, and flow run all use that same fail-closed contract and surface it as an operational 503 path rather than degrading to “directory exists on disk.”
+- Kept restore-path semantics honest by routing repository-enumeration failure through `WORKING_FOLDER_REPOSITORY_UNAVAILABLE`; saved working folders are no longer cleared as stale when the product simply cannot enumerate ingested repositories at that moment.
+- Extended `server/src/test/unit/chatValidators.test.ts` with the direct request-validation proof for repository-enumeration failure and `server/src/test/unit/chat-interface-run-persistence.test.ts` with the restore-path proof that the saved value is not cleared when repository enumeration is unavailable.
+- Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
+- **BLOCKER** Testing step 2 `npm run test:summary:server:unit` has not reached an honest passing terminal state yet. I fixed the real Task 18 fallout the wrapper surfaced first: route/service call sites now fail closed, older request/restore tests were updated to pass explicit ingested-repo state, `createChatRouter(...)` / `createConversationsRouter(...)` gained injectable repo-list deps for tests, and the full wrapper improved from 10 failures to 2 failures to 1 failure. After those fixes, the next full rerun stayed in heartbeat-only `agent_action: wait` for well beyond the wrapper’s normal budget without producing a pass/fail result or `inspect_log` guidance, while `log_size_bytes` continued climbing from `224931` to `2652410`. The missing capability is a deterministic terminal result from the full server-unit wrapper after the remaining Task 18 test-harness changes; until that exists, I cannot truthfully mark Testing step 2 complete or move on to cucumber. If the wrapper keeps behaving this way on the next pass, the task should be split or reordered again the same way Task 16 was, because the blocking seam is once more the full-wrapper termination path rather than the feature diff itself.
 
 ---
 

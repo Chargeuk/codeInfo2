@@ -874,7 +874,7 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
       source: 'REST',
       chatFactory: () => new InstantChat(),
       listIngestedRepositories: async () => ({
-        repos: [],
+        repos: [buildRepoEntry(workingFolder)],
         lockedModelId: null,
       }),
     });

@@ -9,6 +9,10 @@ import {
   modelReasoningEfforts,
   validateChatRequest,
 } from '../../routes/chatValidators.js';
+import {
+  knownRepositoryPathsAvailable,
+  knownRepositoryPathsUnavailable,
+} from '../../workingFolders/state.js';
 
 const ENV_KEYS = [
   'Codex_sandbox_mode',
@@ -265,6 +269,8 @@ test('chat validation accepts a valid working_folder', async () => {
     conversationId: 'chat-working-folder-valid',
     provider: 'codex',
     working_folder: workingFolder,
+  }, {
+    knownRepositoryPathsState: knownRepositoryPathsAvailable([workingFolder]),
   });
 
   assert.equal(result.working_folder, workingFolder);
@@ -290,7 +296,9 @@ test('chat validation rejects existing absolute working_folder when it is not in
           working_folder: nonIngestedWorkingFolder,
         },
         {
-          knownRepositoryPaths: [ingestedWorkingFolder],
+          knownRepositoryPathsState: knownRepositoryPathsAvailable([
+            ingestedWorkingFolder,
+          ]),
         },
       ),
     /working_folder not found/,
@@ -312,11 +320,41 @@ test('chat validation accepts an ingested absolute working_folder', async () => 
       working_folder: workingFolder,
     },
     {
-      knownRepositoryPaths: [workingFolder],
+      knownRepositoryPathsState: knownRepositoryPathsAvailable([workingFolder]),
     },
   );
 
   assert.equal(result.working_folder, workingFolder);
+});
+
+test('chat validation surfaces repository-enumeration failure instead of accepting a non-ingested directory', async () => {
+  const nonIngestedWorkingFolder = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-working-folder-enum-unavailable-'),
+  );
+  tempDirs.push(nonIngestedWorkingFolder);
+
+  await assert.rejects(
+    async () =>
+      await validateChatRequest(
+        {
+          model: 'gpt-5.2-codex',
+          message: 'hello',
+          conversationId: 'chat-working-folder-enum-unavailable',
+          provider: 'codex',
+          working_folder: nonIngestedWorkingFolder,
+        },
+        {
+          knownRepositoryPathsState: knownRepositoryPathsUnavailable(
+            new Error('repo list offline'),
+          ),
+        },
+      ),
+    (error) =>
+      (error as { code?: string; reason?: string }).code ===
+        'WORKING_FOLDER_REPOSITORY_UNAVAILABLE' &&
+      (error as { code?: string; reason?: string }).reason ===
+        'repo list offline',
+  );
 });
 
 test('chat validation rejects invalid absolute-path working_folder with shared message', async () => {

@@ -24,6 +24,7 @@ import {
   __setStatusForTest,
   type IngestJobStatus,
 } from '../../ingest/ingestJob.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
 import {
   emitConversationUpsert,
@@ -39,6 +40,20 @@ import {
 } from '../support/wsClient.js';
 
 const ORIGINAL_ENV = process.env.NODE_ENV;
+
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
+  id: 'repo-' + containerPath,
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'text-embedding-nomic-embed-text-v1.5',
+  embeddingDimensions: 768,
+  modelId: 'text-embedding-nomic-embed-text-v1.5',
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
 
 async function startServer(app = express()) {
   const httpServer = http.createServer(app);
@@ -265,7 +280,14 @@ test('WS conversation edit save emits conversation_upsert with updated flags.wor
   });
   const app = express();
   app.use(express.json());
-  app.use(createConversationsRouter());
+  app.use(
+    createConversationsRouter({
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(process.cwd())],
+        lockedModelId: null,
+      }),
+    }),
+  );
   const server = await startServer(app);
   const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
 

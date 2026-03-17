@@ -36,6 +36,7 @@ import {
 import {
   appendWorkingFolderDecisionLog,
   getConversationRecordType,
+  resolveKnownRepositoryPathsState,
   restoreSavedWorkingFolder,
   validateRequestedWorkingFolder,
 } from '../workingFolders/state.js';
@@ -158,6 +159,7 @@ type ConversationLookup = Pick<Conversation, '_id' | 'archivedAt'> &
 type Deps = {
   listConversations: typeof defaultListConversations;
   resolveListConversations: () => typeof defaultListConversations;
+  listIngestedRepositories: typeof import('../lmstudio/toolService.js').listIngestedRepositories;
   createConversation: typeof defaultCreateConversation;
   archiveConversation: typeof defaultArchiveConversation;
   restoreConversation: typeof defaultRestoreConversation;
@@ -236,6 +238,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
       (shouldUseMemoryPersistence()
         ? listMemoryConversations
         : defaultListConversations),
+    listIngestedRepositories: listIngestedRepositoriesFn = listIngestedRepositories,
     createConversation = defaultCreateConversation,
     archiveConversation = defaultArchiveConversation,
     restoreConversation = defaultRestoreConversation,
@@ -321,10 +324,12 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     return await updateConversationWorkingFolder(params);
   };
 
-  const knownRepositoryPaths = async () =>
-    await listIngestedRepositories()
-      .then((result) => result.repos.map((repo) => repo.containerPath))
-      .catch(() => undefined);
+  const knownRepositoryPathsState = async () =>
+    await resolveKnownRepositoryPathsState(async () =>
+      (await listIngestedRepositoriesFn()).repos.map(
+        (repo) => repo.containerPath,
+      ),
+    );
 
   router.get('/conversations', async (req, res) => {
     const requestId = res.locals.requestId as string | undefined;
@@ -412,7 +417,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         agentName,
         flowName,
       });
-      const repoPaths = await knownRepositoryPaths();
+      const repoPathsState = await knownRepositoryPathsState();
       const normalizedItems: typeof items = [];
       for (const item of items) {
         const restoredWorkingFolder = await restoreSavedWorkingFolder({
@@ -429,7 +434,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
               workingFolder: null,
             });
           },
-          knownRepositoryPaths: repoPaths,
+          knownRepositoryPathsState: repoPathsState,
         });
 
         if (restoredWorkingFolder === undefined) {
@@ -485,6 +490,18 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
 
       res.json({ items: normalizedItems, nextCursor });
     } catch (err) {
+      const workingFolderError = err as { code?: string; reason?: string };
+      if (
+        workingFolderError.code === 'WORKING_FOLDER_UNAVAILABLE' ||
+        workingFolderError.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
+      ) {
+        return res.status(503).json({
+          error: 'working_folder_unavailable',
+          code: workingFolderError.code,
+          message:
+            workingFolderError.reason ?? 'working_folder validation failed',
+        });
+      }
       res.status(500).json({ error: 'server_error', message: `${err}` });
     }
   });
@@ -829,10 +846,28 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     try {
       validatedWorkingFolder = await validateRequestedWorkingFolder({
         workingFolder,
-        knownRepositoryPaths: await knownRepositoryPaths(),
+        knownRepositoryPathsState: await knownRepositoryPathsState(),
       });
     } catch (error) {
       const err = error as { code?: string; reason?: string };
+      if (
+        err.code === 'WORKING_FOLDER_UNAVAILABLE' ||
+        err.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
+      ) {
+        appendWorkingFolderDecisionLog({
+          conversationId: parsedParams.data.id,
+          recordType: getConversationRecordType(conversation),
+          surface: 'conversation_edit',
+          action: 'reject',
+          decisionReason: 'repository_membership_unavailable',
+          ...(workingFolder ? { workingFolder } : {}),
+        });
+        return res.status(503).json({
+          error: 'working_folder_unavailable',
+          code: err.code,
+          message: err.reason ?? 'working_folder validation failed',
+        });
+      }
       appendWorkingFolderDecisionLog({
         conversationId: parsedParams.data.id,
         recordType: getConversationRecordType(conversation),

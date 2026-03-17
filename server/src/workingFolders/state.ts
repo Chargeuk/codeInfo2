@@ -10,13 +10,25 @@ export const DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION =
 type WorkingFolderErrorCode =
   | 'WORKING_FOLDER_INVALID'
   | 'WORKING_FOLDER_NOT_FOUND'
-  | 'WORKING_FOLDER_UNAVAILABLE';
+  | 'WORKING_FOLDER_UNAVAILABLE'
+  | 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE';
 
 export type WorkingFolderValidationError = {
   code: WorkingFolderErrorCode;
   reason: string;
   causeCode?: string;
 };
+
+export type KnownRepositoryPathsState =
+  | {
+      status: 'available';
+      knownRepositoryPaths: string[];
+    }
+  | {
+      status: 'unavailable';
+      reason: string;
+      causeCode?: string;
+    };
 
 export type WorkingFolderRecordType = 'chat' | 'agent' | 'flow';
 
@@ -82,9 +94,47 @@ const isDirectory = async (dirPath: string): Promise<boolean> => {
 
 const normalizeWorkingFolder = (value: string) => path.resolve(value.trim());
 
-const getKnownRepositorySet = (paths?: string[]) => {
-  if (!paths || paths.length === 0) return null;
-  return new Set(paths.map((entry) => path.resolve(entry)));
+const getKnownRepositorySet = (paths: string[]) =>
+  new Set(paths.map((entry) => path.resolve(entry)));
+
+export const knownRepositoryPathsAvailable = (
+  knownRepositoryPaths: string[],
+): KnownRepositoryPathsState => ({
+  status: 'available',
+  knownRepositoryPaths,
+});
+
+export const knownRepositoryPathsUnavailable = (
+  error?: unknown,
+): KnownRepositoryPathsState => {
+  const causeCode =
+    typeof (error as NodeJS.ErrnoException | undefined)?.code === 'string'
+      ? (error as NodeJS.ErrnoException).code
+      : undefined;
+  const rawReason =
+    typeof (error as { reason?: unknown } | undefined)?.reason === 'string'
+      ? (error as { reason: string }).reason
+      : error instanceof Error && error.message.trim().length > 0
+        ? error.message.trim()
+        : undefined;
+
+  return {
+    status: 'unavailable',
+    reason:
+      rawReason ??
+      'working_folder repository membership could not be validated',
+    ...(causeCode ? { causeCode } : {}),
+  };
+};
+
+export async function resolveKnownRepositoryPathsState(
+  loadKnownRepositoryPaths: () => Promise<string[]>,
+): Promise<KnownRepositoryPathsState> {
+  try {
+    return knownRepositoryPathsAvailable(await loadKnownRepositoryPaths());
+  } catch (error) {
+    return knownRepositoryPathsUnavailable(error);
+  }
 };
 
 const getLocalCodeInfo2Root = () => {
@@ -95,13 +145,27 @@ const getLocalCodeInfo2Root = () => {
 
 const validateKnownRepository = (params: {
   workingFolder: string;
-  knownRepositoryPaths?: string[];
+  knownRepositoryPathsState?: KnownRepositoryPathsState;
 }): WorkingFolderValidationError | null => {
-  const knownRepositories = getKnownRepositorySet(params.knownRepositoryPaths);
-  if (!knownRepositories) return null;
-
-  if (knownRepositories.has(params.workingFolder)) return null;
   if (params.workingFolder === getLocalCodeInfo2Root()) return null;
+
+  const knownRepositoriesState = params.knownRepositoryPathsState;
+  if (!knownRepositoriesState || knownRepositoriesState.status === 'unavailable') {
+    return {
+      code: 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE',
+      reason:
+        knownRepositoriesState?.reason ??
+        'working_folder repository membership could not be validated',
+      ...(knownRepositoriesState?.causeCode
+        ? { causeCode: knownRepositoriesState.causeCode }
+        : {}),
+    };
+  }
+
+  const knownRepositories = getKnownRepositorySet(
+    knownRepositoriesState.knownRepositoryPaths,
+  );
+  if (knownRepositories.has(params.workingFolder)) return null;
 
   return {
     code: 'WORKING_FOLDER_NOT_FOUND',
@@ -207,7 +271,7 @@ export async function resolveWorkingFolderWorkingDirectory(
 
 export async function validateRequestedWorkingFolder(params: {
   workingFolder?: string;
-  knownRepositoryPaths?: string[];
+  knownRepositoryPathsState?: KnownRepositoryPathsState;
 }): Promise<string | undefined> {
   const resolved = await resolveWorkingFolderWorkingDirectory(
     params.workingFolder,
@@ -215,7 +279,7 @@ export async function validateRequestedWorkingFolder(params: {
   if (!resolved) return undefined;
   const knownRepositoryError = validateKnownRepository({
     workingFolder: resolved,
-    knownRepositoryPaths: params.knownRepositoryPaths,
+    knownRepositoryPathsState: params.knownRepositoryPathsState,
   });
   if (knownRepositoryError) {
     throw knownRepositoryError;
@@ -227,7 +291,7 @@ export async function restoreSavedWorkingFolder(params: {
   conversation: ConversationLike;
   surface: string;
   clearPersistedWorkingFolder: (conversationId: string) => Promise<void>;
-  knownRepositoryPaths?: string[];
+  knownRepositoryPathsState?: KnownRepositoryPathsState;
 }): Promise<string | undefined> {
   const conversationId = getConversationId(params.conversation);
   const savedWorkingFolder = getConversationSavedWorkingFolder(
@@ -238,7 +302,7 @@ export async function restoreSavedWorkingFolder(params: {
   try {
     const resolved = await validateRequestedWorkingFolder({
       workingFolder: savedWorkingFolder,
-      knownRepositoryPaths: params.knownRepositoryPaths,
+      knownRepositoryPathsState: params.knownRepositoryPathsState,
     });
     if (!resolved) return undefined;
     appendWorkingFolderDecisionLog({

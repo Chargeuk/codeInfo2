@@ -55,6 +55,7 @@ import { getCodexDetection } from '../providers/codexRegistry.js';
 import {
   appendWorkingFolderDecisionLog,
   getConversationRecordType,
+  resolveKnownRepositoryPathsState,
   restoreSavedWorkingFolder,
 } from '../workingFolders/state.js';
 import { publishUserTurn } from '../ws/server.js';
@@ -135,6 +136,7 @@ export function createChatRouter({
   codexFactory,
   toolFactory,
   chatFactory = getChatInterface,
+  listIngestedRepositoriesFn = listIngestedRepositories,
   codexCapabilityResolver = resolveCodexCapabilities,
   cleanupInflightFn = cleanupInflight,
   releaseConversationLockFn = releaseConversationLock,
@@ -143,6 +145,7 @@ export function createChatRouter({
   codexFactory?: CodexFactory;
   toolFactory?: ToolFactory;
   chatFactory?: typeof getChatInterface;
+  listIngestedRepositoriesFn?: typeof listIngestedRepositories;
   codexCapabilityResolver?: (options: {
     consumer: 'chat_models' | 'chat_validation';
   }) => Promise<CodexCapabilityResolution>;
@@ -166,15 +169,16 @@ export function createChatRouter({
     }
 
     let validatedBody;
-    const knownRepositoryPaths = await listIngestedRepositories()
-      .then((result) =>
-        result.repos.map((repo) => path.resolve(repo.containerPath)),
-      )
-      .catch(() => undefined);
+    const knownRepositoryPathsState = await resolveKnownRepositoryPathsState(
+      async () =>
+        (await listIngestedRepositoriesFn()).repos.map((repo) =>
+          path.resolve(repo.containerPath),
+        ),
+    );
     try {
       validatedBody = await validateChatRequest(rawBody, {
         codexCapabilityResolver,
-        knownRepositoryPaths,
+        knownRepositoryPathsState,
       });
     } catch (err) {
       if (err instanceof ChatValidationError) {
@@ -182,6 +186,18 @@ export function createChatRouter({
           status: 'error',
           code: 'VALIDATION_FAILED',
           message: err.message,
+        });
+      }
+      const workingFolderError = err as { code?: string; reason?: string };
+      if (
+        workingFolderError.code === 'WORKING_FOLDER_UNAVAILABLE' ||
+        workingFolderError.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
+      ) {
+        return res.status(503).json({
+          status: 'error',
+          code: workingFolderError.code,
+          message:
+            workingFolderError.reason ?? 'working_folder validation failed',
         });
       }
       throw err;
@@ -389,22 +405,38 @@ export function createChatRouter({
 
     let existingConversation = await loadExistingConversation();
     let effectiveWorkingFolder = requestedWorkingFolder;
-    if (!effectiveWorkingFolder && existingConversation) {
-      effectiveWorkingFolder = await restoreSavedWorkingFolder({
-        conversation: existingConversation,
-        surface: 'chat_run',
-        clearPersistedWorkingFolder: async (id) => {
-          await persistWorkingFolder(null);
-          const nextFlags = { ...(existingConversation?.flags ?? {}) };
-          delete nextFlags.workingFolder;
-          existingConversation = {
-            ...existingConversation!,
-            flags: nextFlags,
-          } as Conversation;
-          void id;
-        },
-        knownRepositoryPaths,
-      });
+    try {
+      if (!effectiveWorkingFolder && existingConversation) {
+        effectiveWorkingFolder = await restoreSavedWorkingFolder({
+          conversation: existingConversation,
+          surface: 'chat_run',
+          clearPersistedWorkingFolder: async (id) => {
+            await persistWorkingFolder(null);
+            const nextFlags = { ...(existingConversation?.flags ?? {}) };
+            delete nextFlags.workingFolder;
+            existingConversation = {
+              ...existingConversation!,
+              flags: nextFlags,
+            } as Conversation;
+            void id;
+          },
+          knownRepositoryPathsState,
+        });
+      }
+    } catch (err) {
+      const workingFolderError = err as { code?: string; reason?: string };
+      if (
+        workingFolderError.code === 'WORKING_FOLDER_UNAVAILABLE' ||
+        workingFolderError.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
+      ) {
+        return res.status(503).json({
+          status: 'error',
+          code: workingFolderError.code,
+          message:
+            workingFolderError.reason ?? 'working_folder validation failed',
+        });
+      }
+      throw err;
     }
 
     const ensureConversation = async (): Promise<Conversation | null> => {

@@ -1646,7 +1646,7 @@ The resolver, persistence, env-cutover, tokenizer, and wrapper-cleanup work othe
 ### 18. Fail Closed When Repository Enumeration Cannot Prove Working-Folder Membership
 
 - Task Status: `__in_progress__`
-- Git Commits: `none yet`
+- Git Commits: `5d3d0b0f`
 
 #### Overview
 

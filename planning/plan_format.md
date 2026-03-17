@@ -23,7 +23,7 @@ This should only be started once all the above sections are clear and understood
 
 # Tasks
 
-### 1. Task One Title
+### Task 1. Task One Title
 
 - Task Status: The current status of the task. Use exactly one of `__to_do__`, `__in_progress__`, or `__done__`.
 - Git Commits: a comma separated list of git hashes that have been committed to implement this story.
@@ -66,7 +66,7 @@ Couple of sentences of what this task achieves and why it is needed. Each task s
 
 ---
 
-### 2. Task Two Title
+### Task 2. Task Two Title
 
 - status: **to_do**
 - Git Commits: **to_do**

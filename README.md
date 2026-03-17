@@ -252,6 +252,41 @@ codex_agents/<agentName>/
 5. Use **Flows** (`/flows`) for repeatable multi-step automations.
 6. Use **Ingest** (`/ingest`) before repository-aware answers if a repo is not indexed yet.
 
+## Story 48 Workflow Contract
+
+- Working-repo-first lookup now applies everywhere this story touched:
+  - working repository first;
+  - referencing-file owner second;
+  - local `codeInfo2` third;
+  - other ingested repositories last.
+- Nested lookups restart that same order on every hop. A prior winner does not become the next root unless it is also the owner of the next referencing file.
+- The working-folder picker is now a saved conversation setting for Chat, Agents, and Flows. Direct command runs reuse the owning agent conversation instead of creating a separate command conversation.
+- Picker behavior is intentionally strict:
+  - switching back to an existing conversation restores its saved folder;
+  - idle edits save through the shared conversation working-folder route;
+  - active runs lock the picker;
+  - stale or invalid saved paths are cleared back to the normal empty state.
+- Runtime lookup debugging is split across two surfaces:
+  - structured logs show full candidate order and selected repository;
+  - persisted run metadata stores only the compact lookup summary (`selectedRepositoryPath`, `fallbackUsed`, `workingRepositoryAvailable`).
+- Repository-owned env names now use the `CODEINFO_*` namespace on the server and `VITE_CODEINFO_*` in the client/runtime config path.
+- The current client/runtime env set is:
+  - `VITE_CODEINFO_API_URL`
+  - `VITE_CODEINFO_LMSTUDIO_URL`
+  - `VITE_CODEINFO_LOG_FORWARD_ENABLED`
+  - `VITE_CODEINFO_LOG_MAX_BYTES`
+- OpenAI embeddings now use tokenizer-backed counting with Node `tiktoken` and the real `8192`-token model boundary. OpenAI-specific counting failures fail closed with explicit ingest errors instead of falling back to the old heuristic or whitespace estimates.
+- Final full-story regression commands:
+  - `npm run build:summary:server`
+  - `npm run build:summary:client`
+  - `npm run test:summary:server:unit`
+  - `npm run test:summary:server:cucumber`
+  - `npm run test:summary:client`
+  - `npm run test:summary:e2e`
+  - `npm run compose:build:summary`
+  - `npm run compose:up`
+  - `npm run compose:down`
+
 ## Story 45 Workflow Files
 
 Story 45 extends command and flow JSON files with repository-aware markdown loading and blocking re-ingest steps without adding a new paused or resumable workflow mode.

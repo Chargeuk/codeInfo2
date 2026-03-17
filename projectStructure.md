@@ -1,5 +1,54 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000048 final implementation footprint
+
+Added files:
+
+- `client/src/api/conversations.ts`
+- `client/src/config/runtimeConfig.ts`
+- `client/src/test/chatPage.workingFolder.test.tsx`
+- `client/src/test/conversationsApi.workingFolder.test.ts`
+- `e2e/env-runtime-config.spec.ts`
+- `planning/0000048-pr-summary.md`
+- `server/src/flows/repositoryCandidateOrder.ts`
+- `server/src/ingest/providers/openaiTokenizer.ts`
+- `server/src/test/unit/repositoryCandidateOrder.test.ts`
+- `server/src/workingFolders/state.ts`
+
+Removed files:
+
+- None.
+
+Modified files (story-wide traceability highlights):
+
+- `README.md`
+- `design.md`
+- `docs/developer-reference.md`
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `projectStructure.md`
+- `client/src/hooks/useConversations.ts`
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/pages/FlowsPage.tsx`
+- `server/src/agents/commandItemExecutor.ts`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/agents/service.ts`
+- `server/src/chat/memoryPersistence.ts`
+- `server/src/flows/flowState.ts`
+- `server/src/flows/markdownFileResolver.ts`
+- `server/src/flows/service.ts`
+- `server/src/mongo/repo.ts`
+- `server/src/mongo/turn.ts`
+- `server/src/routes/chat.ts`
+- `server/src/routes/conversations.ts`
+- `server/src/ingest/chunker.ts`
+- `server/src/ingest/providers/openaiEmbeddingProvider.ts`
+- `server/src/ingest/providers/openaiGuardrails.ts`
+
+Story notes:
+
+- Story 48 adds shared repository-order, working-folder, runtime-config, and OpenAI-tokenizer helpers while keeping the rest of the work as in-place contract wiring across existing chat, agent, flow, ingest, and documentation files.
+
 ## Story 0000048 Task 10 structural change ledger
 
 Added files:

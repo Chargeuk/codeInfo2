@@ -481,6 +481,45 @@ sequenceDiagram
   end
 ```
 
+## Story 0000048 final contract summary
+
+- Reference resolution now follows one shared repository-order helper for command and markdown lookups:
+  - working repository first;
+  - referencing-file owner second;
+  - local `codeInfo2` third;
+  - other ingested repositories last.
+- That order restarts on every hop. Flow -> command, flow -> markdown, and command -> markdown all rebuild candidates from the current referencing file instead of inheriting a prior winner.
+- Working-folder persistence is conversation-owned and run-snapshotted:
+  - editable saved value in `Conversation.flags.workingFolder`;
+  - exact run snapshot in `Turn.runtime.workingFolder`;
+  - compact lookup result in `Turn.runtime.lookupSummary`.
+- Chat, Agents, and Flows all restore the saved folder in the picker, allow idle save/clear through `POST /conversations/:id/working-folder`, lock edits while active work is inflight, and return to the normal empty state when the server clears a stale folder.
+- Story 48 completed a clean env cutover:
+  - server/runtime/compose readers use `CODEINFO_*`;
+  - browser/build/runtime readers use `VITE_CODEINFO_*`;
+  - the old checked-in generic product env names are no longer the live contract.
+- OpenAI embeddings now use one shared `tiktoken`-backed `cl100k_base` counter across guardrails, provider `countTokens()`, and chunking. The hard limit is the real `8192` tokens, while operational headroom remains the chunker safety margin.
+- Story 48 observability is split intentionally:
+  - structured logs contain full candidate-order/debug detail and the Story 48 marker set;
+  - persisted runtime metadata stays compact and omits the verbose candidate list.
+
+```mermaid
+flowchart TD
+  Picker[Saved working-folder picker state] --> Conversation[Conversation.flags.workingFolder]
+  Conversation --> Resolver[Shared repository candidate order helper]
+  Resolver --> Command[Command lookup]
+  Resolver --> Markdown[Markdown lookup]
+  Command --> Runtime[Turn.runtime.lookupSummary]
+  Markdown --> Runtime
+  Conversation --> Run[Chat / Agent / Flow / Direct command run]
+  Run --> Snapshot[Turn.runtime.workingFolder]
+  EnvServer[CODEINFO_* server envs] --> ServerRuntime[Server + compose runtime]
+  EnvClient[VITE_CODEINFO_* client envs] --> ClientRuntime[Build + window.__CODEINFO_CONFIG__]
+  Tokenizer[tiktoken cl100k_base helper] --> Guardrails[OpenAI guardrails]
+  Tokenizer --> Provider[OpenAI provider countTokens]
+  Tokenizer --> Chunker[Chunk sizing]
+```
+
 ## Agents prompts route contract (Story 0000039 Task 1)
 
 - Added `GET /agents/{agentName}/prompts` at the agents commands router boundary.

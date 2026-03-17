@@ -155,6 +155,39 @@ Use this document for API contracts, protocol details, and advanced runtime beha
 - Logging readers live in [`server/src/logger.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/logger.ts) and the wrapper assets [`scripts/test-summary-server-unit.mjs`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/scripts/test-summary-server-unit.mjs), [`scripts/test-summary-server-cucumber.mjs`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/scripts/test-summary-server-cucumber.mjs), [`server/package.json`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/package.json), [`docker-compose.yml`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.yml), [`docker-compose.local.yml`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.local.yml), and [`docker-compose.e2e.yml`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.e2e.yml): `CODEINFO_LOG_FILE_PATH`, `CODEINFO_LOG_LEVEL`, `CODEINFO_LOG_BUFFER_MAX`, `CODEINFO_LOG_MAX_CLIENT_BYTES`, `CODEINFO_LOG_INGEST_WS_THROTTLE_MS`, and `CODEINFO_LOG_FILE_ROTATE`.
 - Removed legacy server env names: `LMSTUDIO_BASE_URL`, `OPENAI_EMBEDDING_KEY`, `CHAT_DEFAULT_PROVIDER`, `CHAT_DEFAULT_MODEL`, `INGEST_INCLUDE`, `INGEST_EXCLUDE`, `INGEST_TOKEN_MARGIN`, `INGEST_FALLBACK_TOKENS`, `INGEST_FLUSH_EVERY`, `INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`, `INGEST_TEST_GIT_PATHS`, `LOG_FILE_PATH`, `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_INGEST_WS_THROTTLE_MS`, and `LOG_FILE_ROTATE`.
 
+### Story 48 lookup and working-folder contract
+
+- Repository lookup order is one shared server contract:
+  - current working repository;
+  - owner of the referencing file;
+  - local `codeInfo2`;
+  - other ingested repositories.
+- The lookup order restarts on every nested hop. Flow -> command and command -> markdown do not inherit the previous winner unless that same repository is also the owner of the next referencing file.
+- Duplicate repository paths are removed first-seen, so working/owner/local collisions do not produce duplicate attempts.
+- Chat, agent, and flow conversations save the editable current folder in `Conversation.flags.workingFolder`. Direct command runs restore and save that value on the owning agent conversation rather than a command-only record.
+- Each run still snapshots the actual folder it used in `Turn.runtime.workingFolder`, while compact lookup metadata stays in `Turn.runtime.lookupSummary`.
+- Invalid saved folders are cleared server-side before restore or reuse; the UI then returns to the normal empty picker state rather than silently substituting another repository.
+- Idle working-folder edits use `POST /conversations/:id/working-folder`. Active runs lock edits until the related inflight state clears.
+
+### Story 48 debugging surfaces
+
+- Structured logs are the canonical lookup-debugging surface. They include candidate order, selected repository, fallback behavior, and missing-working-repository state.
+- Persisted runtime metadata is intentionally compact and stores only:
+  - `selectedRepositoryPath`
+  - `fallbackUsed`
+  - `workingRepositoryAvailable`
+- Expected Story 48 markers:
+  - `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER`
+  - `DEV_0000040_T11_FLOW_RESOLUTION_ORDER`
+  - `DEV_0000048_T3_MARKDOWN_RESOLUTION_ORDER`
+  - `DEV_0000048_T4_WORKING_FOLDER_STATE_STORED`
+  - `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION`
+  - `DEV_0000048_T6_PICKER_SYNC`
+  - `DEV_0000048_T7_CODEINFO_ENV_RESOLVED`
+  - `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG`
+  - `DEV_0000048_T9_OPENAI_TOKENIZER_COUNT`
+- `DEV_0000048_T9_OPENAI_TOKENIZER_COUNT` is emitted from the shared OpenAI tokenizer helper and records `provider`, `model`, `countedTokenTotal`, and `countingPath` (`guardrail`, `provider`, or `chunker`).
+
 ## Workspace layout
 
 - `client/` — React app (Vite) [workspace]

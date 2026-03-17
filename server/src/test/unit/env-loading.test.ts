@@ -28,6 +28,9 @@ const writeEnvFile = (
   fs.writeFileSync(path.join(root, name), body, 'utf8');
 };
 const legacyServerEnv = (...parts: string[]) => parts.join('_');
+const assertDefinedString = (value: string | undefined) => {
+  assert.equal(typeof value, 'string');
+};
 
 test('loads renamed CODEINFO env keys with .env.local override precedence', () => {
   const serverRoot = createServerRoot();
@@ -69,7 +72,7 @@ test('optional renamed CODEINFO env keys stay absent and defaults can still reso
   const serverRoot = createServerRoot();
   const targetEnv: Record<string, string | undefined> = {};
 
-  writeEnvFile(serverRoot, '.env', ['SERVER_PORT=5010', ''].join('\n'));
+  writeEnvFile(serverRoot, '.env', ['CODEINFO_SERVER_PORT=5010', ''].join('\n'));
 
   const result = loadStartupEnv({ serverRoot, targetEnv });
   const resolutions = resolveCodeinfoEnvResolutions({
@@ -91,6 +94,56 @@ test('optional renamed CODEINFO env keys stay absent and defaults can still reso
       ?.defined,
     false,
   );
+});
+
+test('runtime server env rename inventory is surfaced through startup env resolution', () => {
+  const serverRoot = createServerRoot();
+  const targetEnv: Record<string, string | undefined> = {};
+
+  writeEnvFile(
+    serverRoot,
+    '.env',
+    [
+      'CODEINFO_SERVER_PORT=5510',
+      'CODEINFO_MONGO_URI=mongodb://example/db',
+      'CODEINFO_CHROMA_URL=http://example:8000',
+      'CODEINFO_MCP_PORT=5511',
+      'CODEINFO_AGENTS_MCP_PORT=5512',
+      'CODEINFO_HOST_INGEST_DIR=/host/base',
+      'CODEINFO_OPENAI_INGEST_MAX_RETRIES=8',
+      '',
+    ].join('\n'),
+  );
+
+  const result = loadStartupEnv({ serverRoot, targetEnv });
+  const resolutions = resolveCodeinfoEnvResolutions({
+    env: targetEnv,
+    loadResult: result,
+  });
+
+  for (const name of [
+    'CODEINFO_SERVER_PORT',
+    'CODEINFO_MONGO_URI',
+    'CODEINFO_CHROMA_URL',
+    'CODEINFO_MCP_PORT',
+    'CODEINFO_AGENTS_MCP_PORT',
+    'CODEINFO_HOST_INGEST_DIR',
+    'CODEINFO_OPENAI_INGEST_MAX_RETRIES',
+  ] as const) {
+    assertDefinedString(targetEnv[name]);
+    assert.equal(
+      resolutions.find((entry) => entry.name === name)?.source,
+      'server/.env',
+    );
+    assert.equal(
+      resolutions.find((entry) => entry.name === name)?.defined,
+      true,
+    );
+    assert.equal(
+      resolutions.find((entry) => entry.name === name)?.nonEmpty,
+      true,
+    );
+  }
 });
 
 test('runtime pre-seeded renamed CODEINFO values override file defaults', () => {
@@ -170,6 +223,13 @@ test('checked-in defaults and wrappers seed only renamed CODEINFO server env nam
     'server/package.json',
   ];
   const legacyNames = [
+    legacyServerEnv('SERVER', 'PORT'),
+    legacyServerEnv('MONGO', 'URI'),
+    legacyServerEnv('CHROMA', 'URL'),
+    legacyServerEnv('MCP', 'PORT'),
+    legacyServerEnv('AGENTS', 'MCP', 'PORT'),
+    legacyServerEnv('HOST', 'INGEST', 'DIR'),
+    legacyServerEnv('OPENAI', 'INGEST', 'MAX', 'RETRIES'),
     legacyServerEnv('LMSTUDIO', 'BASE', 'URL'),
     legacyServerEnv('OPENAI', 'EMBEDDING', 'KEY'),
     legacyServerEnv('CHAT', 'DEFAULT', 'PROVIDER'),

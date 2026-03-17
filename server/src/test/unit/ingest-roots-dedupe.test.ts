@@ -11,7 +11,7 @@ import { query, resetStore } from '../../logStore.js';
 import { createIngestRootsRouter } from '../../routes/ingestRoots.js';
 import { dedupeRootsByPath } from '../../routes/ingestRoots.js';
 
-const ORIGINAL_HOST = process.env.HOST_INGEST_DIR;
+const ORIGINAL_HOST = process.env.CODEINFO_HOST_INGEST_DIR;
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 
 function createRootsApp(
@@ -33,7 +33,7 @@ function createRootsApp(
 }
 
 beforeEach(() => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   process.env.NODE_ENV = 'test';
   resetStore();
   __resetIngestJobsForTest();
@@ -41,9 +41,9 @@ beforeEach(() => {
 
 afterEach(() => {
   if (ORIGINAL_HOST === undefined) {
-    delete process.env.HOST_INGEST_DIR;
+    delete process.env.CODEINFO_HOST_INGEST_DIR;
   } else {
-    process.env.HOST_INGEST_DIR = ORIGINAL_HOST;
+    process.env.CODEINFO_HOST_INGEST_DIR = ORIGINAL_HOST;
   }
   if (ORIGINAL_NODE_ENV === undefined) {
     delete process.env.NODE_ENV;

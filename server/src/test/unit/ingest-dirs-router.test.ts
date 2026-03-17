@@ -7,13 +7,13 @@ import express from 'express';
 import request from 'supertest';
 import { createIngestDirsRouter } from '../../routes/ingestDirs.js';
 
-const ORIGINAL_HOST = process.env.HOST_INGEST_DIR;
+const ORIGINAL_HOST = process.env.CODEINFO_HOST_INGEST_DIR;
 
 let baseDir = '';
 
 beforeEach(async () => {
   baseDir = await mkdtemp(path.join(os.tmpdir(), 'codeinfo2-ingest-dirs-'));
-  process.env.HOST_INGEST_DIR = baseDir;
+  process.env.CODEINFO_HOST_INGEST_DIR = baseDir;
   await mkdir(path.join(baseDir, 'repo-b'));
   await mkdir(path.join(baseDir, 'repo-a'));
   await writeFile(path.join(baseDir, 'file.txt'), 'hello');
@@ -22,9 +22,9 @@ beforeEach(async () => {
 afterEach(async () => {
   await rm(baseDir, { recursive: true, force: true });
   if (ORIGINAL_HOST === undefined) {
-    delete process.env.HOST_INGEST_DIR;
+    delete process.env.CODEINFO_HOST_INGEST_DIR;
   } else {
-    process.env.HOST_INGEST_DIR = ORIGINAL_HOST;
+    process.env.CODEINFO_HOST_INGEST_DIR = ORIGINAL_HOST;
   }
 });
 

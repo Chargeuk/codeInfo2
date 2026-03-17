@@ -12,7 +12,7 @@ export const resolveServerPort = (
   env: NodeJS.ProcessEnv = process.env,
 ): string => {
   return (
-    readNonEmpty(env.SERVER_PORT) ??
+    readNonEmpty(env.CODEINFO_SERVER_PORT) ??
     readNonEmpty(env.PORT) ??
     DEFAULT_SERVER_PORT
   );

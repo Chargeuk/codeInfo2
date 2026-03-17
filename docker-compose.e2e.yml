@@ -22,9 +22,9 @@ services:
     env_file:
       - server/.env.e2e
     environment:
-      - MONGO_URI=mongodb://host.docker.internal:27617/db?directConnection=true
+      - CODEINFO_MONGO_URI=mongodb://host.docker.internal:27617/db?directConnection=true
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
-      - AGENTS_MCP_PORT=5012
+      - CODEINFO_AGENTS_MCP_PORT=5012
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
       - CODEINFO_RUNTIME_UID=${CODEINFO_DOCKER_UID:-1000}
       - CODEINFO_RUNTIME_GID=${CODEINFO_DOCKER_GID:-1000}

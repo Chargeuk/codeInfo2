@@ -10,21 +10,21 @@ import {
 import { baseLogger } from '../../logger.js';
 import { createToolsIngestedReposRouter } from '../../routes/toolsIngestedRepos.js';
 
-const ORIGINAL_HOST = process.env.HOST_INGEST_DIR;
+const ORIGINAL_HOST = process.env.CODEINFO_HOST_INGEST_DIR;
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 const ORIGINAL_DEV_0000038_MARKERS = process.env.DEV_0000038_MARKERS;
 
 beforeEach(() => {
-  delete process.env.HOST_INGEST_DIR;
+  delete process.env.CODEINFO_HOST_INGEST_DIR;
   process.env.NODE_ENV = 'test';
   __resetIngestJobsForTest();
 });
 
 afterEach(() => {
   if (ORIGINAL_HOST === undefined) {
-    delete process.env.HOST_INGEST_DIR;
+    delete process.env.CODEINFO_HOST_INGEST_DIR;
   } else {
-    process.env.HOST_INGEST_DIR = ORIGINAL_HOST;
+    process.env.CODEINFO_HOST_INGEST_DIR = ORIGINAL_HOST;
   }
   if (ORIGINAL_NODE_ENV === undefined) {
     delete process.env.NODE_ENV;
@@ -81,7 +81,7 @@ test('returns empty repos list with null lock when no roots exist', async () => 
 });
 
 test('maps repo metadata and host path with locked model id', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   const res = await request(
     buildApp(
       {
@@ -320,7 +320,7 @@ test('active overlay normalizes source path before matching persisted metadata',
 });
 
 test('synthesizes active entry when persisted metadata is missing', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   __setStatusForTest('active-run-2', {
     runId: 'active-run-2',
     state: 'queued',

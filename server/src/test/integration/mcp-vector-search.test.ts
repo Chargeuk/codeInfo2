@@ -91,8 +91,8 @@ test('classic MCP VectorSearch enforces locked provider/model path like REST', a
 });
 
 test('classic MCP VectorSearch accepts host-path repository selectors', async () => {
-  const originalHost = process.env.HOST_INGEST_DIR;
-  process.env.HOST_INGEST_DIR = '/Users/example/dev';
+  const originalHost = process.env.CODEINFO_HOST_INGEST_DIR;
+  process.env.CODEINFO_HOST_INGEST_DIR = '/Users/example/dev';
 
   let capturedWhere: Record<string, unknown> | undefined;
 
@@ -176,9 +176,9 @@ test('classic MCP VectorSearch accepts host-path repository selectors', async ()
     assert.deepEqual(capturedWhere, { root: '/data/repo-one' });
   } finally {
     if (originalHost === undefined) {
-      delete process.env.HOST_INGEST_DIR;
+      delete process.env.CODEINFO_HOST_INGEST_DIR;
     } else {
-      process.env.HOST_INGEST_DIR = originalHost;
+      process.env.CODEINFO_HOST_INGEST_DIR = originalHost;
     }
   }
 });

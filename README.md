@@ -130,7 +130,7 @@ Corporate certificate directory requirements:
 
 ## MongoDB (conversation history)
 
-- Conversation persistence depends on MongoDB. Default URI: `MONGO_URI=mongodb://host.docker.internal:27517/db?directConnection=true`.
+- Conversation persistence depends on MongoDB. Default URI: `CODEINFO_MONGO_URI=mongodb://host.docker.internal:27517/db?directConnection=true`.
 - `docker-compose.yml` includes a Mongo 8 replica-set service bound to host port 27517 and passes the same URI into the server container; local dev can reuse the same URI when running the server without Compose.
 - If Mongo is unreachable the server keeps running but reports `mongoConnected=false`; the client surfaces a banner and disables archive controls while allowing stateless chat.
 

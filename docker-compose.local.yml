@@ -38,12 +38,12 @@ services:
       - GIT_COMMITTER_EMAIL=llm@llm.com
       # Override to use host.docker.internal for ChromaDB
       - CODEINFO_LOG_FILE_PATH=/app/logs/server-local.log
-      - CHROMA_URL=http://host.docker.internal:8200
+      - CODEINFO_CHROMA_URL=http://host.docker.internal:8200
       - CODEINFO_CODEX_HOME=/app/codex
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
-      - MCP_PORT=5011 # Codex-only MCP JSON-RPC port
-      - AGENTS_MCP_PORT=5012
-      - MONGO_URI=mongodb://host.docker.internal:27417/db?directConnection=true
+      - CODEINFO_MCP_PORT=5011 # Codex-only MCP JSON-RPC port
+      - CODEINFO_AGENTS_MCP_PORT=5012
+      - CODEINFO_MONGO_URI=mongodb://host.docker.internal:27417/db?directConnection=true
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
       - CODEINFO_RUNTIME_UID=${CODEINFO_DOCKER_UID:-1000}
       - CODEINFO_RUNTIME_GID=${CODEINFO_DOCKER_GID:-1000}
@@ -56,7 +56,7 @@ services:
       - CODEINFO_REFRESH_CA_CERTS_ON_START=${CODEINFO_REFRESH_CA_CERTS_ON_START:-}
     volumes:
       - ./logs:/app/logs
-      - ${HOST_INGEST_DIR}:${CODEINFO_CODEX_WORKDIR}
+      - ${CODEINFO_HOST_INGEST_DIR}:${CODEINFO_CODEX_WORKDIR}
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - ./codex:${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}
       - ./codex:/app/codex

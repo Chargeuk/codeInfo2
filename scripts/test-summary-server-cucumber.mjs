@@ -166,8 +166,8 @@ if (options.scenario) {
 const cucumberEnv = {
   ...process.env,
   CODEINFO_LOG_FILE_PATH: '../logs/server-cucumber.log',
-  CHROMA_URL: '',
-  MONGO_URI: '',
+  CODEINFO_CHROMA_URL: '',
+  CODEINFO_MONGO_URI: '',
   TS_NODE_FILES: 'true',
   TS_NODE_PROJECT: './tsconfig.json',
   NODE_OPTIONS:

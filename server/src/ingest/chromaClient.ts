@@ -14,7 +14,7 @@ import {
 } from './providers/index.js';
 
 function getChromaUrl(): string {
-  const raw = process.env.CHROMA_URL;
+  const raw = process.env.CODEINFO_CHROMA_URL;
   if (!raw || raw.trim() === '') return 'http://localhost:8000';
   return raw;
 }

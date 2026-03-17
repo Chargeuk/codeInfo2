@@ -1407,22 +1407,30 @@ Close the review finding in the shared repository-candidate helper by ensuring o
 
 #### Subtasks
 
-1. [ ] Re-read the review finding in `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, then inspect `server/src/flows/repositoryCandidateOrder.ts`, `server/src/flows/service.ts`, `server/src/flows/markdownFileResolver.ts`, and `server/src/test/unit/repositoryCandidateOrder.test.ts`. Record in Task 14 `Implementation notes` the current over-broad de-duplication rule and the exact contract that should replace it.
-2. [ ] Update the repository candidate de-duplication key so it removes true duplicates without collapsing two distinct repository roots solely because their resolved paths differ only by letter case on a case-sensitive filesystem.
-3. [ ] Keep the existing first-position-wins behavior for genuine duplicates, including the working-repo, owner-repo, and `codeInfo2` slots.
-4. [ ] Add or extend one unit test that proves truly duplicate repository identities are still removed.
-5. [ ] Add or extend one unit test that proves two distinct case-sensitive repository paths both survive candidate ordering when they are different real paths under the story contract.
-6. [ ] Update this story file's Task 14 `Implementation notes` with the new de-duplication rule and why it still satisfies the Story 48 duplicate-candidate contract.
+1. [x] Re-read the review finding in `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, then inspect `server/src/flows/repositoryCandidateOrder.ts`, `server/src/flows/service.ts`, `server/src/flows/markdownFileResolver.ts`, and `server/src/test/unit/repositoryCandidateOrder.test.ts`. Record in Task 14 `Implementation notes` the current over-broad de-duplication rule and the exact contract that should replace it.
+2. [x] Update the repository candidate de-duplication key so it removes true duplicates without collapsing two distinct repository roots solely because their resolved paths differ only by letter case on a case-sensitive filesystem.
+3. [x] Keep the existing first-position-wins behavior for genuine duplicates, including the working-repo, owner-repo, and `codeInfo2` slots.
+4. [x] Add or extend one unit test that proves truly duplicate repository identities are still removed.
+5. [x] Add or extend one unit test that proves two distinct case-sensitive repository paths both survive candidate ordering when they are different real paths under the story contract.
+6. [x] Update this story file's Task 14 `Implementation notes` with the new de-duplication rule and why it still satisfies the Story 48 duplicate-candidate contract.
 
 #### Testing
 
 Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Use because this task changes shared server/common resolver behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` - Use because this task changes shared server/common candidate-order behavior covered by node:test suites. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes shared resolver behavior that should still satisfy feature-level server coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:cucumber`.
+1. [x] `npm run build:summary:server` - Use because this task changes shared server/common resolver behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes shared server/common candidate-order behavior covered by node:test suites. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use because this task changes shared resolver behavior that should still satisfy feature-level server coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
+
+- Re-read the review finding plus `server/src/flows/repositoryCandidateOrder.ts`, `server/src/flows/service.ts`, `server/src/flows/markdownFileResolver.ts`, and `server/src/test/unit/repositoryCandidateOrder.test.ts`; the issue was the helper’s over-broad lowercase dedupe key, while the correct contract is still “first-position wins for truly identical resolved paths.”
+- Narrowed `normalizeCandidateKey(...)` in `server/src/flows/repositoryCandidateOrder.ts` to use the resolved absolute path as-is, so distinct case-sensitive repository roots no longer collapse into one candidate on case-sensitive filesystems.
+- Kept the existing first-seen dedupe semantics for genuine duplicates, so working-repo, owner-repo, and `codeInfo2` still collapse only when they resolve to the exact same path string.
+- Updated `server/src/test/unit/repositoryCandidateOrder.test.ts` so the original duplicate cases now use truly identical paths and added an explicit `/tmp/Repo-One` versus `/tmp/repo-one` regression proving both candidates survive under the Story 48 contract.
+- Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
+- Testing step 2 passed via `npm run test:summary:server:unit` with `tests run: 1279`, `passed: 1279`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 3 passed via `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`.
 
 ---
 

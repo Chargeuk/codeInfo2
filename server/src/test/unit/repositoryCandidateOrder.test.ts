@@ -80,7 +80,7 @@ test('dedupes a working repository that matches the owner repository', () => {
   const result = buildRepositoryCandidateOrder({
     caller: 'flow-command',
     workingRepositoryPath: '/tmp/Repo-One',
-    ownerRepositoryPath: '/tmp/repo-one',
+    ownerRepositoryPath: '/tmp/Repo-One',
     ownerRepositoryLabel: 'Owner Repo',
     codeInfo2Root: '/tmp/codeinfo2',
     otherRepositoryRoots: [],
@@ -105,7 +105,7 @@ test('dedupes an owner repository that matches the local codeinfo2 repository', 
     caller: 'direct-command',
     ownerRepositoryPath: '/tmp/codeinfo2',
     ownerRepositoryLabel: 'Owner Repo',
-    codeInfo2Root: '/tmp/CodeInfo2',
+    codeInfo2Root: '/tmp/codeinfo2',
     otherRepositoryRoots: [],
   });
 
@@ -114,6 +114,35 @@ test('dedupes an owner repository that matches the local codeinfo2 repository', 
       sourceId: path.resolve('/tmp/codeinfo2'),
       sourceLabel: 'Owner Repo',
       slot: 'owner_repository',
+    },
+  ]);
+});
+
+test('keeps distinct case-sensitive repository paths as separate candidates', () => {
+  const result = buildRepositoryCandidateOrder({
+    caller: 'flow-command',
+    workingRepositoryPath: '/tmp/Repo-One',
+    ownerRepositoryPath: '/tmp/repo-one',
+    ownerRepositoryLabel: 'Owner Repo',
+    codeInfo2Root: '/tmp/codeinfo2',
+    otherRepositoryRoots: [],
+  });
+
+  assert.deepEqual(result.candidates, [
+    {
+      sourceId: path.resolve('/tmp/Repo-One'),
+      sourceLabel: 'Repo-One',
+      slot: 'working_repository',
+    },
+    {
+      sourceId: path.resolve('/tmp/repo-one'),
+      sourceLabel: 'Owner Repo',
+      slot: 'owner_repository',
+    },
+    {
+      sourceId: path.resolve('/tmp/codeinfo2'),
+      sourceLabel: 'codeinfo2',
+      slot: 'codeinfo2',
     },
   ]);
 });

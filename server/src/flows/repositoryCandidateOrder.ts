@@ -34,8 +34,6 @@ export type RepositoryCandidateLookupSummary = {
   workingRepositoryAvailable: boolean;
 };
 
-const normalizeAsciiLower = (value: string) => value.toLowerCase();
-
 export const normalizeRepositoryCandidateLabel = (params: {
   sourceId: string;
   sourceLabel?: string;
@@ -45,8 +43,7 @@ export const normalizeRepositoryCandidateLabel = (params: {
   return path.posix.basename(params.sourceId.replace(/\\/g, '/'));
 };
 
-const normalizeCandidateKey = (sourceId: string) =>
-  normalizeAsciiLower(path.resolve(sourceId));
+const normalizeCandidateKey = (sourceId: string) => path.resolve(sourceId);
 
 export const buildRepositoryCandidateOrder = (params: {
   caller: RepositoryCandidateOrderCaller;

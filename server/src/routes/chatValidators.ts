@@ -138,6 +138,7 @@ const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
 export async function validateChatRequest(
   body: ChatRequestBody | unknown,
   options?: {
+    knownRepositoryPaths?: string[];
     codexCapabilityResolver?: (options: {
       consumer: 'chat_models' | 'chat_validation';
     }) => Promise<CodexCapabilityResolution>;
@@ -244,6 +245,7 @@ export async function validateChatRequest(
         rawWorkingFolder.trim().length > 0
           ? rawWorkingFolder
           : undefined,
+      knownRepositoryPaths: options?.knownRepositoryPaths,
     });
   } catch (error) {
     const err = error as { reason?: unknown };

@@ -270,6 +270,55 @@ test('chat validation accepts a valid working_folder', async () => {
   assert.equal(result.working_folder, workingFolder);
 });
 
+test('chat validation rejects existing absolute working_folder when it is not ingested', async () => {
+  const ingestedWorkingFolder = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-working-folder-ingested-'),
+  );
+  const nonIngestedWorkingFolder = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-working-folder-non-ingested-'),
+  );
+  tempDirs.push(ingestedWorkingFolder, nonIngestedWorkingFolder);
+
+  await assert.rejects(
+    async () =>
+      await validateChatRequest(
+        {
+          model: 'gpt-5.2-codex',
+          message: 'hello',
+          conversationId: 'chat-working-folder-non-ingested',
+          provider: 'codex',
+          working_folder: nonIngestedWorkingFolder,
+        },
+        {
+          knownRepositoryPaths: [ingestedWorkingFolder],
+        },
+      ),
+    /working_folder not found/,
+  );
+});
+
+test('chat validation accepts an ingested absolute working_folder', async () => {
+  const workingFolder = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-working-folder-ingested-valid-'),
+  );
+  tempDirs.push(workingFolder);
+
+  const result = await validateChatRequest(
+    {
+      model: 'gpt-5.2-codex',
+      message: 'hello',
+      conversationId: 'chat-working-folder-ingested-valid',
+      provider: 'codex',
+      working_folder: workingFolder,
+    },
+    {
+      knownRepositoryPaths: [workingFolder],
+    },
+  );
+
+  assert.equal(result.working_folder, workingFolder);
+});
+
 test('chat validation rejects invalid absolute-path working_folder with shared message', async () => {
   await assert.rejects(
     async () =>

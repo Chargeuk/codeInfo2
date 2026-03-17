@@ -166,9 +166,15 @@ export function createChatRouter({
     }
 
     let validatedBody;
+    const knownRepositoryPaths = await listIngestedRepositories()
+      .then((result) =>
+        result.repos.map((repo) => path.resolve(repo.containerPath)),
+      )
+      .catch(() => undefined);
     try {
       validatedBody = await validateChatRequest(rawBody, {
         codexCapabilityResolver,
+        knownRepositoryPaths,
       });
     } catch (err) {
       if (err instanceof ChatValidationError) {
@@ -380,12 +386,6 @@ export function createChatRouter({
         workingFolder,
       });
     };
-
-    const knownRepositoryPaths = await listIngestedRepositories()
-      .then((result) =>
-        result.repos.map((repo) => path.resolve(repo.containerPath)),
-      )
-      .catch(() => undefined);
 
     let existingConversation = await loadExistingConversation();
     let effectiveWorkingFolder = requestedWorkingFolder;

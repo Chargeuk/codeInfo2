@@ -1331,22 +1331,30 @@ Close the `must_fix` review finding by making chat use the same ingested-reposit
 
 #### Subtasks
 
-1. [ ] Re-read the review finding in `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, then inspect `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts`. Record in Task 12 `Implementation notes` the current contract mismatch: chat validation accepts any existing absolute directory, while the other surfaces also enforce known-ingested repository membership.
-2. [ ] Update the chat request path so a provided `working_folder` is validated against the same known repository set used by the other Story 48 working-folder entry points. Keep the canonical absolute-path contract unchanged and do not add a legacy fallback for non-ingested directories.
-3. [ ] Ensure the final chat-run persistence/logging path still records the requested working folder only after the ingested-repository check succeeds. Do not leave two different validation decisions in `chatValidators` and `chat.ts`.
-4. [ ] Add or extend one server unit or integration test that proves `POST /chat` rejects an existing absolute directory when it is not one of the ingested repositories.
-5. [ ] Add or extend one server unit or integration test that proves `POST /chat` still accepts an existing absolute directory when it is ingested and otherwise valid.
-6. [ ] Update this story file's Task 12 `Implementation notes` with the chosen validation point and the exact parity rule now shared with the other working-folder surfaces.
+1. [x] Re-read the review finding in `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, then inspect `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts`. Record in Task 12 `Implementation notes` the current contract mismatch: chat validation accepts any existing absolute directory, while the other surfaces also enforce known-ingested repository membership.
+2. [x] Update the chat request path so a provided `working_folder` is validated against the same known repository set used by the other Story 48 working-folder entry points. Keep the canonical absolute-path contract unchanged and do not add a legacy fallback for non-ingested directories.
+3. [x] Ensure the final chat-run persistence/logging path still records the requested working folder only after the ingested-repository check succeeds. Do not leave two different validation decisions in `chatValidators` and `chat.ts`.
+4. [x] Add or extend one server unit or integration test that proves `POST /chat` rejects an existing absolute directory when it is not one of the ingested repositories.
+5. [x] Add or extend one server unit or integration test that proves `POST /chat` still accepts an existing absolute directory when it is ingested and otherwise valid.
+6. [x] Update this story file's Task 12 `Implementation notes` with the chosen validation point and the exact parity rule now shared with the other working-folder surfaces.
 
 #### Testing
 
 Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Use because this task changes server-side chat validation and working-folder persistence behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` - Use because this task changes server/common request validation and persistence behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes server/common chat behavior that should still satisfy feature-level server coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:cucumber`.
+1. [x] `npm run build:summary:server` - Use because this task changes server-side chat validation and working-folder persistence behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes server/common request validation and persistence behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use because this task changes server/common chat behavior that should still satisfy feature-level server coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
+
+- Re-read the review finding plus `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts`; the mismatch was exactly as reported: chat validation only checked “absolute existing directory,” while the other Story 48 working-folder entry points also required membership in the known ingested repository set.
+- Chose `validateChatRequest(...)` as the single validation point and threaded `knownRepositoryPaths` into it, so chat now uses the same shared `validateRequestedWorkingFolder(...)` parity rule as the other working-folder surfaces instead of making a second ingested-repository decision later in `chat.ts`.
+- Updated `server/src/routes/chat.ts` to fetch the ingested repository paths once up front, pass them into `validateChatRequest(...)`, and reuse that same list for saved-folder restore behavior, which keeps persistence/logging downstream of one accepted validation result.
+- Extended `server/src/test/unit/chatValidators.test.ts` with the missing reject case for an existing but non-ingested absolute directory and the matching accept case for an ingested absolute directory, so chat now has direct proof for the exact review regression.
+- Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
+- Testing step 2 passed via `npm run test:summary:server:unit` with `tests run: 1277`, `passed: 1277`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 3 passed via `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`.
 
 ---
 

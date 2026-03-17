@@ -12,6 +12,13 @@
       "type": "message",
       "role": "user",
       "content": [
+        "If the file `codeinfo_markdown/repository_information.md` exists, then read it as it will contain useful information you should keep referencing while working on a plan in this repository. If the file does not exist, then don't worry about it. Tell me if you found the file or not."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
         "Without tasking up, do you feel this story is well scoped? How could it be improved? Are there unknowns that need to be researched? If so, please research them using the codeInfo, DeepWiki, and Context7 MCP tools, as well as cross-referencing with internet searches, to gather repository facts, likely file locations, summaries of existing implementations, current contracts, and other evidence. Then inspect the relevant source files directly and do your own reasoning before updating the plan with your findings. Remember to give the repository path to the code_info tool as part of your question so it uses the correct repository. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
       ]
     },

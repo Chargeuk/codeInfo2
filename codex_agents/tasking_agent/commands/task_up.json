@@ -12,6 +12,13 @@
       "type": "message",
       "role": "user",
       "content": [
+        "If the file `codeinfo_markdown/repository_information.md` exists, then read it as it will contain useful information you should keep referencing while working on a plan in this repository. If the file does not exist, then don't worry about it. Tell me if you found the file or not."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
         "Does the tasking up reflect all the work required to be implemented as part of this story's requirements and details or are there parts missing? If there are parts missing, please add them as new tasks or subtasks as required. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
@@ -22,7 +29,6 @@
         "If this plan requires new test harnesses to be created, ensure that each one is properly defined and detailed within it's own task and that there is at least one test that proves the harness can be executed and checked for errors. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
       ]
     },
-
     {
       "type": "message",
       "role": "user",

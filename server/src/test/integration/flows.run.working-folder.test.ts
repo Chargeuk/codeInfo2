@@ -323,6 +323,10 @@ test('a flow-created child agent conversation inherits the exact flow-step folde
         startFlowRun({
           ...params,
           chatFactory: () => new MinimalChat(),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(workingFolder)],
+            lockedModelId: null,
+          }),
         }),
     }),
   );

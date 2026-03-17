@@ -16,6 +16,7 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import { AbortError, delayWithAbort } from '../../agents/retry.js';
 import { startFlowRun } from '../../flows/service.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
@@ -50,7 +51,15 @@ class ScriptedChat extends ChatInterface {
     const rawResponse = this.responder(message);
     const delayedMatch = rawResponse.match(/^__delay:(\d+)::([\s\S]*)$/);
     if (delayedMatch) {
-      await delay(Number(delayedMatch[1]));
+      try {
+        await delayWithAbort(Number(delayedMatch[1]), signal);
+      } catch (error) {
+        if (error instanceof AbortError) {
+          this.emit('error', { type: 'error', message: 'aborted' });
+          return;
+        }
+        throw error;
+      }
       if (signal?.aborted) {
         this.emit('error', { type: 'error', message: 'aborted' });
         return;

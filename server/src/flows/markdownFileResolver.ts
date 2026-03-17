@@ -9,6 +9,7 @@ import {
 import { append } from '../logStore.js';
 import {
   buildRepositoryCandidateLookupSummary,
+  buildRepositoryCandidateOrderLogContext,
   buildRepositoryCandidateOrder,
   DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
   normalizeRepositoryCandidateLabel,
@@ -153,12 +154,6 @@ const decodeUtf8Strict = (bytes: Uint8Array) => {
 const isMissingFileError = (error: unknown) =>
   (error as { code?: string }).code === 'ENOENT';
 
-const mapCandidateForLog = (candidate: RepositoryCandidateOrderEntry) => ({
-  sourceId: candidate.sourceId,
-  sourceLabel: candidate.sourceLabel,
-  slot: candidate.slot,
-});
-
 const appendMarkdownResolutionLog = (params: {
   level: 'info' | 'warn';
   markdownFile: string;
@@ -177,14 +172,10 @@ const appendMarkdownResolutionLog = (params: {
     message: DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
     timestamp: new Date().toISOString(),
     source: 'server',
-    context: {
+    context: buildRepositoryCandidateOrderLogContext({
+      orderedCandidates: params.orderedCandidates,
       referenceType: 'markdownFile',
-      caller: params.orderedCandidates.caller,
-      workingRepositoryAvailable:
-        params.orderedCandidates.workingRepositoryAvailable,
-      candidateRepositories:
-        params.orderedCandidates.candidates.map(mapCandidateForLog),
-    },
+    }),
   });
 
   const lookupSummary = params.selectedCandidate
@@ -212,8 +203,10 @@ const appendMarkdownResolutionLog = (params: {
       fallbackUsed: lookupSummary?.fallbackUsed ?? false,
       workingRepositoryAvailable:
         params.orderedCandidates.workingRepositoryAvailable,
-      candidateRepositories:
-        params.orderedCandidates.candidates.map(mapCandidateForLog),
+      candidateRepositories: buildRepositoryCandidateOrderLogContext({
+        orderedCandidates: params.orderedCandidates,
+        referenceType: 'markdownFile',
+      }).candidateRepositories,
       ...(params.resolvedPath ? { resolvedPath: params.resolvedPath } : {}),
       ...(params.failureReason ? { failureReason: params.failureReason } : {}),
       ...(params.failureMessage

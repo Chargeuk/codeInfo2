@@ -33,6 +33,7 @@ import { McpResponder } from '../chat/responders/McpResponder.js';
 import { RuntimeConfigResolutionError } from '../config/runtimeConfig.js';
 import {
   buildRepositoryCandidateLookupSummary,
+  buildRepositoryCandidateOrderLogContext,
   buildRepositoryCandidateOrder,
   DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
   normalizeRepositoryCandidateLabel,
@@ -343,15 +344,6 @@ type DirectCommandResolution = {
 const codeInfo2RootForAgent = (agentHome: string) =>
   path.resolve(agentHome, '..', '..');
 
-const mapCandidateRepositoriesForLog = (
-  orderedCandidates: RepositoryCandidateOrderResult,
-) =>
-  orderedCandidates.candidates.map((candidate) => ({
-    sourceId: candidate.sourceId,
-    sourceLabel: candidate.sourceLabel,
-    slot: candidate.slot,
-  }));
-
 const appendDirectCommandResolutionLogs = (params: {
   agentName: string;
   commandName: string;
@@ -370,14 +362,9 @@ const appendDirectCommandResolutionLogs = (params: {
     message: DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
     timestamp: new Date().toISOString(),
     source: 'server',
-    context: {
-      caller: params.orderedCandidates.caller,
-      workingRepositoryAvailable:
-        params.orderedCandidates.workingRepositoryAvailable,
-      candidateRepositories: mapCandidateRepositoriesForLog(
-        params.orderedCandidates,
-      ),
-    },
+    context: buildRepositoryCandidateOrderLogContext({
+      orderedCandidates: params.orderedCandidates,
+    }),
   });
 
   const lookupSummary = params.selectedCandidate
@@ -402,9 +389,9 @@ const appendDirectCommandResolutionLogs = (params: {
       fallbackUsed: lookupSummary?.fallbackUsed ?? false,
       workingRepositoryAvailable:
         params.orderedCandidates.workingRepositoryAvailable,
-      candidateRepositories: mapCandidateRepositoriesForLog(
-        params.orderedCandidates,
-      ),
+      candidateRepositories: buildRepositoryCandidateOrderLogContext({
+        orderedCandidates: params.orderedCandidates,
+      }).candidateRepositories,
       ...(params.failureReason ? { failureReason: params.failureReason } : {}),
       ...(params.failureMessage
         ? { failureMessage: params.failureMessage }

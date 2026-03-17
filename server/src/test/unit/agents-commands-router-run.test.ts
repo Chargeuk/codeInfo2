@@ -18,6 +18,7 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import { query, resetStore } from '../../logStore.js';
 import { createAgentsCommandsRouter } from '../../routes/agentsCommands.js';
 
 const repoRoot = path.resolve(
@@ -477,6 +478,7 @@ test('direct command execution searches the working repository before the select
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
 
   try {
+    resetStore();
     process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
     await writeRepoCommand({
       repoRoot: workingRoot,
@@ -537,8 +539,35 @@ test('direct command execution searches the working repository before the select
       turns.some((turn) => turn.content === 'working repository command'),
       true,
     );
+    const orderLogs = query({
+      text: 'DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER',
+    });
+    assert.equal(orderLogs.length, 1);
+    assert.deepEqual(orderLogs[0]?.context, {
+      referenceType: null,
+      caller: 'direct-command',
+      workingRepositoryAvailable: true,
+      candidateRepositories: [
+        {
+          sourceId: path.resolve(workingRoot),
+          sourceLabel: 'working-repo',
+          slot: 'working_repository',
+        },
+        {
+          sourceId: path.resolve(sourceRoot),
+          sourceLabel: 'Source Repo',
+          slot: 'owner_repository',
+        },
+        {
+          sourceId: path.resolve(repoRoot),
+          sourceLabel: 'codeInfo2',
+          slot: 'codeinfo2',
+        },
+      ],
+    });
   } finally {
     __resetAgentServiceDepsForTests();
+    resetStore();
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
     if (previousAgentsHome === undefined) {

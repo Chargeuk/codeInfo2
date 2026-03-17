@@ -34,6 +34,17 @@ export type RepositoryCandidateLookupSummary = {
   workingRepositoryAvailable: boolean;
 };
 
+export type RepositoryCandidateOrderLogContext = {
+  referenceType: string | null;
+  caller: RepositoryCandidateOrderCaller;
+  workingRepositoryAvailable: boolean;
+  candidateRepositories: Array<{
+    sourceId: string;
+    sourceLabel: string;
+    slot: RepositoryCandidateOrderSlot;
+  }>;
+};
+
 export const normalizeRepositoryCandidateLabel = (params: {
   sourceId: string;
   sourceLabel?: string;
@@ -128,3 +139,20 @@ export const buildRepositoryCandidateLookupSummary = (params: {
       params.orderedCandidates.workingRepositoryAvailable,
   };
 };
+
+export const buildRepositoryCandidateOrderLogContext = (params: {
+  orderedCandidates: RepositoryCandidateOrderResult;
+  referenceType?: string | null;
+}): RepositoryCandidateOrderLogContext => ({
+  referenceType: params.referenceType ?? null,
+  caller: params.orderedCandidates.caller,
+  workingRepositoryAvailable:
+    params.orderedCandidates.workingRepositoryAvailable,
+  candidateRepositories: params.orderedCandidates.candidates.map(
+    (candidate) => ({
+      sourceId: candidate.sourceId,
+      sourceLabel: candidate.sourceLabel,
+      slot: candidate.slot,
+    }),
+  ),
+});

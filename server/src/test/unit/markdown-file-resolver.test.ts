@@ -337,24 +337,28 @@ describe('resolveMarkdownFile', () => {
       text: 'DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER',
     });
     assert.equal(orderLogs.length, 1);
-    assert.equal(orderLogs[0]?.context?.workingRepositoryAvailable, false);
-    assert.deepEqual(orderLogs[0]?.context?.candidateRepositories, [
-      {
-        sourceId: path.resolve(harness.repoOne),
-        sourceLabel: 'Owner Repo',
-        slot: 'owner_repository',
-      },
-      {
-        sourceId: path.resolve(harness.codeInfo2Root),
-        sourceLabel: 'codeinfo2',
-        slot: 'codeinfo2',
-      },
-      {
-        sourceId: path.resolve(harness.repoTwo),
-        sourceLabel: 'Other Repo',
-        slot: 'other_repository',
-      },
-    ]);
+    assert.deepEqual(orderLogs[0]?.context, {
+      referenceType: 'markdownFile',
+      caller: 'direct-command',
+      workingRepositoryAvailable: false,
+      candidateRepositories: [
+        {
+          sourceId: path.resolve(harness.repoOne),
+          sourceLabel: 'Owner Repo',
+          slot: 'owner_repository',
+        },
+        {
+          sourceId: path.resolve(harness.codeInfo2Root),
+          sourceLabel: 'codeinfo2',
+          slot: 'codeinfo2',
+        },
+        {
+          sourceId: path.resolve(harness.repoTwo),
+          sourceLabel: 'Other Repo',
+          slot: 'other_repository',
+        },
+      ],
+    });
   });
 
   test('dedupes candidate attempts when working and owner repositories are the same path', async () => {

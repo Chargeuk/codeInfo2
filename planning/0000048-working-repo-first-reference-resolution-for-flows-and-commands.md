@@ -1340,8 +1340,11 @@ Close the `must_fix` review finding by making chat use the same ingested-reposit
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run test:summary:server:unit`
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server-side chat validation and working-folder persistence behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server/common request validation and persistence behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes server/common chat behavior that should still satisfy feature-level server coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -1367,8 +1370,11 @@ Close the review finding in `server/src/workingFolders/state.ts` by preserving t
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run test:summary:server:unit`
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server/common working-folder validation and stale-path handling. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server/common working-folder behavior covered by node:test suites. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes server/common behavior that should still satisfy feature-level server coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -1394,8 +1400,11 @@ Close the review finding in the shared repository-candidate helper by ensuring o
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run test:summary:server:unit`
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes shared server/common resolver behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes shared server/common candidate-order behavior covered by node:test suites. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes shared resolver behavior that should still satisfy feature-level server coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -1421,8 +1430,15 @@ Close the review finding in the shared client runtime-config helper by making ma
 
 #### Testing
 
-1. [ ] `npm run build:summary:client`
-2. [ ] `npm run test:summary:client`
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes shared client/runtime-config behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client/common runtime-config behavior covered by the full client suite. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run test:summary:e2e` - Allow up to 7 minutes because this task changes browser/runtime env behavior that should still hold end to end. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:e2e`.
+4. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end through the Dockerized stack. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including malformed canonical runtime-config scenarios introduced by this task and a debug-console check for any error-level entries.
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1447,15 +1463,17 @@ After Tasks 12-15 land, rerun the full Story 48 validation matrix so the reopene
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run test:summary:server:unit`
-4. [ ] `npm run test:summary:server:cucumber`
-5. [ ] `npm run test:summary:client`
-6. [ ] `npm run test:summary:e2e`
-7. [ ] `npm run compose:build:summary`
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` - Allow up to 7 minutes because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder, env-cutover, and log-marker checks plus explicit re-checks for the review-fix scenarios added by Tasks 12-15.
+9. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder, env-cutover, and log-marker checks plus explicit re-checks for the review-fix scenarios added by Tasks 12-15, and a debug-console check confirming there are no logged errors.
 10. [ ] `npm run compose:down`
 
 #### Implementation notes

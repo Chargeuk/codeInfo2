@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { describe, test } from 'node:test';
+import { afterEach, describe, test } from 'node:test';
 import express from 'express';
 import mongoose from 'mongoose';
 import request from 'supertest';
@@ -17,7 +17,10 @@ import type {
   TurnUsageMetadata,
 } from '../../mongo/turn.js';
 import { createChatRouter } from '../../routes/chat.js';
-import { restoreSavedWorkingFolder } from '../../workingFolders/state.js';
+import {
+  restoreSavedWorkingFolder,
+  setWorkingFolderStatForTests,
+} from '../../workingFolders/state.js';
 
 class PersistSpyChat extends ChatInterface {
   public persisted: Array<{
@@ -117,6 +120,12 @@ const withReadyState = async (
 };
 
 describe('ChatInterface.run persistence', () => {
+  afterEach(() => {
+    setWorkingFolderStatForTests(undefined);
+    memoryConversations.clear();
+    memoryTurns.clear();
+  });
+
   test('persists user turn then executes when Mongo is available', async () => {
     const chat = new PersistSpyChat();
     await withReadyState(1, 'development', async () => {
@@ -393,6 +402,46 @@ describe('ChatInterface.run persistence', () => {
 
     assert.equal(restored, undefined);
     assert.equal(clearedConversationId, 'chat-restore-clear');
+  });
+
+  test('an operational saved chat working folder failure is not cleared as stale', async () => {
+    let clearedConversationId: string | undefined;
+    setWorkingFolderStatForTests(async (targetPath) => {
+      if (targetPath.includes('temporarily-unreadable')) {
+        const error = new Error('permission denied') as NodeJS.ErrnoException;
+        error.code = 'EACCES';
+        throw error;
+      }
+      return {
+        isDirectory: () => true,
+      } as never;
+    });
+
+    await assert.rejects(
+      async () =>
+        await restoreSavedWorkingFolder({
+          conversation: {
+            conversationId: 'chat-restore-unavailable',
+            flags: {
+              workingFolder: path.join(
+                process.cwd(),
+                'temporarily-unreadable-working-folder',
+              ),
+            },
+          },
+          surface: 'chat_run',
+          clearPersistedWorkingFolder: async (conversationId) => {
+            clearedConversationId = conversationId;
+          },
+        }),
+      (error) =>
+        (error as { code?: string; causeCode?: string }).code ===
+          'WORKING_FOLDER_UNAVAILABLE' &&
+        (error as { code?: string; causeCode?: string }).causeCode ===
+          'EACCES',
+    );
+
+    assert.equal(clearedConversationId, undefined);
   });
 
   test('an invalid saved chat working folder is cleared before the next chat run reuses it', async () => {

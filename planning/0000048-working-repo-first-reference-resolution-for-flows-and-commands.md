@@ -1369,22 +1369,30 @@ Close the review finding in `server/src/workingFolders/state.ts` by preserving t
 
 #### Subtasks
 
-1. [ ] Re-read the review finding in `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, then inspect `server/src/workingFolders/state.ts`, `server/src/routes/conversations.ts`, `server/src/routes/chat.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts`. Record in Task 13 `Implementation notes` exactly which error cases should still clear stale saved folders and which error cases must surface as operational failures instead.
-2. [ ] Refine the working-folder existence/validation helpers so missing/not-ingested paths still map to the current stale-path behavior, but non-not-found filesystem failures are not silently normalized into `WORKING_FOLDER_NOT_FOUND`.
-3. [ ] Ensure callers that currently clear saved folders on restore only do so for the genuine stale-path contract and preserve actionable diagnostics for operational failures.
-4. [ ] Add or extend one focused unit test that proves a missing working folder still clears/preserves the current stale-path behavior.
-5. [ ] Add or extend one focused unit test that proves an unreadable or otherwise operationally failing path does not get silently cleared as stale.
-6. [ ] Update this story file's Task 13 `Implementation notes` with the final error vocabulary and where those diagnostics now surface.
+1. [x] Re-read the review finding in `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, then inspect `server/src/workingFolders/state.ts`, `server/src/routes/conversations.ts`, `server/src/routes/chat.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts`. Record in Task 13 `Implementation notes` exactly which error cases should still clear stale saved folders and which error cases must surface as operational failures instead.
+2. [x] Refine the working-folder existence/validation helpers so missing/not-ingested paths still map to the current stale-path behavior, but non-not-found filesystem failures are not silently normalized into `WORKING_FOLDER_NOT_FOUND`.
+3. [x] Ensure callers that currently clear saved folders on restore only do so for the genuine stale-path contract and preserve actionable diagnostics for operational failures.
+4. [x] Add or extend one focused unit test that proves a missing working folder still clears/preserves the current stale-path behavior.
+5. [x] Add or extend one focused unit test that proves an unreadable or otherwise operationally failing path does not get silently cleared as stale.
+6. [x] Update this story file's Task 13 `Implementation notes` with the final error vocabulary and where those diagnostics now surface.
 
 #### Testing
 
 Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` - Use because this task changes server/common working-folder validation and stale-path handling. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` - Use because this task changes server/common working-folder behavior covered by node:test suites. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes server/common behavior that should still satisfy feature-level server coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:cucumber`.
+1. [x] `npm run build:summary:server` - Use because this task changes server/common working-folder validation and stale-path handling. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes server/common working-folder behavior covered by node:test suites. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] `npm run test:summary:server:cucumber` - Use because this task changes server/common behavior that should still satisfy feature-level server coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
+
+- Re-read the review finding plus `server/src/workingFolders/state.ts`, `server/src/routes/conversations.ts`, `server/src/routes/chat.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts`; the intended split is now explicit: genuinely stale saved folders still clear on `WORKING_FOLDER_INVALID` or `WORKING_FOLDER_NOT_FOUND`, while operational filesystem failures must surface without clearing the saved value.
+- Refined `server/src/workingFolders/state.ts` so `fs.stat(...)` only maps `ENOENT` and `ENOTDIR` to the existing stale-path behavior; other filesystem failures now become `WORKING_FOLDER_UNAVAILABLE` with the original errno code preserved in `causeCode`.
+- Updated `restoreSavedWorkingFolder(...)` so only stale-path errors clear persisted state; operational failures now emit a `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` reject marker with `saved_value_unavailable` and rethrow instead of deleting the saved folder.
+- Extended `server/src/test/unit/chat-interface-run-persistence.test.ts` with the direct stale-clear case and a mocked `EACCES` case proving unreadable saved folders now raise `WORKING_FOLDER_UNAVAILABLE` without calling the clear callback.
+- Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`; the first rerun surfaced one Task 13-only TypeScript issue in the mocked `fs.stat(...)` test seam, which I fixed by typing the delegated `originalStat(...)` call through `Parameters<typeof fsPromises.stat>[0]`.
+- Testing step 2 passed on rerun via `npm run test:summary:server:unit` with `tests run: 1278`, `passed: 1278`, `failed: 0`, and `agent_action: skip_log`; the first full wrapper failure was in the new operational-error test seam, so I replaced the brittle direct `fs.promises.stat` monkey-patch with the explicit `setWorkingFolderStatForTests(...)` hook and reran the full suite.
+- Testing step 3 passed via `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`.
 
 ---
 

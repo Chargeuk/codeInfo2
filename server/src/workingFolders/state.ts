@@ -9,11 +9,13 @@ export const DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION =
 
 type WorkingFolderErrorCode =
   | 'WORKING_FOLDER_INVALID'
-  | 'WORKING_FOLDER_NOT_FOUND';
+  | 'WORKING_FOLDER_NOT_FOUND'
+  | 'WORKING_FOLDER_UNAVAILABLE';
 
 export type WorkingFolderValidationError = {
   code: WorkingFolderErrorCode;
   reason: string;
+  causeCode?: string;
 };
 
 export type WorkingFolderRecordType = 'chat' | 'agent' | 'flow';
@@ -32,9 +34,50 @@ type ConversationLike = {
   flags?: Record<string, unknown>;
 };
 
+const isMissingPathError = (error: unknown) => {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return code === 'ENOENT' || code === 'ENOTDIR';
+};
+
+const defaultStatPath = async (dirPath: string) =>
+  await fs.stat(dirPath, { bigint: false });
+let statPath = defaultStatPath;
+
+export const setWorkingFolderStatForTests = (
+  next:
+    | ((dirPath: string) => ReturnType<typeof defaultStatPath>)
+    | undefined,
+): void => {
+  statPath = next ?? defaultStatPath;
+};
+
+const toUnavailableWorkingFolderError = (
+  dirPath: string,
+  error: unknown,
+): WorkingFolderValidationError => {
+  const causeCode =
+    typeof (error as NodeJS.ErrnoException | undefined)?.code === 'string'
+      ? (error as NodeJS.ErrnoException).code
+      : undefined;
+  return {
+    code: 'WORKING_FOLDER_UNAVAILABLE',
+    reason: causeCode
+      ? `working_folder could not be validated (${causeCode})`
+      : `working_folder could not be validated for ${dirPath}`,
+    ...(causeCode ? { causeCode } : {}),
+  };
+};
+
 const isDirectory = async (dirPath: string): Promise<boolean> => {
-  const stat = await fs.stat(dirPath).catch(() => null);
-  return Boolean(stat && stat.isDirectory());
+  try {
+    const stat = await statPath(dirPath);
+    return stat.isDirectory();
+  } catch (error) {
+    if (isMissingPathError(error)) {
+      return false;
+    }
+    throw toUnavailableWorkingFolderError(dirPath, error);
+  }
 };
 
 const normalizeWorkingFolder = (value: string) => path.resolve(value.trim());
@@ -207,7 +250,24 @@ export async function restoreSavedWorkingFolder(params: {
       workingFolder: resolved,
     });
     return resolved;
-  } catch {
+  } catch (error) {
+    const err = error as WorkingFolderValidationError | undefined;
+    if (
+      err?.code !== 'WORKING_FOLDER_INVALID' &&
+      err?.code !== 'WORKING_FOLDER_NOT_FOUND'
+    ) {
+      appendWorkingFolderDecisionLog({
+        conversationId,
+        recordType: getConversationRecordType(params.conversation),
+        surface: params.surface,
+        action: 'reject',
+        decisionReason: 'saved_value_unavailable',
+        workingFolder: savedWorkingFolder,
+        level: 'warn',
+      });
+      throw error;
+    }
+
     await params.clearPersistedWorkingFolder(conversationId);
     appendWorkingFolderDecisionLog({
       conversationId,

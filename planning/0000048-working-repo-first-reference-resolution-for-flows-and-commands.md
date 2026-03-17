@@ -1437,7 +1437,7 @@ Use only the wrapper commands below. Do not attempt to run builds or tests witho
 ### 15. Surface Malformed Canonical Client Runtime Config Instead Of Silently Defaulting It Away
 
 - Task Status: `__done__`
-- Git Commits: `__to_do__`
+- Git Commits: `88398b15, caa7d798`
 
 #### Overview
 

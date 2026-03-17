@@ -793,6 +793,93 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ---
 
+## Code Review Findings (Fourth Pass)
+
+Review pass `0000048-review-20260317T110320Z-07647eeb` re-opened Story 48 after the fully completed branch was reviewed again against `main`. The durable review artifacts for this fourth pass are [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md).
+
+### Findings Summary
+
+- `must_fix` `plan_contract_issue`: Story 48’s env-cutover acceptance contract still is not fully satisfied because changed checked-in docs/tests continue to reference legacy env names such as `VITE_API_URL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `LMSTUDIO_BASE_URL`, and `OPENAI_EMBEDDING_KEY`.
+
+### Acceptance Criteria Proof Snapshot
+
+The fourth review pass re-checked the acceptance criteria against the completed branch and the new finding above. The current proof state is:
+
+- `direct`: AC1, AC2, AC4, AC5, AC6, AC7, AC11, AC13, AC14, AC15, AC16, AC17, AC18, AC19, AC20, AC23, AC24, AC26, AC27, AC28, AC29, AC31, AC32, AC37, AC38, AC39, AC40, AC42, AC44, AC45, AC46.
+- `indirect`: AC3, AC8, AC9, AC10, AC12, AC21, AC22, AC25, AC30, AC33, AC35, AC36, AC41, AC43.
+- `missing`: AC34, because repo search still finds literal legacy env names in changed checked-in docs/tests, which breaks the plan’s explicit “clean cutover / only new names remain” contract.
+
+### Succinctness Review
+
+The implementation remains appropriately succinct for the required behavior in the runtime code. This fourth pass did not uncover a new production-path bug or another large architectural gap; it found one remaining closeout-contract problem in the repo-wide env rename story. The needed follow-up is narrow: remove the remaining legacy env-name references from changed checked-in docs/tests, then rerun the final validation matrix once more so the story closes honestly against its own cutover wording.
+
+### 27. Remove Remaining Legacy Env-Name References From Changed Checked-In Docs And Tests
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Close the fourth-pass `must_fix` finding by removing the remaining literal legacy env-name references from the changed checked-in Story 48 docs/tests. This task is specifically about satisfying the plan’s clean-cutover contract without reintroducing old runtime readers or weakening the new `CODEINFO_` / `VITE_CODEINFO_` naming rule.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md), then inspect [client/src/test/baseUrl.env.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/baseUrl.env.test.ts), [client/src/test/logging/transport.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/logging/transport.test.ts), [server/src/test/unit/env-loading.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/env-loading.test.ts), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md). Record in Task 27 `Implementation notes` exactly which remaining literal legacy names are still present and what each file should say instead.
+2. [ ] Update the changed checked-in docs/tests so they stop using or listing the legacy env names literally while still preserving the intended negative-coverage and migration-guidance meaning. Do not reintroduce runtime dual-read compatibility or weaken the clean-cutover contract.
+3. [ ] Re-run the repo search for the Story 48 legacy env inventory and record in Task 27 `Implementation notes` which remaining matches are intentionally limited to historical planning documents or other out-of-scope history, and which changed checked-in Story 48 files are now clean.
+4. [ ] Update Task 27 `Implementation notes` with the final artifact/doc/test cleanup rule and the exact proof that the changed checked-in Story 48 files no longer reference the old names literally.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run test:summary:client` - Use because this task changes checked-in client tests and env-cutover proof. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes checked-in server tests and env-loading proof. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+
+#### Implementation notes
+
+- Fourth-pass review finding only: changed checked-in Story 48 docs/tests still contain literal legacy env names, so the plan’s clean-cutover acceptance wording is not honestly closed yet even though runtime code has already moved to `CODEINFO_` / `VITE_CODEINFO_`.
+
+### 28. Re-Run Full Story 48 Validation After Fourth Review Fixes
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+After Task 27 lands, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, all prior review-fix tasks, and the fourth-pass env-cutover cleanup. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
+
+#### Subtasks
+
+1. [ ] Re-read the Story 48 acceptance criteria, all four `Code Review Findings` sections above, and the durable review artifacts `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md`, and `codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md`. Record in Task 28 `Implementation notes` how Task 27 restores the final env-cutover proof.
+2. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) if the fourth review-fix implementation changes any final Story 48 closeout notes or migration guidance.
+3. [ ] Update Task 28 `Implementation notes` with the final rerun results, the fourth-review-fix proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
+4. [ ] Preserve the durable fourth-pass review artifacts in the commit that closes the reopened story. Do not rely on the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file as the durable record.
+5. [ ] Remove or leave untracked the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file before the closing commit so later review passes cannot consume stale state.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, env-cutover contract, fourth-review cleanup checks, and a debug-console check confirming there are no logged errors.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the fourth review pass found one remaining plan-contract gap in the env cutover story. Story 48 therefore needs one more narrow cleanup task and a fresh full rerun before it can close honestly again.
+
+---
+
 ### 2. Apply The Shared Order To Flow And Direct-Command Command Resolution
 
 - Task Status: `__done__`

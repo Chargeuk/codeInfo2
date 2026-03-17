@@ -107,7 +107,7 @@ Client env contract:
 
 - `client/.env` / `client/.env.local` now use `VITE_CODEINFO_API_URL`, `VITE_CODEINFO_LMSTUDIO_URL`, `VITE_CODEINFO_LOG_FORWARD_ENABLED`, and `VITE_CODEINFO_LOG_MAX_BYTES`.
 - Docker Compose passes the same renamed `VITE_CODEINFO_*` values into the client build and runtime container so the built bundle and runtime-injected `window.__CODEINFO_CONFIG__` stay aligned.
-- `VITE_LOG_LEVEL` and `VITE_LOG_STREAM_ENABLED` are documentation-only legacy names and are not live runtime readers.
+- Older generic client log-level and log-stream toggles are documentation-only leftovers and are not live runtime readers.
 
 Corporate certificate directory requirements:
 

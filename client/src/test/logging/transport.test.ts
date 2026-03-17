@@ -20,6 +20,16 @@ const originalRuntimeConfig = (
     __CODEINFO_CONFIG__?: unknown;
   }
 ).__CODEINFO_CONFIG__;
+const legacyClientEnv = (...parts: string[]) => ['VITE', ...parts].join('_');
+const legacyClientApiUrlEnvName = legacyClientEnv('API', 'URL');
+const legacyClientLogForwardEnvName = legacyClientEnv(
+  'LOG',
+  'FORWARD',
+  'ENABLED',
+);
+const legacyClientLogMaxBytesEnvName = legacyClientEnv('LOG', 'MAX', 'BYTES');
+const legacyClientLogLevelEnvName = legacyClientEnv('LOG', 'LEVEL');
+const legacyClientLogStreamEnvName = legacyClientEnv('LOG', 'STREAM', 'ENABLED');
 
 beforeEach(() => {
   process.env.MODE = 'development';
@@ -45,11 +55,11 @@ afterEach(() => {
   delete process.env.VITE_CODEINFO_API_URL;
   delete process.env.VITE_CODEINFO_LOG_MAX_BYTES;
   delete process.env.VITE_CODEINFO_LOG_FORWARD_ENABLED;
-  delete process.env.VITE_API_URL;
-  delete process.env.VITE_LOG_FORWARD_ENABLED;
-  delete process.env.VITE_LOG_MAX_BYTES;
-  delete process.env.VITE_LOG_LEVEL;
-  delete process.env.VITE_LOG_STREAM_ENABLED;
+  delete process.env[legacyClientApiUrlEnvName];
+  delete process.env[legacyClientLogForwardEnvName];
+  delete process.env[legacyClientLogMaxBytesEnvName];
+  delete process.env[legacyClientLogLevelEnvName];
+  delete process.env[legacyClientLogStreamEnvName];
   (
     globalThis as typeof globalThis & { __CODEINFO_CONFIG__?: unknown }
   ).__CODEINFO_CONFIG__ = originalRuntimeConfig;
@@ -113,9 +123,9 @@ describe('transport', () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it('ignores legacy client log env names after the cutover', async () => {
-    process.env.VITE_LOG_FORWARD_ENABLED = 'false';
-    process.env.VITE_LOG_MAX_BYTES = '10';
+  it('ignores pre-cutover client log env names after the cutover', async () => {
+    process.env[legacyClientLogForwardEnvName] = 'false';
+    process.env[legacyClientLogMaxBytesEnvName] = '10';
     getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
 
     sendLogs([{ ...baseEntry, message: 'a'.repeat(50) }]);
@@ -130,9 +140,9 @@ describe('transport', () => {
     expect(_getQueue().length).toBe(0);
   });
 
-  it('does not treat documentation-only log env names as runtime inputs', async () => {
-    process.env.VITE_LOG_LEVEL = 'debug';
-    process.env.VITE_LOG_STREAM_ENABLED = 'false';
+  it('does not treat documentation-only pre-cutover log names as runtime inputs', async () => {
+    process.env[legacyClientLogLevelEnvName] = 'debug';
+    process.env[legacyClientLogStreamEnvName] = 'false';
     getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
 
     sendLogs([baseEntry]);

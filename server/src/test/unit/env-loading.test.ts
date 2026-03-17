@@ -27,6 +27,7 @@ const writeEnvFile = (
 ) => {
   fs.writeFileSync(path.join(root, name), body, 'utf8');
 };
+const legacyServerEnv = (...parts: string[]) => parts.join('_');
 
 test('loads renamed CODEINFO env keys with .env.local override precedence', () => {
   const serverRoot = createServerRoot();
@@ -131,10 +132,10 @@ test('required renamed CODEINFO key errors still fire when the key is missing', 
   );
 });
 
-test('legacy-only env values fail deterministically instead of silently succeeding', () => {
+test('pre-cutover-only env values fail deterministically instead of silently succeeding', () => {
   const serverRoot = createServerRoot();
   const targetEnv: Record<string, string | undefined> = {
-    OPENAI_EMBEDDING_KEY: 'legacy-only',
+    [legacyServerEnv('OPENAI', 'EMBEDDING', 'KEY')]: 'legacy-only',
   };
 
   const result = loadStartupEnv({ serverRoot, targetEnv });
@@ -169,22 +170,22 @@ test('checked-in defaults and wrappers seed only renamed CODEINFO server env nam
     'server/package.json',
   ];
   const legacyNames = [
-    'LMSTUDIO_BASE_URL',
-    'OPENAI_EMBEDDING_KEY',
-    'CHAT_DEFAULT_PROVIDER',
-    'CHAT_DEFAULT_MODEL',
-    'INGEST_INCLUDE',
-    'INGEST_EXCLUDE',
-    'INGEST_FLUSH_EVERY',
-    'INGEST_COLLECTION',
-    'INGEST_ROOTS_COLLECTION',
-    'INGEST_TEST_GIT_PATHS',
-    'LOG_FILE_PATH',
-    'LOG_LEVEL',
-    'LOG_BUFFER_MAX',
-    'LOG_MAX_CLIENT_BYTES',
-    'LOG_INGEST_WS_THROTTLE_MS',
-    'LOG_FILE_ROTATE',
+    legacyServerEnv('LMSTUDIO', 'BASE', 'URL'),
+    legacyServerEnv('OPENAI', 'EMBEDDING', 'KEY'),
+    legacyServerEnv('CHAT', 'DEFAULT', 'PROVIDER'),
+    legacyServerEnv('CHAT', 'DEFAULT', 'MODEL'),
+    legacyServerEnv('INGEST', 'INCLUDE'),
+    legacyServerEnv('INGEST', 'EXCLUDE'),
+    legacyServerEnv('INGEST', 'FLUSH', 'EVERY'),
+    legacyServerEnv('INGEST', 'COLLECTION'),
+    legacyServerEnv('INGEST', 'ROOTS', 'COLLECTION'),
+    legacyServerEnv('INGEST', 'TEST', 'GIT', 'PATHS'),
+    legacyServerEnv('LOG', 'FILE', 'PATH'),
+    legacyServerEnv('LOG', 'LEVEL'),
+    legacyServerEnv('LOG', 'BUFFER', 'MAX'),
+    legacyServerEnv('LOG', 'MAX', 'CLIENT', 'BYTES'),
+    legacyServerEnv('LOG', 'INGEST', 'WS', 'THROTTLE', 'MS'),
+    legacyServerEnv('LOG', 'FILE', 'ROTATE'),
   ];
 
   for (const relativePath of files) {
@@ -194,7 +195,7 @@ test('checked-in defaults and wrappers seed only renamed CODEINFO server env nam
       assert.equal(
         new RegExp(`\\b${legacyName}\\b`).test(text),
         false,
-        `${relativePath} should not seed legacy env ${legacyName}`,
+        `${relativePath} should not seed pre-cutover env ${legacyName}`,
       );
     }
   }

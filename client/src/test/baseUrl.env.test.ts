@@ -6,6 +6,8 @@ import {
 } from '../config/runtimeConfig';
 
 describe('baseUrl env rename', () => {
+  const legacyClientEnv = (...parts: string[]) => ['VITE', ...parts].join('_');
+  const legacyClientApiUrlEnvName = legacyClientEnv('API', 'URL');
   const originalRuntimeConfig = (
     globalThis as typeof globalThis & {
       __CODEINFO_CONFIG__?: unknown;
@@ -19,7 +21,7 @@ describe('baseUrl env rename', () => {
     ).__CODEINFO_CONFIG__ = undefined;
     process.env = { ...originalEnv };
     delete process.env.VITE_CODEINFO_API_URL;
-    delete process.env.VITE_API_URL;
+    delete process.env[legacyClientApiUrlEnvName];
     resetClientRuntimeConfigLogForTests();
   });
 

@@ -267,7 +267,7 @@ export default function AgentsPage() {
     | null
     | ((params: {
         conversationId: string;
-        workingFolder?: string | null;
+        workingFolder: string | null;
         surface: 'agents';
       }) => Promise<unknown>)
   >(null);

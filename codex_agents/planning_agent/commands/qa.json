@@ -1,0 +1,10 @@
+{
+  "Description": "Improve an existing plan by getting an agent to expand on the details and implementation ideas.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "qa.md"
+    }
+  ]
+}

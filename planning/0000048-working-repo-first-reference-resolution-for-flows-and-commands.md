@@ -2954,3 +2954,99 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - The eighth-pass proof closes the remaining response-contract gap without reopening unrelated behavior: the strict conversation-summary parser now rejects malformed present `source` and `flags` values, the full wrapper matrix stayed green, the live browser pass still restored `/app` from the seeded conversation while showing real REST/MCP summary metadata, and the final env/runtime markers remained visible at startup and in the logs page.
 - Durable eighth-pass review artifacts remain [codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-findings.md); this closing commit keeps relying on those tracked review records rather than the transient workflow handoff.
 - Transient workflow-state hygiene remains satisfied before the closing commit: `git status -sb` shows [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) as untracked, so it is being left out of the durable story closeout record.
+
+## Code Review Findings (Ninth Pass)
+
+### Review Artifacts
+
+- Evidence: [codeInfoStatus/reviews/0000048-review-20260317T200618Z-f6f098f9-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T200618Z-f6f098f9-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000048-review-20260317T200618Z-f6f098f9-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T200618Z-f6f098f9-findings.md)
+
+### Findings Summary
+
+1. `should_fix` `generic_engineering_issue`: [client/src/hooks/useConversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useConversations.ts) still normalizes malformed present `source` and `flags` values on the WebSocket upsert path, even though [client/src/api/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/conversations.ts) now fails closed for the same fields on the REST path. That leaves the shared `ConversationSummary` contract inconsistent across transport surfaces and can still hide Story 48 working-folder contract drift.
+
+### Acceptance Criteria Proof Snapshot
+
+- Direct proof in the ninth-pass evidence artifact: `AC01`, `AC02`, `AC04`, `AC05`, `AC06`, `AC07`, `AC08`, `AC09`, `AC10`, `AC12`, `AC13`, `AC14`, `AC15`, `AC16`, `AC17`, `AC18`, `AC19`, `AC20`, `AC22`, `AC23`, `AC24`, `AC26`, `AC27`, `AC28`, `AC29`, `AC31`, `AC32`, `AC33`, `AC34`, `AC35`, `AC36`, `AC38`, `AC39`, `AC40`, `AC41`, `AC43`, `AC45`, `AC46`.
+- Indirect proof in the ninth-pass evidence artifact: `AC03`, `AC11`, `AC21`, `AC25`, `AC30`, `AC37`, `AC42`, `AC44`.
+- Missing proof in the ninth-pass evidence artifact: none at the acceptance-criterion level. The ninth-pass issue is a cross-surface generic consistency hole in a story-changed client helper rather than a missing acceptance-proof seam.
+
+### Succinctness Review
+
+The implemented code still appears appropriately succinct for the required repository-order, working-folder, env-cutover, and tokenizer behavior overall. The new ninth-pass issue is a localized transport-consistency problem in files already changed by Story 48: REST now uses one strict summary contract while WebSocket upserts still preserve the older permissive normalizer. The story should reopen only for that narrow client consistency fix plus one fresh full validation pass.
+
+### 40. Align WebSocket Conversation-Summary Validation With The REST Contract
+
+- Task Status: `__to_do__`
+- Git Commits: `__none__`
+
+#### Overview
+
+Close the ninth-pass `should_fix` finding by making the WebSocket conversation-summary upsert path honor the same fail-closed contract that Task 38 already applied to the REST conversation-summary path. The intended outcome is that malformed present `source` and `flags` values cannot be silently normalized into success-shaped client state on one transport while being rejected on the other.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000048-review-20260317T200618Z-f6f098f9-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T200618Z-f6f098f9-findings.md), then inspect [client/src/hooks/useConversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useConversations.ts), [client/src/api/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/conversations.ts), and the page-level WebSocket upsert call sites. Record in Task 40 `Implementation notes` exactly which malformed WS payload shapes are still normalized into valid-looking state and which Story 48 UI paths consume those upserts.
+2. [ ] Tighten the WebSocket upsert path so malformed present `source` and `flags` values no longer get silently normalized. Prefer routing the upsert through the same strict parser used for REST summaries, or add equivalently strict validation before normalization if the transport shape requires a narrow adapter.
+3. [ ] Re-check the direct callers in [client/src/pages/ChatPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/ChatPage.tsx), [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx), and [client/src/pages/FlowsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/FlowsPage.tsx) so malformed WS upserts do not corrupt local state and any surfaced failure remains consistent with the existing Story 48 error behavior instead of inventing a new public contract.
+4. [ ] Add or extend direct client tests proving the shared transport contract: valid WS upserts still restore and clear `flags.workingFolder` correctly, malformed present `source` values are not relabeled as `'REST'`, and malformed present `flags` values do not get flattened into `{}` or array-like objects.
+5. [ ] Update Task 40 `Implementation notes` with the final shared transport rule, the malformed WS shapes now rejected or ignored, and where the direct proof lives.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes client-side conversation-summary handling and its immediate consumers. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Mandatory proof because this task changes shared client conversation-summary handling and must keep the Story 48 UI contract green. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Use because Story 48 working-folder restore/edit behavior is visible in the browser and the tightened WS path must not break the full app flow. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+4. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end and the conversation-summary transport fix still needs to keep the front-end-accessible regression stack buildable. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including at least one Story 48 restore/edit path that receives conversation upserts plus a debug-console check confirming there are no logged errors.
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the ninth review pass found one remaining transport-consistency issue in the shared client conversation-summary contract. Story 48 therefore needs one more narrow WebSocket-path fix plus one fresh full rerun before it can close honestly again.
+- Pending.
+
+---
+
+### 41. Re-Run Full Story 48 Validation After Ninth Review Fixes
+
+- Task Status: `__to_do__`
+- Git Commits: `__none__`
+
+#### Overview
+
+After Task 40 lands, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, the env-cutover closeout, the tokenizer fix, the earlier response-parser tightening, and the new ninth-pass transport-consistency fix. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 48 acceptance criteria, all nine `Code Review Findings` sections above, the historical post-implementation review record, Tasks 36-40, and the durable ninth-pass review artifacts [codeInfoStatus/reviews/0000048-review-20260317T200618Z-f6f098f9-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T200618Z-f6f098f9-evidence.md) plus [codeInfoStatus/reviews/0000048-review-20260317T200618Z-f6f098f9-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T200618Z-f6f098f9-findings.md). Record in Task 41 `Implementation notes` how Task 40 restores the remaining shared transport proof without reopening unrelated Story 48 behavior.
+2. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) only if the Task 40 WebSocket-contract tightening changes any final Story 48 closeout notes or response-contract guidance.
+3. [ ] Update Task 41 `Implementation notes` with the final rerun results, the ninth-pass proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
+4. [ ] Preserve the durable ninth-pass review artifacts [codeInfoStatus/reviews/0000048-review-20260317T200618Z-f6f098f9-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T200618Z-f6f098f9-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T200618Z-f6f098f9-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T200618Z-f6f098f9-findings.md) in the closing commit. Do not rely on the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file as the durable record.
+5. [ ] Remove or leave untracked the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file before the closing commit so later review passes cannot consume stale state.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, the final env-cutover contract, conversation restore/edit behavior after the shared transport fix, general regression checks, and a debug-console check confirming there are no logged errors.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the ninth review pass found one remaining shared transport consistency issue in a Story 48 client helper. Story 48 therefore needs one more narrow WebSocket-path fix and one fresh full rerun before it can close honestly again.
+- Pending.

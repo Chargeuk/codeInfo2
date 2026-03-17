@@ -1571,3 +1571,207 @@ Use only the wrapper commands below. Do not attempt to run builds or tests witho
 - Final rerun step 10 passed cleanly: `npm run compose:down` removed the regression stack containers and network without errors, leaving the branch ready for the closing Task 17 commit.
 
 ---
+
+## Code Review Findings (Second Pass)
+
+Review pass `0000048-review-20260317T050644Z-810fd4f1` re-opened Story 48 after the completed implementation was reviewed again against `main`. The durable review artifacts for this second pass are [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md).
+
+### Findings Summary
+
+- `must_fix` `plan_contract_issue`: ingested-repository working-folder validation is silently disabled when repository enumeration fails, so chat, conversations, agents, and flows can fall back to accepting any existing absolute directory instead of the story’s canonical ingested-repository contract.
+- `must_fix` `plan_contract_issue`: the Task 15 runtime-config fix still silently defaults away a malformed top-level canonical `window.__CODEINFO_CONFIG__` container, so invalid runtime injection can still look like a clean env/default fallback.
+- `should_fix` `generic_engineering_issue`: operational working-folder diagnostics are preserved in `WORKING_FOLDER_UNAVAILABLE` errors but then dropped from the shared log marker and some route-level error responses, leaving callers with `[object Object]` or similarly non-actionable failure output.
+
+### Acceptance Criteria Proof Snapshot
+
+The second review pass re-checked the acceptance criteria against the completed branch and the new findings above. The current proof state is:
+
+1. Shared repository candidate order for command and flow lookup: `direct`
+2. One shared repository-candidate builder across flow-command and markdown resolution: `direct`
+3. Nested lookup restarts from the full four-place order on every hop: `indirect`
+4. Duplicate repositories are removed while preserving first position: `direct`
+5. Flow command-file lookup uses the four-place order: `direct`
+6. Flow markdown-file lookup uses the four-place order: `direct`
+7. Command-item markdown lookup inside flows uses the same order: `direct`
+8. Direct command execution keeps working-first then owner-second semantics: `indirect`
+9. Local `codeInfo2` flows search the working repository first: `indirect`
+10. Ingested-repo-owned flows still search the working repository first: `indirect`
+11. Working folder persists/restores across chats, agents, flows, and direct commands: `indirect`
+12. Direct command persistence stays on the owning agent conversation: `indirect`
+13. Flow conversations and child agent conversations persist the inherited folder: `direct`
+14. Chat fully participates in the working-folder contract: `missing`
+15. GUI restore and empty-state behavior across existing conversations: `direct`
+16. Canonical stored identity is the absolute repository root path: `direct`
+17. Editable saved value lives on the owning conversation while each run stores its own snapshot: `direct`
+18. Missing working repository skips slot one and logs the condition: `direct`
+19. GUI allows idle working-folder edits on existing conversations: `direct`
+20. GUI blocks working-folder edits while execution is active: `direct`
+21. UI restore and runtime lookup use the same canonical signal: `indirect`
+22. Flow-created/used agent conversations inherit the exact flow-step folder: `indirect`
+23. Invalid saved working folders clear automatically and log a warning: `missing`
+24. Invalid-folder clear happens before reuse and logs stale path plus owning record id/type: `missing`
+25. Existing relative-path safety rules remain in place: `indirect`
+26. Fallback continues only for not-found outcomes: `direct`
+27. Observability logs and docs are updated for candidate order and selected repository: `direct`
+28. Structured lookup logs include the minimum required fields: `direct`
+29. Execution metadata stores a compact lookup summary without broad API-response expansion: `direct`
+30. Documentation includes a nested-reference example: `indirect`
+31. Repository-owned env vars are renamed to `CODEINFO_` and browser-facing vars to `VITE_CODEINFO_`: `direct`
+32. Env rename updates defaults/examples/compose/e2e/wrappers/docs consistently: `direct`
+33. Env rename is a single clean cutover with no temporary dual-read compatibility: `direct`
+34. No checked-in repo-owned file still references the old generic env names: `indirect`
+35. The env rename inventory covers the checked-in product-owned families: `indirect`
+36. The defined env target names were implemented exactly unless another checked-in repo-owned variable also required prefixing: `indirect`
+37. OpenAI counting no longer uses the heuristic for guardrails and chunk sizing: `direct`
+38. OpenAI counting uses a real tokenizer recommendation and prefers Node `tiktoken`: `direct`
+39. OpenAI hard limit is corrected to 8192 while margin remains separate: `direct`
+40. Token-margin behavior remains the soft safety mechanism and is documented: `indirect`
+41. Oversized OpenAI inputs are classified deterministically as input-too-large: `direct`
+42. The OpenAI bug-fix scope stayed limited to tokenizer counting/classification/regression coverage: `indirect`
+43. Tokenizer-backed counting replaced the heuristic everywhere it influenced OpenAI ingest decisions: `direct`
+44. Guardrails and provider `countTokens(...)` now share the same tokenizer-backed implementation: `direct`
+45. OpenAI paths do not fall back to the old heuristic or whitespace estimation on tokenizer failure: `direct`
+46. Tokenizer lifecycle handling is explicit and documented: `direct`
+
+### Succinctness Review
+
+The implementation is still broadly within Story 48’s planned scope, but the second review pass found three remaining correctness gaps rather than stylistic simplification work:
+
+- working-folder validation still falls back too permissively when repository enumeration fails;
+- malformed top-level canonical runtime config is still silently treated as absent;
+- operational working-folder diagnostics are preserved internally but not surfaced clearly enough through the shared log and route layers.
+
+The resolver, persistence, env-cutover, tokenizer, and wrapper-cleanup work otherwise remain appropriately scoped. The follow-up tasks below are intended to close those correctness gaps without broadening the story beyond what this second review pass actually found.
+
+### 18. Fail Closed When Repository Enumeration Cannot Prove Working-Folder Membership
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Close the first second-pass `must_fix` finding by making every Story 48 working-folder entry point fail closed when the product cannot enumerate ingested repositories. The fix must preserve the canonical “must be an ingested repository root” rule instead of silently degrading to “any existing absolute directory.”
+
+#### Subtasks
+
+1. [ ] Re-read `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, then inspect `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/workingFolders/state.ts`. Record in Task 18 `Implementation notes` exactly which paths currently swallow repository-enumeration failure and how that weakens the story contract.
+2. [ ] Introduce one explicit server-side contract for “repository membership could not be validated because repository enumeration failed.” Do not reuse the existing stale-path vocabulary for this case, and do not silently coerce it into success by passing `undefined` or `[]` into the shared validator.
+3. [ ] Update the chat, conversation restore/edit, agent run, direct-command run, and flow run paths so they all use that same fail-closed contract when repository enumeration is unavailable. Preserve the happy-path behavior where canonical ingested repositories still validate and restore normally.
+4. [ ] Ensure saved-folder restore paths do not clear valid persisted data as “stale” merely because repository enumeration is temporarily unavailable. This path should surface an operational failure, not a stale-path clear.
+5. [ ] Add or extend server tests that prove a repository-enumeration failure does not let a non-ingested absolute directory pass request validation or saved-folder restore validation.
+6. [ ] Update Task 18 `Implementation notes` with the final error vocabulary, the shared validation seam chosen, and where the fail-closed behavior now surfaces.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server/common working-folder validation behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server/common request/restore validation logic. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes server/common working-folder behavior that still needs feature-level regression coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Review finding only: repository-list failure is currently swallowed to `undefined` or `[]` in chat, conversations, agents, and flows, which causes `validateKnownRepository(...)` in `server/src/workingFolders/state.ts` to skip the ingested-repository membership check entirely.
+
+---
+
+### 19. Surface Malformed Top-Level Canonical Runtime Config Containers
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Close the second second-pass `must_fix` finding by extending the Task 15 runtime-config fix to cover malformed top-level canonical runtime config containers. Missing runtime config must remain a valid “not provided” case, but malformed canonical runtime config must not be silently normalized into `{}` or treated like a clean env/default fallback.
+
+#### Subtasks
+
+1. [ ] Re-read `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, then inspect `client/src/config/runtimeConfig.ts`, `client/src/api/baseUrl.ts`, `client/src/logging/transport.ts`, and the existing runtime-config tests. Record in Task 19 `Implementation notes` which malformed top-level `window.__CODEINFO_CONFIG__` shapes are still silently treated as “missing.”
+2. [ ] Refine the runtime-config reader so there is a clear distinction between “runtime config absent” and “runtime config present but malformed.” Treat non-object and array-shaped canonical containers as malformed canonical inputs that produce diagnostics and marker evidence instead of silently defaulting away.
+3. [ ] Preserve the existing fallback behavior for valid env/default sources after a malformed canonical container is detected, but ensure the winning source attribution and `hasInvalidCanonicalConfig` output stay truthful.
+4. [ ] Add or extend client tests that prove non-object and array-shaped canonical runtime config containers now surface diagnostics instead of being treated as absent.
+5. [ ] If the malformed-container behavior is observable in the browser bootstrap path, keep the existing Story 48 browser/runtime marker contract aligned so manual and e2e verification can still prove the bad-canonical/good-fallback path.
+6. [ ] Update Task 19 `Implementation notes` with the chosen malformed-container rule and the exact diagnostics now emitted.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes client runtime-config/bootstrap behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client/common config behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run test:summary:e2e` - Use because this task affects browser runtime config and the Story 48 env bootstrap contract. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:e2e`.
+
+#### Implementation notes
+
+- Review finding only: field-level malformed canonical values already surface diagnostics, but a malformed top-level `window.__CODEINFO_CONFIG__` container is still normalized into “missing” before any diagnostic path runs.
+
+---
+
+### 20. Preserve Operational Working-Folder Diagnostics Through Shared Logs And Route Errors
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+Close the second-pass `should_fix` finding by making operational working-folder failures actionable through the existing log and route surfaces. The fix should preserve the story’s stale-vs-operational split without broadening public payloads or weakening the shared log vocabulary.
+
+#### Subtasks
+
+1. [ ] Re-read `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, then inspect `server/src/workingFolders/state.ts`, `server/src/routes/conversations.ts`, and any other changed caller that catches or logs `WORKING_FOLDER_UNAVAILABLE`. Record in Task 20 `Implementation notes` where `reason` and `causeCode` are currently produced and then dropped.
+2. [ ] Update the shared working-folder logging path so operational failures preserve actionable diagnostics, such as the existing reason and/or errno code, without conflating them with stale-path clears.
+3. [ ] Replace route-level `` `${err}` `` object stringification in the affected Story 48 paths with an explicit error-to-response/log mapping that keeps client messages safe while preserving actionable server-side diagnostics.
+4. [ ] Add or extend server tests that prove the operational-failure path now surfaces a meaningful message or log detail instead of `[object Object]`, while stale-path clears continue to use the existing warning contract.
+5. [ ] Update Task 20 `Implementation notes` with the final diagnostic vocabulary and where it is now observable.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server/common logging and route error behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Use because this task changes server/common error handling and logging behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because this task still touches server/common behavior that must retain feature-level coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Review finding only: `WORKING_FOLDER_UNAVAILABLE` preserves `causeCode`, but the shared log marker currently drops it and some route catches still stringify the object to `[object Object]`.
+
+---
+
+### 21. Re-Run Full Story 48 Validation After Second Review Fixes
+
+- Task Status: `__to_do__`
+- Git Commits: `none yet`
+
+#### Overview
+
+After Tasks 18-20 land, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, the first review-fix tasks, and the second review-fix tasks. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
+
+#### Subtasks
+
+1. [ ] Re-read the Story 48 acceptance criteria, the first and second `Code Review Findings` sections above, and the durable review artifacts `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-evidence.md`, `codeInfoStatus/reviews/0000048-review-20260317T011804Z-b791cfd6-findings.md`, `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md`, and `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`. Record in Task 21 `Implementation notes` how Tasks 18-20 restore the missing acceptance proof.
+2. [ ] Update `README.md`, `design.md`, `projectStructure.md`, and `docs/developer-reference.md` if the second review-fix implementation changed any Story 48 closeout notes or runtime/diagnostic contracts.
+3. [ ] Update Task 21 `Implementation notes` with the final rerun results, the second-review-fix proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
+4. [ ] Preserve the durable second-pass review artifacts in the commit that closes the reopened story. Do not rely on the transient `codeInfoStatus/reviews/0000048-current-review.json` handoff file as the durable record.
+5. [ ] Remove or leave untracked the transient `codeInfoStatus/reviews/0000048-current-review.json` handoff file before the closing commit so later review passes cannot consume stale state.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` - Mandatory final regression check because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands only after the full wrapper fails. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, env-cutover contract, second-review diagnostic fixes, and a debug-console check confirming there are no logged errors.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the second review pass found two remaining contract gaps plus one diagnostic-surfacing cleanup, so the story must re-run the full closeout matrix after Tasks 18-20 land instead of treating the prior Task 17 closeout as final.
+
+---

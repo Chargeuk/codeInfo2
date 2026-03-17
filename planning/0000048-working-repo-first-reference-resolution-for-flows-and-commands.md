@@ -974,7 +974,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 30. Re-Run Full Story 48 Validation After Fifth Review Fixes
 
 - Task Status: `__done__`
-- Git Commits: `none yet`
+- Git Commits: `83e447cb`
 
 #### Overview
 

@@ -2828,3 +2828,95 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Seventh-pass proof now closes cleanly at the env-cutover seam without reopening unrelated behavior: Task 36 removed the final legacy root `.env.e2e` keys, the full wrapper matrix stayed green, the manual chat restore seed still repopulated `/app` while emitting `DEV_0000048_T6_PICKER_SYNC`, and the logs page still exposed `DEV_0000048_T7_CODEINFO_ENV_RESOLVED` with the canonical runtime inventory.
 - The durable seventh-pass review record remains the committed evidence/findings pair [codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T180554Z-ad897a93-findings.md); no transient handoff state was used as the durable closeout record.
 - Pre-closeout worktree hygiene is satisfied: `git status -sb` shows only this plan file modified plus the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) still untracked, so that handoff file remains outside the durable story history.
+
+---
+
+## Code Review Findings (Eighth Pass)
+
+### Review Artifacts
+
+- Evidence: [codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-findings.md)
+
+### Findings Summary
+
+1. `should_fix` `generic_engineering_issue`: [client/src/api/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/conversations.ts) still normalizes malformed conversation-summary response fields into success-shaped data by defaulting invalid `source` values to `'REST'` and malformed `flags` values to `{}`. Because Story 48 now relies on `flags.workingFolder` for restore/edit behavior, that response-side normalization can hide contract drift instead of surfacing it.
+
+### Acceptance Criteria Proof Snapshot
+
+- Direct proof in the eighth-pass evidence artifact: `AC01`, `AC02`, `AC03`, `AC04`, `AC05`, `AC06`, `AC07`, `AC08`, `AC09`, `AC10`, `AC11`, `AC12`, `AC13`, `AC14`, `AC15`, `AC16`, `AC17`, `AC18`, `AC19`, `AC20`, `AC22`, `AC23`, `AC24`, `AC27`, `AC28`, `AC29`, `AC31`, `AC32`, `AC33`, `AC34`, `AC35`, `AC36`, `AC37`, `AC39`, `AC40`, `AC41`, `AC43`, `AC45`, `AC46`.
+- Indirect proof in the eighth-pass evidence artifact: `AC21`, `AC25`, `AC26`, `AC30`, `AC38`, `AC42`, `AC44`.
+- Missing proof in the eighth-pass evidence artifact: none at the acceptance-criterion level. The eighth-pass review issue is a generic response-parser consistency problem in a story-changed helper rather than a missing acceptance-proof seam.
+
+### Succinctness Review
+
+The implemented code still appears appropriately succinct for the required repository-order, working-folder, runtime-marker, env-cutover, and tokenizer behavior overall. This eighth-pass finding is a localized parser-tightening follow-up in a file already changed by Story 48, not evidence that the broader design needs another restructure. The story should reopen only for that narrow client response-contract fix and then rerun one fresh full validation pass.
+
+### 38. Fail Closed On Malformed Conversation Summary Response Fields
+
+- Task Status: `__to_do__`
+- Git Commits: `__none__`
+
+#### Overview
+
+Close the eighth-pass `should_fix` finding by tightening [client/src/api/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/conversations.ts) so malformed conversation-summary response fields no longer get normalized into valid-looking success data. The intended outcome is to preserve backward compatibility for truly absent optional fields only where needed, while rejecting or explicitly diagnosing malformed present `source` and `flags` values that could otherwise hide Story 48 working-folder contract drift.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-findings.md), then inspect [client/src/api/conversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/conversations.ts), [client/src/hooks/useConversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useConversations.ts), and the existing conversation API/client tests. Record in Task 38 `Implementation notes` exactly which malformed response shapes are currently normalized into `'REST'` or `{}`, and which Story 48 UI paths consume those parsed values.
+2. [ ] Tighten `parseConversationSummary(...)` so truly malformed present fields are not silently normalized into success. At minimum, if `source` is present but not a valid supported value, or if `flags` is present but not a plain object, the helper must stop treating the payload as a cleanly valid summary. Keep any backward-compatibility behavior narrow and explicit rather than broad “anything else becomes REST/empty object” coercion.
+3. [ ] Re-check the direct callers in [client/src/hooks/useConversations.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useConversations.ts) and any affected page-level consumers so the tightened parser still surfaces actionable failures instead of breaking silently. The intent is to make malformed response data visible, not to invent a new client error channel or broaden the public API surface.
+4. [ ] Add or extend direct client tests proving the corrected response-parser contract: absent optional fields behave as intended, malformed present `source` values do not get relabeled as `'REST'`, malformed present `flags` values do not get flattened into `{}`, and valid `flags.workingFolder` data still flows through unchanged.
+5. [ ] Update Task 38 `Implementation notes` with the final response-contract rule, the malformed shapes now rejected or diagnosed, and where the direct proof lives.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:client` - Use because this task changes a client-only response parser and its immediate consumers. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Mandatory proof because this task tightens client-side response parsing and must keep the Story 48 UI contract green. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Use because Story 48 working-folder restore/edit behavior is visible in the browser and the tightened parser must not break the full app flow. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+
+#### Implementation notes
+
+- Review reopening only: the eighth review pass found one remaining response-parser consistency issue in a Story 48 client helper. The story therefore needs one more narrow client-side contract fix plus one fresh full rerun before it can close honestly again.
+
+---
+
+### 39. Re-Run Full Story 48 Validation After Eighth Review Fixes
+
+- Task Status: `__to_do__`
+- Git Commits: `__none__`
+
+#### Overview
+
+After Task 38 lands, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria, the requested env-prefix follow-up, the seventh-pass env cleanup, and the eighth-pass response-parser fix. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 48 acceptance criteria, all eight `Code Review Findings` sections above, the historical post-implementation review record, Tasks 34-38, and the durable eighth-pass review artifacts [codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-evidence.md) plus [codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-findings.md). Record in Task 39 `Implementation notes` how Task 38 restores the remaining generic response-contract proof without reopening unrelated Story 48 behavior.
+2. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) only if the Task 38 parser tightening changes any final Story 48 closeout notes or response-contract guidance.
+3. [ ] Update Task 39 `Implementation notes` with the final rerun results, the eighth-pass proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
+4. [ ] Preserve the durable eighth-pass review artifacts [codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-findings.md) in the closing commit. Do not rely on the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file as the durable record.
+5. [ ] Remove or leave untracked the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file before the closing commit so later review passes cannot consume stale state.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Mandatory final regression check because the reopened story still changes client/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, the final env-cutover contract, conversation restore/edit behavior after the response-parser tightening, general regression checks, and a debug-console check confirming there are no logged errors.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the eighth review pass found one remaining client response-parser consistency issue. Story 48 therefore needs one more narrow parser fix and one fresh full rerun before it can close honestly again.

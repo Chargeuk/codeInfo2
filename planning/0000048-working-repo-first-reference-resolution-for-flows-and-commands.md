@@ -1685,7 +1685,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 19. Fail Closed When Repository Enumeration Cannot Prove Working-Folder Membership
 
 - Task Status: `__in_progress__`
-- Git Commits: `5d3d0b0f`
+- Git Commits: `5d3d0b0f, 68ab53fb`
 
 #### Overview
 
@@ -1706,7 +1706,7 @@ Use only the wrapper commands below. Do not attempt to run builds or tests witho
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
 
 1. [x] `npm run build:summary:server` - Use because this task changes server/common working-folder validation behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` - Use because this task changes server/common request/restore validation logic. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+2. [x] `npm run test:summary:server:unit` - Use because this task changes server/common request/restore validation logic. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
 3. [ ] `npm run test:summary:server:cucumber` - Use because this task changes server/common working-folder behavior that still needs feature-level regression coverage. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
@@ -1719,7 +1719,8 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Extended `server/src/test/unit/chatValidators.test.ts` with the direct request-validation proof for repository-enumeration failure and `server/src/test/unit/chat-interface-run-persistence.test.ts` with the restore-path proof that the saved value is not cleared when repository enumeration is unavailable.
 - Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
 - Planning repair: the active blocker turned out not to be “more Task 19 feature code” but a missing prerequisite validation seam. Story 48 now inserts Task 18 ahead of this task so the flow-loop stop harness regains an honest full server-unit wrapper result before this feature task is asked to close Testing step 2 or proceed to cucumber.
-- Tasks 19 testing steps 2-3 now depend on Task 18 completing first. Once the repaired harness proves `npm run test:summary:server:unit` can terminate honestly again, this feature task can rerun the full wrapper and finish its remaining validation without carrying a hidden infrastructure blocker.
+- Task 18’s prerequisite wrapper rerun also completed this task’s server-unit validation honestly. The first rerun after the harness fix exposed one normal assertion failure in `server/src/test/integration/flows.run.working-folder.test.ts`, so `68ab53fb` updated that child-flow integration test to seed its ingested repository explicitly under the new fail-closed contract and then reran full `npm run test:summary:server:unit`, which passed at `tests run: 1281`, `passed: 1281`, and `failed: 0`.
+- Task 19 no longer has a live blocker. What remains here is ordinary completion work: update the final Task 19 implementation-note vocabulary summary and run the still-pending cucumber wrapper.
 
 ---
 

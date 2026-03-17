@@ -126,15 +126,22 @@ function parseConversationSummary(data: unknown): ConversationApiSummary {
 
 export async function updateConversationWorkingFolder(params: {
   conversationId: string;
-  workingFolder?: string | null;
+  workingFolder: string | null;
 }): Promise<{ conversation: ConversationApiSummary }> {
   const trimmedConversationId = params.conversationId.trim();
   if (!trimmedConversationId) {
     throw new Error('conversationId is required');
   }
 
+  if (params.workingFolder === undefined) {
+    throw new Error('workingFolder must be a non-empty string or null');
+  }
+
   const trimmedWorkingFolder =
     typeof params.workingFolder === 'string' ? params.workingFolder.trim() : '';
+  if (params.workingFolder !== null && trimmedWorkingFolder.length === 0) {
+    throw new Error('workingFolder must be a non-empty string or null');
+  }
 
   const res = await fetch(
     new URL(
@@ -145,7 +152,8 @@ export async function updateConversationWorkingFolder(params: {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        workingFolder: trimmedWorkingFolder || null,
+        workingFolder:
+          params.workingFolder === null ? null : trimmedWorkingFolder,
       }),
     },
   );

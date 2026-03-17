@@ -72,7 +72,7 @@ const archiveActionParamsSchema = z
 
 const updateWorkingFolderSchema = z
   .object({
-    workingFolder: z.string().min(1).optional().nullable(),
+    workingFolder: z.string().trim().min(1).nullable(),
   })
   .strict();
 
@@ -843,9 +843,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
 
     const rawWorkingFolder = parsedBody.data.workingFolder;
     const workingFolder =
-      typeof rawWorkingFolder === 'string' && rawWorkingFolder.trim().length > 0
-        ? rawWorkingFolder.trim()
-        : undefined;
+      typeof rawWorkingFolder === 'string' ? rawWorkingFolder : undefined;
 
     let validatedWorkingFolder: string | undefined;
     try {
@@ -901,7 +899,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     try {
       const updated = await persistConversationWorkingFolder({
         conversationId: parsedParams.data.id,
-        workingFolder: validatedWorkingFolder ?? null,
+        workingFolder: rawWorkingFolder === null ? null : validatedWorkingFolder,
       });
       if (!updated) return res.status(404).json({ error: 'not_found' });
       appendWorkingFolderDecisionLog({

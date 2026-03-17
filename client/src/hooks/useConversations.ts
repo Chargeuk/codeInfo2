@@ -52,7 +52,7 @@ type State = {
   ) => string | undefined;
   updateWorkingFolder: (params: {
     conversationId: string;
-    workingFolder?: string | null;
+    workingFolder: string | null;
     surface: WorkingFolderPickerSurface;
   }) => Promise<ConversationSummary>;
   emitWorkingFolderPickerSync: (params: {
@@ -441,7 +441,7 @@ export function useConversations(params?: {
   const updateWorkingFolder = useCallback(
     async (params: {
       conversationId: string;
-      workingFolder?: string | null;
+      workingFolder: string | null;
       surface: WorkingFolderPickerSurface;
     }) => {
       const result = await updateConversationWorkingFolderApi({

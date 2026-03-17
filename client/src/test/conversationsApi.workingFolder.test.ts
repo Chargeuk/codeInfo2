@@ -80,4 +80,26 @@ describe('conversations API working folder payload', () => {
     expect(String(url)).toContain('/conversations/conv-1/working-folder');
     expect(requestBody).toEqual({ workingFolder: null });
   });
+
+  it('rejects omitted workingFolder values before sending a request', async () => {
+    await expect(
+      updateConversationWorkingFolder({
+        conversationId: 'conv-1',
+        workingFolder: undefined as unknown as string | null,
+      }),
+    ).rejects.toThrow('workingFolder must be a non-empty string or null');
+
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects blank workingFolder strings before sending a request', async () => {
+    await expect(
+      updateConversationWorkingFolder({
+        conversationId: 'conv-1',
+        workingFolder: '   ',
+      }),
+    ).rejects.toThrow('workingFolder must be a non-empty string or null');
+
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
 });

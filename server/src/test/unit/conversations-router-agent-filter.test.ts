@@ -278,6 +278,78 @@ test('POST /conversations/:id/working-folder clears flags.workingFolder while id
   assert.equal(res.body.conversation.flags.workingFolder, undefined);
 });
 
+test('POST /conversations/:id/working-folder rejects omitted workingFolder payloads', async () => {
+  let updateCalled = false;
+
+  const res = await request(
+    buildApp({
+      findConversationById: async () => baseConversation,
+      updateConversationWorkingFolder: async () => {
+        updateCalled = true;
+        return baseConversation;
+      },
+    }),
+  )
+    .post('/conversations/conv-working-folder/working-folder')
+    .send({})
+    .expect(400);
+
+  assert.equal(updateCalled, false);
+  assert.equal(res.body.error, 'validation_error');
+  assert.match(
+    String(res.body.details?.body?.workingFolder?._errors?.[0] ?? ''),
+    /Required|expected string/i,
+  );
+});
+
+test('POST /conversations/:id/working-folder rejects blank workingFolder payloads', async () => {
+  let updateCalled = false;
+
+  const res = await request(
+    buildApp({
+      findConversationById: async () => baseConversation,
+      updateConversationWorkingFolder: async () => {
+        updateCalled = true;
+        return baseConversation;
+      },
+    }),
+  )
+    .post('/conversations/conv-working-folder/working-folder')
+    .send({ workingFolder: '' })
+    .expect(400);
+
+  assert.equal(updateCalled, false);
+  assert.equal(res.body.error, 'validation_error');
+  assert.match(
+    String(res.body.details?.body?.workingFolder?._errors?.[0] ?? ''),
+    /at least 1 character|>=1 characters/i,
+  );
+});
+
+test('POST /conversations/:id/working-folder rejects whitespace-only workingFolder payloads', async () => {
+  let updateCalled = false;
+
+  const res = await request(
+    buildApp({
+      findConversationById: async () => baseConversation,
+      updateConversationWorkingFolder: async () => {
+        updateCalled = true;
+        return baseConversation;
+      },
+    }),
+  )
+    .post('/conversations/conv-working-folder/working-folder')
+    .send({ workingFolder: '   ' })
+    .expect(400);
+
+  assert.equal(updateCalled, false);
+  assert.equal(res.body.error, 'validation_error');
+  assert.match(
+    String(res.body.details?.body?.workingFolder?._errors?.[0] ?? ''),
+    /at least 1 character|>=1 characters/i,
+  );
+});
+
 test('POST /conversations/:id/working-folder rejects invalid absolute-path workingFolder', async () => {
   const res = await request(
     buildApp({

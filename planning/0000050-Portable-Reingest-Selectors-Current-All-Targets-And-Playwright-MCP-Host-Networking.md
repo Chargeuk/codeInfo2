@@ -1,4 +1,4 @@
-# Story 0000049 – Portable Reingest Selectors Current All Targets And Playwright MCP Host Networking
+# Story 0000050 – Portable Reingest Selectors Current All Targets And Playwright MCP Host Networking
 
 ## Implementation Plan
 

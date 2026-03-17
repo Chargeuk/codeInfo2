@@ -220,6 +220,12 @@ function shouldSkipRuntimeConfigLog() {
   return testFlag.__CODEINFO_TEST__ === true;
 }
 
+function hasInvalidCanonicalRuntimeConfig(
+  diagnostics: RuntimeConfigDiagnostic[],
+): boolean {
+  return diagnostics.some((diagnostic) => diagnostic.source === 'runtime');
+}
+
 function logRuntimeConfigOnce(
   config: ResolvedRuntimeConfig,
   diagnostics: RuntimeConfigDiagnostic[],
@@ -237,7 +243,7 @@ function logRuntimeConfigOnce(
     logForwardEnabledSource: config.sources.logForwardEnabled,
     logMaxBytes: config.logMaxBytes,
     logMaxBytesSource: config.sources.logMaxBytes,
-    hasInvalidCanonicalConfig: diagnostics.length > 0,
+    hasInvalidCanonicalConfig: hasInvalidCanonicalRuntimeConfig(diagnostics),
     diagnostics,
   });
 }
@@ -384,5 +390,9 @@ export function getLogMaxBytes(): number {
 export function resetClientRuntimeConfigLogForTests() {
   runtimeConfigLogged = false;
 }
+
+export {
+  hasInvalidCanonicalRuntimeConfig,
+};
 
 export type { RuntimeConfig, ResolvedRuntimeConfig, RuntimeConfigDiagnostic };

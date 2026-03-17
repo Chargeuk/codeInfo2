@@ -626,29 +626,41 @@ Close the first third-pass `should_fix` finding by making the `DEV_0000048_T8_VI
 
 #### Subtasks
 
-1. [ ] Re-read `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`, then inspect `client/src/config/runtimeConfig.ts`, `client/src/test/baseUrl.env.test.ts`, `client/src/test/logging/transport.test.ts`, and `e2e/env-runtime-config.spec.ts`. Record in Task 23 `Implementation notes` exactly which diagnostics are currently counted toward `hasInvalidCanonicalConfig` and why that overstates canonical-runtime failure.
-2. [ ] Refine the runtime-config marker logic so `hasInvalidCanonicalConfig` is derived only from canonical runtime diagnostics (`source: 'runtime'` and/or the top-level `__CODEINFO_CONFIG__` container diagnostic) instead of all diagnostics indiscriminately.
-3. [ ] Preserve the existing diagnostics array and resolved config precedence so env fallback values still surface their own invalid diagnostics without being mislabeled as canonical-runtime failures.
-4. [ ] Add or extend client tests that prove malformed env fallback values no longer set `hasInvalidCanonicalConfig`, while malformed runtime config values still do.
-5. [ ] If needed, extend browser/e2e proof so the marker contract stays observable in the full runtime bootstrap path.
-6. [ ] Update Task 23 `Implementation notes` with the final marker rule and the exact proof coverage added.
+1. [x] Re-read `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`, then inspect `client/src/config/runtimeConfig.ts`, `client/src/test/baseUrl.env.test.ts`, `client/src/test/logging/transport.test.ts`, and `e2e/env-runtime-config.spec.ts`. Record in Task 23 `Implementation notes` exactly which diagnostics are currently counted toward `hasInvalidCanonicalConfig` and why that overstates canonical-runtime failure.
+2. [x] Refine the runtime-config marker logic so `hasInvalidCanonicalConfig` is derived only from canonical runtime diagnostics (`source: 'runtime'` and/or the top-level `__CODEINFO_CONFIG__` container diagnostic) instead of all diagnostics indiscriminately.
+3. [x] Preserve the existing diagnostics array and resolved config precedence so env fallback values still surface their own invalid diagnostics without being mislabeled as canonical-runtime failures.
+4. [x] Add or extend client tests that prove malformed env fallback values no longer set `hasInvalidCanonicalConfig`, while malformed runtime config values still do.
+5. [x] If needed, extend browser/e2e proof so the marker contract stays observable in the full runtime bootstrap path.
+6. [x] Update Task 23 `Implementation notes` with the final marker rule and the exact proof coverage added.
 
 #### Testing
 
 Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
 
-1. [ ] `npm run build:summary:client` - Use because this task changes client runtime-config/bootstrap behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use because this task changes client/common runtime-config behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Use because this task changes a browser-visible runtime marker contract. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
-4. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end and should still prove the runtime bootstrap stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including runtime-marker checks for malformed env fallback versus malformed canonical runtime config and a debug-console check confirming there are no logged errors.
-7. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use because this task changes client runtime-config/bootstrap behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use because this task changes client/common runtime-config behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Use because this task changes a browser-visible runtime marker contract. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+4. [x] `npm run compose:build:summary` - Use because this task is testable from the front end and should still prove the runtime bootstrap stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [x] `npm run compose:up`
+6. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including runtime-marker checks for malformed env fallback versus malformed canonical runtime config and a debug-console check confirming there are no logged errors.
+7. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - Third-pass review finding only: `hasInvalidCanonicalConfig` is currently computed from the full diagnostics array, so malformed env fallback values are mislabeled as malformed canonical runtime config even when `window.__CODEINFO_CONFIG__` is absent or valid.
+- Re-read the third-pass review finding plus `client/src/config/runtimeConfig.ts`, `client/src/test/baseUrl.env.test.ts`, `client/src/test/logging/transport.test.ts`, and `e2e/env-runtime-config.spec.ts`; the current overstatement is exactly that `hasInvalidCanonicalConfig` is derived from every diagnostic, so malformed env fallback values set the marker even when canonical runtime input is absent or valid.
+- Narrowed the marker rule in `client/src/config/runtimeConfig.ts` so `hasInvalidCanonicalConfig` now comes from `hasInvalidCanonicalRuntimeConfig(...)`, which only treats `source: 'runtime'` diagnostics as canonical-runtime failures while leaving the full diagnostics array unchanged.
+- Preserved the existing resolved-config precedence and diagnostics array: malformed env fallback values still emit `source: 'env'` diagnostics, but they no longer get mislabeled as canonical runtime failure when valid default or env fallback wins.
+- Extended `client/src/test/baseUrl.env.test.ts` and `client/src/test/logging/transport.test.ts` with direct proof that malformed env fallback diagnostics now leave `hasInvalidCanonicalConfig` false while malformed runtime field/container diagnostics still set it true.
+- Extended `e2e/env-runtime-config.spec.ts` so the full browser bootstrap path also asserts the normal runtime marker reports `hasInvalidCanonicalConfig: false` when runtime injection is valid.
+- Testing step 1 passed via `npm run build:summary:client` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
+- Testing step 2 passed via full `npm run test:summary:client` with `tests run: 578`, `passed: 578`, `failed: 0`, and `agent_action: skip_log`; the first full run caught one real expectation bug in the new env-fallback test because jsdom falls back to `window.location.origin`, so I corrected that assertion and reran the full wrapper cleanly.
+- Testing step 3 passed via full `npm run test:summary:e2e` with `tests run: 44`, `passed: 44`, `failed: 0`, and `agent_action: skip_log`, so the refined canonical-invalid marker rule still holds through the browser stack and teardown path.
+- Testing step 4 passed via `npm run compose:build:summary` with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the manual verification stack is ready for bring-up.
+- Testing step 5 passed via `npm run compose:up`; the compose stack started cleanly with healthy server and client containers, ready for the live runtime-marker verification at `http://host.docker.internal:5001`.
+- Testing step 6 passed via Manual Playwright-MCP at `http://host.docker.internal:5001`: the baseline marker reported `hasInvalidCanonicalConfig: false` with no diagnostics, a temporary live bundle edit changing the baked env fallback API URL to `notaurl` produced an env-only diagnostic while `hasInvalidCanonicalConfig` stayed `false`, a temporary live `config.js` mutation to `window.__CODEINFO_CONFIG__ = [];` produced a runtime `invalid_container` diagnostic with `hasInvalidCanonicalConfig: true`, `browser_console_messages(level=\"error\")` returned no entries, screenshots were captured at `test-results/screenshots/0000048-23-home.png` and `test-results/screenshots/0000048-23-malformed-runtime.png`, and both served files were restored to their original hashes before teardown.
+- Testing step 7 passed via `npm run compose:down`; the compose stack shut down cleanly after the manual marker checks, leaving no live-task mutations behind.
 
 ---
 

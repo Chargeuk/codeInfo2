@@ -49,4 +49,5 @@ test('runtime config marker matches injected client config', async ({ page }) =>
   expect(markerPayload.logForwardEnabledSource).toBe('runtime');
   expect(markerPayload.logMaxBytes).toBe(32768);
   expect(markerPayload.logMaxBytesSource).toBe('runtime');
+  expect(markerPayload.hasInvalidCanonicalConfig).toBe(false);
 });

@@ -1,6 +1,7 @@
 import {
   getApiBaseUrl,
   getClientRuntimeConfigDiagnostics,
+  hasInvalidCanonicalRuntimeConfig,
   resetClientRuntimeConfigLogForTests,
 } from '../config/runtimeConfig';
 
@@ -52,6 +53,9 @@ describe('baseUrl env rename', () => {
         reason: 'empty_string',
       },
     ]);
+    expect(
+      hasInvalidCanonicalRuntimeConfig(getClientRuntimeConfigDiagnostics()),
+    ).toBe(true);
   });
 
   it('surfaces malformed top-level runtime config containers instead of treating them as absent', () => {
@@ -71,6 +75,9 @@ describe('baseUrl env rename', () => {
         reason: 'invalid_container',
       },
     ]);
+    expect(
+      hasInvalidCanonicalRuntimeConfig(getClientRuntimeConfigDiagnostics()),
+    ).toBe(true);
   });
 
   it('surfaces array-shaped top-level runtime config containers before env fallback wins', () => {
@@ -90,5 +97,25 @@ describe('baseUrl env rename', () => {
         reason: 'invalid_container',
       },
     ]);
+    expect(
+      hasInvalidCanonicalRuntimeConfig(getClientRuntimeConfigDiagnostics()),
+    ).toBe(true);
+  });
+
+  it('does not label malformed env fallback values as invalid canonical runtime config', () => {
+    process.env.VITE_CODEINFO_API_URL = ' ';
+
+    expect(getApiBaseUrl()).toBe(window.location.origin);
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([
+      {
+        field: 'apiBaseUrl',
+        source: 'env',
+        rawValue: ' ',
+        reason: 'empty_string',
+      },
+    ]);
+    expect(
+      hasInvalidCanonicalRuntimeConfig(getClientRuntimeConfigDiagnostics()),
+    ).toBe(false);
   });
 });

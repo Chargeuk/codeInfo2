@@ -2,6 +2,7 @@ import { LogEntry } from '@codeinfo2/common';
 import { jest } from '@jest/globals';
 import {
   getClientRuntimeConfigDiagnostics,
+  hasInvalidCanonicalRuntimeConfig,
   resetClientRuntimeConfigLogForTests,
 } from '../../config/runtimeConfig';
 import { flushQueue, sendLogs, _getQueue } from '../../logging/transport';
@@ -174,6 +175,9 @@ describe('transport', () => {
         reason: 'invalid_number',
       },
     ]);
+    expect(
+      hasInvalidCanonicalRuntimeConfig(getClientRuntimeConfigDiagnostics()),
+    ).toBe(false);
     expect(_getQueue().length).toBe(0);
   });
 
@@ -200,6 +204,9 @@ describe('transport', () => {
         reason: 'invalid_container',
       },
     ]);
+    expect(
+      hasInvalidCanonicalRuntimeConfig(getClientRuntimeConfigDiagnostics()),
+    ).toBe(true);
     expect(_getQueue().length).toBe(0);
   });
 });

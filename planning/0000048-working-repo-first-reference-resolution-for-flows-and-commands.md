@@ -707,7 +707,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 25. Remove The Stale Story 47 Transient Review Handoff Artifact
 
 - Task Status: `__done__`
-- Git Commits: `077aeeb1, cb8a1e39, 66a8ea5f`
+- Git Commits: `077aeeb1, cb8a1e39, 66a8ea5f, fb733e8e`
 
 #### Overview
 

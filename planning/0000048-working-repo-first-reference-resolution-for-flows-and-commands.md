@@ -3120,3 +3120,95 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Subtask 3: the final rerun results are fully captured in these notes, including the green wrapper counts, the restored manual Story 48 proof points, the env/runtime markers, and the screenshot evidence locations for the ninth-pass closeout.
 - Subtask 4: the durable ninth-pass review artifacts remain the tracked evidence/findings files under `codeInfoStatus/reviews/0000048-review-20260317T200618Z-f6f098f9-*.md`; this closeout keeps those durable records intact and does not replace them with the transient handoff JSON.
 - Subtask 5: the transient `codeInfoStatus/reviews/0000048-current-review.json` handoff file remains untracked in the worktree and was intentionally left out of the closing tracked changes so later passes cannot consume stale transient state.
+
+## Code Review Findings (Tenth Pass)
+
+### Review Artifacts
+
+- Evidence: [codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-findings.md)
+
+### Finding Summary
+
+- One `should_fix` finding remains open. The shared lookup-order marker `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER` is emitted with inconsistent context schemas across [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts), and [server/src/flows/markdownFileResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/markdownFileResolver.ts). Because Story 48 treats structured lookup logs as the canonical debugging surface, this low-risk shared-contract inconsistency should be fixed before the story closes again.
+
+### Acceptance Proof Snapshot
+
+- Direct proof: `AC01-AC48`
+- Indirect proof: `__none__`
+- Missing proof: `__none__`
+
+### Succinctness Assessment
+
+- The implemented Story 48 behavior is otherwise appropriately succinct for the required feature set. The current simplification opportunity is localized to the shared lookup-order log envelope: the runtime behavior and acceptance-proof seams are already in place, but the same marker should not require emitter-specific schema branching.
+
+---
+
+### 43. Normalize Shared Lookup-Order Log Schema Across Resolution Surfaces
+
+- Task Status: `__to_do__`
+- Git Commits: `__none__`
+
+#### Overview
+
+Close the tenth-pass `should_fix` finding by making every emitter of `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER` publish the same context schema. The intended outcome is that Story 48's canonical lookup-order debugging marker can be parsed consistently across flow-command, direct-command, and markdown-resolution surfaces without emitter-specific schema branching.
+
+#### Subtasks
+
+1. [ ] Re-read [codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-findings.md), then inspect the current `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER` emitters in [server/src/flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts), [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts), and [server/src/flows/markdownFileResolver.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/markdownFileResolver.ts). Record in Task 43 `Implementation notes` exactly which fields currently differ and what the common envelope will be.
+2. [ ] Introduce one shared mapper or helper for the `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER` context shape so all Story 48 lookup-order emitters publish the same field set in the same vocabulary. Prefer nullable/shared fields over emitter-specific omission where that keeps the contract simple.
+3. [ ] Update every current emitter of `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER` to use that shared envelope without broadening public API payloads or changing the existing lookup-order runtime behavior.
+4. [ ] Add or extend direct server regression coverage proving the shared marker schema is identical across the flow-command, direct-command, and markdown-resolution emitters that Story 48 changed.
+5. [ ] Update Task 43 `Implementation notes` with the final shared marker schema, the files that now consume it, and where the direct proof lives.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Use because this task changes server-side lookup logging helpers and their call sites. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` - Mandatory proof because this task changes shared server-side lookup logging contracts and should keep direct Story 48 unit/integration coverage green. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` - Use because Story 48 lookup-order behavior still has higher-level server coverage and the shared logging contract should not drift there. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Review reopening only: the tenth review pass found one remaining shared-contract issue in Story 48's canonical lookup-order debugging marker. The runtime behavior is already correct; this task narrows the follow-up to schema consistency for `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER`.
+
+---
+
+### 44. Re-Run Full Story 48 Validation After Tenth Review Fix
+
+- Task Status: `__to_do__`
+- Git Commits: `__none__`
+
+#### Overview
+
+After Task 43 lands, rerun the full Story 48 validation matrix again so the story closes against the original acceptance criteria plus the tenth-pass shared-log-schema fix. This task is intentionally a fresh full revalidation task and must not be reduced to targeted reruns.
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 48 acceptance criteria, all ten `Code Review Findings` sections above, the historical post-implementation review record, Tasks 40-43, and the durable tenth-pass review artifacts [codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-evidence.md) plus [codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-findings.md). Record in Task 44 `Implementation notes` how Task 43 closes the last shared-log-contract gap without reopening unrelated Story 48 behavior.
+2. [ ] Update [README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/README.md), [design.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/design.md), [projectStructure.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/projectStructure.md), and [docs/developer-reference.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docs/developer-reference.md) only if the Task 43 log-schema alignment changes any final Story 48 closeout notes or response-contract guidance.
+3. [ ] Update Task 44 `Implementation notes` with the final rerun results, the tenth-pass proof points, and any final screenshot or marker evidence captured during this post-review validation pass.
+4. [ ] Preserve the durable tenth-pass review artifacts [codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T221306Z-73793b89-findings.md) in the closing commit. Do not rely on the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file as the durable record.
+5. [ ] Remove or leave untracked the transient [codeInfoStatus/reviews/0000048-current-review.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-current-review.json) handoff file before the closing commit so later review passes cannot consume stale state.
+
+#### Testing
+
+Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
+
+1. [ ] `npm run build:summary:server` - Mandatory final regression check because the reopened story still changes server/common behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Mandatory final regression check because the story still has client/common acceptance surfaces that must be revalidated after the review fix. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Mandatory final regression check because the reopened story still changes server/common behavior. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags "<expr>"`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario "<pattern>"`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Mandatory final regression check because the story still has client/common acceptance surfaces that must be revalidated after the review fix. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Mandatory final regression check because the reopened story still changes full-app behavior. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - Use for the final front-end-accessible regression stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including the Story 48 working-folder contract, the env/runtime markers, the restore/edit behavior, general regression checks, and a debug-console check confirming there are no logged errors.
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Review reopening only: the tenth review pass found one remaining shared-contract issue in Story 48's canonical lookup-order debugging marker. This task exists to rerun the full acceptance matrix after that narrow server-side log-schema fix lands.

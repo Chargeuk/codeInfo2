@@ -1,0 +1,10 @@
+{
+  "Description": "Create a new story with an AI agent that will research ideas for you.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "create_new_story.md"
+    }
+  ]
+}

@@ -41,10 +41,13 @@ export {
   resolveRetryAfterMs,
   runOpenAiWithRetry,
 } from './openaiRetry.js';
+export { validateOpenAiEmbeddingGuardrails } from './openaiGuardrails.js';
 export {
-  estimateOpenAiTokens,
-  validateOpenAiEmbeddingGuardrails,
-} from './openaiGuardrails.js';
+  countOpenAiTokens,
+  disposeOpenAiTokenizer,
+  setOpenAiTokenizerFactoryForTests,
+  type OpenAiTokenizerCountSurface,
+} from './openaiTokenizer.js';
 export {
   resolveEmbeddingModelSelection,
   type ResolvedEmbeddingModelSelection,

@@ -7,11 +7,9 @@ import {
   resolveOpenAiModelTokenLimit,
 } from './openaiConstants.js';
 import { mapOpenAiError, OpenAiEmbeddingError } from './openaiErrors.js';
-import {
-  estimateOpenAiTokens,
-  validateOpenAiEmbeddingGuardrails,
-} from './openaiGuardrails.js';
+import { validateOpenAiEmbeddingGuardrails } from './openaiGuardrails.js';
 import { runOpenAiWithRetry } from './openaiRetry.js';
+import { countOpenAiTokens } from './openaiTokenizer.js';
 import type {
   DiscoveredEmbeddingModel,
   EmbeddingProvider,
@@ -74,10 +72,14 @@ function validateEmbeddingResponse(
 }
 
 class OpenAiEmbeddingModel implements ProviderEmbeddingModel {
+  readonly modelKey: string;
+
   constructor(
     private readonly embedMany: (inputs: string[]) => Promise<number[][]>,
     private readonly model: string,
-  ) {}
+  ) {
+    this.modelKey = model;
+  }
 
   async embedText(text: string): Promise<number[]> {
     const vectors = await this.embedMany([text]);
@@ -85,7 +87,11 @@ class OpenAiEmbeddingModel implements ProviderEmbeddingModel {
   }
 
   async countTokens(text: string): Promise<number> {
-    return estimateOpenAiTokens(text);
+    return countOpenAiTokens({
+      model: this.model,
+      input: text,
+      surface: 'provider',
+    });
   }
 
   async getContextLength(): Promise<number> {

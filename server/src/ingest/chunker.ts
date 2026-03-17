@@ -1,6 +1,8 @@
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { resolveConfig } from './config.js';
+import { isOpenAiAllowlistedEmbeddingModel } from './providers/openaiConstants.js';
+import { countOpenAiTokens } from './providers/openaiTokenizer.js';
 import type { ProviderEmbeddingModel } from './providers/types.js';
 import { IngestConfig, Chunk } from './types.js';
 
@@ -51,6 +53,15 @@ async function count(
   model: ProviderEmbeddingModel,
   text: string,
 ): Promise<number> {
+  const modelKey = resolveModelKey(model);
+  if (isOpenAiAllowlistedEmbeddingModel(modelKey)) {
+    return countOpenAiTokens({
+      model: modelKey,
+      input: text,
+      surface: 'chunker',
+    });
+  }
+
   try {
     return await model.countTokens(text);
   } catch (error) {
@@ -60,7 +71,7 @@ async function count(
       message: 'DEV-0000036:T19:chunker_token_count_fallback',
       timestamp: new Date().toISOString(),
       context: {
-        model: resolveModelKey(model),
+        model: modelKey,
         fallback: 'whitespace_estimate',
         charLength: text.length,
         reason:
@@ -70,7 +81,7 @@ async function count(
       },
     });
     baseLogger.warn(
-      { model: resolveModelKey(model), charLength: text.length, err: error },
+      { model: modelKey, charLength: text.length, err: error },
       'chunker token-count fallback',
     );
     return text.split(/\s+/).filter(Boolean).length;

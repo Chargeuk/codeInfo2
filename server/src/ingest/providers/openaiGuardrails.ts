@@ -4,6 +4,7 @@ import {
   resolveOpenAiModelTokenLimit,
 } from './openaiConstants.js';
 import { OpenAiEmbeddingError } from './openaiErrors.js';
+import { countOpenAiTokens } from './openaiTokenizer.js';
 
 export type TokenEstimator = (input: string) => number;
 export type OpenAiBlankInputGuardContext = {
@@ -11,19 +12,20 @@ export type OpenAiBlankInputGuardContext = {
   batchSize: number;
 };
 
-export function estimateOpenAiTokens(input: string): number {
-  const bytes = Buffer.byteLength(input, 'utf8');
-  const wordCount = input.trim().split(/\s+/).filter(Boolean).length;
-  return Math.max(1, Math.ceil(bytes / 4), wordCount);
-}
-
 export function validateOpenAiEmbeddingGuardrails(params: {
   model: string;
   inputs: string[];
   estimateTokens?: TokenEstimator;
   onBlankInput?: (context: OpenAiBlankInputGuardContext) => void;
 }): { tokenEstimate: number; perInputEstimates: number[] } {
-  const estimateTokens = params.estimateTokens ?? estimateOpenAiTokens;
+  const estimateTokens =
+    params.estimateTokens ??
+    ((input: string) =>
+      countOpenAiTokens({
+        model: params.model,
+        input,
+        surface: 'guardrail',
+      }));
   const modelLimit = resolveOpenAiModelTokenLimit(params.model);
 
   if (params.inputs.length === 0) {

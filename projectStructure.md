@@ -1,5 +1,36 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000048 Task 10 structural change ledger
+
+Added files:
+
+- `server/src/ingest/providers/openaiTokenizer.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `package-lock.json`
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `projectStructure.md`
+- `server/package.json`
+- `server/src/ingest/chunker.ts`
+- `server/src/ingest/providers/index.ts`
+- `server/src/ingest/providers/ingestFailureClassifier.ts`
+- `server/src/ingest/providers/openaiConstants.ts`
+- `server/src/ingest/providers/openaiEmbeddingProvider.ts`
+- `server/src/ingest/providers/openaiErrors.ts`
+- `server/src/ingest/providers/openaiGuardrails.ts`
+- `server/src/test/unit/chunker.test.ts`
+- `server/src/test/unit/openai-provider-guardrails.test.ts`
+- `server/src/test/unit/openai-provider.test.ts`
+
 ## Story 0000048 Task 9 structural change ledger
 
 Added files:

@@ -219,4 +219,33 @@ describe('transport', () => {
     ).toBe(true);
     expect(_getQueue().length).toBe(0);
   });
+
+  it('surfaces object-like non-record runtime config containers before log env fallback wins', async () => {
+    (
+      globalThis as typeof globalThis & { __CODEINFO_CONFIG__?: unknown }
+    ).__CODEINFO_CONFIG__ = new Date('2026-03-17T00:00:00.000Z');
+    getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
+
+    sendLogs([baseEntry]);
+    await flushQueue();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:5010/logs',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([
+      {
+        container: '__CODEINFO_CONFIG__',
+        source: 'runtime',
+        rawValue: '"2026-03-17T00:00:00.000Z"',
+        reason: 'invalid_container',
+      },
+    ]);
+    expect(
+      hasInvalidCanonicalRuntimeConfig(getClientRuntimeConfigDiagnostics()),
+    ).toBe(true);
+    expect(_getQueue().length).toBe(0);
+  });
 });

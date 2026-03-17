@@ -109,13 +109,21 @@ function readRuntimeConfig(): {
   if (config === undefined) {
     return { config: {}, diagnostics: [] };
   }
-  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+  if (!isPlainConfigRecord(config)) {
     return {
       config: {},
       diagnostics: [createContainerDiagnostic(config)],
     };
   }
   return { config, diagnostics: [] };
+}
+
+function isPlainConfigRecord(value: unknown): value is RawRuntimeConfig {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 function normalizeBoolean(

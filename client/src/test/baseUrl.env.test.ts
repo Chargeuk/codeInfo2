@@ -104,6 +104,28 @@ describe('baseUrl env rename', () => {
     ).toBe(true);
   });
 
+  it('surfaces object-like non-record runtime config containers before env fallback wins', () => {
+    (
+      globalThis as typeof globalThis & {
+        __CODEINFO_CONFIG__?: unknown;
+      }
+    ).__CODEINFO_CONFIG__ = new URL('http://bad-object.example');
+    process.env.VITE_CODEINFO_API_URL = 'http://renamed.example:5010';
+
+    expect(getApiBaseUrl()).toBe('http://renamed.example:5010');
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([
+      {
+        container: '__CODEINFO_CONFIG__',
+        source: 'runtime',
+        rawValue: '"http://bad-object.example/"',
+        reason: 'invalid_container',
+      },
+    ]);
+    expect(
+      hasInvalidCanonicalRuntimeConfig(getClientRuntimeConfigDiagnostics()),
+    ).toBe(true);
+  });
+
   it('does not label malformed env fallback values as invalid canonical runtime config', () => {
     process.env.VITE_CODEINFO_API_URL = ' ';
 

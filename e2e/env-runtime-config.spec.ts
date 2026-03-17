@@ -51,3 +51,54 @@ test('runtime config marker matches injected client config', async ({ page }) =>
   expect(markerPayload.logMaxBytesSource).toBe('runtime');
   expect(markerPayload.hasInvalidCanonicalConfig).toBe(false);
 });
+
+test('runtime config marker surfaces object-like malformed runtime containers before env fallback wins', async ({
+  page,
+}) => {
+  try {
+    const ping = await page.request.get(baseUrl);
+    if (!ping.ok()) {
+      test.skip(`Client not reachable (${ping.status()})`);
+    }
+  } catch {
+    test.skip('Client not reachable (request failed)');
+  }
+
+  await page.route('**/config.js', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: "window.__CODEINFO_CONFIG__ = new Date('2026-03-17T00:00:00.000Z');",
+    });
+  });
+
+  const markerPromise = page.waitForEvent('console', {
+    predicate: (message) =>
+      message.type() === 'info' &&
+      message.text().includes('DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG'),
+  });
+
+  await page.goto(baseUrl);
+
+  const marker = await markerPromise;
+  const markerArgs = await Promise.all(marker.args().map((arg) => arg.jsonValue()));
+  const markerPayload = markerArgs[1] as Record<string, unknown>;
+
+  expect(markerPayload.apiBaseUrl).toBe(expectedApiBase);
+  expect(markerPayload.apiBaseUrlSource).toBe('env');
+  expect(markerPayload.lmStudioBaseUrl).toBe(expectedLmStudioBase);
+  expect(markerPayload.lmStudioBaseUrlSource).toBe('env');
+  expect(markerPayload.logForwardEnabled).toBe(true);
+  expect(markerPayload.logForwardEnabledSource).toBe('env');
+  expect(markerPayload.logMaxBytes).toBe(32768);
+  expect(markerPayload.logMaxBytesSource).toBe('env');
+  expect(markerPayload.hasInvalidCanonicalConfig).toBe(true);
+  expect(markerPayload.diagnostics).toEqual([
+    {
+      container: '__CODEINFO_CONFIG__',
+      source: 'runtime',
+      rawValue: '"2026-03-17T00:00:00.000Z"',
+      reason: 'invalid_container',
+    },
+  ]);
+});

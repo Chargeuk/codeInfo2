@@ -30,14 +30,26 @@ type RuntimeConfigReason =
   | 'empty_string'
   | 'invalid_url'
   | 'invalid_boolean'
-  | 'invalid_number';
+  | 'invalid_number'
+  | 'invalid_container';
 
-type RuntimeConfigDiagnostic = {
+type RuntimeConfigFieldDiagnostic = {
   field: RuntimeConfigField;
   source: RuntimeConfigSource;
   rawValue: string;
   reason: RuntimeConfigReason;
 };
+
+type RuntimeConfigContainerDiagnostic = {
+  container: '__CODEINFO_CONFIG__';
+  source: 'runtime';
+  rawValue: string;
+  reason: Extract<RuntimeConfigReason, 'invalid_container'>;
+};
+
+type RuntimeConfigDiagnostic =
+  | RuntimeConfigFieldDiagnostic
+  | RuntimeConfigContainerDiagnostic;
 
 const DEFAULT_LM_STUDIO_BASE_URL = 'http://host.docker.internal:1234';
 const DEFAULT_LOG_MAX_BYTES = 32768;
@@ -58,12 +70,23 @@ function createDiagnostic(
   source: RuntimeConfigSource,
   value: unknown,
   reason: RuntimeConfigReason,
-): RuntimeConfigDiagnostic {
+): RuntimeConfigFieldDiagnostic {
   return {
     field,
     source,
     rawValue: stringifyRawValue(value),
     reason,
+  };
+}
+
+function createContainerDiagnostic(
+  value: unknown,
+): RuntimeConfigContainerDiagnostic {
+  return {
+    container: '__CODEINFO_CONFIG__',
+    source: 'runtime',
+    rawValue: stringifyRawValue(value),
+    reason: 'invalid_container',
   };
 }
 
@@ -76,14 +99,23 @@ function readEnv(): Env {
   return { ...processEnv, ...metaEnv };
 }
 
-function readRuntimeConfig(): RawRuntimeConfig {
+function readRuntimeConfig(): {
+  config: RawRuntimeConfig;
+  diagnostics: RuntimeConfigDiagnostic[];
+} {
   const config = (
     globalThis as unknown as { __CODEINFO_CONFIG__?: RawRuntimeConfig }
   ).__CODEINFO_CONFIG__;
-  if (!config || typeof config !== 'object') {
-    return {};
+  if (config === undefined) {
+    return { config: {}, diagnostics: [] };
   }
-  return config;
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    return {
+      config: {},
+      diagnostics: [createContainerDiagnostic(config)],
+    };
+  }
+  return { config, diagnostics: [] };
 }
 
 function normalizeBoolean(
@@ -214,9 +246,12 @@ function resolveClientRuntimeConfig(): {
   config: ResolvedRuntimeConfig;
   diagnostics: RuntimeConfigDiagnostic[];
 } {
-  const runtime = readRuntimeConfig();
+  const runtimeConfigState = readRuntimeConfig();
+  const runtime = runtimeConfigState.config;
   const env = readEnv();
-  const diagnostics: RuntimeConfigDiagnostic[] = [];
+  const diagnostics: RuntimeConfigDiagnostic[] = [
+    ...runtimeConfigState.diagnostics,
+  ];
 
   const runtimeApiBaseUrl = normalizeUrl(
     'apiBaseUrl',

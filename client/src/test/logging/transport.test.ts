@@ -14,11 +14,20 @@ const baseEntry: LogEntry = {
   source: 'client',
 };
 
+const originalRuntimeConfig = (
+  globalThis as typeof globalThis & {
+    __CODEINFO_CONFIG__?: unknown;
+  }
+).__CODEINFO_CONFIG__;
+
 beforeEach(() => {
   process.env.MODE = 'development';
   process.env.VITE_CODEINFO_API_URL = 'http://localhost:5010';
   process.env.VITE_CODEINFO_LOG_MAX_BYTES = '32768';
   process.env.VITE_CODEINFO_LOG_FORWARD_ENABLED = 'true';
+  (
+    globalThis as typeof globalThis & { __CODEINFO_CONFIG__?: unknown }
+  ).__CODEINFO_CONFIG__ = undefined;
   _getQueue().length = 0;
   resetClientRuntimeConfigLogForTests();
   jest.clearAllMocks();
@@ -40,6 +49,9 @@ afterEach(() => {
   delete process.env.VITE_LOG_MAX_BYTES;
   delete process.env.VITE_LOG_LEVEL;
   delete process.env.VITE_LOG_STREAM_ENABLED;
+  (
+    globalThis as typeof globalThis & { __CODEINFO_CONFIG__?: unknown }
+  ).__CODEINFO_CONFIG__ = originalRuntimeConfig;
 });
 
 describe('transport', () => {
@@ -160,6 +172,32 @@ describe('transport', () => {
         source: 'env',
         rawValue: 'zero',
         reason: 'invalid_number',
+      },
+    ]);
+    expect(_getQueue().length).toBe(0);
+  });
+
+  it('surfaces malformed top-level runtime config containers before log env fallback wins', async () => {
+    (
+      globalThis as typeof globalThis & { __CODEINFO_CONFIG__?: unknown }
+    ).__CODEINFO_CONFIG__ = ['bad-container'];
+    getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
+
+    sendLogs([baseEntry]);
+    await flushQueue();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:5010/logs',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([
+      {
+        container: '__CODEINFO_CONFIG__',
+        source: 'runtime',
+        rawValue: '["bad-container"]',
+        reason: 'invalid_container',
       },
     ]);
     expect(_getQueue().length).toBe(0);

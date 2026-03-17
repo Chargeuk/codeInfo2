@@ -1728,7 +1728,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 20. Surface Malformed Top-Level Canonical Runtime Config Containers
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `none yet`
 
 #### Overview
@@ -1737,29 +1737,42 @@ Close the second second-pass `must_fix` finding by extending the Task 15 runtime
 
 #### Subtasks
 
-1. [ ] Re-read `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, then inspect `client/src/config/runtimeConfig.ts`, `client/src/api/baseUrl.ts`, `client/src/logging/transport.ts`, and the existing runtime-config tests. Record in Task 20 `Implementation notes` which malformed top-level `window.__CODEINFO_CONFIG__` shapes are still silently treated as “missing.”
-2. [ ] Refine the runtime-config reader so there is a clear distinction between “runtime config absent” and “runtime config present but malformed.” Treat non-object and array-shaped canonical containers as malformed canonical inputs that produce diagnostics and marker evidence instead of silently defaulting away.
-3. [ ] Preserve the existing fallback behavior for valid env/default sources after a malformed canonical container is detected, but ensure the winning source attribution and `hasInvalidCanonicalConfig` output stay truthful.
-4. [ ] Add or extend client tests that prove non-object and array-shaped canonical runtime config containers now surface diagnostics instead of being treated as absent.
-5. [ ] If the malformed-container behavior is observable in the browser bootstrap path, keep the existing Story 48 browser/runtime marker contract aligned so manual and e2e verification can still prove the bad-canonical/good-fallback path.
-6. [ ] Update Task 20 `Implementation notes` with the chosen malformed-container rule and the exact diagnostics now emitted.
+1. [x] Re-read `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md`, then inspect `client/src/config/runtimeConfig.ts`, `client/src/api/baseUrl.ts`, `client/src/logging/transport.ts`, and the existing runtime-config tests. Record in Task 20 `Implementation notes` which malformed top-level `window.__CODEINFO_CONFIG__` shapes are still silently treated as “missing.”
+2. [x] Refine the runtime-config reader so there is a clear distinction between “runtime config absent” and “runtime config present but malformed.” Treat non-object and array-shaped canonical containers as malformed canonical inputs that produce diagnostics and marker evidence instead of silently defaulting away.
+3. [x] Preserve the existing fallback behavior for valid env/default sources after a malformed canonical container is detected, but ensure the winning source attribution and `hasInvalidCanonicalConfig` output stay truthful.
+4. [x] Add or extend client tests that prove non-object and array-shaped canonical runtime config containers now surface diagnostics instead of being treated as absent.
+5. [x] If the malformed-container behavior is observable in the browser bootstrap path, keep the existing Story 48 browser/runtime marker contract aligned so manual and e2e verification can still prove the bad-canonical/good-fallback path.
+6. [x] Update Task 20 `Implementation notes` with the chosen malformed-container rule and the exact diagnostics now emitted.
 
 #### Testing
 
 Use only the wrapper commands below. Do not attempt to run builds or tests without the wrapper.
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. This preserves tokens while keeping full diagnostics available.
 
-1. [ ] `npm run build:summary:client` - Use because this task changes client runtime-config/bootstrap behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use because this task changes client/common config behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Use because this task affects browser runtime config and the Story 48 env bootstrap contract. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
-4. [ ] `npm run compose:build:summary` - Use because this task is testable from the front end and should still prove the browser-accessible runtime-config stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including malformed-canonical-config fallback checks, Story 48 runtime-config marker verification, and a debug-console check confirming there are no logged errors.
-7. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use because this task changes client runtime-config/bootstrap behavior. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use because this task changes client/common config behavior. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset "<pattern>"`, and/or `npm run test:summary:client -- --test-name "<pattern>"`. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - Use because this task affects browser runtime config and the Story 48 env bootstrap contract. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep "<pattern>"`. After fixes, rerun full `npm run test:summary:e2e`.
+4. [x] `npm run compose:build:summary` - Use because this task is testable from the front end and should still prove the browser-accessible runtime-config stack. If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [x] `npm run compose:up`
+6. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001`, including malformed-canonical-config fallback checks, Story 48 runtime-config marker verification, and a debug-console check confirming there are no logged errors.
+7. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - Review finding only: field-level malformed canonical values already surface diagnostics, but a malformed top-level `window.__CODEINFO_CONFIG__` container is still normalized into “missing” before any diagnostic path runs.
+- Re-read the second-pass review finding plus `client/src/config/runtimeConfig.ts`, `client/src/api/baseUrl.ts`, `client/src/logging/transport.ts`, `client/src/test/baseUrl.env.test.ts`, `client/src/test/logging/transport.test.ts`, and `e2e/env-runtime-config.spec.ts`; today `readRuntimeConfig()` collapses any falsy, non-object, or array-shaped top-level `window.__CODEINFO_CONFIG__` value to `{}`, so malformed canonical containers are silently treated as “missing” before the existing field-level diagnostic path can run.
+- Refined `client/src/config/runtimeConfig.ts` so `readRuntimeConfig()` now returns both the raw config object and top-level diagnostics: `undefined` stays the only “absent” case, while `null`, primitive, and array-shaped `window.__CODEINFO_CONFIG__` values now produce an `invalid_container` diagnostic instead of being normalized away.
+- Preserved the existing runtime-first fallback behavior by keeping the resolved config shape unchanged for callers in `client/src/api/baseUrl.ts` and `client/src/logging/transport.ts`; malformed top-level containers now set `hasInvalidCanonicalConfig` truthfully through the existing marker path while valid env/default sources still win when runtime cannot.
+- Extended `client/src/test/baseUrl.env.test.ts` and `client/src/test/logging/transport.test.ts` with explicit non-object and array-shaped top-level `window.__CODEINFO_CONFIG__` coverage so malformed canonical containers now surface diagnostics instead of being treated as absent.
+- Kept the existing `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` marker contract aligned by routing the new top-level container diagnostics through the same `diagnostics` and `hasInvalidCanonicalConfig` payload fields, which preserves browser-visible proof without changing the consumer-facing runtime-config object.
+- Testing step 1 passed via `npm run build:summary:client` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
+- Testing step 2 passed via `npm run test:summary:client` with `tests run: 577`, `passed: 577`, `failed: 0`, and `agent_action: skip_log`.
+- Testing step 3 passed via full `npm run test:summary:e2e` with `tests run: 44`, `passed: 44`, `failed: 0`, and `agent_action: skip_log`, so the runtime-config changes still hold through the browser stack and teardown path.
+- Testing step 4 passed via `npm run compose:build:summary` with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`.
+- Testing step 5 passed via `npm run compose:up`; the compose stack started cleanly with healthy server and client containers for the manual runtime-config verification.
+- Manual Playwright-MCP verification proved both the normal and malformed-container paths on the live stack at `http://host.docker.internal:5001`: the normal bootstrap marker still reported runtime-sourced values, and after temporarily replacing the served `/app/client/dist/config.js` with `window.__CODEINFO_CONFIG__ = [];`, a fresh browser bootstrap reported `hasInvalidCanonicalConfig: true` with `diagnostics: [{ container: '__CODEINFO_CONFIG__', source: 'runtime', rawValue: '[]', reason: 'invalid_container' }]` while env fallback values won truthfully. No error-level browser console messages were present, and screenshots were captured at `test-results/screenshots/0000048-20-home.png` and `test-results/screenshots/0000048-20-malformed-runtime.png`.
+- Final Task 20 rule: `window.__CODEINFO_CONFIG__` is now considered absent only when it is `undefined`; `null`, primitive, and array-shaped canonical containers are treated as malformed runtime inputs that emit a top-level `invalid_container` diagnostic while still allowing valid env/default fallback values to resolve the config object truthfully.
+- Testing step 7 passed via `npm run compose:down`; the task’s temporary live-stack config mutation was restored before teardown, and the compose stack stopped cleanly.
 
 ---
 

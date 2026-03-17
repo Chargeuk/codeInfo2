@@ -53,4 +53,42 @@ describe('baseUrl env rename', () => {
       },
     ]);
   });
+
+  it('surfaces malformed top-level runtime config containers instead of treating them as absent', () => {
+    (
+      globalThis as typeof globalThis & {
+        __CODEINFO_CONFIG__?: unknown;
+      }
+    ).__CODEINFO_CONFIG__ = 'http://bad-container.example';
+    process.env.VITE_CODEINFO_API_URL = 'http://renamed.example:5010';
+
+    expect(getApiBaseUrl()).toBe('http://renamed.example:5010');
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([
+      {
+        container: '__CODEINFO_CONFIG__',
+        source: 'runtime',
+        rawValue: 'http://bad-container.example',
+        reason: 'invalid_container',
+      },
+    ]);
+  });
+
+  it('surfaces array-shaped top-level runtime config containers before env fallback wins', () => {
+    (
+      globalThis as typeof globalThis & {
+        __CODEINFO_CONFIG__?: unknown;
+      }
+    ).__CODEINFO_CONFIG__ = ['http://bad-array.example'];
+    process.env.VITE_CODEINFO_API_URL = 'http://renamed.example:5010';
+
+    expect(getApiBaseUrl()).toBe('http://renamed.example:5010');
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([
+      {
+        container: '__CODEINFO_CONFIG__',
+        source: 'runtime',
+        rawValue: '["http://bad-array.example"]',
+        reason: 'invalid_container',
+      },
+    ]);
+  });
 });

@@ -165,6 +165,19 @@ const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
   });
 };
 
+const cleanupConversationRuntime = async (
+  conversationId: string | undefined,
+  ...conversationIds: Array<string | undefined>
+) => {
+  try {
+    if (conversationId) {
+      await waitForRuntimeCleanup(conversationId);
+    }
+  } finally {
+    cleanupMemory(conversationId, ...conversationIds);
+  }
+};
+
 const waitForRuntimeCleanup = async (
   conversationId: string,
   timeoutMs = 4000,
@@ -778,36 +791,41 @@ test('aborted flow step is not retried', async () => {
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-retry-aborted';
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-      const response = await supertest(baseUrl)
-        .post('/flows/llm-basic/run')
-        .send({ conversationId })
-        .expect(202);
+      try {
+        const response = await supertest(baseUrl)
+          .post('/flows/llm-basic/run')
+          .send({ conversationId })
+          .expect(202);
 
-      const inflightId = response.body.inflightId as string;
-      sendJson(wsUrl, {
-        type: 'cancel_inflight',
-        conversationId,
-        inflightId,
-      });
+        const inflightId = response.body.inflightId as string;
+        sendJson(wsUrl, {
+          type: 'cancel_inflight',
+          conversationId,
+          inflightId,
+        });
 
-      const final = await waitForEvent({
-        ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return e.type === 'turn_final' && e.conversationId === conversationId;
-        },
-        timeoutMs: 5000,
-      });
+        const final = await waitForEvent({
+          ws: wsUrl,
+          predicate: (
+            event: unknown,
+          ): event is { type: 'turn_final'; status: string } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              status?: string;
+            };
+            return (
+              e.type === 'turn_final' && e.conversationId === conversationId
+            );
+          },
+          timeoutMs: 5000,
+        });
 
-      assert.ok(final.status === 'stopped' || final.status === 'failed');
-      assert.equal(outerBreakAttempts <= 1, true);
-      cleanupMemory(conversationId);
+        assert.ok(final.status === 'stopped' || final.status === 'failed');
+        assert.equal(outerBreakAttempts <= 1, true);
+      } finally {
+        await cleanupConversationRuntime(conversationId);
+      }
     },
   );
   if (previousRetries === undefined) {
@@ -828,36 +846,37 @@ test('startup-race conversation-only stop still terminalizes a flow as stopped',
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-startup-stop-conv';
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      try {
+        await supertest(baseUrl)
+          .post('/flows/llm-basic/run')
+          .send({ conversationId })
+          .expect(202);
 
-      await supertest(baseUrl)
-        .post('/flows/llm-basic/run')
-        .send({ conversationId })
-        .expect(202);
+        sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
 
-      sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
+        const final = await waitForEvent({
+          ws: wsUrl,
+          predicate: (
+            event: unknown,
+          ): event is { type: 'turn_final'; status: string } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              status?: string;
+            };
+            return (
+              e.type === 'turn_final' &&
+              e.conversationId === conversationId &&
+              e.status === 'stopped'
+            );
+          },
+          timeoutMs: 5000,
+        });
 
-      const final = await waitForEvent({
-        ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'stopped'
-          );
-        },
-        timeoutMs: 5000,
-      });
-
-      assert.equal(final.status, 'stopped');
-      await waitForRuntimeCleanup(conversationId);
-      cleanupMemory(conversationId);
+        assert.equal(final.status, 'stopped');
+      } finally {
+        await cleanupConversationRuntime(conversationId);
+      }
     },
   );
 });
@@ -884,43 +903,45 @@ test('duplicate flow stop requests emit one terminal stopped event', async () =>
         events.push(parsed);
       });
 
-      await supertest(baseUrl)
-        .post('/flows/llm-basic/run')
-        .send({ conversationId })
-        .expect(202);
+      try {
+        await supertest(baseUrl)
+          .post('/flows/llm-basic/run')
+          .send({ conversationId })
+          .expect(202);
 
-      sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
-      sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
+        sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
+        sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
 
-      await waitForEvent({
-        ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'stopped'
-          );
-        },
-        timeoutMs: 5000,
-      });
+        await waitForEvent({
+          ws: wsUrl,
+          predicate: (
+            event: unknown,
+          ): event is { type: 'turn_final'; status: string } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              status?: string;
+            };
+            return (
+              e.type === 'turn_final' &&
+              e.conversationId === conversationId &&
+              e.status === 'stopped'
+            );
+          },
+          timeoutMs: 5000,
+        });
 
-      await delay(200);
+        await delay(200);
 
-      const finals = events.filter(
-        (event) =>
-          event.type === 'turn_final' &&
-          event.conversationId === conversationId,
-      );
-      assert.equal(finals.length, 1);
-      await waitForRuntimeCleanup(conversationId);
-      cleanupMemory(conversationId);
+        const finals = events.filter(
+          (event) =>
+            event.type === 'turn_final' &&
+            event.conversationId === conversationId,
+        );
+        assert.equal(finals.length, 1);
+      } finally {
+        await cleanupConversationRuntime(conversationId);
+      }
     },
   );
 });
@@ -936,60 +957,61 @@ test('flow stop cleanup fallback still releases runtime state', async () => {
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-cleanup-fallback-conv';
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      try {
+        await supertest(baseUrl)
+          .post('/flows/llm-basic/run')
+          .send({ conversationId })
+          .expect(202);
 
-      await supertest(baseUrl)
-        .post('/flows/llm-basic/run')
-        .send({ conversationId })
-        .expect(202);
+        sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
 
-      sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
+        await waitForEvent({
+          ws: wsUrl,
+          predicate: (
+            event: unknown,
+          ): event is { type: 'turn_final'; status: string } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              status?: string;
+            };
+            return (
+              e.type === 'turn_final' &&
+              e.conversationId === conversationId &&
+              e.status === 'stopped'
+            );
+          },
+          timeoutMs: 5000,
+        });
 
-      await waitForEvent({
-        ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'stopped'
-          );
-        },
-        timeoutMs: 5000,
-      });
+        await waitForRuntimeCleanup(conversationId);
 
-      await waitForRuntimeCleanup(conversationId);
+        await supertest(baseUrl)
+          .post('/flows/llm-basic/run')
+          .send({ conversationId })
+          .expect(202);
 
-      await supertest(baseUrl)
-        .post('/flows/llm-basic/run')
-        .send({ conversationId })
-        .expect(202);
-
-      await waitForEvent({
-        ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
-        timeoutMs: 5000,
-      });
-
-      cleanupMemory(conversationId);
+        await waitForEvent({
+          ws: wsUrl,
+          predicate: (
+            event: unknown,
+          ): event is { type: 'turn_final'; status: string } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              status?: string;
+            };
+            return (
+              e.type === 'turn_final' &&
+              e.conversationId === conversationId &&
+              e.status === 'ok'
+            );
+          },
+          timeoutMs: 5000,
+        });
+      } finally {
+        await cleanupConversationRuntime(conversationId);
+      }
     },
     {
       cleanupInflightFn: ({ conversationId: cleanupConversationId }) => {
@@ -1015,52 +1037,54 @@ test('flow stop during a looped flow prevents later iterations from continuing',
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-stop-boundary-conv';
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      try {
+        await supertest(baseUrl)
+          .post('/flows/loop-break/run')
+          .send({ conversationId })
+          .expect(202);
 
-      await supertest(baseUrl)
-        .post('/flows/loop-break/run')
-        .send({ conversationId })
-        .expect(202);
+        await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes('Exit outer loop?'),
+            ),
+          4000,
+        );
 
-      await waitForTurns(
-        conversationId,
-        (items) =>
-          items.some(
-            (turn) =>
-              turn.role === 'user' && turn.content.includes('Exit outer loop?'),
-          ),
-        4000,
-      );
+        sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
 
-      sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
+        await waitForEvent({
+          ws: wsUrl,
+          predicate: (
+            event: unknown,
+          ): event is { type: 'turn_final'; status: string } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              status?: string;
+            };
+            return (
+              e.type === 'turn_final' &&
+              e.conversationId === conversationId &&
+              e.status === 'stopped'
+            );
+          },
+          timeoutMs: 5000,
+        });
 
-      await waitForEvent({
-        ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'stopped'
-          );
-        },
-        timeoutMs: 5000,
-      });
-
-      await delay(250);
-      const turns = memoryTurns.get(conversationId) ?? [];
-      const outerBreakTurns = turns.filter(
-        (turn) =>
-          turn.role === 'user' && turn.content.includes('Exit outer loop?'),
-      );
-      assert.equal(outerBreakTurns.length, 1);
-      await waitForRuntimeCleanup(conversationId);
-      cleanupMemory(conversationId);
+        await delay(250);
+        const turns = memoryTurns.get(conversationId) ?? [];
+        const outerBreakTurns = turns.filter(
+          (turn) =>
+            turn.role === 'user' && turn.content.includes('Exit outer loop?'),
+        );
+        assert.equal(outerBreakTurns.length, 1);
+      } finally {
+        await cleanupConversationRuntime(conversationId);
+      }
     },
   );
 });

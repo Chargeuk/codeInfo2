@@ -666,7 +666,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 24. Keep Working-Folder 503 Messages Safe While Preserving Server-Side Operational Detail
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: `none yet`
 
 #### Overview

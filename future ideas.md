@@ -1,6 +1,24 @@
 # Future Ideas
 
 - Rework Chat model-selection/runtime-config handling so switching to `gpt*` models does not inherit an incompatible `model_provider` from `codex/chat/config.toml`. The current Chat path appears to preserve `model_provider = "lmstudiospark"` even when the selected model is a Codex/OpenAI model, which can route requests through the wrong provider and cause provider errors.
+- Investigate introducing a parallel wrapper-validation orchestrator so recent plan test runs do not spend so long executing the same summary wrappers serially.
+  - Repository evidence so far:
+    - Recent plans such as `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md` repeatedly reuse the same wrapper-first validation commands: `npm run build:summary:server`, `npm run build:summary:client`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, `npm run test:summary:e2e`, `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down`.
+    - The agent could in theory launch multiple wrappers, wait for all of them to finish, and then inspect only the failed outputs, because the wrappers already expose a shared heartbeat/final-status protocol.
+  - Current blockers and risks:
+    - Several wrappers are not parallel-safe today because they write to fixed shared `*-latest.log` files: `logs/test-summaries/build-server-latest.log`, `build-client-latest.log`, `compose-build-latest.log`, and `e2e-tests-latest.log`.
+    - `scripts/test-summary-server-unit.mjs` and `scripts/test-summary-server-cucumber.mjs` both run `npm run build --workspace server` first, so parallel execution would duplicate and potentially race over the same `server/dist` build output.
+    - Compose-backed validation should currently be treated as exclusive because `test:summary:e2e` performs compose build/up/test/down inside one wrapper, and the regular compose wrappers share Docker state, ports, networks, and teardown behavior.
+    - Manual Playwright-MCP checks in recent plans also depend on shared runtime surfaces such as `host.docker.internal:5001`, so they should not be overlapped with other compose-backed runs unless those surfaces are isolated first.
+  - Candidate implementation direction:
+    - Add a higher-level orchestration wrapper that starts selected validation wrappers in parallel, waits for all of them, and then hands the agent a consolidated pass/fail summary plus per-run artifact locations.
+    - Make wrapper artifact paths run-specific instead of relying on fixed `*-latest.log` files so concurrent runs cannot overwrite each other.
+    - Keep compose/e2e/manual checks serial at first, and only parallelize the non-compose wrappers until Docker isolation is explicitly designed.
+    - Consider a second optimization that avoids redundant server builds by building the server once and then fanning out server unit and cucumber checks from that shared prerequisite instead of rebuilding in both wrappers.
+  - Safe starting point if this is pursued:
+    - Parallel bucket: `npm run build:summary:server`, `npm run build:summary:client`, `npm run test:summary:client`.
+    - Serial bucket: `npm run compose:build:summary`, `npm run compose:up`, `npm run test:summary:e2e`, manual Playwright-MCP checks, and `npm run compose:down`.
+    - Deferred until explicitly isolated: parallel execution of `npm run test:summary:server:unit` and `npm run test:summary:server:cucumber`.
 - Investigate switching the manual-testing `playwright-mcp` container to host networking so the browser it launches can reach host-published services through `localhost` instead of `host.docker.internal`.
   - Research so far:
     - The local manual-testing stack already has a dedicated `playwright-mcp` container in `docker-compose.local.yml`, and agent configs currently reach it via Docker service DNS at `http://playwright-mcp:8931/mcp`.

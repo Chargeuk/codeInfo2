@@ -509,8 +509,6 @@ Create the first shared transcript rendering path under `client/src/components/c
 8. [ ] Architecture document update in `design.md`: add or update the shared transcript architecture description and at least one Mermaid diagram showing `ChatPage.tsx` calling into the new shared transcript layer under `client/src/components/chat/` while `ConversationList` and `CodexFlagsPanel` remain page-owned. Purpose: document the new transcript ownership split for future developers. Docs: Context7 `/mermaid-js/mermaid`; local file `design.md`.
 9. [ ] Project structure document update in `projectStructure.md`: after the shared transcript files are added or renamed, update the component-structure documentation so it lists the new files under `client/src/components/chat/` and explains their purpose briefly. Purpose: keep the repo file-map accurate after the new shared transcript files land. Local file `projectStructure.md`.
 10. [ ] Story implementation-notes update in `planning/0000049-responsive-long-conversation-transcript-rendering.md`: add an `Implementation notes` entry naming the new shared files and the Chat behavior intentionally left page-owned. Purpose: leave story-local evidence of what this task changed. Local file `planning/0000049-responsive-long-conversation-transcript-rendering.md`.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root after the code and docs above are finished. Command reference: `README.md`; lint/format docs if needed: Context7 `/eslint/eslint` and `/prettier/prettier`.
-
 #### Testing
 
 Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
@@ -521,6 +519,8 @@ Wrapper-first rule: use the repository wrappers below instead of raw build or te
 4. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.citations.test.tsx`
 5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.reasoning.test.tsx`
 6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx`
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -555,8 +555,6 @@ Isolate the Agents instruction/composer controls from the transcript subtree so 
 5. [ ] Architecture document update in `design.md`: add or update the Agents page architecture description and at least one Mermaid diagram showing the new `AgentsComposerPanel.tsx` boundary separated from the transcript subtree. Purpose: document the render-isolation boundary that fixes the typing hotspot. Docs: Context7 `/mermaid-js/mermaid`; local file `design.md`.
 6. [ ] Project structure document update in `projectStructure.md`: after `client/src/components/agents/AgentsComposerPanel.tsx` and the new test file are added, update the file-map documentation so both are listed in the correct locations with a brief purpose statement. Purpose: keep the repo structure guide accurate after file creation. Local file `projectStructure.md`.
 7. [ ] Story implementation-notes update in `planning/0000049-responsive-long-conversation-transcript-rendering.md`: add an `Implementation notes` entry describing the final boundary and how the input-isolation proof works. Purpose: leave story-local evidence of how the typing fix was implemented and validated. Local file `planning/0000049-responsive-long-conversation-transcript-rendering.md`.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root after the component, page, test, and docs updates are complete. Command reference: `README.md`; lint/format docs if needed: Context7 `/eslint/eslint` and `/prettier/prettier`.
-
 #### Testing
 
 Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
@@ -565,6 +563,8 @@ Wrapper-first rule: use the repository wrappers below instead of raw build or te
 2. [ ] `npm run build:summary:client`
 3. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.inputIsolation.test.tsx`
 4. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.run.test.tsx`
+5. [ ] `npm run lint --workspaces`
+6. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -603,8 +603,6 @@ Move the Agents transcript itself onto the shared transcript renderer created ea
 9. [ ] React Testing Library regression test in `client/src/test/agentsPage.toolsUi.test.tsx`: update this test file so it still proves rich-row tool sections render, expand, and keep their visible metadata on Agents after the move to the shared transcript. Purpose: prove tool UI remains correct on the Agents surface. Docs: Context7 `/testing-library/react-testing-library`; local file `client/src/test/agentsPage.toolsUi.test.tsx`.
 10. [ ] Project structure document update in `projectStructure.md`: if this task adds, removes, or renames tracked shared transcript files while adopting Agents, update the file-map documentation so the final shared transcript layout is accurate. Purpose: keep the repo structure guide in sync with the Agents adoption work. Local file `projectStructure.md`.
 11. [ ] Story implementation-notes update in `planning/0000049-responsive-long-conversation-transcript-rendering.md`: add an `Implementation notes` entry naming the Agents-specific behavior that remained page-configured after the move. Purpose: leave story-local evidence of what stayed page-owned on Agents. Local file `planning/0000049-responsive-long-conversation-transcript-rendering.md`.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root after the code, test, and docs updates are complete. Command reference: `README.md`; lint/format docs if needed: Context7 `/eslint/eslint` and `/prettier/prettier`.
-
 #### Testing
 
 Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
@@ -616,6 +614,8 @@ Wrapper-first rule: use the repository wrappers below instead of raw build or te
 5. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.citations.test.tsx`
 6. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.reasoning.test.tsx`
 7. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.toolsUi.test.tsx`
+8. [ ] `npm run lint --workspaces`
+9. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -653,8 +653,6 @@ Move the Flows transcript onto the shared transcript renderer while preserving F
 7. [ ] Architecture document update in `design.md`: add or update the Flows transcript architecture description and at least one Mermaid diagram showing `FlowsPage.tsx` feeding flow metadata into the shared transcript while citations remain disabled on that surface. Purpose: document the Flows-specific shared transcript design and prevent future regressions. Docs: Context7 `/mermaid-js/mermaid`; local file `design.md`.
 8. [ ] Project structure document update in `projectStructure.md`: if this task adds, removes, or renames tracked shared transcript files while adopting Flows, update the file-map documentation so the final shared transcript layout is accurate. Purpose: keep the repo structure guide in sync with the Flows adoption work. Local file `projectStructure.md`.
 9. [ ] Story implementation-notes update in `planning/0000049-responsive-long-conversation-transcript-rendering.md`: add an `Implementation notes` entry explaining how the shared transcript accepts flow-specific metadata without adding Flow citations. Purpose: leave story-local evidence of the final Flows contract. Local file `planning/0000049-responsive-long-conversation-transcript-rendering.md`.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root after the code, test, and docs updates are complete. Command reference: `README.md`; lint/format docs if needed: Context7 `/eslint/eslint` and `/prettier/prettier`.
-
 #### Testing
 
 Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
@@ -663,6 +661,8 @@ Wrapper-first rule: use the repository wrappers below instead of raw build or te
 2. [ ] `npm run build:summary:client`
 3. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx` to execute both the main Flows transcript contract regression and the new `flows-turns-error` warning regression added in this task.
 4. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
+5. [ ] `npm run lint --workspaces`
+6. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -694,8 +694,6 @@ Create the client test-support harness pieces that Story 49 needs before the sha
 4. [ ] React Testing Library harness-adoption test in `client/src/test/chatPage.layoutHeight.test.tsx`: update this existing layout test so it uses `client/src/test/support/transcriptMeasurementHarness.ts` for its measurement setup, keeps the current product assertions, and adds one explicit assertion that a late measurement callback against an already-removed row target does not crash the rendered transcript path. Purpose: prove the new harness works in a real transcript-facing test instead of only in isolation. Docs: Context7 `/testing-library/react-testing-library`; local file `client/src/test/chatPage.layoutHeight.test.tsx`.
 5. [ ] Project structure document update in `projectStructure.md`: after `client/src/test/support/transcriptMeasurementHarness.ts` and the proof test file are added, update the test-support file-map documentation so both files are listed with a brief purpose statement. Purpose: keep the repo structure guide accurate after new harness files are introduced. Local file `projectStructure.md`.
 6. [ ] Story implementation-notes update in `planning/0000049-responsive-long-conversation-transcript-rendering.md`: add an `Implementation notes` entry naming the harness file and the real test that adopted it. Purpose: leave story-local evidence of the new test-support seam. Local file `planning/0000049-responsive-long-conversation-transcript-rendering.md`.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root after the harness, proof test, adopted real test, and docs updates are complete. Command reference: `README.md`; lint/format docs if needed: Context7 `/eslint/eslint` and `/prettier/prettier`.
-
 #### Testing
 
 Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
@@ -704,6 +702,8 @@ Wrapper-first rule: use the repository wrappers below instead of raw build or te
 2. [ ] `npm run build:summary:client`
 3. [ ] `npm run test:summary:client -- --file client/src/test/transcriptTestHarness.test.ts`
 4. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutHeight.test.tsx`
+5. [ ] `npm run lint --workspaces`
+6. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -741,8 +741,6 @@ Implement shared transcript ownership for conversation-scoped rich-row UI state 
 8. [ ] Architecture document update in `design.md`: add or update the shared transcript state-ownership description and at least one Mermaid diagram showing the conversation-scoped state owner above the transcript rows. Purpose: document the new keyed shared-state model and the conversation-reset boundary. Docs: Context7 `/mermaid-js/mermaid`; local file `design.md`.
 9. [ ] Project structure document update in `projectStructure.md`: if this task adds `client/src/components/chat/useSharedTranscriptState.ts` or any other tracked state file, update the file-map documentation so the new state owner is listed with a brief purpose statement. Purpose: keep the repo structure guide accurate after new state files are introduced. Local file `projectStructure.md`.
 10. [ ] Story implementation-notes update in `planning/0000049-responsive-long-conversation-transcript-rendering.md`: add an `Implementation notes` entry describing which transcript state moved into shared ownership and how conversation-change reset is handled. Purpose: leave story-local evidence of the state-ownership change. Local file `planning/0000049-responsive-long-conversation-transcript-rendering.md`.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root after the code, test, and docs updates are complete. Command reference: `README.md`; lint/format docs if needed: Context7 `/eslint/eslint` and `/prettier/prettier`.
-
 #### Testing
 
 Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
@@ -754,6 +752,8 @@ Wrapper-first rule: use the repository wrappers below instead of raw build or te
 5. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.citations.test.tsx`
 6. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.reasoning.test.tsx`
 7. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
+8. [ ] `npm run lint --workspaces`
+9. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -789,8 +789,6 @@ Implement the shared transcript scroll behavior that all three surfaces need bef
 7. [ ] React Testing Library regression test in `client/src/test/flowsPage.test.tsx`: update this test file so it proves Flows now has the shared scroll contract, including no forced auto-scroll after the user scrolls away and correct behavior when row growth occurs after an off-screen row is removed. Purpose: prove Flows gained the missing shared scroll behavior safely. Docs: Context7 `/testing-library/react-testing-library`; local file `client/src/test/flowsPage.test.tsx`.
 8. [ ] Project structure document update in `projectStructure.md`: if this task adds a tracked scroll helper file, update the file-map documentation so the helper is listed in the correct location with a brief purpose statement. Purpose: keep the repo structure guide accurate after new scroll-support files are introduced. Local file `projectStructure.md`.
 9. [ ] Story implementation-notes update in `planning/0000049-responsive-long-conversation-transcript-rendering.md`: add an `Implementation notes` entry describing the final pinned-bottom rule and how scroll-anchor preservation is implemented before virtualization. Purpose: leave story-local evidence of the shared scroll contract. Local file `planning/0000049-responsive-long-conversation-transcript-rendering.md`.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root after the code, test, and docs updates are complete. Command reference: `README.md`; lint/format docs if needed: Context7 `/eslint/eslint` and `/prettier/prettier`.
-
 #### Testing
 
 Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
@@ -802,6 +800,8 @@ Wrapper-first rule: use the repository wrappers below instead of raw build or te
 5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutWrap.test.tsx`
 6. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.layoutWrap.test.tsx`
 7. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
+8. [ ] `npm run lint --workspaces`
+9. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -839,8 +839,6 @@ Add the first shared virtualization layer to the shared transcript so long trans
 7. [ ] Architecture document update in `design.md`: add or update the virtualization architecture description and at least one Mermaid diagram that explicitly shows `ChatPage.tsx`, `AgentsPage.tsx`, and `FlowsPage.tsx` feeding transcript props into `SharedTranscript.tsx`, `SharedTranscript.tsx` owning the scroll container, `VirtualizedTranscript.tsx` owning `useVirtualizer(...)`, and the shared message-row component rendering each visible row. Also add one short prose note that `ConversationList` and `CodexFlagsPanel` remain outside the virtualized subtree. Purpose: document the new virtualizer seam and how it fits into the client transcript architecture for a reader who only opens this subtask. Docs: Context7 `/mermaid-js/mermaid`; local file `design.md`.
 8. [ ] Project structure document update in `projectStructure.md`: after `client/src/components/chat/VirtualizedTranscript.tsx` or other tracked files are added, update the file-map documentation so the new virtualization files are listed with brief purpose statements. Purpose: keep the repo structure guide accurate after new virtualization files are introduced. Local file `projectStructure.md`.
 9. [ ] Story implementation-notes update in `planning/0000049-responsive-long-conversation-transcript-rendering.md`: add an `Implementation notes` entry describing the virtualizer seam, the `getItemKey` rule, and the shared overscan rule. Purpose: leave story-local evidence of the first virtualization layer. Local file `planning/0000049-responsive-long-conversation-transcript-rendering.md`.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root after the dependency, code, test, and docs updates are complete. Command reference: `README.md`; lint/format docs if needed: Context7 `/eslint/eslint` and `/prettier/prettier`.
-
 #### Testing
 
 Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
@@ -850,6 +848,8 @@ Wrapper-first rule: use the repository wrappers below instead of raw build or te
 3. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx`
 4. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.run.test.tsx`
 5. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
+6. [ ] `npm run lint --workspaces`
+7. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -894,8 +894,6 @@ Finish the virtualized transcript behavior that depends on dynamic row measureme
 14. [ ] Architecture document update in `design.md`: add or update the final dynamic-measurement architecture description and at least one Mermaid diagram that explicitly names `SharedTranscript.tsx`, `VirtualizedTranscript.tsx`, the measured row wrapper, `useSharedTranscriptState.ts`, and the transcript measurement proof seam in `client/src/test/support/transcriptMeasurementHarness.ts`. The diagram should show the direction of data flow for transcript rows, expansion state, row measurement, and scroll adjustment, and the prose below it should state that test-support files stay outside production imports. Purpose: document the final virtualized transcript design and prevent future measurement regressions for a reader who only opens this documentation subtask. Docs: Context7 `/mermaid-js/mermaid`; local files `design.md` and `client/src/test/support/transcriptMeasurementHarness.ts`.
 15. [ ] Project structure document update in `projectStructure.md`: if this task adds tracked virtualization or measurement files, update the file-map documentation so the new files are listed with brief purpose statements. Purpose: keep the repo structure guide accurate after the dynamic-measurement files land. Local file `projectStructure.md`.
 16. [ ] Story implementation-notes update in `planning/0000049-responsive-long-conversation-transcript-rendering.md`: add an `Implementation notes` entry describing the dynamic-measurement seam, the measured row wrapper contract, and any measurement helper used. Purpose: leave story-local evidence of the final measurement design. Local file `planning/0000049-responsive-long-conversation-transcript-rendering.md`.
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root after the code, test, and docs updates are complete. Command reference: `README.md`; lint/format docs if needed: Context7 `/eslint/eslint` and `/prettier/prettier`.
-
 #### Testing
 
 Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
@@ -913,6 +911,8 @@ Wrapper-first rule: use the repository wrappers below instead of raw build or te
 11. [ ] `npm run test:summary:client -- --file client/src/test/useConversationTurns.refresh.test.ts`
 12. [ ] `npm run test:summary:client -- --file client/src/test/useConversationTurns.commandMetadata.test.ts`
 13. [ ] `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
+14. [ ] `npm run lint --workspaces`
+15. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -949,8 +949,6 @@ Check the finished implementation against every acceptance criterion, run the fu
 6. [ ] Write a pull-request-ready summary covering every task in Story 49. If the repo already has a normal review-summary location, put it there; otherwise store the full text in this task's `Implementation notes`. The summary must mention shared transcript extraction, Agents composer isolation, Flows adoption, harness work, shared state, scroll contract, virtualization, dynamic measurement, and final validation results. Local source of truth: this plan file and the files changed across Tasks 1 through 9.
 7. [ ] Playwright browser regression test in `e2e/agents.spec.ts`: update this existing browser suite so it seeds a long Agents conversation using the existing route helpers, keeps the transcript visibly populated or still growing, types into `data-testid="agent-input"` while the transcript is long, and asserts the typed text remains present and the send control stays usable instead of lagging behind transcript updates. Purpose: automate the core long-transcript responsiveness happy path that is otherwise only checked manually in the reproducible validation scenario. Docs: Context7 `/microsoft/playwright`; local file `e2e/agents.spec.ts`.
 8. [ ] Save manual validation screenshots to `test-results/screenshots/` using the pattern `0000049-10-<short-name>.png`. Capture at least one screenshot each for Chat, Agents, and Flows after the shared transcript and virtualization changes are complete, and make sure the screenshots show the final rendered UI rather than an intermediate loading state. Docs: Context7 `/microsoft/playwright`; local output folder `test-results/screenshots/`.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` from the repo root after all final code and docs edits are complete so the story closes with a clean workspace. Command reference: `README.md`; lint/format docs if needed: Context7 `/eslint/eslint` and `/prettier/prettier`.
-
 #### Testing
 
 Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
@@ -967,6 +965,8 @@ Wrapper-first rule: use the repository wrappers below instead of raw build or te
 10. [ ] `npm run test:summary:e2e -- --file e2e/agents.spec.ts` to execute the automated long-transcript Agents typing-responsiveness regression added in this task before the full browser sweep.
 11. [ ] `npm run test:summary:e2e`
 12. [ ] `npm run compose:down`
+13. [ ] `npm run lint --workspaces`
+14. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 

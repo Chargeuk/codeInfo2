@@ -438,6 +438,337 @@ The planning assumption should therefore be:
 - Assumptions that are currently invalid:
   - it is false to assume Story 49 needs a new listener, env-var path, Docker surface, port mapping, or host source bind mount to be feasible.
 
+## Tasks
+
+Story 49 does not require new server message contracts, websocket payload changes, or storage-shape work. Because of that, no separate server-prerequisite implementation task is needed before the client work starts. The tasks below are ordered so each one delivers one testable client change and leaves the repo in a state the next task can build on safely.
+
+### 1. Shared Chat Transcript Foundation
+
+- Task Status: `__to_do__`
+- Git Commits: ``
+
+#### Overview
+
+Create the first shared transcript rendering path under `client/src/components/chat/` and move the Chat page onto it without adding virtualization yet. This task is intentionally limited to the Chat page so a junior developer can prove the shared renderer works in one surface before Agents and Flows depend on it.
+
+#### Documentation Locations
+
+- Local source to inspect before editing:
+  - `client/src/pages/ChatPage.tsx`
+  - `client/src/components/chat/ConversationList.tsx`
+  - `client/src/hooks/useChatStream.ts`
+  - `client/src/test/chatPage.toolDetails.test.tsx`
+  - `client/src/test/chatPage.citations.test.tsx`
+  - `client/src/test/chatPage.stream.test.tsx`
+- React component-boundary and memoization guidance: Context7 `/reactjs/react.dev`
+- This story plan section to re-read before starting: `### Concrete Output For This Story`, `### Surface-By-Surface Done Looks Like`, and `## Message Contracts And Storage Shapes`
+
+#### Subtasks
+
+1. [ ] Read the documentation links above, then inspect the current Chat transcript loop in `client/src/pages/ChatPage.tsx` and write down the exact UI pieces that must move into shared code without changing behavior: transcript container, message row, markdown/text rendering, status chip, tool details, citations, and thought-process sections.
+2. [ ] Create the first shared non-virtualized transcript files under `client/src/components/chat/`. Use clear names that match their single responsibility, for example a shared transcript surface/container component, a shared message-row component, and shared rich-section components for tool details, citations, and thought-process content. Keep the public props based on existing `ChatMessage` data rather than inventing a second transcript model.
+3. [ ] Update `client/src/pages/ChatPage.tsx` to use the new shared transcript renderer instead of its inline `orderedMessages.map(...)` bubble loop. Preserve the existing newest-last visible order, empty/loading/warning states, stable `data-testid` hooks such as `chat-transcript`, `chat-bubble`, `tool-toggle`, `citations-toggle`, and the existing assistant/user styling.
+4. [ ] Add or update client tests so this task proves the shared renderer preserved Chat behavior. At minimum, update the affected Chat-focused tests in `client/src/test/chatPage.toolDetails.test.tsx`, `client/src/test/chatPage.citations.test.tsx`, and `client/src/test/chatPage.stream.test.tsx` so they still validate the shared renderer rather than the old page-local loop.
+5. [ ] Update documentation after the code and tests are stable. If this task adds tracked shared transcript files, update `projectStructure.md`; regardless of whether structure docs change, add a short entry to this task's `Implementation notes` describing which Chat transcript responsibilities moved into shared code and which behaviors were intentionally left page-local.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any Task 1 issues before considering the task complete.
+
+#### Testing
+
+Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+
+1. [ ] `npm run typecheck:summary:client`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.toolDetails.test.tsx`
+4. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.citations.test.tsx`
+5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx`
+
+#### Implementation notes
+
+- None yet.
+
+---
+
+### 2. Agents Composer Isolation
+
+- Task Status: `__to_do__`
+- Git Commits: ``
+
+#### Overview
+
+Isolate the Agents instruction/composer controls from the transcript subtree so typing into `agent-input` no longer rerenders the full transcript tree on every keystroke. This task is only about the page boundary and input responsiveness; it does not yet move the Agents transcript onto the shared renderer.
+
+#### Documentation Locations
+
+- Local source to inspect before editing:
+  - `client/src/pages/AgentsPage.tsx`
+  - the shared transcript files created in Task 1 under `client/src/components/chat/`
+  - `client/src/test/agentsPage.run.test.tsx`
+  - `client/src/test/agentsPage.layoutWrap.test.tsx`
+- React controlled-input and render-isolation guidance: Context7 `/reactjs/react.dev`
+- This story plan section to re-read before starting: `### Surface-By-Surface Done Looks Like`, `## Edge Cases and Failure Modes`, and `### Validation Proof Path Must Be Runnable`
+
+#### Subtasks
+
+1. [ ] Read the documentation links above, then inspect `client/src/pages/AgentsPage.tsx` to identify every prop and callback the instruction/composer area needs from the page shell. Confirm which state changes happen on each keystroke today and which transcript props stay stable while the user is only typing.
+2. [ ] Extract the instruction/composer area into a dedicated child component or memoized boundary with a focused responsibility, for example an Agents composer panel component. Keep all existing `data-testid` values, button behavior, working-folder behavior, and command controls intact while ensuring the transcript subtree can stay stable during typing.
+3. [ ] Update `client/src/pages/AgentsPage.tsx` so the extracted composer boundary receives only the state it actually needs, and the transcript subtree is no longer recreated from the same per-keystroke state path. Prefer a component-boundary fix with stable props first; only add `startTransition` or `useDeferredValue` if a focused render regression test shows the boundary alone is not sufficient.
+4. [ ] Add one focused regression test file, `client/src/test/agentsPage.inputIsolation.test.tsx`, that proves typing into `agent-input` does not force repeated rerenders of the transcript child when transcript data is unchanged. Reuse the existing Agents page harness and mock or spy on the shared transcript child rather than building a second test harness.
+5. [ ] Update documentation after the code and tests are stable. If this task adds a tracked component or test file, update `projectStructure.md`; regardless of structure changes, add a short entry to this task's `Implementation notes` describing the final component boundary and how the render-isolation proof was implemented.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any Task 2 issues before considering the task complete.
+
+#### Testing
+
+Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+
+1. [ ] `npm run typecheck:summary:client`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.inputIsolation.test.tsx`
+4. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.run.test.tsx`
+
+#### Implementation notes
+
+- None yet.
+
+---
+
+### 3. Agents Shared Transcript Adoption
+
+- Task Status: `__to_do__`
+- Git Commits: ``
+
+#### Overview
+
+Move the Agents transcript itself onto the shared transcript renderer created earlier, while preserving Agents-specific transcript behavior such as `liveStoppedMarker`, tool sections, citations, thought-process toggles, and page-specific empty/loading/warning states. This task is only about adopting the shared renderer on the Agents surface; it should not add virtualization yet.
+
+#### Documentation Locations
+
+- Local source to inspect before editing:
+  - `client/src/pages/AgentsPage.tsx`
+  - shared transcript files under `client/src/components/chat/`
+  - `client/src/hooks/useChatStream.ts`
+  - `client/src/test/agentsPage.run.test.tsx`
+  - `client/src/test/agentsPage.streaming.test.tsx`
+  - `client/src/test/agentsPage.citations.test.tsx`
+- React component composition guidance: Context7 `/reactjs/react.dev`
+- This story plan section to re-read before starting: `### Surface-By-Surface Done Looks Like`, `## Message Contracts And Storage Shapes`, and `## Edge Cases and Failure Modes`
+
+#### Subtasks
+
+1. [ ] Read the documentation links above, then inspect the current Agents transcript loop and list the exact page-specific pieces that must remain configurable when moving to shared code: `liveStoppedMarker` status behavior, citation rendering, thought-process sections, tool detail toggles, and the `agent-turns-error` / empty transcript states.
+2. [ ] Update the shared transcript component API so it can render Agents-specific metadata and state without reintroducing a page-local `displayMessages.map(...)` loop in `client/src/pages/AgentsPage.tsx`.
+3. [ ] Replace the inline Agents transcript renderer with the shared transcript renderer. Preserve the current `displayMessages` order, assistant/user styles, status chip logic, and existing `data-testid` hooks that Agents tests already rely on.
+4. [ ] Update the Agents-focused tests in `client/src/test/agentsPage.run.test.tsx`, `client/src/test/agentsPage.streaming.test.tsx`, and `client/src/test/agentsPage.citations.test.tsx` so they prove the shared transcript still handles realtime transcript events, streamed output, citations, and rich-row sections on the Agents page.
+5. [ ] Update documentation after the code and tests are stable. If this task adds or removes tracked shared transcript files or test files, update `projectStructure.md`; regardless of structure changes, add a short entry to this task's `Implementation notes` describing which Agents-only transcript behaviors stayed page-configured.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any Task 3 issues before considering the task complete.
+
+#### Testing
+
+Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+
+1. [ ] `npm run typecheck:summary:client`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.run.test.tsx`
+4. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.streaming.test.tsx`
+5. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.citations.test.tsx`
+
+#### Implementation notes
+
+- None yet.
+
+---
+
+### 4. Flows Shared Transcript Adoption
+
+- Task Status: `__to_do__`
+- Git Commits: ``
+
+#### Overview
+
+Move the Flows transcript onto the shared transcript renderer while preserving Flow-specific transcript behavior such as `buildFlowMetaLine(...)`, flow-loading copy, and the existing flow transcript warnings. This task is only about the Flows surface and should not add virtualization or new message contracts.
+
+#### Documentation Locations
+
+- Local source to inspect before editing:
+  - `client/src/pages/FlowsPage.tsx`
+  - shared transcript files under `client/src/components/chat/`
+  - `client/src/hooks/useChatStream.ts`
+  - `client/src/test/flowsPage.test.tsx`
+  - `client/src/test/flowsPage.run.test.tsx`
+- React component composition guidance: Context7 `/reactjs/react.dev`
+- This story plan section to re-read before starting: `### Surface-By-Surface Done Looks Like`, `## Message Contracts And Storage Shapes`, and `## Edge Cases and Failure Modes`
+
+#### Subtasks
+
+1. [ ] Read the documentation links above, then inspect the current Flows transcript loop and write down the page-specific transcript responsibilities that must stay configurable when using shared code: `buildFlowMetaLine(...)`, flow-loading and empty-flow copy, `flows-turns-error`, and the current assistant/user transcript layout.
+2. [ ] Extend the shared transcript component API only where needed so the Flows page can pass its flow-specific metadata line and transcript states without restoring a page-local `displayMessages.map(...)` loop.
+3. [ ] Replace the inline Flows transcript renderer with the shared transcript renderer. Preserve the existing `displayMessages` order, flow metadata line, status chip behavior, and current `data-testid` hooks such as `flows-transcript`, `chat-bubble`, and `bubble-flow-meta`.
+4. [ ] Update the Flows-focused tests in `client/src/test/flowsPage.test.tsx` and `client/src/test/flowsPage.run.test.tsx` so they prove the shared transcript still handles flow selection states, flow transcript rendering, streamed assistant output, and the extra flow metadata line.
+5. [ ] Update documentation after the code and tests are stable. If this task adds or removes tracked shared transcript files or test files, update `projectStructure.md`; regardless of structure changes, add a short entry to this task's `Implementation notes` describing how the shared transcript now accepts flow-specific metadata.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any Task 4 issues before considering the task complete.
+
+#### Testing
+
+Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+
+1. [ ] `npm run typecheck:summary:client`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
+4. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
+
+#### Implementation notes
+
+- None yet.
+
+---
+
+### 5. Shared Transcript State and Scroll Contract
+
+- Task Status: `__to_do__`
+- Git Commits: ``
+
+#### Overview
+
+Implement the shared transcript behavior contract that all three surfaces need before virtualization: conversation-scoped rich-row expansion state, real pinned-bottom versus scrolled-away handling, and scroll-anchor preservation when content changes height. This task is specifically about shared transcript behavior, not about adding the virtualizer itself.
+
+#### Documentation Locations
+
+- Local source to inspect before editing:
+  - shared transcript files under `client/src/components/chat/`
+  - `client/src/pages/ChatPage.tsx`
+  - `client/src/pages/AgentsPage.tsx`
+  - `client/src/test/chatPage.layoutWrap.test.tsx`
+  - `client/src/test/chatPage.layoutHeight.test.tsx`
+  - `client/src/test/agentsPage.layoutWrap.test.tsx`
+  - `client/src/test/support/mockChatWs.ts`
+- React guidance for stable state ownership and UI update ordering: Context7 `/reactjs/react.dev`
+- This story plan section to re-read before starting: `## Edge Cases and Failure Modes`, `### Reproducible Validation Scenario`, and `### Validation Proof Path Must Be Runnable`
+
+#### Subtasks
+
+1. [ ] Read the documentation links above, then inspect the current placeholder `handleTranscriptScroll` implementations and the existing `toolOpen`, `toolErrorOpen`, and `thinkOpen` state maps. Confirm which state needs to become conversation-scoped shared transcript state rather than remaining trapped inside individual page loops or row instances.
+2. [ ] Add shared transcript state ownership for row expansion and related UI state keyed by existing message and tool identities. Make sure this state resets when the active conversation changes so one conversation cannot leak expansion state into another.
+3. [ ] Implement real shared scroll handling for the transcript container: track when the user is near the bottom, stop forced auto-scroll when the user scrolls away, and restore bottom-pinned behavior only when the user returns near the bottom.
+4. [ ] Implement scroll-anchor preservation for height changes triggered by streaming text or rich-section expansion, using the existing non-virtualized shared transcript first. Add a focused test-support helper under `client/src/test/support/` if the existing layout mocks are not enough to express the required scroll-behavior assertions.
+5. [ ] Update the layout-focused tests in `client/src/test/chatPage.layoutWrap.test.tsx`, `client/src/test/chatPage.layoutHeight.test.tsx`, and `client/src/test/agentsPage.layoutWrap.test.tsx` so they prove the new shared transcript behavior instead of the old page-local placeholders.
+6. [ ] Update documentation after the code and tests are stable. If this task adds or removes tracked support files, update `projectStructure.md`; regardless of structure changes, add a short entry to this task's `Implementation notes` describing the final pinned-bottom rule and how conversation-scoped state reset is handled.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any Task 5 issues before considering the task complete.
+
+#### Testing
+
+Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+
+1. [ ] `npm run typecheck:summary:client`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutWrap.test.tsx`
+4. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutHeight.test.tsx`
+5. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.layoutWrap.test.tsx`
+
+#### Implementation notes
+
+- None yet.
+
+---
+
+### 6. Transcript Virtualization and Dynamic Measurement
+
+- Task Status: `__to_do__`
+- Git Commits: ``
+
+#### Overview
+
+Add the virtualization layer to the shared transcript, including dynamic measurement and row remeasurement, so long transcripts stop mounting the full rich message tree at once. This task is specifically about virtualization and measurement; it should reuse the shared transcript behavior from earlier tasks rather than reworking message contracts or page-specific controls.
+
+#### Documentation Locations
+
+- Local source to inspect before editing:
+  - shared transcript files under `client/src/components/chat/`
+  - `client/package.json`
+  - `package-lock.json`
+  - `client/src/test/chatPage.layoutHeight.test.tsx`
+  - `client/src/test/agentsPage.layoutWrap.test.tsx`
+  - `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
+  - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+  - any shared transcript test-support helper added in Task 5
+- TanStack Virtual API guidance for `measureElement`, `estimateSize`, `getItemKey`, `overscan`, and scroll adjustment: Context7 `/tanstack/virtual`
+- React guidance for memo boundaries around expensive lists: Context7 `/reactjs/react.dev`
+- This story plan section to re-read before starting: `## Feasibility Proof`, `## Edge Cases and Failure Modes`, and `### Validation Proof Path Must Be Runnable`
+
+#### Subtasks
+
+1. [ ] Read the documentation links above, then inspect the shared transcript behavior from Tasks 1 through 5 and confirm which container and row components are the correct seam for virtualization. Do not start this task until the non-virtualized shared transcript is already working on Chat, Agents, and Flows.
+2. [ ] Add `@tanstack/react-virtual` to `client/package.json` and commit the lockfile update in the same task. Do not add any second virtualization library.
+3. [ ] Create the shared virtualization layer, for example a virtual transcript list component or hook under `client/src/components/chat/`, and wire it into the existing shared transcript. Use stable `message.id` row keys, a conservative `overscan`, a reasonable `estimateSize`, and `measureElement` for variable-height rows.
+4. [ ] Add row remeasurement and size-change handling so streaming markdown, tool-detail expansion, citation expansion, and thought-process expansion all keep rows correctly positioned without losing the reader's place. Preserve conversation-scoped UI state across virtual unmount and remount.
+5. [ ] Update or add client tests so this task proves virtualization did not break hydration or layout-sensitive behavior. At minimum, cover the touched behavior in `client/src/test/chatPage.layoutHeight.test.tsx`, `client/src/test/agentsPage.layoutWrap.test.tsx`, `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`, and `client/src/test/useChatStream.inflightMismatch.test.tsx`. If a new focused virtualization test file is clearer, add one under `client/src/test/` and keep it on the existing Jest harness.
+6. [ ] Update documentation after the code and tests are stable. If this task adds tracked shared transcript or test-support files, update `projectStructure.md`; regardless of structure changes, add a short entry to this task's `Implementation notes` describing the final virtualization seam, the chosen row-key rule, and any measurement helper that had to be added.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any Task 6 issues before considering the task complete.
+
+#### Testing
+
+Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+
+1. [ ] `npm run typecheck:summary:client`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutHeight.test.tsx`
+4. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.layoutWrap.test.tsx`
+5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
+6. [ ] `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
+
+#### Implementation notes
+
+- None yet.
+
+---
+
+### 7. Full Story Validation and Documentation Closeout
+
+- Task Status: `__to_do__`
+- Git Commits: ``
+
+#### Overview
+
+Check the finished implementation against every acceptance criterion, run the full wrapper-based validation path, complete any remaining documentation updates, and leave behind the final review artifacts for the story. This task must not introduce new feature work; it is only for proving the completed story and documenting the result.
+
+#### Documentation Locations
+
+- Local files to inspect before starting the final validation pass:
+  - `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+  - `README.md`
+  - `design.md`
+  - `projectStructure.md`
+  - the final shared transcript files under `client/src/components/chat/`
+  - the touched page and test files from Tasks 1 through 6
+- Playwright documentation for browser assertions and screenshots: Context7 `/microsoft/playwright`
+- Docker documentation for wrapper-backed image and compose validation: Context7 `/docker/docs`
+- This story plan section to re-read before starting: `### Acceptance Criteria`, `### Reproducible Validation Scenario`, and `### Validation Proof Path Must Be Runnable`
+
+#### Subtasks
+
+1. [ ] Re-read every acceptance criterion in this story and create a short pass/fail checklist in this task's `Implementation notes` before starting the final validation commands. That checklist must mention Chat, Agents, and Flows separately.
+2. [ ] Review `README.md`, `design.md`, and `projectStructure.md` after all code changes are complete. Update only the files that are genuinely affected by Story 49, and record in `Implementation notes` which documentation files changed and which intentionally stayed untouched.
+3. [ ] Write a pull-request-ready summary covering every task in Story 49. If the repo has a normal artifact location for review summaries at implementation time, store it there; otherwise keep the final summary text in this task's `Implementation notes` so reviewers still have one complete story summary.
+4. [ ] Save manual validation screenshots to `test-results/screenshots/` using the pattern `0000049-7-<short-name>.png`. Capture at least one screenshot each for Chat, Agents, and Flows after the shared transcript and virtualization changes are complete.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any remaining Story 49 issues before considering the story complete.
+
+#### Testing
+
+Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run typecheck:summary:client`
+3. [ ] `npm run build:summary:client`
+4. [ ] `npm run test:summary:client`
+5. [ ] `npm run test:summary:server:unit`
+6. [ ] `npm run compose:build:summary`
+7. [ ] `npm run compose:up`
+8. [ ] Perform the manual long-transcript validation scenario described earlier in this story against the running stack, then save the required screenshots under `test-results/screenshots/`
+9. [ ] `npm run test:summary:e2e`
+10. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- None yet.
+
 ## Questions
 
 - No Further Questions

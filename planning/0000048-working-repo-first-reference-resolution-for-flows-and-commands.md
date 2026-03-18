@@ -3266,7 +3266,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 45. Make The Canonical Lookup-Order Marker Emit An Explicit Command Reference Type
 
 - Task Status: `__done__`
-- Git Commits: `9b3281a6`
+- Git Commits: `9b3281a6, ba1da382`
 
 #### Overview
 

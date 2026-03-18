@@ -361,8 +361,10 @@ The planning assumption should therefore be:
   - Jest/RTL client tests, `setupChatWsHarness`, layout-bound mocks, and Playwright/e2e suites already exist and are the correct base harnesses for this story.
 - Missing prerequisite capabilities:
   - reusable virtualization-specific support helpers may still need to be added under `client/src/test/support/` for `ResizeObserver`, item measurement, or scroll-anchor assertions if the implementation makes those patterns repetitive.
+  - those helpers are extensions to the existing harness, not a brand-new test harness or runner.
 - Assumptions that are currently invalid:
   - it is false to assume the current tests already assert overscan, row measurement, virtual unmount/remount state retention, or scroll-anchor behavior; those scenarios still need to be added even though the underlying harness already exists.
+  - it is also false to assume Story 49 needs a separate virtualization-only harness; the existing harnesses should be extended first.
 
 ### 7. Docker, build, and runtime support
 

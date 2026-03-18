@@ -36,9 +36,9 @@ test('OpenAI retry defaults match story policy', () => {
   assert.equal(high, 8000);
 });
 
-test('runtime OPENAI_INGEST_MAX_RETRIES override is honored for retry budget', async () => {
-  const previous = process.env.OPENAI_INGEST_MAX_RETRIES;
-  process.env.OPENAI_INGEST_MAX_RETRIES = '2';
+test('runtime CODEINFO_OPENAI_INGEST_MAX_RETRIES override is honored for retry budget', async () => {
+  const previous = process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES;
+  process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES = '2';
   try {
     let callCount = 0;
     await assert.rejects(
@@ -59,16 +59,16 @@ test('runtime OPENAI_INGEST_MAX_RETRIES override is honored for retry budget', a
     assert.equal(callCount, 3);
   } finally {
     if (previous === undefined) {
-      delete process.env.OPENAI_INGEST_MAX_RETRIES;
+      delete process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES;
     } else {
-      process.env.OPENAI_INGEST_MAX_RETRIES = previous;
+      process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES = previous;
     }
   }
 });
 
-test('runtime OPENAI_INGEST_MAX_RETRIES falls back to default when invalid', async () => {
-  const previous = process.env.OPENAI_INGEST_MAX_RETRIES;
-  process.env.OPENAI_INGEST_MAX_RETRIES = '7abc';
+test('runtime CODEINFO_OPENAI_INGEST_MAX_RETRIES falls back to default when invalid', async () => {
+  const previous = process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES;
+  process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES = '7abc';
   try {
     let callCount = 0;
     await assert.rejects(
@@ -89,9 +89,9 @@ test('runtime OPENAI_INGEST_MAX_RETRIES falls back to default when invalid', asy
     assert.equal(callCount, OPENAI_RETRY_DEFAULT_MAX_RETRIES + 1);
   } finally {
     if (previous === undefined) {
-      delete process.env.OPENAI_INGEST_MAX_RETRIES;
+      delete process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES;
     } else {
-      process.env.OPENAI_INGEST_MAX_RETRIES = previous;
+      process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES = previous;
     }
   }
 });
@@ -176,8 +176,8 @@ test('retry exhaustion returns normalized terminal metadata without SDK object l
 });
 
 test('retryable OpenAI failures emit warn retry logs and terminal error on exhaustion', async () => {
-  const previous = process.env.OPENAI_INGEST_MAX_RETRIES;
-  process.env.OPENAI_INGEST_MAX_RETRIES = String(
+  const previous = process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES;
+  process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES = String(
     OPENAI_RETRY_DEFAULT_MAX_RETRIES,
   );
   try {
@@ -219,9 +219,9 @@ test('retryable OpenAI failures emit warn retry logs and terminal error on exhau
     assert.equal(errorEntries.length, 1);
   } finally {
     if (previous === undefined) {
-      delete process.env.OPENAI_INGEST_MAX_RETRIES;
+      delete process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES;
     } else {
-      process.env.OPENAI_INGEST_MAX_RETRIES = previous;
+      process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES = previous;
     }
   }
 });

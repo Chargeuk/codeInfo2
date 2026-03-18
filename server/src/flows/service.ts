@@ -101,6 +101,7 @@ import {
 } from './markdownFileResolver.js';
 import {
   buildRepositoryCandidateLookupSummary,
+  buildRepositoryCandidateOrderLogContext,
   buildRepositoryCandidateOrder,
   DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
   type RepositoryCandidateLookupSummary,
@@ -1845,14 +1846,6 @@ const buildFlowCommandCandidates = (params: {
   };
 };
 
-const mapRepositoryCandidateForLog = (
-  candidate: RepositoryCandidateOrderEntry,
-) => ({
-  sourceId: candidate.sourceId,
-  sourceLabel: candidate.sourceLabel,
-  slot: candidate.slot,
-});
-
 const appendFlowCommandResolutionLog = (params: {
   level: 'info' | 'warn';
   phase: 'validation' | 'execution';
@@ -1871,14 +1864,10 @@ const appendFlowCommandResolutionLog = (params: {
     message: DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
     timestamp: new Date().toISOString(),
     source: 'server',
-    context: {
-      caller: params.orderedCandidates.caller,
-      workingRepositoryAvailable:
-        params.orderedCandidates.workingRepositoryAvailable,
-      candidateRepositories: params.orderedCandidates.candidates.map(
-        mapRepositoryCandidateForLog,
-      ),
-    },
+    context: buildRepositoryCandidateOrderLogContext({
+      orderedCandidates: params.orderedCandidates,
+      referenceType: 'commandFile',
+    }),
   });
 
   const lookupSummary = params.selectedCandidate
@@ -1906,9 +1895,10 @@ const appendFlowCommandResolutionLog = (params: {
       fallbackUsed: lookupSummary?.fallbackUsed ?? false,
       workingRepositoryAvailable:
         params.orderedCandidates.workingRepositoryAvailable,
-      candidateRepositories: params.orderedCandidates.candidates.map(
-        mapRepositoryCandidateForLog,
-      ),
+      candidateRepositories: buildRepositoryCandidateOrderLogContext({
+        orderedCandidates: params.orderedCandidates,
+        referenceType: 'commandFile',
+      }).candidateRepositories,
       ...(params.failureReason ? { failureReason: params.failureReason } : {}),
       ...(params.failureMessage
         ? { failureMessage: params.failureMessage }

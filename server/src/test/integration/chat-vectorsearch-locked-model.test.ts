@@ -175,7 +175,7 @@ function toolContext() {
 
 beforeEach(() => {
   resetCollectionsForTests();
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   process.env.CODEINFO_LMSTUDIO_BASE_URL =
     ORIGINAL_BASE_URL ?? 'http://host.docker.internal:1234';
 });

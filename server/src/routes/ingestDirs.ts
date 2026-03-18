@@ -38,7 +38,7 @@ export function createIngestDirsRouter() {
   const router = Router();
 
   router.get('/ingest/dirs', async (req, res) => {
-    const base = process.env.HOST_INGEST_DIR || '/data';
+    const base = process.env.CODEINFO_HOST_INGEST_DIR || '/data';
     const raw = typeof req.query.path === 'string' ? req.query.path : '';
     const requested = raw.trim() || base;
 

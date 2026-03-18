@@ -7,15 +7,15 @@ import {
 } from '../../config/serverPort.js';
 
 describe('resolveServerPort', () => {
-  it('uses SERVER_PORT when it is provided', () => {
+  it('uses CODEINFO_SERVER_PORT when it is provided', () => {
     const port = resolveServerPort({
-      SERVER_PORT: '5510',
+      CODEINFO_SERVER_PORT: '5510',
       PORT: '5010',
     } as NodeJS.ProcessEnv);
     assert.equal(port, '5510');
   });
 
-  it('falls back to PORT when SERVER_PORT is not provided', () => {
+  it('falls back to PORT when CODEINFO_SERVER_PORT is not provided', () => {
     const port = resolveServerPort({
       PORT: '5010',
     } as NodeJS.ProcessEnv);
@@ -29,7 +29,7 @@ describe('resolveServerPort', () => {
 
   it('ignores blank values', () => {
     const port = resolveServerPort({
-      SERVER_PORT: '   ',
+      CODEINFO_SERVER_PORT: '   ',
       PORT: '  ',
     } as NodeJS.ProcessEnv);
     assert.equal(port, DEFAULT_SERVER_PORT);

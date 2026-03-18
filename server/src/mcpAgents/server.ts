@@ -1,12 +1,12 @@
 import http from 'http';
-import { AGENTS_MCP_PORT } from '../config.js';
+import { CODEINFO_AGENTS_MCP_PORT } from '../config.js';
 import { handleAgentsRpc } from './router.js';
 
 let server: http.Server | undefined;
 
 export function startAgentsMcpServer() {
   server = http.createServer(handleAgentsRpc);
-  server.listen(AGENTS_MCP_PORT);
+  server.listen(CODEINFO_AGENTS_MCP_PORT);
   return server;
 }
 

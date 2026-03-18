@@ -17,6 +17,9 @@ describe('conversations API working folder payload', () => {
 
   it('sends the save payload for an existing conversation working folder', async () => {
     let requestBody: Record<string, unknown> | null = null;
+    let conversation: Awaited<
+      ReturnType<typeof updateConversationWorkingFolder>
+    >['conversation'] | null = null;
 
     mockFetch.mockImplementation(
       asFetchImplementation((input: RequestInfo | URL, init?: RequestInit) => {
@@ -38,14 +41,20 @@ describe('conversations API working folder payload', () => {
       }),
     );
 
-    await updateConversationWorkingFolder({
+    const response = await updateConversationWorkingFolder({
       conversationId: 'conv-1',
       workingFolder: '/repo/one',
     });
+    conversation = response.conversation;
 
     const [url] = mockFetch.mock.calls[0] ?? [];
     expect(String(url)).toContain('/conversations/conv-1/working-folder');
     expect(requestBody).toEqual({ workingFolder: '/repo/one' });
+    expect(conversation).toMatchObject({
+      conversationId: 'conv-1',
+      source: undefined,
+      flags: { workingFolder: '/repo/one' },
+    });
   });
 
   it('sends the clear payload when the saved working folder is removed', async () => {
@@ -101,5 +110,53 @@ describe('conversations API working folder payload', () => {
     ).rejects.toThrow('workingFolder must be a non-empty string or null');
 
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed present source values instead of normalizing them to REST', async () => {
+    mockFetch.mockImplementation(
+      asFetchImplementation(() =>
+        mockJsonResponse({
+          status: 'ok',
+          conversation: {
+            conversationId: 'conv-1',
+            title: 'Conversation 1',
+            provider: 'lmstudio',
+            model: 'm1',
+            source: 'BROKEN',
+          },
+        }),
+      ),
+    );
+
+    await expect(
+      updateConversationWorkingFolder({
+        conversationId: 'conv-1',
+        workingFolder: '/repo/one',
+      }),
+    ).rejects.toThrow('Invalid conversation response');
+  });
+
+  it('rejects malformed present flags values instead of normalizing them to an empty object', async () => {
+    mockFetch.mockImplementation(
+      asFetchImplementation(() =>
+        mockJsonResponse({
+          status: 'ok',
+          conversation: {
+            conversationId: 'conv-1',
+            title: 'Conversation 1',
+            provider: 'lmstudio',
+            model: 'm1',
+            flags: ['not-an-object'],
+          },
+        }),
+      ),
+    );
+
+    await expect(
+      updateConversationWorkingFolder({
+        conversationId: 'conv-1',
+        workingFolder: '/repo/one',
+      }),
+    ).rejects.toThrow('Invalid conversation response');
   });
 });

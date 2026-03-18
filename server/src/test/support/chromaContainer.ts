@@ -27,7 +27,7 @@ async function ensureContainer() {
     } envPromise=${envPromise ? 'set' : 'null'}`,
   );
   console.log(
-    `[chroma-compose] current CHROMA_URL=${process.env.CHROMA_URL ?? 'unset'}`,
+    `[chroma-compose] current CODEINFO_CHROMA_URL=${process.env.CODEINFO_CHROMA_URL ?? 'unset'}`,
   );
   if (environment) return environment;
   if (envPromise) return envPromise;
@@ -71,9 +71,9 @@ async function ensureContainer() {
       console.error('[chroma-compose] docker ps after up failed', err);
     }
 
-    // Set CHROMA_URL directly to the mapped host:port (compose binds 8100->8000)
-    process.env.CHROMA_URL = 'http://host.docker.internal:8100';
-    console.log(`[chroma-compose] CHROMA_URL set to ${process.env.CHROMA_URL}`);
+    // Set CODEINFO_CHROMA_URL directly to the mapped host:port (compose binds 8100->8000)
+    process.env.CODEINFO_CHROMA_URL = 'http://host.docker.internal:8100';
+    console.log(`[chroma-compose] CODEINFO_CHROMA_URL set to ${process.env.CODEINFO_CHROMA_URL}`);
 
     environment = env;
     return env;

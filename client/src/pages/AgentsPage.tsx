@@ -931,17 +931,7 @@ export default function AgentsPage() {
           const conversationAgentName = event.conversation.agentName;
           if (conversationAgentName !== selectedAgentName) return;
 
-          applyWsUpsert({
-            conversationId: event.conversation.conversationId,
-            title: event.conversation.title,
-            provider: event.conversation.provider,
-            model: event.conversation.model,
-            source: event.conversation.source === 'MCP' ? 'MCP' : 'REST',
-            lastMessageAt: event.conversation.lastMessageAt,
-            archived: event.conversation.archived,
-            flags: event.conversation.flags,
-            agentName: event.conversation.agentName,
-          });
+          applyWsUpsert(event.conversation);
 
           log('info', 'DEV-0000021[T7] agents.sidebar conversation_upsert', {
             selectedAgentName,

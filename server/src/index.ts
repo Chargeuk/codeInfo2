@@ -168,9 +168,9 @@ append({
     enabled: openAiEmbeddingCapability.enabled,
   },
 });
-const SERVER_PORT = resolveServerPort();
-const mcpHostUrl = `http://localhost:${SERVER_PORT}/mcp`;
-const mcpDockerUrl = `http://server:${SERVER_PORT}/mcp`;
+const CODEINFO_SERVER_PORT = resolveServerPort();
+const mcpHostUrl = `http://localhost:${CODEINFO_SERVER_PORT}/mcp`;
+const mcpDockerUrl = `http://server:${CODEINFO_SERVER_PORT}/mcp`;
 baseLogger.info({ mcpHostUrl, mcpDockerUrl }, 'MCP endpoint available');
 app.use((req, res, next) => {
   const requestId = (req as unknown as { id?: string }).id;
@@ -254,9 +254,9 @@ const logTreeSitterReady = async () => {
 };
 
 const start = async () => {
-  const mongoUri = process.env.MONGO_URI;
+  const mongoUri = process.env.CODEINFO_MONGO_URI;
   if (!mongoUri) {
-    baseLogger.error('MONGO_URI is required but missing');
+    baseLogger.error('CODEINFO_MONGO_URI is required but missing');
     process.exit(1);
   }
   try {
@@ -268,12 +268,12 @@ const start = async () => {
 
   const httpServer = http.createServer(app);
   wsServer = attachWs({ httpServer });
-  server = httpServer.listen(Number(SERVER_PORT), () => {
-    baseLogger.info(`Server on ${SERVER_PORT}`);
+  server = httpServer.listen(Number(CODEINFO_SERVER_PORT), () => {
+    baseLogger.info(`Server on ${CODEINFO_SERVER_PORT}`);
     baseLogger.info(
       {
         event: 'DEV-0000032:T12:verification-ready',
-        port: Number(SERVER_PORT),
+        port: Number(CODEINFO_SERVER_PORT),
       },
       'DEV-0000032:T12:verification-ready',
     );
@@ -285,7 +285,7 @@ const start = async () => {
       source: 'server',
       context: {
         event: 'DEV-0000032:T12:verification-ready',
-        port: Number(SERVER_PORT),
+        port: Number(CODEINFO_SERVER_PORT),
       },
     });
   });

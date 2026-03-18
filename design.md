@@ -19,7 +19,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 ## Server API (core)
 
-- Express 5 app with CORS enabled and env-driven port (default 5010 via `SERVER_PORT` in `server/.env`, with legacy `PORT` fallback).
+- Express 5 app with CORS enabled and env-driven port (default 5010 via `CODEINFO_SERVER_PORT` in `server/.env`, with legacy `PORT` fallback).
 - Routes: `/health` returns `{ status: 'ok', uptime, timestamp }`; `/version` returns `VersionInfo` using `package.json` version; `/info` echoes a friendly message plus VersionInfo.
 - Depends on `@codeinfo2/common` for DTO helper; built with `tsc -b`, started via `npm run start --workspace server`.
 - Shared chat provider/model defaults are resolved in `server/src/config/chatDefaults.ts`. Provider selection still follows explicit request -> `CODEINFO_CHAT_DEFAULT_PROVIDER` env -> hardcoded fallback (`codex`), while Codex model selection now follows explicit request -> `codex/chat/config.toml` -> `CODEINFO_CHAT_DEFAULT_MODEL` env -> hardcoded fallback (`gpt-5.3-codex`).
@@ -968,7 +968,7 @@ flowchart LR
   - per-input model token limit (`resolveOpenAiModelTokenLimit`)
   - max `300000` total estimated tokens/request.
 - Retry behavior uses existing shared retry utility (`runWithRetry`) with OpenAI-specific policy:
-  - retries: runtime-configurable via `OPENAI_INGEST_MAX_RETRIES` (retry attempts after the initial call)
+  - retries: runtime-configurable via `CODEINFO_OPENAI_INGEST_MAX_RETRIES` (retry attempts after the initial call)
   - fallback/default retries: `3` (4 total attempts when fallback is used)
   - base delay `500ms`, max delay `8000ms`
   - jitter range `[0.75, 1.0]`
@@ -3113,7 +3113,7 @@ flowchart LR
 
 - In Compose, agent folders are bind-mounted into the server container at `/app/codex_agents` (rw) so auth seeding can write `auth.json` when needed.
 - The server discovers agents via `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents`.
-- The Agents MCP server is exposed on port `5012` (configured via `AGENTS_MCP_PORT=5012`).
+- The Agents MCP server is exposed on port `5012` (configured via `CODEINFO_AGENTS_MCP_PORT=5012`).
 
 ```mermaid
 flowchart LR
@@ -3124,7 +3124,7 @@ flowchart LR
 
 ### Agents MCP (JSON-RPC)
 
-- The server runs a dedicated MCP v2-style JSON-RPC listener for agents on `AGENTS_MCP_PORT` (default `5012`).
+- The server runs a dedicated MCP v2-style JSON-RPC listener for agents on `CODEINFO_AGENTS_MCP_PORT` (default `5012`).
 - It exposes four tools:
   - `list_agents` (always available; returns agent summaries including `disabled`/`warnings` when Codex is not usable for that agent).
   - `list_commands` (always available; lists enabled command macros for one agent or all agents).
@@ -3542,7 +3542,7 @@ sequenceDiagram
 
 - Callers may optionally provide `working_folder` (absolute path). When present, the server resolves a per-call Codex `workingDirectory` override before starting/resuming the Codex thread.
 - Agent `config.toml` remains the source of truth for defaults; `working_folder` only overrides Codex workingDirectory for that call.
-- Resolution tries a host→container mapping first (when `HOST_INGEST_DIR` is set and both paths are POSIX-absolute after `\\`→`/` normalization), then falls back to using the literal path as provided.
+- Resolution tries a host→container mapping first (when `CODEINFO_HOST_INGEST_DIR` is set and both paths are POSIX-absolute after `\\`→`/` normalization), then falls back to using the literal path as provided.
 - Stable error codes returned by the service when resolution fails:
   - `WORKING_FOLDER_INVALID` (non-absolute input)
   - `WORKING_FOLDER_NOT_FOUND` (no directory exists)
@@ -3803,7 +3803,7 @@ flowchart TD
 ### Ingest directory picker (server-backed)
 
 - Endpoint: `GET /ingest/dirs?path=<absolute server path>`.
-- Base path: `HOST_INGEST_DIR` (default `/data`). When `path` is omitted or blank/whitespace, the server lists the base.
+- Base path: `CODEINFO_HOST_INGEST_DIR` (default `/data`). When `path` is omitted or blank/whitespace, the server lists the base.
 - Response (success):
 
 ```json
@@ -3818,7 +3818,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  A[GET /ingest/dirs?path=...] --> B[Derive base from HOST_INGEST_DIR or /data]
+  A[GET /ingest/dirs?path=...] --> B[Derive base from CODEINFO_HOST_INGEST_DIR or /data]
   B --> C{path provided?}
   C -- no/blank --> D[List base]
   C -- yes --> E[Validate inside base (lexical)]
@@ -4613,7 +4613,7 @@ flowchart TD
 
 ### Agent tooling (Chroma list + search)
 
-- `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.
+- `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `CODEINFO_HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.
 - `/tools/vector-search` validates `{ query, repository?, limit? }` (query required, limit default 5/max 20, repository must match a known repo id from roots), builds a repo->root map, and queries the vectors collection with an optional `root` filter. Results carry `repo`, `relPath`, `containerPath`, `hostPath`, `chunk`, `chunkId`, `score` (distance), and `modelId`; file summaries report the lowest distance per file. The response also returns the current `lockedModelId`. Errors: 400 validation, 404 unknown repo, 502 Chroma unavailable.
 - Retrieval cutoff: results are filtered to distance `<= CODEINFO_RETRIEVAL_DISTANCE_CUTOFF` (default `1.4`, lower is better) unless `CODEINFO_RETRIEVAL_CUTOFF_DISABLED=true`. If nothing passes the cutoff, the server falls back to the best `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS` results (default `2`, lowest distance with original-order tie-breaks). Summaries are rebuilt from the filtered set so file counts align with what the tool returns.
 - Payload caps + dedupe: the server de-dupes VectorSearch results per `repo + relPath` (duplicate `chunkId` or identical chunk text), keeps the 2 lowest-distance chunks per file, then truncates chunk text to `CODEINFO_TOOL_CHUNK_MAX_CHARS` (default `5000`) and enforces total payload size `CODEINFO_TOOL_MAX_CHARS` (default `40000`). Summaries reflect the capped results.
@@ -4674,7 +4674,7 @@ flowchart TD
 
 ### MCP v2 JSON-RPC (port 5011)
 
-- A second JSON-RPC server listens on `MCP_PORT` (default 5011) alongside Express, exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/listTemplates`. `tools/list` is discovery-only and remains available even when Codex is unavailable; provider availability is resolved per-tool execution path.
+- A second JSON-RPC server listens on `CODEINFO_MCP_PORT` (default 5011) alongside Express, exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/listTemplates`. `tools/list` is discovery-only and remains available even when Codex is unavailable; provider availability is resolved per-tool execution path.
 - MCP v2 tools now include `codebase_question` and `reingest_repository`.
 - `initialize` now mirrors MCP v1: it returns `protocolVersion: "2024-11-05"`, `capabilities: { tools: { listChanged: false } }`, and `serverInfo { name: "codeinfo2-mcp", version: <server package version> }` so Codex/mcp-remote clients accept the handshake.
 - Startup/shutdown: `startMcp2Server()` is called from `server/src/index.ts`; `stopMcp2Server()` is invoked during SIGINT/SIGTERM alongside LM Studio client cleanup.
@@ -5201,10 +5201,10 @@ sequenceDiagram
 
 ### Story 0000036 Task 18: OpenAI ingest retry budget env override
 
-- OpenAI ingest retry budget is now resolved from `OPENAI_INGEST_MAX_RETRIES` at runtime.
+- OpenAI ingest retry budget is now resolved from `CODEINFO_OPENAI_INGEST_MAX_RETRIES` at runtime.
 - Semantics are explicit: env value is retry attempts after the initial attempt, and retry execution still uses `maxAttempts = retries + 1`.
 - Invalid, non-numeric, zero, and negative values deterministically fall back to default retry budget `3`.
-- The repository default is committed in `server/.env` as `OPENAI_INGEST_MAX_RETRIES=10`.
+- The repository default is committed in `server/.env` as `CODEINFO_OPENAI_INGEST_MAX_RETRIES=10`.
 - Existing retry mechanics are unchanged: wait-hint precedence, bounded exponential backoff, jitter range, retryable-code mapping, and SDK retry disablement (`maxRetries=0`) remain in place.
 
 ### Story 0000036 Task 19: ingest route catch/log hardening and LM Studio retry parity
@@ -5217,7 +5217,7 @@ sequenceDiagram
 
 ### Story 0000036 Task 20: retry env strictness and reembed log-context correction
 
-- `OPENAI_INGEST_MAX_RETRIES` parsing is strict positive-integer only after trimming input (`^[1-9]\d*$`), so mixed/decimal/scientific formats (for example `7abc`, `3.5`, `1e2`) now deterministically fall back to default retry budget `3`.
+- `CODEINFO_OPENAI_INGEST_MAX_RETRIES` parsing is strict positive-integer only after trimming input (`^[1-9]\d*$`), so mixed/decimal/scientific formats (for example `7abc`, `3.5`, `1e2`) now deterministically fall back to default retry budget `3`.
 - Retry execution semantics are unchanged from Task 18: env value remains retries after the initial attempt, and runtime execution still computes `maxAttempts = retries + 1`.
 - `/ingest/reembed/:root` catch-path logging no longer writes synthetic `runId` values from route params; when unavailable, `runId` is omitted and `root` remains the canonical context field for reembed failure entries.
     Logs-->>UI: events (id = sequence)

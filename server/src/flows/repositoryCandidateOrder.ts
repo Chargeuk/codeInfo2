@@ -10,6 +10,7 @@ export type RepositoryCandidateOrderSlot =
   | 'other_repository';
 
 export type RepositoryCandidateOrderCaller = string;
+export type RepositoryCandidateReferenceType = 'commandFile' | 'markdownFile';
 
 export type RepositoryCandidateOrderInput = {
   sourceId: string;
@@ -32,6 +33,17 @@ export type RepositoryCandidateLookupSummary = {
   selectedRepositoryPath: string;
   fallbackUsed: boolean;
   workingRepositoryAvailable: boolean;
+};
+
+export type RepositoryCandidateOrderLogContext = {
+  referenceType: RepositoryCandidateReferenceType | null;
+  caller: RepositoryCandidateOrderCaller;
+  workingRepositoryAvailable: boolean;
+  candidateRepositories: Array<{
+    sourceId: string;
+    sourceLabel: string;
+    slot: RepositoryCandidateOrderSlot;
+  }>;
 };
 
 export const normalizeRepositoryCandidateLabel = (params: {
@@ -128,3 +140,20 @@ export const buildRepositoryCandidateLookupSummary = (params: {
       params.orderedCandidates.workingRepositoryAvailable,
   };
 };
+
+export const buildRepositoryCandidateOrderLogContext = (params: {
+  orderedCandidates: RepositoryCandidateOrderResult;
+  referenceType?: RepositoryCandidateReferenceType | null;
+}): RepositoryCandidateOrderLogContext => ({
+  referenceType: params.referenceType ?? null,
+  caller: params.orderedCandidates.caller,
+  workingRepositoryAvailable:
+    params.orderedCandidates.workingRepositoryAvailable,
+  candidateRepositories: params.orderedCandidates.candidates.map(
+    (candidate) => ({
+      sourceId: candidate.sourceId,
+      sourceLabel: candidate.sourceLabel,
+      slot: candidate.slot,
+    }),
+  ),
+});

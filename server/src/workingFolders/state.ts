@@ -267,7 +267,7 @@ export async function resolveWorkingFolderWorkingDirectory(
     } as const satisfies WorkingFolderValidationError;
   }
 
-  const hostIngestDir = process.env.HOST_INGEST_DIR;
+  const hostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
   const codexWorkdir =
     process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data';
 

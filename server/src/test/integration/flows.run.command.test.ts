@@ -854,17 +854,40 @@ test('local codeinfo2 flows resolve commands from the selected working repositor
           ),
         );
 
-        const logs = query({ text: 'DEV_0000040_T11_FLOW_RESOLUTION_ORDER' });
-        const selectedLog = logs.find(
-          (entry) => entry.context?.decision === 'selected',
-        );
-        assert.equal(
-          selectedLog?.context?.selectedRepositoryPath,
-          path.resolve(workingRoot),
-        );
-        assert.equal(selectedLog?.context?.fallbackUsed, false);
-        assert.equal(selectedLog?.context?.workingRepositoryAvailable, true);
-        cleanupMemory(conversationId);
+      const logs = query({ text: 'DEV_0000040_T11_FLOW_RESOLUTION_ORDER' });
+      const selectedLog = logs.find(
+        (entry) => entry.context?.decision === 'selected',
+      );
+      const orderLogs = query({
+        text: 'DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER',
+      });
+      assert.equal(
+        selectedLog?.context?.selectedRepositoryPath,
+        path.resolve(workingRoot),
+      );
+      assert.equal(selectedLog?.context?.fallbackUsed, false);
+      assert.equal(selectedLog?.context?.workingRepositoryAvailable, true);
+      assert.equal(orderLogs.length, 2);
+      for (const orderLog of orderLogs) {
+        assert.deepEqual(orderLog?.context, {
+          referenceType: 'commandFile',
+          caller: 'flow-command',
+          workingRepositoryAvailable: true,
+          candidateRepositories: [
+            {
+              sourceId: path.resolve(workingRoot),
+              sourceLabel: 'working-local-flow-repo',
+              slot: 'working_repository',
+            },
+            {
+              sourceId: path.resolve(repoRoot),
+              sourceLabel: 'codeInfo2',
+              slot: 'owner_repository',
+            },
+          ],
+        });
+      }
+      cleanupMemory(conversationId);
       },
       {
         listIngestedRepositories: async () => ({ repos, lockedModelId: null }),

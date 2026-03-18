@@ -42,6 +42,7 @@ COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/common /app/common
 COPY --from=build /app/client/dist ./dist
 COPY --from=build /app/client/vite.config.ts ./vite.config.ts
+COPY --from=build /app/client/src/config/previewAllowedHosts.ts ./src/config/previewAllowedHosts.ts
 COPY --from=build /app/client/package*.json ./
 COPY --from=build /app/client/.codeinfo-client-build-override-state.env ./.codeinfo-client-build-override-state.env
 COPY client/entrypoint.sh ./entrypoint.sh

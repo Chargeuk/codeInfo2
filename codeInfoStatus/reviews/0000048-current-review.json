@@ -1,0 +1,12 @@
+{
+  "story_id": "0000048",
+  "plan_path": "planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md",
+  "branch": "feature/48-working-repo-first-reference-resolution-for-flows-and-commands",
+  "base_branch": "main",
+  "head_commit": "c547031b",
+  "review_pass_id": "0000048-review-20260318T005340Z-c547031b",
+  "evidence_file": "codeInfoStatus/reviews/0000048-review-20260318T005340Z-c547031b-evidence.md",
+  "findings_file": "codeInfoStatus/reviews/0000048-review-20260318T005340Z-c547031b-findings.md",
+  "findings_count": 0,
+  "disposition_hint": "no_findings"
+}

@@ -15,11 +15,10 @@ The FIRST thing you MUST do is get an overview of this repository and what the c
 Now you have an understanding of what the codebase is for, you need to find out what the user wants to do next:
 1. Provide the user with a susinct summary of your findings about the codebase. Keep this brief as they will not want to wade through lots of text to get to your question.
 2. Ask the user for an overview of what the new story is to do.
-3. Follow up with a couple of questions to get a better understanding of what is wanted, but do not badger them, just ask for the most important points for now as details will be discussed later.
 
 ## Where Should We Work?
 We need to decide where to create the new story:
-1. Search the repository for existing stories/specs/plans. If you find some then try to get an understanding of the folder structure used for documenting future work.
+1. Search this repository for existing stories/specs/plans. If you find some then try to get an understanding of the folder structure used for documenting future work.
 2. Ask the user to confirm the folder and name of the story. You should always provide them your best guess, but you must ask them to confirm and allow them to change what you suggest.
 3. When the user has confirmed the filename and location, create the new story file following the format as described within the `plan_format_no_tasks.md` file that you must try to find within the working repository. If you cannot find this file there, then attempt to find it within other ingested rfepositories. If you still can't find it, then create a markdown document with the following headings and include the relevant data you have found out about the story in each one:
     - Title

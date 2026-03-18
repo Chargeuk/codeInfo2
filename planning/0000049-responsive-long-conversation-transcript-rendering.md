@@ -116,7 +116,7 @@ The validation approach should also be explicit. The story should not close on a
 
 ## Questions
 
-None currently. Answered questions are recorded in `## Decisions` below.
+- No Further Questions
 
 ## Decisions
 

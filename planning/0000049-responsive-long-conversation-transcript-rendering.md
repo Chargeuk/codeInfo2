@@ -287,6 +287,33 @@ Those client-local shapes must not become new websocket payloads, REST payloads,
 - Treat the implementation as one shared-client story across all three transcript pages, even if the first development slice targets the Agents page hotspot before applying the same transcript layer to Chat and Flows.
 - Define a repeatable long-transcript validation workflow for final review instead of relying on a subjective statement that the UI feels faster. That validation should cover input responsiveness on Agents plus feature-preserving transcript behavior on Chat and Flows.
 
+## Edge Cases and Failure Modes
+
+- Agents input rerender coupling:
+  - The current hotspot is that `AgentsPage.tsx` owns both the controlled `Instruction` input and the full transcript tree. The implementation must avoid a failure mode where the shared transcript still sits on the same per-keystroke rerender path, because that would preserve the user-visible typing lag even if virtualization is added later.
+- Scroll pinned versus scrolled-away behavior:
+  - The current page-local `handleTranscriptScroll` handlers are placeholders, so the shared transcript must introduce the real pinned-state logic itself. A failure mode here is always forcing auto-scroll to the newest row even after the user has intentionally scrolled upward to read older content.
+- Dynamic row height changes after first render:
+  - Assistant rows can grow after mount because streamed markdown expands, tool details open, citations expand, or thought-process sections are toggled. The shared transcript must remeasure those rows and preserve the reader's visible position; otherwise rows can overlap, leave stale whitespace, or yank the user to a different scroll position.
+- Stable row identity during hydration and streaming:
+  - `useChatStream.ts` and the three page render loops currently rely on stable `message.id` keys while inflight assistant rows are updated in place. The implementation must treat index keys or unstable virtual-row keys as a failure mode because they would break expansion state retention, remount assistant rows unnecessarily, and risk incorrect inflight merge behavior.
+- Inflight overlay and hidden-run rehydration:
+  - `useConversationTurns.ts` may surface an inflight snapshot when persisted assistant turns are not yet present, and `useChatStream.ts` also ignores stale inflight replays for older runs. The shared transcript must tolerate the newest assistant row coming from inflight overlay data rather than assuming every visible row is backed by a stored turn.
+- Conversation switching while transcript state exists:
+  - The current pages clear or rehydrate state when the active conversation changes. The shared transcript must not leak row expansion state, measurement caches, or scroll anchors from one conversation into another, especially on Agents and Flows where conversations can switch while transcript history reloads.
+- Virtual unmount and remount of rich row state:
+  - Tool details, tool error expansion, citations, and thought-process sections already use keyed local open-state maps. A failure mode is keeping those toggles inside transient row instances so they reset when a row leaves the virtual window and later re-enters it.
+- Fast scrolling with low overscan:
+  - If virtualization is added with an undersized overscan buffer or poor initial size estimates, the user may see blank gaps or obvious jumpiness during fast scrolling. Story 49 should treat visible empty holes, unstable scroll restoration, or repeated row pop-in as regressions rather than acceptable tradeoffs.
+- Surface-specific metadata loss:
+  - The shared transcript path must still preserve page-specific transcript details such as `liveStoppedMarker` status handling on Agents and `buildFlowMetaLine(...)` output on Flows. A failure mode is centralizing transcript rendering in a way that accidentally drops these surface-specific metadata lines or badge states.
+- Existing transcript states per surface:
+  - The current pages have distinct empty, loading, and warning states such as `turnsError`, empty transcript copy, flow-loading copy, and websocket/persistence banners. The refactor must not collapse these into one generic transcript state that loses important page-specific feedback.
+- Test and automation hook regressions:
+  - Existing Jest and browser tests already query transcript DOM hooks like `chat-transcript`, `chat-bubble`, `tool-toggle`, `citations-toggle`, `think-toggle`, `bubble-flow-meta`, and related stateful sections. The implementation must either preserve these hooks or deliberately update the affected tests, because silent DOM-contract drift would create brittle regressions without obvious product-level failures.
+- Large unbroken or metadata-heavy content:
+  - Transcript rows can contain long markdown blocks, tool payloads, citation chunks, and user text with preserved whitespace. The shared renderer must continue to handle very tall or unusually wide content without breaking measurement, clipping content, or causing horizontal overflow that destabilizes the transcript container.
+
 ## Test Harnesses
 
 No brand-new test harness, test runner, or fixture framework needs to be created for Story 49. Repository inspection and library research indicate that the current client and e2e harnesses are already capable of covering this story if they are extended carefully.

@@ -257,6 +257,75 @@ The planning assumption should therefore be:
 - extend existing Playwright coverage for browser-level long-transcript behavior;
 - do not create a separate virtualization-only harness unless implementation work proves the current harnesses cannot be extended, which repository and library research does not currently suggest.
 
+## Feasibility Proof
+
+### 1. Shared transcript component layer
+
+- Already existing capabilities:
+  - `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx` already expose the current transcript inputs, containers, and page-specific metadata that a shared layer can wrap.
+  - `client/src/components/chat/` already exists as the right home for shared chat-facing UI.
+- Missing prerequisite capabilities:
+  - there is no shared transcript container, row renderer, virtualization hook, or reusable transcript subsection component in `client/src/components/chat/` today.
+- Assumptions that are currently invalid:
+  - it is false to assume the repo already has a shared transcript renderer that only needs light tuning; this capability still has to be created.
+
+### 2. Agents input or composer isolation
+
+- Already existing capabilities:
+  - the Agents page already has a distinct instruction input, local input state, and transcript subtree inside one page component, so there is a clear refactor seam.
+- Missing prerequisite capabilities:
+  - there is no existing memoized or isolated composer boundary that prevents the full transcript tree from participating in per-keystroke rerenders.
+- Assumptions that are currently invalid:
+  - it is false to assume the Agents input is already separated from transcript rendering work; the current page still owns both in the same component.
+
+### 3. Variable-height transcript virtualization
+
+- Already existing capabilities:
+  - the pages already expose stable `message.id` values, scrollable transcript containers, and React 19 component boundaries that a virtualization layer can build on.
+- Missing prerequisite capabilities:
+  - the preferred virtualization dependency `@tanstack/react-virtual` is not yet in `client/package.json`;
+  - there is no existing shared virtualizer wrapper, `measureElement` wiring, or row-measurement helper in the repo today.
+- Assumptions that are currently invalid:
+  - it is false to assume virtualization support or dynamic row measurement already exists in the client codebase.
+
+### 4. Hydration and inflight transcript contracts
+
+- Already existing capabilities:
+  - `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`, and `client/src/hooks/useConversationTurns.ts` already provide the transcript's live websocket, persisted turn hydration, inflight snapshot merge, and `message.id` stability contracts.
+- Missing prerequisite capabilities:
+  - none at the transport or data-contract level for this story; the required hooks already exist and should be reused.
+- Assumptions that are currently invalid:
+  - it is false to assume this story should introduce a second transcript data model or bypass the current hydration/inflight hooks.
+
+### 5. Scroll anchoring and measurement behavior
+
+- Already existing capabilities:
+  - all three transcript surfaces already have scrollable containers, transcript refs, and stable DOM targets (`chat-transcript` / `flows-transcript`) that a shared transcript can take over.
+- Missing prerequisite capabilities:
+  - there is no real shared scroll-anchor behavior today, and the page-local `handleTranscriptScroll` functions are placeholders;
+  - there is no explicit shared measurement policy for growing rows, expandable sections, or virtual window anchor preservation.
+- Assumptions that are currently invalid:
+  - it is false to assume the current repo already has working bottom-pinned versus scrolled-away logic that can simply be reused unchanged.
+
+### 6. Test support for virtualization-sensitive behavior
+
+- Already existing capabilities:
+  - Jest/RTL client tests, `setupChatWsHarness`, layout-bound mocks, and Playwright/e2e suites already exist and are the correct base harnesses for this story.
+- Missing prerequisite capabilities:
+  - reusable virtualization-specific support helpers may still need to be added under `client/src/test/support/` for `ResizeObserver`, item measurement, or scroll-anchor assertions if the implementation makes those patterns repetitive.
+- Assumptions that are currently invalid:
+  - it is false to assume the current tests already assert overscan, row measurement, virtual unmount/remount state retention, or scroll-anchor behavior; those scenarios still need to be added even though the underlying harness already exists.
+
+### 7. Docker, build, and runtime support
+
+- Already existing capabilities:
+  - the current Dockerfiles, Compose stacks, runtime config path, health endpoints, and client build/test wrappers already support client-only transcript changes;
+  - application code is already copied into images and built there, and the story can reuse that model unchanged.
+- Missing prerequisite capabilities:
+  - none at the runtime or deployment-infrastructure level for this story.
+- Assumptions that are currently invalid:
+  - it is false to assume Story 49 needs a new listener, env-var path, Docker surface, port mapping, or host source bind mount to be feasible.
+
 ## Questions
 
 - No Further Questions

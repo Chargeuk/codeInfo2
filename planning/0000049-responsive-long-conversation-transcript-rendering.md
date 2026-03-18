@@ -489,19 +489,9 @@ Create the first shared transcript rendering path under `client/src/components/c
 
 #### Documentation Locations
 
-- Local source to inspect before editing:
-  - `client/src/pages/ChatPage.tsx`
-  - `client/src/components/chat/ConversationList.tsx`
-  - `client/src/components/chat/CodexFlagsPanel.tsx`
-  - `client/src/components/Markdown.tsx`
-  - `client/src/hooks/useChatStream.ts`
-  - `client/src/test/chatPage.toolDetails.test.tsx`
-  - `client/src/test/chatPage.citations.test.tsx`
-  - `client/src/test/chatPage.reasoning.test.tsx`
-  - `client/src/test/chatPage.stream.test.tsx`
 - React component-boundary and memoization guidance: Context7 `/reactjs/react.dev`
 - MUI Material 6.4 Accordion and transition guidance for mounted versus unmounted details content: MUI MCP `https://llms.mui.com/material-ui/6.4.12/components/accordion.md` and `https://llms.mui.com/material-ui/6.4.12/components/transitions.md`
-- This story plan section to re-read before starting: `### Concrete Output For This Story`, `### Surface-By-Surface Done Looks Like`, and `## Message Contracts And Storage Shapes`
+- React Testing Library guidance for preserving user-visible assertions while refactoring components: Context7 `/testing-library/react-testing-library`
 
 #### Subtasks
 
@@ -540,14 +530,9 @@ Isolate the Agents instruction/composer controls from the transcript subtree so 
 
 #### Documentation Locations
 
-- Local source to inspect before editing:
-  - `client/src/pages/AgentsPage.tsx`
-  - the shared transcript files created in Task 1 under `client/src/components/chat/`
-  - `client/src/test/agentsPage.run.test.tsx`
-  - `client/src/test/agentsPage.layoutWrap.test.tsx`
 - React controlled-input and render-isolation guidance: Context7 `/reactjs/react.dev`
 - Official React guidance for urgent text input updates versus deferred or transition work: Context7 `/reactjs/react.dev`
-- This story plan section to re-read before starting: `### Surface-By-Surface Done Looks Like`, `## Edge Cases and Failure Modes`, and `### Validation Proof Path Must Be Runnable`
+- React Testing Library guidance for event-driven render assertions: Context7 `/testing-library/react-testing-library`
 
 #### Subtasks
 
@@ -584,17 +569,8 @@ Move the Agents transcript itself onto the shared transcript renderer created ea
 
 #### Documentation Locations
 
-- Local source to inspect before editing:
-  - `client/src/pages/AgentsPage.tsx`
-  - shared transcript files under `client/src/components/chat/`
-  - `client/src/hooks/useChatStream.ts`
-  - `client/src/test/agentsPage.run.test.tsx`
-  - `client/src/test/agentsPage.streaming.test.tsx`
-  - `client/src/test/agentsPage.citations.test.tsx`
-  - `client/src/test/agentsPage.reasoning.test.tsx`
-  - `client/src/test/agentsPage.toolsUi.test.tsx`
 - React component composition guidance: Context7 `/reactjs/react.dev`
-- This story plan section to re-read before starting: `### Surface-By-Surface Done Looks Like`, `## Message Contracts And Storage Shapes`, and `## Edge Cases and Failure Modes`
+- React Testing Library guidance for visible transcript assertions: Context7 `/testing-library/react-testing-library`
 
 #### Subtasks
 
@@ -634,14 +610,8 @@ Move the Flows transcript onto the shared transcript renderer while preserving F
 
 #### Documentation Locations
 
-- Local source to inspect before editing:
-  - `client/src/pages/FlowsPage.tsx`
-  - shared transcript files under `client/src/components/chat/`
-  - `client/src/hooks/useChatStream.ts`
-  - `client/src/test/flowsPage.test.tsx`
-  - `client/src/test/flowsPage.run.test.tsx`
 - React component composition guidance: Context7 `/reactjs/react.dev`
-- This story plan section to re-read before starting: `### Surface-By-Surface Done Looks Like`, `## Message Contracts And Storage Shapes`, and `## Edge Cases and Failure Modes`
+- React Testing Library guidance for visible transcript assertions: Context7 `/testing-library/react-testing-library`
 
 #### Subtasks
 
@@ -678,18 +648,8 @@ Create the client test-support harness pieces that Story 49 needs before the sha
 
 #### Documentation Locations
 
-- Local source to inspect before editing:
-  - `client/src/test/setupTests.ts`
-  - `client/src/test/support/mockChatWs.ts`
-  - `client/src/test/support/ensureCodexFlagsPanelExpanded.ts`
-  - `client/src/test/chatPage.layoutHeight.test.tsx`
-  - `client/src/test/agentsPage.layoutWrap.test.tsx`
-  - `client/src/test/flowsPage.run.test.tsx`
-  - `client/src/test/useConversationTurns.refresh.test.ts`
-  - any test-support files already present under `client/src/test/support/`
 - Jest guidance for reusable test setup and helper assertions: Context7 `/jestjs/jest`
 - React Testing Library guidance for DOM-driven assertions: Context7 `/testing-library/react-testing-library`
-- This story plan section to re-read before starting: `### Validation Proof Path Must Be Runnable` and `## Edge Cases and Failure Modes`
 
 #### Subtasks
 
@@ -726,18 +686,8 @@ Implement shared transcript ownership for conversation-scoped rich-row UI state 
 
 #### Documentation Locations
 
-- Local source to inspect before editing:
-  - shared transcript files under `client/src/components/chat/`
-  - `client/src/pages/ChatPage.tsx`
-  - `client/src/pages/AgentsPage.tsx`
-  - `client/src/pages/FlowsPage.tsx`
-  - `client/src/test/chatPage.citations.test.tsx`
-  - `client/src/test/chatPage.reasoning.test.tsx`
-  - `client/src/test/agentsPage.citations.test.tsx`
-  - `client/src/test/agentsPage.reasoning.test.tsx`
-  - `client/src/test/flowsPage.test.tsx`
 - React guidance for stable state ownership and UI update ordering: Context7 `/reactjs/react.dev`
-- This story plan section to re-read before starting: `## Edge Cases and Failure Modes`, `## Message Contracts And Storage Shapes`, and `### Validation Proof Path Must Be Runnable`
+- React Testing Library guidance for user-visible state assertions: Context7 `/testing-library/react-testing-library`
 
 #### Subtasks
 
@@ -776,16 +726,8 @@ Implement the shared transcript scroll behavior that all three surfaces need bef
 
 #### Documentation Locations
 
-- Local source to inspect before editing:
-  - shared transcript files under `client/src/components/chat/`
-  - `client/src/test/chatPage.layoutHeight.test.tsx`
-  - `client/src/test/chatPage.layoutWrap.test.tsx`
-  - `client/src/test/sharedTranscript.scrollBehavior.test.tsx`
-  - `client/src/test/agentsPage.layoutWrap.test.tsx`
-  - `client/src/test/flowsPage.test.tsx`
-  - the transcript test-support harness files added in Task 5 under `client/src/test/support/`
 - React guidance for UI update ordering around scroll-sensitive work: Context7 `/reactjs/react.dev`
-- This story plan section to re-read before starting: `## Feasibility Proof`, `## Edge Cases and Failure Modes`, and `### Validation Proof Path Must Be Runnable`
+- React Testing Library guidance for scroll and layout behavior assertions: Context7 `/testing-library/react-testing-library`
 
 #### Subtasks
 
@@ -825,16 +767,9 @@ Add the first shared virtualization layer to the shared transcript so long trans
 
 #### Documentation Locations
 
-- Local source to inspect before editing:
-  - shared transcript files under `client/src/components/chat/`
-  - `client/package.json`
-  - `package-lock.json`
-  - `client/src/test/chatPage.stream.test.tsx`
-  - `client/src/test/agentsPage.run.test.tsx`
-  - `client/src/test/flowsPage.run.test.tsx`
 - TanStack Virtual API guidance for `useVirtualizer`, `count`, `getScrollElement`, `getItemKey`, `estimateSize`, and overscan: Context7 `/tanstack/virtual`
 - React guidance for preserving component identity in extracted list rows: Context7 `/reactjs/react.dev`
-- This story plan section to re-read before starting: `## Feasibility Proof`, `## Message Contracts And Storage Shapes`, and `### Validation Proof Path Must Be Runnable`
+- React Testing Library guidance for visible transcript assertions after virtualization: Context7 `/testing-library/react-testing-library`
 
 #### Subtasks
 
@@ -872,23 +807,9 @@ Finish the virtualized transcript behavior that depends on dynamic row measureme
 
 #### Documentation Locations
 
-- Local source to inspect before editing:
-  - shared transcript files under `client/src/components/chat/`
-  - `client/src/test/chatPage.layoutHeight.test.tsx`
-  - `client/src/test/sharedTranscript.scrollBehavior.test.tsx`
-  - `client/src/test/chatPage.reasoning.test.tsx`
-  - `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
-  - `client/src/test/agentsPage.layoutWrap.test.tsx`
-  - `client/src/test/agentsPage.reasoning.test.tsx`
-  - `client/src/test/flowsPage.test.tsx`
-  - `client/src/test/flowsPage.run.test.tsx`
-  - `client/src/test/useConversationTurns.refresh.test.ts`
-  - `client/src/test/useConversationTurns.commandMetadata.test.ts`
-  - `client/src/test/useChatStream.inflightMismatch.test.tsx`
-  - the transcript test-support harness files added in Task 5 under `client/src/test/support/`
 - TanStack Virtual API guidance for `measureElement`, size-change adjustment, and variable-height rows: Context7 `/tanstack/virtual`
 - React guidance for preserving user-controlled state across rerenders: Context7 `/reactjs/react.dev`
-- This story plan section to re-read before starting: `## Feasibility Proof`, `## Edge Cases and Failure Modes`, and `### Validation Proof Path Must Be Runnable`
+- React Testing Library guidance for user-visible regression assertions: Context7 `/testing-library/react-testing-library`
 
 #### Subtasks
 
@@ -933,16 +854,9 @@ Check the finished implementation against every acceptance criterion, run the fu
 
 #### Documentation Locations
 
-- Local files to inspect before starting the final validation pass:
-  - `planning/0000049-responsive-long-conversation-transcript-rendering.md`
-  - `README.md`
-  - `design.md`
-  - `projectStructure.md`
-  - the final shared transcript files under `client/src/components/chat/`
-  - the touched page and test files from Tasks 1 through 9
 - Playwright documentation for browser assertions and screenshots: Context7 `/microsoft/playwright`
 - Docker documentation for wrapper-backed image and compose validation: Context7 `/docker/docs`
-- This story plan section to re-read before starting: `### Acceptance Criteria`, `### Reproducible Validation Scenario`, and `### Validation Proof Path Must Be Runnable`
+- Mermaid documentation for any final diagram edits: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 

@@ -481,7 +481,7 @@ Story 49 does not require new server message contracts, websocket payload change
 ### 1. Shared Chat Transcript Foundation
 
 - Task Status: `__completed__`
-- Git Commits: `feabeb31 - DEV-[49] - Extract shared chat transcript foundation`
+- Git Commits: `feabeb31 - DEV-[49] - Extract shared chat transcript foundation`; `aac38180 - DEV-[49] - Restore Task 1 manual proof evidence`
 
 #### Overview
 

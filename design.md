@@ -11,6 +11,26 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Husky + lint-staged: pre-commit runs ESLint (no warnings) and Prettier check on staged TS/JS/TSX/JSX files.
 - Environment policy: commit `.env` with safe defaults; keep `.env.local` for overrides and secrets (ignored from git and Docker contexts).
 
+## Story 0000049 Task 1 shared Chat transcript boundary
+
+- `client/src/pages/ChatPage.tsx` still owns the Chat page shell, model/provider controls, `ConversationList`, and `CodexFlagsPanel`.
+- The transcript bubble loop now lives under `client/src/components/chat/SharedTranscript.tsx` and `client/src/components/chat/SharedTranscriptMessageRow.tsx`.
+- Shared rich transcript helpers now live alongside that path:
+  - `client/src/components/chat/chatTranscriptFormatting.ts` owns timestamp, usage, timing, and step-line formatting.
+  - `client/src/components/chat/SharedTranscriptToolDetails.tsx` owns the shared tool-details rendering path reused by Chat and Agents.
+- Collapsed heavy accordion content in the shared transcript uses `slotProps.transition.unmountOnExit` so hidden tool and citation trees do not stay mounted unnecessarily.
+
+```mermaid
+flowchart LR
+  ChatPage["ChatPage.tsx"] --> ConversationList["ConversationList.tsx (page-owned)"]
+  ChatPage --> Flags["CodexFlagsPanel.tsx (page-owned)"]
+  ChatPage --> SharedTranscript["SharedTranscript.tsx"]
+  SharedTranscript --> MessageRow["SharedTranscriptMessageRow.tsx"]
+  MessageRow --> Formatting["chatTranscriptFormatting.ts"]
+  MessageRow --> ToolDetails["SharedTranscriptToolDetails.tsx"]
+  MessageRow --> Markdown["Markdown.tsx"]
+```
+
 ## Common package
 
 - Purpose: shared DTOs/utilities consumed by client and server to prove workspace linking.

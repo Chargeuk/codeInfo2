@@ -1,5 +1,36 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000049 Task 1 structural change ledger
+
+Added files:
+
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/components/chat/SharedTranscriptMessageRow.tsx`
+- `client/src/components/chat/SharedTranscriptToolDetails.tsx`
+- `client/src/components/chat/chatTranscriptFormatting.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/test/chatPage.toolDetails.test.tsx`
+- `design.md`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 1 introduces the first shared non-virtualized Chat transcript renderer while leaving `ConversationList` and `CodexFlagsPanel` page-owned.
+- The shared transcript formatting and tool-detail helpers are now reusable from both Chat and Agents ahead of later shared-transcript adoption tasks.
+
 ## Story 0000048 final implementation footprint
 
 Added files:

@@ -132,7 +132,7 @@ describe('Chat citations rendering', () => {
 
     const toggle = await screen.findByTestId('citations-toggle');
     expect(toggle).toHaveTextContent('Citations (1)');
-    expect(screen.getByTestId('citations')).not.toBeVisible();
+    expect(screen.queryByTestId('citations')).toBeNull();
 
     await user.click(toggle);
     const pathRow = await screen.findByTestId('citation-path');

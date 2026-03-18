@@ -105,7 +105,6 @@ import {
   buildRepositoryCandidateOrder,
   DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
   type RepositoryCandidateLookupSummary,
-  type RepositoryCandidateOrderEntry,
   type RepositoryCandidateOrderResult,
   type RepositoryCandidateOrderSlot,
 } from './repositoryCandidateOrder.js';

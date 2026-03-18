@@ -40,7 +40,10 @@ test('mid-stream conversation switch hydrates inflight snapshot on return', asyn
     archived: false,
   };
 
-  const turnsByConversationId: Record<string, any> = {
+  const turnsByConversationId: Record<
+    string,
+    { items: unknown[]; nextCursor: null }
+  > = {
     c1: {
       items: [],
       nextCursor: null,

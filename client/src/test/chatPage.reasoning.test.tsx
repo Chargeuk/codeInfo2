@@ -8,8 +8,8 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { setupChatWsHarness } from './support/mockChatWs';
 import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
+import { setupChatWsHarness } from './support/mockChatWs';
 
 const mockFetch = jest.fn<typeof fetch>();
 

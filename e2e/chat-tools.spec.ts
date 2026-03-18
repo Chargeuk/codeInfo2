@@ -410,10 +410,6 @@ test.describe.serial('Chat tools citations', () => {
       timeout: 20000,
     });
 
-    const assistantBubble = page
-      .getByTestId('chat-bubble')
-      .filter({ has: toolRow })
-      .first();
     // Verify the tool row exists and the assistant answer is visible.
     // Layout/order is not enforced here because WS-driven rendering may merge
     // segments in slightly different DOM order than legacy SSE tests.

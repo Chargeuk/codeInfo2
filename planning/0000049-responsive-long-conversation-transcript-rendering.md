@@ -239,6 +239,24 @@ If any container-generated artifacts need persistence as part of validation, pre
 - Treat the implementation as one shared-client story across all three transcript pages, even if the first development slice targets the Agents page hotspot before applying the same transcript layer to Chat and Flows.
 - Define a repeatable long-transcript validation workflow for final review instead of relying on a subjective statement that the UI feels faster. That validation should cover input responsiveness on Agents plus feature-preserving transcript behavior on Chat and Flows.
 
+## Test Harnesses
+
+No brand-new test harness, test runner, or fixture framework needs to be created for Story 49. Repository inspection and library research indicate that the current client and e2e harnesses are already capable of covering this story if they are extended carefully.
+
+- Reuse the existing client Jest/React Testing Library harness defined by `client/jest.config.cjs` and `client/src/test/setupTests.ts`.
+- Reuse the existing websocket and fetch transcript harness in `client/src/test/support/mockChatWs.ts`, which already drives chat transcript tests through the same `/chat` start request plus websocket event stream used by the app.
+- Reuse and extend the existing layout and measurement mocks in files such as `client/src/test/chatPage.layoutWrap.test.tsx` and `client/src/test/chatPage.layoutHeight.test.tsx`, which already stub `getBoundingClientRect`, `scrollWidth`, and related transcript layout values.
+- Reuse the existing Playwright/e2e harness under `e2e/` plus the repo wrappers `npm run test:summary:e2e`, `npm run compose:e2e:build`, and `npm run compose:e2e:up` for browser-level regression checks.
+
+If Story 49 needs reusable helpers for virtualization-specific measurement behavior, they should be added inside the existing client test-support area, not as a new harness. The most likely place is `client/src/test/support/`, either by extending `mockChatWs.ts` or by adding a focused helper for transcript measurement or `ResizeObserver` mocking that existing Jest/RTL tests can share.
+
+The planning assumption should therefore be:
+
+- extend existing Jest/RTL transcript tests for virtualization behavior;
+- extend existing layout mocks if the virtualized transcript needs explicit `ResizeObserver`, scroll-offset, or item-size simulation;
+- extend existing Playwright coverage for browser-level long-transcript behavior;
+- do not create a separate virtualization-only harness unless implementation work proves the current harnesses cannot be extended, which repository and library research does not currently suggest.
+
 ## Questions
 
 - No Further Questions

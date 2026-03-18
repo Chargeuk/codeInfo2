@@ -4,6 +4,7 @@ import {
   hasInvalidCanonicalRuntimeConfig,
   resetClientRuntimeConfigLogForTests,
 } from '../config/runtimeConfig';
+import { resolveBrowserHostApiBaseUrl } from '../config/apiBaseUrl';
 
 describe('baseUrl env rename', () => {
   const legacyClientEnv = (...parts: string[]) => ['VITE', ...parts].join('_');
@@ -142,4 +143,67 @@ describe('baseUrl env rename', () => {
       hasInvalidCanonicalRuntimeConfig(getClientRuntimeConfigDiagnostics()),
     ).toBe(false);
   });
+
+  it('derives the api base url from the browser host when requested by the env directive', () => {
+    process.env.VITE_CODEINFO_API_URL = 'USE_BROWSER_HOST:5510';
+
+    expect(getApiBaseUrl()).toBe('http://localhost:5510');
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([]);
+  });
+
+  it('lets runtime config directives override env api base urls', () => {
+    (
+      globalThis as typeof globalThis & {
+        __CODEINFO_CONFIG__?: { apiBaseUrl?: string };
+      }
+    ).__CODEINFO_CONFIG__ = { apiBaseUrl: 'USE_BROWSER_HOST:5511' };
+    process.env.VITE_CODEINFO_API_URL = 'http://renamed.example:5010';
+
+    expect(getApiBaseUrl()).toBe('http://localhost:5511');
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([]);
+  });
+
+  it('falls back to the browser origin when the env directive port is malformed', () => {
+    process.env.VITE_CODEINFO_API_URL = 'USE_BROWSER_HOST:not-a-port';
+
+    expect(getApiBaseUrl()).toBe(window.location.origin);
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([
+      {
+        field: 'apiBaseUrl',
+        source: 'env',
+        rawValue: 'USE_BROWSER_HOST:not-a-port',
+        reason: 'invalid_browser_host_directive',
+      },
+    ]);
+  });
+});
+
+describe('browser-host api directive helper', () => {
+  it('derives the browser host url with the requested port', () => {
+    expect(
+      resolveBrowserHostApiBaseUrl(
+        'USE_BROWSER_HOST:5510',
+        'http://dastapleton-everest.nord:5501',
+      ),
+    ).toEqual({
+      value: 'http://dastapleton-everest.nord:5510',
+      mode: 'browser_host',
+      directivePort: '5510',
+    });
+  });
+
+  it('reports malformed browser host directives', () => {
+    expect(
+      resolveBrowserHostApiBaseUrl(
+        'USE_BROWSER_HOST:abc',
+        'http://dastapleton-everest.nord:5501',
+      ),
+    ).toEqual({
+      value: undefined,
+      mode: 'fallback',
+      directivePort: 'abc',
+      diagnosticReason: 'invalid_browser_host_directive',
+    });
+  });
+});
 });

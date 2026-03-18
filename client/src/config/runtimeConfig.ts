@@ -1,3 +1,8 @@
+import {
+  type ApiBaseUrlResolutionMode,
+  resolveBrowserHostApiBaseUrl,
+} from './apiBaseUrl';
+
 type RuntimeConfig = {
   apiBaseUrl?: string;
   lmStudioBaseUrl?: string;
@@ -29,6 +34,7 @@ type RuntimeConfigSource = 'runtime' | 'env';
 type RuntimeConfigReason =
   | 'empty_string'
   | 'invalid_url'
+  | 'invalid_browser_host_directive'
   | 'invalid_boolean'
   | 'invalid_number'
   | 'invalid_container';
@@ -212,11 +218,55 @@ function normalizeUrl(
   }
 }
 
-function getFallbackApiBaseUrl() {
+function getBrowserOrigin() {
   if (typeof window !== 'undefined' && window.location) {
     return window.location.origin;
   }
   return '';
+}
+
+function normalizeApiBaseUrl(
+  source: RuntimeConfigSource,
+  value: unknown,
+): {
+  value: string | undefined;
+  diagnostic?: RuntimeConfigDiagnostic;
+  mode?: Exclude<ApiBaseUrlResolutionMode, 'fallback'>;
+} {
+  const normalized = normalizeUrl('apiBaseUrl', source, value);
+  if (normalized.value) {
+    return {
+      value: normalized.value,
+      mode: 'literal_url',
+    };
+  }
+  if (typeof value !== 'string') {
+    return normalized;
+  }
+  const browserOrigin = getBrowserOrigin();
+  const directive = resolveBrowserHostApiBaseUrl(value, browserOrigin);
+  if (!directive) {
+    return normalized;
+  }
+  if (directive.value) {
+    return {
+      value: directive.value,
+      mode: directive.mode,
+    };
+  }
+  return {
+    value: undefined,
+    diagnostic: createDiagnostic(
+      'apiBaseUrl',
+      source,
+      value,
+      directive.diagnosticReason ?? 'invalid_browser_host_directive',
+    ),
+  };
+}
+
+function getFallbackApiBaseUrl() {
+  return getBrowserOrigin();
 }
 
 function shouldSkipRuntimeConfigLog() {
@@ -237,6 +287,7 @@ function hasInvalidCanonicalRuntimeConfig(
 function logRuntimeConfigOnce(
   config: ResolvedRuntimeConfig,
   diagnostics: RuntimeConfigDiagnostic[],
+  apiBaseUrlMode: ApiBaseUrlResolutionMode,
 ) {
   if (runtimeConfigLogged || shouldSkipRuntimeConfigLog()) {
     return;
@@ -245,6 +296,7 @@ function logRuntimeConfigOnce(
   console.info('DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG', {
     apiBaseUrl: config.apiBaseUrl,
     apiBaseUrlSource: config.sources.apiBaseUrl,
+    apiBaseUrlMode,
     lmStudioBaseUrl: config.lmStudioBaseUrl,
     lmStudioBaseUrlSource: config.sources.lmStudioBaseUrl,
     logForwardEnabled: config.logForwardEnabled,
@@ -259,6 +311,7 @@ function logRuntimeConfigOnce(
 function resolveClientRuntimeConfig(): {
   config: ResolvedRuntimeConfig;
   diagnostics: RuntimeConfigDiagnostic[];
+  apiBaseUrlMode: ApiBaseUrlResolutionMode;
 } {
   const runtimeConfigState = readRuntimeConfig();
   const runtime = runtimeConfigState.config;
@@ -267,18 +320,16 @@ function resolveClientRuntimeConfig(): {
     ...runtimeConfigState.diagnostics,
   ];
 
-  const runtimeApiBaseUrl = normalizeUrl(
-    'apiBaseUrl',
-    'runtime',
-    runtime.apiBaseUrl,
-  );
-  const envApiBaseUrl = normalizeUrl(
-    'apiBaseUrl',
-    'env',
-    env.VITE_CODEINFO_API_URL,
-  );
+  const runtimeApiBaseUrl = normalizeApiBaseUrl('runtime', runtime.apiBaseUrl);
+  const envApiBaseUrl = normalizeApiBaseUrl('env', env.VITE_CODEINFO_API_URL);
   const apiBaseUrl =
     runtimeApiBaseUrl.value || envApiBaseUrl.value || getFallbackApiBaseUrl();
+  const apiBaseUrlMode =
+    runtimeApiBaseUrl.value
+      ? runtimeApiBaseUrl.mode ?? 'literal_url'
+      : envApiBaseUrl.value
+        ? envApiBaseUrl.mode ?? 'literal_url'
+        : 'fallback';
   if (runtimeApiBaseUrl.diagnostic) diagnostics.push(runtimeApiBaseUrl.diagnostic);
   if (envApiBaseUrl.diagnostic) diagnostics.push(envApiBaseUrl.diagnostic);
 
@@ -366,12 +417,12 @@ function resolveClientRuntimeConfig(): {
     },
   };
 
-  return { config, diagnostics };
+  return { config, diagnostics, apiBaseUrlMode };
 }
 
 export function getClientRuntimeConfig(): ResolvedRuntimeConfig {
-  const { config, diagnostics } = resolveClientRuntimeConfig();
-  logRuntimeConfigOnce(config, diagnostics);
+  const { config, diagnostics, apiBaseUrlMode } = resolveClientRuntimeConfig();
+  logRuntimeConfigOnce(config, diagnostics, apiBaseUrlMode);
   return config;
 }
 

@@ -551,7 +551,7 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 ### 2. Agents Composer Isolation
 
 - Task Status: `__completed__`
-- Git Commits: ``
+- Git Commits: `8d1d8e06 - DEV-[49] - Isolate Agents composer from transcript pane`
 
 #### Overview
 

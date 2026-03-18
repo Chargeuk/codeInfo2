@@ -1866,6 +1866,7 @@ const appendFlowCommandResolutionLog = (params: {
     source: 'server',
     context: buildRepositoryCandidateOrderLogContext({
       orderedCandidates: params.orderedCandidates,
+      referenceType: 'commandFile',
     }),
   });
 
@@ -1896,6 +1897,7 @@ const appendFlowCommandResolutionLog = (params: {
         params.orderedCandidates.workingRepositoryAvailable,
       candidateRepositories: buildRepositoryCandidateOrderLogContext({
         orderedCandidates: params.orderedCandidates,
+        referenceType: 'commandFile',
       }).candidateRepositories,
       ...(params.failureReason ? { failureReason: params.failureReason } : {}),
       ...(params.failureMessage

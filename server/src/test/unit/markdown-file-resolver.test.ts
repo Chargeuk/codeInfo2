@@ -337,6 +337,7 @@ describe('resolveMarkdownFile', () => {
       text: 'DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER',
     });
     assert.equal(orderLogs.length, 1);
+    assert.notEqual(orderLogs[0]?.context?.referenceType, null);
     assert.deepEqual(orderLogs[0]?.context, {
       referenceType: 'markdownFile',
       caller: 'direct-command',

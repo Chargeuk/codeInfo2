@@ -870,7 +870,7 @@ test('local codeinfo2 flows resolve commands from the selected working repositor
       assert.equal(orderLogs.length, 2);
       for (const orderLog of orderLogs) {
         assert.deepEqual(orderLog?.context, {
-          referenceType: null,
+          referenceType: 'commandFile',
           caller: 'flow-command',
           workingRepositoryAvailable: true,
           candidateRepositories: [

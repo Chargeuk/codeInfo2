@@ -544,7 +544,7 @@ test('direct command execution searches the working repository before the select
     });
     assert.equal(orderLogs.length, 1);
     assert.deepEqual(orderLogs[0]?.context, {
-      referenceType: null,
+      referenceType: 'commandFile',
       caller: 'direct-command',
       workingRepositoryAvailable: true,
       candidateRepositories: [

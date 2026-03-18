@@ -10,6 +10,7 @@ export type RepositoryCandidateOrderSlot =
   | 'other_repository';
 
 export type RepositoryCandidateOrderCaller = string;
+export type RepositoryCandidateReferenceType = 'commandFile' | 'markdownFile';
 
 export type RepositoryCandidateOrderInput = {
   sourceId: string;
@@ -35,7 +36,7 @@ export type RepositoryCandidateLookupSummary = {
 };
 
 export type RepositoryCandidateOrderLogContext = {
-  referenceType: string | null;
+  referenceType: RepositoryCandidateReferenceType | null;
   caller: RepositoryCandidateOrderCaller;
   workingRepositoryAvailable: boolean;
   candidateRepositories: Array<{
@@ -142,7 +143,7 @@ export const buildRepositoryCandidateLookupSummary = (params: {
 
 export const buildRepositoryCandidateOrderLogContext = (params: {
   orderedCandidates: RepositoryCandidateOrderResult;
-  referenceType?: string | null;
+  referenceType?: RepositoryCandidateReferenceType | null;
 }): RepositoryCandidateOrderLogContext => ({
   referenceType: params.referenceType ?? null,
   caller: params.orderedCandidates.caller,

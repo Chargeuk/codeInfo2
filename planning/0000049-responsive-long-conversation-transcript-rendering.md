@@ -139,7 +139,7 @@ Each proof route in this story must only be used after its prerequisites exist i
 Because of these constraints, the realistic proof order for Story 49 is:
 
 1. add the shared transcript layer and any required virtualization dependency;
-2. add or extend any missing client test-support helpers needed for measurement-sensitive assertions;
+2. add the dedicated client transcript test-support helpers needed for measurement-sensitive assertions and prove that harness with its own focused test;
 3. run `npm run typecheck:summary:client` and `npm run build:summary:client`;
 4. run `npm run test:summary:client`;
 5. run the manual long-transcript validation scenario against the existing runtime stack;
@@ -158,7 +158,7 @@ Repository research shows that this story does not depend on new server infrastr
 - Missing prerequisites that are genuinely part of this story:
   - there is currently no shared transcript rendering component layer under `client/src/components/chat/`;
   - the preferred virtualization dependency, `@tanstack/react-virtual`, is not currently present in `client/package.json`, so adding it is part of the story if that implementation path is used.
-  - if virtualization-sensitive Jest assertions require explicit `ResizeObserver`, row-measurement, or scroll-anchor helpers beyond the current layout mocks, those helpers must be added under `client/src/test/support/` before that part of the proof path is treated as runnable.
+  - Story 49 also requires focused transcript test-support helpers under `client/src/test/support/` for `ResizeObserver`, row-measurement, and scroll-anchor assertions before the virtualization-sensitive proof steps are treated as runnable.
 
 Because the repo already has the required runtime and deployment plumbing, Story 49 should not add a new server listener, a new health endpoint, a new env-var injection path, a new compose service, or a new deployment mapping just to support transcript rendering. If local or e2e validation is needed, it should ride on the existing wrappers, env files, healthchecks, and port mappings instead.
 
@@ -650,7 +650,7 @@ Implement the shared transcript behavior contract that all three surfaces need b
 1. [ ] Read the documentation links above, then inspect the current placeholder `handleTranscriptScroll` implementations and the existing `toolOpen`, `toolErrorOpen`, `thinkOpen`, and citation-expansion state handling. Confirm which state needs to become conversation-scoped shared transcript state rather than remaining trapped inside individual page loops or row instances.
 2. [ ] Add shared transcript state ownership for row expansion and related UI state keyed by existing message and tool identities, including citation expansion state once citations move behind the shared transcript layer. Make sure this state resets when the active conversation changes so one conversation cannot leak expansion state into another.
 3. [ ] Implement real shared scroll handling for the transcript container: track when the user is near the bottom, stop forced auto-scroll when the user scrolls away, and restore bottom-pinned behavior only when the user returns near the bottom.
-4. [ ] Implement scroll-anchor preservation for height changes triggered by streaming text or rich-section expansion, using the existing non-virtualized shared transcript first. Add a focused test-support helper under `client/src/test/support/` if the existing layout mocks are not enough to express the required scroll-behavior assertions.
+4. [ ] Implement scroll-anchor preservation for height changes triggered by streaming text or rich-section expansion, using the existing non-virtualized shared transcript first. Keep the production behavior work in this task, and leave the reusable test-support harness additions for the dedicated harness task that follows.
 5. [ ] Update the layout-focused tests in `client/src/test/chatPage.layoutWrap.test.tsx`, `client/src/test/chatPage.layoutHeight.test.tsx`, `client/src/test/chatPage.citations.test.tsx`, `client/src/test/agentsPage.layoutWrap.test.tsx`, and `client/src/test/agentsPage.citations.test.tsx` so they prove the new shared transcript behavior instead of the old page-local placeholders and confirm citation toggles are now backed by the shared conversation-scoped state.
 6. [ ] Update documentation after the code and tests are stable. If this task adds or removes tracked support files, update `projectStructure.md`; regardless of structure changes, add a short entry to this task's `Implementation notes` describing the final pinned-bottom rule and how conversation-scoped state reset is handled.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any Task 5 issues before considering the task complete.
@@ -673,7 +673,53 @@ Wrapper-first rule: use the repository wrappers below instead of raw build or te
 
 ---
 
-### 6. Transcript Virtualization and Dynamic Measurement
+### 6. Transcript Test Harness Support
+
+- Task Status: `__to_do__`
+- Git Commits: ``
+
+#### Overview
+
+Create the client test-support harness pieces that Story 49 needs for measurement-sensitive transcript assertions before the virtualized transcript work depends on them. This task is only for test infrastructure under `client/src/test/support/` plus proof that the harness can run and surface errors clearly; it must not introduce production transcript behavior changes.
+
+#### Documentation Locations
+
+- Local source to inspect before editing:
+  - `client/src/test/setupTests.ts`
+  - `client/src/test/support/mockChatWs.ts`
+  - `client/src/test/chatPage.layoutHeight.test.tsx`
+  - `client/src/test/agentsPage.layoutWrap.test.tsx`
+  - `client/src/test/useConversationTurns.refresh.test.ts`
+  - any test-support files already present under `client/src/test/support/`
+- Jest guidance for reusable test setup and helper assertions: Context7 `/jestjs/jest`
+- React Testing Library guidance for DOM-driven assertions: Context7 `/testing-library/react-testing-library`
+- This story plan section to re-read before starting: `### Validation Proof Path Must Be Runnable` and `## Edge Cases and Failure Modes`
+
+#### Subtasks
+
+1. [ ] Read the documentation links above, then inspect the existing transcript-related tests and test-support files to write down the exact reusable harness responsibilities Story 49 needs before virtualization assertions are reliable: `ResizeObserver` control, scroll-container sizing, row-height or measurement triggering, and explicit error reporting when the helper is used with an invalid container or row target.
+2. [ ] Add the new reusable transcript test-support harness files under `client/src/test/support/`. Keep the helpers narrowly scoped to transcript measurement and scroll behavior, and wire them into `client/src/test/setupTests.ts` only where shared setup is truly required.
+3. [ ] Add one focused proof test file, `client/src/test/transcriptTestHarness.test.ts`, that proves the new harness can execute in Jest, can drive at least one transcript-style measurement or scroll update, and can surface a clear checked error when the harness is misused instead of failing silently.
+4. [ ] Update at least one existing layout-sensitive transcript test, preferably `client/src/test/chatPage.layoutHeight.test.tsx` or `client/src/test/agentsPage.layoutWrap.test.tsx`, to consume the new harness so the helper is proven in a real transcript-facing assertion rather than remaining an isolated utility.
+5. [ ] Update documentation after the code and tests are stable. If this task adds tracked support or test files, update `projectStructure.md`; regardless of structure changes, add a short entry to this task's `Implementation notes` describing the new harness surface and the exact proof test that verifies it.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any Task 6 issues before considering the task complete.
+
+#### Testing
+
+Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+
+1. [ ] `npm run typecheck:summary:client`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run test:summary:client -- --file client/src/test/transcriptTestHarness.test.ts`
+4. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutHeight.test.tsx`
+
+#### Implementation notes
+
+- None yet.
+
+---
+
+### 7. Transcript Virtualization and Dynamic Measurement
 
 - Task Status: `__to_do__`
 - Git Commits: ``
@@ -695,20 +741,20 @@ Add the virtualization layer to the shared transcript, including dynamic measure
   - `client/src/test/useConversationTurns.refresh.test.ts`
   - `client/src/test/useConversationTurns.commandMetadata.test.ts`
   - `client/src/test/useChatStream.inflightMismatch.test.tsx`
-  - any shared transcript test-support helper added in Task 5
+  - the transcript test-support harness files added in Task 6 under `client/src/test/support/`
 - TanStack Virtual API guidance for `measureElement`, `estimateSize`, `getItemKey`, `overscan`, and scroll adjustment: Context7 `/tanstack/virtual`
 - React guidance for memo boundaries around expensive lists: Context7 `/reactjs/react.dev`
 - This story plan section to re-read before starting: `## Feasibility Proof`, `## Edge Cases and Failure Modes`, and `### Validation Proof Path Must Be Runnable`
 
 #### Subtasks
 
-1. [ ] Read the documentation links above, then inspect the shared transcript behavior from Tasks 1 through 5 and confirm which container and row components are the correct seam for virtualization. Do not start this task until the non-virtualized shared transcript is already working on Chat, Agents, and Flows.
+1. [ ] Read the documentation links above, then inspect the shared transcript behavior from Tasks 1 through 6 and confirm which container and row components are the correct seam for virtualization. Do not start this task until the non-virtualized shared transcript is already working on Chat, Agents, and Flows and the transcript test harness task is complete.
 2. [ ] Add `@tanstack/react-virtual` to `client/package.json` and commit the lockfile update in the same task. Do not add any second virtualization library.
 3. [ ] Create the shared virtualization layer, for example a virtual transcript list component or hook under `client/src/components/chat/`, and wire it into the existing shared transcript. Use stable `message.id` row keys, a conservative `overscan`, a reasonable `estimateSize`, and `measureElement` for variable-height rows.
 4. [ ] Add row remeasurement and size-change handling so streaming markdown, tool-detail expansion, citation expansion, and thought-process expansion all keep rows correctly positioned without losing the reader's place. Preserve conversation-scoped UI state across virtual unmount and remount, and confirm the virtualized transcript still honors the shared pinned-bottom versus manual-scroll-away contract after row heights change.
 5. [ ] Update or add client tests so this task proves virtualization did not break hydration, retained-assistant handling, citation-state persistence, or layout-sensitive behavior. At minimum, cover the touched behavior in `client/src/test/chatPage.layoutHeight.test.tsx`, `client/src/test/agentsPage.layoutWrap.test.tsx`, `client/src/test/flowsPage.run.test.tsx`, `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`, `client/src/test/useConversationTurns.refresh.test.ts`, `client/src/test/useConversationTurns.commandMetadata.test.ts`, and `client/src/test/useChatStream.inflightMismatch.test.tsx`. If a new focused virtualization test file is clearer, add one under `client/src/test/` and keep it on the existing Jest harness.
 6. [ ] Update documentation after the code and tests are stable. If this task adds tracked shared transcript or test-support files, update `projectStructure.md`; regardless of structure changes, add a short entry to this task's `Implementation notes` describing the final virtualization seam, the chosen row-key rule, and any measurement helper that had to be added.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any Task 6 issues before considering the task complete.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any Task 7 issues before considering the task complete.
 
 #### Testing
 
@@ -730,7 +776,7 @@ Wrapper-first rule: use the repository wrappers below instead of raw build or te
 
 ---
 
-### 7. Full Story Validation and Documentation Closeout
+### 8. Full Story Validation and Documentation Closeout
 
 - Task Status: `__to_do__`
 - Git Commits: ``
@@ -747,7 +793,7 @@ Check the finished implementation against every acceptance criterion, run the fu
   - `design.md`
   - `projectStructure.md`
   - the final shared transcript files under `client/src/components/chat/`
-  - the touched page and test files from Tasks 1 through 6
+  - the touched page and test files from Tasks 1 through 7
 - Playwright documentation for browser assertions and screenshots: Context7 `/microsoft/playwright`
 - Docker documentation for wrapper-backed image and compose validation: Context7 `/docker/docs`
 - This story plan section to re-read before starting: `### Acceptance Criteria`, `### Reproducible Validation Scenario`, and `### Validation Proof Path Must Be Runnable`
@@ -757,7 +803,7 @@ Check the finished implementation against every acceptance criterion, run the fu
 1. [ ] Re-read every acceptance criterion in this story and create a short pass/fail checklist in this task's `Implementation notes` before starting the final validation commands. That checklist must mention Chat, Agents, and Flows separately, and it must explicitly include hydration or in-flight merge behavior, retained-assistant behavior on Flows, citation-state persistence, and pinned-bottom versus manual-scroll-away behavior.
 2. [ ] Review `README.md`, `design.md`, and `projectStructure.md` after all code changes are complete. Update only the files that are genuinely affected by Story 49, and record in `Implementation notes` which documentation files changed and which intentionally stayed untouched.
 3. [ ] Write a pull-request-ready summary covering every task in Story 49. If the repo has a normal artifact location for review summaries at implementation time, store it there; otherwise keep the final summary text in this task's `Implementation notes` so reviewers still have one complete story summary.
-4. [ ] Save manual validation screenshots to `test-results/screenshots/` using the pattern `0000049-7-<short-name>.png`. Capture at least one screenshot each for Chat, Agents, and Flows after the shared transcript and virtualization changes are complete.
+4. [ ] Save manual validation screenshots to `test-results/screenshots/` using the pattern `0000049-8-<short-name>.png`. Capture at least one screenshot each for Chat, Agents, and Flows after the shared transcript and virtualization changes are complete.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any remaining Story 49 issues before considering the story complete.
 
 #### Testing

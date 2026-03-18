@@ -1,5 +1,33 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000049 Task 2 structural change ledger
+
+Added files:
+
+- `client/src/components/agents/AgentsComposerPanel.tsx`
+- `client/src/components/agents/AgentsTranscriptPane.tsx`
+- `client/src/test/agentsPage.inputIsolation.test.tsx`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/pages/AgentsPage.tsx`
+- `design.md`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 2 isolates the Agents composer from the transcript subtree without adopting the shared transcript path yet.
+- `AgentsTranscriptPane.tsx` is intentionally temporary and remains page-local until Task 3 replaces its internals with the shared transcript renderer.
+
 ## Story 0000049 Task 1 structural change ledger
 
 Added files:
@@ -1059,6 +1087,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ App.tsx â€” app shell with CssBaseline/NavBar/Container
 â”‚     â”œâ”€ assets/react.svg â€” React logo asset
 â”‚     â”œâ”€ components/
+â”‚     â”‚  â”œâ”€ agents/
+â”‚     â”‚  â”‚  â”œâ”€ AgentsComposerPanel.tsx â€” Agents control-panel boundary for selector, command, folder, prompt, and instruction/send-stop UI
+â”‚     â”‚  â”‚  â””â”€ AgentsTranscriptPane.tsx â€” temporary memoized Agents transcript boundary that keeps the page-local renderer isolated from composer typing
 â”‚     â”‚  â”œâ”€ codex/
 â”‚     â”‚  â”‚  â””â”€ CodexDeviceAuthDialog.tsx â€” device-auth dialog with target select, API call, and copy helpers
 â”‚     â”‚  â”œâ”€ NavBar.tsx â€” top navigation AppBar/Tabs
@@ -1158,6 +1189,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- agentsPage.commandsRun.persistenceDisabled.test.tsx ? Agents page persistence guard plus command-run payload coverage for selected `startStep`
 |     |     |- agentsPage.commandMetadataRender.test.tsx ? Agents page renders per-turn command metadata note with step progress
 |     |     |- agentsPage.commandsRun.abort.test.tsx ? Agents page Stop sends WS cancel_inflight (does not abort HTTP start)
+|     |     |- agentsPage.inputIsolation.test.tsx ? Agents page keeps the transcript child render count flat while typing into `agent-input`
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
 |     |     |- ingestPage.layout.test.tsx ? ingest page stays full width (no maxWidth lg container)
 |     |     |- ingestStatus.test.tsx ? ingest status polling/cancel card tests

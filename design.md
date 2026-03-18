@@ -31,6 +31,23 @@ flowchart LR
   MessageRow --> Markdown["Markdown.tsx"]
 ```
 
+## Story 0000049 Task 2 Agents composer isolation boundary
+
+- `client/src/pages/AgentsPage.tsx` now owns the surface state and fetch/run orchestration, but it no longer renders the Agents controls and transcript inline from the same JSX subtree.
+- `client/src/components/agents/AgentsComposerPanel.tsx` owns the page-local composer boundary: agent selection, command/start-step controls, working-folder controls, prompt execution controls, the multiline `agent-input`, and the fixed-width send/stop slot.
+- `client/src/components/agents/AgentsTranscriptPane.tsx` is a temporary page-local transcript boundary for Task 2. It keeps the current Agents-specific transcript rendering path intact until Task 3 swaps that implementation to the shared transcript component.
+- The isolation fix is the component boundary itself: `agent-input` stays urgent and controlled, while transcript props are kept narrow and memo-friendly so typing does not need to recreate the transcript pane.
+
+```mermaid
+flowchart LR
+  AgentsPage["AgentsPage.tsx"] --> Composer["AgentsComposerPanel.tsx"]
+  AgentsPage --> Transcript["AgentsTranscriptPane.tsx (page-local until Task 3)"]
+  Composer --> Controls["Agent/command/folder/input controls"]
+  Transcript --> Markdown["Markdown.tsx"]
+  Transcript --> ToolDetails["SharedTranscriptToolDetails.tsx"]
+  Transcript --> Formatting["chatTranscriptFormatting.ts"]
+```
+
 ## Common package
 
 - Purpose: shared DTOs/utilities consumed by client and server to prove workspace linking.

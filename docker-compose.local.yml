@@ -98,6 +98,7 @@ services:
       - client/.env
       - client/.env.local
     environment:
+      - VITE_CODEINFO_API_URL=${VITE_CODEINFO_API_URL:-http://host.docker.internal:5510}
       - VITE_CODEINFO_LMSTUDIO_URL=${VITE_CODEINFO_LMSTUDIO_URL:-http://host.docker.internal:1234}
       - VITE_CODEINFO_LOG_FORWARD_ENABLED=true
       - VITE_CODEINFO_LOG_MAX_BYTES=32768

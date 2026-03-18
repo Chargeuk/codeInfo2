@@ -513,16 +513,10 @@ Create the first shared transcript rendering path under `client/src/components/c
 12. [ ] Format check subtask: run `npm run format:check` from the repo root after the Task 1 files are edited. If the check fails, first run `npm run format`, then rerun `npm run format:check`; if formatting still reports issues, fix the remaining items manually in the files touched by this task before moving on. Purpose: leave the repository formatting-clean after the shared Chat transcript extraction work. Docs: Context7 `/prettier/prettier`; local file `README.md`.
 #### Testing
 
-Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] `npm run typecheck:summary:client`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.toolDetails.test.tsx`
-4. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.citations.test.tsx`
-5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.reasoning.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
+1. [ ] `npm run build:summary:client` - Use because this task changes client code and root documentation that describes the client path. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client behavior. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
@@ -561,14 +555,10 @@ Isolate the Agents instruction/composer controls from the transcript subtree so 
 9. [ ] Format check subtask: run `npm run format:check` from the repo root after the Task 2 files are edited. If the check fails, first run `npm run format`, then rerun `npm run format:check`; if formatting still reports issues, fix the remaining items manually in the files touched by this task before moving on. Purpose: leave the repository formatting-clean after the Agents composer isolation work. Docs: Context7 `/prettier/prettier`; local file `README.md`.
 #### Testing
 
-Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] `npm run typecheck:summary:client`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.inputIsolation.test.tsx`
-4. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.run.test.tsx`
-5. [ ] `npm run lint --workspaces`
-6. [ ] `npm run format:check --workspaces`
+1. [ ] `npm run build:summary:client` - Use because this task changes client code and root documentation that describes the client path. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client behavior. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
@@ -611,17 +601,10 @@ Move the Agents transcript itself onto the shared transcript renderer created ea
 13. [ ] Format check subtask: run `npm run format:check` from the repo root after the Task 3 files are edited. If the check fails, first run `npm run format`, then rerun `npm run format:check`; if formatting still reports issues, fix the remaining items manually in the files touched by this task before moving on. Purpose: leave the repository formatting-clean after the Agents shared transcript adoption work. Docs: Context7 `/prettier/prettier`; local file `README.md`.
 #### Testing
 
-Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] `npm run typecheck:summary:client`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.run.test.tsx` to execute both the baseline Agents run transcript regression and the new `agent-turns-error` warning regression added in this task.
-4. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.streaming.test.tsx`
-5. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.citations.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.reasoning.test.tsx`
-7. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.toolsUi.test.tsx`
-8. [ ] `npm run lint --workspaces`
-9. [ ] `npm run format:check --workspaces`
+1. [ ] `npm run build:summary:client` - Use because this task changes client code and root documentation that describes the client path. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client behavior. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
@@ -663,14 +646,10 @@ Move the Flows transcript onto the shared transcript renderer while preserving F
 11. [ ] Format check subtask: run `npm run format:check` from the repo root after the Task 4 files are edited. If the check fails, first run `npm run format`, then rerun `npm run format:check`; if formatting still reports issues, fix the remaining items manually in the files touched by this task before moving on. Purpose: leave the repository formatting-clean after the Flows shared transcript adoption work. Docs: Context7 `/prettier/prettier`; local file `README.md`.
 #### Testing
 
-Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] `npm run typecheck:summary:client`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx` to execute both the main Flows transcript contract regression and the new `flows-turns-error` warning regression added in this task.
-4. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
-5. [ ] `npm run lint --workspaces`
-6. [ ] `npm run format:check --workspaces`
+1. [ ] `npm run build:summary:client` - Use because this task changes client code and root documentation that describes the client path. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client behavior. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
@@ -706,14 +685,10 @@ Create the client test-support harness pieces that Story 49 needs before the sha
 8. [ ] Format check subtask: run `npm run format:check` from the repo root after the Task 5 files are edited. If the check fails, first run `npm run format`, then rerun `npm run format:check`; if formatting still reports issues, fix the remaining items manually in the files touched by this task before moving on. Purpose: leave the repository formatting-clean after the transcript harness support work. Docs: Context7 `/prettier/prettier`; local file `README.md`.
 #### Testing
 
-Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] `npm run typecheck:summary:client`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run test:summary:client -- --file client/src/test/transcriptTestHarness.test.ts`
-4. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutHeight.test.tsx`
-5. [ ] `npm run lint --workspaces`
-6. [ ] `npm run format:check --workspaces`
+1. [ ] `npm run build:summary:client` - Use because this task changes client code and root documentation that describes the client path. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client behavior. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
@@ -755,17 +730,10 @@ Implement shared transcript ownership for conversation-scoped rich-row UI state 
 12. [ ] Format check subtask: run `npm run format:check` from the repo root after the Task 6 files are edited. If the check fails, first run `npm run format`, then rerun `npm run format:check`; if formatting still reports issues, fix the remaining items manually in the files touched by this task before moving on. Purpose: leave the repository formatting-clean after the shared transcript state-ownership work. Docs: Context7 `/prettier/prettier`; local file `README.md`.
 #### Testing
 
-Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] `npm run typecheck:summary:client`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.citations.test.tsx`
-4. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.reasoning.test.tsx`
-5. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.citations.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.reasoning.test.tsx`
-7. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
-8. [ ] `npm run lint --workspaces`
-9. [ ] `npm run format:check --workspaces`
+1. [ ] `npm run build:summary:client` - Use because this task changes client code and root documentation that describes the client path. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client behavior. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
@@ -805,17 +773,10 @@ Implement the shared transcript scroll behavior that all three surfaces need bef
 11. [ ] Format check subtask: run `npm run format:check` from the repo root after the Task 7 files are edited. If the check fails, first run `npm run format`, then rerun `npm run format:check`; if formatting still reports issues, fix the remaining items manually in the files touched by this task before moving on. Purpose: leave the repository formatting-clean after the shared transcript scroll-contract work. Docs: Context7 `/prettier/prettier`; local file `README.md`.
 #### Testing
 
-Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] `npm run typecheck:summary:client`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutHeight.test.tsx`
-4. [ ] `npm run test:summary:client -- --file client/src/test/sharedTranscript.scrollBehavior.test.tsx`
-5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutWrap.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.layoutWrap.test.tsx`
-7. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
-8. [ ] `npm run lint --workspaces`
-9. [ ] `npm run format:check --workspaces`
+1. [ ] `npm run build:summary:client` - Use because this task changes client code and root documentation that describes the client path. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client behavior. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
@@ -857,15 +818,10 @@ Add the first shared virtualization layer to the shared transcript so long trans
 11. [ ] Format check subtask: run `npm run format:check` from the repo root after the Task 8 files are edited. If the check fails, first run `npm run format`, then rerun `npm run format:check`; if formatting still reports issues, fix the remaining items manually in the files touched by this task before moving on. Purpose: leave the repository formatting-clean after the transcript virtualization foundation work. Docs: Context7 `/prettier/prettier`; local file `README.md`.
 #### Testing
 
-Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] `npm run typecheck:summary:client`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.stream.test.tsx`
-4. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.run.test.tsx`
-5. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
+1. [ ] `npm run build:summary:client` - Use because this task changes client code and root documentation that describes the client path. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client behavior. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
@@ -914,23 +870,10 @@ Finish the virtualized transcript behavior that depends on dynamic row measureme
 18. [ ] Format check subtask: run `npm run format:check` from the repo root after the Task 9 files are edited. If the check fails, first run `npm run format`, then rerun `npm run format:check`; if formatting still reports issues, fix the remaining items manually in the files touched by this task before moving on. Purpose: leave the repository formatting-clean after the dynamic-measurement regression coverage work. Docs: Context7 `/prettier/prettier`; local file `README.md`.
 #### Testing
 
-Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] `npm run typecheck:summary:client`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutHeight.test.tsx`
-4. [ ] `npm run test:summary:client -- --file client/src/test/sharedTranscript.scrollBehavior.test.tsx`
-5. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.reasoning.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
-7. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.layoutWrap.test.tsx`
-8. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.reasoning.test.tsx`
-9. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
-10. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx`
-11. [ ] `npm run test:summary:client -- --file client/src/test/useConversationTurns.refresh.test.ts`
-12. [ ] `npm run test:summary:client -- --file client/src/test/useConversationTurns.commandMetadata.test.ts`
-13. [ ] `npm run test:summary:client -- --file client/src/test/useChatStream.inflightMismatch.test.tsx`
-14. [ ] `npm run lint --workspaces`
-15. [ ] `npm run format:check --workspaces`
+1. [ ] `npm run build:summary:client` - Use because this task changes client code and root documentation that describes the client path. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because this task changes client behavior. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
@@ -971,22 +914,15 @@ Check the finished implementation against every acceptance criterion, run the fu
 10. [ ] Format check subtask: run `npm run format:check` from the repo root after the Task 10 files are edited. If the check fails, first run `npm run format`, then rerun `npm run format:check`; if formatting still reports issues, fix the remaining items manually in the files touched by this task before moving on. Purpose: leave the repository formatting-clean after the final validation and review closeout updates. Docs: Context7 `/prettier/prettier`; local file `README.md`.
 #### Testing
 
-Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run typecheck:summary:client`
-3. [ ] `npm run build:summary:client`
-4. [ ] `npm run test:summary:client`
-5. [ ] `npm run test:summary:server:unit`
-6. [ ] `npm run test:summary:server:cucumber`
-7. [ ] `npm run compose:build:summary`
-8. [ ] `npm run compose:up`
-9. [ ] Perform the manual long-transcript validation scenario described earlier in this story against the running stack, then save the required screenshots under `test-results/screenshots/`
-10. [ ] `npm run test:summary:e2e -- --file e2e/agents.spec.ts` to execute the automated long-transcript Agents typing-responsiveness regression added in this task before the full browser sweep.
-11. [ ] `npm run test:summary:e2e`
-12. [ ] `npm run compose:down`
-13. [ ] `npm run lint --workspaces`
-14. [ ] `npm run format:check --workspaces`
+1. [ ] `npm run build:summary:client` - Use because final regression for this story affects client and root documentation paths. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use because final regression for this story affects client behavior. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run test:summary:e2e` - Allow up to 7 minutes; for example, use `timeout 7m` or set `timeout_ms=420000` in the harness. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
+4. [ ] `npm run compose:build:summary` - Use because the final regression path is testable from the front end and must prove the stack still builds. If status is `failed`, or item counts indicate failures or unknown results in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target or targets.
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP testing step: while the stack is running at `http://host.docker.internal:5001`, manually confirm the long-transcript scenario across Chat, Agents, and Flows, confirm transcript scrolling and virtualization behavior still match the story acceptance criteria, capture the required screenshots, and check that there are no logged errors in the browser debug console.
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 

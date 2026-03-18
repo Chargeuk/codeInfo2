@@ -135,6 +135,37 @@ If a future change somehow makes a new container surface unavoidable, the story 
 
 If any container-generated artifacts need persistence as part of validation, prefer Docker-managed volumes for that generated output rather than bind mounting a source tree. The only planned exception remains log visibility on the host.
 
+## Message Contracts And Storage Shapes
+
+Story 49 does not require a new websocket message contract, a new REST payload shape, or a new persisted storage shape. The virtualization and transcript-refactor work should operate on the existing client-side transcript contracts and storage normalization that already exist in the repository.
+
+The existing contract owners that must remain authoritative are:
+
+- `client/src/hooks/useChatStream.ts`
+  - `ChatMessage`
+  - `ChatSegment`
+  - `ToolCall`
+- `client/src/hooks/useConversationTurns.ts`
+  - `StoredTurn`
+  - `InflightSnapshot`
+  - `TurnCommandMetadata`
+
+What this means for the story:
+
+- the shared transcript layer should continue to consume the existing `messages` array produced by `useChatStream`;
+- virtualization should continue to key rows from the existing stable `message.id` identity rather than inventing alternate row IDs;
+- persisted turns and inflight snapshots should continue to flow through `useConversationTurns` plus `hydrateHistory(...)` and `hydrateInflightSnapshot(...)`;
+- page-specific metadata such as citations, tools, usage, timing, and flow command labels should continue to come from the existing message or command fields rather than from a new transcript-specific transport shape.
+
+The only new shapes that are acceptable in this story are client-local implementation details that do not become a cross-boundary contract. For example, the shared transcript may introduce ephemeral UI state maps keyed by existing `message.id` or tool identifiers for:
+
+- expansion state;
+- row measurement cache keys;
+- scroll-anchor bookkeeping;
+- virtualization helper state.
+
+Those client-local shapes must not become new websocket payloads, REST payloads, database records, or persisted conversation-turn fields.
+
 ### Out Of Scope
 
 - Changing server-side chat, flow, or agent APIs.
@@ -151,6 +182,7 @@ If any container-generated artifacts need persistence as part of validation, pre
 - General server-performance or model-latency work.
 - Adding a new server listener, new health endpoint, new runtime-config injection path, new compose service, or new deployment mapping for the sake of this client-rendering story.
 - Introducing a host source bind mount for client or server application code into a running container.
+- Introducing a new transcript websocket message contract, REST payload shape, or persisted storage shape for this story.
 
 ## Implementation Ideas
 
@@ -408,3 +440,10 @@ The planning assumption should therefore be:
    - What the answer is: Story 49 should keep application code copied into Docker image build stages and built there, should update the relevant `.dockerignore` file if Docker-visible inputs change, should not introduce host source bind mounts for app code, should not add a new Compose surface or port binding for this story, and should prefer Docker-managed volumes for any new generated-output persistence other than logs.
    - Where the answer came from: this answer came from repository inspection of [client/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/Dockerfile), [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/Dockerfile), [.dockerignore](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/.dockerignore), [client/.dockerignore](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/.dockerignore), [server/.dockerignore](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/.dockerignore), [docker-compose.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.yml), [docker-compose.local.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.local.yml), and [docker-compose.e2e.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.e2e.yml), plus `code_info` and direct inspection of the current port bindings and volume mounts.
    - Why it is the best answer to the question: it keeps the story aligned with the repo's existing container model, prevents hidden source-of-truth drift between host and container code, and makes the Docker expectations clear before any implementation work begins.
+
+12. Preserve the existing transcript message and storage contracts
+   - The question being addressed: does Story 49 need new message contracts or storage shapes in order to introduce a shared transcript layer and virtualization?
+   - Why the question matters: if the story quietly introduces a new transcript payload shape, it stops being a client-only rendering story and becomes a transport or persistence contract story as well.
+   - What the answer is: no new websocket, REST, or persisted storage shapes are needed. Story 49 should continue to rely on the existing `ChatMessage`, `ChatSegment`, and `ToolCall` shapes from `useChatStream.ts`, and the existing `StoredTurn`, `InflightSnapshot`, and `TurnCommandMetadata` shapes from `useConversationTurns.ts`. New shapes are acceptable only for client-local ephemeral UI state inside the shared transcript implementation.
+   - Where the answer came from: this answer came from repository inspection of [useChatStream.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useChatStream.ts) and [useConversationTurns.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useConversationTurns.ts), plus `code_info`, DeepWiki guidance for `TanStack/virtual` and `facebook/react`, and Context7 documentation for `/tanstack/virtual` and `/reactjs/react.dev`, all of which point toward preserving the existing item array and stable identities rather than inventing a new message/storage schema.
+   - Why it is the best answer to the question: it keeps the story within its intended client-rendering scope, avoids unnecessary cross-boundary contract churn, and tells the implementer exactly which existing shapes they must preserve.

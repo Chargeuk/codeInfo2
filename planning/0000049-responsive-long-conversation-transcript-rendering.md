@@ -489,9 +489,11 @@ Create the first shared transcript rendering path under `client/src/components/c
 
 #### Documentation Locations
 
-- React component-boundary and memoization guidance: Context7 `/reactjs/react.dev`
-- MUI Material 6.4 Accordion and transition guidance for mounted versus unmounted details content: MUI MCP `https://llms.mui.com/material-ui/6.4.12/components/accordion.md` and `https://llms.mui.com/material-ui/6.4.12/components/transitions.md`
-- React Testing Library guidance for preserving user-visible assertions while refactoring components: Context7 `/testing-library/react-testing-library`
+- React docs via Context7 `/reactjs/react.dev` because this task extracts a large transcript subtree into shared components and must preserve component identity, props, and keyed state during the refactor.
+- MUI docs via MUI MCP `https://llms.mui.com/material-ui/6.4.12/components/accordion.md` and `https://llms.mui.com/material-ui/6.4.12/components/transitions.md` because the shared transcript keeps heavy tool/citation UI on `Accordion`/transition components and needs the documented `slotProps.transition` behavior.
+- Testing Library docs via Context7 `/testing-library/testing-library-docs` because the task updates React tests and should keep assertions on visible behavior instead of implementation details.
+- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the last subtask runs workspace linting and the task may introduce new shared component files.
+- Prettier docs `https://prettier.io/docs/` because the last subtask runs formatting checks after component and test extraction.
 
 #### Subtasks
 
@@ -530,9 +532,10 @@ Isolate the Agents instruction/composer controls from the transcript subtree so 
 
 #### Documentation Locations
 
-- React controlled-input and render-isolation guidance: Context7 `/reactjs/react.dev`
-- Official React guidance for urgent text input updates versus deferred or transition work: Context7 `/reactjs/react.dev`
-- React Testing Library guidance for event-driven render assertions: Context7 `/testing-library/react-testing-library`
+- React docs via Context7 `/reactjs/react.dev` because this task is about component-boundary extraction, controlled input urgency, and keeping typing responsive without breaking React state flow.
+- Testing Library docs via Context7 `/testing-library/testing-library-docs` because this task adds an input-isolation regression test and should assert user-visible typing behavior rather than internal rerender details where possible.
+- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task adds a new component and test file and finishes with workspace linting.
+- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after component and test creation.
 
 #### Subtasks
 
@@ -569,8 +572,11 @@ Move the Agents transcript itself onto the shared transcript renderer created ea
 
 #### Documentation Locations
 
-- React component composition guidance: Context7 `/reactjs/react.dev`
-- React Testing Library guidance for visible transcript assertions: Context7 `/testing-library/react-testing-library`
+- React docs via Context7 `/reactjs/react.dev` because this task composes the shared transcript back into Agents and must preserve state ownership, prop flow, and list identity.
+- MUI docs via MUI MCP `https://llms.mui.com/material-ui/6.4.12/components/accordion.md` and `https://llms.mui.com/material-ui/6.4.12/components/transitions.md` because the adopted shared transcript still renders MUI accordion/transition-based tool and citation UI on Agents.
+- Testing Library docs via Context7 `/testing-library/testing-library-docs` because this task rewrites multiple Agents tests and should keep them centered on visible transcript behavior.
+- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task edits page code, shared components, and tests before running lint.
+- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after the shared-transcript adoption work.
 
 #### Subtasks
 
@@ -610,8 +616,11 @@ Move the Flows transcript onto the shared transcript renderer while preserving F
 
 #### Documentation Locations
 
-- React component composition guidance: Context7 `/reactjs/react.dev`
-- React Testing Library guidance for visible transcript assertions: Context7 `/testing-library/react-testing-library`
+- React docs via Context7 `/reactjs/react.dev` because this task composes the shared transcript into Flows and must preserve prop flow, keyed row identity, and surface-specific rendering behavior.
+- MUI docs via MUI MCP `https://llms.mui.com/material-ui/6.4.12/api/chip.md` and `https://llms.mui.com/material-ui/6.4.12/api/tooltip.md` because Flows keeps MUI chip/tooltip-driven status and metadata affordances around the shared transcript.
+- Testing Library docs via Context7 `/testing-library/testing-library-docs` because this task updates Flow transcript tests and should keep assertions on visible output and existing selectors.
+- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task edits page code, shared components, and tests before running lint.
+- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after the shared-transcript adoption work.
 
 #### Subtasks
 
@@ -648,8 +657,10 @@ Create the client test-support harness pieces that Story 49 needs before the sha
 
 #### Documentation Locations
 
-- Jest guidance for reusable test setup and helper assertions: Context7 `/jestjs/jest`
-- React Testing Library guidance for DOM-driven assertions: Context7 `/testing-library/react-testing-library`
+- Jest docs `https://jestjs.io/docs/getting-started` and `https://jestjs.io/docs/configuration` because this task adds a reusable helper, a proof test, and may need setup/config changes for the client test environment.
+- Testing Library docs via Context7 `/testing-library/testing-library-docs` because the helper is consumed by React-facing tests and should support DOM-visible assertions rather than implementation-detail checks.
+- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task adds new support files and test files before running lint.
+- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after support-file changes.
 
 #### Subtasks
 
@@ -686,8 +697,10 @@ Implement shared transcript ownership for conversation-scoped rich-row UI state 
 
 #### Documentation Locations
 
-- React guidance for stable state ownership and UI update ordering: Context7 `/reactjs/react.dev`
-- React Testing Library guidance for user-visible state assertions: Context7 `/testing-library/react-testing-library`
+- React docs via Context7 `/reactjs/react.dev` because this task centralizes row state ownership, relies on stable keys, and must reset state correctly when conversation identity changes.
+- Testing Library docs via Context7 `/testing-library/testing-library-docs` because this task updates citation/thought-process tests and should prove the new shared state through visible behavior.
+- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task may add shared state files before running lint.
+- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after shared-state changes.
 
 #### Subtasks
 
@@ -726,8 +739,10 @@ Implement the shared transcript scroll behavior that all three surfaces need bef
 
 #### Documentation Locations
 
-- React guidance for UI update ordering around scroll-sensitive work: Context7 `/reactjs/react.dev`
-- React Testing Library guidance for scroll and layout behavior assertions: Context7 `/testing-library/react-testing-library`
+- React docs via Context7 `/reactjs/react.dev` because this task changes scroll-sensitive shared UI behavior and must keep update ordering predictable while the user is typing or reading.
+- Testing Library docs via Context7 `/testing-library/testing-library-docs` because this task adds and updates scroll/layout tests that should assert observable scroll behavior rather than implementation details.
+- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task may add shared scroll logic before running lint.
+- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after scroll-contract changes.
 
 #### Subtasks
 
@@ -767,9 +782,11 @@ Add the first shared virtualization layer to the shared transcript so long trans
 
 #### Documentation Locations
 
-- TanStack Virtual API guidance for `useVirtualizer`, `count`, `getScrollElement`, `getItemKey`, `estimateSize`, and overscan: Context7 `/tanstack/virtual`
-- React guidance for preserving component identity in extracted list rows: Context7 `/reactjs/react.dev`
-- React Testing Library guidance for visible transcript assertions after virtualization: Context7 `/testing-library/react-testing-library`
+- TanStack Virtual docs via Context7 `/tanstack/virtual` because this task introduces the library itself and needs the documented `useVirtualizer`, `count`, `getScrollElement`, `getItemKey`, `estimateSize`, and `overscan` APIs.
+- React docs via Context7 `/reactjs/react.dev` because virtualization still depends on stable component identity, keyed rows, and clean parent/child boundaries.
+- Testing Library docs via Context7 `/testing-library/testing-library-docs` because this task updates cross-surface transcript tests after introducing virtualization and should keep them user-visible.
+- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task adds new virtualization files and updates page/shared components before linting.
+- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after virtualization setup changes.
 
 #### Subtasks
 
@@ -807,9 +824,11 @@ Finish the virtualized transcript behavior that depends on dynamic row measureme
 
 #### Documentation Locations
 
-- TanStack Virtual API guidance for `measureElement`, size-change adjustment, and variable-height rows: Context7 `/tanstack/virtual`
-- React guidance for preserving user-controlled state across rerenders: Context7 `/reactjs/react.dev`
-- React Testing Library guidance for user-visible regression assertions: Context7 `/testing-library/react-testing-library`
+- TanStack Virtual docs via Context7 `/tanstack/virtual` because this task depends on the documented `measureElement`, variable-height row measurement, and size-change adjustment behavior.
+- React docs via Context7 `/reactjs/react.dev` because this task must preserve user-controlled row state across rerenders and virtual unmount/remount cycles.
+- Testing Library docs via Context7 `/testing-library/testing-library-docs` because this task updates broad regression coverage and those tests should keep asserting user-visible behavior rather than internals.
+- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task adds measurement logic and touches many tests before linting.
+- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after dynamic-measurement changes.
 
 #### Subtasks
 
@@ -854,9 +873,13 @@ Check the finished implementation against every acceptance criterion, run the fu
 
 #### Documentation Locations
 
-- Playwright documentation for browser assertions and screenshots: Context7 `/microsoft/playwright`
-- Docker documentation for wrapper-backed image and compose validation: Context7 `/docker/docs`
-- Mermaid documentation for any final diagram edits: Context7 `/mermaid-js/mermaid`
+- Playwright docs via Context7 `/microsoft/playwright` and the official screenshots page `https://playwright.dev/docs/screenshots` because this task captures review screenshots and may need browser-level validation guidance.
+- Docker docs `https://docs.docker.com/compose/compose-file/` and `https://docs.docker.com/compose/reference/` because this task runs wrapper-backed Compose build/up/down flows and needs the official Compose file/CLI reference.
+- Jest docs `https://jestjs.io/docs/getting-started` because this task runs the full client test suite and may need the official test-runner reference when triaging failures.
+- Cucumber guides `https://cucumber.io/docs/guides/10-minute-tutorial/` because this task runs the server cucumber suite and the story standard prefers a guides subpath for Cucumber documentation.
+- Mermaid docs `https://mermaid.js.org/intro/syntax-reference` because this task may need final design/documentation diagram updates.
+- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the final subtask runs workspace linting across all touched files.
+- Prettier docs `https://prettier.io/docs/` because the final subtask runs workspace formatting checks across all touched files.
 
 #### Subtasks
 

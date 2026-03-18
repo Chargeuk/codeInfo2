@@ -112,18 +112,53 @@ Use one conversation per page surface that is long enough for the transcript con
 6. Return to the bottom and confirm that new content once again stays pinned to the newest visible transcript content.
 7. Repeat the same transcript-behavior checks on the Chat page and Flows page. The exact page controls differ, but the shared transcript behavior should remain consistent across all three surfaces.
 
+### Validation Proof Path Must Be Runnable
+
+Each proof route in this story must only be used after its prerequisites exist in the branch. The validation plan for Story 49 is therefore staged, not all available on day one.
+
+- Client typecheck and client build proof:
+  - These are already runnable through the existing wrappers `npm run typecheck:summary:client` and `npm run build:summary:client`.
+  - They become meaningful for Story 49 as soon as the shared transcript files and any new client dependency imports exist.
+  - If the implementation takes the preferred virtualization path, `@tanstack/react-virtual` must be added to `client/package.json` before this proof step can pass.
+- Client Jest and React Testing Library proof:
+  - This is already runnable through `npm run test:summary:client`, backed by `client/jest.config.cjs`, `client/src/test/setupTests.ts`, and the existing transcript harness in `client/src/test/support/mockChatWs.ts`.
+  - The current harness already supports transcript rendering, websocket updates, and layout-sensitive DOM mocking, so no new test runner is required first.
+  - If the shared transcript adds explicit `ResizeObserver`, virtual measurement, or scroll-anchor assertions that the current helpers cannot express cleanly, the story must first add focused support helpers under `client/src/test/support/` before claiming those proof cases are runnable.
+- Manual long-transcript proof:
+  - This becomes runnable once the shared transcript path is wired into Chat, Agents, and Flows and the app can be started with the existing stack wrappers.
+  - The story should use the existing runtime path rather than inventing a new one: either an already running repo stack or `npm run compose:build` followed by `npm run compose:up`.
+  - This proof is not realistic before the shared transcript layer exists, because the scenario explicitly validates shared behavior across the three transcript surfaces.
+- Browser-level Playwright or e2e proof:
+  - This is already runnable through the existing Playwright wrapper `npm run test:summary:e2e`, which uses the repo's `e2e/` suite.
+  - If transcript behavior needs a running browser stack, the prerequisite runtime path already exists and should remain the existing Compose e2e flow: `npm run compose:e2e:build` and `npm run compose:e2e:up`.
+  - Story 49 does not need a new browser harness, but any new transcript-specific browser assertions must be added to the existing e2e specs rather than assumed to exist automatically.
+- Surface-parity proof across Chat, Agents, and Flows:
+  - This proof only becomes runnable after all three pages are moved onto the shared transcript path.
+  - It is not realistic to close the story using an Agents-only proof run, because the story scope already requires reuse across all three transcript surfaces.
+
+Because of these constraints, the realistic proof order for Story 49 is:
+
+1. add the shared transcript layer and any required virtualization dependency;
+2. add or extend any missing client test-support helpers needed for measurement-sensitive assertions;
+3. run `npm run typecheck:summary:client` and `npm run build:summary:client`;
+4. run `npm run test:summary:client`;
+5. run the manual long-transcript validation scenario against the existing runtime stack;
+6. run `npm run test:summary:e2e` only after the transcript behavior being asserted is actually represented in the existing or updated browser specs.
+
 ### Runtime And Repo Prerequisites
 
 Repository research shows that this story does not depend on new server infrastructure, new HTTP routes, new readiness endpoints, new environment-variable injection paths, or new Docker Compose services. The story is client-only, and the repo already contains the runtime seams and local-stack plumbing it needs. The planning document should therefore be read with two important distinctions in mind:
 
 - Existing infrastructure that already exists and should be reused:
   - client build, typecheck, lint, format, and test wrappers already exist in the root `package.json`, including `npm run build:summary:client`, `npm run typecheck:summary:client`, and `npm run test:summary:client`;
+  - browser-level regression wrappers already exist in the root `package.json`, including `npm run test:summary:e2e`, `npm run compose:e2e:build`, and `npm run compose:e2e:up`;
   - the server already exposes `/health`, `/version`, and `/info`, and Docker Compose already uses `service_healthy` checks against the existing health endpoints;
   - client runtime configuration already resolves from `globalThis.__CODEINFO_CONFIG__` and `import.meta.env` in `client/src/config/runtimeConfig.ts`, so no new runtime config loader should be invented for this story;
   - the existing Compose wrappers already inject the repo's env files and ports for local and e2e workflows through `scripts/docker-compose-with-env.sh`, `docker-compose.yml`, and `docker-compose.e2e.yml`.
 - Missing prerequisites that are genuinely part of this story:
   - there is currently no shared transcript rendering component layer under `client/src/components/chat/`;
   - the preferred virtualization dependency, `@tanstack/react-virtual`, is not currently present in `client/package.json`, so adding it is part of the story if that implementation path is used.
+  - if virtualization-sensitive Jest assertions require explicit `ResizeObserver`, row-measurement, or scroll-anchor helpers beyond the current layout mocks, those helpers must be added under `client/src/test/support/` before that part of the proof path is treated as runnable.
 
 Because the repo already has the required runtime and deployment plumbing, Story 49 should not add a new server listener, a new health endpoint, a new env-var injection path, a new compose service, or a new deployment mapping just to support transcript rendering. If local or e2e validation is needed, it should ride on the existing wrappers, env files, healthchecks, and port mappings instead.
 
@@ -210,7 +245,7 @@ Those client-local shapes must not become new websocket payloads, REST payloads,
 4. Add virtualization only after the shared non-virtualized renderer is in place and producing the same transcript output as today. Once the shared renderer is stable, wrap the transcript list in a shared virtualization hook or component that owns `count`, `getScrollElement`, `getItemKey`, `estimateSize`, `measureElement`, overscan, and scroll-size-change adjustment behavior.
 5. Reattach page-specific metadata only after the shared transcript path is working. Chat still needs its provider/tool-aware citation behavior, Agents still needs its run-specific metadata and tool count interactions, and Flows still needs `buildFlowMetaLine(...)`. Those page-level differences should be passed into the shared transcript as explicit props or render helpers rather than reintroducing full page-local bubble renderers.
 6. Keep hydration and inflight semantics stable while the shared transcript is being swapped in. `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`, and `client/src/hooks/useConversationTurns.ts` should remain the source of truth for transcript data, message identity, inflight snapshots, and websocket updates. The implementation should wrap around those hooks, not replace them.
-7. Finish by updating regression tests and client build/runtime validation around the new structure. The final pass should prove that the transcript still renders correctly across Chat, Agents, and Flows, that typing stays responsive on Agents, and that Docker/client build paths still work with the client code copied into images and built there.
+7. Finish by making the proof path runnable in order, not by jumping straight to the final validation step. After the shared transcript layer and any required dependency or test-support helpers exist, run `npm run typecheck:summary:client`, `npm run build:summary:client`, `npm run test:summary:client`, the manual long-transcript scenario on the existing runtime stack, and then `npm run test:summary:e2e` if browser-level assertions were added or changed. The final pass should prove that the transcript still renders correctly across Chat, Agents, and Flows, that typing stays responsive on Agents, and that Docker/client build paths still work with the client code copied into images and built there.
 
 ### Candidate File Groups
 

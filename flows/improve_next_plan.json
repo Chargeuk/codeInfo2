@@ -3,14 +3,35 @@
   "steps": [
     {
       "type": "llm",
-      "label": "Planner Select Next Plan",
+      "label": "Clear stale current plan handoff",
       "agentType": "planning_agent",
       "identifier": "planner",
       "messages": [
         {
           "role": "user",
           "content": [
-            "Please read AGENTS.md and follow its instructions. Please tell me the next plan that has not yet been fully executed. This can be determined by looking for plans that include tasks that are not yet moved to the status of completed/complete. The lowest indexed story that meets one of these two criteria will be the story we will be working on. Do NOT use code_info tools for this search. Confirm to me what story that is, and provide me with an overview of the story, including what is still remaining to be done, without making file changes at this time. When you have found the story, follow the rules within the `## Branching And Phase Flow` section of the AGENTS.md to ensure we are on the correct branch to work on it, and if not, create the branch and switch to it."
+            "Please read AGENTS.md and follow its instructions. Then delete `codeInfoStatus/flow-state/current-plan.json` if it already exists so this flow cannot inherit stale active-plan state from an earlier run. Do not fail if the file is missing, and do not create a replacement in this step. If you deleted it, commit the change and then, if you can, push."
+          ]
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "Planner Select Next Plan",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "select_next_plan_and_branch.md"
+    },
+    {
+      "type": "llm",
+      "label": "Planner Store Next Plan",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Now you know the selected plan/spec/story, write or overwrite `codeInfoStatus/flow-state/current-plan.json` with only the selected relative plan path using the shape `{ \"plan_path\": \"planning/<story-file>.md\" }`. Do not write absolute paths. This handoff file becomes the sole plan-selection source for every later step in this flow. Commit this file, and push if you can"
           ]
         }
       ]
@@ -24,7 +45,7 @@
         {
           "role": "user",
           "content": [
-            "Please read AGENTS.md and follow its instructions. Please tell me the next plan that has not yet been fully executed. This can be determined by looking for plans that include tasks that are not yet moved to the status of completed/complete. The lowest indexed story that meets this criteria will be the story we will be working on. Do NOT use code_info tools for this search. Confirm to me what story that is, and provide me with an overview of the story, including what is still remaining to be done, without making file changes at this time."
+            "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan for this flow. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. Do NOT use code_info tools for plan selection and do NOT independently search for or select a different plan. Confirm to me what story that selected plan is, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
           ]
         }
       ]

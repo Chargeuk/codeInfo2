@@ -22,7 +22,7 @@ Re-read this file at the start of each session. Assume it may have changed since
 Perform this onboarding only when you are first working in this folder structure or when history has been compacted.
 
 1. Before doing anything else, call the `code_info` MCP tool.
-2. In that tool call, include the full repository path: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`.
+2. In that tool call, include the full repository path for this repository when doing so.
 3. Ask for:
    - a concise project overview;
    - the next plan in `./planning`, defined as the lowest `<index>-<title>.md` file that still contains tasks marked `todo` or `in progress`;

@@ -12,7 +12,28 @@
       "type": "message",
       "role": "user",
       "content": [
+        "If the file `codeinfo_markdown/repository_information.md` exists, then read it as it will contain useful information you should keep referencing while working on a plan in this repository. If the file does not exist, then don't worry about it. Tell me if you found the file or not."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
         "Without tasking up, do you feel this story is well scoped? How could it be improved? Are there unknowns that need to be researched? If so, please research them using the codeInfo, DeepWiki, and Context7 MCP tools, as well as cross-referencing with internet searches, to gather repository facts, likely file locations, summaries of existing implementations, current contracts, and other evidence. Then inspect the relevant source files directly and do your own reasoning before updating the plan with your findings. Remember to give the repository path to the code_info tool as part of your question so it uses the correct repository. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Without tasking up, please identify whether this story assumes any capability that does not yest exist in the relevant codebases. you MUST check for missing runtime seams, startup commands, HTTP listeners, readiness or health endpoints, environment variable injection paths, deployment mappings, test harnesses, and docker compose prerequisites. Use the code_info, deepwiki & context7 mcp tools, as well as internet searches where needed, and update the story to explicitly document any missing prerequisits. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Without tasking up, inspect every planned Docker, Dockerfile and Docker Compose build/runtime path. Ensure the story explicitly plans that application code is copied into Docker images and built from there, and never planned as a host source bind mount into the container. Ensure the plan also includes updating the appropriate Docker build context ignore file so only required files are copied into the image build context. For any new Docker or compose surface that exposes or binds ports, first check existing port usage so we do not re-use ports accidently, and define the chosen ports explicitly up front in the story rather than leaving them implicit. If container generated artifacts need to persist, prefer Docker-managed volumes for the generated output only, not bind mounted source trees - the only exception to this is logging, which would ideally be seen on the host machine. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
       ]
     },
     {
@@ -27,6 +48,34 @@
       "role": "user",
       "content": [
         "Without tasking up, does the story require any test harnesses to be created because we are planning on adding test types that are not yet supported? If so, please add this information to the story in a specific test harness section, that details the harnesses that need crerating and where they should be created. Please use the code_info, DeepWiki, and Context7 MCP tools to gather Information about the test harnesses to add and include it within the new section. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Without tasking up, please perform a feasability proof pass over the implementation ideas. For each major implementation area, confirm whether the required capabilities already exist in the relevant repositories, or whether they must be first created as explicit prerequisite work. you MUST distinguish between: 1. Already existing capabilities,  2. Missing prerequisite capabilities,  3. Assumptions that are currently invalid. Update the plan so that these distinctions are written into the story directly rather than left implicit. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Does this story require a new front end? If not, then just state this. If so, then please use the code_info mcp tools to research how other front ends have been implemented in similar stories or other repositories. This includes - 1. How the front end should be served in production from docker.  2. How environment variables are injected into the front end.  3. How front end logging is sent to the server that hosts the front end, and how/if it is logged out to a central place.  All the above should be documented throughout the plan/spec including in the `##Implementation Ideas` section and should include references to the names (not full paths) of the repositories that the guidance was taken from. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Does this story require a new front end? If not, then just state this. If so, then you MUST update the story to include work to set up testing for the new front end, including: 1. Unit tests.  2. End-to-end tests run through playwright. You MUST also ensure thaese tests are created with both human and AI Agent developers/testers in mind - All types of testing need an easy wrapper script to simply run the tests and an easy way to check and degug errors. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Does this story require a new back end? If not, then just state this. If so, then you MUST update the story to include work to set up testing for the new back end, including: 1. Unit tests.  2. Integration BDD tests that use Cucumber and Testcontainers  3. End-to-end tests run through playwright. You MUST also ensure thaese tests are created with both human and AI Agent developers/testers in mind - All types of testing need an easy wrapper script to simply run the tests and an easy way to check and degug errors. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
       ]
     },
     {
@@ -68,7 +117,14 @@
       "type": "message",
       "role": "user",
       "content": [
-        "Please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked separately and prior to the front-end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail, and structure of the tasks on `planning/plan_format.md`. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
+        "Before tasking up, prove that the story's planned proof steps are actually runnable at the point they would be reached. For every planned validation approach, confirm whether the necessary runtime, harness, dependencies, and scripts will exist by then. If not, update the story to add the missing prerequisite work and make the proof path realistic. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked separately and prior to the front-end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail, and structure of the tasks on the `plan_format.md` document that should be in the repository (search yourself, not with code_info). Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
       ]
     }
   ]

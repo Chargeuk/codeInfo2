@@ -1,21 +1,21 @@
 # Future Ideas
 
 - Rework Chat model-selection/runtime-config handling so switching to `gpt*` models does not inherit an incompatible `model_provider` from `codex/chat/config.toml`. The current Chat path appears to preserve `model_provider = "lmstudiospark"` even when the selected model is a Codex/OpenAI model, which can route requests through the wrong provider and cause provider errors.
-- Investigate switching the manual-testing `playwright-mcp` container to host networking so the browser it launches can reach host-published services through `localhost` instead of `host.docker.internal`.
-  - Research so far:
-    - The local manual-testing stack already has a dedicated `playwright-mcp` container in `docker-compose.local.yml`, and agent configs currently reach it via Docker service DNS at `http://playwright-mcp:8931/mcp`.
-    - Docker documents host networking on Docker Desktop as available on Docker Desktop 4.34+ when explicitly enabled in settings, and states that containers using host networking can access host services via `localhost`.
-    - Docker also documents that `network_mode: host` is incompatible with normal Compose `ports` publishing and `networks` attachment for that service, so the current `playwright-mcp` service wiring would need to change rather than just toggling one line.
-    - MDN documents that `localhost`, `127.0.0.1`, and `*.localhost` receive special potentially trustworthy treatment; `host.docker.internal` is not called out in that list, which supports the security-context concern behind this idea.
-  - Mac-specific open research:
-    - Confirm the exact Docker Desktop for Mac behavior when a host-networked `playwright-mcp` service is consumed by bridged app containers in the same compose project.
-    - Confirm the best replacement MCP endpoint for agent configs after service-name DNS is lost, likely a host-reachable URL rather than `http://playwright-mcp:8931/mcp`.
-    - Confirm whether Docker Desktop for Mac host networking is reliable enough for the Chrome and Playwright MCP traffic patterns used in CodeInfo2 manual testing, including websocket and screenshot flows.
+- Investigate introducing a parallel wrapper-validation orchestrator so recent plan test runs do not spend so long executing the same summary wrappers serially.
+  - Repository evidence so far:
+    - Recent plans such as `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md` repeatedly reuse the same wrapper-first validation commands: `npm run build:summary:server`, `npm run build:summary:client`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, `npm run test:summary:e2e`, `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down`.
+    - The agent could in theory launch multiple wrappers, wait for all of them to finish, and then inspect only the failed outputs, because the wrappers already expose a shared heartbeat/final-status protocol.
+  - Current blockers and risks:
+    - Several wrappers are not parallel-safe today because they write to fixed shared `*-latest.log` files: `logs/test-summaries/build-server-latest.log`, `build-client-latest.log`, `compose-build-latest.log`, and `e2e-tests-latest.log`.
+    - `scripts/test-summary-server-unit.mjs` and `scripts/test-summary-server-cucumber.mjs` both run `npm run build --workspace server` first, so parallel execution would duplicate and potentially race over the same `server/dist` build output.
+    - Compose-backed validation should currently be treated as exclusive because `test:summary:e2e` performs compose build/up/test/down inside one wrapper, and the regular compose wrappers share Docker state, ports, networks, and teardown behavior.
+    - Manual Playwright-MCP checks in recent plans also depend on shared runtime surfaces such as `host.docker.internal:5001`, so they should not be overlapped with other compose-backed runs unless those surfaces are isolated first.
   - Candidate implementation direction:
-    - Move only `playwright-mcp` to host networking.
-    - Remove its direct bridge-network service discovery assumptions.
-    - Update the agent-side MCP remote URL separately from the browser navigation target so the browser can use `localhost` while agents still have a stable control-channel endpoint.
-  - Sources:
-    - https://docs.docker.com/engine/network/drivers/host/
-    - https://docs.docker.com/reference/compose-file/services/#network_mode
-    - https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts
+    - Add a higher-level orchestration wrapper that starts selected validation wrappers in parallel, waits for all of them, and then hands the agent a consolidated pass/fail summary plus per-run artifact locations.
+    - Make wrapper artifact paths run-specific instead of relying on fixed `*-latest.log` files so concurrent runs cannot overwrite each other.
+    - Keep compose/e2e/manual checks serial at first, and only parallelize the non-compose wrappers until Docker isolation is explicitly designed.
+    - Consider a second optimization that avoids redundant server builds by building the server once and then fanning out server unit and cucumber checks from that shared prerequisite instead of rebuilding in both wrappers.
+  - Safe starting point if this is pursued:
+    - Parallel bucket: `npm run build:summary:server`, `npm run build:summary:client`, `npm run test:summary:client`.
+    - Serial bucket: `npm run compose:build:summary`, `npm run compose:up`, `npm run test:summary:e2e`, manual Playwright-MCP checks, and `npm run compose:down`.
+    - Deferred until explicitly isolated: parallel execution of `npm run test:summary:server:unit` and `npm run test:summary:server:cucumber`.

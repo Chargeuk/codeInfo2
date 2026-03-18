@@ -492,8 +492,8 @@ Create the first shared transcript rendering path under `client/src/components/c
 - React docs via Context7 `/reactjs/react.dev` because this task extracts a large transcript subtree into shared components and must preserve component identity, props, and keyed state during the refactor.
 - MUI docs via MUI MCP `https://llms.mui.com/material-ui/6.4.12/components/accordion.md` and `https://llms.mui.com/material-ui/6.4.12/components/transitions.md` because the shared transcript keeps heavy tool/citation UI on `Accordion`/transition components and needs the documented `slotProps.transition` behavior.
 - Testing Library docs via Context7 `/testing-library/testing-library-docs` because the task updates React tests and should keep assertions on visible behavior instead of implementation details.
-- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the last subtask runs workspace linting and the task may introduce new shared component files.
-- Prettier docs `https://prettier.io/docs/` because the last subtask runs formatting checks after component and test extraction.
+- ESLint CLI docs `https://eslint.org/docs/latest/use/command-line-interface` because the last subtask runs workspace linting and the task may introduce new shared component files that need the repo's existing command path.
+- Prettier CLI docs `https://prettier.io/docs/cli` because the last subtask runs formatting checks after component and test extraction and needs the official `--check` command behavior.
 
 #### Subtasks
 
@@ -534,8 +534,8 @@ Isolate the Agents instruction/composer controls from the transcript subtree so 
 
 - React docs via Context7 `/reactjs/react.dev` because this task is about component-boundary extraction, controlled input urgency, and keeping typing responsive without breaking React state flow.
 - Testing Library docs via Context7 `/testing-library/testing-library-docs` because this task adds an input-isolation regression test and should assert user-visible typing behavior rather than internal rerender details where possible.
-- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task adds a new component and test file and finishes with workspace linting.
-- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after component and test creation.
+- ESLint CLI docs `https://eslint.org/docs/latest/use/command-line-interface` because the task adds a new component and test file and finishes with workspace linting through the repo command wrappers.
+- Prettier CLI docs `https://prettier.io/docs/cli` because the task ends with formatting checks after component and test creation and needs the official `--check` behavior.
 
 #### Subtasks
 
@@ -575,8 +575,8 @@ Move the Agents transcript itself onto the shared transcript renderer created ea
 - React docs via Context7 `/reactjs/react.dev` because this task composes the shared transcript back into Agents and must preserve state ownership, prop flow, and list identity.
 - MUI docs via MUI MCP `https://llms.mui.com/material-ui/6.4.12/components/accordion.md` and `https://llms.mui.com/material-ui/6.4.12/components/transitions.md` because the adopted shared transcript still renders MUI accordion/transition-based tool and citation UI on Agents.
 - Testing Library docs via Context7 `/testing-library/testing-library-docs` because this task rewrites multiple Agents tests and should keep them centered on visible transcript behavior.
-- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task edits page code, shared components, and tests before running lint.
-- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after the shared-transcript adoption work.
+- ESLint CLI docs `https://eslint.org/docs/latest/use/command-line-interface` because the task edits page code, shared components, and tests before running lint through the repo's workspace command.
+- Prettier CLI docs `https://prettier.io/docs/cli` because the task ends with formatting checks after the shared-transcript adoption work and needs the official CLI `--check` behavior.
 
 #### Subtasks
 
@@ -617,10 +617,10 @@ Move the Flows transcript onto the shared transcript renderer while preserving F
 #### Documentation Locations
 
 - React docs via Context7 `/reactjs/react.dev` because this task composes the shared transcript into Flows and must preserve prop flow, keyed row identity, and surface-specific rendering behavior.
-- MUI docs via MUI MCP `https://llms.mui.com/material-ui/6.4.12/api/chip.md` and `https://llms.mui.com/material-ui/6.4.12/api/tooltip.md` because Flows keeps MUI chip/tooltip-driven status and metadata affordances around the shared transcript.
+- MUI docs via MUI MCP `https://llms.mui.com/material-ui/6.4.12/components/chips.md` and `https://llms.mui.com/material-ui/6.4.12/components/tooltips.md` because Flows keeps chip and tooltip behavior around transcript metadata, and the component guides cover the interaction and accessibility rules a junior developer will need more directly than the bare API tables.
 - Testing Library docs via Context7 `/testing-library/testing-library-docs` because this task updates Flow transcript tests and should keep assertions on visible output and existing selectors.
-- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task edits page code, shared components, and tests before running lint.
-- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after the shared-transcript adoption work.
+- ESLint CLI docs `https://eslint.org/docs/latest/use/command-line-interface` because the task edits page code, shared components, and tests before running lint through the repo's workspace command.
+- Prettier CLI docs `https://prettier.io/docs/cli` because the task ends with formatting checks after the shared-transcript adoption work and needs the official CLI `--check` behavior.
 
 #### Subtasks
 
@@ -657,10 +657,10 @@ Create the client test-support harness pieces that Story 49 needs before the sha
 
 #### Documentation Locations
 
-- Jest docs `https://jestjs.io/docs/getting-started` and `https://jestjs.io/docs/configuration` because this task adds a reusable helper, a proof test, and may need setup/config changes for the client test environment.
+- Jest docs via Context7 `/jestjs/jest` and the official configuration page `https://jestjs.io/docs/configuration` because this task adds a reusable helper, a proof test, and may need setup/config changes in the client Jest environment.
 - Testing Library docs via Context7 `/testing-library/testing-library-docs` because the helper is consumed by React-facing tests and should support DOM-visible assertions rather than implementation-detail checks.
-- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task adds new support files and test files before running lint.
-- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after support-file changes.
+- ESLint CLI docs `https://eslint.org/docs/latest/use/command-line-interface` because the task adds new support files and test files before running lint through the repo's workspace command.
+- Prettier CLI docs `https://prettier.io/docs/cli` because the task ends with formatting checks after support-file changes and needs the official CLI `--check` behavior.
 
 #### Subtasks
 
@@ -699,8 +699,8 @@ Implement shared transcript ownership for conversation-scoped rich-row UI state 
 
 - React docs via Context7 `/reactjs/react.dev` because this task centralizes row state ownership, relies on stable keys, and must reset state correctly when conversation identity changes.
 - Testing Library docs via Context7 `/testing-library/testing-library-docs` because this task updates citation/thought-process tests and should prove the new shared state through visible behavior.
-- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task may add shared state files before running lint.
-- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after shared-state changes.
+- ESLint CLI docs `https://eslint.org/docs/latest/use/command-line-interface` because the task may add shared state files before running lint through the repo's workspace command.
+- Prettier CLI docs `https://prettier.io/docs/cli` because the task ends with formatting checks after shared-state changes and needs the official CLI `--check` behavior.
 
 #### Subtasks
 
@@ -741,8 +741,8 @@ Implement the shared transcript scroll behavior that all three surfaces need bef
 
 - React docs via Context7 `/reactjs/react.dev` because this task changes scroll-sensitive shared UI behavior and must keep update ordering predictable while the user is typing or reading.
 - Testing Library docs via Context7 `/testing-library/testing-library-docs` because this task adds and updates scroll/layout tests that should assert observable scroll behavior rather than implementation details.
-- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task may add shared scroll logic before running lint.
-- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after scroll-contract changes.
+- ESLint CLI docs `https://eslint.org/docs/latest/use/command-line-interface` because the task may add shared scroll logic before running lint through the repo's workspace command.
+- Prettier CLI docs `https://prettier.io/docs/cli` because the task ends with formatting checks after scroll-contract changes and needs the official CLI `--check` behavior.
 
 #### Subtasks
 
@@ -785,8 +785,8 @@ Add the first shared virtualization layer to the shared transcript so long trans
 - TanStack Virtual docs via Context7 `/tanstack/virtual` because this task introduces the library itself and needs the documented `useVirtualizer`, `count`, `getScrollElement`, `getItemKey`, `estimateSize`, and `overscan` APIs.
 - React docs via Context7 `/reactjs/react.dev` because virtualization still depends on stable component identity, keyed rows, and clean parent/child boundaries.
 - Testing Library docs via Context7 `/testing-library/testing-library-docs` because this task updates cross-surface transcript tests after introducing virtualization and should keep them user-visible.
-- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task adds new virtualization files and updates page/shared components before linting.
-- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after virtualization setup changes.
+- ESLint CLI docs `https://eslint.org/docs/latest/use/command-line-interface` because the task adds new virtualization files and updates page/shared components before linting through the repo's workspace command.
+- Prettier CLI docs `https://prettier.io/docs/cli` because the task ends with formatting checks after virtualization setup changes and needs the official CLI `--check` behavior.
 
 #### Subtasks
 
@@ -827,8 +827,8 @@ Finish the virtualized transcript behavior that depends on dynamic row measureme
 - TanStack Virtual docs via Context7 `/tanstack/virtual` because this task depends on the documented `measureElement`, variable-height row measurement, and size-change adjustment behavior.
 - React docs via Context7 `/reactjs/react.dev` because this task must preserve user-controlled row state across rerenders and virtual unmount/remount cycles.
 - Testing Library docs via Context7 `/testing-library/testing-library-docs` because this task updates broad regression coverage and those tests should keep asserting user-visible behavior rather than internals.
-- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the task adds measurement logic and touches many tests before linting.
-- Prettier docs `https://prettier.io/docs/` because the task ends with formatting checks after dynamic-measurement changes.
+- ESLint CLI docs `https://eslint.org/docs/latest/use/command-line-interface` because the task adds measurement logic and touches many tests before linting through the repo's workspace command.
+- Prettier CLI docs `https://prettier.io/docs/cli` because the task ends with formatting checks after dynamic-measurement changes and needs the official CLI `--check` behavior.
 
 #### Subtasks
 
@@ -874,12 +874,12 @@ Check the finished implementation against every acceptance criterion, run the fu
 #### Documentation Locations
 
 - Playwright docs via Context7 `/microsoft/playwright` and the official screenshots page `https://playwright.dev/docs/screenshots` because this task captures review screenshots and may need browser-level validation guidance.
-- Docker docs `https://docs.docker.com/compose/compose-file/` and `https://docs.docker.com/compose/reference/` because this task runs wrapper-backed Compose build/up/down flows and needs the official Compose file/CLI reference.
-- Jest docs `https://jestjs.io/docs/getting-started` because this task runs the full client test suite and may need the official test-runner reference when triaging failures.
-- Cucumber guides `https://cucumber.io/docs/guides/10-minute-tutorial/` because this task runs the server cucumber suite and the story standard prefers a guides subpath for Cucumber documentation.
+- Docker docs `https://docs.docker.com/compose/compose-file/` and `https://docs.docker.com/reference/cli/docker/compose/` because this task runs wrapper-backed Compose build/up/down flows and needs both the Compose file semantics and the current `docker compose` CLI reference.
+- Jest docs via Context7 `/jestjs/jest` and the official configuration page `https://jestjs.io/docs/configuration` because this task runs the full client test suite and may need the current runner/config reference when triaging failures.
+- Cucumber guides `https://cucumber.io/docs/guides/continuous-integration/` because this task runs the server cucumber suite through wrapper commands, and that guide explicitly documents exit-code and CI execution behavior from the official guides section.
 - Mermaid docs `https://mermaid.js.org/intro/syntax-reference` because this task may need final design/documentation diagram updates.
-- ESLint getting-started docs `https://eslint.org/docs/latest/use/getting-started` because the final subtask runs workspace linting across all touched files.
-- Prettier docs `https://prettier.io/docs/` because the final subtask runs workspace formatting checks across all touched files.
+- ESLint CLI docs `https://eslint.org/docs/latest/use/command-line-interface` because the final subtask runs workspace linting across all touched files through the repo's established command path.
+- Prettier CLI docs `https://prettier.io/docs/cli` because the final subtask runs workspace formatting checks across all touched files and needs the official CLI `--check` behavior.
 
 #### Subtasks
 

@@ -40,6 +40,8 @@ The ownership boundary for the shared transcript is now fixed as well. The share
 
 The story must also preserve the existing client hydration and in-flight merge behavior. Transcript optimization should continue to rely on stable message identity, update in-flight assistant rows in place rather than replacing them with unrelated rows, and keep the current Flows-page retained-assistant behavior during certain in-flight transitions so users do not see transcript flicker or missing output while runs advance.
 
+The current repo also has one important normalization contract that the story must make explicit: the three pages all derive their visible transcript rows by reversing the `messages` array before rendering, but they do so with different local names such as `orderedMessages` and `displayMessages`. The shared transcript layer must preserve the same visible newest-last reading order instead of accidentally flipping the transcript direction while refactoring.
+
 The validation approach should also be explicit. The story should not close on a vague claim that the UI "feels faster"; it should define a reproducible long-transcript client scenario that reviewers can run to confirm typing remains responsive and rich transcript features still work after the refactor.
 
 ### Concrete Output For This Story
@@ -51,6 +53,7 @@ To count as complete, this story should leave the client with one shared transcr
 - `client/src/pages/FlowsPage.tsx` should keep flow-run controls, flow metadata, and page-specific layout, but should stop owning its own separate inline transcript bubble renderer.
 - Shared transcript rendering code should live under `client/src/components/chat/` and should own the scroll container, visible-row rendering, shared bubble layout, markdown/body rendering, and reusable rich subsections such as tool details and citations.
 - The implementation should continue to use the existing message and hydration sources in `client/src/hooks/useChatStream.ts`, `client/src/hooks/useConversationTurns.ts`, and any related websocket helpers, rather than inventing a second conversation model just for the virtualized transcript.
+- The shared transcript layer is not optional cleanup. Repository inspection shows there is currently no dedicated shared transcript component, only page-local transcript render loops plus shared sidebar and flags components. Completing this story therefore requires introducing a real shared transcript rendering layer rather than only applying page-local memoization.
 - A junior developer should be able to look at the final client structure and answer two simple questions without guessing:
   - which files own page-specific controls;
   - which shared transcript files own transcript rendering and performance behavior.
@@ -62,18 +65,22 @@ To count as complete, this story should leave the client with one shared transcr
 - The client transcript rendering path for long conversations is refactored into reusable components or helpers shared across the relevant transcript pages.
 - The reusable transcript rendering approach is applied consistently to the Chat page, Agents page, and Flows page where their conversation UIs overlap.
 - `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx` no longer each own a separate inline `messages.map(...)` or equivalent full bubble-render implementation for the main transcript area; instead, they delegate transcript rendering to shared code under `client/src/components/chat/`.
+- The shared transcript preserves the current visible message order contract across Chat, Agents, and Flows, so the newest visible transcript content still appears in the same reading position it does today after each page reverses its message array for display.
 - The transcript rendering path no longer mounts and reconciles every message row in a long conversation when only a small visible portion is needed on screen.
 - Rich transcript features continue to work after the refactor, including markdown rendering, status metadata, tool sections, citations, and thought-process sections where those features already exist.
 - The client-side history hydration and transcript update path avoids unnecessary whole-transcript replacement work during ordinary UI interactions such as typing.
 - The optimized transcript continues to consume the existing message and hydration sources rather than introducing a second parallel transcript data model just for rendering.
 - Any client-side virtualization or render-windowing choice supports variable-height transcript rows rather than assuming every message has the same fixed height.
+- Any client-side virtualization or render-windowing choice uses stable row keys derived from `message.id`, measures dynamic row height after render, and uses a bounded overscan strategy that avoids obvious blank gaps during fast scrolling without reintroducing most of the transcript DOM at once.
 - When the user is already at or near the bottom of the transcript, new content remains pinned to the newest visible content; when the user has scrolled upward, new content does not force the transcript to jump them back to the bottom.
 - The transcript correctly remeasures row height after streaming growth and after expandable sections such as tool details, citations, and thought-process areas open or close, without clipping, overlapping, or leaving stale spacing.
 - User-controlled rich-row expansion state survives virtual row unmount and remount, including tool details, tool errors, thought-process visibility, and citation expansion state once citations are moved into the shared transcript layer.
 - The shared transcript layer owns the reusable transcript rendering path, while provider and model controls, agent-specific controls, and flow-specific controls remain page-specific and outside that shared transcript subtree.
+- The shared transcript owns the real scroll and anchor behavior needed for the story instead of relying on the current page-local `handleTranscriptScroll` placeholders, which means the finished implementation makes bottom-pinned versus manual-scroll-away behavior explicit in shared code.
 - The optimized transcript uses stable message identity rather than index-based row identity, preserves the current hydration and in-flight merge behavior, and does not regress the existing Flows-page retained-assistant transcript behavior during transitions.
 - The story includes an explicit reproducible validation scenario for a long visible transcript so reviewers can confirm that typing into the Agents `Instruction` field remains responsive after the refactor.
 - The same validation pass confirms that the shared transcript rendering path still behaves correctly on the Chat page and Flows page where their conversation UI overlaps with the optimized implementation.
+- Existing transcript-facing tests can still target stable transcript containers and rich-row UI affordances after the refactor, even if implementation details move behind shared components.
 - This story is implemented entirely on the client side and does not require server API, websocket contract, or persistence-schema changes.
 - The resulting client structure is easier to tune later because transcript rendering logic is centralized rather than duplicated across multiple pages.
 
@@ -114,16 +121,24 @@ Use one conversation per page surface that is long enough for the transcript con
   - `TranscriptToolSection.tsx` and `TranscriptCitationsSection.tsx` to isolate the heavier expandable subsections behind their own memo boundaries.
   - `useVirtualTranscript.ts` or similar to hold the virtualization and measurement logic in one shared hook rather than duplicating it per page.
 - Reuse those shared transcript pieces across `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx` so the performance fix is applied consistently anywhere the client displays long conversations.
+- Normalize the current display-order contract in one place. Today Chat, Agents, and Flows each reverse `messages` for display using local `orderedMessages` or `displayMessages` variables. The shared transcript should make one explicit choice about whether it accepts chronological `messages` and reverses internally or accepts already ordered display rows from all pages consistently, but it must not leave that choice implicit per page.
 - Keep page-specific controls separate from the shared transcript. For example:
   - Chat-page provider/model controls remain in `ChatPage.tsx`;
   - Agents-page instruction and command controls remain in `AgentsPage.tsx`;
   - Flows-page run controls and flow metadata remain in `FlowsPage.tsx`.
   This separation is important because it lets transcript rendering stay stable while page-specific controls update.
 - Add list virtualization or windowing for transcript rows. Repository analysis shows the current pages reverse the entire message list and render every row with rich content. For long conversations, the biggest speed win will likely come from only mounting the visible subset plus an overscan buffer.
+- When using `@tanstack/react-virtual`, make the core mechanics explicit instead of leaving them as implementation trivia:
+  - use `getItemKey` backed by stable `message.id` values rather than indexes;
+  - provide a reasonable `estimateSize` for rich transcript rows;
+  - call `measureElement` so variable-height rows can be remeasured after render;
+  - use a conservative overscan value so fast scrolling does not show obvious empty gaps;
+  - use size-change scroll adjustment behavior so rows above the viewport can grow without yanking the reader away from their place.
 - Make the scroll contract explicit in the shared transcript hook or list component:
   - stay pinned to the latest content only while the user is already at or near the bottom;
   - stop auto-scrolling when the user scrolls upward;
   - preserve visible content position when rows above the viewport change height.
+- Do not rely on the current page-local `handleTranscriptScroll` functions to provide this behavior. Repository inspection shows those handlers are placeholders today, so the shared transcript must introduce the actual bottom-pinned versus scrolled-away logic itself.
 - Prefer a virtualization solution that supports variable-height rows. Chat messages in this product can vary significantly in height because of markdown, tool details, citations, and collapsible sections. A fixed-row-height solution would be brittle here.
 - The preferred virtualization library is `@tanstack/react-virtual`. Research shows it supports React list virtualization with dynamic measurement via `measureElement`, which fits the variable-height transcript problem better than a simpler fixed-height-only list helper.
 - Use stable row identity from the message model, not list indexes, so virtualization, hydration, and in-flight merge behavior all point at the same message rows over time.
@@ -134,10 +149,24 @@ Use one conversation per page surface that is long enough for the transcript con
   - stable props and callbacks so memoization actually holds;
   - `startTransition` for non-urgent transcript/history sync work where it helps;
   - `useDeferredValue` only for derived non-input views where deferring work improves perceived responsiveness.
+- If `useDeferredValue` is used to keep the instruction input responsive, the deferred transcript subtree still needs a memo boundary around the expensive list content; otherwise the deferred value will not buy much because the heavy list will keep rerendering with the parent anyway.
 - Review the client hydration path, especially where transcript history is rebuilt from stored turns. Current client code replaces or rebuilds large message arrays too broadly. Narrow that work so it happens when the conversation or turn snapshot actually changes, not during ordinary typing or unrelated local UI updates.
 - Keep the transcript data shape compatible with existing page behavior where possible. The point is to centralize and optimize rendering, not to invent a second conversation model on the client.
 - Consider whether some expensive per-message decorations can be derived lazily inside the row component instead of all at once in the page render loop, especially when the row is off-screen or collapsed.
 - Add client tests around the shared transcript components so future regressions do not reintroduce whole-page rerender coupling. This should stay client-only and focus on rendering behavior, row visibility, feature preservation, and page integration.
+- Likely client test files to extend for this story include:
+  - `client/src/test/chatPage.layoutWrap.test.tsx`
+  - `client/src/test/chatPage.stream.test.tsx`
+  - `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
+  - `client/src/test/chatPage.citations.test.tsx`
+  - `client/src/test/agentsPage.streaming.test.tsx`
+  - `client/src/test/agentsPage.turnHydration.test.tsx`
+  - `client/src/test/agentsPage.citations.test.tsx`
+  - `client/src/test/flowsPage.test.tsx`
+  - `client/src/test/flowsPage.run.test.tsx`
+  - `client/src/test/useChatStream.inflightMismatch.test.tsx`
+  - `client/src/test/useChatStream.toolPayloads.test.tsx`
+  - `client/src/test/useChatWs.test.ts`
 - Treat the implementation as one shared-client story across all three transcript pages, even if the first development slice targets the Agents page hotspot before applying the same transcript layer to Chat and Flows.
 - Define a repeatable long-transcript validation workflow for final review instead of relying on a subjective statement that the UI feels faster. That validation should cover input responsiveness on Agents plus feature-preserving transcript behavior on Chat and Flows.
 
@@ -195,3 +224,17 @@ Use one conversation per page surface that is long enough for the transcript con
    - What the answer is: preserve stable `message.id` identity across history hydration and live updates, update existing in-flight rows in place instead of recreating them, and keep the current Flows-page retained-assistant behavior until the next in-flight output is visibly established.
    - Where the answer came from: the user approved the recommended answer, and that recommendation was grounded in local repo evidence from [useChatStream.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useChatStream.ts), [useConversationTurns.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useConversationTurns.ts), and [FlowsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/FlowsPage.tsx), plus `code_info`, Context7 documentation for `/reactjs/react.dev` and `/tanstack/virtual`, DeepWiki notes for `facebook/react` and `TanStack/virtual`, and the official React and TanStack Virtual docs.
    - Why it is the best answer to the question: it preserves the existing client-side transcript semantics users already rely on, while ensuring the virtualized transcript continues to cooperate with the repo's current hydration, dedupe, and in-flight retention logic instead of fighting it.
+
+8. Normalize display order and make shared scroll behavior explicit
+   - The question being addressed: what existing page-level behavior must the shared transcript normalize instead of inheriting accidentally from three separate page implementations?
+   - Why the question matters: Chat, Agents, and Flows each reverse the `messages` array locally for display and currently use page-local transcript containers with placeholder scroll handlers. Without an explicit shared contract, a refactor could silently flip transcript order or leave the new virtualized transcript with undefined scroll-anchor behavior.
+   - What the answer is: the shared transcript must preserve the current visible newest-last reading order across all three pages, centralize the display-order decision in one place, and introduce real shared scroll-anchor logic instead of depending on the current empty `handleTranscriptScroll` stubs.
+   - Where the answer came from: this answer came from fresh repository inspection of [ChatPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/ChatPage.tsx), [AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx), and [FlowsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/FlowsPage.tsx), plus direct source review of the page-local transcript refs and display-order helpers.
+   - Why it is the best answer to the question: it removes a subtle but important source of accidental regressions and makes the shared transcript responsible for behavior that is currently only implicit in the page implementations.
+
+9. Make virtualizer mechanics and regression-test targets explicit
+   - The question being addressed: are there implementation details that are important enough to plan explicitly because omitting them would likely cause a junior developer to guess wrong?
+   - Why the question matters: dynamic-height transcript virtualization only works reliably when key mechanics such as stable row keys, measurement, overscan, and scroll-size-change handling are set up deliberately, and this story already has broad existing client tests that should guide the regression plan.
+   - What the answer is: the plan should explicitly call for `message.id`-backed virtual row keys, `estimateSize`, `measureElement`, conservative overscan, and size-change scroll anchoring behavior, and it should name the existing Chat, Agents, Flows, `useChatStream`, and `useChatWs` tests that are likely to need updates or additions.
+   - Where the answer came from: this answer came from repository inspection, `code_info` guidance on likely test files, DeepWiki guidance for `TanStack/virtual` and `facebook/react`, Context7 documentation for `/tanstack/virtual` and `/reactjs/react.dev`, and web documentation from TanStack, React, and web.dev.
+   - Why it is the best answer to the question: it keeps the story simple while removing the most likely wrong assumptions about how to implement and validate virtualization in this codebase.

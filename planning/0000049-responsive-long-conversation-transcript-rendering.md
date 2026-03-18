@@ -96,6 +96,21 @@ Use one conversation per page surface that is long enough for the transcript con
 6. Return to the bottom and confirm that new content once again stays pinned to the newest visible transcript content.
 7. Repeat the same transcript-behavior checks on the Chat page and Flows page. The exact page controls differ, but the shared transcript behavior should remain consistent across all three surfaces.
 
+### Runtime And Repo Prerequisites
+
+Repository research shows that this story does not depend on new server infrastructure, new HTTP routes, new readiness endpoints, new environment-variable injection paths, or new Docker Compose services. The story is client-only, and the repo already contains the runtime seams and local-stack plumbing it needs. The planning document should therefore be read with two important distinctions in mind:
+
+- Existing infrastructure that already exists and should be reused:
+  - client build, typecheck, lint, format, and test wrappers already exist in the root `package.json`, including `npm run build:summary:client`, `npm run typecheck:summary:client`, and `npm run test:summary:client`;
+  - the server already exposes `/health`, `/version`, and `/info`, and Docker Compose already uses `service_healthy` checks against the existing health endpoints;
+  - client runtime configuration already resolves from `globalThis.__CODEINFO_CONFIG__` and `import.meta.env` in `client/src/config/runtimeConfig.ts`, so no new runtime config loader should be invented for this story;
+  - the existing Compose wrappers already inject the repo's env files and ports for local and e2e workflows through `scripts/docker-compose-with-env.sh`, `docker-compose.yml`, and `docker-compose.e2e.yml`.
+- Missing prerequisites that are genuinely part of this story:
+  - there is currently no shared transcript rendering component layer under `client/src/components/chat/`;
+  - the preferred virtualization dependency, `@tanstack/react-virtual`, is not currently present in `client/package.json`, so adding it is part of the story if that implementation path is used.
+
+Because the repo already has the required runtime and deployment plumbing, Story 49 should not add a new server listener, a new health endpoint, a new env-var injection path, a new compose service, or a new deployment mapping just to support transcript rendering. If local or e2e validation is needed, it should ride on the existing wrappers, env files, healthchecks, and port mappings instead.
+
 ### Out Of Scope
 
 - Changing server-side chat, flow, or agent APIs.
@@ -110,6 +125,7 @@ Use one conversation per page surface that is long enough for the transcript con
 - Changing the current hydration or retained-assistant behavior semantics beyond what is required to preserve them under the optimized rendering path.
 - Forcing always-on auto-scroll that overrides a user's manual reading position in a long transcript.
 - General server-performance or model-latency work.
+- Adding a new server listener, new health endpoint, new runtime-config injection path, new compose service, or new deployment mapping for the sake of this client-rendering story.
 
 ## Implementation Ideas
 
@@ -141,6 +157,7 @@ Use one conversation per page surface that is long enough for the transcript con
 - Do not rely on the current page-local `handleTranscriptScroll` functions to provide this behavior. Repository inspection shows those handlers are placeholders today, so the shared transcript must introduce the actual bottom-pinned versus scrolled-away logic itself.
 - Prefer a virtualization solution that supports variable-height rows. Chat messages in this product can vary significantly in height because of markdown, tool details, citations, and collapsible sections. A fixed-row-height solution would be brittle here.
 - The preferred virtualization library is `@tanstack/react-virtual`. Research shows it supports React list virtualization with dynamic measurement via `measureElement`, which fits the variable-height transcript problem better than a simpler fixed-height-only list helper.
+- Because `@tanstack/react-virtual` is not currently listed in `client/package.json`, adding that dependency is part of the implementation if the story follows the preferred virtualization path.
 - Use stable row identity from the message model, not list indexes, so virtualization, hydration, and in-flight merge behavior all point at the same message rows over time.
 - Move citation expansion into the same keyed shared-state model as tool and thought-process toggles so user-controlled row state survives virtual unmount and remount.
 - Trigger row remeasurement whenever streaming text grows or expandable transcript sections open or close so variable-height rows stay correctly positioned.
@@ -238,3 +255,10 @@ Use one conversation per page surface that is long enough for the transcript con
    - What the answer is: the plan should explicitly call for `message.id`-backed virtual row keys, `estimateSize`, `measureElement`, conservative overscan, and size-change scroll anchoring behavior, and it should name the existing Chat, Agents, Flows, `useChatStream`, and `useChatWs` tests that are likely to need updates or additions.
    - Where the answer came from: this answer came from repository inspection, `code_info` guidance on likely test files, DeepWiki guidance for `TanStack/virtual` and `facebook/react`, Context7 documentation for `/tanstack/virtual` and `/reactjs/react.dev`, and web documentation from TanStack, React, and web.dev.
    - Why it is the best answer to the question: it keeps the story simple while removing the most likely wrong assumptions about how to implement and validate virtualization in this codebase.
+
+10. Reuse existing runtime and deployment infrastructure instead of inventing new support seams
+   - The question being addressed: does Story 49 assume any runtime or deployment capability that does not yet exist in the repository?
+   - Why the question matters: a junior developer could otherwise assume they need to add a new server endpoint, health route, env-var path, compose service, or startup command just to ship a client transcript refactor.
+   - What the answer is: the repo already has the runtime and validation seams this story needs, including client build/test wrappers, server `/health` and related info endpoints, client runtime config resolution via `globalThis.__CODEINFO_CONFIG__` plus `import.meta.env`, and Compose/e2e stacks with existing healthchecks and env-file wiring. The actual missing prerequisites are limited to client-side work: the shared transcript rendering layer itself and, if chosen, the addition of `@tanstack/react-virtual` to `client/package.json`.
+   - Where the answer came from: this answer came from repository inspection of [package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/package.json), [client/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/package.json), [client/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/config/runtimeConfig.ts), [server/src/index.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/index.ts), [docker-compose.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.yml), [docker-compose.e2e.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.e2e.yml), and [scripts/docker-compose-with-env.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/scripts/docker-compose-with-env.sh), plus `code_info`, DeepWiki guidance for `vitejs/vite` and `TanStack/virtual`, Context7 documentation for `/vitejs/vite` and `/tanstack/virtual`, and web documentation from Vite and Docker.
+   - Why it is the best answer to the question: it narrows the story to the real missing pieces, prevents unnecessary infrastructure work, and tells the implementer exactly which existing repo capabilities they should reuse instead of replacing.

@@ -111,6 +111,30 @@ Repository research shows that this story does not depend on new server infrastr
 
 Because the repo already has the required runtime and deployment plumbing, Story 49 should not add a new server listener, a new health endpoint, a new env-var injection path, a new compose service, or a new deployment mapping just to support transcript rendering. If local or e2e validation is needed, it should ride on the existing wrappers, env files, healthchecks, and port mappings instead.
 
+### Docker And Compose Constraints
+
+Repository inspection shows that the current Docker paths already follow the correct shape for application code:
+
+- `client/Dockerfile` and `server/Dockerfile` copy repository source into image build stages and build the app from inside the image. The runtime containers then run built artifacts copied from those build stages.
+- The Compose files do not mount the client or server source tree into the running containers with a broad `.:/app` style bind. Existing mounts are for logs, Codex/workflow directories, certs, Docker socket access in the local stack, fixtures, and other runtime data concerns.
+
+Story 49 should preserve that model explicitly:
+
+- do not plan or introduce a host source bind mount for client or server application code in Docker or Compose;
+- if Docker-related validation is touched, application code should still be copied into the image and built there;
+- if the story adds or removes Docker-visible files that affect build context size or correctness, update the relevant ignore file (`.dockerignore`, `client/.dockerignore`, and/or `server/.dockerignore`) so only required files are sent to the build context;
+- do not assume generated `dist/`, `node_modules/`, test output, or local env files should be copied from the host into the image build context.
+
+No new Docker or Compose surface is currently expected for this story. Because of that, the plan should treat the existing host-port allocations as reserved and unchanged:
+
+- default Compose stack already uses host ports `5001`, `5010`, `5011`, `5012`, `27517`, `8000`, `4317`, `4318`, and `9411`;
+- local Compose stack already uses host ports `5501`, `5510`, `5511`, `5512`, `9222`, `27417`, `8200`, `4917`, `4918`, `9711`, and `8931`;
+- e2e Compose stack already uses host ports `6001`, `6010`, `6011`, `6012`, `27617`, `8800`, `4417`, `4418`, and `9511`.
+
+If a future change somehow makes a new container surface unavoidable, the story must define the exact host and container ports up front after checking against those existing allocations. This Story 49 plan, however, should proceed on the assumption that no new Docker/Compose port surface is needed.
+
+If any container-generated artifacts need persistence as part of validation, prefer Docker-managed volumes for that generated output rather than bind mounting a source tree. The only planned exception remains log visibility on the host.
+
 ### Out Of Scope
 
 - Changing server-side chat, flow, or agent APIs.
@@ -126,6 +150,7 @@ Because the repo already has the required runtime and deployment plumbing, Story
 - Forcing always-on auto-scroll that overrides a user's manual reading position in a long transcript.
 - General server-performance or model-latency work.
 - Adding a new server listener, new health endpoint, new runtime-config injection path, new compose service, or new deployment mapping for the sake of this client-rendering story.
+- Introducing a host source bind mount for client or server application code into a running container.
 
 ## Implementation Ideas
 
@@ -262,3 +287,10 @@ Because the repo already has the required runtime and deployment plumbing, Story
    - What the answer is: the repo already has the runtime and validation seams this story needs, including client build/test wrappers, server `/health` and related info endpoints, client runtime config resolution via `globalThis.__CODEINFO_CONFIG__` plus `import.meta.env`, and Compose/e2e stacks with existing healthchecks and env-file wiring. The actual missing prerequisites are limited to client-side work: the shared transcript rendering layer itself and, if chosen, the addition of `@tanstack/react-virtual` to `client/package.json`.
    - Where the answer came from: this answer came from repository inspection of [package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/package.json), [client/package.json](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/package.json), [client/src/config/runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/config/runtimeConfig.ts), [server/src/index.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/index.ts), [docker-compose.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.yml), [docker-compose.e2e.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.e2e.yml), and [scripts/docker-compose-with-env.sh](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/scripts/docker-compose-with-env.sh), plus `code_info`, DeepWiki guidance for `vitejs/vite` and `TanStack/virtual`, Context7 documentation for `/vitejs/vite` and `/tanstack/virtual`, and web documentation from Vite and Docker.
    - Why it is the best answer to the question: it narrows the story to the real missing pieces, prevents unnecessary infrastructure work, and tells the implementer exactly which existing repo capabilities they should reuse instead of replacing.
+
+11. Preserve the current Docker build model and avoid new bind-mounted app-code paths
+   - The question being addressed: what Docker and Compose behavior must remain explicit so the story does not accidentally drift into a host-mounted development model or implicit port choices?
+   - Why the question matters: the repository already builds application code into images and runs built artifacts from there. If a junior developer assumes this story can validate transcript work by bind mounting source trees, copying host build output into containers, or adding an ad hoc new port surface, they can create a container path that does not match the repo's established runtime model.
+   - What the answer is: Story 49 should keep application code copied into Docker image build stages and built there, should update the relevant `.dockerignore` file if Docker-visible inputs change, should not introduce host source bind mounts for app code, should not add a new Compose surface or port binding for this story, and should prefer Docker-managed volumes for any new generated-output persistence other than logs.
+   - Where the answer came from: this answer came from repository inspection of [client/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/Dockerfile), [server/Dockerfile](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/Dockerfile), [.dockerignore](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/.dockerignore), [client/.dockerignore](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/.dockerignore), [server/.dockerignore](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/.dockerignore), [docker-compose.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.yml), [docker-compose.local.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.local.yml), and [docker-compose.e2e.yml](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.e2e.yml), plus `code_info` and direct inspection of the current port bindings and volume mounts.
+   - Why it is the best answer to the question: it keeps the story aligned with the repo's existing container model, prevents hidden source-of-truth drift between host and container code, and makes the Docker expectations clear before any implementation work begins.

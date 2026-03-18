@@ -70,7 +70,7 @@ Couple of sentences of what this task achieves and why it is needed. Each task s
 ### Task 2. Task Two Title
 
 - Repository Name: <The name of the repository this task is to be worked in>
-- status: **to_do**
+- Task Status: __to_do__
 - Git Commits: **to_do**
 
 #### Overview

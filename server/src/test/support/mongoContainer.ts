@@ -4,12 +4,12 @@ import {
   type StartedTestContainer,
   Wait,
 } from 'testcontainers';
-import { IngestFileModel } from '../../mongo/ingestFile.js';
 import {
   connectMongo,
   disconnectMongo,
   isMongoConnected,
 } from '../../mongo/connection.js';
+import { IngestFileModel } from '../../mongo/ingestFile.js';
 
 let container: StartedTestContainer | null = null;
 let containerPromise: Promise<StartedTestContainer> | null = null;
@@ -54,7 +54,7 @@ Before({ tags: '@mongo' }, async () => {
   const host = started.getHost();
   const port = started.getMappedPort(27017);
   const uri = `mongodb://${host}:${port}/db?directConnection=true`;
-  process.env.MONGO_URI = uri;
+  process.env.CODEINFO_MONGO_URI = uri;
   await connectMongo(uri);
   await IngestFileModel.deleteMany({}).exec();
 });

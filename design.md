@@ -19,10 +19,10 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 ## Server API (core)
 
-- Express 5 app with CORS enabled and env-driven port (default 5010 via `SERVER_PORT` in `server/.env`, with legacy `PORT` fallback).
+- Express 5 app with CORS enabled and env-driven port (default 5010 via `CODEINFO_SERVER_PORT` in `server/.env`, with legacy `PORT` fallback).
 - Routes: `/health` returns `{ status: 'ok', uptime, timestamp }`; `/version` returns `VersionInfo` using `package.json` version; `/info` echoes a friendly message plus VersionInfo.
 - Depends on `@codeinfo2/common` for DTO helper; built with `tsc -b`, started via `npm run start --workspace server`.
-- Shared chat provider/model defaults are resolved in `server/src/config/chatDefaults.ts`. Provider selection still follows explicit request -> `CHAT_DEFAULT_PROVIDER` env -> hardcoded fallback (`codex`), while Codex model selection now follows explicit request -> `codex/chat/config.toml` -> `CHAT_DEFAULT_MODEL` env -> hardcoded fallback (`gpt-5.3-codex`).
+- Shared chat provider/model defaults are resolved in `server/src/config/chatDefaults.ts`. Provider selection still follows explicit request -> `CODEINFO_CHAT_DEFAULT_PROVIDER` env -> hardcoded fallback (`codex`), while Codex model selection now follows explicit request -> `codex/chat/config.toml` -> `CODEINFO_CHAT_DEFAULT_MODEL` env -> hardcoded fallback (`gpt-5.3-codex`).
 - `validateChatRequest` now accepts omitted `provider`/`model`, resolves both through the shared resolver, and keeps existing REST validation envelopes unchanged.
 - Codex-facing selection paths share the same chat-config-aware model/default behavior across `/chat/models`, `/chat/providers`, `validateChatRequest`, and MCP `codebase_question`.
 - The shared capability path unions `Codex_model_list` with the current `codex/chat/config.toml` model using first-seen order, and route presentation still performs its own preferred-model prioritization after capability resolution.
@@ -45,14 +45,14 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 flowchart LR
   Req[Codex-facing request] --> P{provider override?}
   P -- yes --> RP[provider=request]
-  P -- no --> PE{CHAT_DEFAULT_PROVIDER valid?}
+  P -- no --> PE{CODEINFO_CHAT_DEFAULT_PROVIDER valid?}
   PE -- yes --> RPE[provider=env]
   PE -- no --> RPF[provider=codex fallback]
   Req --> M{model override?}
   M -- yes --> RM[model=request]
   M -- no --> Cfg{codex/chat/config.toml model valid?}
   Cfg -- yes --> RMC[model=config]
-  Cfg -- no --> Env{CHAT_DEFAULT_MODEL valid?}
+  Cfg -- no --> Env{CODEINFO_CHAT_DEFAULT_MODEL valid?}
   Env -- yes --> RME[model=env]
   Env -- no --> RMF[model=gpt-5.3-codex fallback]
   RM --> Shared[Shared Codex-aware resolution]
@@ -229,6 +229,296 @@ flowchart TD
 ```
 
 ## Embedding flow refactor (Task 1)
+
+## Story 0000048 Task 2 command resolution
+
+- Flow-owned command lookup and direct command lookup now share one repository-order contract via `server/src/flows/repositoryCandidateOrder.ts`.
+- The concrete repository candidate order is:
+  - selected working repository first when available;
+  - referencing-file owner repository second;
+  - local `codeInfo2` third;
+  - remaining ingested repositories last in caller-supplied order.
+- Candidate dedupe is first-seen on normalized absolute paths, so working/owner/local collapses do not produce duplicate attempts or duplicate logged candidates.
+- Flow-owned commands keep the existing fail-fast rule in `server/src/flows/service.ts`: only `NOT_FOUND` falls through; an existing higher-priority command that is unreadable or schema-invalid stops resolution immediately.
+- Direct commands in `server/src/agents/service.ts` now follow the same lookup order, with the selected command file repository supplying the owner slot while the run still stays anchored to the existing agent conversation and command-runner lifecycle.
+- Structured observability is shared across both surfaces:
+  - `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER` records the helper-produced candidate order and whether a working repository was available.
+  - `DEV_0000040_T11_FLOW_RESOLUTION_ORDER` records the flow command winner plus `fallbackUsed` and `workingRepositoryAvailable`.
+  - `DEV-0000034:T2:command_run_resolved` records the direct command winner plus the same compact outcome fields.
+- Persisted command runtime metadata now stores only the compact lookup summary in `Turn.runtime.lookupSummary`:
+  - `selectedRepositoryPath`
+  - `fallbackUsed`
+  - `workingRepositoryAvailable`
+- The full candidate list remains a structured-log concern rather than persisted turn metadata.
+
+```mermaid
+flowchart TD
+  Start[Resolve command reference] --> Work{Working repository saved and available?}
+  Work -- yes --> W[Try working repository]
+  Work -- no --> Owner[Try owner repository]
+  W --> FoundW{Command file exists?}
+  FoundW -- valid --> PickW[Select working repository]
+  FoundW -- invalid/unreadable --> Fail[Fail fast]
+  FoundW -- missing --> Owner
+  Owner --> FoundO{Command file exists?}
+  FoundO -- valid --> PickO[Select owner repository]
+  FoundO -- invalid/unreadable --> Fail
+  FoundO -- missing --> Local[Try local codeInfo2]
+  Local --> FoundL{Command file exists?}
+  FoundL -- valid --> PickL[Select local codeInfo2]
+  FoundL -- invalid/unreadable --> Fail
+  FoundL -- missing --> Others[Try other ingested repositories in order]
+  Others --> FoundR{Command file exists?}
+  FoundR -- valid --> PickR[Select first matching repository]
+  FoundR -- invalid/unreadable --> Fail
+  FoundR -- missing everywhere --> NotFound[Return not found]
+```
+
+```mermaid
+sequenceDiagram
+  participant Flow as Flow step
+  participant Direct as Direct command
+  participant Helper as repositoryCandidateOrder
+  participant Loader as command loader
+  participant Turn as Turn runtime metadata
+
+  alt flow-owned command
+    Flow->>Helper: build order(working, flow owner, codeInfo2, others)
+    Helper-->>Flow: candidates + workingRepositoryAvailable
+    Flow->>Loader: try candidates in order
+    Loader-->>Flow: selected repo or fail-fast result
+    Flow->>Turn: persist runtime.lookupSummary
+  else direct command
+    Direct->>Helper: build order(working, command owner, codeInfo2, others)
+    Helper-->>Direct: candidates + workingRepositoryAvailable
+    Direct->>Loader: try candidates in order
+    Loader-->>Direct: selected repo or fail-fast result
+    Direct->>Turn: persist runtime.lookupSummary
+  end
+```
+
+## Story 0000048 Task 3 markdown resolution
+
+- `server/src/flows/markdownFileResolver.ts` now reuses `server/src/flows/repositoryCandidateOrder.ts` instead of maintaining a separate owner-first candidate builder.
+- Every markdown hop recomputes repository order from the immediate referencing file:
+  - top-level flow `llm.markdownFile` steps use the selected working repository first and the current flow file repository as the owner slot when available;
+  - nested command `message.markdownFile` items use the selected working repository first and the resolved command file repository as the owner slot;
+  - no hop inherits the previous repository winner unless that same repository naturally reappears in the current hop as the working or owner slot.
+- The concrete markdown candidate order matches command lookup:
+  - selected working repository first when available;
+  - immediate owner repository second;
+  - local `codeInfo2` third;
+  - remaining ingested repositories last in caller-supplied order.
+- Markdown safety rules stay unchanged while order changes:
+  - only missing files fall through to the next repository candidate;
+  - a readable higher-priority file with invalid UTF-8 fails immediately;
+  - a higher-priority read failure fails immediately;
+  - path normalization still requires a relative path under `codeinfo_markdown/`.
+- Structured markdown observability now uses the compact lookup-summary contract plus markdown-only debug detail:
+  - `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER` logs the helper-produced candidate order and `workingRepositoryAvailable`;
+  - `DEV_0000048_T3_MARKDOWN_RESOLUTION_ORDER` logs `selectedRepositoryPath`, `fallbackUsed`, `workingRepositoryAvailable`, and the final `resolvedPath` for debugging only.
+- Persisted markdown runtime metadata stays compact in `Turn.runtime.lookupSummary` and matches command lookup storage:
+  - `selectedRepositoryPath`
+  - `fallbackUsed`
+  - `workingRepositoryAvailable`
+
+```mermaid
+flowchart TD
+  Start[Resolve markdown reference] --> Work{Working repository saved and available?}
+  Work -- yes --> W[Try working repository]
+  Work -- no --> Owner[Try owner repository]
+  W --> FoundW{Markdown file exists?}
+  FoundW -- valid UTF-8 --> PickW[Select working repository]
+  FoundW -- read/decode failure --> Fail[Fail fast]
+  FoundW -- missing --> Owner
+  Owner --> FoundO{Markdown file exists?}
+  FoundO -- valid UTF-8 --> PickO[Select owner repository]
+  FoundO -- read/decode failure --> Fail
+  FoundO -- missing --> Local[Try local codeInfo2]
+  Local --> FoundL{Markdown file exists?}
+  FoundL -- valid UTF-8 --> PickL[Select local codeInfo2]
+  FoundL -- read/decode failure --> Fail
+  FoundL -- missing --> Others[Try other ingested repositories in order]
+  Others --> FoundR{Markdown file exists?}
+  FoundR -- valid UTF-8 --> PickR[Select first matching repository]
+  FoundR -- read/decode failure --> Fail
+  FoundR -- missing everywhere --> NotFound[Return not found]
+```
+
+```mermaid
+sequenceDiagram
+  participant Flow as Flow or command item
+  participant Helper as repositoryCandidateOrder
+  participant Resolver as markdownFileResolver
+  participant Turn as Turn runtime metadata
+
+  Flow->>Helper: build order(working, immediate owner, codeInfo2, others)
+  Helper-->>Resolver: candidates + workingRepositoryAvailable
+  Resolver->>Resolver: try candidates in order
+  alt selected file is readable and valid UTF-8
+    Resolver-->>Flow: content + lookupSummary + resolvedPath
+    Flow->>Turn: persist runtime.lookupSummary
+  else selected file read or decode fails
+    Resolver-->>Flow: fail fast
+  else selected file missing everywhere
+    Resolver-->>Flow: not found
+  end
+
+  Note over Flow,Helper: Nested command markdown repeats the same sequence per hop using the resolved command file repository as the new owner slot.
+```
+
+## Story 0000048 Task 4 persistence contracts
+
+- Story 48 now formalizes three persistence anchors without introducing a new collection:
+  - `Conversation.flags.workingFolder`
+  - `Conversation.flags.flow` with expanded `FlowResumeState`
+  - `Turn.runtime`
+- Working-folder persistence uses nested updates instead of replacing the whole `flags` object, so saved working folders do not clobber sibling state like `threadId` or `flow`.
+- `FlowResumeState` now carries:
+  - `workingFolder` for the flow-level snapshot
+  - `agentWorkingFolders` for child-agent snapshots
+  - the existing `stepPath`, `loopStack`, `agentConversations`, and `agentThreads`
+- `Turn.runtime` stays compact and shared across chat, agent, flow, command, and markdown persistence:
+  - `workingFolder`
+  - `lookupSummary.selectedRepositoryPath`
+  - `lookupSummary.fallbackUsed`
+  - `lookupSummary.workingRepositoryAvailable`
+- Memory mode mirrors the same shape as Mongo-backed persistence so downstream restore logic can use one contract.
+- Working-folder save and clear operations emit `DEV_0000048_T4_WORKING_FOLDER_STATE_STORED` with `conversationId`, `persistenceMode`, and `action`.
+
+```mermaid
+flowchart TD
+  Run[Run or idle edit decides working folder] --> Conv[Conversation.flags.workingFolder]
+  Run --> FlowState[Conversation.flags.flow]
+  Run --> TurnRuntime[Turn.runtime]
+  FlowState --> FlowFolder[workingFolder snapshot]
+  FlowState --> AgentFolders[agentWorkingFolders snapshots]
+  TurnRuntime --> RuntimeFolder[workingFolder]
+  TurnRuntime --> LookupSummary[selectedRepositoryPath + fallbackUsed + workingRepositoryAvailable]
+  Conv --> Rest[/conversations summary]
+  Conv --> Ws[conversation_upsert]
+  FlowState --> Resume[flow resume path]
+  TurnRuntime --> Turns[/conversations/:id/turns]
+```
+
+```mermaid
+sequenceDiagram
+  participant Caller as Persistence caller
+  participant Mongo as Mongo repo helper
+  participant Memory as Memory helper
+  participant Summary as REST/WS summary path
+
+  alt mongo-backed working-folder save or clear
+    Caller->>Mongo: nested $set/$unset flags.workingFolder
+    Mongo-->>Summary: emit conversation_upsert with flags preserved
+  else memory-backed save or clear
+    Caller->>Memory: merge workingFolder into in-memory flags
+    Memory-->>Summary: emit same structured marker contract
+  end
+
+  Caller->>Mongo: persist flags.flow with workingFolder + agentWorkingFolders
+  Caller->>Mongo: persist Turn.runtime with compact lookupSummary
+```
+
+## Story 0000048 Task 5 server working-folder contract
+
+- Story 48 Task 5 makes the stored working-folder contract live across chat, agent, flow, and direct-command surfaces instead of keeping it as persistence-only metadata.
+- `POST /chat`, agent runs, direct commands, and flow runs now all validate a requested working folder, persist user changes onto the owning conversation, and restore a saved value from that same conversation when the next run omits `working_folder`.
+- The server now exposes `POST /conversations/:id/working-folder` as the idle edit surface for chat, agent, and flow conversations; it saves or clears `flags.workingFolder` without starting a run and reuses the same response shape that websocket `conversation_upsert` events publish.
+- Story 48 Task 6 closes the dockerized startup seam behind historical conversation visibility: `GET /conversations` now resolves its persistence backend at request time instead of freezing memory-versus-Mongo at router construction, so compose-backed REST seed flows can create conversations, append turns, and then read those conversations back once Mongo is connected.
+- Saved working folders are restore-or-clear values, not blindly trusted state:
+  - before `/chat`, `/agents/:agentName/run`, `/agents/:agentName/commands/:commandName/run`, `/flows/:flowName/run`, or `GET /conversations` uses a saved path, the server re-validates it;
+  - if the saved path is stale, the server clears it first, emits `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION`, and returns the normal empty-state summary instead of leaking the invalid value back to the client.
+- Idle edits are run-locked: if a conversation already has an active run lock or inflight snapshot, the idle edit route rejects the change instead of racing the running job.
+- Flow-created child agent conversations inherit the exact folder path used by the flow step, and the same folder is persisted into flow resume state so later restores stay aligned with the executed step.
+
+```mermaid
+flowchart TD
+  UI[Chat / Agents / Flows UI] --> Validate[Validate requested working folder]
+  Validate -->|valid request| Save[Save or update Conversation.flags.workingFolder]
+  Validate -->|invalid request| Reject[Reject with WORKING_FOLDER_INVALID or WORKING_FOLDER_NOT_FOUND]
+  Save --> Run[Start chat, agent, direct command, or flow run]
+  Run --> Runtime[Persist Turn.runtime.workingFolder and compact lookupSummary]
+  Run --> Child[Flow step creates child agent conversation with inherited folder]
+  Save --> Idle[POST /conversations/:id/working-folder idle edit]
+  Idle --> WS[Emit conversation_upsert]
+  Save --> WS
+  Stored[Saved Conversation.flags.workingFolder] --> Restore[Next restore or run re-validates saved folder]
+  Restore -->|still valid| Use[Reuse saved folder]
+  Restore -->|stale| Clear[Clear saved folder and emit DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION]
+  Clear --> WS
+  Clear --> Empty[Return normal empty state]
+```
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Route as Chat / Agent / Flow route
+  participant Store as Conversation store
+  participant WS as WS/sidebar summary
+
+  Client->>Route: request with optional working_folder
+  alt explicit working_folder provided
+    Route->>Route: validate absolute path + existence
+    Route->>Store: save flags.workingFolder on owning conversation
+  else request omits working_folder
+    Route->>Store: load saved flags.workingFolder
+    alt saved path still valid
+      Route->>Route: restore saved folder
+    else saved path stale
+      Route->>Store: clear flags.workingFolder
+      Route->>WS: publish cleared conversation_upsert
+    end
+  end
+
+  alt conversation idle edit
+    Client->>Route: POST /conversations/:id/working-folder
+    Route->>Route: reject if run lock or inflight state is active
+    Route->>Store: save or clear flags.workingFolder
+    Route->>WS: publish updated conversation_upsert
+  else flow creates child agent conversation
+    Route->>Store: create/update child conversation with flow-step folder
+  end
+```
+
+## Story 0000048 final contract summary
+
+- Reference resolution now follows one shared repository-order helper for command and markdown lookups:
+  - working repository first;
+  - referencing-file owner second;
+  - local `codeInfo2` third;
+  - other ingested repositories last.
+- That order restarts on every hop. Flow -> command, flow -> markdown, and command -> markdown all rebuild candidates from the current referencing file instead of inheriting a prior winner.
+- Working-folder persistence is conversation-owned and run-snapshotted:
+  - editable saved value in `Conversation.flags.workingFolder`;
+  - exact run snapshot in `Turn.runtime.workingFolder`;
+  - compact lookup result in `Turn.runtime.lookupSummary`.
+- Chat, Agents, and Flows all restore the saved folder in the picker, allow idle save/clear through `POST /conversations/:id/working-folder`, lock edits while active work is inflight, and return to the normal empty state when the server clears a stale folder.
+- Story 48 completed a clean env cutover:
+  - server/runtime/compose readers use `CODEINFO_*`;
+  - browser/build/runtime readers use `VITE_CODEINFO_*`;
+  - the old checked-in generic product env names are no longer the live contract.
+- OpenAI embeddings now use one shared `tiktoken`-backed `cl100k_base` counter across guardrails, provider `countTokens()`, and chunking. The hard limit is the real `8192` tokens, while operational headroom remains the chunker safety margin.
+- Story 48 observability is split intentionally:
+  - structured logs contain full candidate-order/debug detail and the Story 48 marker set;
+  - persisted runtime metadata stays compact and omits the verbose candidate list.
+
+```mermaid
+flowchart TD
+  Picker[Saved working-folder picker state] --> Conversation[Conversation.flags.workingFolder]
+  Conversation --> Resolver[Shared repository candidate order helper]
+  Resolver --> Command[Command lookup]
+  Resolver --> Markdown[Markdown lookup]
+  Command --> Runtime[Turn.runtime.lookupSummary]
+  Markdown --> Runtime
+  Conversation --> Run[Chat / Agent / Flow / Direct command run]
+  Run --> Snapshot[Turn.runtime.workingFolder]
+  EnvServer[CODEINFO_* server envs] --> ServerRuntime[Server + compose runtime]
+  EnvClient[VITE_CODEINFO_* client envs] --> ClientRuntime[Build + window.__CODEINFO_CONFIG__]
+  Tokenizer[tiktoken cl100k_base helper] --> Guardrails[OpenAI guardrails]
+  Tokenizer --> Provider[OpenAI provider countTokens]
+  Tokenizer --> Chunker[Chunk sizing]
+```
 
 ## Agents prompts route contract (Story 0000039 Task 1)
 
@@ -678,7 +968,7 @@ flowchart LR
   - per-input model token limit (`resolveOpenAiModelTokenLimit`)
   - max `300000` total estimated tokens/request.
 - Retry behavior uses existing shared retry utility (`runWithRetry`) with OpenAI-specific policy:
-  - retries: runtime-configurable via `OPENAI_INGEST_MAX_RETRIES` (retry attempts after the initial call)
+  - retries: runtime-configurable via `CODEINFO_OPENAI_INGEST_MAX_RETRIES` (retry attempts after the initial call)
   - fallback/default retries: `3` (4 total attempts when fallback is used)
   - base delay `500ms`, max delay `8000ms`
   - jitter range `[0.75, 1.0]`
@@ -798,14 +1088,14 @@ flowchart LR
 ```mermaid
 flowchart TD
   A[GET /ingest/models] --> B[Resolve canonical lock]
-  B --> C{OPENAI_EMBEDDING_KEY usable?}
+  B --> C{CODEINFO_OPENAI_EMBEDDING_KEY usable?}
   C -- no --> D[openai: OPENAI_DISABLED]
   C -- yes --> E[List OpenAI models]
   E -->|mapped failure| F[openai warning statusCode]
   E -->|success| G[allowlist intersection + deterministic ordering]
   G -->|empty| H[OPENAI_ALLOWLIST_NO_MATCH]
   G -->|non-empty| I[OPENAI_OK]
-  B --> J{LMSTUDIO_BASE_URL valid + list ok?}
+  B --> J{CODEINFO_LMSTUDIO_BASE_URL valid + list ok?}
   J -- yes --> K[LMSTUDIO_OK + lmstudio models]
   J -- no --> L[LMSTUDIO warning envelope]
   D --> M[merge models + lock + envelopes]
@@ -862,13 +1152,13 @@ flowchart LR
 ## Startup env loading parity (Task 3)
 
 - Startup now uses deterministic env precedence that matches compose env-file behavior for unset values: `server/.env` first, then `server/.env.local`.
-- Runtime/container-preseeded env vars are preserved and are not clobbered by file loading (for example an externally injected `OPENAI_EMBEDDING_KEY`).
+- Runtime/container-preseeded env vars are preserved and are not clobbered by file loading (for example an externally injected `CODEINFO_OPENAI_EMBEDDING_KEY`).
 - Env bootstrap is centralized in `server/src/config/startupEnv.ts` and is loaded before logger config resolution so env-driven logger/runtime settings use the same startup precedence.
 - Missing `server/.env.local` is a valid state and does not fail startup.
 - Startup emits deterministic diagnostic events:
   - `DEV-0000036:T3:env_load_order_applied` with ordered files and whether local override was applied.
   - `DEV-0000036:T3:openai_embedding_capability_state` with `enabled=true|false` only.
-- Capability logging is secret-safe: no `OPENAI_EMBEDDING_KEY` value is logged or appended.
+- Capability logging is secret-safe: no `CODEINFO_OPENAI_EMBEDDING_KEY` value is logged or appended.
 
 ```mermaid
 flowchart LR
@@ -2567,8 +2857,8 @@ sequenceDiagram
 
 ## Client skeleton
 
-- Vite + React 19 + MUI; dev server on port 5001 (host enabled). Env `VITE_API_URL` from `client/.env`.
-- Startup fetch calls `${VITE_API_URL}/version`, parses `VersionInfo` from `@codeinfo2/common`, and displays alongside client version (from package.json) in a MUI Card with loading/error states.
+- Vite + React 19 + MUI; dev server on port 5001 (host enabled). Client env contract now uses `VITE_CODEINFO_*` names from `client/.env`.
+- Startup fetch calls `${VITE_CODEINFO_API_URL}/version` (or the runtime-injected `window.__CODEINFO_CONFIG__.apiBaseUrl` override), parses `VersionInfo` from `@codeinfo2/common`, and displays alongside client version (from package.json) in a MUI Card with loading/error states.
 - Layout uses MUI `CssBaseline` for global resets; the `NavBar` AppBar spans the full width while the app shell uses a full-width `Container maxWidth={false}` with gutters preserved so pages (notably Chat) can take advantage of the available horizontal space.
 
 ### Chat page (models list)
@@ -2823,7 +3113,7 @@ flowchart LR
 
 - In Compose, agent folders are bind-mounted into the server container at `/app/codex_agents` (rw) so auth seeding can write `auth.json` when needed.
 - The server discovers agents via `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents`.
-- The Agents MCP server is exposed on port `5012` (configured via `AGENTS_MCP_PORT=5012`).
+- The Agents MCP server is exposed on port `5012` (configured via `CODEINFO_AGENTS_MCP_PORT=5012`).
 
 ```mermaid
 flowchart LR
@@ -2834,7 +3124,7 @@ flowchart LR
 
 ### Agents MCP (JSON-RPC)
 
-- The server runs a dedicated MCP v2-style JSON-RPC listener for agents on `AGENTS_MCP_PORT` (default `5012`).
+- The server runs a dedicated MCP v2-style JSON-RPC listener for agents on `CODEINFO_AGENTS_MCP_PORT` (default `5012`).
 - It exposes four tools:
   - `list_agents` (always available; returns agent summaries including `disabled`/`warnings` when Codex is not usable for that agent).
   - `list_commands` (always available; lists enabled command macros for one agent or all agents).
@@ -3252,7 +3542,7 @@ sequenceDiagram
 
 - Callers may optionally provide `working_folder` (absolute path). When present, the server resolves a per-call Codex `workingDirectory` override before starting/resuming the Codex thread.
 - Agent `config.toml` remains the source of truth for defaults; `working_folder` only overrides Codex workingDirectory for that call.
-- Resolution tries a host→container mapping first (when `HOST_INGEST_DIR` is set and both paths are POSIX-absolute after `\\`→`/` normalization), then falls back to using the literal path as provided.
+- Resolution tries a host→container mapping first (when `CODEINFO_HOST_INGEST_DIR` is set and both paths are POSIX-absolute after `\\`→`/` normalization), then falls back to using the literal path as provided.
 - Stable error codes returned by the service when resolution fails:
   - `WORKING_FOLDER_INVALID` (non-absolute input)
   - `WORKING_FOLDER_NOT_FOUND` (no directory exists)
@@ -3379,7 +3669,7 @@ sequenceDiagram
 
 ## Docker Compose wiring
 
-- `docker-compose.yml` builds `codeinfo2-client` and `codeinfo2-server`, exposes ports 5001/5010, and sets `VITE_API_URL=http://server:5010` for the client container.
+- `docker-compose.yml` builds `codeinfo2-client` and `codeinfo2-server`, exposes ports 5001/5010, and passes the client container one shared renamed env family: `VITE_CODEINFO_API_URL`, `VITE_CODEINFO_LMSTUDIO_URL`, `VITE_CODEINFO_LOG_FORWARD_ENABLED`, and `VITE_CODEINFO_LOG_MAX_BYTES`.
 - Healthchecks: server uses `/health`; client uses root `/` to ensure availability before dependencies start, with client waiting on server health.
 - Root scripts (`compose:build`, `compose:up`, `compose:down`, `compose:logs`) manage the stack for local demos and e2e setup.
 
@@ -3513,7 +3803,7 @@ flowchart TD
 ### Ingest directory picker (server-backed)
 
 - Endpoint: `GET /ingest/dirs?path=<absolute server path>`.
-- Base path: `HOST_INGEST_DIR` (default `/data`). When `path` is omitted or blank/whitespace, the server lists the base.
+- Base path: `CODEINFO_HOST_INGEST_DIR` (default `/data`). When `path` is omitted or blank/whitespace, the server lists the base.
 - Response (success):
 
 ```json
@@ -3528,7 +3818,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  A[GET /ingest/dirs?path=...] --> B[Derive base from HOST_INGEST_DIR or /data]
+  A[GET /ingest/dirs?path=...] --> B[Derive base from CODEINFO_HOST_INGEST_DIR or /data]
   B --> C{path provided?}
   C -- no/blank --> D[List base]
   C -- yes --> E[Validate inside base (lexical)]
@@ -3947,7 +4237,7 @@ The proxy does not cache results and times out after 60s. Invalid base URLs are 
 
 ### Chat models endpoint
 
-- `GET /chat/models?provider=lmstudio` uses `LMSTUDIO_BASE_URL` (converted to ws/wss for the SDK) to call `system.listDownloadedModels()`.
+- `GET /chat/models?provider=lmstudio` uses `CODEINFO_LMSTUDIO_BASE_URL` (converted to ws/wss for the SDK) to call `system.listDownloadedModels()`.
 - Success returns `200` with `[ { key, displayName, type } ]` and the chat UI defaults to the first entry when none is selected.
 - Failure or invalid/unreachable base URL returns `503 { error: "lmstudio unavailable" }`.
 - Logging: start, success, and failure entries record the sanitized base URL origin; success logs the model count for visibility.
@@ -3990,7 +4280,7 @@ sequenceDiagram
 
 ### LM Studio UI behaviour
 
-- Base URL field defaults to `http://host.docker.internal:1234` (or `VITE_LMSTUDIO_URL`) and persists to localStorage; reset restores the default.
+- Base URL field defaults to `http://host.docker.internal:1234` (or `VITE_CODEINFO_LMSTUDIO_URL`) and persists to localStorage; reset restores the default.
 - Actions: `Check status` runs the proxy call with the current URL, `Refresh models` reuses the saved URL, and errors focus the input for quick edits.
 - States: loading text (“Checking…”), inline error text from the server, empty-state message “No models reported by LM Studio.”
 - Responsive layout: table on md+ screens and stacked cards on small screens to avoid horizontal scrolling.
@@ -4323,7 +4613,7 @@ flowchart TD
 
 ### Agent tooling (Chroma list + search)
 
-- `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.
+- `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `CODEINFO_HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.
 - `/tools/vector-search` validates `{ query, repository?, limit? }` (query required, limit default 5/max 20, repository must match a known repo id from roots), builds a repo->root map, and queries the vectors collection with an optional `root` filter. Results carry `repo`, `relPath`, `containerPath`, `hostPath`, `chunk`, `chunkId`, `score` (distance), and `modelId`; file summaries report the lowest distance per file. The response also returns the current `lockedModelId`. Errors: 400 validation, 404 unknown repo, 502 Chroma unavailable.
 - Retrieval cutoff: results are filtered to distance `<= CODEINFO_RETRIEVAL_DISTANCE_CUTOFF` (default `1.4`, lower is better) unless `CODEINFO_RETRIEVAL_CUTOFF_DISABLED=true`. If nothing passes the cutoff, the server falls back to the best `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS` results (default `2`, lowest distance with original-order tie-breaks). Summaries are rebuilt from the filtered set so file counts align with what the tool returns.
 - Payload caps + dedupe: the server de-dupes VectorSearch results per `repo + relPath` (duplicate `chunkId` or identical chunk text), keeps the 2 lowest-distance chunks per file, then truncates chunk text to `CODEINFO_TOOL_CHUNK_MAX_CHARS` (default `5000`) and enforces total payload size `CODEINFO_TOOL_MAX_CHARS` (default `40000`). Summaries reflect the capped results.
@@ -4384,7 +4674,7 @@ flowchart TD
 
 ### MCP v2 JSON-RPC (port 5011)
 
-- A second JSON-RPC server listens on `MCP_PORT` (default 5011) alongside Express, exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/listTemplates`. `tools/list` is discovery-only and remains available even when Codex is unavailable; provider availability is resolved per-tool execution path.
+- A second JSON-RPC server listens on `CODEINFO_MCP_PORT` (default 5011) alongside Express, exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/listTemplates`. `tools/list` is discovery-only and remains available even when Codex is unavailable; provider availability is resolved per-tool execution path.
 - MCP v2 tools now include `codebase_question` and `reingest_repository`.
 - `initialize` now mirrors MCP v1: it returns `protocolVersion: "2024-11-05"`, `capabilities: { tools: { listChanged: false } }`, and `serverInfo { name: "codeinfo2-mcp", version: <server package version> }` so Codex/mcp-remote clients accept the handshake.
 - Startup/shutdown: `startMcp2Server()` is called from `server/src/index.ts`; `stopMcp2Server()` is invoked during SIGINT/SIGTERM alongside LM Studio client cleanup.
@@ -4406,7 +4696,7 @@ flowchart LR
 - Behaviour: runs the selected `ChatInterface` and buffers normalized events via `McpResponder`, then filters the MCP response to answer-only segments (no thinking/vector-summary data). The MCP transport remains single-response (not streaming) and returns JSON `{ conversationId, modelId, segments: [{ type: 'answer', text }] }` inside the single `content` text payload.
 - Provider specifics:
   - `provider=codex`: uses Codex thread options (workingDirectory, sandbox, web search, reasoning effort) and relies on Codex thread history (only the latest message is submitted per turn).
-  - `provider=lmstudio`: uses `LMSTUDIO_BASE_URL` and the requested/default LM Studio model; history comes from stored turns for `conversationId`.
+  - `provider=lmstudio`: uses `CODEINFO_LMSTUDIO_BASE_URL` and the requested/default LM Studio model; history comes from stored turns for `conversationId`.
 - Error handling: MCP v2 `tools/list` and `tools/call` are no longer globally Codex-gated. Provider availability is resolved inside `codebase_question`, so LM Studio fallback remains reachable; terminal unavailable remains `CODE_INFO_LLM_UNAVAILABLE` (`-32001`) only when neither provider can execute.
 
 ```mermaid
@@ -4478,9 +4768,10 @@ sequenceDiagram
 ## Logging schema (shared)
 
 - Shared DTO lives in `common/src/logging.ts` and exports `LogEntry` / `LogLevel` plus an `isLogEntry` guard. Fields: `level`, `message`, ISO `timestamp`, `source` (`server|client`), optional `requestId`, `correlationId`, `userAgent`, `url`, `route`, `tags`, `context`, `sequence` (assigned server-side).
-- Server logger lives in `server/src/logger.ts` (pino + pino-http + pino-roll); request middleware is registered in `server/src/index.ts`. Env knobs: `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE` (defaults `true`). Files write to `./logs` (gitignored/bind-mounted later).
+- Server logger lives in `server/src/logger.ts` (pino + pino-http + pino-roll); request middleware is registered in `server/src/index.ts`. Env knobs: `CODEINFO_LOG_LEVEL`, `CODEINFO_LOG_BUFFER_MAX`, `CODEINFO_LOG_MAX_CLIENT_BYTES`, `CODEINFO_LOG_FILE_PATH` (default `./logs/server.log`), `CODEINFO_LOG_FILE_ROTATE` (defaults `true`). Files write to `./logs` (gitignored/bind-mounted later).
 - Startup logs emit `DEV-0000032:T12:verification-ready` once the server is ready, including `event` and `port` in the payload for manual verification.
-- Client logging stubs reside in `client/src/logging/*` with a console tee, queue placeholder, and forwarding toggle. Env knobs: `VITE_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`.
+- Client runtime config is resolved through one shared helper in `client/src/config/runtimeConfig.ts`. It reads `window.__CODEINFO_CONFIG__` first, then falls back to the renamed Vite env readers `VITE_CODEINFO_API_URL`, `VITE_CODEINFO_LMSTUDIO_URL`, `VITE_CODEINFO_LOG_FORWARD_ENABLED`, and `VITE_CODEINFO_LOG_MAX_BYTES`, then finally to code defaults. Browser startup emits `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` with the resolved values and their sources so runtime/build drift is visible during manual checks.
+- Client logging stubs reside in `client/src/logging/*` with a console tee, queue placeholder, and forwarding toggle. Supported env knobs: `VITE_CODEINFO_LOG_FORWARD_ENABLED` and `VITE_CODEINFO_LOG_MAX_BYTES`. Older generic client log-level and log-stream toggles remain documentation-only cleanup targets and are not runtime readers.
 - Privacy: redact obvious secrets (auth headers/passwords) before storage/streaming; keep payload size limits to avoid accidental PII capture.
 
 ```mermaid
@@ -4496,17 +4787,17 @@ flowchart TD
 
 ### Logging storage & retention
 
-- In-memory log buffer in `server/src/logStore.ts` caps entries using `LOG_BUFFER_MAX` (default 5000), assigns monotonic `sequence` numbers, and trims oldest-first to keep memory bounded.
-- File output writes to `LOG_FILE_PATH` (default `./logs/server.log`) with rotation controlled by `LOG_FILE_ROTATE` (`true` = daily via pino-roll); the directory is created on startup so hosts can bind-mount it.
+- In-memory log buffer in `server/src/logStore.ts` caps entries using `CODEINFO_LOG_BUFFER_MAX` (default 5000), assigns monotonic `sequence` numbers, and trims oldest-first to keep memory bounded.
+- File output writes to `CODEINFO_LOG_FILE_PATH` (default `./logs/server.log`) with rotation controlled by `CODEINFO_LOG_FILE_ROTATE` (`true` = daily via pino-roll); the directory is created on startup so hosts can bind-mount it.
 - Host persistence for compose runs uses `- ./logs:/app/logs` (to be added in compose) while keeping `logs/` gitignored and excluded from the server Docker build context.
-- `LOG_MAX_CLIENT_BYTES` will guard incoming log payload sizes when the ingestion endpoint is added, preventing oversized client submissions.
+- `CODEINFO_LOG_MAX_CLIENT_BYTES` will guard incoming log payload sizes when the ingestion endpoint is added, preventing oversized client submissions.
 
 ### Server log APIs & streaming
 
-- `POST /logs` validates `LogEntry`, whitelists levels (`error|warn|info|debug`) and sources (`client|server`), enforces the 32KB payload cap from `LOG_MAX_CLIENT_BYTES`, redacts obvious secrets (`authorization`, `password`, `token`) in contexts, attaches the middleware `requestId`, appends to the in-memory store, and forwards client-originated entries into the pino log file as JSON with a `CLIENT_LOG` marker and `clientId` (lifted from `entry.context.clientId`).
+- `POST /logs` validates `LogEntry`, whitelists levels (`error|warn|info|debug`) and sources (`client|server`), enforces the 32KB payload cap from `CODEINFO_LOG_MAX_CLIENT_BYTES`, redacts obvious secrets (`authorization`, `password`, `token`) in contexts, attaches the middleware `requestId`, appends to the in-memory store, and forwards client-originated entries into the pino log file as JSON with a `CLIENT_LOG` marker and `clientId` (lifted from `entry.context.clientId`).
 - `GET /logs` returns `{ items, lastSequence, hasMore }` sorted by sequence and filtered via `level`, `source`, `text`, `since`, `until` with a hard limit of 200 items per call.
 - `GET /logs/stream` keeps an SSE connection alive with `text/event-stream`, heartbeats every 15s (`:\n\n`), and replays missed entries when `Last-Event-ID` or `?sinceSequence=` is provided. SSE payloads carry `id: <sequence>` so clients can resume accurately.
-- Redaction + retention defaults: contexts strip obvious secrets; buffer defaults to 5000 entries; payload cap 32KB; file rotation daily unless `LOG_FILE_ROTATE=false`.
+- Redaction + retention defaults: contexts strip obvious secrets; buffer defaults to 5000 entries; payload cap 32KB; file rotation daily unless `CODEINFO_LOG_FILE_ROTATE=false`.
 
 ```mermaid
 sequenceDiagram
@@ -4530,7 +4821,7 @@ sequenceDiagram
 
 - `createLogger(source, routeProvider)` captures level/message/context, enriches with timestamp, route, user agent, a stable `clientId` (persisted to `localStorage` with an in-memory fallback), and a generated `correlationId`, tees to `console`, then forwards to the transport queue. `installGlobalErrorHooks` wires `window.onerror` and `unhandledrejection` with a 1s throttle to avoid noisy loops.
 - `createLogger(source, routeProvider)` captures level/message/context, enriches with timestamp, route, user agent, and a generated `correlationId`, tees to `console`, then forwards to the transport queue. Chat tool events now use `source: client` with `context.channel = "client-chat"` so they satisfy the server schema while staying filterable for telemetry. `installGlobalErrorHooks` wires `window.onerror` and `unhandledrejection` with a 1s throttle to avoid noisy loops.
-- The transport queues entries, enforces `VITE_LOG_MAX_BYTES` (default 32768), batches up to 10, and POSTs to `${VITE_API_URL}/logs` unless forwarding is disabled (`VITE_LOG_FORWARD_ENABLED=false`), the app is offline, or `MODE === 'test'`. Failures back off with delays `[500, 1000, 2000, 4000]` ms before retrying.
+- The transport queues entries, enforces `VITE_CODEINFO_LOG_MAX_BYTES` (default 32768), batches up to 10, and POSTs to `${apiBaseUrl}/logs` where `apiBaseUrl` comes from the shared runtime-config resolver. Forwarding is disabled only when `VITE_CODEINFO_LOG_FORWARD_ENABLED=false`, the app is offline, or `MODE === 'test'`. Failures back off with delays `[500, 1000, 2000, 4000]` ms before retrying.
 - Context should avoid PII; URLs with embedded credentials are redacted before logging. Forwarding can be opt-out via `.env.local` while keeping console output for local debugging.
 - LM Studio: client logs status/refresh/reset actions with `baseUrl` reduced to `URL.origin` and errors included; server logs LM Studio proxy requests (requestId, base URL origin, model count or error) and forwards them into the log buffer/streams, keeping credentials/token/password fields redacted.
 
@@ -4910,10 +5201,10 @@ sequenceDiagram
 
 ### Story 0000036 Task 18: OpenAI ingest retry budget env override
 
-- OpenAI ingest retry budget is now resolved from `OPENAI_INGEST_MAX_RETRIES` at runtime.
+- OpenAI ingest retry budget is now resolved from `CODEINFO_OPENAI_INGEST_MAX_RETRIES` at runtime.
 - Semantics are explicit: env value is retry attempts after the initial attempt, and retry execution still uses `maxAttempts = retries + 1`.
 - Invalid, non-numeric, zero, and negative values deterministically fall back to default retry budget `3`.
-- The repository default is committed in `server/.env` as `OPENAI_INGEST_MAX_RETRIES=10`.
+- The repository default is committed in `server/.env` as `CODEINFO_OPENAI_INGEST_MAX_RETRIES=10`.
 - Existing retry mechanics are unchanged: wait-hint precedence, bounded exponential backoff, jitter range, retryable-code mapping, and SDK retry disablement (`maxRetries=0`) remain in place.
 
 ### Story 0000036 Task 19: ingest route catch/log hardening and LM Studio retry parity
@@ -4926,7 +5217,7 @@ sequenceDiagram
 
 ### Story 0000036 Task 20: retry env strictness and reembed log-context correction
 
-- `OPENAI_INGEST_MAX_RETRIES` parsing is strict positive-integer only after trimming input (`^[1-9]\d*$`), so mixed/decimal/scientific formats (for example `7abc`, `3.5`, `1e2`) now deterministically fall back to default retry budget `3`.
+- `CODEINFO_OPENAI_INGEST_MAX_RETRIES` parsing is strict positive-integer only after trimming input (`^[1-9]\d*$`), so mixed/decimal/scientific formats (for example `7abc`, `3.5`, `1e2`) now deterministically fall back to default retry budget `3`.
 - Retry execution semantics are unchanged from Task 18: env value remains retries after the initial attempt, and runtime execution still computes `maxAttempts = retries + 1`.
 - `/ingest/reembed/:root` catch-path logging no longer writes synthetic `runId` values from route params; when unavailable, `runId` is omitted and `root` remains the canonical context field for reembed failure entries.
     Logs-->>UI: events (id = sequence)
@@ -5052,12 +5343,12 @@ sequenceDiagram
   - `GET /tools/ingested-repos`
   - `POST /tools/vector-search`
   - classic MCP `ListIngestedRepositories` / `VectorSearch`
-- OpenAI enablement and model visibility are runtime-configured by `OPENAI_EMBEDDING_KEY` and server allowlist intersection, with deterministic warning/disabled envelopes for partial failures.
+- OpenAI enablement and model visibility are runtime-configured by `CODEINFO_OPENAI_EMBEDDING_KEY` and server allowlist intersection, with deterministic warning/disabled envelopes for partial failures.
 - Query embedding execution is lock-bound and dimension-validated prior to Chroma queries so mismatch handling is deterministic (`EMBEDDING_DIMENSION_MISMATCH`) rather than raw backend leakage.
 
 ```mermaid
 flowchart TD
-  A[OPENAI_EMBEDDING_KEY + provider discovery] --> B[/ingest/models envelopes]
+  A[CODEINFO_OPENAI_EMBEDDING_KEY + provider discovery] --> B[/ingest/models envelopes]
   B --> C[Ingest UI provider-qualified selection]
   C --> D[POST /ingest/start canonical request]
   D --> E[Canonical lock write]

@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
+import { append } from '../logStore.js';
 import type { Conversation } from '../mongo/conversation.js';
+import { DEV_0000048_T4_WORKING_FOLDER_STATE_STORED } from '../mongo/repo.js';
 import type { Turn } from '../mongo/turn.js';
 
 export const memoryConversations = new Map<string, Conversation>();
@@ -39,4 +41,36 @@ export const updateMemoryConversationMeta = (
     ...patch,
     updatedAt: new Date(),
   } as Conversation);
+};
+
+export const updateMemoryConversationWorkingFolder = (params: {
+  conversationId: string;
+  workingFolder?: string | null;
+}): void => {
+  const existing = memoryConversations.get(params.conversationId);
+  if (!existing) return;
+
+  const trimmedWorkingFolder = params.workingFolder?.trim();
+  const nextFlags = { ...(existing.flags ?? {}) };
+  if (trimmedWorkingFolder) {
+    nextFlags.workingFolder = trimmedWorkingFolder;
+  } else {
+    delete nextFlags.workingFolder;
+  }
+
+  updateMemoryConversationMeta(params.conversationId, {
+    flags: nextFlags,
+  });
+
+  append({
+    level: 'info',
+    message: DEV_0000048_T4_WORKING_FOLDER_STATE_STORED,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      conversationId: params.conversationId,
+      persistenceMode: 'memory',
+      action: trimmedWorkingFolder ? 'save' : 'clear',
+    },
+  });
 };

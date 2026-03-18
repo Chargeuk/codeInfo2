@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import assert from 'node:assert/strict';
 import test from 'node:test';
 
 const T21_SUCCESS =

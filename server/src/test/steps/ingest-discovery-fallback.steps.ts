@@ -39,7 +39,7 @@ let expectedTracked: string[] | null = null;
 let untrackedFile: string | null = null;
 
 Before(async () => {
-  process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   startMock({ scenario: 'many' });
 
   const app = express();
@@ -55,7 +55,7 @@ Before(async () => {
   setIngestDeps({
     lmClientFactory: () =>
       new MockLMStudioClient() as unknown as LMStudioClient,
-    baseUrl: process.env.LMSTUDIO_BASE_URL ?? '',
+    baseUrl: process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
   });
 
   app.use(
@@ -94,7 +94,7 @@ After(async () => {
   lastRunId = null;
   expectedTracked = null;
   untrackedFile = null;
-  delete process.env.INGEST_TEST_GIT_PATHS;
+  delete process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
 });
 
 Given(
@@ -105,7 +105,7 @@ Given(
     await fs.writeFile(path.join(repoDir, untracked), 'untracked content');
     expectedTracked = [tracked];
     untrackedFile = untracked;
-    process.env.INGEST_TEST_GIT_PATHS = tracked;
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = tracked;
 
     // initialise repo properly so git succeeds
     const { execFile } = await import('node:child_process');

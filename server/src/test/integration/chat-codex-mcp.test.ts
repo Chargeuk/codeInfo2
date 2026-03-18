@@ -944,8 +944,8 @@ test('codex chat forwards webSearchEnabled flag to codex thread', async () => {
 });
 
 test('lmstudio requests ignore codex-only sandbox flag but log a warning', async () => {
-  const originalBaseUrl = process.env.LMSTUDIO_BASE_URL;
-  process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
+  const originalBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';
   try {
     const app = express();
     app.use(express.json());
@@ -1012,13 +1012,13 @@ test('lmstudio requests ignore codex-only sandbox flag but log a warning', async
       'should log a warning when modelReasoningEffort is ignored for lmstudio',
     );
   } finally {
-    process.env.LMSTUDIO_BASE_URL = originalBaseUrl;
+    process.env.CODEINFO_LMSTUDIO_BASE_URL = originalBaseUrl;
   }
 });
 
 test('fallback from codex to lmstudio updates stored provider/model and clears stale threadId', async () => {
-  const originalBaseUrl = process.env.LMSTUDIO_BASE_URL;
-  process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
+  const originalBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';
   const conversationId = 'conv-fallback-thread-safety';
 
   memoryConversations.set(conversationId, {
@@ -1081,14 +1081,14 @@ test('fallback from codex to lmstudio updates stored provider/model and clears s
       false,
     );
   } finally {
-    process.env.LMSTUDIO_BASE_URL = originalBaseUrl;
+    process.env.CODEINFO_LMSTUDIO_BASE_URL = originalBaseUrl;
   }
 });
 
 test('REST and MCP codex defaults/warnings remain aligned for env fallback fixtures', async () => {
   const originalForce = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalCodeHome = process.env.CODEX_HOME;
-  const originalLmBase = process.env.LMSTUDIO_BASE_URL;
+  const originalLmBase = process.env.CODEINFO_LMSTUDIO_BASE_URL;
   const root = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-codex-mcp-parity-'),
   );
@@ -1101,7 +1101,7 @@ test('REST and MCP codex defaults/warnings remain aligned for env fallback fixtu
   );
   process.env.CODEX_HOME = codexHome;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
-  process.env.LMSTUDIO_BASE_URL = 'invalid-url';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'invalid-url';
   process.env.Codex_sandbox_mode = 'workspace-write';
   process.env.Codex_approval_policy = 'on-request';
   process.env.Codex_reasoning_effort = 'medium';
@@ -1194,8 +1194,9 @@ test('REST and MCP codex defaults/warnings remain aligned for env fallback fixtu
     else process.env.MCP_FORCE_CODEX_AVAILABLE = originalForce;
     if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
     else process.env.CODEX_HOME = originalCodeHome;
-    if (originalLmBase === undefined) delete process.env.LMSTUDIO_BASE_URL;
-    else process.env.LMSTUDIO_BASE_URL = originalLmBase;
+    if (originalLmBase === undefined)
+      delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
+    else process.env.CODEINFO_LMSTUDIO_BASE_URL = originalLmBase;
     delete process.env.Codex_sandbox_mode;
     delete process.env.Codex_approval_policy;
     delete process.env.Codex_reasoning_effort;

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach, mock } from 'node:test';
 import { ChromaClient } from 'chromadb';
-import { reembed } from '../../ingest/ingestJob.js';
 import { resetCollectionsForTests } from '../../ingest/chromaClient.js';
+import { reembed } from '../../ingest/ingestJob.js';
 
 function mockCollections(opts: {
   lockMetadata: Record<string, unknown>;

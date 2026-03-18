@@ -56,7 +56,7 @@ beforeEach(() => {
   __setParseAstSourceForTest();
   resetCollectionsForTests();
   release();
-  delete process.env.INGEST_TEST_GIT_PATHS;
+  delete process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
   delete process.env.NODE_ENV;
 });
 
@@ -68,7 +68,7 @@ afterEach(() => {
   __setParseAstSourceForTest();
   resetCollectionsForTests();
   release();
-  delete process.env.INGEST_TEST_GIT_PATHS;
+  delete process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
   delete process.env.NODE_ENV;
 });
 
@@ -82,7 +82,7 @@ const createTempRepo = async (files: Record<string, string>) => {
       await fs.writeFile(fullPath, contents, 'utf8');
     }),
   );
-  process.env.INGEST_TEST_GIT_PATHS = Object.keys(files).join(',');
+  process.env.CODEINFO_INGEST_TEST_GIT_PATHS = Object.keys(files).join(',');
   return {
     root,
     cleanup: async () => {
@@ -288,7 +288,7 @@ test('deletions-only delta reembed stays completed and does not use fresh-ingest
       }),
     }));
     await fs.rm(path.join(root, 'src/deleted.ts'));
-    process.env.INGEST_TEST_GIT_PATHS = '';
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = '';
 
     const runId = await startIngest(
       {

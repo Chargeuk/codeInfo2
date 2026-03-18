@@ -28,15 +28,15 @@ describe('codexConfig', () => {
     assert.equal(options.env?.CODEX_HOME, path.resolve('/tmp/x'));
   });
 
-  it('buildDefaultCodexConfig uses SERVER_PORT when it is provided', () => {
+  it('buildDefaultCodexConfig uses CODEINFO_SERVER_PORT when it is provided', () => {
     const config = buildDefaultCodexConfig({
-      SERVER_PORT: '5510',
+      CODEINFO_SERVER_PORT: '5510',
       PORT: '5010',
     });
     assert.match(config, /http:\/\/localhost:5510\/mcp/);
   });
 
-  it('buildDefaultCodexConfig falls back to PORT when SERVER_PORT is missing', () => {
+  it('buildDefaultCodexConfig falls back to PORT when CODEINFO_SERVER_PORT is missing', () => {
     const config = buildDefaultCodexConfig({
       PORT: '5600',
     });
@@ -58,7 +58,7 @@ describe('codexConfig', () => {
       'docker = "http://server:5010/mcp"',
     ].join('\n');
     const rewritten = applyResolvedServerPortToCodexConfig(input, {
-      SERVER_PORT: '5710',
+      CODEINFO_SERVER_PORT: '5710',
     });
     assert.match(rewritten, /http:\/\/localhost:5710\/mcp/);
     assert.match(rewritten, /http:\/\/server:5710\/mcp/);
@@ -89,12 +89,12 @@ describe('codexConfig', () => {
   it('ensureCodexConfigSeeded preserves server-port substitution in the in-code template', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
-    const originalServerPort = process.env.SERVER_PORT;
+    const originalServerPort = process.env.CODEINFO_SERVER_PORT;
     const originalPort = process.env.PORT;
 
     try {
       process.env.CODEINFO_CODEX_HOME = codexHome;
-      process.env.SERVER_PORT = '5876';
+      process.env.CODEINFO_SERVER_PORT = '5876';
       process.env.PORT = '5010';
 
       const configPath = ensureCodexConfigSeeded();
@@ -109,9 +109,9 @@ describe('codexConfig', () => {
         process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
       }
       if (originalServerPort === undefined) {
-        delete process.env.SERVER_PORT;
+        delete process.env.CODEINFO_SERVER_PORT;
       } else {
-        process.env.SERVER_PORT = originalServerPort;
+        process.env.CODEINFO_SERVER_PORT = originalServerPort;
       }
       if (originalPort === undefined) {
         delete process.env.PORT;

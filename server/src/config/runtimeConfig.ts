@@ -437,10 +437,7 @@ export function mergeProjectsFromBaseIntoRuntime(
   return merged;
 }
 
-function mergeNamedTables(
-  baseValue: unknown,
-  runtimeValue: unknown,
-): unknown {
+function mergeNamedTables(baseValue: unknown, runtimeValue: unknown): unknown {
   if (runtimeValue !== undefined && !isRecord(runtimeValue)) {
     return structuredClone(runtimeValue);
   }

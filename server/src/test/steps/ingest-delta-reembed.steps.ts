@@ -25,9 +25,9 @@ import {
   getRootsCollection,
   getVectorsCollection,
 } from '../../ingest/chromaClient.js';
+import { resolveConfig } from '../../ingest/config.js';
 import { discoverFiles } from '../../ingest/discovery.js';
 import { hashFile } from '../../ingest/hashing.js';
-import { resolveConfig } from '../../ingest/config.js';
 import { setIngestDeps } from '../../ingest/ingestJob.js';
 import { createRequestLogger } from '../../logger.js';
 import { isMongoConnected } from '../../mongo/connection.js';
@@ -79,7 +79,7 @@ async function vectorCountForRoot(root: string) {
 
 Before(async () => {
   setDefaultTimeout(60_000);
-  process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
 
   const app = express();
   app.use(cors());
@@ -94,7 +94,7 @@ Before(async () => {
   setIngestDeps({
     lmClientFactory: () =>
       new MockLMStudioClient() as unknown as LMStudioClient,
-    baseUrl: process.env.LMSTUDIO_BASE_URL ?? '',
+    baseUrl: process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
   });
 
   app.use(

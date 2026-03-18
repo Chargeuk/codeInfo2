@@ -6,7 +6,7 @@ import { EmbeddingDimensionMismatchError } from '../../ingest/chromaClient.js';
 import { OpenAiEmbeddingError } from '../../ingest/providers/index.js';
 import { createToolsVectorSearchRouter } from '../../routes/toolsVectorSearch.js';
 
-const ORIGINAL_HOST = process.env.HOST_INGEST_DIR;
+const ORIGINAL_HOST = process.env.CODEINFO_HOST_INGEST_DIR;
 const ORIGINAL_CUTOFF = process.env.CODEINFO_RETRIEVAL_DISTANCE_CUTOFF;
 const ORIGINAL_CUTOFF_DISABLED = process.env.CODEINFO_RETRIEVAL_CUTOFF_DISABLED;
 const ORIGINAL_FALLBACK = process.env.CODEINFO_RETRIEVAL_FALLBACK_CHUNKS;
@@ -14,7 +14,7 @@ const ORIGINAL_TOOL_MAX = process.env.CODEINFO_TOOL_MAX_CHARS;
 const ORIGINAL_TOOL_CHUNK = process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS;
 
 beforeEach(() => {
-  delete process.env.HOST_INGEST_DIR;
+  delete process.env.CODEINFO_HOST_INGEST_DIR;
   delete process.env.CODEINFO_RETRIEVAL_DISTANCE_CUTOFF;
   delete process.env.CODEINFO_RETRIEVAL_CUTOFF_DISABLED;
   delete process.env.CODEINFO_RETRIEVAL_FALLBACK_CHUNKS;
@@ -24,9 +24,9 @@ beforeEach(() => {
 
 afterEach(() => {
   if (ORIGINAL_HOST === undefined) {
-    delete process.env.HOST_INGEST_DIR;
+    delete process.env.CODEINFO_HOST_INGEST_DIR;
   } else {
-    process.env.HOST_INGEST_DIR = ORIGINAL_HOST;
+    process.env.CODEINFO_HOST_INGEST_DIR = ORIGINAL_HOST;
   }
   if (ORIGINAL_CUTOFF === undefined) {
     delete process.env.CODEINFO_RETRIEVAL_DISTANCE_CUTOFF;
@@ -258,7 +258,7 @@ test('REST vector-search OpenAI error payload redacts secret-like message materi
 });
 
 test('returns mapped search results with host path and model id', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   const res = await request(
     buildApp({
       roots: defaultRoots,
@@ -306,7 +306,7 @@ test('returns mapped search results with host path and model id', async () => {
 });
 
 test('aggregates files by host path with summed lines and min score', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   const res = await request(
     buildApp({
       roots: defaultRoots,
@@ -348,7 +348,7 @@ test('aggregates files by host path with summed lines and min score', async () =
 });
 
 test('highestMatch remains null when no numeric distances exist', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   const res = await request(
     buildApp({
       roots: defaultRoots,
@@ -379,7 +379,7 @@ test('highestMatch remains null when no numeric distances exist', async () => {
 });
 
 test('filters results by cutoff when enabled', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   process.env.CODEINFO_RETRIEVAL_DISTANCE_CUTOFF = '0.2';
   const res = await request(
     buildApp({
@@ -419,7 +419,7 @@ test('filters results by cutoff when enabled', async () => {
 });
 
 test('keeps all results when cutoff is disabled', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   process.env.CODEINFO_RETRIEVAL_DISTANCE_CUTOFF = '0.2';
   process.env.CODEINFO_RETRIEVAL_CUTOFF_DISABLED = 'true';
   const res = await request(
@@ -457,7 +457,7 @@ test('keeps all results when cutoff is disabled', async () => {
 });
 
 test('falls back to the best results when none pass cutoff', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   process.env.CODEINFO_RETRIEVAL_DISTANCE_CUTOFF = '0.1';
   process.env.CODEINFO_RETRIEVAL_FALLBACK_CHUNKS = '2';
   const res = await request(
@@ -525,7 +525,7 @@ test('returns empty payloads when no results exist', async () => {
 });
 
 test('missing distances only pass through fallback selection', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   const res = await request(
     buildApp({
       roots: defaultRoots,
@@ -563,7 +563,7 @@ test('missing distances only pass through fallback selection', async () => {
 });
 
 test('fallback preserves original order when distances tie', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   process.env.CODEINFO_RETRIEVAL_DISTANCE_CUTOFF = '0.1';
   process.env.CODEINFO_RETRIEVAL_FALLBACK_CHUNKS = '2';
   const res = await request(
@@ -610,7 +610,7 @@ test('fallback preserves original order when distances tie', async () => {
 });
 
 test('files summaries reflect filtered results', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   process.env.CODEINFO_RETRIEVAL_DISTANCE_CUTOFF = '1.4';
   const res = await request(
     buildApp({
@@ -652,7 +652,7 @@ test('files summaries reflect filtered results', async () => {
 });
 
 test('invalid env values fall back to defaults', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   process.env.CODEINFO_RETRIEVAL_DISTANCE_CUTOFF = 'not-a-number';
   process.env.CODEINFO_RETRIEVAL_FALLBACK_CHUNKS = '-4';
   const res = await request(
@@ -691,7 +691,7 @@ test('invalid env values fall back to defaults', async () => {
 });
 
 test('truncates each chunk to the per-chunk cap', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS = '4';
   process.env.CODEINFO_TOOL_MAX_CHARS = '100';
   const res = await request(
@@ -723,7 +723,7 @@ test('truncates each chunk to the per-chunk cap', async () => {
 });
 
 test('drops additional chunks once total cap is reached', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS = '10';
   process.env.CODEINFO_TOOL_MAX_CHARS = '5';
   const res = await request(
@@ -762,7 +762,7 @@ test('drops additional chunks once total cap is reached', async () => {
 });
 
 test('returns no chunks when total cap is too small', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS = '10';
   process.env.CODEINFO_TOOL_MAX_CHARS = '3';
   const res = await request(
@@ -795,7 +795,7 @@ test('returns no chunks when total cap is too small', async () => {
 });
 
 test('lineCount reflects truncated chunks', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS = '7';
   process.env.CODEINFO_TOOL_MAX_CHARS = '100';
   const res = await request(
@@ -827,7 +827,7 @@ test('lineCount reflects truncated chunks', async () => {
 });
 
 test('files summaries reflect capped results', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS = '10';
   process.env.CODEINFO_TOOL_MAX_CHARS = '5';
   const res = await request(
@@ -866,7 +866,7 @@ test('files summaries reflect capped results', async () => {
 });
 
 test('invalid cap env values fall back to defaults', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   process.env.CODEINFO_TOOL_MAX_CHARS = 'nope';
   process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS = '-2';
   const chunk = 'a'.repeat(6000);
@@ -907,7 +907,7 @@ test('invalid cap env values fall back to defaults', async () => {
 });
 
 test('dedupes duplicate chunk ids and keeps top 2 per file', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   const res = await request(
     buildApp({
       roots: defaultRoots,
@@ -958,7 +958,7 @@ test('dedupes duplicate chunk ids and keeps top 2 per file', async () => {
 });
 
 test('dedupes identical chunk text within the same file', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   const res = await request(
     buildApp({
       roots: defaultRoots,
@@ -994,7 +994,7 @@ test('dedupes identical chunk text within the same file', async () => {
 });
 
 test('does not dedupe identical chunk text across files', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   const res = await request(
     buildApp({
       roots: defaultRoots,
@@ -1030,7 +1030,7 @@ test('does not dedupe identical chunk text across files', async () => {
 });
 
 test('missing distances are lowest priority in dedupe ranking', async () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   const res = await request(
     buildApp({
       roots: defaultRoots,

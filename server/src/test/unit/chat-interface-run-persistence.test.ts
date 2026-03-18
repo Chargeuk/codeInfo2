@@ -1,13 +1,42 @@
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import path from 'node:path';
+import { afterEach, describe, test } from 'node:test';
+import express from 'express';
 import mongoose from 'mongoose';
+import request from 'supertest';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
+import {
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { AppendTurnInput } from '../../mongo/repo.js';
 import type {
+  TurnRuntimeMetadata,
   TurnSource,
   TurnTimingMetadata,
   TurnUsageMetadata,
 } from '../../mongo/turn.js';
+import { createChatRouter } from '../../routes/chat.js';
+import {
+  knownRepositoryPathsUnavailable,
+  restoreSavedWorkingFolder,
+  setWorkingFolderStatForTests,
+} from '../../workingFolders/state.js';
+
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
+  id: path.basename(containerPath) || 'repo',
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'text-embedding-nomic-embed-text-v1.5',
+  embeddingDimensions: 768,
+  modelId: 'text-embedding-nomic-embed-text-v1.5',
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
 
 class PersistSpyChat extends ChatInterface {
   public persisted: Array<{
@@ -16,6 +45,7 @@ class PersistSpyChat extends ChatInterface {
     model: string;
     provider: string;
     source?: string;
+    runtime?: TurnRuntimeMetadata;
     usage?: TurnUsageMetadata;
     timing?: TurnTimingMetadata;
   }> = [];
@@ -44,6 +74,7 @@ class PersistSpyChat extends ChatInterface {
       model: input.model,
       provider: input.provider,
       source: input.source,
+      ...(input.runtime !== undefined ? { runtime: input.runtime } : {}),
       ...(input.usage !== undefined ? { usage: input.usage } : {}),
       ...(input.timing !== undefined ? { timing: input.timing } : {}),
     });
@@ -62,6 +93,22 @@ class PersistSpyChat extends ChatInterface {
       type: 'complete',
       ...(this.completeEvent ?? {}),
     });
+  }
+}
+
+class RouteChat extends ChatInterface {
+  async execute(
+    _message: string,
+    _flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ): Promise<void> {
+    void _message;
+    void _flags;
+    void _model;
+    this.emitEvent({ type: 'thread', threadId: conversationId });
+    this.emitEvent({ type: 'final', content: 'assistant-reply' });
+    this.emitEvent({ type: 'complete' });
   }
 }
 
@@ -89,6 +136,12 @@ const withReadyState = async (
 };
 
 describe('ChatInterface.run persistence', () => {
+  afterEach(() => {
+    setWorkingFolderStatForTests(undefined);
+    memoryConversations.clear();
+    memoryTurns.clear();
+  });
+
   test('persists user turn then executes when Mongo is available', async () => {
     const chat = new PersistSpyChat();
     await withReadyState(1, 'development', async () => {
@@ -221,5 +274,318 @@ describe('ChatInterface.run persistence', () => {
     assert.equal(chat.persisted.length, 2);
     const totalTimeSec = chat.persisted[1].timing?.totalTimeSec ?? 0;
     assert.ok(Math.abs(totalTimeSec - 1.5) < 0.001);
+  });
+
+  test('persists Turn.runtime in the Mongo-backed path', async () => {
+    const chat = new PersistSpyChat();
+
+    await withReadyState(1, 'development', async () => {
+      await chat.run(
+        'hello',
+        {
+          provider: 'lmstudio',
+          source: 'REST',
+          runtime: {
+            workingFolder: '/repos/working-root',
+            lookupSummary: {
+              selectedRepositoryPath: '/repos/working-root',
+              fallbackUsed: false,
+              workingRepositoryAvailable: true,
+            },
+          },
+        },
+        'conv-runtime-mongo',
+        'model-runtime',
+      );
+    });
+
+    assert.equal(chat.persisted.length, 2);
+    assert.deepEqual(chat.persisted[0].runtime, {
+      workingFolder: '/repos/working-root',
+      lookupSummary: {
+        selectedRepositoryPath: '/repos/working-root',
+        fallbackUsed: false,
+        workingRepositoryAvailable: true,
+      },
+    });
+  });
+
+  test('persists Turn.runtime in the memory-backed path', async () => {
+    const chat = new PersistSpyChat();
+    memoryConversations.set('conv-runtime-memory', {
+      _id: 'conv-runtime-memory',
+      provider: 'lmstudio',
+      model: 'model-runtime',
+      title: 'Runtime memory test',
+      source: 'REST',
+      flags: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastMessageAt: new Date(),
+      archivedAt: null,
+    });
+
+    try {
+      await withReadyState(0, 'test', async () => {
+        await chat.run(
+          'hello',
+          {
+            provider: 'lmstudio',
+            source: 'REST',
+            runtime: {
+              workingFolder: '/repos/working-root',
+              lookupSummary: {
+                selectedRepositoryPath: '/repos/working-root',
+                fallbackUsed: false,
+                workingRepositoryAvailable: true,
+              },
+            },
+          },
+          'conv-runtime-memory',
+          'model-runtime',
+        );
+      });
+
+      const turns = memoryTurns.get('conv-runtime-memory') ?? [];
+      assert.equal(turns.length, 2);
+      assert.deepEqual(turns[0]?.runtime, {
+        workingFolder: '/repos/working-root',
+        lookupSummary: {
+          selectedRepositoryPath: '/repos/working-root',
+          fallbackUsed: false,
+          workingRepositoryAvailable: true,
+        },
+      });
+    } finally {
+      memoryConversations.delete('conv-runtime-memory');
+      memoryTurns.delete('conv-runtime-memory');
+    }
+  });
+
+  test('a successful chat run persists the selected working folder on the owning conversation', async () => {
+    const app = express();
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: () =>
+          ({
+            system: {
+              listDownloadedModels: async () => [{ modelKey: 'lmstudio-test' }],
+            },
+          }) as never,
+        chatFactory: () => new RouteChat(),
+        listIngestedRepositoriesFn: async () => ({
+          repos: [buildRepoEntry(process.cwd())],
+          lockedModelId: null,
+        }),
+      }),
+    );
+
+    await withReadyState(0, 'test', async () => {
+      const res = await request(app).post('/chat').send({
+        provider: 'lmstudio',
+        model: 'lmstudio-test',
+        message: 'hello',
+        conversationId: 'chat-working-folder-save',
+        working_folder: process.cwd(),
+      });
+
+      assert.equal(res.status, 202);
+    });
+
+    try {
+      assert.equal(
+        memoryConversations.get('chat-working-folder-save')?.flags
+          ?.workingFolder,
+        process.cwd(),
+      );
+    } finally {
+      memoryConversations.delete('chat-working-folder-save');
+      memoryTurns.delete('chat-working-folder-save');
+    }
+  });
+
+  test('an invalid saved chat working folder is cleared before the chat restore path uses it', async () => {
+    let clearedConversationId: string | undefined;
+    const restored = await restoreSavedWorkingFolder({
+      conversation: {
+        conversationId: 'chat-restore-clear',
+        flags: {
+          workingFolder: path.join(process.cwd(), 'definitely-missing'),
+        },
+      },
+      surface: 'chat_run',
+      clearPersistedWorkingFolder: async (conversationId) => {
+        clearedConversationId = conversationId;
+      },
+    });
+
+    assert.equal(restored, undefined);
+    assert.equal(clearedConversationId, 'chat-restore-clear');
+  });
+
+  test('an operational saved chat working folder failure is not cleared as stale', async () => {
+    let clearedConversationId: string | undefined;
+    setWorkingFolderStatForTests(async (targetPath) => {
+      if (targetPath.includes('temporarily-unreadable')) {
+        const error = new Error('permission denied') as NodeJS.ErrnoException;
+        error.code = 'EACCES';
+        throw error;
+      }
+      return {
+        isDirectory: () => true,
+      } as never;
+    });
+
+    await assert.rejects(
+      async () =>
+        await restoreSavedWorkingFolder({
+          conversation: {
+            conversationId: 'chat-restore-unavailable',
+            flags: {
+              workingFolder: path.join(
+                process.cwd(),
+                'temporarily-unreadable-working-folder',
+              ),
+            },
+          },
+          surface: 'chat_run',
+          clearPersistedWorkingFolder: async (conversationId) => {
+            clearedConversationId = conversationId;
+          },
+        }),
+      (error) =>
+        (error as { code?: string; causeCode?: string }).code ===
+          'WORKING_FOLDER_UNAVAILABLE' &&
+        (error as { code?: string; causeCode?: string }).causeCode ===
+          'EACCES',
+    );
+
+    assert.equal(clearedConversationId, undefined);
+  });
+
+  test('repository enumeration failure does not clear a saved chat working folder as stale', async () => {
+    let clearedConversationId: string | undefined;
+
+    await assert.rejects(
+      async () =>
+        await restoreSavedWorkingFolder({
+          conversation: {
+            conversationId: 'chat-restore-repo-enumeration-unavailable',
+            flags: {
+              workingFolder: process.cwd(),
+            },
+          },
+          surface: 'chat_run',
+          clearPersistedWorkingFolder: async (conversationId) => {
+            clearedConversationId = conversationId;
+          },
+          knownRepositoryPathsState: knownRepositoryPathsUnavailable(
+            new Error('repo list offline'),
+          ),
+        }),
+      (error) =>
+        (error as { code?: string; reason?: string }).code ===
+          'WORKING_FOLDER_REPOSITORY_UNAVAILABLE' &&
+        (error as { code?: string; reason?: string }).reason ===
+          'repo list offline',
+    );
+
+    assert.equal(clearedConversationId, undefined);
+  });
+
+  test('an invalid saved chat working folder is cleared before the next chat run reuses it', async () => {
+    memoryConversations.set('chat-working-folder-clear', {
+      _id: 'chat-working-folder-clear',
+      provider: 'lmstudio',
+      model: 'lmstudio-test',
+      title: 'Chat conversation',
+      source: 'REST',
+      flags: {
+        workingFolder: path.join(process.cwd(), 'definitely-missing-chat-path'),
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastMessageAt: new Date(),
+      archivedAt: null,
+    });
+
+    const app = express();
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: () =>
+          ({
+            system: {
+              listDownloadedModels: async () => [{ modelKey: 'lmstudio-test' }],
+            },
+          }) as never,
+        chatFactory: () => new RouteChat(),
+        listIngestedRepositoriesFn: async () => ({
+          repos: [buildRepoEntry(process.cwd())],
+          lockedModelId: null,
+        }),
+      }),
+    );
+
+    try {
+      await withReadyState(0, 'test', async () => {
+        const res = await request(app).post('/chat').send({
+          provider: 'lmstudio',
+          model: 'lmstudio-test',
+          message: 'hello',
+          conversationId: 'chat-working-folder-clear',
+        });
+
+        assert.equal(res.status, 202);
+      });
+
+      assert.equal(
+        memoryConversations.get('chat-working-folder-clear')?.flags
+          ?.workingFolder,
+        undefined,
+      );
+    } finally {
+      memoryConversations.delete('chat-working-folder-clear');
+      memoryTurns.delete('chat-working-folder-clear');
+    }
+  });
+
+  test('chat turn runtime metadata includes the working-folder snapshot when a chat run uses one', async () => {
+    const app = express();
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: () =>
+          ({
+            system: {
+              listDownloadedModels: async () => [{ modelKey: 'lmstudio-test' }],
+            },
+          }) as never,
+        chatFactory: () => new RouteChat(),
+        listIngestedRepositoriesFn: async () => ({
+          repos: [buildRepoEntry(process.cwd())],
+          lockedModelId: null,
+        }),
+      }),
+    );
+
+    try {
+      await withReadyState(0, 'test', async () => {
+        await request(app).post('/chat').send({
+          provider: 'lmstudio',
+          model: 'lmstudio-test',
+          message: 'hello',
+          conversationId: 'chat-runtime-working-folder',
+          working_folder: process.cwd(),
+        });
+      });
+
+      const turns = memoryTurns.get('chat-runtime-working-folder') ?? [];
+      assert.equal(turns[0]?.runtime?.workingFolder, process.cwd());
+    } finally {
+      memoryConversations.delete('chat-runtime-working-folder');
+      memoryTurns.delete('chat-runtime-working-folder');
+    }
   });
 });

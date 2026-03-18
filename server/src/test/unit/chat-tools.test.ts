@@ -50,7 +50,7 @@ const buildToolContext = () => ({
 });
 
 beforeEach(() => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
 });
 
 test('ListIngestedRepositories tool returns mapped repos and logs metadata', async () => {

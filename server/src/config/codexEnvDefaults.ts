@@ -1,10 +1,10 @@
 import type { CodexDefaults as SharedCodexDefaults } from '@codeinfo2/common';
-import { baseLogger } from '../logger.js';
 import type {
   ApprovalMode,
   ModelReasoningEffort,
   SandboxMode,
 } from '@openai/codex-sdk';
+import { baseLogger } from '../logger.js';
 
 const sandboxModes: SandboxMode[] = [
   'read-only',

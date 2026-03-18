@@ -172,7 +172,7 @@ function runAgentInstructionDefinition() {
         working_folder: {
           type: 'string',
           description:
-            'Optional absolute working folder to run the agent instruction from. When provided, the server may map host paths under HOST_INGEST_DIR into the Codex workdir and validates that the resolved directory exists.',
+            'Optional absolute working folder to run the agent instruction from. When provided, the server may map host paths under CODEINFO_HOST_INGEST_DIR into the Codex workdir and validates that the resolved directory exists.',
         },
       },
     },
@@ -211,7 +211,7 @@ function runCommandDefinition() {
         working_folder: {
           type: 'string',
           description:
-            'Optional absolute working folder to run the command from. When provided, the server may map host paths under HOST_INGEST_DIR into the Codex workdir and validates that the resolved directory exists.',
+            'Optional absolute working folder to run the command from. When provided, the server may map host paths under CODEINFO_HOST_INGEST_DIR into the Codex workdir and validates that the resolved directory exists.',
         },
       },
     },

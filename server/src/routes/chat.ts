@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import path from 'node:path';
 
 import type { LMStudioClient } from '@lmstudio/sdk';
 import type { CodexOptions } from '@openai/codex-sdk';
@@ -26,6 +27,7 @@ import {
   getMemoryTurns,
   memoryConversations,
   shouldUseMemoryPersistence,
+  updateMemoryConversationWorkingFolder,
 } from '../chat/memoryPersistence.js';
 import {
   resolveCodexCapabilities,
@@ -39,12 +41,24 @@ import {
   RuntimeConfigResolutionError,
   resolveChatRuntimeConfig,
 } from '../config/runtimeConfig.js';
+import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 import { ConversationModel, type Conversation } from '../mongo/conversation.js';
-import { createConversation, updateConversationMeta } from '../mongo/repo.js';
+import {
+  createConversation,
+  updateConversationMeta,
+  updateConversationWorkingFolder,
+} from '../mongo/repo.js';
 import { TurnModel, type Turn } from '../mongo/turn.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
+import {
+  appendWorkingFolderDecisionLog,
+  getConversationRecordType,
+  getWorkingFolderClientMessage,
+  resolveKnownRepositoryPathsState,
+  restoreSavedWorkingFolder,
+} from '../workingFolders/state.js';
 import { publishUserTurn } from '../ws/server.js';
 import { ChatValidationError, validateChatRequest } from './chatValidators.js';
 import { BASE_URL_REGEX, scrubBaseUrl } from './lmstudioUrl.js';
@@ -123,6 +137,7 @@ export function createChatRouter({
   codexFactory,
   toolFactory,
   chatFactory = getChatInterface,
+  listIngestedRepositoriesFn = listIngestedRepositories,
   codexCapabilityResolver = resolveCodexCapabilities,
   cleanupInflightFn = cleanupInflight,
   releaseConversationLockFn = releaseConversationLock,
@@ -131,6 +146,7 @@ export function createChatRouter({
   codexFactory?: CodexFactory;
   toolFactory?: ToolFactory;
   chatFactory?: typeof getChatInterface;
+  listIngestedRepositoriesFn?: typeof listIngestedRepositories;
   codexCapabilityResolver?: (options: {
     consumer: 'chat_models' | 'chat_validation';
   }) => Promise<CodexCapabilityResolution>;
@@ -154,9 +170,16 @@ export function createChatRouter({
     }
 
     let validatedBody;
+    const knownRepositoryPathsState = await resolveKnownRepositoryPathsState(
+      async () =>
+        (await listIngestedRepositoriesFn()).repos.map((repo) =>
+          path.resolve(repo.containerPath),
+        ),
+    );
     try {
       validatedBody = await validateChatRequest(rawBody, {
         codexCapabilityResolver,
+        knownRepositoryPathsState,
       });
     } catch (err) {
       if (err instanceof ChatValidationError) {
@@ -164,6 +187,17 @@ export function createChatRouter({
           status: 'error',
           code: 'VALIDATION_FAILED',
           message: err.message,
+        });
+      }
+      const workingFolderError = err as { code?: string; reason?: string };
+      if (
+        workingFolderError.code === 'WORKING_FOLDER_UNAVAILABLE' ||
+        workingFolderError.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
+      ) {
+        return res.status(503).json({
+          status: 'error',
+          code: workingFolderError.code,
+          message: getWorkingFolderClientMessage(workingFolderError),
         });
       }
       throw err;
@@ -176,6 +210,7 @@ export function createChatRouter({
       conversationId,
       threadId,
       inflightId: requestedInflightId,
+      working_folder: requestedWorkingFolder,
       codexFlags,
       warnings,
       defaultsResolution,
@@ -192,11 +227,11 @@ export function createChatRouter({
       requestedProvider: defaultsResolution.requestedProvider,
       requestedModel: defaultsResolution.requestedModel,
       envProviderPresent:
-        typeof process.env.CHAT_DEFAULT_PROVIDER === 'string' &&
-        process.env.CHAT_DEFAULT_PROVIDER.trim().length > 0,
+        typeof process.env.CODEINFO_CHAT_DEFAULT_PROVIDER === 'string' &&
+        process.env.CODEINFO_CHAT_DEFAULT_PROVIDER.trim().length > 0,
       envModelPresent:
-        typeof process.env.CHAT_DEFAULT_MODEL === 'string' &&
-        process.env.CHAT_DEFAULT_MODEL.trim().length > 0,
+        typeof process.env.CODEINFO_CHAT_DEFAULT_MODEL === 'string' &&
+        process.env.CODEINFO_CHAT_DEFAULT_MODEL.trim().length > 0,
     };
     append({
       level: 'info',
@@ -225,7 +260,7 @@ export function createChatRouter({
 
     const requestedProvider = provider as ChatDefaultProvider;
     const requestedModel = model;
-    const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
+    const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
     const safeBase = scrubBaseUrl(baseUrl);
 
     const codexDetection = getCodexDetection();
@@ -347,9 +382,83 @@ export function createChatRouter({
       'DEV-0000035:T2:provider_fallback_result',
     );
 
-    const ensureConversation = async (): Promise<Conversation | null> => {
+    const loadExistingConversation = async (): Promise<Conversation | null> =>
+      shouldUseMemoryPersistence()
+        ? (memoryConversations.get(conversationId) ?? null)
+        : (((await ConversationModel.findById(conversationId)
+            .lean()
+            .exec()) as Conversation | null) ?? null);
+
+    const persistWorkingFolder = async (workingFolder?: string | null) => {
       if (shouldUseMemoryPersistence()) {
-        const existing = memoryConversations.get(conversationId) ?? null;
+        updateMemoryConversationWorkingFolder({
+          conversationId,
+          workingFolder,
+        });
+        return;
+      }
+      await updateConversationWorkingFolder({
+        conversationId,
+        workingFolder,
+      });
+    };
+
+    let existingConversation = await loadExistingConversation();
+    let effectiveWorkingFolder = requestedWorkingFolder;
+    try {
+      if (!effectiveWorkingFolder && existingConversation) {
+        effectiveWorkingFolder = await restoreSavedWorkingFolder({
+          conversation: existingConversation,
+          surface: 'chat_run',
+          clearPersistedWorkingFolder: async (id) => {
+            await persistWorkingFolder(null);
+            const nextFlags = { ...(existingConversation?.flags ?? {}) };
+            delete nextFlags.workingFolder;
+            existingConversation = {
+              ...existingConversation!,
+              flags: nextFlags,
+            } as Conversation;
+            void id;
+          },
+          knownRepositoryPathsState,
+        });
+      }
+    } catch (err) {
+      const workingFolderError = err as { code?: string; reason?: string };
+      if (
+        workingFolderError.code === 'WORKING_FOLDER_UNAVAILABLE' ||
+        workingFolderError.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
+      ) {
+        return res.status(503).json({
+          status: 'error',
+          code: workingFolderError.code,
+          message: getWorkingFolderClientMessage(workingFolderError),
+        });
+      }
+      throw err;
+    }
+
+    const ensureConversation = async (): Promise<Conversation | null> => {
+      const buildConversationFlags = (
+        currentFlags: Record<string, unknown> | undefined,
+      ) => {
+        const nextFlags =
+          executionProvider === 'codex'
+            ? { ...(currentFlags ?? {}), ...effectiveCodexFlags }
+            : sanitizeFlagsForProvider('lmstudio', currentFlags);
+        if (effectiveWorkingFolder) {
+          nextFlags.workingFolder = effectiveWorkingFolder;
+        } else {
+          delete nextFlags.workingFolder;
+        }
+        return nextFlags;
+      };
+
+      if (shouldUseMemoryPersistence()) {
+        const existing =
+          existingConversation ??
+          memoryConversations.get(conversationId) ??
+          null;
         if (existing?.archivedAt) return null;
 
         if (!existing) {
@@ -359,8 +468,7 @@ export function createChatRouter({
             model: executionModel,
             title: message.trim().slice(0, 80) || 'Untitled conversation',
             source: 'REST',
-            flags:
-              executionProvider === 'codex' ? { ...effectiveCodexFlags } : {},
+            flags: buildConversationFlags(undefined),
             lastMessageAt: now,
             archivedAt: null,
             createdAt: now,
@@ -374,10 +482,7 @@ export function createChatRouter({
           ...existing,
           provider: executionProvider,
           model: executionModel,
-          flags:
-            executionProvider === 'codex'
-              ? { ...(existing.flags ?? {}), ...effectiveCodexFlags }
-              : sanitizeFlagsForProvider('lmstudio', existing.flags),
+          flags: buildConversationFlags(existing.flags),
           source: existing.source ?? 'REST',
           lastMessageAt: now,
           updatedAt: now,
@@ -386,9 +491,11 @@ export function createChatRouter({
         return updated;
       }
 
-      const existing = (await ConversationModel.findById(conversationId)
-        .lean()
-        .exec()) as Conversation | null;
+      const existing =
+        existingConversation ??
+        ((await ConversationModel.findById(conversationId)
+          .lean()
+          .exec()) as Conversation | null);
       if (existing?.archivedAt) return null;
 
       if (!existing) {
@@ -398,8 +505,7 @@ export function createChatRouter({
           model: executionModel,
           title: message.trim().slice(0, 80) || 'Untitled conversation',
           source: 'REST',
-          flags:
-            executionProvider === 'codex' ? { ...effectiveCodexFlags } : {},
+          flags: buildConversationFlags(undefined),
           lastMessageAt: now,
         });
         const created = (await ConversationModel.findById(conversationId)
@@ -412,10 +518,7 @@ export function createChatRouter({
         conversationId,
         provider: executionProvider,
         model: executionModel,
-        flags:
-          executionProvider === 'codex'
-            ? { ...(existing.flags ?? {}), ...effectiveCodexFlags }
-            : sanitizeFlagsForProvider('lmstudio', existing.flags),
+        flags: buildConversationFlags(existing.flags),
         lastMessageAt: now,
       });
       const updated = (await ConversationModel.findById(conversationId)
@@ -459,12 +562,23 @@ export function createChatRouter({
       });
     }
 
-    const existingConversation = await ensureConversation();
-    if (!existingConversation) {
+    const ensuredConversation = await ensureConversation();
+    if (!ensuredConversation) {
       return res.status(410).json({
         status: 'error',
         code: 'CONVERSATION_ARCHIVED',
         message: 'Conversation is archived and must be restored before use.',
+      });
+    }
+
+    if (requestedWorkingFolder) {
+      appendWorkingFolderDecisionLog({
+        conversationId,
+        recordType: getConversationRecordType(ensuredConversation),
+        surface: 'chat_run',
+        action: 'save',
+        decisionReason: 'request_value_persisted',
+        workingFolder: requestedWorkingFolder,
       });
     }
 
@@ -608,7 +722,7 @@ export function createChatRouter({
         if (executionProvider === 'codex') {
           const activeThreadId =
             threadId ??
-            (existingConversation.flags?.threadId as string | undefined) ??
+            (ensuredConversation.flags?.threadId as string | undefined) ??
             null;
 
           await chat.run(
@@ -620,6 +734,9 @@ export function createChatRouter({
               codexFlags: effectiveCodexFlags,
               requestId,
               inflightId,
+              ...(effectiveWorkingFolder
+                ? { runtime: { workingFolder: effectiveWorkingFolder } }
+                : {}),
               deferInflightCleanup: true,
               signal: getInflight(conversationId)?.abortController.signal,
               source: 'REST',
@@ -641,6 +758,9 @@ export function createChatRouter({
             requestId,
             baseUrl,
             inflightId,
+            ...(effectiveWorkingFolder
+              ? { runtime: { workingFolder: effectiveWorkingFolder } }
+              : {}),
             deferInflightCleanup: true,
             signal: getInflight(conversationId)?.abortController.signal,
             history: historyForRun,

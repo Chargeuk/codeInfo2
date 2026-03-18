@@ -310,3 +310,174 @@ test('runAgentCommand falls back to codeInfo2 when same-source markdown is missi
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test('runAgentCommand restarts markdown repository ordering from the current hop instead of sticking to the command repository winner', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'commands-markdown-file-'),
+  );
+  const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
+  const agentsHome = path.join(codeInfo2Root, 'codex_agents');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const sourceRepo = path.join(tempRoot, 'repo-source');
+  const workingRepo = path.join(tempRoot, 'repo-working');
+  await writeAgentScaffold({
+    agentsHome,
+    agentName: 'coding_agent',
+    codexHome,
+  });
+  const messages: string[] = [];
+  const conversationId = 'commands-markdown-restart-order';
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(
+        sourceRepo,
+        'codex_agents',
+        'coding_agent',
+        'commands',
+      ),
+      commandName: 'repo-markdown-working-restart',
+      items: [{ type: 'message', role: 'user', markdownFile: 'restart.md' }],
+    });
+    await writeMarkdownFile({
+      repoRoot: sourceRepo,
+      relativePath: 'restart.md',
+      content: 'owner repo markdown',
+    });
+    await writeMarkdownFile({
+      repoRoot: workingRepo,
+      relativePath: 'restart.md',
+      content: 'working repo markdown',
+    });
+    const repoResult = {
+      repos: [
+        buildRepoEntry({ id: 'Working Repo', containerPath: workingRepo }),
+        buildRepoEntry({ id: 'Source Repo', containerPath: sourceRepo }),
+      ],
+    } as never;
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: async () => repoResult,
+    });
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () => repoResult,
+    });
+
+    await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'repo-markdown-working-restart',
+      conversationId,
+      sourceId: sourceRepo,
+      working_folder: workingRepo,
+      source: 'REST',
+      chatFactory: () => new CapturingChat(messages),
+    });
+
+    assert.deepEqual(messages, ['working repo markdown']);
+  } finally {
+    __resetAgentServiceDepsForTests();
+    __resetMarkdownFileResolverDepsForTests();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('runAgentCommand persists nested markdown lookup summaries into turn runtime metadata', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'commands-markdown-file-'),
+  );
+  const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
+  const agentsHome = path.join(codeInfo2Root, 'codex_agents');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const sourceRepo = path.join(tempRoot, 'repo-source');
+  const workingRepo = path.join(tempRoot, 'repo-working');
+  await writeAgentScaffold({
+    agentsHome,
+    agentName: 'coding_agent',
+    codexHome,
+  });
+  const conversationId = 'commands-markdown-runtime-summary';
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(
+        sourceRepo,
+        'codex_agents',
+        'coding_agent',
+        'commands',
+      ),
+      commandName: 'repo-markdown-runtime',
+      items: [{ type: 'message', role: 'user', markdownFile: 'runtime.md' }],
+    });
+    await writeMarkdownFile({
+      repoRoot: sourceRepo,
+      relativePath: 'runtime.md',
+      content: 'owner repo markdown',
+    });
+    await writeMarkdownFile({
+      repoRoot: workingRepo,
+      relativePath: 'runtime.md',
+      content: 'working repo markdown',
+    });
+    const repoResult = {
+      repos: [
+        buildRepoEntry({ id: 'Working Repo', containerPath: workingRepo }),
+        buildRepoEntry({ id: 'Source Repo', containerPath: sourceRepo }),
+      ],
+    } as never;
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: async () => repoResult,
+    });
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () => repoResult,
+    });
+
+    await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'repo-markdown-runtime',
+      conversationId,
+      sourceId: sourceRepo,
+      working_folder: workingRepo,
+      source: 'REST',
+      chatFactory: () => new CapturingChat([]),
+    });
+
+    const turns = memoryTurns.get(conversationId) ?? [];
+    const markdownTurns = turns.filter(
+      (turn) =>
+        turn.command?.name === 'repo-markdown-runtime' &&
+        turn.content === 'working repo markdown',
+    );
+    assert.equal(markdownTurns.length > 0, true);
+    assert.equal(
+      markdownTurns.every(
+        (turn) =>
+          turn.runtime?.lookupSummary?.selectedRepositoryPath ===
+            path.resolve(workingRepo) &&
+          turn.runtime?.lookupSummary?.fallbackUsed === false &&
+          turn.runtime?.lookupSummary?.workingRepositoryAvailable === true,
+      ),
+      true,
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    __resetMarkdownFileResolverDepsForTests();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});

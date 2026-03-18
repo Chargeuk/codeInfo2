@@ -6,22 +6,23 @@ import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
 import { warmAstParserQueries } from './ast/parser.js';
 import { ensureCodexConfigSeeded, getCodexHome } from './config/codexConfig.js';
-import { resolveServerPort } from './config/serverPort.js';
-import './flows/flowSchema.js';
-import './ingest/index.js';
-import './mongo/astCoverage.js';
-import { closeAll, getClient } from './lmstudio/clientPool.js';
-import { append } from './logStore.js';
-import {
-  ensureStartupEnvLoaded,
-  resolveOpenAiEmbeddingCapabilityState,
-} from './config/startupEnv.js';
 import {
   DEV_0000037_T01_REQUIRED_VERSION,
   DEV_0000040_T10_CODEX_SDK_GUARD,
   validateAndLogCodexSdkUpgrade,
 } from './config/codexSdkUpgrade.js';
 import { getFlowAndCommandRetries } from './config/flowAndCommandRetries.js';
+import { resolveServerPort } from './config/serverPort.js';
+import './flows/flowSchema.js';
+import './ingest/index.js';
+import './mongo/astCoverage.js';
+import {
+  ensureStartupEnvLoaded,
+  resolveCodeinfoEnvResolutions,
+  resolveOpenAiEmbeddingCapabilityState,
+} from './config/startupEnv.js';
+import { closeAll, getClient } from './lmstudio/clientPool.js';
+import { append } from './logStore.js';
 import { baseLogger, createRequestLogger } from './logger.js';
 import { createMcpRouter } from './mcp/server.js';
 import { startMcp2Server, stopMcp2Server } from './mcp2/server.js';
@@ -65,6 +66,9 @@ import { ensureCodexAuthFromHost } from './utils/codexAuthCopy.js';
 import { attachWs, type WsServerHandle } from './ws/server.js';
 
 const startupEnvLoad = ensureStartupEnvLoaded();
+const codeinfoEnvResolutions = resolveCodeinfoEnvResolutions({
+  loadResult: startupEnvLoad,
+});
 ensureCodexConfigSeeded();
 const installedCodexSdkVersion = pkg.dependencies?.['@openai/codex-sdk'];
 const codexSdkGuardAccepted = validateAndLogCodexSdkUpgrade(
@@ -114,6 +118,22 @@ append({
     overrideApplied: startupEnvLoad.overrideApplied,
   },
 });
+baseLogger.info(
+  {
+    event: 'DEV_0000048_T7_CODEINFO_ENV_RESOLVED',
+    envs: codeinfoEnvResolutions,
+  },
+  'DEV_0000048_T7_CODEINFO_ENV_RESOLVED',
+);
+append({
+  level: 'info',
+  message: 'DEV_0000048_T7_CODEINFO_ENV_RESOLVED',
+  timestamp: new Date().toISOString(),
+  source: 'server',
+  context: {
+    envs: codeinfoEnvResolutions,
+  },
+});
 const flowAndCommandRetries = getFlowAndCommandRetries();
 baseLogger.info(
   {
@@ -148,9 +168,9 @@ append({
     enabled: openAiEmbeddingCapability.enabled,
   },
 });
-const SERVER_PORT = resolveServerPort();
-const mcpHostUrl = `http://localhost:${SERVER_PORT}/mcp`;
-const mcpDockerUrl = `http://server:${SERVER_PORT}/mcp`;
+const CODEINFO_SERVER_PORT = resolveServerPort();
+const mcpHostUrl = `http://localhost:${CODEINFO_SERVER_PORT}/mcp`;
+const mcpDockerUrl = `http://server:${CODEINFO_SERVER_PORT}/mcp`;
 baseLogger.info({ mcpHostUrl, mcpDockerUrl }, 'MCP endpoint available');
 app.use((req, res, next) => {
   const requestId = (req as unknown as { id?: string }).id;
@@ -234,9 +254,9 @@ const logTreeSitterReady = async () => {
 };
 
 const start = async () => {
-  const mongoUri = process.env.MONGO_URI;
+  const mongoUri = process.env.CODEINFO_MONGO_URI;
   if (!mongoUri) {
-    baseLogger.error('MONGO_URI is required but missing');
+    baseLogger.error('CODEINFO_MONGO_URI is required but missing');
     process.exit(1);
   }
   try {
@@ -248,12 +268,12 @@ const start = async () => {
 
   const httpServer = http.createServer(app);
   wsServer = attachWs({ httpServer });
-  server = httpServer.listen(Number(SERVER_PORT), () => {
-    baseLogger.info(`Server on ${SERVER_PORT}`);
+  server = httpServer.listen(Number(CODEINFO_SERVER_PORT), () => {
+    baseLogger.info(`Server on ${CODEINFO_SERVER_PORT}`);
     baseLogger.info(
       {
         event: 'DEV-0000032:T12:verification-ready',
-        port: Number(SERVER_PORT),
+        port: Number(CODEINFO_SERVER_PORT),
       },
       'DEV-0000032:T12:verification-ready',
     );
@@ -265,7 +285,7 @@ const start = async () => {
       source: 'server',
       context: {
         event: 'DEV-0000032:T12:verification-ready',
-        port: Number(SERVER_PORT),
+        port: Number(CODEINFO_SERVER_PORT),
       },
     });
   });

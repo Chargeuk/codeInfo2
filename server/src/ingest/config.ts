@@ -56,20 +56,24 @@ const defaultExcludes = [
 
 export function resolveConfig(): IngestConfig {
   const envIncludes =
-    process.env.INGEST_INCLUDE?.split(',')
+    process.env.CODEINFO_INGEST_INCLUDE?.split(',')
       .filter(Boolean)
       .map((s) => s.trim()) ?? [];
   const includes = envIncludes.length ? envIncludes : defaultIncludes;
 
   const envExcludes =
-    process.env.INGEST_EXCLUDE?.split(',')
+    process.env.CODEINFO_INGEST_EXCLUDE?.split(',')
       .filter(Boolean)
       .map((s) => s.trim()) ?? [];
   const excludes = Array.from(new Set([...defaultExcludes, ...envExcludes]));
 
-  const tokenSafetyMargin = Number(process.env.INGEST_TOKEN_MARGIN ?? 0.85);
-  const fallbackTokenLimit = Number(process.env.INGEST_FALLBACK_TOKENS ?? 2048);
-  const rawFlushEvery = Number(process.env.INGEST_FLUSH_EVERY ?? 20);
+  const tokenSafetyMargin = Number(
+    process.env.CODEINFO_INGEST_TOKEN_MARGIN ?? 0.85,
+  );
+  const fallbackTokenLimit = Number(
+    process.env.CODEINFO_INGEST_FALLBACK_TOKENS ?? 2048,
+  );
+  const rawFlushEvery = Number(process.env.CODEINFO_INGEST_FLUSH_EVERY ?? 20);
   const flushEvery = Number.isFinite(rawFlushEvery)
     ? Math.min(500, Math.max(1, Math.floor(rawFlushEvery)))
     : 20;

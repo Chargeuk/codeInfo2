@@ -131,7 +131,7 @@ export function createIngestStartRouter({
       },
     });
 
-    const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
+    const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
     const wsBaseUrl = toWebSocketUrl(baseUrl);
 
     try {

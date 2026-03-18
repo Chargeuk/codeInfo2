@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test, { beforeEach } from 'node:test';
 
 import type { ThreadOptions as CodexThreadOptions } from '@openai/codex-sdk';
-import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
 import { ChatInterfaceCodex } from '../../chat/interfaces/ChatInterfaceCodex.js';
+import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import {
   modelReasoningEfforts,

@@ -6,11 +6,11 @@ import {
   getLockedModel,
   getRootsCollection,
 } from '../ingest/chromaClient.js';
+import { getActiveRunContexts } from '../ingest/ingestJob.js';
 import {
   appendIngestFailureLog,
   classifyIngestFailure,
 } from '../ingest/providers/index.js';
-import { getActiveRunContexts } from '../ingest/ingestJob.js';
 import {
   INGEST_REPO_SCHEMA_VERSION,
   isDev0000038MarkerGateEnabled,

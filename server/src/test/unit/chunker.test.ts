@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { ProviderEmbeddingModel } from '../../ingest/providers/types.js';
 import { exampleOne, longRun } from '../../ingest/__fixtures__/sample.js';
 import { chunkText } from '../../ingest/chunker.js';
+import {
+  disposeOpenAiTokenizer,
+  OpenAiEmbeddingError,
+  setOpenAiTokenizerFactoryForTests,
+} from '../../ingest/providers/index.js';
+import type { ProviderEmbeddingModel } from '../../ingest/providers/types.js';
 
 const mockModel = (
   ctx: number,
@@ -18,6 +23,11 @@ const mockModel = (
     void text;
     return [];
   },
+});
+
+test.afterEach(() => {
+  disposeOpenAiTokenizer();
+  setOpenAiTokenizerFactoryForTests();
 });
 
 test('splits on boundary markers first', async () => {
@@ -101,5 +111,76 @@ test('preserves normal non-blank chunk ordering after blank filtering', async ()
   assert.deepEqual(
     chunks.map((chunk) => chunk.text),
     ['function alpha() {\n  return 1;\n}', 'class Beta {}\n'],
+  );
+});
+
+test('chunk sizing uses the shared tokenizer-backed helper for OpenAI models', async () => {
+  let encodeCalls = 0;
+  setOpenAiTokenizerFactoryForTests(() => ({
+    encode(value: string) {
+      encodeCalls += 1;
+      return new Uint32Array(value.length);
+    },
+    free() {},
+  }));
+
+  const model: ProviderEmbeddingModel = {
+    modelKey: 'text-embedding-3-small',
+    async getContextLength() {
+      return 12;
+    },
+    async countTokens() {
+      throw new Error(
+        'provider countTokens should not run for OpenAI chunking',
+      );
+    },
+    async embedText() {
+      return [];
+    },
+  };
+
+  const chunks = await chunkText('abcdefghijklmno', model, {
+    includes: [],
+    excludes: [],
+    tokenSafetyMargin: 1,
+    fallbackTokenLimit: 12,
+    flushEvery: 20,
+  });
+
+  assert.ok(encodeCalls > 0);
+  assert.ok(chunks.length > 1);
+  assert.ok(chunks.every((chunk) => chunk.tokenCount <= 12));
+});
+
+test('tokenizer count failure during chunking raises a clear error without whitespace fallback', async () => {
+  setOpenAiTokenizerFactoryForTests(() => ({
+    encode() {
+      throw new Error('encode exploded');
+    },
+    free() {},
+  }));
+
+  const model: ProviderEmbeddingModel = {
+    modelKey: 'text-embedding-3-small',
+    async getContextLength() {
+      return 20;
+    },
+    async countTokens() {
+      return 1;
+    },
+    async embedText() {
+      return [];
+    },
+  };
+
+  await assert.rejects(
+    () => chunkText('abcdefghij', model),
+    (error: unknown) => {
+      assert.ok(error instanceof OpenAiEmbeddingError);
+      assert.equal(error.code, 'OPENAI_TOKENIZER_FAILED');
+      assert.match(error.message, /count failed/i);
+      assert.doesNotMatch(error.message, /whitespace/i);
+      return true;
+    },
   );
 });

@@ -1,8 +1,8 @@
-import assert from 'node:assert/strict';
 import fs from 'fs';
-import path from 'path';
+import assert from 'node:assert/strict';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import path from 'path';
 
 function readOpenApi() {
   const testDir = path.dirname(fileURLToPath(import.meta.url));

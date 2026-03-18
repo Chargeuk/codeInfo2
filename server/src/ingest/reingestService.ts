@@ -382,7 +382,7 @@ export async function runReingestRepository(
   const runReembed = deps.reembed ?? reembed;
   const lmClientFactory = deps.lmClientFactory ?? getClient;
   const lmBaseUrl = toWebSocketUrl(
-    deps.lmBaseUrl ?? process.env.LMSTUDIO_BASE_URL ?? '',
+    deps.lmBaseUrl ?? process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
   );
   const appendLog = deps.appendLog ?? append;
   const waitForTerminal =

@@ -19,13 +19,13 @@ export const OPENAI_RETRY_JITTER_MAX = 1.0;
 export const OPENAI_REQUEST_TIMEOUT_MS = 30_000;
 
 const OPENAI_MODEL_TOKEN_LIMITS: Record<string, number> = {
-  'text-embedding-3-small': 8191,
-  'text-embedding-3-large': 8191,
+  'text-embedding-3-small': 8192,
+  'text-embedding-3-large': 8192,
 };
 
 export function resolveOpenAiModelTokenLimit(model: string): number {
   const trimmed = model.trim();
-  return OPENAI_MODEL_TOKEN_LIMITS[trimmed] ?? 8191;
+  return OPENAI_MODEL_TOKEN_LIMITS[trimmed] ?? 8192;
 }
 
 export function isOpenAiAllowlistedEmbeddingModel(model: string): boolean {

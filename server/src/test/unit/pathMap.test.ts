@@ -5,22 +5,22 @@ import {
   mapIngestPath,
 } from '../../ingest/pathMap.js';
 
-const ORIGINAL_HOST = process.env.HOST_INGEST_DIR;
+const ORIGINAL_HOST = process.env.CODEINFO_HOST_INGEST_DIR;
 
 beforeEach(() => {
-  delete process.env.HOST_INGEST_DIR;
+  delete process.env.CODEINFO_HOST_INGEST_DIR;
 });
 
 afterEach(() => {
   if (ORIGINAL_HOST === undefined) {
-    delete process.env.HOST_INGEST_DIR;
+    delete process.env.CODEINFO_HOST_INGEST_DIR;
   } else {
-    process.env.HOST_INGEST_DIR = ORIGINAL_HOST;
+    process.env.CODEINFO_HOST_INGEST_DIR = ORIGINAL_HOST;
   }
 });
 
 test('maps container path to host path with env override', () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   const result = mapIngestPath('/data/repo/src/file.ts');
 
   assert.equal(result.repo, 'repo');
@@ -30,8 +30,8 @@ test('maps container path to host path with env override', () => {
   assert.equal(result.hostPathWarning, undefined);
 });
 
-test('adds hostPathWarning when HOST_INGEST_DIR is missing', () => {
-  delete process.env.HOST_INGEST_DIR;
+test('adds hostPathWarning when CODEINFO_HOST_INGEST_DIR is missing', () => {
+  delete process.env.CODEINFO_HOST_INGEST_DIR;
 
   const result = mapIngestPath('/data/repo/file.txt');
 
@@ -42,7 +42,7 @@ test('adds hostPathWarning when HOST_INGEST_DIR is missing', () => {
 });
 
 test('handles non-standard paths without throwing', () => {
-  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
 
   const result = mapIngestPath('repo/nested/path.md');
 

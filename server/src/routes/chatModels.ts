@@ -2,15 +2,15 @@ import { type ChatModelsResponse } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 import {
+  resolveCodexCapabilities,
+  type CodexCapabilityResolution,
+} from '../codex/capabilityResolver.js';
+import {
   resolveChatDefaults,
   resolveCodexChatDefaults,
   STORY_47_TASK_1_LOG_MARKER,
   toChatResolutionSource,
 } from '../config/chatDefaults.js';
-import {
-  resolveCodexCapabilities,
-  type CodexCapabilityResolution,
-} from '../codex/capabilityResolver.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
@@ -167,7 +167,7 @@ export function createChatModelsRouter({
       return res.json(response);
     }
 
-    const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
+    const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
     const safeBase = scrubBaseUrl(baseUrl);
 
     if (!BASE_URL_REGEX.test(baseUrl)) {

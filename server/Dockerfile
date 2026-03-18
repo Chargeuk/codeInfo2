@@ -187,7 +187,7 @@ RUN git config --system credential.helper '!f(){ gcf-client $*; }; f'
 # Make HOME and all subfolders read/write for all users
 RUN chmod -R 777 "${HOME}"
 ENV CODEINFO_CODEX_HOME=/app/codex
-ENV SERVER_PORT=5010
+ENV CODEINFO_SERVER_PORT=5010
 ENV NPM_CONFIG_SCRIPT_SHELL=/bin/bash
 EXPOSE 5010
 EXPOSE 9222

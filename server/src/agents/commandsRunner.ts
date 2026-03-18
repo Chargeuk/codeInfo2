@@ -10,10 +10,12 @@ import {
 import { runReingestStepLifecycle } from '../chat/reingestStepLifecycle.js';
 import { buildReingestToolResult } from '../chat/reingestToolResult.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
+import type { RepositoryCandidateLookupSummary } from '../flows/repositoryCandidateOrder.js';
 import { formatReingestPrestartReason } from '../ingest/reingestError.js';
 import { runReingestRepository } from '../ingest/reingestService.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import type { TurnRuntimeMetadata } from '../mongo/turn.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
 
 import { executeCommandItem } from './commandItemExecutor.js';
@@ -71,6 +73,7 @@ export type RunAgentCommandRunnerParams = {
   signal?: AbortSignal;
   source: 'REST' | 'MCP';
   initialModelId?: string;
+  lookupSummary?: RepositoryCandidateLookupSummary;
   logger?: LoggerLike;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
   releaseConversationLockFn?: typeof releaseConversationLock;
@@ -88,6 +91,7 @@ export type RunAgentCommandRunnerParams = {
     conversationId: string;
     mustExist?: boolean;
     command?: { name: string; stepIndex: number; totalSteps: number };
+    runtime?: TurnRuntimeMetadata;
     signal?: AbortSignal;
     source: 'REST' | 'MCP';
   }) => Promise<{ modelId: string }>;
@@ -342,6 +346,7 @@ export async function runAgentCommandRunner(
         item,
         itemIndex: i,
         commandName,
+        workingRepositoryPath: params.working_folder,
         sourceId: params.sourceId,
         executeInstruction: async (instruction) => instruction,
       });
@@ -366,6 +371,19 @@ export async function runAgentCommandRunner(
       let previousError: unknown = null;
       let sanitizedErrorLength = 0;
       let currentAttempt = 0;
+      const runtimeLookupSummary =
+        preparedInstruction.lookupSummary ?? params.lookupSummary;
+      const runtime: TurnRuntimeMetadata | undefined =
+        runtimeLookupSummary || params.working_folder
+          ? {
+              ...(params.working_folder
+                ? { workingFolder: params.working_folder }
+                : {}),
+              ...(runtimeLookupSummary
+                ? { lookupSummary: runtimeLookupSummary }
+                : {}),
+            }
+          : undefined;
 
       const res = await runWithRetry({
         runStep: async () => {
@@ -391,6 +409,7 @@ export async function runAgentCommandRunner(
             conversationId,
             mustExist,
             command: stepMeta,
+            runtime,
             signal: combinedSignal,
             source: params.source,
           });

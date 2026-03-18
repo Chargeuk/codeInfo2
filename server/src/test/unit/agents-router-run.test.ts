@@ -232,6 +232,52 @@ test('POST /agents/:agentName/run maps WORKING_FOLDER_NOT_FOUND to 400 + code', 
   assert.equal(res.body.code, 'WORKING_FOLDER_NOT_FOUND');
 });
 
+test('POST /agents/:agentName/run maps WORKING_FOLDER_UNAVAILABLE to a safe 503 message', async () => {
+  const res = await request(
+    buildApp({
+      startAgentInstruction: async () => {
+        throw {
+          code: 'WORKING_FOLDER_UNAVAILABLE',
+          reason: 'working_folder could not be validated (EACCES)',
+          causeCode: 'EACCES',
+        };
+      },
+    }),
+  )
+    .post('/agents/coding_agent/run')
+    .send({ instruction: 'hello', working_folder: '/tmp' });
+
+  assert.equal(res.status, 503);
+  assert.deepEqual(res.body, {
+    error: 'working_folder_unavailable',
+    code: 'WORKING_FOLDER_UNAVAILABLE',
+    message: 'working_folder is temporarily unavailable',
+  });
+});
+
+test('POST /agents/:agentName/run maps WORKING_FOLDER_REPOSITORY_UNAVAILABLE to a safe 503 message', async () => {
+  const res = await request(
+    buildApp({
+      startAgentInstruction: async () => {
+        throw {
+          code: 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE',
+          reason:
+            'working_folder repository membership could not be validated',
+        };
+      },
+    }),
+  )
+    .post('/agents/coding_agent/run')
+    .send({ instruction: 'hello', working_folder: '/tmp' });
+
+  assert.equal(res.status, 503);
+  assert.deepEqual(res.body, {
+    error: 'working_folder_unavailable',
+    code: 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE',
+    message: 'working_folder repository validation is temporarily unavailable',
+  });
+});
+
 function buildRealApp() {
   const app = express();
   app.use(express.json());

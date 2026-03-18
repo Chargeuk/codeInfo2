@@ -1,5 +1,10 @@
 import { LogEntry } from '@codeinfo2/common';
 import { jest } from '@jest/globals';
+import {
+  getClientRuntimeConfigDiagnostics,
+  hasInvalidCanonicalRuntimeConfig,
+  resetClientRuntimeConfigLogForTests,
+} from '../../config/runtimeConfig';
 import { flushQueue, sendLogs, _getQueue } from '../../logging/transport';
 import { getFetchMock, mockJsonResponse } from '../support/fetchMock';
 
@@ -10,11 +15,32 @@ const baseEntry: LogEntry = {
   source: 'client',
 };
 
+const originalRuntimeConfig = (
+  globalThis as typeof globalThis & {
+    __CODEINFO_CONFIG__?: unknown;
+  }
+).__CODEINFO_CONFIG__;
+const legacyClientEnv = (...parts: string[]) => ['VITE', ...parts].join('_');
+const legacyClientApiUrlEnvName = legacyClientEnv('API', 'URL');
+const legacyClientLogForwardEnvName = legacyClientEnv(
+  'LOG',
+  'FORWARD',
+  'ENABLED',
+);
+const legacyClientLogMaxBytesEnvName = legacyClientEnv('LOG', 'MAX', 'BYTES');
+const legacyClientLogLevelEnvName = legacyClientEnv('LOG', 'LEVEL');
+const legacyClientLogStreamEnvName = legacyClientEnv('LOG', 'STREAM', 'ENABLED');
+
 beforeEach(() => {
   process.env.MODE = 'development';
-  process.env.VITE_API_URL = 'http://localhost:5010';
-  process.env.VITE_LOG_MAX_BYTES = '32768';
+  process.env.VITE_CODEINFO_API_URL = 'http://localhost:5010';
+  process.env.VITE_CODEINFO_LOG_MAX_BYTES = '32768';
+  process.env.VITE_CODEINFO_LOG_FORWARD_ENABLED = 'true';
+  (
+    globalThis as typeof globalThis & { __CODEINFO_CONFIG__?: unknown }
+  ).__CODEINFO_CONFIG__ = undefined;
   _getQueue().length = 0;
+  resetClientRuntimeConfigLogForTests();
   jest.clearAllMocks();
   jest.useRealTimers();
   global.fetch = getFetchMock();
@@ -26,8 +52,17 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.MODE;
-  delete process.env.VITE_API_URL;
-  delete process.env.VITE_LOG_MAX_BYTES;
+  delete process.env.VITE_CODEINFO_API_URL;
+  delete process.env.VITE_CODEINFO_LOG_MAX_BYTES;
+  delete process.env.VITE_CODEINFO_LOG_FORWARD_ENABLED;
+  delete process.env[legacyClientApiUrlEnvName];
+  delete process.env[legacyClientLogForwardEnvName];
+  delete process.env[legacyClientLogMaxBytesEnvName];
+  delete process.env[legacyClientLogLevelEnvName];
+  delete process.env[legacyClientLogStreamEnvName];
+  (
+    globalThis as typeof globalThis & { __CODEINFO_CONFIG__?: unknown }
+  ).__CODEINFO_CONFIG__ = originalRuntimeConfig;
 });
 
 describe('transport', () => {
@@ -48,7 +83,7 @@ describe('transport', () => {
   });
 
   it('drops entries that exceed max bytes', async () => {
-    process.env.VITE_LOG_MAX_BYTES = '10';
+    process.env.VITE_CODEINFO_LOG_MAX_BYTES = '10';
     getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
 
     sendLogs([{ ...baseEntry, message: 'a'.repeat(50) }]);
@@ -86,5 +121,131 @@ describe('transport', () => {
 
     expect(_getQueue().length).toBe(0);
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('ignores pre-cutover client log env names after the cutover', async () => {
+    process.env[legacyClientLogForwardEnvName] = 'false';
+    process.env[legacyClientLogMaxBytesEnvName] = '10';
+    getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
+
+    sendLogs([{ ...baseEntry, message: 'a'.repeat(50) }]);
+    await flushQueue();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:5010/logs',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+    expect(_getQueue().length).toBe(0);
+  });
+
+  it('does not treat documentation-only pre-cutover log names as runtime inputs', async () => {
+    process.env[legacyClientLogLevelEnvName] = 'debug';
+    process.env[legacyClientLogStreamEnvName] = 'false';
+    getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
+
+    sendLogs([baseEntry]);
+    await flushQueue();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:5010/logs',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+    expect(_getQueue().length).toBe(0);
+  });
+
+  it('surfaces malformed canonical log config before falling back to defaults', async () => {
+    process.env.VITE_CODEINFO_LOG_FORWARD_ENABLED = 'maybe';
+    process.env.VITE_CODEINFO_LOG_MAX_BYTES = 'zero';
+    getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
+
+    sendLogs([baseEntry]);
+    await flushQueue();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:5010/logs',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([
+      {
+        field: 'logForwardEnabled',
+        source: 'env',
+        rawValue: 'maybe',
+        reason: 'invalid_boolean',
+      },
+      {
+        field: 'logMaxBytes',
+        source: 'env',
+        rawValue: 'zero',
+        reason: 'invalid_number',
+      },
+    ]);
+    expect(
+      hasInvalidCanonicalRuntimeConfig(getClientRuntimeConfigDiagnostics()),
+    ).toBe(false);
+    expect(_getQueue().length).toBe(0);
+  });
+
+  it('surfaces malformed top-level runtime config containers before log env fallback wins', async () => {
+    (
+      globalThis as typeof globalThis & { __CODEINFO_CONFIG__?: unknown }
+    ).__CODEINFO_CONFIG__ = ['bad-container'];
+    getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
+
+    sendLogs([baseEntry]);
+    await flushQueue();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:5010/logs',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([
+      {
+        container: '__CODEINFO_CONFIG__',
+        source: 'runtime',
+        rawValue: '["bad-container"]',
+        reason: 'invalid_container',
+      },
+    ]);
+    expect(
+      hasInvalidCanonicalRuntimeConfig(getClientRuntimeConfigDiagnostics()),
+    ).toBe(true);
+    expect(_getQueue().length).toBe(0);
+  });
+
+  it('surfaces object-like non-record runtime config containers before log env fallback wins', async () => {
+    (
+      globalThis as typeof globalThis & { __CODEINFO_CONFIG__?: unknown }
+    ).__CODEINFO_CONFIG__ = new Date('2026-03-17T00:00:00.000Z');
+    getFetchMock().mockResolvedValue(mockJsonResponse({}, { status: 200 }));
+
+    sendLogs([baseEntry]);
+    await flushQueue();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:5010/logs',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([
+      {
+        container: '__CODEINFO_CONFIG__',
+        source: 'runtime',
+        rawValue: '"2026-03-17T00:00:00.000Z"',
+        reason: 'invalid_container',
+      },
+    ]);
+    expect(
+      hasInvalidCanonicalRuntimeConfig(getClientRuntimeConfigDiagnostics()),
+    ).toBe(true);
+    expect(_getQueue().length).toBe(0);
   });
 });

@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
-import { resolveWorkingFolderWorkingDirectory } from '../../agents/service.js';
+import { resolveWorkingFolderWorkingDirectory } from '../../workingFolders/state.js';
 
 describe('resolveWorkingFolderWorkingDirectory', () => {
   it('rejects relative working_folder inputs', async () => {
@@ -23,7 +23,7 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
     if (process.platform === 'win32') return;
 
     const snapshot = {
-      HOST_INGEST_DIR: process.env.HOST_INGEST_DIR,
+      CODEINFO_HOST_INGEST_DIR: process.env.CODEINFO_HOST_INGEST_DIR,
       CODEINFO_CODEX_WORKDIR: process.env.CODEINFO_CODEX_WORKDIR,
       CODEX_WORKDIR: process.env.CODEX_WORKDIR,
     };
@@ -35,7 +35,7 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
     const codexWorkdir = path.join(tmp, 'data');
 
     try {
-      process.env.HOST_INGEST_DIR = hostIngestDir;
+      process.env.CODEINFO_HOST_INGEST_DIR = hostIngestDir;
       process.env.CODEINFO_CODEX_WORKDIR = codexWorkdir;
       delete process.env.CODEX_WORKDIR;
 
@@ -47,7 +47,7 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
         await resolveWorkingFolderWorkingDirectory(workingFolder);
       assert.equal(resolved, expectedMapped);
     } finally {
-      process.env.HOST_INGEST_DIR = snapshot.HOST_INGEST_DIR;
+      process.env.CODEINFO_HOST_INGEST_DIR = snapshot.CODEINFO_HOST_INGEST_DIR;
       process.env.CODEINFO_CODEX_WORKDIR = snapshot.CODEINFO_CODEX_WORKDIR;
       process.env.CODEX_WORKDIR = snapshot.CODEX_WORKDIR;
       await fs.rm(tmp, { recursive: true, force: true });
@@ -58,7 +58,7 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
     if (process.platform === 'win32') return;
 
     const snapshot = {
-      HOST_INGEST_DIR: process.env.HOST_INGEST_DIR,
+      CODEINFO_HOST_INGEST_DIR: process.env.CODEINFO_HOST_INGEST_DIR,
       CODEINFO_CODEX_WORKDIR: process.env.CODEINFO_CODEX_WORKDIR,
       CODEX_WORKDIR: process.env.CODEX_WORKDIR,
     };
@@ -70,7 +70,7 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
     const codexWorkdir = path.join(tmp, 'data');
 
     try {
-      process.env.HOST_INGEST_DIR = hostIngestDir;
+      process.env.CODEINFO_HOST_INGEST_DIR = hostIngestDir;
       process.env.CODEINFO_CODEX_WORKDIR = codexWorkdir;
       delete process.env.CODEX_WORKDIR;
 
@@ -81,7 +81,7 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
         await resolveWorkingFolderWorkingDirectory(workingFolder);
       assert.equal(resolved, workingFolder);
     } finally {
-      process.env.HOST_INGEST_DIR = snapshot.HOST_INGEST_DIR;
+      process.env.CODEINFO_HOST_INGEST_DIR = snapshot.CODEINFO_HOST_INGEST_DIR;
       process.env.CODEINFO_CODEX_WORKDIR = snapshot.CODEINFO_CODEX_WORKDIR;
       process.env.CODEX_WORKDIR = snapshot.CODEX_WORKDIR;
       await fs.rm(tmp, { recursive: true, force: true });
@@ -92,7 +92,7 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
     if (process.platform === 'win32') return;
 
     const snapshot = {
-      HOST_INGEST_DIR: process.env.HOST_INGEST_DIR,
+      CODEINFO_HOST_INGEST_DIR: process.env.CODEINFO_HOST_INGEST_DIR,
       CODEINFO_CODEX_WORKDIR: process.env.CODEINFO_CODEX_WORKDIR,
       CODEX_WORKDIR: process.env.CODEX_WORKDIR,
     };
@@ -104,7 +104,7 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
     const codexWorkdir = path.join(tmp, 'data');
 
     try {
-      process.env.HOST_INGEST_DIR = hostIngestDir;
+      process.env.CODEINFO_HOST_INGEST_DIR = hostIngestDir;
       process.env.CODEINFO_CODEX_WORKDIR = codexWorkdir;
       delete process.env.CODEX_WORKDIR;
 
@@ -120,7 +120,7 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
           ),
       );
     } finally {
-      process.env.HOST_INGEST_DIR = snapshot.HOST_INGEST_DIR;
+      process.env.CODEINFO_HOST_INGEST_DIR = snapshot.CODEINFO_HOST_INGEST_DIR;
       process.env.CODEINFO_CODEX_WORKDIR = snapshot.CODEINFO_CODEX_WORKDIR;
       process.env.CODEX_WORKDIR = snapshot.CODEX_WORKDIR;
       await fs.rm(tmp, { recursive: true, force: true });

@@ -12,7 +12,7 @@ export type MappedPath = {
 
 export function mapIngestPath(
   containerPath: string,
-  hostIngestDir = process.env.HOST_INGEST_DIR || DEFAULT_CONTAINER_ROOT,
+  hostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR || DEFAULT_CONTAINER_ROOT,
 ): MappedPath {
   const normalizedContainer = path.posix.normalize(
     containerPath.replace(/\\/g, '/'),
@@ -40,9 +40,9 @@ export function mapIngestPath(
     ? path.posix.join(normalizedHostRoot, repo, relPath)
     : path.posix.join(normalizedHostRoot, relPath);
 
-  const hostPathWarning = process.env.HOST_INGEST_DIR
+  const hostPathWarning = process.env.CODEINFO_HOST_INGEST_DIR
     ? undefined
-    : 'HOST_INGEST_DIR not set; using container path base';
+    : 'CODEINFO_HOST_INGEST_DIR not set; using container path base';
 
   return {
     repo,

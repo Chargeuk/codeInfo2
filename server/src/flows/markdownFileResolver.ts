@@ -3,31 +3,39 @@ import path from 'node:path';
 import { TextDecoder } from 'node:util';
 
 import {
-  listIngestedRepositories,
   type RepoEntry,
+  listIngestedRepositories,
 } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
+import {
+  buildRepositoryCandidateLookupSummary,
+  buildRepositoryCandidateOrderLogContext,
+  buildRepositoryCandidateOrder,
+  DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
+  normalizeRepositoryCandidateLabel,
+  type RepositoryCandidateLookupSummary,
+  type RepositoryCandidateOrderEntry,
+} from './repositoryCandidateOrder.js';
+
+export const DEV_0000048_T3_MARKDOWN_RESOLUTION_ORDER =
+  'DEV_0000048_T3_MARKDOWN_RESOLUTION_ORDER';
 
 export type MarkdownFileResolutionParams = {
   markdownFile: string;
+  workingRepositoryPath?: string;
   sourceId?: string;
   flowSourceId?: string;
 };
 
 export type ResolvedMarkdownFile = {
   content: string;
+  lookupSummary: RepositoryCandidateLookupSummary;
   resolvedSourceId: string;
   resolvedRepositoryLabel: string;
   resolvedPath: string;
 };
 
-type SourceCandidate = {
-  sourceId: string;
-  sourceLabel: string;
-};
-
-type MarkdownResolutionCandidate = SourceCandidate & {
-  rank: 'same_source' | 'codeinfo2' | 'other';
+type MarkdownResolutionCandidate = RepositoryCandidateOrderEntry & {
   markdownRoot: string;
 };
 
@@ -55,32 +63,10 @@ const defaultDeps: MarkdownFileResolverDeps = {
 
 let resolverDeps: MarkdownFileResolverDeps = defaultDeps;
 
-const normalizeAsciiLower = (value: string) => value.toLowerCase();
-
 export const normalizeSourceLabel = (params: {
   sourceId: string;
   sourceLabel?: string;
-}) => {
-  const trimmed = params.sourceLabel?.trim();
-  if (trimmed) return trimmed;
-  return path.posix.basename(params.sourceId.replace(/\\/g, '/'));
-};
-
-export const compareSourceCandidates = (
-  left: SourceCandidate,
-  right: SourceCandidate,
-) => {
-  const leftLabel = normalizeAsciiLower(left.sourceLabel);
-  const rightLabel = normalizeAsciiLower(right.sourceLabel);
-  if (leftLabel < rightLabel) return -1;
-  if (leftLabel > rightLabel) return 1;
-
-  const leftPath = normalizeAsciiLower(left.sourceId);
-  const rightPath = normalizeAsciiLower(right.sourceId);
-  if (leftPath < rightPath) return -1;
-  if (leftPath > rightPath) return 1;
-  return 0;
-};
+}) => normalizeRepositoryCandidateLabel(params);
 
 const getResolutionScope = (
   params: MarkdownFileResolutionParams,
@@ -129,66 +115,30 @@ const assertPathWithinRoot = (targetPath: string, rootPath: string) => {
 const buildMarkdownResolutionCandidates = (params: {
   codeInfo2Root: string;
   repos: RepoEntry[];
-  sameSourceId?: string;
+  ownerSourceId?: string;
+  ownerSourceLabel?: string;
+  resolutionScope: 'direct-command' | 'flow-llm' | 'flow-command';
+  workingRepositoryPath?: string;
 }) => {
-  const candidates: MarkdownResolutionCandidate[] = [];
-  const seen = new Set<string>();
+  const orderedCandidates = buildRepositoryCandidateOrder({
+    caller: params.resolutionScope,
+    workingRepositoryPath: params.workingRepositoryPath,
+    ownerRepositoryPath: params.ownerSourceId,
+    ownerRepositoryLabel: params.ownerSourceLabel,
+    codeInfo2Root: params.codeInfo2Root,
+    otherRepositoryRoots: params.repos.map((repo) => ({
+      sourceId: repo.containerPath,
+      sourceLabel: repo.id,
+    })),
+  });
 
-  const addCandidate = (
-    sourceId: string,
-    sourceLabel: string | undefined,
-    rank: MarkdownResolutionCandidate['rank'],
-  ) => {
-    const resolvedSourceId = path.resolve(sourceId);
-    const key = normalizeAsciiLower(resolvedSourceId);
-    if (seen.has(key)) return;
-    seen.add(key);
-    candidates.push({
-      sourceId: resolvedSourceId,
-      sourceLabel: normalizeSourceLabel({
-        sourceId: resolvedSourceId,
-        sourceLabel,
-      }),
-      rank,
-      markdownRoot: path.join(resolvedSourceId, 'codeinfo_markdown'),
-    });
+  return {
+    orderedCandidates,
+    candidates: orderedCandidates.candidates.map((candidate) => ({
+      ...candidate,
+      markdownRoot: path.join(candidate.sourceId, 'codeinfo_markdown'),
+    })),
   };
-
-  const resolvedCodeInfo2Root = path.resolve(params.codeInfo2Root);
-  const sameSourceId = params.sameSourceId?.trim()
-    ? path.resolve(params.sameSourceId)
-    : undefined;
-  if (sameSourceId) {
-    const sameSourceRepo = params.repos.find(
-      (repo) => path.resolve(repo.containerPath) === sameSourceId,
-    );
-    addCandidate(sameSourceId, sameSourceRepo?.id, 'same_source');
-  }
-
-  addCandidate(resolvedCodeInfo2Root, undefined, 'codeinfo2');
-
-  const sortedOthers = params.repos
-    .map((repo) => ({
-      sourceId: path.resolve(repo.containerPath),
-      sourceLabel: normalizeSourceLabel({
-        sourceId: repo.containerPath,
-        sourceLabel: repo.id,
-      }),
-    }))
-    .filter((repo) => {
-      const repoId = normalizeAsciiLower(repo.sourceId);
-      return (
-        repoId !== normalizeAsciiLower(resolvedCodeInfo2Root) &&
-        repoId !== normalizeAsciiLower(sameSourceId ?? '')
-      );
-    })
-    .sort(compareSourceCandidates);
-
-  for (const repo of sortedOthers) {
-    addCandidate(repo.sourceId, repo.sourceLabel, 'other');
-  }
-
-  return candidates;
 };
 
 const decodeUtf8Strict = (bytes: Uint8Array) => {
@@ -204,18 +154,89 @@ const decodeUtf8Strict = (bytes: Uint8Array) => {
 const isMissingFileError = (error: unknown) =>
   (error as { code?: string }).code === 'ENOENT';
 
+const appendMarkdownResolutionLog = (params: {
+  level: 'info' | 'warn';
+  markdownFile: string;
+  resolutionScope: 'direct-command' | 'flow-llm' | 'flow-command';
+  flowSourceId?: string;
+  ownerSourceId?: string;
+  decision: 'selected' | 'fail_fast' | 'not_found';
+  orderedCandidates: ReturnType<typeof buildRepositoryCandidateOrder>;
+  selectedCandidate?: MarkdownResolutionCandidate;
+  resolvedPath?: string;
+  failureReason?: string;
+  failureMessage?: string;
+}) => {
+  append({
+    level: params.level,
+    message: DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: buildRepositoryCandidateOrderLogContext({
+      orderedCandidates: params.orderedCandidates,
+      referenceType: 'markdownFile',
+    }),
+  });
+
+  const lookupSummary = params.selectedCandidate
+    ? buildRepositoryCandidateLookupSummary({
+        orderedCandidates: params.orderedCandidates,
+        selectedRepositoryPath: params.selectedCandidate.sourceId,
+      })
+    : undefined;
+
+  append({
+    level: params.level,
+    message: DEV_0000048_T3_MARKDOWN_RESOLUTION_ORDER,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      referenceType: 'markdownFile',
+      markdownFile: params.markdownFile,
+      resolutionScope: params.resolutionScope,
+      flowSourceId: params.flowSourceId ?? null,
+      ownerSourceId: params.ownerSourceId ?? null,
+      decision: params.decision,
+      selectedRepositoryPath: lookupSummary?.selectedRepositoryPath ?? null,
+      selectedRepositoryLabel: params.selectedCandidate?.sourceLabel ?? null,
+      selectedRepositorySlot: params.selectedCandidate?.slot ?? null,
+      fallbackUsed: lookupSummary?.fallbackUsed ?? false,
+      workingRepositoryAvailable:
+        params.orderedCandidates.workingRepositoryAvailable,
+      candidateRepositories: buildRepositoryCandidateOrderLogContext({
+        orderedCandidates: params.orderedCandidates,
+        referenceType: 'markdownFile',
+      }).candidateRepositories,
+      ...(params.resolvedPath ? { resolvedPath: params.resolvedPath } : {}),
+      ...(params.failureReason ? { failureReason: params.failureReason } : {}),
+      ...(params.failureMessage
+        ? { failureMessage: params.failureMessage }
+        : {}),
+    },
+  });
+};
+
 export async function resolveMarkdownFileWithMetadata(
   params: MarkdownFileResolutionParams,
 ): Promise<ResolvedMarkdownFile> {
   const normalizedMarkdownFile = normalizeMarkdownFile(params.markdownFile);
   const resolutionScope = getResolutionScope(params);
-  const sameSourceId = params.flowSourceId?.trim() || params.sourceId?.trim();
+  const ownerSourceId = params.sourceId?.trim() || params.flowSourceId?.trim();
   const codeInfo2Root = resolverDeps.getCodeInfo2Root();
   const { repos } = await resolverDeps.listIngestedRepositories();
-  const candidates = buildMarkdownResolutionCandidates({
+  const ownerSourceLabel = ownerSourceId
+    ? repos.find(
+        (repo) =>
+          path.resolve(repo.containerPath) === path.resolve(ownerSourceId),
+      )?.id
+    : undefined;
+  const { orderedCandidates, candidates } = buildMarkdownResolutionCandidates({
     codeInfo2Root,
     repos,
-    sameSourceId,
+    ownerSourceId,
+    ownerSourceLabel,
+    resolutionScope,
+    workingRepositoryPath: params.workingRepositoryPath,
   });
 
   for (const candidate of candidates) {
@@ -230,32 +251,78 @@ export async function resolveMarkdownFileWithMetadata(
       bytes = await resolverDeps.readFile(resolvedPath);
     } catch (error) {
       if (isMissingFileError(error)) continue;
+      appendMarkdownResolutionLog({
+        level: 'warn',
+        markdownFile: normalizedMarkdownFile,
+        resolutionScope,
+        flowSourceId: params.flowSourceId,
+        ownerSourceId,
+        decision: 'fail_fast',
+        orderedCandidates,
+        selectedCandidate: candidate,
+        failureReason: 'READ_FAILED',
+        failureMessage: `Failed to read markdownFile ${normalizedMarkdownFile} from ${candidate.sourceId}: ${(error as Error).message}`,
+      });
       throw new Error(
         `Failed to read markdownFile ${normalizedMarkdownFile} from ${candidate.sourceId}: ${(error as Error).message}`,
       );
     }
 
-    const content = decodeUtf8Strict(bytes);
-    resolverDeps.append({
-      level: 'info',
-      message: 'DEV-0000045:T3:markdown_file_resolved',
-      timestamp: new Date().toISOString(),
-      source: 'server',
-      context: {
+    let content: string;
+    try {
+      content = decodeUtf8Strict(bytes);
+    } catch (error) {
+      appendMarkdownResolutionLog({
+        level: 'warn',
         markdownFile: normalizedMarkdownFile,
         resolutionScope,
-        resolvedSourceId: candidate.sourceId,
-        resolvedRepositoryLabel: candidate.sourceLabel,
-        resolvedPath,
-      },
+        flowSourceId: params.flowSourceId,
+        ownerSourceId,
+        decision: 'fail_fast',
+        orderedCandidates,
+        selectedCandidate: candidate,
+        failureReason: 'INVALID_UTF8',
+        failureMessage:
+          error instanceof Error
+            ? error.message
+            : 'Invalid UTF-8 markdown content',
+      });
+      throw error;
+    }
+
+    const lookupSummary = buildRepositoryCandidateLookupSummary({
+      orderedCandidates,
+      selectedRepositoryPath: candidate.sourceId,
+    });
+    appendMarkdownResolutionLog({
+      level: 'info',
+      markdownFile: normalizedMarkdownFile,
+      resolutionScope,
+      flowSourceId: params.flowSourceId,
+      ownerSourceId,
+      decision: 'selected',
+      orderedCandidates,
+      selectedCandidate: candidate,
+      resolvedPath,
     });
     return {
       content,
+      lookupSummary,
       resolvedSourceId: candidate.sourceId,
       resolvedRepositoryLabel: candidate.sourceLabel,
       resolvedPath,
     };
   }
+
+  appendMarkdownResolutionLog({
+    level: 'warn',
+    markdownFile: normalizedMarkdownFile,
+    resolutionScope,
+    flowSourceId: params.flowSourceId,
+    ownerSourceId,
+    decision: 'not_found',
+    orderedCandidates,
+  });
 
   throw new Error(
     `markdownFile ${normalizedMarkdownFile} was not found in any codeinfo_markdown repository candidate`,

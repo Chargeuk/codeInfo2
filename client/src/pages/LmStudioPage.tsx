@@ -13,13 +13,9 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { getLmStudioBaseUrl } from '../config/runtimeConfig';
 import useLmStudioStatus from '../hooks/useLmStudioStatus';
 import { createLogger } from '../logging';
-
-const DEFAULT_LM_URL =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as ImportMeta)?.env?.VITE_LMSTUDIO_URL) ??
-  'http://host.docker.internal:1234';
 
 const scrubBaseUrl = (value: string) => {
   try {
@@ -41,6 +37,7 @@ function humanSize(bytes?: number | null) {
 }
 
 export default function LmStudioPage() {
+  const defaultLmUrl = getLmStudioBaseUrl();
   const theme = useTheme();
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -85,9 +82,9 @@ export default function LmStudioPage() {
     void refresh(input);
   };
   const handleReset = () => {
-    setInput(DEFAULT_LM_URL);
-    logRefreshStart(DEFAULT_LM_URL, 'reset');
-    void refresh(DEFAULT_LM_URL);
+    setInput(defaultLmUrl);
+    logRefreshStart(defaultLmUrl, 'reset');
+    void refresh(defaultLmUrl);
   };
   const handleRefresh = () => {
     logRefreshStart(baseUrl, 'refresh');
@@ -128,7 +125,7 @@ export default function LmStudioPage() {
         value={input}
         inputRef={inputRef}
         onChange={(e) => setInput(e.target.value)}
-        helperText={`Default: ${DEFAULT_LM_URL}`}
+        helperText={`Default: ${defaultLmUrl}`}
         aria-describedby="lmstudio-status"
         fullWidth
         size="small"

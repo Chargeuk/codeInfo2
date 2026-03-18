@@ -1,22 +1,20 @@
 import type { EmbeddingFunction } from 'chromadb';
 import { OpenAI } from 'openai';
 import { append } from '../../logStore.js';
-import type {
-  DiscoveredEmbeddingModel,
-  EmbeddingProvider,
-  ProviderEmbeddingModel,
-} from './types.js';
 import {
   OPENAI_PROVIDER_ID,
   OPENAI_REQUEST_TIMEOUT_MS,
   resolveOpenAiModelTokenLimit,
 } from './openaiConstants.js';
 import { mapOpenAiError, OpenAiEmbeddingError } from './openaiErrors.js';
-import {
-  estimateOpenAiTokens,
-  validateOpenAiEmbeddingGuardrails,
-} from './openaiGuardrails.js';
+import { validateOpenAiEmbeddingGuardrails } from './openaiGuardrails.js';
 import { runOpenAiWithRetry } from './openaiRetry.js';
+import { countOpenAiTokens } from './openaiTokenizer.js';
+import type {
+  DiscoveredEmbeddingModel,
+  EmbeddingProvider,
+  ProviderEmbeddingModel,
+} from './types.js';
 
 type OpenAiClientLike = {
   embeddings: {
@@ -74,10 +72,14 @@ function validateEmbeddingResponse(
 }
 
 class OpenAiEmbeddingModel implements ProviderEmbeddingModel {
+  readonly modelKey: string;
+
   constructor(
     private readonly embedMany: (inputs: string[]) => Promise<number[][]>,
     private readonly model: string,
-  ) {}
+  ) {
+    this.modelKey = model;
+  }
 
   async embedText(text: string): Promise<number[]> {
     const vectors = await this.embedMany([text]);
@@ -85,7 +87,11 @@ class OpenAiEmbeddingModel implements ProviderEmbeddingModel {
   }
 
   async countTokens(text: string): Promise<number> {
-    return estimateOpenAiTokens(text);
+    return countOpenAiTokens({
+      model: this.model,
+      input: text,
+      surface: 'provider',
+    });
   }
 
   async getContextLength(): Promise<number> {
@@ -118,7 +124,7 @@ export function createOpenAiEmbeddingProvider(params: {
   if (!apiKey) {
     throw new OpenAiEmbeddingError(
       'OPENAI_AUTH_FAILED',
-      'OpenAI embedding models require OPENAI_EMBEDDING_KEY',
+      'OpenAI embedding models require CODEINFO_OPENAI_EMBEDDING_KEY',
       false,
       401,
     );

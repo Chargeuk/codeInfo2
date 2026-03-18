@@ -43,7 +43,7 @@ let lastStartInput: {
 } | null = null;
 
 Before(async () => {
-  process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   startMock({ scenario: 'many' });
 
   const app = express();
@@ -59,7 +59,7 @@ Before(async () => {
   setIngestDeps({
     lmClientFactory: () =>
       new MockLMStudioClient() as unknown as LMStudioClient,
-    baseUrl: process.env.LMSTUDIO_BASE_URL ?? '',
+    baseUrl: process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
   });
 
   app.use(

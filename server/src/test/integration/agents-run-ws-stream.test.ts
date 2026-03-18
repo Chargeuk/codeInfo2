@@ -3,19 +3,19 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import express from 'express';
 import pkg from '../../../package.json' with { type: 'json' };
 
-import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
-import { resetStore } from '../../logStore.js';
 import {
   runAgentCommand,
   runAgentInstructionUnlocked,
 } from '../../agents/service.js';
+import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
+import { resetStore } from '../../logStore.js';
 import { attachWs } from '../../ws/server.js';
 import {
   closeWs,

@@ -106,10 +106,46 @@ describe('resolveMarkdownFile', () => {
     const content = await resolveMarkdownFile({ markdownFile: 'local.md' });
 
     assert.equal(content, 'local direct');
-    const logs = query({ text: 'DEV-0000045:T3:markdown_file_resolved' });
+    const logs = query({ text: 'DEV_0000048_T3_MARKDOWN_RESOLUTION_ORDER' });
     assert.equal(logs.length, 1);
     assert.equal(logs[0]?.context?.resolutionScope, 'direct-command');
-    assert.equal(logs[0]?.context?.resolvedSourceId, harness.codeInfo2Root);
+    assert.equal(
+      logs[0]?.context?.selectedRepositoryPath,
+      path.resolve(harness.codeInfo2Root),
+    );
+  });
+
+  test('searches the selected working repository before the owner repository for top-level markdown references', async () => {
+    await ensureMarkdownFile(
+      harness.codeInfo2Root,
+      'top-level.md',
+      'codeinfo2',
+    );
+    await ensureMarkdownFile(harness.repoOne, 'top-level.md', 'owner repo');
+    await ensureMarkdownFile(harness.repoTwo, 'top-level.md', 'working repo');
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () =>
+        ({
+          repos: [
+            buildRepoEntry({
+              id: 'Owner Repo',
+              containerPath: harness.repoOne,
+            }),
+            buildRepoEntry({
+              id: 'Working Repo',
+              containerPath: harness.repoTwo,
+            }),
+          ],
+        }) as never,
+    });
+
+    const content = await resolveMarkdownFile({
+      markdownFile: 'top-level.md',
+      workingRepositoryPath: harness.repoTwo,
+      sourceId: harness.repoOne,
+    });
+
+    assert.equal(content, 'working repo');
   });
 
   test('resolves direct-command markdown from the ingested sourceId first', async () => {
@@ -184,7 +220,7 @@ describe('resolveMarkdownFile', () => {
     assert.equal(content, 'codeinfo2 fallback');
   });
 
-  test('falls back to other repositories only after same-source and codeInfo2 miss', async () => {
+  test('falls back to other repositories in caller-supplied order after higher-priority slots miss', async () => {
     await ensureMarkdownFile(harness.repoTwo, 'ordered.md', 'alpha repo');
     await ensureMarkdownFile(harness.repoThree, 'ordered.md', 'zulu repo');
     __setMarkdownFileResolverDepsForTests({
@@ -199,7 +235,7 @@ describe('resolveMarkdownFile', () => {
 
     const content = await resolveMarkdownFile({ markdownFile: 'ordered.md' });
 
-    assert.equal(content, 'alpha repo');
+    assert.equal(content, 'zulu repo');
   });
 
   test('accepts root-level markdown lookups inside codeinfo_markdown', async () => {
@@ -245,7 +281,7 @@ describe('resolveMarkdownFile', () => {
     assert.equal(content, 'Café, mañana, 東京, &amp;');
   });
 
-  test('uses source path as a stable tie-breaker when labels match case-insensitively', async () => {
+  test('preserves caller-supplied other-repository order even when labels only differ by case', async () => {
     await ensureMarkdownFile(harness.repoTwo, 'tie.md', 'first path');
     await ensureMarkdownFile(harness.repoThree, 'tie.md', 'second path');
     __setMarkdownFileResolverDepsForTests({
@@ -267,6 +303,124 @@ describe('resolveMarkdownFile', () => {
     const content = await resolveMarkdownFile({ markdownFile: 'tie.md' });
 
     assert.equal(content, 'second path');
+  });
+
+  test('skips the working slot cleanly when no selected working repository is available', async () => {
+    await ensureMarkdownFile(
+      harness.repoOne,
+      'missing-working.md',
+      'owner repo',
+    );
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () =>
+        ({
+          repos: [
+            buildRepoEntry({
+              id: 'Owner Repo',
+              containerPath: harness.repoOne,
+            }),
+            buildRepoEntry({
+              id: 'Other Repo',
+              containerPath: harness.repoTwo,
+            }),
+          ],
+        }) as never,
+    });
+
+    const content = await resolveMarkdownFile({
+      markdownFile: 'missing-working.md',
+      sourceId: harness.repoOne,
+    });
+
+    assert.equal(content, 'owner repo');
+    const orderLogs = query({
+      text: 'DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER',
+    });
+    assert.equal(orderLogs.length, 1);
+    assert.notEqual(orderLogs[0]?.context?.referenceType, null);
+    assert.deepEqual(orderLogs[0]?.context, {
+      referenceType: 'markdownFile',
+      caller: 'direct-command',
+      workingRepositoryAvailable: false,
+      candidateRepositories: [
+        {
+          sourceId: path.resolve(harness.repoOne),
+          sourceLabel: 'Owner Repo',
+          slot: 'owner_repository',
+        },
+        {
+          sourceId: path.resolve(harness.codeInfo2Root),
+          sourceLabel: 'codeinfo2',
+          slot: 'codeinfo2',
+        },
+        {
+          sourceId: path.resolve(harness.repoTwo),
+          sourceLabel: 'Other Repo',
+          slot: 'other_repository',
+        },
+      ],
+    });
+  });
+
+  test('dedupes candidate attempts when working and owner repositories are the same path', async () => {
+    await ensureMarkdownFile(
+      harness.repoOne,
+      'dedupe-working-owner.md',
+      'same repo',
+    );
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () =>
+        ({
+          repos: [
+            buildRepoEntry({
+              id: 'Owner Repo',
+              containerPath: harness.repoOne,
+            }),
+          ],
+        }) as never,
+    });
+
+    const content = await resolveMarkdownFile({
+      markdownFile: 'dedupe-working-owner.md',
+      workingRepositoryPath: harness.repoOne,
+      sourceId: harness.repoOne,
+    });
+
+    assert.equal(content, 'same repo');
+    const orderLogs = query({
+      text: 'DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER',
+    });
+    const candidateRepositories = orderLogs[0]?.context
+      ?.candidateRepositories as Array<{ slot: string }> | undefined;
+    assert.equal(orderLogs.length, 1);
+    assert.equal(candidateRepositories?.length, 2);
+    assert.equal(candidateRepositories?.[0]?.slot, 'working_repository');
+  });
+
+  test('dedupes candidate attempts when working repository equals local codeInfo2', async () => {
+    await ensureMarkdownFile(
+      harness.codeInfo2Root,
+      'dedupe-working-codeinfo2.md',
+      'codeinfo2 working repo',
+    );
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () => ({ repos: [] }) as never,
+    });
+
+    const content = await resolveMarkdownFile({
+      markdownFile: 'dedupe-working-codeinfo2.md',
+      workingRepositoryPath: harness.codeInfo2Root,
+    });
+
+    assert.equal(content, 'codeinfo2 working repo');
+    const orderLogs = query({
+      text: 'DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER',
+    });
+    const candidateRepositories = orderLogs[0]?.context
+      ?.candidateRepositories as Array<{ slot: string }> | undefined;
+    assert.equal(orderLogs.length, 1);
+    assert.equal(candidateRepositories?.length, 1);
+    assert.equal(candidateRepositories?.[0]?.slot, 'working_repository');
   });
 
   test('fails clearly when all repository candidates miss', async () => {
@@ -364,18 +518,35 @@ describe('resolveMarkdownFile', () => {
     );
   });
 
-  test('rejects invalid UTF-8 markdown bytes', async () => {
+  test('fails fast on invalid UTF-8 in a higher-priority repository without falling through', async () => {
     await ensureMarkdownFile(
-      harness.codeInfo2Root,
+      harness.repoOne,
       'invalid-utf8.md',
       Uint8Array.from([0xc3, 0x28]),
     );
+    await ensureMarkdownFile(
+      harness.codeInfo2Root,
+      'invalid-utf8.md',
+      'valid lower-priority fallback',
+    );
     __setMarkdownFileResolverDepsForTests({
-      listIngestedRepositories: async () => ({ repos: [] }) as never,
+      listIngestedRepositories: async () =>
+        ({
+          repos: [
+            buildRepoEntry({
+              id: 'Owner Repo',
+              containerPath: harness.repoOne,
+            }),
+          ],
+        }) as never,
     });
 
     await assert.rejects(
-      () => resolveMarkdownFile({ markdownFile: 'invalid-utf8.md' }),
+      () =>
+        resolveMarkdownFile({
+          markdownFile: 'invalid-utf8.md',
+          sourceId: harness.repoOne,
+        }),
       /Invalid UTF-8 markdown content/,
     );
   });

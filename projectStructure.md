@@ -1,5 +1,231 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000048 final implementation footprint
+
+Added files:
+
+- `client/src/api/conversations.ts`
+- `client/src/config/runtimeConfig.ts`
+- `client/src/test/chatPage.workingFolder.test.tsx`
+- `client/src/test/conversationsApi.workingFolder.test.ts`
+- `e2e/env-runtime-config.spec.ts`
+- `planning/0000048-pr-summary.md`
+- `server/src/flows/repositoryCandidateOrder.ts`
+- `server/src/ingest/providers/openaiTokenizer.ts`
+- `server/src/test/unit/repositoryCandidateOrder.test.ts`
+- `server/src/workingFolders/state.ts`
+
+Removed files:
+
+- None.
+
+Modified files (story-wide traceability highlights):
+
+- `README.md`
+- `design.md`
+- `docs/developer-reference.md`
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `projectStructure.md`
+- `client/src/hooks/useConversations.ts`
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/pages/FlowsPage.tsx`
+- `server/src/agents/commandItemExecutor.ts`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/agents/service.ts`
+- `server/src/chat/memoryPersistence.ts`
+- `server/src/flows/flowState.ts`
+- `server/src/flows/markdownFileResolver.ts`
+- `server/src/flows/service.ts`
+- `server/src/mongo/repo.ts`
+- `server/src/mongo/turn.ts`
+- `server/src/routes/chat.ts`
+- `server/src/routes/conversations.ts`
+- `server/src/ingest/chunker.ts`
+- `server/src/ingest/providers/openaiEmbeddingProvider.ts`
+- `server/src/ingest/providers/openaiGuardrails.ts`
+
+Story notes:
+
+- Story 48 adds shared repository-order, working-folder, runtime-config, and OpenAI-tokenizer helpers while keeping the rest of the work as in-place contract wiring across existing chat, agent, flow, ingest, and documentation files.
+
+## Story 0000048 Task 10 structural change ledger
+
+Added files:
+
+- `server/src/ingest/providers/openaiTokenizer.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `package-lock.json`
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `projectStructure.md`
+- `server/package.json`
+- `server/src/ingest/chunker.ts`
+- `server/src/ingest/providers/index.ts`
+- `server/src/ingest/providers/ingestFailureClassifier.ts`
+- `server/src/ingest/providers/openaiConstants.ts`
+- `server/src/ingest/providers/openaiEmbeddingProvider.ts`
+- `server/src/ingest/providers/openaiErrors.ts`
+- `server/src/ingest/providers/openaiGuardrails.ts`
+- `server/src/test/unit/chunker.test.ts`
+- `server/src/test/unit/openai-provider-guardrails.test.ts`
+- `server/src/test/unit/openai-provider.test.ts`
+
+## Story 0000048 Task 9 structural change ledger
+
+Added files:
+
+- `client/src/config/runtimeConfig.ts`
+- `client/src/test/baseUrl.env.test.ts`
+- `e2e/env-runtime-config.spec.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `client/.env`
+- `client/.env.e2e`
+- `client/.env.local`
+- `client/Dockerfile`
+- `client/entrypoint.sh`
+- `client/src/api/baseUrl.ts`
+- `client/src/hooks/useLmStudioStatus.ts`
+- `client/src/logging/transport.ts`
+- `client/src/pages/LmStudioPage.tsx`
+- `client/src/test/logging/transport.test.ts`
+- `client/src/test/lmstudio.test.tsx`
+- `design.md`
+- `docker-compose.e2e.yml`
+- `docker-compose.local.yml`
+- `docker-compose.yml`
+- `docs/developer-reference.md`
+- `e2e/chat-multiwindow.spec.ts`
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `projectStructure.md`
+
+## Story 0000048 Task 4 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `projectStructure.md`
+- `server/src/chat/memoryPersistence.ts`
+- `server/src/flows/flowState.ts`
+- `server/src/flows/service.ts`
+- `server/src/flows/types.ts`
+- `server/src/mongo/repo.ts`
+- `server/src/test/integration/conversations.list.test.ts`
+- `server/src/test/integration/flows.run.basic.test.ts`
+- `server/src/test/unit/chat-interface-run-persistence.test.ts`
+- `server/src/test/unit/flows.flags.test.ts`
+- `server/src/test/unit/ws-server.test.ts`
+
+## Story 0000048 Task 3 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `projectStructure.md`
+- `server/src/agents/commandItemExecutor.ts`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/flows/markdownFileResolver.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/commands.markdown-file.test.ts`
+- `server/src/test/integration/flows.turn-metadata.test.ts`
+- `server/src/test/unit/markdown-file-resolver.test.ts`
+
+## Story 0000048 Task 2 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `projectStructure.md`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/agents/service.ts`
+- `server/src/chat/interfaces/ChatInterface.ts`
+- `server/src/flows/repositoryCandidateOrder.ts`
+- `server/src/flows/service.ts`
+- `server/src/mongo/repo.ts`
+- `server/src/mongo/turn.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+- `server/src/test/unit/agents-commands-router-run.test.ts`
+- `server/src/test/unit/turn-command-metadata.test.ts`
+
+## Story 0000048 Task 1 structural change ledger
+
+Added files:
+
+- `server/src/flows/repositoryCandidateOrder.ts`
+- `server/src/test/unit/repositoryCandidateOrder.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `projectStructure.md`
+
 ## Story 0000047 final implementation footprint
 
 Added files:
@@ -781,7 +1007,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”œâ”€ tsconfig.json â€” project references entry
 â”œâ”€ client/ â€” React 19 Vite app
 â”‚  â”œâ”€ .dockerignore â€” client docker build ignores
-â”‚  â”œâ”€ .env â€” client default env (VITE_API_URL, VITE_LMSTUDIO_URL)
+â”‚  â”œâ”€ .env â€” client default env (`VITE_CODEINFO_API_URL`, `VITE_CODEINFO_LMSTUDIO_URL`, log-forward/max-bytes defaults)
 â”‚  â”œâ”€ .env.local â€” client local overrides (ignored by git consumers)
 â”‚  â”œâ”€ .gitignore â€” client-specific ignores
 â”‚  â”œâ”€ Dockerfile â€” client image build with optional corporate npm registry override during `npm ci` and build-state metadata handoff (`CODEINFO_CLIENT_BUILD_OVERRIDE_STATE`)
@@ -1040,7 +1266,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”‚  â””â”€ 0000045-summary.md â€” Story 0000045 PR summary artifact covering markdown-backed workflow steps, structured re-ingest paths, and final validation evidence
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores
-â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)
+â”‚  â”œâ”€ .env â€” server default env (PORT, CODEINFO_LMSTUDIO_BASE_URL)
 â”‚  â”œâ”€ .env.local â€” server local overrides (ignored by git consumers)
 â”‚  â”œâ”€ .prettierignore â€” server-specific Prettier ignore
 â”‚  â”œâ”€ Dockerfile â€” server image build with stage-local corporate override args and conditional npm/pip install wiring (defaults preserved when unset)
@@ -1353,7 +1579,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/ingest/providers/providerResolver.ts — deterministic model-id -> provider/model resolver used by ingest/query embedding paths
 - server/src/agents/transientReconnect.ts — transient reconnect classifier ("Reconnecting... n/m") + safe error message helper
 - server/src/config/flowAndCommandRetries.ts — shared retry-budget resolver (`FLOW_AND_COMMAND_RETRIES`, default 5 total attempts)
-- server/src/config/openaiIngestRetries.ts — OpenAI ingest retry-budget resolver (`OPENAI_INGEST_MAX_RETRIES`, retries after initial attempt, fallback default 3)
+- server/src/config/openaiIngestRetries.ts — OpenAI ingest retry-budget resolver (`CODEINFO_OPENAI_INGEST_MAX_RETRIES`, retries after initial attempt, fallback default 3)
 - server/src/agents/runLock.ts — in-memory per-conversation run lock for agent/command execution
 - server/src/agents/config.ts — minimal agent `config.toml` parsing helpers (e.g. top-level `model`)
 - server/src/agents/service.ts — shared agents service used by REST + Agents MCP (list agents + run agent instruction), including `startStep` defaulting to `1` for command runs and T03 start-step diagnostic logging
@@ -1386,7 +1612,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/chat-command-metadata.test.ts — unit coverage that chat persistence attaches `command` metadata to turns created by command runs
 - server/src/test/unit/chatModels.codex.test.ts — unit coverage for `/chat/models` resolver-backed Codex defaults/warnings, model capability payloads, and parity fixtures
 - server/src/test/unit/chatProviders.test.ts — unit coverage for `/chat/providers` availability ordering plus resolver-backed `codexDefaults`/`codexWarnings` parity
-- server/src/test/integration/openai-retry-env-override.test.ts — integration coverage for OpenAI retryable-failure attempt counts honoring `OPENAI_INGEST_MAX_RETRIES`
+- server/src/test/integration/openai-retry-env-override.test.ts — integration coverage for OpenAI retryable-failure attempt counts honoring `CODEINFO_OPENAI_INGEST_MAX_RETRIES`
 - server/src/config/chatDefaults.ts — shared Codex chat-default resolver for `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search` with precedence (`override -> config -> env -> hardcoded`) plus field-specific env fallback warnings
 - server/src/test/unit/config.chatDefaults.test.ts — unit coverage for shared chat default resolution precedence
 - server/src/test/unit/chatValidators.test.ts — unit coverage for resolver-backed Codex validation defaults, warning semantics, and parity fixtures
@@ -1415,7 +1641,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/integration/conversations.turns.test.ts — integration coverage for conversation turns API including persisted `command` metadata stability for start-step offset histories
 - server/src/test/integration/ws-logs.test.ts — integration coverage proving WS lifecycle logs are queryable via `GET /logs`
 - server/src/test/unit/turn-command-metadata.test.ts — unit coverage that turn repo helpers persist and rehydrate optional `command` metadata
-- server/src/mcpAgents/server.ts — start/stop Agents MCP JSON-RPC server on `AGENTS_MCP_PORT` (default 5012)
+- server/src/mcpAgents/server.ts — start/stop Agents MCP JSON-RPC server on `CODEINFO_AGENTS_MCP_PORT` (default 5012)
 - server/src/mcpAgents/router.ts — Agents MCP JSON-RPC handlers (initialize/tools/resources) with ungated tools/list
 - server/src/mcpAgents/tools.ts — Agents MCP tool registry (list_agents/list_commands/run_agent_instruction/run_command) delegating to shared agents service
 - server/src/mcpAgents/types.ts — Agents MCP JSON-RPC types and response helpers
@@ -1971,3 +2197,38 @@ Modified files (implementation traceability):
 Task notes:
 
 - Task 7 adds the maintained PR-summary artifact under `planning/` and keeps screenshot evidence under `test-results/screenshots/` without listing those generated image files here.
+
+## Story 0000048 Task 6 structural verification ledger
+
+Added files:
+
+- `client/src/api/conversations.ts`
+- `client/src/test/chatPage.workingFolder.test.tsx`
+- `client/src/test/conversationsApi.workingFolder.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md` — working-folder restore, idle-edit persistence, stale-clear recovery, and run-lock behavior are now documented for the user-facing chat, agent, and flow surfaces.
+- `docs/developer-reference.md` — shared client conversation-working-folder API usage and the restore or clear or lock rules for chat, agents, and flows are now documented together.
+- `client/src/hooks/useChatStream.ts` — chat run payloads now keep forwarding `working_folder` when the chat picker has a selected value.
+- `client/src/hooks/useConversations.ts` — shared conversation state now normalizes `flags.workingFolder`, persists working-folder edits through one API helper, and emits the `DEV_0000048_T6_PICKER_SYNC` browser marker contract.
+- `client/src/pages/ChatPage.tsx` — chat now exposes its first working-folder picker with restore or save or clear handling for existing conversations and run-lock behavior tied to local plus websocket inflight state.
+- `client/src/pages/AgentsPage.tsx` — agent picker restore or save or clear behavior now runs through the shared conversation-edit helper while keeping direct commands on the owning agent conversation.
+- `client/src/pages/FlowsPage.tsx` — flow picker restore or save or clear behavior now runs through the shared conversation-edit helper and locks during active flow execution.
+- `client/src/test/agentsPage.workingFolderPicker.test.tsx` — agent picker restore or empty-state or idle-save or run-lock or stale-clear cases are now covered explicitly.
+- `client/src/test/chatSendPayload.test.tsx` — chat payload coverage now proves `working_folder` still ships at run start.
+- `client/src/test/flowsPage.run.test.tsx` — flow picker restore or empty-state or idle-save or run-lock or stale-clear cases are now covered explicitly.
+- `client/src/test/useConversations.source.test.ts` — websocket restore and clear updates for `flags.workingFolder` are now covered at the shared hook layer.
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md` — Task 6 progress, implementation notes, and wrapper/manual verification evidence are updated in sequence as the work lands.
+
+Task notes:
+
+- Task 6 adds one shared client API helper and two new client test files; the surface pages stay in place and now consume the shared conversation-working-folder contract instead of owning per-page idle-edit logic.

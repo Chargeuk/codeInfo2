@@ -4,8 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { baseLogger } from '../../logger.js';
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
+import { baseLogger } from '../../logger.js';
 
 test('resolveCodexCapabilities uses fallback capabilities when injected metadata resolver throws', async (t) => {
   const errorLines: string[] = [];

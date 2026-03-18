@@ -1,4 +1,5 @@
 import { resolveMarkdownFileWithMetadata } from '../flows/markdownFileResolver.js';
+import type { RepositoryCandidateLookupSummary } from '../flows/repositoryCandidateOrder.js';
 import { append } from '../logStore.js';
 
 import type {
@@ -13,6 +14,7 @@ export type ExecuteCommandItemInstruction = {
   instruction: string;
   instructionSource: CommandItemInstructionSource;
   markdownFile?: string;
+  lookupSummary?: RepositoryCandidateLookupSummary;
   resolvedSourceId?: string;
 };
 
@@ -38,6 +40,7 @@ export function executeCommandItem<T>(params: {
   item: AgentCommandMessageItem;
   itemIndex: number;
   commandName: string;
+  workingRepositoryPath?: string;
   sourceId?: string;
   flowSourceId?: string;
   flowContext?: {
@@ -54,6 +57,7 @@ export function executeCommandItem<T>(params: {
   item: AgentCommandItem;
   itemIndex: number;
   commandName: string;
+  workingRepositoryPath?: string;
   sourceId?: string;
   flowSourceId?: string;
   flowContext?: {
@@ -72,6 +76,7 @@ export async function executeCommandItem<T>(params: {
   item: AgentCommandItem;
   itemIndex: number;
   commandName: string;
+  workingRepositoryPath?: string;
   sourceId?: string;
   flowSourceId?: string;
   flowContext?: {
@@ -125,6 +130,7 @@ export async function executeCommandItem<T>(params: {
     instruction = {
       instruction: params.item.content.join('\n'),
       instructionSource: 'content',
+      lookupSummary: undefined,
       markdownFile: undefined,
       resolvedSourceId: undefined,
     };
@@ -132,12 +138,14 @@ export async function executeCommandItem<T>(params: {
     const markdownFile = params.item.markdownFile;
     const resolved = await resolveMarkdownFileWithMetadata({
       markdownFile,
+      workingRepositoryPath: params.workingRepositoryPath,
       sourceId: params.sourceId,
       flowSourceId: params.flowSourceId,
     });
     instruction = {
       instruction: resolved.content,
       instructionSource: 'markdownFile',
+      lookupSummary: resolved.lookupSummary,
       markdownFile,
       resolvedSourceId: resolved.resolvedSourceId,
     };

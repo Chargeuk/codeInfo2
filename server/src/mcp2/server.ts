@@ -1,12 +1,12 @@
 import http from 'http';
-import { MCP_PORT } from '../config.js';
+import { CODEINFO_MCP_PORT } from '../config.js';
 import { handleRpc } from './router.js';
 
 let server: http.Server | undefined;
 
 export function startMcp2Server() {
   server = http.createServer(handleRpc);
-  server.listen(MCP_PORT);
+  server.listen(CODEINFO_MCP_PORT);
   return server;
 }
 

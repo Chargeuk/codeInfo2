@@ -373,75 +373,86 @@ The planning assumption should therefore be:
 
 ## Feasibility Proof
 
-### 1. Shared transcript component layer
+### 1. Shared Chat Transcript Foundation
 
 - Already existing capabilities:
-  - `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx` already expose the current transcript inputs, containers, and page-specific metadata that a shared layer can wrap.
-  - `client/src/components/chat/` already exists as the right home for shared chat-facing UI.
+  - `client/src/pages/ChatPage.tsx` already contains the full transcript container, duplicated formatter helpers, tool and citation UI, thought-process UI, and the `chat-transcript` DOM hook that the shared layer can extract.
+  - `client/src/components/chat/` already exists as the right home for the new shared transcript files, while `ConversationList.tsx` and `CodexFlagsPanel.tsx` already define the shared sidebar and Chat-only flags boundaries that must remain outside the new transcript layer.
 - Missing prerequisite capabilities:
-  - there is no shared transcript container, row renderer, virtualization hook, or reusable transcript subsection component in `client/src/components/chat/` today.
+  - there is no shared transcript container, row renderer, formatter helper module, or reusable transcript subsection component in `client/src/components/chat/` today.
 - Assumptions that are currently invalid:
-  - it is false to assume the repo already has a shared transcript renderer that only needs light tuning; this capability still has to be created.
+  - it is false to assume Chat already consumes a shared transcript renderer; the page still owns the full inline bubble loop today.
 
-### 2. Agents input or composer isolation
+### 2. Agents Composer Isolation
 
 - Already existing capabilities:
-  - the Agents page already has a distinct instruction input, local input state, and transcript subtree inside one page component, so there is a clear refactor seam.
+  - `client/src/pages/AgentsPage.tsx` already contains a clear composer boundary candidate: the agent selection, command row, working-folder controls, multiline `agent-input`, and action slot currently live in one page-local section.
 - Missing prerequisite capabilities:
-  - there is no existing memoized or isolated composer boundary that prevents the full transcript tree from participating in per-keystroke rerenders.
+  - there is no existing isolated composer component or render-isolation regression test proving typing does not rerender the transcript subtree.
 - Assumptions that are currently invalid:
-  - it is false to assume the Agents input is already separated from transcript rendering work; the current page still owns both in the same component.
+  - it is false to assume the current Agents page already isolates per-keystroke input work from transcript rendering; both still live in the same page component.
 
-### 3. Variable-height transcript virtualization
+### 3. Agents Shared Transcript Adoption
 
 - Already existing capabilities:
-  - the pages already expose stable `message.id` values, scrollable transcript containers, and React 19 component boundaries that a virtualization layer can build on.
+  - the Agents page already exposes every behavior the shared transcript must preserve, including `agent-turns-error`, `liveStoppedMarker`-driven status chips, tool toggles, citation accordions, thought-process sections, and existing transcript test ids.
+  - Task 1 is expected to create the shared transcript files this task can adopt.
 - Missing prerequisite capabilities:
-  - the preferred virtualization dependency `@tanstack/react-virtual` is not yet in `client/package.json`;
-  - there is no existing shared virtualizer wrapper, `measureElement` wiring, or row-measurement helper in the repo today.
+  - the shared transcript foundation from Task 1 must exist before Agents can move off its page-local `displayMessages.map(...)` loop.
+- Assumptions that are currently invalid:
+  - it is false to assume Agents already uses the shared transcript path; its full transcript renderer is still page-local today.
+
+### 4. Flows Shared Transcript Adoption
+
+- Already existing capabilities:
+  - the Flows page already exposes the flow-specific behaviors the shared transcript must preserve, including `flows-transcript`, `flows-turns-error`, `buildFlowMetaLine(...)`, retained-assistant behavior, and the current absence of citation UI.
+  - Task 1 is expected to create the shared transcript files this task can adopt.
+- Missing prerequisite capabilities:
+  - the shared transcript foundation from Task 1 must exist before Flows can move off its page-local `displayMessages.map(...)` loop.
+- Assumptions that are currently invalid:
+  - it is false to assume Flows already uses the shared transcript path or supports citation UI today.
+
+### 5. Transcript Test Harness Support
+
+- Already existing capabilities:
+  - Jest/RTL client tests, `client/src/test/setupTests.ts`, `setupChatWsHarness` in `client/src/test/support/mockChatWs.ts`, `setupFlowsRunHarness` in `client/src/test/flowsPage.run.test.tsx`, Codex helper `ensureCodexFlagsPanelExpanded.ts`, and existing layout mock patterns already provide the correct base harnesses for this story.
+- Missing prerequisite capabilities:
+  - reusable measurement-specific helpers for `ResizeObserver`, row measurement, and scroll-anchor assertions still need to be added under `client/src/test/support/` before the later scroll and virtualization tasks can rely on deterministic measurement behavior.
+- Assumptions that are currently invalid:
+  - it is false to assume the current tests already cover scroll-anchor behavior, row measurement, or virtual remount state retention.
+  - it is also false to assume this story needs a separate virtualization-only harness; the existing harnesses should be extended instead.
+
+### 6. Shared Transcript State and Scroll Contract
+
+- Already existing capabilities:
+  - after Tasks 1 through 4, the shared transcript path will exist across Chat, Agents, and Flows, and each current page already exposes the state that must move into shared ownership (`toolOpen`, `toolErrorOpen`, `thinkOpen`, citations, and transcript containers).
+- Missing prerequisite capabilities:
+  - real shared bottom-pinned versus scrolled-away logic, shared conversation-scoped expansion state, and scroll-anchor preservation do not exist yet.
+  - the measurement helpers from Task 5 must exist before this task can prove its scroll and growth behavior cleanly.
+- Assumptions that are currently invalid:
+  - it is false to assume the page-local `handleTranscriptScroll` placeholders or current page-local state maps are sufficient for the final shared transcript contract.
+
+### 7. Transcript Virtualization and Dynamic Measurement
+
+- Already existing capabilities:
+  - by the time this task starts, the shared transcript path, per-surface adoption, shared state contract, and measurement harness from Tasks 1 through 6 should all exist.
+  - the current hooks already expose stable `message.id` values, hydration/inflight contracts, and scrollable containers suitable for a virtualizer.
+- Missing prerequisite capabilities:
+  - `@tanstack/react-virtual` is not yet in `client/package.json`.
+  - there is no existing shared virtualizer wrapper, `measureElement` wiring, or dynamic row-remeasurement path in the repo today.
 - Assumptions that are currently invalid:
   - it is false to assume virtualization support or dynamic row measurement already exists in the client codebase.
+  - it is also false to assume virtualization can land safely before the shared transcript and harness prerequisites are in place.
 
-### 4. Hydration and inflight transcript contracts
-
-- Already existing capabilities:
-  - `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`, and `client/src/hooks/useConversationTurns.ts` already provide the transcript's live websocket, persisted turn hydration, inflight snapshot merge, and `message.id` stability contracts.
-- Missing prerequisite capabilities:
-  - none at the transport or data-contract level for this story; the required hooks already exist and should be reused.
-- Assumptions that are currently invalid:
-  - it is false to assume this story should introduce a second transcript data model or bypass the current hydration/inflight hooks.
-
-### 5. Scroll anchoring and measurement behavior
+### 8. Full Story Validation and Documentation Closeout
 
 - Already existing capabilities:
-  - all three transcript surfaces already have scrollable containers and stable DOM targets (`chat-transcript` / `flows-transcript`) that a shared transcript can take over;
-  - Chat and Agents already wire placeholder `handleTranscriptScroll` callbacks, while Flows currently only exposes the scrollable container without shared scroll logic.
+  - the current Dockerfiles, Compose stacks, runtime config path, health endpoints, screenshots folder convention, and client/server build or test wrappers already support client-only transcript changes.
 - Missing prerequisite capabilities:
-  - there is no real shared scroll-anchor behavior today, and the page-local `handleTranscriptScroll` functions are placeholders;
-  - there is no explicit shared measurement policy for growing rows, expandable sections, or virtual window anchor preservation.
+  - Tasks 1 through 7 must be complete before there is anything valid to build, screenshot, document, or regression-test end-to-end for this story.
 - Assumptions that are currently invalid:
-  - it is false to assume the current repo already has working bottom-pinned versus scrolled-away logic that can simply be reused unchanged.
-
-### 6. Test support for virtualization-sensitive behavior
-
-- Already existing capabilities:
-  - Jest/RTL client tests, `setupChatWsHarness`, layout-bound mocks, and Playwright/e2e suites already exist and are the correct base harnesses for this story.
-- Missing prerequisite capabilities:
-  - reusable virtualization-specific support helpers may still need to be added under `client/src/test/support/` for `ResizeObserver`, item measurement, or scroll-anchor assertions if the implementation makes those patterns repetitive.
-  - those helpers are extensions to the existing harness, not a brand-new test harness or runner.
-- Assumptions that are currently invalid:
-  - it is false to assume the current tests already assert overscan, row measurement, virtual unmount/remount state retention, or scroll-anchor behavior; those scenarios still need to be added even though the underlying harness already exists.
-  - it is also false to assume Story 49 needs a separate virtualization-only harness; the existing harnesses should be extended first.
-
-### 7. Docker, build, and runtime support
-
-- Already existing capabilities:
-  - the current Dockerfiles, Compose stacks, runtime config path, health endpoints, and client build/test wrappers already support client-only transcript changes;
-  - application code is already copied into images and built there, and the story can reuse that model unchanged.
-- Missing prerequisite capabilities:
-  - none at the runtime or deployment-infrastructure level for this story.
-- Assumptions that are currently invalid:
-  - it is false to assume Story 49 needs a new listener, env-var path, Docker surface, port mapping, or host source bind mount to be feasible.
+  - it is false to assume Story 49 is ready for final validation before the shared transcript, harness, scroll contract, and virtualization work have all landed.
+  - it is also false to assume this story needs new runtime infrastructure, env-var injection, or Docker surfaces to complete validation.
 
 ## Tasks
 
@@ -634,75 +645,14 @@ Wrapper-first rule: use the repository wrappers below instead of raw build or te
 
 ---
 
-### 5. Shared Transcript State and Scroll Contract
+### 5. Transcript Test Harness Support
 
 - Task Status: `__to_do__`
 - Git Commits: ``
 
 #### Overview
 
-Implement the shared transcript behavior contract that all three surfaces need before virtualization: conversation-scoped rich-row expansion state, real pinned-bottom versus scrolled-away handling, and scroll-anchor preservation when content changes height. This task is specifically about shared transcript behavior, not about adding the virtualizer itself.
-
-#### Documentation Locations
-
-- Local source to inspect before editing:
-  - shared transcript files under `client/src/components/chat/`
-  - `client/src/pages/ChatPage.tsx`
-  - `client/src/pages/AgentsPage.tsx`
-  - `client/src/pages/FlowsPage.tsx`
-  - `client/src/test/chatPage.layoutWrap.test.tsx`
-  - `client/src/test/chatPage.layoutHeight.test.tsx`
-  - `client/src/test/chatPage.citations.test.tsx`
-  - `client/src/test/chatPage.reasoning.test.tsx`
-  - `client/src/test/agentsPage.layoutWrap.test.tsx`
-  - `client/src/test/agentsPage.citations.test.tsx`
-  - `client/src/test/agentsPage.reasoning.test.tsx`
-  - `client/src/test/flowsPage.test.tsx`
-  - `client/src/test/support/mockChatWs.ts`
-- React guidance for stable state ownership and UI update ordering: Context7 `/reactjs/react.dev`
-- This story plan section to re-read before starting: `## Edge Cases and Failure Modes`, `### Reproducible Validation Scenario`, and `### Validation Proof Path Must Be Runnable`
-
-#### Subtasks
-
-1. [ ] Replace the page-local transcript UI state and placeholder scroll handling with shared transcript ownership. Move the current `toolOpen`, `toolErrorOpen`, and `thinkOpen` maps plus citation expansion state into conversation-scoped shared transcript state keyed by existing message and tool identities, and replace the page-local `handleTranscriptScroll` placeholders in Chat and Agents plus the Flows scroll-container-only behavior with one shared bottom-pinned versus scrolled-away model.
-2. [ ] Add shared transcript state ownership for row expansion and related UI state keyed by existing message and tool identities, including citation expansion state once citations move behind the shared transcript layer. Make sure this state resets when the active conversation changes so one conversation cannot leak expansion state into another.
-3. [ ] Implement real shared scroll handling for the transcript container: track when the user is near the bottom, stop forced auto-scroll when the user scrolls away, and restore bottom-pinned behavior only when the user returns near the bottom.
-4. [ ] Implement scroll-anchor preservation for height changes triggered by streaming text or rich-section expansion, using the existing non-virtualized shared transcript first. Keep the production behavior work in this task, and leave the reusable test-support harness additions for the dedicated harness task that follows.
-5. [ ] Add one focused regression test file, `client/src/test/sharedTranscript.scrollBehavior.test.tsx`, that proves the shared transcript stops auto-scrolling when the user scrolls away from the bottom, preserves reading position during row growth, and re-pins only after the user returns near the bottom.
-6. [ ] Update the layout-focused and rich-state tests in `client/src/test/chatPage.layoutWrap.test.tsx`, `client/src/test/chatPage.layoutHeight.test.tsx`, `client/src/test/chatPage.citations.test.tsx`, `client/src/test/chatPage.reasoning.test.tsx`, `client/src/test/agentsPage.layoutWrap.test.tsx`, `client/src/test/agentsPage.citations.test.tsx`, `client/src/test/agentsPage.reasoning.test.tsx`, and `client/src/test/flowsPage.test.tsx` so they prove the new shared transcript behavior instead of the old page-local placeholders, confirm citation toggles and thought-process toggles are now backed by the shared conversation-scoped state, and confirm Flows still omits citation UI while keeping `bubble-flow-meta`.
-7. [ ] Update documentation after the code and tests are stable. If this task adds or removes tracked support files, update `projectStructure.md`; regardless of structure changes, add a short entry to this task's `Implementation notes` describing the final pinned-bottom rule, how conversation-scoped state reset is handled, and which surface-specific transcript features remain enabled or disabled.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any Task 5 issues before considering the task complete.
-
-#### Testing
-
-Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
-
-1. [ ] `npm run typecheck:summary:client`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutWrap.test.tsx`
-4. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutHeight.test.tsx`
-5. [ ] `npm run test:summary:client -- --file client/src/test/sharedTranscript.scrollBehavior.test.tsx`
-6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.citations.test.tsx`
-7. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.reasoning.test.tsx`
-8. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.layoutWrap.test.tsx`
-9. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.citations.test.tsx`
-10. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.reasoning.test.tsx`
-11. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
-
-#### Implementation notes
-
-- None yet.
-
----
-
-### 6. Transcript Test Harness Support
-
-- Task Status: `__to_do__`
-- Git Commits: ``
-
-#### Overview
-
-Create the client test-support harness pieces that Story 49 needs for measurement-sensitive transcript assertions before the virtualized transcript work depends on them. This task is only for test infrastructure under `client/src/test/support/` plus proof that the harness can run and surface errors clearly; it must not introduce production transcript behavior changes.
+Create the client test-support harness pieces that Story 49 needs before the shared transcript scroll behavior and later virtualization work depend on deterministic measurement assertions. This task is only for test infrastructure under `client/src/test/support/` plus proof that the harness can run and surface errors clearly; it must not introduce production transcript behavior changes.
 
 #### Documentation Locations
 
@@ -726,7 +676,7 @@ Create the client test-support harness pieces that Story 49 needs for measuremen
 3. [ ] Add one focused proof test file, `client/src/test/transcriptTestHarness.test.ts`, that proves the new harness can execute in Jest, can drive at least one transcript-style measurement or scroll update, and can surface a clear checked error when the harness is misused instead of failing silently.
 4. [ ] Update at least one existing layout-sensitive transcript test, preferably `client/src/test/chatPage.layoutHeight.test.tsx` or `client/src/test/agentsPage.layoutWrap.test.tsx`, to consume the new harness so the helper is proven in a real transcript-facing assertion rather than remaining an isolated utility.
 5. [ ] Update documentation after the code and tests are stable. If this task adds tracked support or test files, update `projectStructure.md`; regardless of structure changes, add a short entry to this task's `Implementation notes` describing the new harness surface and the exact proof test that verifies it.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any Task 6 issues before considering the task complete.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any Task 5 issues before considering the task complete.
 
 #### Testing
 
@@ -736,6 +686,67 @@ Wrapper-first rule: use the repository wrappers below instead of raw build or te
 2. [ ] `npm run build:summary:client`
 3. [ ] `npm run test:summary:client -- --file client/src/test/transcriptTestHarness.test.ts`
 4. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutHeight.test.tsx`
+
+#### Implementation notes
+
+- None yet.
+
+---
+
+### 6. Shared Transcript State and Scroll Contract
+
+- Task Status: `__to_do__`
+- Git Commits: ``
+
+#### Overview
+
+Implement the shared transcript behavior contract that all three surfaces need before virtualization: conversation-scoped rich-row expansion state, real pinned-bottom versus scrolled-away handling, and scroll-anchor preservation when content changes height. This task is specifically about shared transcript behavior, not about adding the virtualizer itself.
+
+#### Documentation Locations
+
+- Local source to inspect before editing:
+  - shared transcript files under `client/src/components/chat/`
+  - `client/src/pages/ChatPage.tsx`
+  - `client/src/pages/AgentsPage.tsx`
+  - `client/src/pages/FlowsPage.tsx`
+  - `client/src/test/chatPage.layoutWrap.test.tsx`
+  - `client/src/test/chatPage.layoutHeight.test.tsx`
+  - `client/src/test/chatPage.citations.test.tsx`
+  - `client/src/test/chatPage.reasoning.test.tsx`
+  - `client/src/test/agentsPage.layoutWrap.test.tsx`
+  - `client/src/test/agentsPage.citations.test.tsx`
+  - `client/src/test/agentsPage.reasoning.test.tsx`
+  - `client/src/test/flowsPage.test.tsx`
+  - the transcript test-support harness files added in Task 5 under `client/src/test/support/`
+- React guidance for stable state ownership and UI update ordering: Context7 `/reactjs/react.dev`
+- This story plan section to re-read before starting: `## Edge Cases and Failure Modes`, `### Reproducible Validation Scenario`, and `### Validation Proof Path Must Be Runnable`
+
+#### Subtasks
+
+1. [ ] Replace the page-local transcript UI state and placeholder scroll handling with shared transcript ownership. Move the current `toolOpen`, `toolErrorOpen`, and `thinkOpen` maps plus citation expansion state into conversation-scoped shared transcript state keyed by existing message and tool identities, and replace the page-local `handleTranscriptScroll` placeholders in Chat and Agents plus the Flows scroll-container-only behavior with one shared bottom-pinned versus scrolled-away model.
+2. [ ] Add shared transcript state ownership for row expansion and related UI state keyed by existing message and tool identities, including citation expansion state once citations move behind the shared transcript layer. Make sure this state resets when the active conversation changes so one conversation cannot leak expansion state into another.
+3. [ ] Implement real shared scroll handling for the transcript container: track when the user is near the bottom, stop forced auto-scroll when the user scrolls away, and restore bottom-pinned behavior only when the user returns near the bottom.
+4. [ ] Implement scroll-anchor preservation for height changes triggered by streaming text or rich-section expansion, using the existing non-virtualized shared transcript first. Reuse the measurement helpers created in Task 5 instead of adding ad-hoc scroll or resize mocks inside page-local tests.
+5. [ ] Add one focused regression test file, `client/src/test/sharedTranscript.scrollBehavior.test.tsx`, that proves the shared transcript stops auto-scrolling when the user scrolls away from the bottom, preserves reading position during row growth, and re-pins only after the user returns near the bottom.
+6. [ ] Update the layout-focused and rich-state tests in `client/src/test/chatPage.layoutWrap.test.tsx`, `client/src/test/chatPage.layoutHeight.test.tsx`, `client/src/test/chatPage.citations.test.tsx`, `client/src/test/chatPage.reasoning.test.tsx`, `client/src/test/agentsPage.layoutWrap.test.tsx`, `client/src/test/agentsPage.citations.test.tsx`, `client/src/test/agentsPage.reasoning.test.tsx`, and `client/src/test/flowsPage.test.tsx` so they prove the new shared transcript behavior instead of the old page-local placeholders, confirm citation toggles and thought-process toggles are now backed by the shared conversation-scoped state, and confirm Flows still omits citation UI while keeping `bubble-flow-meta`.
+7. [ ] Update documentation after the code and tests are stable. If this task adds or removes tracked support files, update `projectStructure.md`; regardless of structure changes, add a short entry to this task's `Implementation notes` describing the final pinned-bottom rule, how conversation-scoped state reset is handled, and which surface-specific transcript features remain enabled or disabled.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any Task 6 issues before considering the task complete.
+
+#### Testing
+
+Wrapper-first rule: use the repository wrappers below instead of raw build or test commands.
+
+1. [ ] `npm run typecheck:summary:client`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutWrap.test.tsx`
+4. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutHeight.test.tsx`
+5. [ ] `npm run test:summary:client -- --file client/src/test/sharedTranscript.scrollBehavior.test.tsx`
+6. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.citations.test.tsx`
+7. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.reasoning.test.tsx`
+8. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.layoutWrap.test.tsx`
+9. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.citations.test.tsx`
+10. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.reasoning.test.tsx`
+11. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
 
 #### Implementation notes
 
@@ -769,7 +780,7 @@ Add the virtualization layer to the shared transcript, including dynamic measure
   - `client/src/test/useConversationTurns.refresh.test.ts`
   - `client/src/test/useConversationTurns.commandMetadata.test.ts`
   - `client/src/test/useChatStream.inflightMismatch.test.tsx`
-  - the transcript test-support harness files added in Task 6 under `client/src/test/support/`
+  - the transcript test-support harness files added in Task 5 under `client/src/test/support/`
 - TanStack Virtual API guidance for `measureElement`, `estimateSize`, `getItemKey`, `overscan`, and scroll adjustment: Context7 `/tanstack/virtual`
 - React guidance for memo boundaries around expensive lists: Context7 `/reactjs/react.dev`
 - This story plan section to re-read before starting: `## Feasibility Proof`, `## Edge Cases and Failure Modes`, and `### Validation Proof Path Must Be Runnable`

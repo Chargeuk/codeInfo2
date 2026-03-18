@@ -1,4 +1,6 @@
-Now the story is ready to be worked on, I want you to create a simple version of the story for business people to read. The name of the story markdown file should be the same as the plan/spec/story currently being worked on, but be placed at the root of the repository within a folder named 'codeInfo_simple_stories'. The format of this story should be as follows:
+Now the story is ready to be worked on, I want you to create a simple version of the story for business people to read. The name of the story markdown file should be the same as the plan/spec/story currently being worked on, but be placed at the root of the repository within a folder named 'codeInfo_simple_stories'. Once created, it should be committed.
+
+The format of this story should be as follows:
 
 # Title
 <the title of the story from a user perspective. EG: Users can [do\see a new business feature]>
@@ -11,4 +13,6 @@ Now the story is ready to be worked on, I want you to create a simple version of
 
 # Tasks
 <A numerical list of the tasks, based on the tasks that are in tyhe real story\plan\spec>
-<Each task should consist of a single title line explaining what change is to be made, followed by one or two bullet points adding a bit of detail, such as key files to edit. Each bullet point is only a single small sentence, as is the title of the task, but they are technical, not business.>
+Each task should consist of:
+- A single title line explaining what change is to be made that starts with the name of the repository in square brackets, eg: [My_repo] - <title-line>
+- One or two bullet points adding a bit of detail, such as key files to edit. Each bullet point is only a single small sentence, as is the title of the task, but they are technical, not business.

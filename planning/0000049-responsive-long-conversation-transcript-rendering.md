@@ -58,6 +58,22 @@ To count as complete, this story should leave the client with one shared transcr
   - which files own page-specific controls;
   - which shared transcript files own transcript rendering and performance behavior.
 
+### Surface-By-Surface Done Looks Like
+
+- Chat page:
+  - provider and model selection, sidebar behavior, and other page-level chat controls still live in `ChatPage.tsx`;
+  - the transcript itself is rendered through the shared transcript path rather than an inline page-local bubble loop;
+  - the existing chat transcript states still work, including loading history, turns-error warning, empty transcript copy, markdown content, tool sections, and citations where tools are available.
+- Agents page:
+  - the instruction input, working-folder controls, command controls, and page shell still live in `AgentsPage.tsx`;
+  - typing into the `Instruction` field stays responsive even when a long transcript is visible;
+  - the transcript itself is rendered through the shared transcript path rather than an inline page-local bubble loop;
+  - the existing agent transcript behaviors still work, including loading history, turns-error warning, empty transcript copy, streamed assistant output, tool sections, and citations.
+- Flows page:
+  - flow selection, flow run controls, and page-level flow metadata still live in `FlowsPage.tsx`;
+  - the transcript itself is rendered through the shared transcript path rather than an inline page-local bubble loop;
+  - the existing flow transcript states still work, including loading flows, empty-flow messaging, loading history, turns-error warning, streamed assistant output, and the extra flow metadata line that is currently derived from `buildFlowMetaLine(...)`.
+
 ### Acceptance Criteria
 
 - The front end remains responsive when the visible conversation transcript is long, including on the Agents page while typing into the `Instruction` field.

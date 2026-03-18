@@ -154,6 +154,33 @@ If any container-generated artifacts need persistence as part of validation, pre
 
 ## Implementation Ideas
 
+### Rough Implementation Sequence
+
+1. Start by isolating the transcript problem at the page boundary before adding virtualization. The first concrete change should be to stop the Agents instruction input from sharing a rerender path with the full transcript tree. In practice, that means extracting the Agents composer or control area into its own child boundary and preparing the transcript area to accept a shared renderer.
+2. Introduce one shared transcript rendering layer under `client/src/components/chat/` before changing page-specific metadata or controls. The first pass should centralize the common transcript container, message-row layout, markdown/body rendering, tool sections, citation rendering, and shared empty/loading states that are duplicated today in `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx`.
+3. Normalize the transcript input contract before wiring all three pages into the new shared layer. The shared code should make one explicit choice about whether it accepts chronological `messages` and handles display ordering internally or whether each page passes already ordered display rows. That choice should be applied consistently so Chat, Agents, and Flows all preserve the current newest-last reading order without each page making its own hidden reversal decision.
+4. Add virtualization only after the shared non-virtualized renderer is in place and producing the same transcript output as today. Once the shared renderer is stable, wrap the transcript list in a shared virtualization hook or component that owns `count`, `getScrollElement`, `getItemKey`, `estimateSize`, `measureElement`, overscan, and scroll-size-change adjustment behavior.
+5. Reattach page-specific metadata only after the shared transcript path is working. Chat still needs its provider/tool-aware citation behavior, Agents still needs its run-specific metadata and tool count interactions, and Flows still needs `buildFlowMetaLine(...)`. Those page-level differences should be passed into the shared transcript as explicit props or render helpers rather than reintroducing full page-local bubble renderers.
+6. Keep hydration and inflight semantics stable while the shared transcript is being swapped in. `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`, and `client/src/hooks/useConversationTurns.ts` should remain the source of truth for transcript data, message identity, inflight snapshots, and websocket updates. The implementation should wrap around those hooks, not replace them.
+7. Finish by updating regression tests and client build/runtime validation around the new structure. The final pass should prove that the transcript still renders correctly across Chat, Agents, and Flows, that typing stays responsive on Agents, and that Docker/client build paths still work with the client code copied into images and built there.
+
+### Candidate File Groups
+
+- Page entry points that currently own transcript rendering:
+  - `client/src/pages/ChatPage.tsx`
+  - `client/src/pages/AgentsPage.tsx`
+  - `client/src/pages/FlowsPage.tsx`
+- Shared transcript layer that likely needs to be added or expanded under `client/src/components/chat/`:
+  - a transcript list/container component;
+  - message bubble/body components;
+  - tool and citation subsections;
+  - a virtualization hook or adapter;
+  - any shared empty/loading transcript state helpers.
+- Existing data and streaming hooks that must remain the data source:
+  - `client/src/hooks/useChatStream.ts`
+  - `client/src/hooks/useChatWs.ts`
+  - `client/src/hooks/useConversationTurns.ts`
+
 - Start from the current hotspot in `client/src/pages/AgentsPage.tsx`, where the `Instruction` field and the full transcript are rendered inside the same page component. Extract the instruction/composer area into its own memoized child so `setInput(...)` does not force the transcript tree to rerender on every keystroke.
 - Introduce a shared transcript component layer under `client/src/components/chat/` rather than leaving transcript rendering inline in each page. Likely helper files and their purpose:
   - `TranscriptList.tsx` or `VirtualTranscriptList.tsx` to own scrolling, virtualization, and visible-row rendering. This would reduce mounted DOM and React work for long conversations.

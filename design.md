@@ -48,6 +48,41 @@ flowchart LR
   Transcript --> Formatting["chatTranscriptFormatting.ts"]
 ```
 
+## Story 0000049 Task 3 deferred stop status alignment and diagnostics
+
+- Story 49 stays client-led, but Task 3 adds one narrow server-side exception so stop-near-complete Flow and coding-agent runs do not leave websocket `turn_final` status out of sync with the persisted assistant turn status.
+- `server/src/chat/chatStreamBridge.ts` now treats a later `stopped` or `failed` terminal result as authoritative over an earlier deferred pending `ok`, while still preserving completion metadata such as `threadId`, usage, and timing when those values were already captured.
+- The stop investigation path is now meant to be traceable across five seams:
+  - `DEV-0000049:T03:stop_path_registered`
+  - `DEV-0000049:T03:flow_instruction_status_reclassified`
+  - `DEV-0000049:T03:flow_turn_status_persisted`
+  - `DEV-0000049:T03:live_final_applied`
+  - `DEV-0000049:T03:hydrated_persisted_turn_status`
+- The client-side breadcrumbs matter because a future visible `Stopped` chip can now be traced to either live websocket final application or later persisted-turn hydration after refresh, instead of leaving that distinction implicit.
+
+```mermaid
+sequenceDiagram
+  participant Stop as Stop request path
+  participant Flow as flows/service.ts
+  participant Bridge as chatStreamBridge.ts
+  participant Persist as Flow turn persistence
+  participant Client as useChatStream / FlowsPage
+
+  Stop->>Flow: cancel_inflight / pending stop
+  Stop-->>Flow: DEV-0000049:T03:stop_path_registered
+  Bridge-->>Bridge: pending deferred final = ok
+  Flow->>Flow: inflightSignal.aborted after complete
+  Flow-->>Flow: DEV-0000049:T03:flow_instruction_status_reclassified
+  Flow->>Persist: write stopped assistant turn(s)
+  Persist-->>Persist: DEV-0000049:T03:flow_turn_status_persisted
+  Flow->>Bridge: finalize(fallback = stopped)
+  Bridge-->>Bridge: DEV-0000049:T03:deferred_final_status_aligned
+  Bridge->>Client: turn_final(status=stopped)
+  Client-->>Client: DEV-0000049:T03:live_final_applied
+  Client->>Client: refresh / turns reload
+  Client-->>Client: DEV-0000049:T03:hydrated_persisted_turn_status
+```
+
 ## Common package
 
 - Purpose: shared DTOs/utilities consumed by client and server to prove workspace linking.

@@ -96,6 +96,46 @@ class FlakyOnceChat extends ChatInterface {
   }
 }
 
+class CompleteThenPauseChat extends ChatInterface {
+  constructor(
+    private readonly options: {
+      pauseMs?: number;
+      onComplete?: () => Promise<void> | void;
+    } = {},
+  ) {
+    super();
+  }
+
+  async execute(
+    _message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _message;
+    void _model;
+    const signal = (flags as { signal?: AbortSignal }).signal;
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: 'almost done' });
+    this.emit('complete', {
+      type: 'complete',
+      threadId: conversationId,
+      usage: {
+        inputTokens: 12,
+        outputTokens: 5,
+        totalTokens: 17,
+        cachedInputTokens: 6,
+      },
+      timing: { totalTimeSec: 0.25, tokensPerSecond: 20 },
+    });
+    await this.options.onComplete?.();
+    await delay(this.options.pauseMs ?? 75);
+    if (signal?.aborted) {
+      return;
+    }
+  }
+}
+
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../../',
@@ -854,40 +894,40 @@ test('local codeinfo2 flows resolve commands from the selected working repositor
           ),
         );
 
-      const logs = query({ text: 'DEV_0000040_T11_FLOW_RESOLUTION_ORDER' });
-      const selectedLog = logs.find(
-        (entry) => entry.context?.decision === 'selected',
-      );
-      const orderLogs = query({
-        text: 'DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER',
-      });
-      assert.equal(
-        selectedLog?.context?.selectedRepositoryPath,
-        path.resolve(workingRoot),
-      );
-      assert.equal(selectedLog?.context?.fallbackUsed, false);
-      assert.equal(selectedLog?.context?.workingRepositoryAvailable, true);
-      assert.equal(orderLogs.length, 2);
-      for (const orderLog of orderLogs) {
-        assert.deepEqual(orderLog?.context, {
-          referenceType: 'commandFile',
-          caller: 'flow-command',
-          workingRepositoryAvailable: true,
-          candidateRepositories: [
-            {
-              sourceId: path.resolve(workingRoot),
-              sourceLabel: 'working-local-flow-repo',
-              slot: 'working_repository',
-            },
-            {
-              sourceId: path.resolve(repoRoot),
-              sourceLabel: 'codeInfo2',
-              slot: 'owner_repository',
-            },
-          ],
+        const logs = query({ text: 'DEV_0000040_T11_FLOW_RESOLUTION_ORDER' });
+        const selectedLog = logs.find(
+          (entry) => entry.context?.decision === 'selected',
+        );
+        const orderLogs = query({
+          text: 'DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER',
         });
-      }
-      cleanupMemory(conversationId);
+        assert.equal(
+          selectedLog?.context?.selectedRepositoryPath,
+          path.resolve(workingRoot),
+        );
+        assert.equal(selectedLog?.context?.fallbackUsed, false);
+        assert.equal(selectedLog?.context?.workingRepositoryAvailable, true);
+        assert.equal(orderLogs.length, 2);
+        for (const orderLog of orderLogs) {
+          assert.deepEqual(orderLog?.context, {
+            referenceType: 'commandFile',
+            caller: 'flow-command',
+            workingRepositoryAvailable: true,
+            candidateRepositories: [
+              {
+                sourceId: path.resolve(workingRoot),
+                sourceLabel: 'working-local-flow-repo',
+                slot: 'working_repository',
+              },
+              {
+                sourceId: path.resolve(repoRoot),
+                sourceLabel: 'codeInfo2',
+                slot: 'owner_repository',
+              },
+            ],
+          });
+        }
+        cleanupMemory(conversationId);
       },
       {
         listIngestedRepositories: async () => ({ repos, lockedModelId: null }),
@@ -2974,5 +3014,140 @@ test('no stale flow continuation resumes after confirmed stop', async () => {
 
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
+  });
+});
+
+test('stop-near-complete flow aligns final status with persisted turns and emits Task 3 diagnostics', async () => {
+  let wsRef: WebSocket | null = null;
+  let flowInflightId: string | null = null;
+  let cancelSent = false;
+
+  await withFlowServer(async ({ wsUrl }) => {
+    wsRef = wsUrl;
+    const conversationId = 'flow-command-stop-near-complete';
+    sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+    const startedPromise = startFlowRun({
+      flowName: 'command-step',
+      conversationId,
+      source: 'REST',
+      chatFactory: () =>
+        new CompleteThenPauseChat({
+          onComplete: async () => {
+            const deadline = Date.now() + 1000;
+            while (!flowInflightId && Date.now() < deadline) {
+              await delay(10);
+            }
+            assert.ok(flowInflightId);
+            if (!cancelSent && wsRef) {
+              cancelSent = true;
+              sendJson(wsRef, {
+                type: 'cancel_inflight',
+                conversationId,
+                inflightId: flowInflightId,
+              });
+            }
+          },
+        }),
+    });
+
+    const inflightSnapshot = await waitForEvent({
+      ws: wsUrl,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'inflight_snapshot';
+        conversationId: string;
+        inflight: { inflightId?: string };
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          inflight?: { inflightId?: string };
+        };
+        return (
+          e.type === 'inflight_snapshot' &&
+          e.conversationId === conversationId &&
+          typeof e.inflight?.inflightId === 'string'
+        );
+      },
+      timeoutMs: 5000,
+    });
+    flowInflightId = inflightSnapshot.inflight.inflightId ?? null;
+    assert.ok(flowInflightId);
+
+    await startedPromise;
+    const final = await waitForFlowFinal({
+      ws: wsUrl,
+      conversationId,
+      status: 'stopped',
+      timeoutMs: 5000,
+    });
+    assert.equal(final.status, 'stopped');
+
+    const turns = await waitForTurns(
+      conversationId,
+      (items) =>
+        items.some(
+          (turn) => turn.role === 'assistant' && turn.status === 'stopped',
+        ),
+      4000,
+    );
+    assert.equal(
+      turns.some(
+        (turn) => turn.role === 'assistant' && turn.status === 'stopped',
+      ),
+      true,
+    );
+
+    const stopPathLog = query(
+      { text: 'DEV-0000049:T03:stop_path_registered' },
+      50,
+    ).find(
+      (entry) =>
+        entry.context?.conversationId === conversationId &&
+        entry.context?.inflightId === flowInflightId,
+    );
+    assert.ok(stopPathLog);
+
+    const reclassifiedLog = query(
+      { text: 'DEV-0000049:T03:flow_instruction_status_reclassified' },
+      20,
+    ).find(
+      (entry) =>
+        entry.context?.flowConversationId === conversationId &&
+        entry.context?.inflightId === flowInflightId,
+    );
+    assert.ok(reclassifiedLog);
+    assert.equal(reclassifiedLog.context?.fromStatus, 'ok');
+    assert.equal(reclassifiedLog.context?.toStatus, 'stopped');
+
+    const persistedLogs = query(
+      { text: 'DEV-0000049:T03:flow_turn_status_persisted' },
+      20,
+    ).filter(
+      (entry) =>
+        entry.context?.flowConversationId === conversationId &&
+        entry.context?.inflightId === flowInflightId,
+    );
+    assert.equal(persistedLogs.length >= 2, true);
+    assert.equal(
+      persistedLogs.every((entry) => entry.context?.status === 'stopped'),
+      true,
+    );
+
+    const alignedLog = query(
+      { text: 'DEV-0000049:T03:deferred_final_status_aligned' },
+      20,
+    ).find(
+      (entry) =>
+        entry.context?.conversationId === conversationId &&
+        entry.context?.inflightId === flowInflightId,
+    );
+    assert.ok(alignedLog);
+    assert.equal(alignedLog.context?.pendingStatus, 'ok');
+    assert.equal(alignedLog.context?.resolvedStatus, 'stopped');
+
+    cleanupMemory(conversationId);
   });
 });

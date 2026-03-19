@@ -105,6 +105,12 @@ type FinalPayload = {
   timing?: TurnTimingMetadata;
 };
 
+const statusSeverity: Record<FinalPayload['status'], number> = {
+  ok: 0,
+  stopped: 1,
+  failed: 2,
+};
+
 export function attachChatStreamBridge(params: {
   conversationId: string;
   inflightId: string;
@@ -456,7 +462,55 @@ export function attachChatStreamBridge(params: {
       if (finalPublished) return;
       const base = pendingFinal ?? params?.fallback;
       if (!base) return;
-      publishFinalOnce({ ...base, ...(params?.override ?? {}) });
+
+      const overrideStatus = params?.override?.status;
+      const fallbackStatus = params?.fallback?.status;
+      const promotedStatus =
+        overrideStatus &&
+        statusSeverity[overrideStatus] >
+          statusSeverity[pendingFinal?.status ?? base.status]
+          ? overrideStatus
+          : fallbackStatus &&
+              statusSeverity[fallbackStatus] >
+                statusSeverity[pendingFinal?.status ?? base.status]
+            ? fallbackStatus
+            : undefined;
+
+      const promotedPayload =
+        promotedStatus === overrideStatus
+          ? params?.override
+          : promotedStatus === fallbackStatus
+            ? params?.fallback
+            : undefined;
+
+      const finalPayload: FinalPayload = {
+        ...base,
+        ...(params?.override ?? {}),
+        ...(promotedPayload ? { ...promotedPayload } : {}),
+        ...(promotedStatus ? { status: promotedStatus } : {}),
+        usage: base.usage,
+        timing: base.timing,
+        threadId:
+          base.threadId !== undefined
+            ? base.threadId
+            : (params?.override?.threadId ?? params?.fallback?.threadId),
+      };
+
+      if (
+        pendingFinal &&
+        finalPayload.status !== pendingFinal.status &&
+        statusSeverity[finalPayload.status] >
+          statusSeverity[pendingFinal.status]
+      ) {
+        log('info', 'DEV-0000049:T03:deferred_final_status_aligned', {
+          pendingStatus: pendingFinal.status,
+          resolvedStatus: finalPayload.status,
+          preservedUsage: Boolean(finalPayload.usage),
+          preservedTiming: Boolean(finalPayload.timing),
+        });
+      }
+
+      publishFinalOnce(finalPayload);
     },
   };
 }

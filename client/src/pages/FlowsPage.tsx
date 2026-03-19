@@ -864,6 +864,7 @@ export default function FlowsPage() {
   );
 
   const lastHydratedRef = useRef<string | null>(null);
+  const hydratedStatusLogKeysRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!activeConversationId) return;
     const oldest = turns?.[0]?.createdAt ?? 'none';
@@ -876,10 +877,28 @@ export default function FlowsPage() {
       return;
     }
 
-    hydrateHistory(activeConversationId, mapTurnsToMessages(turns), 'replace');
+    const hydratedMessages = mapTurnsToMessages(turns);
+    hydratedMessages.forEach((message) => {
+      if (message.role !== 'assistant' || !message.streamStatus) return;
+      const logKey = `${activeConversationId}:${message.id}:${message.streamStatus}`;
+      if (hydratedStatusLogKeysRef.current.has(logKey)) return;
+      hydratedStatusLogKeysRef.current.add(logKey);
+      log('info', 'DEV-0000049:T03:hydrated_persisted_turn_status', {
+        conversationId: activeConversationId,
+        turnId: message.id.startsWith('turn-')
+          ? message.id.slice(5)
+          : message.id,
+        messageId: message.id,
+        streamStatus: message.streamStatus,
+        source: 'rest_hydration',
+      });
+    });
+
+    hydrateHistory(activeConversationId, hydratedMessages, 'replace');
   }, [
     activeConversationId,
     hydrateHistory,
+    log,
     mapTurnsToMessages,
     messages.length,
     turns,

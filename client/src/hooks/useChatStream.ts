@@ -2017,6 +2017,13 @@ export function useChatStream(
             },
             { assistantId: existingAssistantId, useRefs: false },
           );
+          logWithChannel('info', 'DEV-0000049:T03:live_final_applied', {
+            conversationId: event.conversationId,
+            inflightId: event.inflightId,
+            status: event.status,
+            threadId: event.threadId ?? null,
+            updatedExistingAssistantRow: true,
+          });
           return;
         }
 
@@ -2056,6 +2063,13 @@ export function useChatStream(
           },
           { assistantId },
         );
+        logWithChannel('info', 'DEV-0000049:T03:live_final_applied', {
+          conversationId: event.conversationId,
+          inflightId: event.inflightId,
+          status: event.status,
+          threadId: event.threadId ?? null,
+          updatedExistingAssistantRow: true,
+        });
         if (event.status === 'stopped') {
           console.info('[stop-debug][stream-state] stopped', {
             conversationId: event.conversationId,

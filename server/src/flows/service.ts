@@ -845,6 +845,86 @@ const logAgentTurnPersisted = (params: {
   );
 };
 
+const logFlowInstructionStatusReclassified = (params: {
+  flowConversationId: string;
+  agentConversationId: string;
+  inflightId: string;
+  fromStatus: TurnStatus;
+  toStatus: TurnStatus;
+}) => {
+  const timestamp = new Date().toISOString();
+  append({
+    level: 'info',
+    message: 'DEV-0000049:T03:flow_instruction_status_reclassified',
+    timestamp,
+    source: 'server',
+    context: {
+      flowConversationId: params.flowConversationId,
+      agentConversationId: params.agentConversationId,
+      inflightId: params.inflightId,
+      fromStatus: params.fromStatus,
+      toStatus: params.toStatus,
+      reason: 'inflight-signal-aborted-after-complete',
+    },
+  });
+  baseLogger.info(
+    {
+      flowConversationId: params.flowConversationId,
+      agentConversationId: params.agentConversationId,
+      inflightId: params.inflightId,
+      fromStatus: params.fromStatus,
+      toStatus: params.toStatus,
+      reason: 'inflight-signal-aborted-after-complete',
+    },
+    'DEV-0000049:T03:flow_instruction_status_reclassified',
+  );
+};
+
+const logFlowTurnStatusPersisted = (params: {
+  flowConversationId: string;
+  agentConversationId: string;
+  inflightId: string;
+  turnId?: string;
+  threadId?: string;
+  status: TurnStatus;
+  stepIndex?: number;
+  scope: 'flow_assistant' | 'agent_assistant';
+  targetConversationId: string;
+}) => {
+  const timestamp = new Date().toISOString();
+  append({
+    level: 'info',
+    message: 'DEV-0000049:T03:flow_turn_status_persisted',
+    timestamp,
+    source: 'server',
+    context: {
+      flowConversationId: params.flowConversationId,
+      agentConversationId: params.agentConversationId,
+      turnId: params.turnId,
+      inflightId: params.inflightId,
+      threadId: params.threadId ?? null,
+      status: params.status,
+      stepIndex: params.stepIndex ?? null,
+      scope: params.scope,
+      targetConversationId: params.targetConversationId,
+    },
+  });
+  baseLogger.info(
+    {
+      flowConversationId: params.flowConversationId,
+      agentConversationId: params.agentConversationId,
+      turnId: params.turnId,
+      inflightId: params.inflightId,
+      threadId: params.threadId ?? null,
+      status: params.status,
+      stepIndex: params.stepIndex ?? null,
+      scope: params.scope,
+      targetConversationId: params.targetConversationId,
+    },
+    'DEV-0000049:T03:flow_turn_status_persisted',
+  );
+};
+
 const runFlowInstruction = async (params: {
   flowConversationId: string;
   inflightId: string;
@@ -1020,7 +1100,17 @@ const runFlowInstruction = async (params: {
   }
 
   if (inflightSignal?.aborted && status !== 'stopped') {
+    const previousStatus = status;
     status = 'stopped';
+    if (sawComplete) {
+      logFlowInstructionStatusReclassified({
+        flowConversationId: params.flowConversationId,
+        agentConversationId: params.agentConversationId,
+        inflightId: params.inflightId,
+        fromStatus: previousStatus,
+        toStatus: status,
+      });
+    }
   }
   if (status === 'ok' && !sawComplete && lastErrorMessage) {
     status = deriveStatusFromError(lastErrorMessage);
@@ -1088,6 +1178,17 @@ const runFlowInstruction = async (params: {
       timing: result.timing,
       createdAt: assistantCreatedAt,
     });
+    logFlowTurnStatusPersisted({
+      flowConversationId: params.flowConversationId,
+      agentConversationId: params.agentConversationId,
+      inflightId: params.inflightId,
+      turnId: assistantPersisted.turnId,
+      threadId: params.threadId,
+      status: result.status,
+      stepIndex: params.command?.stepIndex,
+      scope: 'flow_assistant',
+      targetConversationId: params.flowConversationId,
+    });
 
     const agentUserPersisted = await persistFlowTurn({
       conversationId: params.agentConversationId,
@@ -1125,6 +1226,17 @@ const runFlowInstruction = async (params: {
       usage: result.usage,
       timing: result.timing,
       createdAt: assistantCreatedAt,
+    });
+    logFlowTurnStatusPersisted({
+      flowConversationId: params.flowConversationId,
+      agentConversationId: params.agentConversationId,
+      inflightId: params.inflightId,
+      turnId: agentAssistantPersisted.turnId,
+      threadId: params.threadId,
+      status: result.status,
+      stepIndex: params.command?.stepIndex,
+      scope: 'agent_assistant',
+      targetConversationId: params.agentConversationId,
     });
     logAgentTurnPersisted({
       flowConversationId: params.flowConversationId,

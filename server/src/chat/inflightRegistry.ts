@@ -137,6 +137,28 @@ export function registerPendingConversationCancel(params: {
   };
 
   pendingCancelByConversationId.set(params.conversationId, pendingCancel);
+  const timestamp = new Date().toISOString();
+  append({
+    level: 'info',
+    message: 'DEV-0000049:T03:stop_path_registered',
+    timestamp,
+    source: 'server',
+    context: {
+      conversationId: params.conversationId,
+      inflightId: params.boundInflightId ?? null,
+      runToken: params.runToken,
+      stopPath: 'conversation_only_pending_run',
+    },
+  });
+  baseLogger.info(
+    {
+      conversationId: params.conversationId,
+      inflightId: params.boundInflightId ?? null,
+      runToken: params.runToken,
+      stopPath: 'conversation_only_pending_run',
+    },
+    'DEV-0000049:T03:stop_path_registered',
+  );
   return {
     ok: true,
     alreadyPending: existing?.runToken === params.runToken,

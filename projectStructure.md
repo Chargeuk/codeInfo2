@@ -1,5 +1,38 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000049 Task 3 structural change ledger
+
+Added files:
+
+- `server/src/test/unit/chat-stream-bridge.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/hooks/useChatStream.ts`
+- `client/src/pages/FlowsPage.tsx`
+- `design.md`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- `projectStructure.md`
+- `server/src/chat/chatStreamBridge.ts`
+- `server/src/chat/inflightRegistry.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+- `server/src/ws/server.ts`
+
+Story notes:
+
+- Task 3 is the one allowed server-side exception inside Story 49: it keeps deferred websocket final status aligned with persisted assistant-turn status during stop-near-complete races.
+- The diagnostic chain now spans stop registration, Flow-side reclassification, Flow-side persisted status writes, live-final client application, and persisted-turn hydration so future `Stopped` investigations can be traced end to end.
+- `server/src/test/unit/chat-stream-bridge.test.ts` is the focused low-seam regression for deferred final alignment, while `server/src/test/integration/flows.run.command.test.ts` proves the Flow-visible stop path stays internally consistent.
+
 ## Story 0000049 Task 2 structural change ledger
 
 Added files:

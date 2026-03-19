@@ -18,6 +18,61 @@ function buildMessages(count: number) {
 }
 
 describe('Shared transcript scroll behavior', () => {
+  it('opens an existing conversation at the top after history finishes loading', async () => {
+    const harness = installTranscriptMeasurementHarness();
+
+    const { rerender } = render(
+      <SharedTranscript
+        surface="chat"
+        conversationId="existing-history"
+        messages={buildMessages(14)}
+        activeToolsAvailable={false}
+        turnsLoading
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 1400,
+      scrollTop: 0,
+    });
+
+    rerender(
+      <SharedTranscript
+        surface="chat"
+        conversationId="existing-history"
+        messages={buildMessages(14)}
+        activeToolsAvailable={false}
+        turnsLoading={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    expect(transcript.scrollTop).toBe(0);
+    expect(transcript.scrollTop).not.toBe(1080);
+    harness.restore();
+  });
+
   it('leaves scrollTop unchanged when transcript growth happens below the viewport', async () => {
     const harness = installTranscriptMeasurementHarness();
 

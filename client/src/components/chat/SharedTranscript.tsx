@@ -106,6 +106,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
     const measurementReadyRef = useRef<string | null>(null);
     const missingRowLoggedRef = useRef(new Set<string>());
     const scrollModeRef = useRef<SharedTranscriptScrollMode>('pinned-bottom');
+    const openHistoryAtTopRef = useRef(false);
     const scrollMetricsRef = useRef<{
       conversationKey: string;
       scrollHeight: number;
@@ -337,9 +338,22 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
     useEffect(() => {
       scrollModeRef.current = 'pinned-bottom';
       scrollMetricsRef.current = null;
-    }, [conversationKey]);
+      openHistoryAtTopRef.current = turnsLoading;
+    }, [conversationKey, turnsLoading]);
 
     useLayoutEffect(() => {
+      const transcriptElement = transcriptContainerRef.current;
+      if (
+        transcriptElement &&
+        openHistoryAtTopRef.current &&
+        !turnsLoading
+      ) {
+        openHistoryAtTopRef.current = false;
+        transcriptElement.scrollTop = 0;
+        setScrollMode('scrolled-away');
+        syncScrollMetrics();
+        return;
+      }
       reconcileScrollPosition();
     }, [
       reconcileScrollPosition,
@@ -350,6 +364,8 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       toolErrorOpen,
       turnsLoading,
       turnsError,
+      setScrollMode,
+      syncScrollMetrics,
     ]);
 
     const renderMessageRow = useCallback(

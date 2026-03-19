@@ -137,6 +137,81 @@ describe('Chat reasoning rendering (analysis_delta)', () => {
     expect(content).toContain('New block');
   });
 
+  it('resets shared thought-process state when the active conversation changes', async () => {
+    const user = userEvent.setup();
+    const harness = setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Conversation 1',
+            provider: 'lmstudio',
+            model: 'm1',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+          },
+          {
+            conversationId: 'c2',
+            title: 'Conversation 2',
+            provider: 'lmstudio',
+            model: 'm1',
+            lastMessageAt: '2025-01-01T00:01:00.000Z',
+            archived: false,
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const rowOne = (await screen.findByText('Conversation 1')).closest(
+      '[data-testid="conversation-row"]',
+    );
+    if (!rowOne) {
+      throw new Error('Conversation 1 row not found');
+    }
+    await act(async () => {
+      await user.click(rowOne);
+    });
+
+    harness.emitInflightSnapshot({
+      conversationId: 'c1',
+      inflightId: 'i1',
+      assistantText: 'Answer One',
+      assistantThink: 'Reasoning One',
+    });
+    harness.emitFinal({ conversationId: 'c1', inflightId: 'i1', status: 'ok' });
+
+    await user.click(await screen.findByTestId('think-toggle'));
+    expect(await screen.findByTestId('think-content')).toBeVisible();
+
+    const rowTwo = (await screen.findByText('Conversation 2')).closest(
+      '[data-testid="conversation-row"]',
+    );
+    if (!rowTwo) {
+      throw new Error('Conversation 2 row not found');
+    }
+    await act(async () => {
+      await user.click(rowTwo);
+    });
+
+    harness.emitInflightSnapshot({
+      conversationId: 'c2',
+      inflightId: 'i2',
+      assistantText: 'Answer Two',
+      assistantThink: 'Reasoning Two',
+    });
+    harness.emitFinal({ conversationId: 'c2', inflightId: 'i2', status: 'ok' });
+
+    const secondToggle = await screen.findByTestId('think-toggle');
+    expect(secondToggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByTestId('think-content')).toBeNull();
+    expect(await screen.findByText('Answer Two')).toBeInTheDocument();
+  });
+
   it('accepts runtime-provided reasoning effort when model capabilities include it', async () => {
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});

@@ -30,12 +30,14 @@ type SharedTranscriptProps = {
   transcriptTestId?: string;
   citationsEnabled?: boolean;
   isStopping?: boolean;
+  citationsOpen: Record<string, boolean>;
   thinkOpen: Record<string, boolean>;
   toolOpen: Record<string, boolean>;
   toolErrorOpen: Record<string, boolean>;
+  onToggleCitation: (messageId: string) => void;
   onToggleThink: (messageId: string) => void;
-  onToggleTool: (toggleKey: string) => void;
-  onToggleToolError: (toggleKey: string) => void;
+  onToggleTool: (toggleKey: string, messageId: string) => void;
+  onToggleToolError: (toggleKey: string, messageId: string) => void;
   onScroll?: UIEventHandler<HTMLDivElement>;
   markdownLogSource?: string;
   userMarkdownTestId?: string;
@@ -69,9 +71,11 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       transcriptTestId = 'chat-transcript',
       citationsEnabled = true,
       isStopping = false,
+      citationsOpen,
       thinkOpen,
       toolOpen,
       toolErrorOpen,
+      onToggleCitation,
       onToggleThink,
       onToggleTool,
       onToggleToolError,
@@ -234,9 +238,11 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
               activeToolsAvailable={activeToolsAvailable}
               citationsEnabled={citationsEnabled}
               isStopping={isStopping}
+              citationsOpen={citationsOpen}
               thinkOpen={thinkOpen}
               toolOpen={toolOpen}
               toolErrorOpen={toolErrorOpen}
+              onToggleCitation={onToggleCitation}
               onToggleThink={onToggleThink}
               onToggleTool={onToggleTool}
               onToggleToolError={onToggleToolError}

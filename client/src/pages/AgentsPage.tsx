@@ -35,6 +35,7 @@ import {
   buildUsageLine,
   formatBubbleTimestamp,
 } from '../components/chat/chatTranscriptFormatting';
+import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
   type ChatMessage,
@@ -214,11 +215,6 @@ export default function AgentsPage() {
   const [startPending, setStartPending] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
 
-  const [thinkOpen, setThinkOpen] = useState<Record<string, boolean>>({});
-  const [toolOpen, setToolOpen] = useState<Record<string, boolean>>({});
-  const [toolErrorOpen, setToolErrorOpen] = useState<Record<string, boolean>>(
-    {},
-  );
   const metadataLoggedRef = useRef(new Set<string>());
   const stepLoggedRef = useRef(new Set<string>());
   const toolDistanceLoggedRef = useRef(new Set<string>());
@@ -262,6 +258,19 @@ export default function AgentsPage() {
   );
   const canShowDeviceAuth =
     Boolean(selectedAgentName) && Boolean(codexProvider?.available);
+  const {
+    citationsOpen,
+    thinkOpen,
+    toolOpen,
+    toolErrorOpen,
+    toggleCitation,
+    toggleThink,
+    toggleTool,
+    toggleToolError,
+  } = useSharedTranscriptState({
+    surface: 'agents',
+    conversationId: activeConversationId ?? null,
+  });
 
   useEffect(() => {
     log('info', 'DEV-0000028[T1] agents transcript layout ready', {
@@ -809,7 +818,8 @@ export default function AgentsPage() {
 
   const turnsConversationId = persistenceUnavailable
     ? undefined
-    : selectedConversationId ?? (startPending ? undefined : activeConversationId);
+    : (selectedConversationId ??
+      (startPending ? undefined : activeConversationId));
 
   const {
     turns,
@@ -1069,9 +1079,6 @@ export default function AgentsPage() {
       if (isNewConversation) {
         setConversation(nextConversationId, { clearMessages: true });
         setActiveConversationId(nextConversationId);
-        setThinkOpen({});
-        setToolOpen({});
-        setToolErrorOpen({});
         setAgentModelId('unknown');
       }
 
@@ -1173,9 +1180,6 @@ export default function AgentsPage() {
     setWorkingFolder('');
     setInput('');
     lastSentRef.current = '';
-    setThinkOpen({});
-    setToolOpen({});
-    setToolErrorOpen({});
     stoppedVisibleConversationRef.current = null;
     void refreshConversations();
   }, [
@@ -1217,33 +1221,23 @@ export default function AgentsPage() {
     [],
   );
 
-  const toggleThink = useCallback((id: string) => {
-    setThinkOpen((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, []);
-
-  const toggleTool = useCallback(
-    (id: string) => {
-      setToolOpen((prev) => {
-        const nextOpen = !prev[id];
-        if (nextOpen) {
-          const matchCount = toolMatchCountByKey.get(id) ?? 0;
-          if (!toolDistanceLoggedRef.current.has(id)) {
-            toolDistanceLoggedRef.current.add(id);
-            log('info', 'DEV-0000025:T7:tool_details_distance_rendered', {
-              page: 'agents',
-              matchCount,
-            });
-          }
+  const handleToggleTool = useCallback(
+    (id: string, messageId: string) => {
+      const nextOpen = !toolOpen[id];
+      if (nextOpen) {
+        const matchCount = toolMatchCountByKey.get(id) ?? 0;
+        if (!toolDistanceLoggedRef.current.has(id)) {
+          toolDistanceLoggedRef.current.add(id);
+          log('info', 'DEV-0000025:T7:tool_details_distance_rendered', {
+            page: 'agents',
+            matchCount,
+          });
         }
-        return { ...prev, [id]: nextOpen };
-      });
+      }
+      toggleTool(id, messageId);
     },
-    [log, toolMatchCountByKey],
+    [log, toggleTool, toolMatchCountByKey, toolOpen],
   );
-
-  const toggleToolError = useCallback((id: string) => {
-    setToolErrorOpen((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, []);
 
   const mapToolCalls = useCallback((toolCalls: unknown): ToolCall[] => {
     const calls =
@@ -1418,9 +1412,6 @@ export default function AgentsPage() {
       setAgentModelId(summary.model);
     }
     setActiveConversationId(conversationId);
-    setThinkOpen({});
-    setToolOpen({});
-    setToolErrorOpen({});
   };
 
   useEffect(() => {
@@ -1579,9 +1570,6 @@ export default function AgentsPage() {
       if (isNewConversation) {
         setConversation(nextConversationId, { clearMessages: true });
         setActiveConversationId(nextConversationId);
-        setThinkOpen({});
-        setToolOpen({});
-        setToolErrorOpen({});
         setAgentModelId('unknown');
       }
 
@@ -2074,6 +2062,7 @@ export default function AgentsPage() {
                 turnsLoading={turnsLoading}
                 turnsError={turnsError}
                 turnsErrorMessage={turnsErrorMessage}
+                citationsOpen={citationsOpen}
                 thinkOpen={thinkOpen}
                 toolOpen={toolOpen}
                 toolErrorOpen={toolErrorOpen}
@@ -2081,8 +2070,9 @@ export default function AgentsPage() {
                 latestAssistantMessageId={latestAssistantMessageId}
                 liveStoppedMarker={liveStoppedMarker}
                 isStopping={isStopping}
+                onToggleCitation={toggleCitation}
                 onToggleThink={toggleThink}
-                onToggleTool={toggleTool}
+                onToggleTool={handleToggleTool}
                 onToggleToolError={toggleToolError}
               />
             </Stack>

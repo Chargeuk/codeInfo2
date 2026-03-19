@@ -264,9 +264,11 @@ describe('Chat transcript viewport height fill', () => {
         ]}
         activeToolsAvailable={false}
         emptyMessage="Transcript will appear here once you send a message."
+        citationsOpen={{}}
         thinkOpen={{}}
         toolOpen={{}}
         toolErrorOpen={{}}
+        onToggleCitation={() => {}}
         onToggleThink={() => {}}
         onToggleTool={() => {}}
         onToggleToolError={() => {}}

@@ -27,6 +27,7 @@ type AgentsTranscriptPaneProps = {
   turnsLoading: boolean;
   turnsError: boolean;
   turnsErrorMessage?: string | null;
+  citationsOpen: Record<string, boolean>;
   thinkOpen: Record<string, boolean>;
   toolOpen: Record<string, boolean>;
   toolErrorOpen: Record<string, boolean>;
@@ -34,9 +35,10 @@ type AgentsTranscriptPaneProps = {
   latestAssistantMessageId: string | null;
   liveStoppedMarker: LiveStoppedMarker;
   isStopping: boolean;
+  onToggleCitation: (messageId: string) => void;
   onToggleThink: (messageId: string) => void;
-  onToggleTool: (toggleKey: string) => void;
-  onToggleToolError: (toggleKey: string) => void;
+  onToggleTool: (toggleKey: string, messageId: string) => void;
+  onToggleToolError: (toggleKey: string, messageId: string) => void;
 };
 
 const agentsTranscriptLog = createLogger('client');
@@ -87,6 +89,7 @@ const AgentsTranscriptPane = memo(function AgentsTranscriptPane({
   turnsLoading,
   turnsError,
   turnsErrorMessage,
+  citationsOpen,
   thinkOpen,
   toolOpen,
   toolErrorOpen,
@@ -94,6 +97,7 @@ const AgentsTranscriptPane = memo(function AgentsTranscriptPane({
   latestAssistantMessageId,
   liveStoppedMarker,
   isStopping,
+  onToggleCitation,
   onToggleThink,
   onToggleTool,
   onToggleToolError,
@@ -182,9 +186,11 @@ const AgentsTranscriptPane = memo(function AgentsTranscriptPane({
         transcriptTestId="chat-transcript"
         citationsEnabled
         isStopping={isStopping}
+        citationsOpen={citationsOpen}
         thinkOpen={thinkOpen}
         toolOpen={toolOpen}
         toolErrorOpen={toolErrorOpen}
+        onToggleCitation={onToggleCitation}
         onToggleThink={onToggleThink}
         onToggleTool={onToggleTool}
         onToggleToolError={onToggleToolError}

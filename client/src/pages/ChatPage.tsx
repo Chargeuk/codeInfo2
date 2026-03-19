@@ -36,6 +36,7 @@ import {
   buildUsageLine,
   formatBubbleTimestamp,
 } from '../components/chat/chatTranscriptFormatting';
+import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
 import CodexDeviceAuthDialog from '../components/codex/CodexDeviceAuthDialog';
 import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
 import useChatModel from '../hooks/useChatModel';
@@ -189,11 +190,6 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [workingFolder, setWorkingFolder] = useState('');
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
-  const [thinkOpen, setThinkOpen] = useState<Record<string, boolean>>({});
-  const [toolOpen, setToolOpen] = useState<Record<string, boolean>>({});
-  const [toolErrorOpen, setToolErrorOpen] = useState<Record<string, boolean>>(
-    {},
-  );
   const [deviceAuthOpen, setDeviceAuthOpen] = useState(false);
   const metadataLoggedRef = useRef(new Set<string>());
   const stepLoggedRef = useRef(new Set<string>());
@@ -283,6 +279,19 @@ export default function ChatPage() {
     [activeConversationId, conversations],
   );
   const selectedConversationId = selectedConversation?.conversationId;
+  const {
+    citationsOpen,
+    thinkOpen,
+    toolOpen,
+    toolErrorOpen,
+    toggleCitation,
+    toggleThink,
+    toggleTool,
+    toggleToolError,
+  } = useSharedTranscriptState({
+    surface: 'chat',
+    conversationId: activeConversationId ?? null,
+  });
   const turnsConversationId = persistenceUnavailable
     ? undefined
     : activeConversationId;
@@ -909,8 +918,6 @@ export default function ChatPage() {
     setWorkingFolder('');
     lastSentRef.current = '';
     inputRef.current?.focus();
-    setThinkOpen({});
-    setToolOpen({});
     syncServerVisibleInflightId(null);
     if (resetReason === 'new-conversation') {
       log('info', 'DEV-0000046:T8:new-conversation-local-reset', {
@@ -982,29 +989,19 @@ export default function ChatPage() {
     }
   };
 
-  const toggleThink = (id: string) => {
-    setThinkOpen((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const toggleTool = (id: string) => {
-    setToolOpen((prev) => {
-      const nextOpen = !prev[id];
-      if (nextOpen) {
-        const matchCount = toolMatchCountByKey.get(id) ?? 0;
-        if (!toolDistanceLoggedRef.current.has(id)) {
-          toolDistanceLoggedRef.current.add(id);
-          log('info', 'DEV-0000025:T7:tool_details_distance_rendered', {
-            page: 'chat',
-            matchCount,
-          });
-        }
+  const handleToggleTool = (id: string, messageId: string) => {
+    const nextOpen = !toolOpen[id];
+    if (nextOpen) {
+      const matchCount = toolMatchCountByKey.get(id) ?? 0;
+      if (!toolDistanceLoggedRef.current.has(id)) {
+        toolDistanceLoggedRef.current.add(id);
+        log('info', 'DEV-0000025:T7:tool_details_distance_rendered', {
+          page: 'chat',
+          matchCount,
+        });
       }
-      return { ...prev, [id]: nextOpen };
-    });
-  };
-
-  const toggleToolError = (id: string) => {
-    setToolErrorOpen((prev) => ({ ...prev, [id]: !prev[id] }));
+    }
+    toggleTool(id, messageId);
   };
 
   const handleSelectConversation = (conversation: string) => {
@@ -1801,11 +1798,13 @@ export default function ChatPage() {
                     transcriptTestId="chat-transcript"
                     citationsEnabled
                     isStopping={isStopping}
+                    citationsOpen={citationsOpen}
                     thinkOpen={thinkOpen}
                     toolOpen={toolOpen}
                     toolErrorOpen={toolErrorOpen}
+                    onToggleCitation={toggleCitation}
                     onToggleThink={toggleThink}
-                    onToggleTool={toggleTool}
+                    onToggleTool={handleToggleTool}
                     onToggleToolError={toggleToolError}
                     onScroll={handleTranscriptScroll}
                     markdownLogSource="ChatPage"

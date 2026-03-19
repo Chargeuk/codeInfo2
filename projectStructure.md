@@ -1,5 +1,43 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000049 Task 7 structural change ledger
+
+Added files:
+
+- `client/src/components/chat/useSharedTranscriptState.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/components/agents/AgentsTranscriptPane.tsx`
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/components/chat/SharedTranscriptMessageRow.tsx`
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/pages/FlowsPage.tsx`
+- `client/src/test/agentsPage.citations.test.tsx`
+- `client/src/test/agentsPage.reasoning.test.tsx`
+- `client/src/test/chatPage.citations.test.tsx`
+- `client/src/test/chatPage.layoutHeight.test.tsx`
+- `client/src/test/chatPage.reasoning.test.tsx`
+- `client/src/test/flowsPage.test.tsx`
+- `design.md`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 7 moves citation, thought-process, tool-details, and tool-error expansion state into one conversation-scoped shared hook under `client/src/components/chat/`.
+- The shared transcript row renderer is now controlled by that single owner, while Chat, Agents, and Flows still keep their page-specific shell behavior and transcript-derived metadata outside the hook.
+- Conversation changes now clear shared row state at the transcript boundary so one conversation cannot inherit stale expansion state from another.
+
 ## Story 0000049 Task 3 structural change ledger
 
 Added files:
@@ -1135,6 +1173,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |  |  |- chat/
 |     |  |  |  â”œâ”€ CodexFlagsPanel.tsx â€” Codex-only flags accordion with sandbox select
 |     |  |  |  â””â”€ ConversationList.tsx â€” conversation sidebar with infinite scroll + archive/restore
+|     |  |  |  â””â”€ useSharedTranscriptState.ts â€” conversation-scoped shared rich-row expansion owner for citations, thought-process, tool details, and tool errors
 |     |  |- Markdown.tsx ? sanitized GFM renderer shared by chat+agents assistant/user bubbles (and expanded think text) with code block + mermaid handling
 â”‚     â”‚  â””â”€ ingest/
 â”‚     â”‚     â”œâ”€ ActiveRunCard.tsx — shows active ingest status, counts, cancel + logs link

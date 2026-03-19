@@ -118,6 +118,25 @@ flowchart LR
   SharedTranscript --> MissingRowLog["DEV-0000049:T06:transcript_measurement_missing_row_ignored"]
 ```
 
+## Story 0000049 Task 7 shared transcript state ownership
+
+- `client/src/components/chat/useSharedTranscriptState.ts` now owns conversation-scoped rich-row expansion state for citations, thought-process content, tool details, and tool-error disclosures.
+- `client/src/components/chat/SharedTranscript.tsx` and `client/src/components/chat/SharedTranscriptMessageRow.tsx` now render those sections as controlled shared state instead of page-local state or uncontrolled accordions.
+- `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx` pass the active conversation identity into that shared owner so state resets at conversation boundaries without changing message transport contracts.
+- The shared-state proof marker is `DEV-0000049:T07:shared_transcript_state_changed`, emitted only when a keyed row-state value actually flips.
+
+```mermaid
+flowchart LR
+  ChatPage["ChatPage.tsx"] --> SharedState["useSharedTranscriptState.ts"]
+  AgentsPage["AgentsPage.tsx"] --> SharedState
+  FlowsPage["FlowsPage.tsx"] --> SharedState
+  SharedState --> SharedTranscript["SharedTranscript.tsx"]
+  SharedTranscript --> MessageRow["SharedTranscriptMessageRow.tsx"]
+  MessageRow --> Citations["citation accordion (controlled)"]
+  MessageRow --> Thinking["thought process collapse (controlled)"]
+  MessageRow --> Tools["tool details + tool errors (controlled)"]
+```
+
 ## Common package
 
 - Purpose: shared DTOs/utilities consumed by client and server to prove workspace linking.

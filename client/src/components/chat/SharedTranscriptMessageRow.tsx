@@ -37,12 +37,14 @@ type SharedTranscriptMessageRowProps = {
   citationsEnabled?: boolean;
   isStopping: boolean;
   visibleStreamStatus?: ChatMessage['streamStatus'];
+  citationsOpen: Record<string, boolean>;
   thinkOpen: Record<string, boolean>;
   toolOpen: Record<string, boolean>;
   toolErrorOpen: Record<string, boolean>;
+  onToggleCitation: (messageId: string) => void;
   onToggleThink: (messageId: string) => void;
-  onToggleTool: (toggleKey: string) => void;
-  onToggleToolError: (toggleKey: string) => void;
+  onToggleTool: (toggleKey: string, messageId: string) => void;
+  onToggleToolError: (toggleKey: string, messageId: string) => void;
   renderToolExtraContent?: (
     tool: ToolCall,
     toggleKey: string,
@@ -66,9 +68,11 @@ function SharedTranscriptMessageRow({
   citationsEnabled = true,
   isStopping,
   visibleStreamStatus,
+  citationsOpen,
   thinkOpen,
   toolOpen,
   toolErrorOpen,
+  onToggleCitation,
   onToggleThink,
   onToggleTool,
   onToggleToolError,
@@ -351,7 +355,7 @@ function SharedTranscriptMessageRow({
                     <Button
                       size="small"
                       variant="text"
-                      onClick={() => onToggleTool(toggleKey)}
+                      onClick={() => onToggleTool(toggleKey, message.id)}
                       disabled={isRequesting}
                       data-testid="tool-toggle"
                       aria-expanded={isOpen}
@@ -375,7 +379,9 @@ function SharedTranscriptMessageRow({
                       tool={tool}
                       toggleKey={toggleKey}
                       isToolErrorOpen={!!toolErrorOpen[toggleKey]}
-                      onToggleToolError={onToggleToolError}
+                      onToggleToolError={(id) =>
+                        onToggleToolError(id, message.id)
+                      }
                       extraContent={renderToolExtraContent?.(
                         tool,
                         toggleKey,
@@ -414,18 +420,20 @@ function SharedTranscriptMessageRow({
               }}
               data-testid="citations-accordion"
               slotProps={accordionTransitionProps}
+              expanded={!!citationsOpen[message.id]}
+              onChange={() => onToggleCitation(message.id)}
             >
               <AccordionSummary
                 expandIcon={<ExpandMoreIcon fontSize="small" />}
-                aria-controls="citations-panel"
-                id="citations-summary"
+                aria-controls={`citations-panel-${message.id}`}
+                id={`citations-summary-${message.id}`}
                 data-testid="citations-toggle"
               >
                 <Typography variant="body2" fontWeight={600}>
                   Citations ({message.citations?.length ?? 0})
                 </Typography>
               </AccordionSummary>
-              <AccordionDetails id="citations-panel">
+              <AccordionDetails id={`citations-panel-${message.id}`}>
                 <Stack spacing={1} data-testid="citations">
                   {message.citations?.map((citation: ToolCitation, idx) => {
                     const pathLabel = `${citation.repo}/${citation.relPath}`;

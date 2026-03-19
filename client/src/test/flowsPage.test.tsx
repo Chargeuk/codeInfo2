@@ -6,6 +6,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -342,6 +343,136 @@ describe('Flows page basics', () => {
     });
 
     await screen.findByText('Flow: daily updated');
+  });
+
+  it('does not leak shared expansion state between flow conversations', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        const conversationId = target.includes('/conversations/flow-1/')
+          ? 'flow-1'
+          : 'flow-2';
+        const suffix = conversationId === 'flow-1' ? 'One' : 'Two';
+        return mockJsonResponse({
+          items: [
+            {
+              turnId: `turn-${suffix}`,
+              conversationId,
+              role: 'assistant',
+              content: `Flow content ${suffix}`,
+              provider: 'codex',
+              model: 'gpt-5',
+              status: 'ok',
+              command: {
+                name: 'flow',
+                stepIndex: 1,
+                totalSteps: 2,
+                label: `Step ${suffix}`,
+                agentType: 'coding_agent',
+                identifier: 'coder',
+              },
+              createdAt: now,
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: daily one',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: {},
+            },
+            {
+              conversationId: 'flow-2',
+              title: 'Flow: daily two',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: {},
+            },
+          ],
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Flow: daily one');
+    await user.click(screen.getByText('Flow: daily one'));
+
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'inflight_snapshot',
+      conversationId: 'flow-1',
+      seq: 1,
+      inflight: {
+        inflightId: 'i1',
+        assistantText: 'Flow content One',
+        assistantThink: 'Flow reasoning One',
+        toolEvents: [],
+        startedAt: now,
+      },
+    });
+
+    await user.click(await screen.findByTestId('think-toggle'));
+    expect(await screen.findByTestId('think-content')).toBeVisible();
+    expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
+
+    await user.click(await screen.findByText('Flow: daily two'));
+
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'inflight_snapshot',
+      conversationId: 'flow-2',
+      seq: 2,
+      inflight: {
+        inflightId: 'i2',
+        assistantText: 'Flow content Two',
+        assistantThink: 'Flow reasoning Two',
+        toolEvents: [],
+        startedAt: now,
+      },
+    });
+
+    expect(await screen.findByTestId('bubble-flow-meta')).toHaveTextContent(
+      'Step Two · coding_agent/coder',
+    );
+    expect(await screen.findByTestId('think-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByTestId('think-content')).toBeNull();
+    expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
   });
 });
 

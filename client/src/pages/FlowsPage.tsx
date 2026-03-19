@@ -36,6 +36,7 @@ import {
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
 import SharedTranscript from '../components/chat/SharedTranscript';
+import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
 import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
 import useChatStream, { ChatMessage, ToolCall } from '../hooks/useChatStream';
 import useChatWs, { type ChatWsServerEvent } from '../hooks/useChatWs';
@@ -1095,6 +1096,19 @@ export default function FlowsPage() {
 
   const isSending = startPending || isStreaming || status === 'sending';
   const isStopping = status === 'stopping';
+  const {
+    citationsOpen,
+    thinkOpen,
+    toolOpen,
+    toolErrorOpen,
+    toggleCitation,
+    toggleThink,
+    toggleTool,
+    toggleToolError,
+  } = useSharedTranscriptState({
+    surface: 'flows',
+    conversationId: selectedConversation?.conversationId ?? null,
+  });
   const retainedAssistantVisible = useMemo(
     () =>
       displayMessages.some((message) => isVisibleAssistantMessage(message)) &&
@@ -1545,12 +1559,14 @@ export default function FlowsPage() {
                   transcriptTestId="flows-transcript"
                   citationsEnabled={false}
                   isStopping={isStopping}
-                  thinkOpen={{}}
-                  toolOpen={{}}
-                  toolErrorOpen={{}}
-                  onToggleThink={() => {}}
-                  onToggleTool={() => {}}
-                  onToggleToolError={() => {}}
+                  citationsOpen={citationsOpen}
+                  thinkOpen={thinkOpen}
+                  toolOpen={toolOpen}
+                  toolErrorOpen={toolErrorOpen}
+                  onToggleCitation={toggleCitation}
+                  onToggleThink={toggleThink}
+                  onToggleTool={toggleTool}
+                  onToggleToolError={toggleToolError}
                   renderMetadataContent={(message) => {
                     const flowLine =
                       message.role === 'assistant'

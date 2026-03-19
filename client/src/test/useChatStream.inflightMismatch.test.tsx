@@ -1,5 +1,5 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import useChatStream, { type ChatMessage } from '../hooks/useChatStream';
 import type {
   ChatWsCancelAckEvent,
@@ -1581,6 +1581,9 @@ describe('useChatStream inflight mismatch handling', () => {
     await waitFor(() => {
       const assistantMessages = getAssistantMessages(result);
       expect(assistantMessages).toHaveLength(1);
+      expect(new Set(assistantMessages.map((message) => message.id)).size).toBe(
+        1,
+      );
       expect(assistantMessages[0]).toEqual(
         expect.objectContaining({
           content: 'Hydrated reply',

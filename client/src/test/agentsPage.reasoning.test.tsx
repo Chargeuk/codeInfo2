@@ -1,7 +1,16 @@
 import { jest } from '@jest/globals';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import SharedTranscript from '../components/chat/SharedTranscript';
+import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
+import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -54,6 +63,80 @@ function emitWsEvent(event: Record<string, unknown>) {
 }
 
 describe('Agents reasoning rendering (assistantThink / analysis_delta)', () => {
+  it('preserves thought-process expansion across virtual unmount and remount', async () => {
+    const harness = installTranscriptMeasurementHarness();
+    const user = userEvent.setup();
+    const messages = Array.from({ length: 18 }, (_, index) => ({
+      id: `assistant-${index + 1}`,
+      role: 'assistant' as const,
+      content: `Agent assistant message ${index + 1}`,
+      think:
+        index === 2 ? 'Agents virtualized reasoning survives remount.' : '',
+      createdAt: `2026-03-19T01:${String(index).padStart(2, '0')}:00.000Z`,
+    }));
+
+    function StatefulAgentsTranscript() {
+      const sharedState = useSharedTranscriptState({
+        surface: 'agents',
+        conversationId: 'agents-remount',
+      });
+
+      return (
+        <SharedTranscript
+          surface="agents"
+          conversationId="agents-remount"
+          messages={messages}
+          activeToolsAvailable={false}
+          emptyMessage="Empty"
+          citationsOpen={sharedState.citationsOpen}
+          thinkOpen={sharedState.thinkOpen}
+          toolOpen={sharedState.toolOpen}
+          toolErrorOpen={sharedState.toolErrorOpen}
+          onToggleCitation={sharedState.toggleCitation}
+          onToggleThink={sharedState.toggleThink}
+          onToggleTool={sharedState.toggleTool}
+          onToggleToolError={sharedState.toggleToolError}
+        />
+      );
+    }
+
+    render(<StatefulAgentsTranscript />);
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 4320,
+      scrollTop: 0,
+    });
+
+    const initialToggle = await screen.findByTestId('think-toggle');
+    await user.click(initialToggle);
+    await waitFor(() =>
+      expect(initialToggle).toHaveAttribute('aria-expanded', 'true'),
+    );
+    expect(await screen.findByTestId('think-content')).toHaveTextContent(
+      'Agents virtualized reasoning survives remount.',
+    );
+
+    transcript.scrollTop = 3200;
+    fireEvent.scroll(transcript);
+    await waitFor(() =>
+      expect(screen.queryByTestId('think-content')).not.toBeInTheDocument(),
+    );
+
+    transcript.scrollTop = 0;
+    fireEvent.scroll(transcript);
+    const toggle = await screen.findByTestId('think-toggle');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByTestId('think-content')).toHaveTextContent(
+      'Agents virtualized reasoning survives remount.',
+    );
+
+    harness.restore();
+  });
+
   it('keeps thought process collapsed by default and toggles open', async () => {
     const user = userEvent.setup();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {

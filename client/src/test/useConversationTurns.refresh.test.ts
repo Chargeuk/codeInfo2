@@ -178,6 +178,81 @@ test('useConversationTurns.refresh error does not clear existing turns', async (
   );
 });
 
+test('useConversationTurns.refresh recovers after a transient empty snapshot', async () => {
+  let turnsCall = 0;
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (!url.includes('/conversations/c1/turns')) {
+        return mockJsonResponse({});
+      }
+
+      turnsCall += 1;
+      if (turnsCall === 1) {
+        return mockTurnsSnapshot([
+          {
+            conversationId: 'c1',
+            role: 'assistant',
+            content: 'Initial reply',
+            model: 'm1',
+            provider: 'lmstudio',
+            toolCalls: null,
+            status: 'ok',
+            createdAt: '2025-01-01T00:00:00Z',
+          },
+        ]);
+      }
+      if (turnsCall === 2) {
+        return mockTurnsSnapshot([]);
+      }
+      return mockTurnsSnapshot([
+        {
+          conversationId: 'c1',
+          role: 'assistant',
+          content: 'Recovered reply',
+          model: 'm1',
+          provider: 'lmstudio',
+          toolCalls: null,
+          status: 'ok',
+          createdAt: '2025-01-03T00:00:00Z',
+        },
+      ]);
+    }),
+  );
+
+  function TestTransientEmptyRefresh() {
+    const { turns, refresh } = useConversationTurns('c1');
+    const refreshCountRef = useRef(0);
+
+    useEffect(() => {
+      if (refreshCountRef.current === 0 && turns.length === 1) {
+        refreshCountRef.current = 1;
+        void refresh();
+        return;
+      }
+      if (refreshCountRef.current === 1 && turns.length === 0) {
+        refreshCountRef.current = 2;
+        void refresh();
+      }
+    }, [refresh, turns]);
+
+    return createElement(
+      'div',
+      null,
+      ...turns.map((turn) =>
+        createElement('p', { key: turn.createdAt }, turn.content),
+      ),
+    );
+  }
+
+  render(createElement(TestTransientEmptyRefresh));
+
+  expect(await screen.findByText('Initial reply')).toBeInTheDocument();
+  expect(await screen.findByText('Recovered reply')).toBeInTheDocument();
+  expect(screen.queryByText('Initial reply')).not.toBeInTheDocument();
+  expect(mockFetch).toHaveBeenCalledTimes(3);
+});
+
 type OverlayState = {
   turns: string[];
   inflightId: string;

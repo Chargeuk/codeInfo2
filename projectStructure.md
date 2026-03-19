@@ -1,5 +1,44 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000049 Task 10 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/components/chat/VirtualizedTranscript.tsx`
+- `client/src/test/agentsPage.layoutWrap.test.tsx`
+- `client/src/test/agentsPage.reasoning.test.tsx`
+- `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
+- `client/src/test/chatPage.layoutHeight.test.tsx`
+- `client/src/test/chatPage.reasoning.test.tsx`
+- `client/src/test/flowsPage.run.test.tsx`
+- `client/src/test/flowsPage.test.tsx`
+- `client/src/test/sharedTranscript.scrollBehavior.test.tsx`
+- `client/src/test/useChatStream.inflightMismatch.test.tsx`
+- `client/src/test/useConversationTurns.commandMetadata.test.ts`
+- `client/src/test/useConversationTurns.refresh.test.ts`
+- `design.md`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 10 finishes the final measured-row contract on top of the Task 9 virtualizer by keeping one measured wrapper in `client/src/components/chat/VirtualizedTranscript.tsx` and remeasuring row growth there instead of reviving page-local transcript logic.
+- `client/src/components/chat/SharedTranscript.tsx` keeps the shared container and scroll contract, while `client/src/components/chat/useSharedTranscriptState.ts` remains the single owner for citation, thought-process, tool-detail, and tool-error expansion state across Chat, Agents, and Flows.
+- The Task 10 regression sweep stays anchored to the existing named files and the existing test-only `client/src/test/support/transcriptMeasurementHarness.ts` seam rather than adding a new production helper file.
+
 ## Story 0000049 Task 9 structural change ledger
 
 Added files:

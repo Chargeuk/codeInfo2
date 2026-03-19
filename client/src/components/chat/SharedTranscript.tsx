@@ -19,6 +19,13 @@ type SharedTranscriptLogConfig = {
   context: Record<string, unknown>;
 };
 
+type TranscriptScrollSnapshot = {
+  scrollMode: SharedTranscriptScrollMode;
+  scrollTop: number;
+  scrollHeight: number;
+  clientHeight: number;
+};
+
 type SharedTranscriptProps = {
   surface: 'chat' | 'agents' | 'flows';
   conversationId?: string | null;
@@ -176,6 +183,20 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       };
     }, [conversationKey]);
 
+    const getScrollSnapshot =
+      useCallback((): TranscriptScrollSnapshot | null => {
+        const transcriptElement = transcriptContainerRef.current;
+        if (!transcriptElement) {
+          return null;
+        }
+        return {
+          scrollMode: scrollModeRef.current,
+          scrollTop: transcriptElement.scrollTop,
+          scrollHeight: transcriptElement.scrollHeight,
+          clientHeight: transcriptElement.clientHeight,
+        };
+      }, []);
+
     const reconcileScrollPosition = useCallback(() => {
       const transcriptElement = transcriptContainerRef.current;
       if (!transcriptElement) {
@@ -294,6 +315,10 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
           if (!(entry.target instanceof HTMLElement)) {
             return;
           }
+          if (entry.target === transcriptElement) {
+            reconcileScrollPosition();
+            return;
+          }
           const rowId = entry.target.dataset.transcriptRowId;
           if (!rowId || entry.target.isConnected) {
             return;
@@ -313,7 +338,6 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
             },
           );
         });
-        reconcileScrollPosition();
       });
 
       observer.observe(transcriptElement);
@@ -388,6 +412,54 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       ],
     );
 
+    const measurementKeyByMessageId = useMemo(() => {
+      return Object.fromEntries(
+        messages.map((message) => {
+          const toolToggleKeys =
+            message.tools?.map((tool) => `${message.id}-${tool.id}`) ?? [];
+          const openToolKeys = toolToggleKeys.filter((key) => toolOpen[key]);
+          const openToolErrorKeys = toolToggleKeys.filter(
+            (key) => toolErrorOpen[key],
+          );
+          const segmentSignature = (message.segments ?? [])
+            .map((segment) => {
+              return segment.kind === 'text'
+                ? `text:${segment.id}:${segment.content.length}`
+                : `tool:${segment.id}:${segment.tool.status}:${segment.tool.name ?? 'unknown'}`;
+            })
+            .join('|');
+
+          return [
+            message.id,
+            JSON.stringify({
+              contentLength: message.content?.length ?? 0,
+              thinkLength: message.think?.length ?? 0,
+              citationsCount: citationsEnabled
+                ? (message.citations?.length ?? 0)
+                : 0,
+              warningsCount: message.warnings?.length ?? 0,
+              streamStatus:
+                resolveStreamStatus?.(message) ?? message.streamStatus ?? null,
+              citationsOpen:
+                citationsEnabled && Boolean(citationsOpen[message.id]),
+              thinkOpen: Boolean(thinkOpen[message.id]),
+              openToolKeys,
+              openToolErrorKeys,
+              segmentSignature,
+            }),
+          ];
+        }),
+      );
+    }, [
+      citationsEnabled,
+      citationsOpen,
+      messages,
+      resolveStreamStatus,
+      thinkOpen,
+      toolErrorOpen,
+      toolOpen,
+    ]);
+
     return (
       <Box
         ref={setContainerRef}
@@ -432,6 +504,8 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
             messages={messages}
             transcriptContainerRef={transcriptContainerRef}
             renderMessageRow={renderMessageRow}
+            measurementKeyByMessageId={measurementKeyByMessageId}
+            getScrollSnapshot={getScrollSnapshot}
           />
         </Stack>
       </Box>

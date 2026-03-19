@@ -663,6 +663,7 @@ describe('Flows page run/resume controls', () => {
       expect(screen.getByText('First step answer')).toBeInTheDocument();
       expect(screen.queryByText('Run step one replay')).not.toBeInTheDocument();
       expect(screen.queryByText('First step answer hidden')).toBeNull();
+      expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(2);
 
       const retainedLog = logSpy.mock.calls.find(([entry]) => {
         if (!entry || typeof entry !== 'object') return false;
@@ -1017,6 +1018,7 @@ describe('Flows page run/resume controls', () => {
       expect(
         await screen.findByText('Latest live output still running'),
       ).toBeInTheDocument();
+      expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(2);
       const hiddenLogs = logSpy.mock.calls.filter(([entry]) => {
         if (!entry || typeof entry !== 'object') return false;
         return (

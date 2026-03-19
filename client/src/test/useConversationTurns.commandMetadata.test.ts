@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { createElement } from 'react';
+import { act, render, screen } from '@testing-library/react';
+import { createElement, useEffect, useRef } from 'react';
 import useConversationTurns from '../hooks/useConversationTurns';
 import {
   asFetchImplementation,
@@ -201,4 +201,108 @@ test('omits inflight command metadata when missing', async () => {
   render(createElement(TestInflightCommand));
 
   expect(await screen.findByText('no-command')).toBeInTheDocument();
+});
+
+test('refresh keeps command metadata aligned after a transient empty turn snapshot', async () => {
+  let turnsCall = 0;
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (!url.includes('/conversations/c1/turns')) {
+        return mockJsonResponse({});
+      }
+
+      turnsCall += 1;
+      if (turnsCall === 1) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'c1',
+              role: 'assistant',
+              content: 'Assistant reply',
+              model: 'm1',
+              provider: 'codex',
+              toolCalls: null,
+              status: 'ok',
+              command: {
+                name: 'flow',
+                stepIndex: 1,
+                totalSteps: 4,
+                label: 'Draft',
+                agentType: 'planning_agent',
+                identifier: 'main',
+              },
+              createdAt: '2025-01-02T00:00:00Z',
+            },
+          ],
+          inflight: null,
+          nextCursor: undefined,
+        });
+      }
+      if (turnsCall === 2) {
+        return mockJsonResponse({
+          items: [],
+          inflight: null,
+          nextCursor: undefined,
+        });
+      }
+      return mockJsonResponse({
+        items: [
+          {
+            conversationId: 'c1',
+            role: 'assistant',
+            content: 'Assistant reply',
+            model: 'm1',
+            provider: 'codex',
+            toolCalls: null,
+            status: 'ok',
+            command: {
+              name: 'flow',
+              stepIndex: 2,
+              totalSteps: 4,
+              label: 'Rewrite',
+              agentType: 'planning_agent',
+              identifier: 'main',
+            },
+            createdAt: '2025-01-03T00:00:00Z',
+          },
+        ],
+        inflight: null,
+        nextCursor: undefined,
+      });
+    }),
+  );
+
+  function TestCommandRefresh() {
+    const { turns, refresh } = useConversationTurns('c1');
+    const refreshCountRef = useRef(0);
+    const turn = turns[0];
+    const label = turn?.command
+      ? `${turn.command.name}|${turn.command.stepIndex}/${turn.command.totalSteps}|${
+          turn.command.label ?? ''
+        }`
+      : 'none';
+
+    useEffect(() => {
+      if (refreshCountRef.current === 0 && turns.length === 1) {
+        refreshCountRef.current = 1;
+        void refresh();
+        return;
+      }
+      if (refreshCountRef.current === 1 && turns.length === 0) {
+        refreshCountRef.current = 2;
+        void refresh();
+      }
+    }, [refresh, turns]);
+
+    return createElement('div', null, label);
+  }
+
+  render(createElement(TestCommandRefresh));
+
+  expect(await screen.findByText('flow|1/4|Draft')).toBeInTheDocument();
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(await screen.findByText('flow|2/4|Rewrite')).toBeInTheDocument();
 });

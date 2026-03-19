@@ -177,6 +177,32 @@ flowchart LR
   ChatPage --> Flags["CodexFlagsPanel.tsx (outside virtualized subtree)"]
 ```
 
+## Story 0000049 Task 10 dynamic row measurement coverage
+
+- `client/src/components/chat/VirtualizedTranscript.tsx` now owns the final measured-row growth path on top of the Task 9 virtualizer seam. Each visible row still renders through one measured wrapper, but row-height changes now trigger remeasurement and settled-growth proof logs instead of relying on the older container-only path.
+- `client/src/components/chat/SharedTranscript.tsx` still owns the scroll container and shared scroll mode, but row-triggered size adjustments are now left to the virtualized measurement path. The shared layer only keeps the transcript-level anchor contract and the detached-row safety seam from Task 6.
+- `client/src/components/chat/useSharedTranscriptState.ts` remains the single conversation-scoped owner for citation, thought-process, tool-details, and tool-error expansion state. Task 10 does not move any of that state back into row-local components, which is what allows reasoning and rich-row state to survive virtual unmount and remount.
+- `client/src/test/support/transcriptMeasurementHarness.ts` remains test-only and outside production imports. The Task 10 regressions exercise the final measured-row path through that harness instead of introducing hidden DOM stubs.
+- The final browser-visible measurement markers for Story 49 are:
+  - `DEV-0000049:T10:virtualized_row_remeasured`
+  - `DEV-0000049:T10:virtualized_row_growth_settled`
+
+```mermaid
+flowchart LR
+  ChatPage["ChatPage.tsx"] --> SharedTranscript["SharedTranscript.tsx"]
+  AgentsPage["AgentsPage.tsx"] --> SharedTranscript
+  FlowsPage["FlowsPage.tsx"] --> SharedTranscript
+  SharedTranscript --> SharedState["useSharedTranscriptState.ts"]
+  SharedTranscript --> VirtualizedTranscript["VirtualizedTranscript.tsx"]
+  VirtualizedTranscript --> Virtualizer["useVirtualizer(...)"]
+  VirtualizedTranscript --> MeasuredRow["single measured row wrapper<br/>data-index + data-virtualized-message-id + measureElement"]
+  MeasuredRow --> MessageRow["SharedTranscriptMessageRow.tsx"]
+  MeasuredRow --> RemeasureLog["DEV-0000049:T10:virtualized_row_remeasured"]
+  MeasuredRow --> SettledLog["DEV-0000049:T10:virtualized_row_growth_settled"]
+  Harness["transcriptMeasurementHarness.ts (test-only)"] --> Task10Tests["Task 10 RTL regressions"]
+  Harness -. no production imports .-> VirtualizedTranscript
+```
+
 ## Common package
 
 - Purpose: shared DTOs/utilities consumed by client and server to prove workspace linking.

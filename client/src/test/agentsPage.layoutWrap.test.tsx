@@ -240,7 +240,7 @@ describe('Agents page layout wrap', () => {
     );
   });
 
-  it('uses the shared pinned-bottom and scroll-away rules on Agents', async () => {
+  it('uses the shared pinned-bottom and row-growth anchor rules on Agents', async () => {
     const measurementHarness = installTranscriptMeasurementHarness();
     mockAgentsFetch({
       conversations: [
@@ -254,7 +254,7 @@ describe('Agents page layout wrap', () => {
           agentName: 'coding_agent',
         },
       ],
-      turns: Array.from({ length: 6 }, (_, index) => ({
+      turns: Array.from({ length: 14 }, (_, index) => ({
         turnId: `turn-${index + 1}`,
         conversationId: 'a-scroll',
         role: index % 2 === 0 ? 'assistant' : 'user',
@@ -273,7 +273,7 @@ describe('Agents page layout wrap', () => {
     fireEvent.click(conversationRow);
     const transcript = await screen.findByTestId('chat-transcript');
     await waitFor(() =>
-      expect(screen.getAllByTestId('chat-bubble')).toHaveLength(6),
+      expect(screen.getAllByTestId('chat-bubble')).toHaveLength(14),
     );
 
     measurementHarness.setContainerMetrics(transcript, {
@@ -287,12 +287,13 @@ describe('Agents page layout wrap', () => {
     transcript.scrollTop = 430;
     fireEvent.scroll(transcript);
 
-    measurementHarness.setScrollMetrics(transcript, {
-      scrollHeight: 1320,
-      scrollTop: 430,
-    });
-    measurementHarness.triggerResize(transcript);
-    expect(transcript.scrollTop).toBe(550);
+    const measuredRow = transcript.querySelector(
+      '[data-virtualized-message-id]',
+    ) as HTMLElement | null;
+    expect(measuredRow).not.toBeNull();
+    measurementHarness.setElementRect(measuredRow, { height: 180 });
+    measurementHarness.triggerResize(measuredRow);
+    await waitFor(() => expect(transcript.scrollTop).toBe(610));
 
     transcript.scrollTop = 960;
     fireEvent.scroll(transcript);

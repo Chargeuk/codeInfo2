@@ -8,8 +8,11 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import SharedTranscript from '../components/chat/SharedTranscript';
+import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
 import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
 import { setupChatWsHarness } from './support/mockChatWs';
+import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -40,6 +43,80 @@ const routes = [
 ];
 
 describe('Chat reasoning rendering (analysis_delta)', () => {
+  it('preserves reasoning expansion across virtual unmount and remount', async () => {
+    const harness = installTranscriptMeasurementHarness();
+    const user = userEvent.setup();
+    const messages = Array.from({ length: 18 }, (_, index) => ({
+      id: `assistant-${index + 1}`,
+      role: 'assistant' as const,
+      content: `Assistant message ${index + 1}`,
+      think:
+        index === 2 ? 'Persisted thought process for the virtualized row.' : '',
+      createdAt: `2026-03-19T00:${String(index).padStart(2, '0')}:00.000Z`,
+    }));
+
+    function StatefulChatTranscript() {
+      const sharedState = useSharedTranscriptState({
+        surface: 'chat',
+        conversationId: 'chat-remount',
+      });
+
+      return (
+        <SharedTranscript
+          surface="chat"
+          conversationId="chat-remount"
+          messages={messages}
+          activeToolsAvailable={false}
+          emptyMessage="Empty"
+          citationsOpen={sharedState.citationsOpen}
+          thinkOpen={sharedState.thinkOpen}
+          toolOpen={sharedState.toolOpen}
+          toolErrorOpen={sharedState.toolErrorOpen}
+          onToggleCitation={sharedState.toggleCitation}
+          onToggleThink={sharedState.toggleThink}
+          onToggleTool={sharedState.toggleTool}
+          onToggleToolError={sharedState.toggleToolError}
+        />
+      );
+    }
+
+    render(<StatefulChatTranscript />);
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 4320,
+      scrollTop: 0,
+    });
+
+    const initialToggle = await screen.findByTestId('think-toggle');
+    await user.click(initialToggle);
+    await waitFor(() =>
+      expect(initialToggle).toHaveAttribute('aria-expanded', 'true'),
+    );
+    expect(await screen.findByTestId('think-content')).toHaveTextContent(
+      'Persisted thought process',
+    );
+
+    transcript.scrollTop = 3200;
+    fireEvent.scroll(transcript);
+    await waitFor(() =>
+      expect(screen.queryByTestId('think-content')).not.toBeInTheDocument(),
+    );
+
+    transcript.scrollTop = 0;
+    fireEvent.scroll(transcript);
+    const toggle = await screen.findByTestId('think-toggle');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByTestId('think-content')).toHaveTextContent(
+      'Persisted thought process',
+    );
+
+    harness.restore();
+  });
+
   it('keeps reasoning collapsed by default and toggles open', async () => {
     const harness = setupChatWsHarness({ mockFetch });
 

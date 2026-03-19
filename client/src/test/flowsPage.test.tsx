@@ -8,6 +8,8 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import SharedTranscript from '../components/chat/SharedTranscript';
+import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
 import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -62,6 +64,108 @@ function emitWsEvent(event: Record<string, unknown>) {
 }
 
 describe('Flows page basics', () => {
+  it('keeps flow metadata, omits citations, and recovers cleanly after a transient empty transcript', async () => {
+    const harness = installTranscriptMeasurementHarness();
+    const messages = Array.from({ length: 14 }, (_, index) => ({
+      id: `flow-${index + 1}`,
+      role: 'assistant' as const,
+      content: `Flow transcript message ${index + 1}`,
+      command: {
+        name: 'flow',
+        stepIndex: index + 1,
+        totalSteps: 14,
+        label: `Step ${index + 1}`,
+        agentType: 'coding_agent',
+        identifier: 'coder',
+      },
+      createdAt: `2026-03-19T02:${String(index).padStart(2, '0')}:00.000Z`,
+    }));
+
+    function StatefulFlowsTranscript({
+      currentMessages,
+    }: {
+      currentMessages: typeof messages;
+    }) {
+      const sharedState = useSharedTranscriptState({
+        surface: 'flows',
+        conversationId: 'flow-remount',
+      });
+
+      return (
+        <SharedTranscript
+          surface="flows"
+          conversationId="flow-remount"
+          messages={currentMessages}
+          activeToolsAvailable={false}
+          citationsEnabled={false}
+          emptyMessage="No flow transcript yet."
+          renderMetadataContent={(message) => (
+            <span data-testid="bubble-flow-meta">
+              {message.command?.label} · {message.command?.agentType}/
+              {message.command?.identifier}
+            </span>
+          )}
+          citationsOpen={sharedState.citationsOpen}
+          thinkOpen={sharedState.thinkOpen}
+          toolOpen={sharedState.toolOpen}
+          toolErrorOpen={sharedState.toolErrorOpen}
+          onToggleCitation={sharedState.toggleCitation}
+          onToggleThink={sharedState.toggleThink}
+          onToggleTool={sharedState.toggleTool}
+          onToggleToolError={sharedState.toggleToolError}
+        />
+      );
+    }
+
+    const { rerender } = render(
+      <StatefulFlowsTranscript currentMessages={messages} />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 2800,
+      scrollTop: 420,
+    });
+    transcript.scrollTop = 420;
+    fireEvent.scroll(transcript);
+
+    expect(await screen.findAllByTestId('bubble-flow-meta')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          textContent: expect.stringContaining('coding_agent/coder'),
+        }),
+      ]),
+    );
+    expect(screen.queryByTestId('citations-toggle')).toBeNull();
+
+    const measuredRow = transcript.querySelector(
+      '[data-virtualized-message-id]',
+    ) as HTMLElement | null;
+    expect(measuredRow).not.toBeNull();
+    harness.setElementRect(measuredRow, { height: 180 });
+    harness.triggerResize(measuredRow);
+    await waitFor(() => expect(transcript.scrollTop).toBe(600));
+
+    rerender(<StatefulFlowsTranscript currentMessages={[]} />);
+    expect(screen.queryByTestId('bubble-flow-meta')).toBeNull();
+    expect(screen.getByText('No flow transcript yet.')).toBeInTheDocument();
+
+    rerender(<StatefulFlowsTranscript currentMessages={messages} />);
+    expect(await screen.findAllByTestId('bubble-flow-meta')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          textContent: expect.stringContaining('coding_agent/coder'),
+        }),
+      ]),
+    );
+    expect(screen.queryByTestId('citations-toggle')).toBeNull();
+
+    harness.restore();
+  });
+
   it('renders flows list and flow step metadata', async () => {
     const now = new Date().toISOString();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {

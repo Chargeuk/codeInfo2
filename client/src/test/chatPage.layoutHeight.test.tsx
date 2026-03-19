@@ -330,8 +330,8 @@ describe('Chat transcript viewport height fill', () => {
     );
 
     const transcript = await screen.findByTestId('chat-transcript');
-    const row = transcript.querySelector(
-      '[data-transcript-row-id="assistant-2"]',
+    const measuredRow = transcript.querySelector(
+      '[data-virtualized-message-id="assistant-2"]',
     ) as HTMLElement | null;
 
     harness.setContainerMetrics(transcript, {
@@ -349,10 +349,11 @@ describe('Chat transcript viewport height fill', () => {
       scrollHeight: 1180,
       scrollTop: 340,
     });
-    expect(row).not.toBeNull();
-    harness.triggerResize(row);
+    expect(measuredRow).not.toBeNull();
+    harness.setElementRect(measuredRow, { height: 180 });
+    harness.triggerResize(measuredRow);
 
-    expect(transcript.scrollTop).toBe(520);
+    await waitFor(() => expect(transcript.scrollTop).toBe(520));
     harness.restore();
   });
 });

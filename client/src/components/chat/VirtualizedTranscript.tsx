@@ -1,6 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   type MutableRefObject,
@@ -15,6 +16,13 @@ type VirtualizedTranscriptProps = {
   messages: ChatMessage[];
   transcriptContainerRef: MutableRefObject<HTMLDivElement | null>;
   renderMessageRow: (message: ChatMessage) => ReactNode;
+  measurementKeyByMessageId: Record<string, string>;
+  getScrollSnapshot: () => {
+    scrollMode: 'pinned-bottom' | 'scrolled-away';
+    scrollTop: number;
+    scrollHeight: number;
+    clientHeight: number;
+  } | null;
 };
 
 const virtualizedTranscriptLog = createLogger('client');
@@ -29,8 +37,24 @@ export default function VirtualizedTranscript({
   messages,
   transcriptContainerRef,
   renderMessageRow,
+  measurementKeyByMessageId,
+  getScrollSnapshot,
 }: VirtualizedTranscriptProps) {
   const lastWindowKeyRef = useRef<string | null>(null);
+  const rowElementsRef = useRef(new Map<string, HTMLDivElement>());
+  const rowHeightsRef = useRef(new Map<string, number>());
+  const rowMeasurementKeysRef = useRef(new Map<string, string>());
+  const pendingRowGrowthRef = useRef(
+    new Map<
+      string,
+      {
+        beforeSnapshot: ReturnType<typeof getScrollSnapshot>;
+        cause: string;
+      }
+    >(),
+  );
+  const growthSettleTimersRef = useRef(new Map<string, number>());
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const virtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => transcriptContainerRef.current,
@@ -68,6 +92,20 @@ export default function VirtualizedTranscript({
     getItemKey: (index) => messages[index]!.id,
   });
 
+  useEffect(() => {
+    virtualizer.shouldAdjustScrollPositionOnItemSizeChange = (_item, delta) => {
+      if (delta === 0) {
+        return false;
+      }
+      const snapshot = getScrollSnapshot();
+      return snapshot?.scrollMode === 'scrolled-away';
+    };
+
+    return () => {
+      virtualizer.shouldAdjustScrollPositionOnItemSizeChange = undefined;
+    };
+  }, [getScrollSnapshot, virtualizer]);
+
   const virtualItems = virtualizer.getVirtualItems();
   const windowKey = useMemo(() => {
     if (virtualItems.length === 0 || messages.length === 0) {
@@ -97,6 +135,152 @@ export default function VirtualizedTranscript({
       },
     );
   }, [conversationId, messages.length, surface, virtualItems, windowKey]);
+
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      entries.forEach((entry) => {
+        const element =
+          entry.target instanceof HTMLDivElement ? entry.target : null;
+        const messageId = element?.dataset.virtualizedMessageId;
+        if (!element || !messageId) {
+          return;
+        }
+
+        const nextHeight = entry.contentRect.height;
+        const previousHeight = rowHeightsRef.current.get(messageId);
+        rowHeightsRef.current.set(messageId, nextHeight);
+
+        const pending = pendingRowGrowthRef.current.get(messageId);
+        if (
+          previousHeight == null ||
+          Math.abs(nextHeight - previousHeight) < 1
+        ) {
+          return;
+        }
+
+        const beforeSnapshot = pending?.beforeSnapshot ?? getScrollSnapshot();
+        const deltaHeight = nextHeight - previousHeight;
+        virtualizer.measureElement(element);
+        virtualizedTranscriptLog(
+          'info',
+          'DEV-0000049:T10:virtualized_row_remeasured',
+          {
+            surface,
+            conversationId: conversationId ?? null,
+            messageId,
+            cause: pending?.cause ?? 'content-or-toggle-change',
+          },
+        );
+
+        const existingTimer = growthSettleTimersRef.current.get(messageId);
+        if (existingTimer) {
+          window.clearTimeout(existingTimer);
+        }
+
+        const timerId = window.setTimeout(() => {
+          const afterSnapshot = getScrollSnapshot();
+          if (
+            beforeSnapshot &&
+            afterSnapshot &&
+            beforeSnapshot.scrollMode === 'scrolled-away' &&
+            deltaHeight > 0 &&
+            afterSnapshot.scrollTop === beforeSnapshot.scrollTop
+          ) {
+            const scrollElement = transcriptContainerRef.current;
+            if (scrollElement) {
+              scrollElement.scrollTop = beforeSnapshot.scrollTop + deltaHeight;
+            }
+          }
+          const settledSnapshot = getScrollSnapshot();
+          const anchorPreserved =
+            !beforeSnapshot ||
+            !settledSnapshot ||
+            beforeSnapshot.scrollMode === 'pinned-bottom'
+              ? true
+              : settledSnapshot.scrollTop >= beforeSnapshot.scrollTop;
+          virtualizedTranscriptLog(
+            'info',
+            'DEV-0000049:T10:virtualized_row_growth_settled',
+            {
+              surface,
+              conversationId: conversationId ?? null,
+              messageId,
+              anchorPreserved,
+            },
+          );
+          pendingRowGrowthRef.current.delete(messageId);
+          growthSettleTimersRef.current.delete(messageId);
+        }, 0);
+
+        growthSettleTimersRef.current.set(messageId, timerId);
+      });
+    });
+
+    resizeObserverRef.current = observer;
+    rowElementsRef.current.forEach((element) => observer.observe(element));
+    const growthSettleTimers = growthSettleTimersRef.current;
+
+    return () => {
+      growthSettleTimers.forEach((timerId) => {
+        window.clearTimeout(timerId);
+      });
+      growthSettleTimers.clear();
+      observer.disconnect();
+      resizeObserverRef.current = null;
+    };
+  }, [
+    conversationId,
+    getScrollSnapshot,
+    surface,
+    transcriptContainerRef,
+    virtualizer,
+  ]);
+
+  useLayoutEffect(() => {
+    messages.forEach((message) => {
+      const element = rowElementsRef.current.get(message.id);
+      const nextMeasurementKey = measurementKeyByMessageId[message.id] ?? '';
+      const previousMeasurementKey = rowMeasurementKeysRef.current.get(
+        message.id,
+      );
+
+      if (previousMeasurementKey == null) {
+        rowMeasurementKeysRef.current.set(message.id, nextMeasurementKey);
+        if (element) {
+          rowHeightsRef.current.set(
+            message.id,
+            element.getBoundingClientRect().height,
+          );
+        }
+        return;
+      }
+
+      if (previousMeasurementKey === nextMeasurementKey || !element) {
+        rowMeasurementKeysRef.current.set(message.id, nextMeasurementKey);
+        return;
+      }
+
+      rowMeasurementKeysRef.current.set(message.id, nextMeasurementKey);
+      pendingRowGrowthRef.current.set(message.id, {
+        beforeSnapshot: getScrollSnapshot(),
+        cause: 'content-or-toggle-change',
+      });
+      virtualizer.measureElement(element);
+    });
+  }, [getScrollSnapshot, measurementKeyByMessageId, messages, virtualizer]);
+
+  useEffect(() => {
+    const visibleMessageIds = new Set(messages.map((message) => message.id));
+    Array.from(rowElementsRef.current.keys()).forEach((messageId) => {
+      if (!visibleMessageIds.has(messageId)) {
+        rowElementsRef.current.delete(messageId);
+      }
+    });
+  }, [messages]);
 
   if (messages.length === 0) {
     return null;
@@ -129,7 +313,27 @@ export default function VirtualizedTranscript({
           >
             <div
               data-index={virtualRow.index}
-              ref={virtualizer.measureElement}
+              data-virtualized-message-id={message.id}
+              ref={(node) => {
+                const observer = resizeObserverRef.current;
+                const previous = rowElementsRef.current.get(message.id);
+                if (previous && previous !== node && observer) {
+                  observer.unobserve(previous);
+                }
+
+                if (!node) {
+                  rowElementsRef.current.delete(message.id);
+                  return;
+                }
+
+                rowElementsRef.current.set(message.id, node);
+                rowHeightsRef.current.set(
+                  message.id,
+                  node.getBoundingClientRect().height,
+                );
+                virtualizer.measureElement(node);
+                observer?.observe(node);
+              }}
               style={{
                 paddingBottom:
                   virtualRow.index === messages.length - 1

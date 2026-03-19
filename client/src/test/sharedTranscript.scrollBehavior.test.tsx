@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import SharedTranscript from '../components/chat/SharedTranscript';
 import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
 
@@ -78,8 +84,8 @@ describe('Shared transcript scroll behavior', () => {
     );
 
     const transcript = await screen.findByTestId('chat-transcript');
-    const row = transcript.querySelector(
-      '[data-transcript-row-id="assistant-5"]',
+    const measuredRow = transcript.querySelector(
+      '[data-virtualized-message-id="assistant-5"]',
     ) as HTMLElement | null;
 
     harness.setContainerMetrics(transcript, {
@@ -97,10 +103,11 @@ describe('Shared transcript scroll behavior', () => {
       scrollHeight: 1250,
       scrollTop: 360,
     });
-    expect(row).not.toBeNull();
-    harness.triggerResize(row);
+    expect(measuredRow).not.toBeNull();
+    harness.setElementRect(measuredRow, { height: 180 });
+    harness.triggerResize(measuredRow);
 
-    expect(transcript.scrollTop).toBe(510);
+    await waitFor(() => expect(transcript.scrollTop).toBe(540));
     harness.restore();
   });
 
@@ -174,7 +181,7 @@ describe('Shared transcript scroll behavior', () => {
 
     const transcript = await screen.findByTestId('chat-transcript');
     const row = transcript.querySelector(
-      '[data-transcript-row-id="assistant-2"]',
+      '[data-virtualized-message-id="assistant-2"]',
     );
 
     expect(row).toBeTruthy();

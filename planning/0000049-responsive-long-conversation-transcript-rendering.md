@@ -1444,7 +1444,7 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 
 ### 13. Review Fix - Runtime Config Directive Failure Surfacing
 
-- Task Status: `__to_do__`
+- Task Status: `__completed__`
 - Git Commits:
 
 #### Overview
@@ -1466,31 +1466,43 @@ Repair the reopened runtime-config defect so an explicitly malformed `USE_BROWSE
 
 #### Subtasks
 
-1. [ ] Re-check the `apiBaseUrl` precedence contract in `client/src/config/runtimeConfig.ts` and make the explicit malformed-directive path non-silent. A malformed explicit `USE_BROWSER_HOST:<port>` value from runtime config or env must no longer look like a clean defaulted browser-origin success.
-2. [ ] Preserve the existing browser-origin fallback only for the true "no explicit api base url configured" case. Do not let an invalid explicit directive collapse into the same success path as "nothing configured".
-3. [ ] Surface the invalid explicit-config state through a caller-visible or otherwise actionable mechanism in the current client runtime path, rather than relying only on a one-time console info log.
-4. [ ] Add or update regression tests for:
+1. [x] Re-check the `apiBaseUrl` precedence contract in `client/src/config/runtimeConfig.ts` and make the explicit malformed-directive path non-silent. A malformed explicit `USE_BROWSER_HOST:<port>` value from runtime config or env must no longer look like a clean defaulted browser-origin success.
+2. [x] Preserve the existing browser-origin fallback only for the true "no explicit api base url configured" case. Do not let an invalid explicit directive collapse into the same success path as "nothing configured".
+3. [x] Surface the invalid explicit-config state through a caller-visible or otherwise actionable mechanism in the current client runtime path, rather than relying only on a one-time console info log.
+4. [x] Add or update regression tests for:
    - malformed env directive;
    - malformed runtime directive;
    - mixed runtime/env inputs where one source is malformed and the other is valid;
    - valid directive precedence over literal env/runtime fallback.
-5. [ ] Re-check the related local preview and Docker-local support files touched by this story (`client/vite.config.ts`, `docker-compose.local.yml`, and `client/src/config/previewAllowedHosts.ts`) and confirm the repaired runtime-config behavior does not accidentally widen or hide host-resolution behavior there.
-6. [ ] Record the repaired explicit-invalid-input behavior and the chosen surfacing contract in this task's `Implementation notes`.
+5. [x] Re-check the related local preview and Docker-local support files touched by this story (`client/vite.config.ts`, `docker-compose.local.yml`, and `client/src/config/previewAllowedHosts.ts`) and confirm the repaired runtime-config behavior does not accidentally widen or hide host-resolution behavior there.
+6. [x] Record the repaired explicit-invalid-input behavior and the chosen surfacing contract in this task's `Implementation notes`.
 
 #### Testing
 
 Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] `npm run build:summary:client` - Use when client or common code may be affected. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use when client or common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - Use because this review-fix task changes front-end runtime-config behavior that should still be validated through the browser stack. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target or targets.
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP validation against `http://host.docker.internal:5001` confirming malformed explicit `USE_BROWSER_HOST:<port>` input no longer degrades into a silent browser-origin success path, valid directive handling still works as intended, and the debug console shows no logged errors.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use when client or common code may be affected. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use when client or common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - Use because this review-fix task changes front-end runtime-config behavior that should still be validated through the browser stack. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target or targets.
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP validation against `http://host.docker.internal:5001` confirming malformed explicit `USE_BROWSER_HOST:<port>` input no longer degrades into a silent browser-origin success path, valid directive handling still works as intended, and the debug console shows no logged errors.
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Review fix pending.
+- Subtask 1: Reworked `runtimeConfig.ts` so malformed explicit `USE_BROWSER_HOST:<port>` input resolves to a blocking `invalid_explicit` state instead of quietly blending into the browser-origin fallback path.
+- Subtask 2: Kept browser-origin fallback only for the true unset `apiBaseUrl` case by routing malformed explicit directives to a dedicated invalid base-url sentinel instead of the default branch.
+- Subtask 3: Surfaced blocking invalid `apiBaseUrl` directives through a new app-shell alert in `App.tsx`, so the misconfiguration is visible in the client without depending on the one-time runtime-config info log.
+- Subtask 4: Expanded runtime-config regressions in `baseUrl.env.test.ts` and `version.test.tsx` to cover malformed env/runtime directives, mixed precedence, and the valid directive override path.
+- Subtask 5: Re-checked `vite.config.ts`, `docker-compose.local.yml`, and `previewAllowedHosts.ts`; the Task 13 fix stays inside `runtimeConfig.ts` and does not widen preview-host or Docker-local host-resolution behavior.
+- Subtask 6: Documented the repaired contract here: only the true unset `apiBaseUrl` case uses browser-origin fallback, malformed explicit `USE_BROWSER_HOST:<port>` input resolves to a blocking invalid base-url state, and the app shell now surfaces that state with an actionable runtime-config alert.
+- Follow-up fix: Manual validation initially exposed browser error noise from Home-page version fetching and log forwarding against the invalid sentinel host, so `HomePage.tsx` now treats the blocking runtime-config state as a banner-first render path and `logging/transport.ts` drops queued forwarding while that state is active.
+- Testing 1: `npm run build:summary:client` passed cleanly after the runtime-config and app-shell banner changes, so the new blocking-mode types and exports compile in the full client build path.
+- Testing 2: `npm run test:summary:client` passed `627/627`; the focused Task 13 regressions and the existing client suite both held after the precedence and banner changes.
+- Testing 3: `npm run compose:build:summary` passed cleanly, so the repaired runtime-config path still builds correctly in the browser-stack images used for manual validation.
+- Testing 4: `npm run compose:up` started the local browser-validation stack successfully after the Task 13 runtime-config changes.
+- Testing 5: Manual Playwright-MCP validation passed on `http://host.docker.internal:5001` using the existing `window.__CODEINFO_CONFIG__` runtime-config seam: malformed `USE_BROWSER_HOST:not-a-port` showed the blocking alert without falling back to browser-origin success, valid `USE_BROWSER_HOST:5510` restored the expected server-version path, and `browser_console_messages(level: "error")` stayed empty.
+- Testing 6: `npm run compose:down` completed cleanly after the Task 13 browser validation rerun.
 
 ### 14. Review Revalidation and Final Closeout
 

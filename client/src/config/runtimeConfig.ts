@@ -18,6 +18,7 @@ type RuntimeConfigSources = {
 };
 
 type ResolvedRuntimeConfig = RuntimeConfig & {
+  apiBaseUrlBlockingIssue?: ApiBaseUrlBlockingIssue;
   sources: RuntimeConfigSources;
 };
 
@@ -57,8 +58,15 @@ type RuntimeConfigDiagnostic =
   | RuntimeConfigFieldDiagnostic
   | RuntimeConfigContainerDiagnostic;
 
+type ApiBaseUrlBlockingIssue = {
+  source: RuntimeConfigSource;
+  rawValue: string;
+  reason: Extract<RuntimeConfigReason, 'invalid_browser_host_directive'>;
+};
+
 const DEFAULT_LM_STUDIO_BASE_URL = 'http://host.docker.internal:1234';
 const DEFAULT_LOG_MAX_BYTES = 32768;
+const INVALID_EXPLICIT_API_BASE_URL = 'http://invalid.codeinfo.invalid';
 
 let runtimeConfigLogged = false;
 
@@ -269,6 +277,39 @@ function getFallbackApiBaseUrl() {
   return getBrowserOrigin();
 }
 
+function isApiBaseUrlFieldDiagnostic(
+  diagnostic: RuntimeConfigDiagnostic | undefined,
+): diagnostic is RuntimeConfigFieldDiagnostic {
+  return (
+    diagnostic !== undefined &&
+    'field' in diagnostic &&
+    diagnostic.field === 'apiBaseUrl'
+  );
+}
+
+function createApiBaseUrlBlockingIssue(
+  diagnostic: RuntimeConfigFieldDiagnostic,
+): ApiBaseUrlBlockingIssue {
+  return {
+    source: diagnostic.source,
+    rawValue: diagnostic.rawValue,
+    reason: 'invalid_browser_host_directive',
+  };
+}
+
+function describeApiBaseUrlBlockingIssue(
+  issue: ApiBaseUrlBlockingIssue | undefined,
+): string | null {
+  if (!issue) {
+    return null;
+  }
+  const sourceLabel =
+    issue.source === 'runtime'
+      ? 'window.__CODEINFO_CONFIG__.apiBaseUrl'
+      : 'VITE_CODEINFO_API_URL';
+  return `Invalid apiBaseUrl directive in ${sourceLabel}: "${issue.rawValue}". Use USE_BROWSER_HOST:<port> with a numeric port, or provide an absolute URL.`;
+}
+
 function shouldSkipRuntimeConfigLog() {
   const env = readEnv();
   if (env.MODE === 'test' || env.JEST_WORKER_ID) return true;
@@ -322,14 +363,41 @@ function resolveClientRuntimeConfig(): {
 
   const runtimeApiBaseUrl = normalizeApiBaseUrl('runtime', runtime.apiBaseUrl);
   const envApiBaseUrl = normalizeApiBaseUrl('env', env.VITE_CODEINFO_API_URL);
+  const runtimeApiBaseUrlBlockingIssue =
+    isApiBaseUrlFieldDiagnostic(runtimeApiBaseUrl.diagnostic) &&
+    runtimeApiBaseUrl.diagnostic.reason === 'invalid_browser_host_directive'
+      ? createApiBaseUrlBlockingIssue(runtimeApiBaseUrl.diagnostic)
+      : undefined;
+  const envApiBaseUrlBlockingIssue =
+    isApiBaseUrlFieldDiagnostic(envApiBaseUrl.diagnostic) &&
+    envApiBaseUrl.diagnostic.reason === 'invalid_browser_host_directive'
+      ? createApiBaseUrlBlockingIssue(envApiBaseUrl.diagnostic)
+      : undefined;
+  const apiBaseUrlBlockingIssue = runtimeApiBaseUrl.value
+    ? undefined
+    : runtimeApiBaseUrlBlockingIssue
+      ? runtimeApiBaseUrlBlockingIssue
+      : envApiBaseUrl.value
+        ? undefined
+        : envApiBaseUrlBlockingIssue;
   const apiBaseUrl =
-    runtimeApiBaseUrl.value || envApiBaseUrl.value || getFallbackApiBaseUrl();
+    runtimeApiBaseUrl.value ||
+    (runtimeApiBaseUrlBlockingIssue
+      ? INVALID_EXPLICIT_API_BASE_URL
+      : undefined) ||
+    envApiBaseUrl.value ||
+    (envApiBaseUrlBlockingIssue ? INVALID_EXPLICIT_API_BASE_URL : undefined) ||
+    getFallbackApiBaseUrl();
   const apiBaseUrlMode =
     runtimeApiBaseUrl.value
       ? runtimeApiBaseUrl.mode ?? 'literal_url'
-      : envApiBaseUrl.value
-        ? envApiBaseUrl.mode ?? 'literal_url'
-        : 'fallback';
+      : runtimeApiBaseUrlBlockingIssue
+        ? 'invalid_explicit'
+        : envApiBaseUrl.value
+          ? envApiBaseUrl.mode ?? 'literal_url'
+          : envApiBaseUrlBlockingIssue
+            ? 'invalid_explicit'
+            : 'fallback';
   if (runtimeApiBaseUrl.diagnostic) diagnostics.push(runtimeApiBaseUrl.diagnostic);
   if (envApiBaseUrl.diagnostic) diagnostics.push(envApiBaseUrl.diagnostic);
 
@@ -388,6 +456,7 @@ function resolveClientRuntimeConfig(): {
 
   const config: ResolvedRuntimeConfig = {
     apiBaseUrl,
+    apiBaseUrlBlockingIssue,
     lmStudioBaseUrl,
     logForwardEnabled,
     logMaxBytes,
@@ -430,6 +499,18 @@ export function getClientRuntimeConfigDiagnostics(): RuntimeConfigDiagnostic[] {
   return resolveClientRuntimeConfig().diagnostics;
 }
 
+export function getApiBaseUrlBlockingIssue(): ApiBaseUrlBlockingIssue | null {
+  return resolveClientRuntimeConfig().config.apiBaseUrlBlockingIssue ?? null;
+}
+
+export function hasBlockingApiBaseUrlConfigIssue(): boolean {
+  return getApiBaseUrlBlockingIssue() !== null;
+}
+
+export function getApiBaseUrlBlockingIssueMessage(): string | null {
+  return describeApiBaseUrlBlockingIssue(getApiBaseUrlBlockingIssue() ?? undefined);
+}
+
 export function getApiBaseUrl(): string {
   return getClientRuntimeConfig().apiBaseUrl ?? '';
 }
@@ -451,7 +532,13 @@ export function resetClientRuntimeConfigLogForTests() {
 }
 
 export {
+  INVALID_EXPLICIT_API_BASE_URL,
   hasInvalidCanonicalRuntimeConfig,
 };
 
-export type { RuntimeConfig, ResolvedRuntimeConfig, RuntimeConfigDiagnostic };
+export type {
+  ApiBaseUrlBlockingIssue,
+  RuntimeConfig,
+  ResolvedRuntimeConfig,
+  RuntimeConfigDiagnostic,
+};

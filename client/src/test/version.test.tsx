@@ -20,6 +20,18 @@ jest.mock('@codeinfo2/common', () => {
 });
 
 describe('App version display', () => {
+  const originalRuntimeConfig = (
+    globalThis as typeof globalThis & {
+      __CODEINFO_CONFIG__?: unknown;
+    }
+  ).__CODEINFO_CONFIG__;
+
+  afterEach(() => {
+    (
+      globalThis as typeof globalThis & { __CODEINFO_CONFIG__?: unknown }
+    ).__CODEINFO_CONFIG__ = originalRuntimeConfig;
+  });
+
   it('shows client and server versions', async () => {
     const router = createMemoryRouter(
       [
@@ -39,5 +51,34 @@ describe('App version display', () => {
     await waitFor(() =>
       expect(screen.getByText(/Server version/i)).toBeInTheDocument(),
     );
+  });
+
+  it('surfaces an invalid api base url banner when the explicit runtime directive is malformed', async () => {
+    (
+      globalThis as typeof globalThis & {
+        __CODEINFO_CONFIG__?: { apiBaseUrl?: string };
+      }
+    ).__CODEINFO_CONFIG__ = { apiBaseUrl: 'USE_BROWSER_HOST:not-a-port' };
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/',
+          element: <App />,
+          children: [
+            { index: true, element: <HomePage /> },
+            { path: 'lmstudio', element: <LmStudioPage /> },
+          ],
+        },
+      ],
+      { initialEntries: ['/'] },
+    );
+
+    render(<RouterProvider router={router} />);
+
+    expect(
+      await screen.findByTestId('runtime-config-api-base-url-banner'),
+    ).toHaveTextContent('Invalid apiBaseUrl directive');
+    expect(screen.getByText(/CodeInfo2 Versions/i)).toBeInTheDocument();
   });
 });

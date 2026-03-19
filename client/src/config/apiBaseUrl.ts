@@ -3,6 +3,7 @@ const BROWSER_HOST_DIRECTIVE = 'USE_BROWSER_HOST';
 export type ApiBaseUrlResolutionMode =
   | 'literal_url'
   | 'browser_host'
+  | 'invalid_explicit'
   | 'fallback';
 
 type ApiBaseUrlDirectiveResolution = {

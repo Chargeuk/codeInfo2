@@ -3,6 +3,7 @@ import {
   getApiBaseUrl,
   getLogForwardEnabled,
   getLogMaxBytes,
+  hasBlockingApiBaseUrlConfigIssue,
 } from '../config/runtimeConfig';
 
 const queue: LogEntry[] = [];
@@ -22,6 +23,10 @@ export async function flushQueue() {
     return;
   }
   if (!getLogForwardEnabled()) {
+    queue.length = 0;
+    return;
+  }
+  if (hasBlockingApiBaseUrlConfigIssue()) {
     queue.length = 0;
     return;
   }

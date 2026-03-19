@@ -248,4 +248,25 @@ describe('transport', () => {
     ).toBe(true);
     expect(_getQueue().length).toBe(0);
   });
+
+  it('drops queued log forwarding when apiBaseUrl has a blocking invalid browser-host directive', async () => {
+    process.env.VITE_CODEINFO_API_URL = 'USE_BROWSER_HOST:not-a-port';
+
+    sendLogs([baseEntry]);
+    await flushQueue();
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([
+      {
+        field: 'apiBaseUrl',
+        source: 'env',
+        rawValue: 'USE_BROWSER_HOST:not-a-port',
+        reason: 'invalid_browser_host_directive',
+      },
+    ]);
+    expect(
+      hasInvalidCanonicalRuntimeConfig(getClientRuntimeConfigDiagnostics()),
+    ).toBe(false);
+    expect(_getQueue().length).toBe(0);
+  });
 });

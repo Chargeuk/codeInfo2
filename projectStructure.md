@@ -1,5 +1,37 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000049 Task 9 structural change ledger
+
+Added files:
+
+- `client/src/components/chat/VirtualizedTranscript.tsx`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/package.json`
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/test/agentsPage.run.test.tsx`
+- `client/src/test/chatPage.stream.test.tsx`
+- `client/src/test/flowsPage.run.test.tsx`
+- `design.md`
+- `package-lock.json`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 9 introduces `client/src/components/chat/VirtualizedTranscript.tsx` as the first shared row-windowing seam while leaving transcript-container and scroll ownership in `client/src/components/chat/SharedTranscript.tsx`.
+- Chat, Agents, and Flows still feed one ordered message list into the shared transcript path; the virtualizer only changes which rows mount at a given time.
+- `ConversationList` and `CodexFlagsPanel` remain outside the virtualized subtree.
+
 ## Story 0000049 Task 8 structural change ledger
 
 Added files:

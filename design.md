@@ -156,6 +156,27 @@ flowchart LR
   ScrollTests --> SharedTranscript
 ```
 
+## Story 0000049 Task 9 transcript virtualization foundation
+
+- `client/src/components/chat/SharedTranscript.tsx` still owns the transcript container, its `data-testid`, and the shared scroll contract from Task 8. Task 9 does not move that responsibility.
+- `client/src/components/chat/VirtualizedTranscript.tsx` is the new windowing seam. It receives the already-ordered transcript messages plus the shared scroll-container ref, owns `useVirtualizer(...)`, and renders only the visible rows through measured wrappers keyed by `message.id`.
+- The shared row renderer stays the same `SharedTranscriptMessageRow.tsx` path, so Chat, Agents, and Flows keep one transcript row implementation while only the mounting strategy changes.
+- `ConversationList` and `CodexFlagsPanel` remain outside the virtualized subtree. Virtualization is limited to transcript rows, not page shell UI or sidebar structure.
+
+```mermaid
+flowchart LR
+  ChatPage["ChatPage.tsx"] --> SharedTranscript["SharedTranscript.tsx"]
+  AgentsPage["AgentsPage.tsx"] --> SharedTranscript
+  FlowsPage["FlowsPage.tsx"] --> SharedTranscript
+  SharedTranscript --> ScrollContainer["shared scroll container + data-testid"]
+  SharedTranscript --> VirtualizedTranscript["VirtualizedTranscript.tsx"]
+  VirtualizedTranscript --> Virtualizer["useVirtualizer(...)"]
+  VirtualizedTranscript --> RowWrapper["measured row wrapper (data-index + measureElement)"]
+  RowWrapper --> MessageRow["SharedTranscriptMessageRow.tsx"]
+  ChatPage --> ConversationList["ConversationList.tsx (outside virtualized subtree)"]
+  ChatPage --> Flags["CodexFlagsPanel.tsx (outside virtualized subtree)"]
+```
+
 ## Common package
 
 - Purpose: shared DTOs/utilities consumed by client and server to prove workspace linking.

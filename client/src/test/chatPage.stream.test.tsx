@@ -840,6 +840,7 @@ describe('Chat WS streaming UI', () => {
     const turnsPayload = {
       items: [
         {
+          turnId: 't-assistant-a',
           conversationId: 'c1',
           role: 'assistant',
           content: 'Assistant A',
@@ -849,6 +850,7 @@ describe('Chat WS streaming UI', () => {
           createdAt: '2025-01-01T00:00:10.000Z',
         },
         {
+          turnId: 't-user-a',
           conversationId: 'c1',
           role: 'user',
           content: 'User A',
@@ -901,8 +903,26 @@ describe('Chat WS streaming UI', () => {
       String(call[0]).includes('/turns'),
     ).length;
 
+    const previousTurns = [...turnsPayload.items];
+    turnsPayload.items = [];
+
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('User A')).toBeNull();
+      expect(screen.queryByText('Assistant A')).toBeNull();
+      expect(
+        screen.getByText(
+          'Transcript will appear here once you send a message.',
+        ),
+      ).toBeInTheDocument();
+    });
+
     turnsPayload.items = [
       {
+        turnId: 't-assistant-b',
         conversationId: 'c1',
         role: 'assistant',
         content: 'Assistant B',
@@ -912,6 +932,7 @@ describe('Chat WS streaming UI', () => {
         createdAt: '2025-01-01T00:01:10.000Z',
       },
       {
+        turnId: 't-user-b',
         conversationId: 'c1',
         role: 'user',
         content: 'User B',
@@ -920,7 +941,7 @@ describe('Chat WS streaming UI', () => {
         status: 'ok',
         createdAt: '2025-01-01T00:01:00.000Z',
       },
-      ...turnsPayload.items,
+      ...previousTurns,
     ];
 
     await act(async () => {

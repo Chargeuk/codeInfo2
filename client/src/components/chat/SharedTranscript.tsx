@@ -12,6 +12,7 @@ import {
 import type { ChatMessage, ToolCall } from '../../hooks/useChatStream';
 import { createLogger } from '../../logging/logger';
 import SharedTranscriptMessageRow from './SharedTranscriptMessageRow';
+import VirtualizedTranscript from './VirtualizedTranscript';
 
 type SharedTranscriptLogConfig = {
   eventName: string;
@@ -341,6 +342,52 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       turnsError,
     ]);
 
+    const renderMessageRow = useCallback(
+      (message: ChatMessage) => (
+        <SharedTranscriptMessageRow
+          key={message.id}
+          message={message}
+          activeToolsAvailable={activeToolsAvailable}
+          citationsEnabled={citationsEnabled}
+          isStopping={isStopping}
+          citationsOpen={citationsOpen}
+          thinkOpen={thinkOpen}
+          toolOpen={toolOpen}
+          toolErrorOpen={toolErrorOpen}
+          onToggleCitation={onToggleCitation}
+          onToggleThink={onToggleThink}
+          onToggleTool={onToggleTool}
+          onToggleToolError={onToggleToolError}
+          visibleStreamStatus={
+            resolveStreamStatus?.(message) ?? message.streamStatus
+          }
+          renderToolExtraContent={renderToolExtraContent}
+          renderMetadataContent={renderMetadataContent}
+          userMarkdownTestId={userMarkdownTestId}
+          log={sharedTranscriptLog}
+          markdownLogSource={markdownLogSource}
+        />
+      ),
+      [
+        activeToolsAvailable,
+        citationsEnabled,
+        citationsOpen,
+        isStopping,
+        markdownLogSource,
+        onToggleCitation,
+        onToggleThink,
+        onToggleTool,
+        onToggleToolError,
+        renderMetadataContent,
+        renderToolExtraContent,
+        resolveStreamStatus,
+        thinkOpen,
+        toolErrorOpen,
+        toolOpen,
+        userMarkdownTestId,
+      ],
+    );
+
     return (
       <Box
         ref={setContainerRef}
@@ -379,31 +426,13 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
             (emptyStateContent ?? (
               <Typography color="text.secondary">{emptyMessage}</Typography>
             ))}
-          {messages.map((message) => (
-            <SharedTranscriptMessageRow
-              key={message.id}
-              message={message}
-              activeToolsAvailable={activeToolsAvailable}
-              citationsEnabled={citationsEnabled}
-              isStopping={isStopping}
-              citationsOpen={citationsOpen}
-              thinkOpen={thinkOpen}
-              toolOpen={toolOpen}
-              toolErrorOpen={toolErrorOpen}
-              onToggleCitation={onToggleCitation}
-              onToggleThink={onToggleThink}
-              onToggleTool={onToggleTool}
-              onToggleToolError={onToggleToolError}
-              visibleStreamStatus={
-                resolveStreamStatus?.(message) ?? message.streamStatus
-              }
-              renderToolExtraContent={renderToolExtraContent}
-              renderMetadataContent={renderMetadataContent}
-              userMarkdownTestId={userMarkdownTestId}
-              log={sharedTranscriptLog}
-              markdownLogSource={markdownLogSource}
-            />
-          ))}
+          <VirtualizedTranscript
+            surface={surface}
+            conversationId={conversationId}
+            messages={messages}
+            transcriptContainerRef={transcriptContainerRef}
+            renderMessageRow={renderMessageRow}
+          />
         </Stack>
       </Box>
     );

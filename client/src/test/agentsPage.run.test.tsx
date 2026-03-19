@@ -261,6 +261,154 @@ describe('Agents page - run', () => {
     expect(screen.queryByText('SEGMENT_SHOULD_NOT_RENDER')).toBeNull();
   });
 
+  it('clears stale virtualized rows when the selected conversation switches to an empty transcript', async () => {
+    const user = userEvent.setup();
+    const turnsByConversation: Record<
+      string,
+      { items: Record<string, unknown>[] }
+    > = {
+      c1: {
+        items: [
+          {
+            turnId: 'agent-user-1',
+            conversationId: 'c1',
+            role: 'user',
+            content: 'Run alpha',
+            model: 'gpt-5.1-codex-max',
+            provider: 'codex',
+            status: 'ok',
+            createdAt: '2025-01-01T00:00:00.000Z',
+          },
+          {
+            turnId: 'agent-assistant-1',
+            conversationId: 'c1',
+            role: 'assistant',
+            content: 'Alpha answer',
+            model: 'gpt-5.1-codex-max',
+            provider: 'codex',
+            status: 'ok',
+            createdAt: '2025-01-01T00:00:01.000Z',
+          },
+        ],
+      },
+      c2: { items: [] },
+    };
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ mongoConnected: true }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      }
+
+      if (target.includes('/agents') && !target.includes('/commands')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ agents: [{ name: 'coding_agent' }] }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      }
+
+      if (target.includes('/agents/coding_agent/commands')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ commands: [] }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      }
+
+      if (target.includes('/conversations') && target.includes('agentName=')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              items: [
+                {
+                  conversationId: 'c1',
+                  title: 'Agent conversation 1',
+                  provider: 'codex',
+                  model: 'gpt-5.1-codex-max',
+                  lastMessageAt: '2025-01-01T00:00:01.000Z',
+                  archived: false,
+                },
+                {
+                  conversationId: 'c2',
+                  title: 'Agent conversation 2',
+                  provider: 'codex',
+                  model: 'gpt-5.1-codex-max',
+                  lastMessageAt: '2025-01-01T00:00:02.000Z',
+                  archived: false,
+                },
+              ],
+              nextCursor: null,
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        );
+      }
+
+      const turnsMatch = target.match(/\/conversations\/([^/]+)\/turns/);
+      if (turnsMatch) {
+        const conversationId = turnsMatch[1] ?? '';
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              items: turnsByConversation[conversationId]?.items ?? [],
+              nextCursor: null,
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        );
+      }
+
+      return Promise.resolve(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const firstConversation = await screen.findByText('Agent conversation 1');
+    await act(async () => {
+      await user.click(firstConversation);
+    });
+
+    expect(await screen.findByText('Run alpha')).toBeInTheDocument();
+    expect(await screen.findByText('Alpha answer')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-transcript')).toBeInTheDocument();
+
+    const secondConversation = await screen.findByText('Agent conversation 2');
+    await act(async () => {
+      await user.click(secondConversation);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Run alpha')).toBeNull();
+      expect(screen.queryByText('Alpha answer')).toBeNull();
+      expect(
+        screen.getByText(
+          'Transcript will appear here once you send an instruction.',
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
   it('preserves leading and trailing whitespace in outbound instruction payload', async () => {
     const user = userEvent.setup();
     const runBodies: Record<string, unknown>[] = [];

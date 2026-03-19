@@ -1147,7 +1147,7 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 ### 11. Final Validation and Review Closeout
 
 - Task Status: `__completed__`
-- Git Commits:
+- Git Commits: `e30c5895 - DEV-[49] - Fix runtime config directive failure surfacing`
   - `3498797a` - `DEV-[49] - Start Task 11 final validation closeout`
   - `d87e0afc` - `DEV-[49] - Finish Task 11 story closeout`
 
@@ -1498,7 +1498,7 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 - Subtask 6: Documented the repaired contract here: only the true unset `apiBaseUrl` case uses browser-origin fallback, malformed explicit `USE_BROWSER_HOST:<port>` input resolves to a blocking invalid base-url state, and the app shell now surfaces that state with an actionable runtime-config alert.
 - Follow-up fix: Manual validation initially exposed browser error noise from Home-page version fetching and log forwarding against the invalid sentinel host, so `HomePage.tsx` now treats the blocking runtime-config state as a banner-first render path and `logging/transport.ts` drops queued forwarding while that state is active.
 - Testing 1: `npm run build:summary:client` passed cleanly after the runtime-config and app-shell banner changes, so the new blocking-mode types and exports compile in the full client build path.
-- Testing 2: `npm run test:summary:client` passed `627/627`; the focused Task 13 regressions and the existing client suite both held after the precedence and banner changes.
+- Testing 2: `npm run test:summary:client` passed on the final rerun with `628/628`, so the focused Task 13 regressions and the full client suite both held after the precedence, banner, Home-page, and transport changes.
 - Testing 3: `npm run compose:build:summary` passed cleanly, so the repaired runtime-config path still builds correctly in the browser-stack images used for manual validation.
 - Testing 4: `npm run compose:up` started the local browser-validation stack successfully after the Task 13 runtime-config changes.
 - Testing 5: Manual Playwright-MCP validation passed on `http://host.docker.internal:5001` using the existing `window.__CODEINFO_CONFIG__` runtime-config seam: malformed `USE_BROWSER_HOST:not-a-port` showed the blocking alert without falling back to browser-origin success, valid `USE_BROWSER_HOST:5510` restored the expected server-version path, and `browser_console_messages(level: "error")` stayed empty.

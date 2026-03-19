@@ -116,7 +116,10 @@ function SharedTranscriptMessageRow({
     : baseSegments.filter((segment) => segment.kind === 'text');
 
   return (
-    <Stack alignItems={alignSelf === 'flex-end' ? 'flex-end' : 'flex-start'}>
+    <Stack
+      alignItems={alignSelf === 'flex-end' ? 'flex-end' : 'flex-start'}
+      data-transcript-row-id={message.id}
+    >
       <Box
         sx={{
           maxWidth: { xs: '100%', sm: '80%' },

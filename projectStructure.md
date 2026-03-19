@@ -1787,6 +1787,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - client/src/test/useChatWs.test.ts — hook-level coverage for chat WebSocket connect/reconnect, per-inflight seq gating, new-inflight seq resets, and disabled realtime mode
 - client/src/test/support/mockChatWs.ts — shared websocket harness for Chat/Agents/Flows page tests with inflight emit helpers used by stream-retention regressions
 - client/src/test/support/mockWebSocket.ts — shared deterministic JSDOM WebSocket mock used by WS-driven client tests
+- client/src/test/support/transcriptMeasurementHarness.ts — opt-in transcript measurement helper with mock `ResizeObserver`, element sizing hooks, scroll metrics, and checked invalid-target errors
+- client/src/test/transcriptTestHarness.test.ts — focused proof that the transcript measurement harness drives resize callbacks and surfaces misuse clearly
 - client/src/test/useConversationTurns.refresh.test.ts — unit coverage for `useConversationTurns.refresh()` replace-only snapshots + error case retains prior turns
 - client/src/test/useConversationTurns.commandMetadata.test.ts — unit coverage that turns preserve optional `command` metadata for UI rendering
 - client/src/test/chatPage.inflightNavigate.test.tsx — RTL coverage that navigating away/back during inflight keeps full history + inflight text

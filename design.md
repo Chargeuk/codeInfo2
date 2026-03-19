@@ -102,6 +102,22 @@ flowchart LR
   SharedTranscript --> NoCitations["citationsEnabled = false"]
 ```
 
+## Story 0000049 Task 6 transcript measurement harness support
+
+- `client/src/test/support/transcriptMeasurementHarness.ts` is the new opt-in measurement helper for Story 49. It installs a small mock `ResizeObserver`, element sizing hooks, scroll metrics, and an explicit invalid-target error path for transcript-facing tests.
+- The helper is intentionally imported only by the tests that need it. `client/src/test/setupTests.ts` stays unchanged so the measurement seam does not become accidental global test state.
+- `client/src/components/chat/SharedTranscript.tsx` now exposes the first shared measurement owner that later tasks will build on. It tags each row with `data-transcript-row-id`, logs `DEV-0000049:T06:transcript_measurement_support_ready` when a measurement-capable transcript initializes, and logs `DEV-0000049:T06:transcript_measurement_missing_row_ignored` when a late callback targets a detached row safely.
+- `client/src/test/transcriptTestHarness.test.ts` proves the harness itself, while `client/src/test/chatPage.layoutHeight.test.tsx` proves the same harness works against a real shared transcript render path without crashing on a detached-row callback.
+
+```mermaid
+flowchart LR
+  Harness["transcriptMeasurementHarness.ts (test-only)"] --> HarnessProof["transcriptTestHarness.test.ts"]
+  Harness --> ChatLayout["chatPage.layoutHeight.test.tsx"]
+  ChatLayout --> SharedTranscript["SharedTranscript.tsx"]
+  SharedTranscript --> ReadyLog["DEV-0000049:T06:transcript_measurement_support_ready"]
+  SharedTranscript --> MissingRowLog["DEV-0000049:T06:transcript_measurement_missing_row_ignored"]
+```
+
 ## Common package
 
 - Purpose: shared DTOs/utilities consumed by client and server to prove workspace linking.

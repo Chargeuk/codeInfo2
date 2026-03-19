@@ -1790,6 +1790,7 @@ export default function ChatPage() {
                   <SharedTranscript
                     ref={transcriptRef}
                     surface="chat"
+                    conversationId={activeConversationId ?? null}
                     messages={orderedMessages}
                     activeToolsAvailable={activeToolsAvailable}
                     turnsLoading={turnsLoading}

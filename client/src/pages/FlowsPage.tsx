@@ -1522,6 +1522,7 @@ export default function FlowsPage() {
               >
                 <SharedTranscript
                   surface="flows"
+                  conversationId={selectedConversation?.conversationId ?? null}
                   messages={displayMessages}
                   activeToolsAvailable={false}
                   turnsLoading={turnsLoading}

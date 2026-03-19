@@ -18,6 +18,7 @@ type SharedTranscriptLogConfig = {
 
 type SharedTranscriptProps = {
   surface: 'chat' | 'agents' | 'flows';
+  conversationId?: string | null;
   messages: ChatMessage[];
   activeToolsAvailable: boolean;
   turnsLoading?: boolean;
@@ -56,6 +57,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
   function SharedTranscript(
     {
       surface,
+      conversationId,
       messages,
       activeToolsAvailable,
       turnsLoading = false,
@@ -84,6 +86,8 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
     ref,
   ) {
     const lastRenderStateRef = useRef<string | null>(null);
+    const measurementReadyRef = useRef<string | null>(null);
+    const missingRowLoggedRef = useRef(new Set<string>());
     const hasWarningState = turnsError;
     const hasEmptyState = messages.length === 0;
     const renderStateKey = useMemo(
@@ -127,6 +131,63 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       hasWarningState,
       hasEmptyState,
     ]);
+
+    useEffect(() => {
+      missingRowLoggedRef.current.clear();
+    }, [surface, conversationId]);
+
+    useEffect(() => {
+      const transcriptElement = ref && 'current' in ref ? ref.current : null;
+      if (!transcriptElement || typeof ResizeObserver === 'undefined') {
+        return;
+      }
+
+      const measurementKey = `${surface}:${conversationId ?? 'none'}`;
+      if (measurementReadyRef.current !== measurementKey) {
+        measurementReadyRef.current = measurementKey;
+        sharedTranscriptLog(
+          'info',
+          'DEV-0000049:T06:transcript_measurement_support_ready',
+          {
+            surface,
+            conversationId: conversationId ?? null,
+          },
+        );
+      }
+
+      const observer = new ResizeObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!(entry.target instanceof HTMLElement)) {
+            return;
+          }
+          const rowId = entry.target.dataset.transcriptRowId;
+          if (!rowId || entry.target.isConnected) {
+            return;
+          }
+          const missingRowKey = `${measurementKey}:${rowId}`;
+          if (missingRowLoggedRef.current.has(missingRowKey)) {
+            return;
+          }
+          missingRowLoggedRef.current.add(missingRowKey);
+          sharedTranscriptLog(
+            'info',
+            'DEV-0000049:T06:transcript_measurement_missing_row_ignored',
+            {
+              surface,
+              conversationId: conversationId ?? null,
+              reason: 'missing-row-target',
+            },
+          );
+        });
+      });
+
+      observer.observe(transcriptElement);
+      transcriptElement
+        .querySelectorAll<HTMLElement>('[data-transcript-row-id]')
+        .forEach((row) => observer.observe(row));
+
+      return () => observer.disconnect();
+    }, [conversationId, messages, ref, surface]);
 
     return (
       <Box

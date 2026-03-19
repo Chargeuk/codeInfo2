@@ -171,6 +171,7 @@ const AgentsTranscriptPane = memo(function AgentsTranscriptPane({
       <SharedTranscript
         ref={transcriptRef}
         surface="agents"
+        conversationId={conversationId ?? null}
         messages={displayMessages}
         activeToolsAvailable={activeToolsAvailable}
         turnsLoading={turnsLoading}

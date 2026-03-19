@@ -953,7 +953,7 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 ### 8. Shared Transcript Scroll Contract
 
 - Task Status: `__completed__`
-- Git Commits: ``
+- Git Commits: `05509893 - DEV-[49] - Implement shared transcript scroll contract`
 
 #### Overview
 

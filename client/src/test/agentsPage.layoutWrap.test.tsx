@@ -240,7 +240,7 @@ describe('Agents page layout wrap', () => {
     );
   });
 
-  it('uses the shared pinned-bottom and row-growth anchor rules on Agents', async () => {
+  it('uses the shared pinned-bottom and scroll-away rules on Agents', async () => {
     const measurementHarness = installTranscriptMeasurementHarness();
     mockAgentsFetch({
       conversations: [
@@ -287,13 +287,12 @@ describe('Agents page layout wrap', () => {
     transcript.scrollTop = 430;
     fireEvent.scroll(transcript);
 
-    const measuredRow = transcript.querySelector(
-      '[data-virtualized-message-id]',
-    ) as HTMLElement | null;
-    expect(measuredRow).not.toBeNull();
-    measurementHarness.setElementRect(measuredRow, { height: 180 });
-    measurementHarness.triggerResize(measuredRow);
-    await waitFor(() => expect(transcript.scrollTop).toBe(610));
+    measurementHarness.setScrollMetrics(transcript, {
+      scrollHeight: 1320,
+      scrollTop: 430,
+    });
+    measurementHarness.triggerResize(transcript);
+    expect(transcript.scrollTop).toBe(430);
 
     transcript.scrollTop = 960;
     fireEvent.scroll(transcript);

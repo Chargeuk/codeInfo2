@@ -144,10 +144,15 @@ describe('Flows page basics', () => {
     const measuredRow = transcript.querySelector(
       '[data-virtualized-message-id]',
     ) as HTMLElement | null;
+    const measuredRowIndex = Number(measuredRow?.dataset.index ?? 0);
+    const scrollTop = measuredRowIndex * 240 + 120;
     expect(measuredRow).not.toBeNull();
-    harness.setElementRect(measuredRow, { height: 180 });
-    harness.triggerResize(measuredRow);
-    await waitFor(() => expect(transcript.scrollTop).toBe(600));
+    transcript.scrollTop = scrollTop;
+    fireEvent.scroll(transcript);
+    measuredRow!.dataset.virtualizedStart = String(scrollTop - 60);
+    harness.setElementRect(measuredRow!, { height: 180 });
+    harness.triggerResize(measuredRow!);
+    await waitFor(() => expect(transcript.scrollTop).toBe(scrollTop + 180));
 
     rerender(<StatefulFlowsTranscript currentMessages={[]} />);
     expect(screen.queryByTestId('bubble-flow-meta')).toBeNull();
@@ -805,7 +810,7 @@ describe('Flows info popover', () => {
       scrollTop: 410,
     });
     measurementHarness.triggerResize(transcript);
-    expect(transcript.scrollTop).toBe(520);
+    expect(transcript.scrollTop).toBe(410);
 
     const row = transcript.querySelector(
       '[data-transcript-row-id="turn-flow-turn-2"]',

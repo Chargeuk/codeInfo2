@@ -18,7 +18,7 @@ function buildMessages(count: number) {
 }
 
 describe('Shared transcript scroll behavior', () => {
-  it('stops auto-scroll after the user scrolls away from the bottom', async () => {
+  it('leaves scrollTop unchanged when transcript growth happens below the viewport', async () => {
     const harness = installTranscriptMeasurementHarness();
 
     render(
@@ -57,18 +57,18 @@ describe('Shared transcript scroll behavior', () => {
     });
     harness.triggerResize(transcript);
 
-    expect(transcript.scrollTop).toBe(500);
+    expect(transcript.scrollTop).toBe(400);
     expect(transcript.scrollTop).not.toBe(1000);
     harness.restore();
   });
 
-  it('preserves the reader position when row growth occurs', async () => {
+  it('leaves scrollTop unchanged when row growth occurs below the viewport', async () => {
     const harness = installTranscriptMeasurementHarness();
 
     render(
       <SharedTranscript
         surface="agents"
-        conversationId="anchor-preserved"
+        conversationId="below-viewport-growth"
         messages={buildMessages(10)}
         activeToolsAvailable={false}
         emptyMessage="Empty"
@@ -104,10 +104,11 @@ describe('Shared transcript scroll behavior', () => {
       scrollTop: 360,
     });
     expect(measuredRow).not.toBeNull();
-    harness.setElementRect(measuredRow, { height: 180 });
-    harness.triggerResize(measuredRow);
+    measuredRow!.dataset.virtualizedStart = '420';
+    harness.setElementRect(measuredRow!, { height: 180 });
+    harness.triggerResize(measuredRow!);
 
-    await waitFor(() => expect(transcript.scrollTop).toBe(540));
+    await waitFor(() => expect(transcript.scrollTop).toBe(360));
     harness.restore();
   });
 
@@ -155,6 +156,56 @@ describe('Shared transcript scroll behavior', () => {
     harness.triggerResize(transcript);
 
     expect(transcript.scrollTop).toBe(980);
+    harness.restore();
+  });
+
+  it('keeps the transcript pinned to the bottom when row growth happens while pinned', async () => {
+    const harness = installTranscriptMeasurementHarness();
+
+    render(
+      <SharedTranscript
+        surface="chat"
+        conversationId="pinned-row-growth"
+        messages={buildMessages(10)}
+        activeToolsAvailable={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    const measuredRow = transcript.querySelector(
+      '[data-virtualized-message-id="assistant-5"]',
+    ) as HTMLElement | null;
+
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 1100,
+      scrollTop: 780,
+    });
+
+    transcript.scrollTop = 780;
+    fireEvent.scroll(transcript);
+
+    harness.setScrollMetrics(transcript, {
+      scrollHeight: 1280,
+      scrollTop: 780,
+    });
+    expect(measuredRow).not.toBeNull();
+    measuredRow!.dataset.virtualizedStart = '420';
+    harness.setElementRect(measuredRow!, { height: 180 });
+    harness.triggerResize(measuredRow!);
+
+    await waitFor(() => expect(transcript.scrollTop).toBe(960));
     harness.restore();
   });
 

@@ -230,20 +230,6 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
           0,
           transcriptElement.scrollHeight - transcriptElement.clientHeight,
         );
-      } else if (deltaScrollHeight > 0) {
-        transcriptElement.scrollTop = Math.max(
-          0,
-          previousMetrics.scrollTop + deltaScrollHeight,
-        );
-        sharedTranscriptLog(
-          'info',
-          'DEV-0000049:T08:shared_transcript_scroll_anchor_preserved',
-          {
-            surface,
-            conversationId: conversationId ?? null,
-            deltaScrollHeight,
-          },
-        );
       }
 
       syncScrollMetrics();

@@ -790,7 +790,7 @@ describe('Chat page layout alignment', () => {
       scrollTop: 420,
     });
     measurementHarness.triggerResize(transcript);
-    expect(transcript.scrollTop).toBe(540);
+    expect(transcript.scrollTop).toBe(420);
 
     transcript.scrollTop = 960;
     fireEvent.scroll(transcript);

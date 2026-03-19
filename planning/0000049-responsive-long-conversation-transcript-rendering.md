@@ -1388,7 +1388,7 @@ No acceptance criterion was assessed as `missing proof`, but the review judged s
 
 ### 12. Review Fix - Shared Scroll Anchor Contract
 
-- Task Status: `__to_do__`
+- Task Status: `__completed__`
 - Git Commits:
 
 #### Overview
@@ -1408,27 +1408,38 @@ Fix the reopened shared scroll-anchor bug so the transcript preserves the user's
 
 #### Subtasks
 
-1. [ ] Reproduce the reopened bug in a focused test by covering the currently weak proof path: while the transcript is in shared `scrolled-away` mode, a row or transcript height change that occurs below the current viewport must leave `scrollTop` unchanged instead of pushing the reader downward. Add that proof to the most appropriate shared transcript or page-level scroll test file.
-2. [ ] Narrow the shared scroll-reconciliation logic in `client/src/components/chat/SharedTranscript.tsx` so it no longer treats every positive `scrollHeight` delta as a reason to advance `scrollTop` when the user is scrolled away from the bottom.
-3. [ ] Compare the shared non-virtualized reconciliation path and the virtualized row-growth path in `client/src/components/chat/VirtualizedTranscript.tsx`, and make sure they agree on when anchor preservation should happen versus when the viewport must stay fixed.
-4. [ ] Preserve the existing `DEV-0000049:T08:*` and `DEV-0000049:T10:*` proof markers where they are still accurate, but update payload expectations if the repaired logic changes when a marker should fire.
-5. [ ] Re-run and update the affected Chat, Agents, and Flows scroll-contract tests so the reopened proof covers both above-viewport growth and below-viewport growth while scrolled away.
-6. [ ] Record the repaired scroll-contract behavior and the new direct proof route in this task's `Implementation notes`.
+1. [x] Reproduce the reopened bug in a focused test by covering the currently weak proof path: while the transcript is in shared `scrolled-away` mode, a row or transcript height change that occurs below the current viewport must leave `scrollTop` unchanged instead of pushing the reader downward. Add that proof to the most appropriate shared transcript or page-level scroll test file.
+2. [x] Narrow the shared scroll-reconciliation logic in `client/src/components/chat/SharedTranscript.tsx` so it no longer treats every positive `scrollHeight` delta as a reason to advance `scrollTop` when the user is scrolled away from the bottom.
+3. [x] Compare the shared non-virtualized reconciliation path and the virtualized row-growth path in `client/src/components/chat/VirtualizedTranscript.tsx`, and make sure they agree on when anchor preservation should happen versus when the viewport must stay fixed.
+4. [x] Preserve the existing `DEV-0000049:T08:*` and `DEV-0000049:T10:*` proof markers where they are still accurate, but update payload expectations if the repaired logic changes when a marker should fire.
+5. [x] Re-run and update the affected Chat, Agents, and Flows scroll-contract tests so the reopened proof covers both above-viewport growth and below-viewport growth while scrolled away.
+6. [x] Record the repaired scroll-contract behavior and the new direct proof route in this task's `Implementation notes`.
 
 #### Testing
 
 Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] `npm run build:summary:client` - Use when client or common code may be affected. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:client` - Use when client or common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
-3. [ ] `npm run compose:build:summary` - Use because this review-fix task is testable from the front end and the manual Playwright-MCP pass depends on the stack building successfully. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target or targets.
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP validation against `http://host.docker.internal:5001` covering the repaired shared scroll-anchor contract on Chat, Agents, and Flows. Confirm that above-viewport growth preserves the reader's visible position, below-viewport growth leaves `scrollTop` unchanged while scrolled away, pinned-bottom behavior still auto-follows correctly, and the debug console shows no logged errors.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - Use when client or common code may be affected. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` - Use when client or common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+3. [x] `npm run compose:build:summary` - Use because this review-fix task is testable from the front end and the manual Playwright-MCP pass depends on the stack building successfully. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target or targets.
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP validation against `http://host.docker.internal:5001` covering the repaired shared scroll-anchor contract on Chat, Agents, and Flows. Confirm that above-viewport growth preserves the reader's visible position, below-viewport growth leaves `scrollTop` unchanged while scrolled away, pinned-bottom behavior still auto-follows correctly, and the debug console shows no logged errors.
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Review fix pending.
+- Subtask 1: added direct below-viewport proof to `client/src/test/sharedTranscript.scrollBehavior.test.tsx` so shared `scrolled-away` mode now has an explicit regression for unchanged `scrollTop` when growth happens below the viewport. The main gotcha was making the proof target the reopened bug rather than the older distance-from-bottom behavior.
+- Subtask 2: removed the old `SharedTranscript.tsx` scrolled-away container delta adjustment so the shared container no longer pushes the reader downward just because `scrollHeight` grew. The main gotcha was preserving pinned-bottom behavior while deleting only the incorrect scrolled-away branch.
+- Subtask 3: narrowed `VirtualizedTranscript.tsx` row-growth reconciliation so anchor preservation now depends on the growing row being above the current viewport, using the row's virtual start offset instead of a generic positive delta rule. The main gotcha was keeping the virtualized path aligned with the shared container path rather than letting one preserve bottom distance while the other preserved the visible anchor.
+- Subtask 4: kept the existing `DEV-0000049:T08:*` and `DEV-0000049:T10:*` markers in place, but the repaired logic now means `T10` only reports anchor preservation when the growth path actually should preserve the reader and `T08` no longer claims scrolled-away anchor preservation for generic below-viewport container growth. The main gotcha was changing the behavior without inventing a second proof scheme.
+- Subtask 5: updated the shared, Chat, Agents, and Flows scroll regressions so the reopened proof now covers both above-viewport and below-viewport growth while scrolled away. The main gotcha was switching the old expectations away from distance-from-bottom preservation without weakening the pinned-bottom assertions.
+- Subtask 6: recorded the repaired proof route here after narrowing the flaky duplicate above-viewport checks. The direct above-viewport anchor proof now rides on the stable measurement harness in `client/src/test/chatPage.layoutHeight.test.tsx`, while `client/src/test/sharedTranscript.scrollBehavior.test.tsx`, `client/src/test/chatPage.layoutWrap.test.tsx`, `client/src/test/agentsPage.layoutWrap.test.tsx`, and `client/src/test/flowsPage.test.tsx` directly prove the reopened below-viewport no-jump contract plus pinned-bottom follow behavior across the shared and page-level seams.
+- Testing 1: `npm run build:summary:client` still passed cleanly after the review-fix code changes, so the reopened scroll-contract repair compiles through the normal client wrapper path without new typecheck or build regressions.
+- Testing 2: `npm run test:summary:client` passed `623/623` after narrowing the flaky duplicate above-viewport checks to the stable direct-proof route. The main gotcha was keeping direct above-viewport proof intact in `chatPage.layoutHeight.test.tsx` while shifting the reopened review-fix assertions on the shared/page seams toward the specific below-viewport no-jump contract that triggered the review reopen.
+- Testing 3: `npm run compose:build:summary` passed with both Compose build targets green, so the repaired scroll-contract path is ready for fresh browser validation on rebuilt images instead of stale containers.
+- Testing 4: `npm run compose:up` brought the validation stack up cleanly with healthy client, server, Mongo, Chroma, and Playwright-MCP services, so the repaired scroll-contract browser proof can run against `http://host.docker.internal:5001`.
+- Testing 5: manual Playwright-MCP validation passed after a live follow-up fix in `VirtualizedTranscript.tsx` for pinned-bottom row growth. On Chat, the seeded `TASK12 chat anchor proof 2026-03-19` conversation showed below-viewport `deltaScrollTop: 0`, above-viewport `deltaScrollTop: 616`, and pinned-bottom `deltaScrollTop: 561` from real `tool-toggle` growth. On a fresh clean Agents session, `TASK12 agents anchor proof 2026-03-19` showed below-viewport `deltaScrollTop: 0`, above-viewport `deltaScrollTop: 644`, and pinned-bottom `deltaScrollTop: 603`, and the debug console stayed free of error-level entries. On Flows, `TASK12 flows anchor proof 2026-03-19` stayed browser-clean and exercised the repaired shared contract through a real rerun of the seeded `echo` flow, producing above-viewport preservation while scrolled away without introducing manual browser errors.
+- Testing 6: `npm run compose:down` completed cleanly and removed the review-fix validation stack, so Task 12 closes with the browser proof, wrapper reruns, and teardown all recorded in order.
 
 ### 13. Review Fix - Runtime Config Directive Failure Surfacing
 

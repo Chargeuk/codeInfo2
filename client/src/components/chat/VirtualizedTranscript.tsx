@@ -98,7 +98,10 @@ export default function VirtualizedTranscript({
         return false;
       }
       const snapshot = getScrollSnapshot();
-      return snapshot?.scrollMode === 'scrolled-away';
+      if (snapshot?.scrollMode !== 'scrolled-away') {
+        return false;
+      }
+      return _item.start < snapshot.scrollTop;
     };
 
     return () => {
@@ -183,25 +186,45 @@ export default function VirtualizedTranscript({
 
         const timerId = window.setTimeout(() => {
           const afterSnapshot = getScrollSnapshot();
+          const rowIndex = Number(element.dataset.index ?? NaN);
+          const measuredRowStart = Number(
+            element.dataset.virtualizedStart ?? NaN,
+          );
+          const rowStart =
+            Number.isFinite(measuredRowStart) &&
+            (measuredRowStart > 0 || rowIndex === 0)
+              ? measuredRowStart
+              : Number.isFinite(rowIndex)
+                ? rowIndex * VIRTUALIZED_TRANSCRIPT_ESTIMATE_SIZE_PX
+                : NaN;
+          const shouldPreserveAnchor =
+            beforeSnapshot?.scrollMode === 'scrolled-away' &&
+            deltaHeight > 0 &&
+            Number.isFinite(rowStart) &&
+            rowStart < beforeSnapshot.scrollTop;
+          const shouldPreservePinnedBottom =
+            beforeSnapshot?.scrollMode === 'pinned-bottom' && deltaHeight > 0;
+          const expectedScrollTop =
+            !beforeSnapshot
+              ? null
+              : shouldPreserveAnchor || shouldPreservePinnedBottom
+                ? beforeSnapshot.scrollTop + deltaHeight
+                : beforeSnapshot.scrollTop;
           if (
             beforeSnapshot &&
             afterSnapshot &&
-            beforeSnapshot.scrollMode === 'scrolled-away' &&
-            deltaHeight > 0 &&
-            afterSnapshot.scrollTop === beforeSnapshot.scrollTop
+            (shouldPreserveAnchor || shouldPreservePinnedBottom)
           ) {
             const scrollElement = transcriptContainerRef.current;
             if (scrollElement) {
-              scrollElement.scrollTop = beforeSnapshot.scrollTop + deltaHeight;
+              scrollElement.scrollTop = expectedScrollTop ?? scrollElement.scrollTop;
             }
           }
           const settledSnapshot = getScrollSnapshot();
           const anchorPreserved =
-            !beforeSnapshot ||
-            !settledSnapshot ||
-            beforeSnapshot.scrollMode === 'pinned-bottom'
+            expectedScrollTop == null || !settledSnapshot
               ? true
-              : settledSnapshot.scrollTop >= beforeSnapshot.scrollTop;
+              : settledSnapshot.scrollTop === expectedScrollTop;
           virtualizedTranscriptLog(
             'info',
             'DEV-0000049:T10:virtualized_row_growth_settled',
@@ -314,6 +337,7 @@ export default function VirtualizedTranscript({
             <div
               data-index={virtualRow.index}
               data-virtualized-message-id={message.id}
+              data-virtualized-start={virtualRow.start}
               ref={(node) => {
                 const observer = resizeObserverRef.current;
                 const previous = rowElementsRef.current.get(message.id);

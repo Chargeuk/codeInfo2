@@ -80,9 +80,7 @@
               "messages": [
                 {
                   "role": "user",
-                  "content": [
-                    "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan for this flow. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. Then explain the gotchas a developer would need to watch out for while implementing the next task, given all the information within the Description, its subsections, the AC, and the Out of Scope section. Also take into account the implementation information of any previous tasks. If you had asked for clarification about a blocker, then ensure you re-read the task, as it will have answers for you to proceed within the implementation notes of this task. No matter what, even if you think you know what is in the plan, you must re-read at least the next task, as it is possible changes have been made since you last read it. If the previous loop iteration involved a blocker or planner edits, you must also re-read the next downstream task that depends on the current task so you understand the updated sequencing and proof expectations."
-                  ]
+                  "markdownFile": "implement_next_task_gotchas.md"
                 }
               ]
             },

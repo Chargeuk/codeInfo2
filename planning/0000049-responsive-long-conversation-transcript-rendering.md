@@ -1327,3 +1327,190 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 - What the answer is: no new websocket, REST, or persisted storage shapes are needed. Story 49 should continue to rely on the existing `ChatMessage`, `ChatSegment`, and `ToolCall` shapes from `useChatStream.ts`, and the existing `StoredTurn`, `InflightSnapshot`, and `TurnCommandMetadata` shapes from `useConversationTurns.ts`. New shapes are acceptable only for client-local ephemeral UI state inside the shared transcript implementation.
 - Where the answer came from: this answer came from repository inspection of [useChatStream.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useChatStream.ts) and [useConversationTurns.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useConversationTurns.ts), plus `code_info`, DeepWiki guidance for `TanStack/virtual` and `facebook/react`, and Context7 documentation for `/tanstack/virtual` and `/reactjs/react.dev`, all of which point toward preserving the existing item array and stable identities rather than inventing a new message/storage schema.
 - Why it is the best answer to the question: it keeps the story within its intended client-rendering scope, avoids unnecessary cross-boundary contract churn, and tells the implementer exactly which existing shapes they must preserve.
+
+## Code Review Findings
+
+### Review Artifacts
+
+- Evidence artifact: `codeInfoStatus/reviews/0000049-20260319T110609Z-719900be-evidence.md`
+- Findings artifact: `codeInfoStatus/reviews/0000049-20260319T110609Z-719900be-findings.md`
+
+### Review Outcome
+
+- Reopen Story 49 because the review recorded:
+  - 1 `must_fix`
+  - 1 `should_fix`
+  - 1 deferred `optional_simplification`
+- The `must_fix` is a plan-contract issue in the shared scroll-anchor path: when the user is scrolled away from the bottom, transcript growth below the viewport can still move the reader because the current reconciliation logic preserves distance from bottom instead of preserving the visible anchor.
+- The `should_fix` is a generic engineering issue in the runtime-config directive path: malformed `USE_BROWSER_HOST:<port>` input currently degrades into browser-origin success with only console diagnostics, which hides explicit config mistakes instead of surfacing them clearly.
+- The `optional_simplification` remains deferred for now: the story-specific `window.__story0000049ManualValidation` hook in `client/src/logging/logger.ts` works, but it is broader than strictly necessary for a one-story manual-proof path. Defer it unless the review-fix work in Tasks 12-14 naturally touches that code again without broadening scope.
+
+### Acceptance Criteria Review Pass
+
+The review rechecked every acceptance criterion and recorded the current proof strength:
+
+1. Front end stays responsive on long transcripts, especially Agents typing: `direct`
+2. Agents typing no longer rerenders the full rich transcript tree on every keystroke: `direct`
+3. Reusable shared transcript rendering path exists: `direct`
+4. Shared approach is applied across Chat, Agents, and Flows: `direct`
+5. Chat, Agents, and Flows no longer each own a separate inline main transcript bubble loop: `direct`
+6. Visible newest-last ordering is preserved across surfaces: `indirect`
+7. Long transcripts no longer mount and reconcile every row: `indirect`
+8. Rich transcript features continue to work after the refactor: `direct`
+9. Citation rendering remains page-configured and Flows does not gain citations: `direct`
+10. History hydration and transcript updates avoid unnecessary whole-transcript replacement during ordinary UI work: `indirect`
+11. Existing message and hydration sources remain authoritative: `direct`
+12. Virtualization supports variable-height rows: `direct`
+13. Virtualization uses stable `message.id` keys, dynamic measurement, and bounded overscan: `direct`
+14. Pinned-bottom versus manual-scroll-away behavior works correctly: `indirect`
+15. Row height remeasurement after streaming and expand or collapse works without clipping or stale spacing: `direct`
+16. User-controlled rich-row expansion state survives virtual unmount and remount: `direct`
+17. Shared transcript owns transcript rendering while page controls remain local: `direct`
+18. Shared transcript owns the real scroll and anchor contract instead of placeholders: `indirect`
+19. Stable message identity, hydration and inflight merge behavior, and Flows retained-assistant behavior are preserved: `direct`
+20. Explicit reproducible Agents long-transcript validation scenario exists: `direct`
+21. The same validation pass covers Chat and Flows behavior: `indirect`
+22. Existing transcript-facing tests can still target stable transcript affordances: `direct`
+23. Story remains client-focused outside the narrow allowed server exception: `indirect`
+24. The one allowed server-side exception is implemented narrowly and correctly: `direct`
+25. Resulting client structure is easier to tune later because transcript logic is centralized: `indirect`
+
+No acceptance criterion was assessed as `missing proof`, but the review judged some scroll and manual-validation behaviors as only indirectly proven. The reopened review-fix tasks below must convert the shared scroll-anchor behavior back into a directly defensible acceptance match before the story closes again.
+
+### Succinctness Review
+
+- The implemented transcript behavior is functionally aligned with the story, but some shared-client files are more verbose than the minimum required shape:
+  - `client/src/components/chat/SharedTranscript.tsx`
+  - `client/src/components/chat/SharedTranscriptMessageRow.tsx`
+  - `client/src/components/agents/AgentsComposerPanel.tsx`
+- That verbosity alone is not a blocker, but follow-up work should avoid adding new coordination layers unless they directly fix the reopened findings.
+- The runtime-config and manual-validation logger additions are the clearest places where the implementation grew beyond the core transcript refactor. Only the runtime-config issue is reopened now because it affects correctness and observability of malformed explicit input.
+
+### 12. Review Fix - Shared Scroll Anchor Contract
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Fix the reopened shared scroll-anchor bug so the transcript preserves the user's visible reading position only when growth above the viewport requires it, without moving the reader when transcript height changes below the viewport. This task must keep the existing pinned-bottom behavior when the user is already at or near the bottom, and it must preserve the existing virtualization and measurement diagnostics instead of replacing them with a different proof scheme.
+
+#### Documentation Locations
+
+- Local implementation files:
+  - `client/src/components/chat/SharedTranscript.tsx`
+  - `client/src/components/chat/VirtualizedTranscript.tsx`
+  - `client/src/test/chatPage.layoutWrap.test.tsx`
+  - `client/src/test/agentsPage.layoutWrap.test.tsx`
+  - `client/src/test/flowsPage.test.tsx`
+  - `client/src/test/sharedTranscript.scrollBehavior.test.tsx`
+  - `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+
+#### Subtasks
+
+1. [ ] Reproduce the reopened bug in a focused test by covering the currently weak proof path: while the transcript is in shared `scrolled-away` mode, a row or transcript height change that occurs below the current viewport must leave `scrollTop` unchanged instead of pushing the reader downward. Add that proof to the most appropriate shared transcript or page-level scroll test file.
+2. [ ] Narrow the shared scroll-reconciliation logic in `client/src/components/chat/SharedTranscript.tsx` so it no longer treats every positive `scrollHeight` delta as a reason to advance `scrollTop` when the user is scrolled away from the bottom.
+3. [ ] Compare the shared non-virtualized reconciliation path and the virtualized row-growth path in `client/src/components/chat/VirtualizedTranscript.tsx`, and make sure they agree on when anchor preservation should happen versus when the viewport must stay fixed.
+4. [ ] Preserve the existing `DEV-0000049:T08:*` and `DEV-0000049:T10:*` proof markers where they are still accurate, but update payload expectations if the repaired logic changes when a marker should fire.
+5. [ ] Re-run and update the affected Chat, Agents, and Flows scroll-contract tests so the reopened proof covers both above-viewport growth and below-viewport growth while scrolled away.
+6. [ ] Record the repaired scroll-contract behavior and the new direct proof route in this task's `Implementation notes`.
+
+#### Testing
+
+1. [ ] `npm run test:summary:client -- --file client/src/test/sharedTranscript.scrollBehavior.test.tsx`
+2. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutWrap.test.tsx`
+3. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.layoutWrap.test.tsx`
+4. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
+
+#### Implementation notes
+
+- Review fix pending.
+
+### 13. Review Fix - Runtime Config Directive Failure Surfacing
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Repair the reopened runtime-config defect so an explicitly malformed `USE_BROWSER_HOST:<port>` value for `apiBaseUrl` no longer degrades into a silent browser-origin success path. Preserve the existing additive directive support for valid inputs, but make invalid explicit directives observable enough that the client does not quietly target the wrong backend origin.
+
+#### Documentation Locations
+
+- Local implementation files:
+  - `client/src/config/apiBaseUrl.ts`
+  - `client/src/config/runtimeConfig.ts`
+  - `client/src/test/baseUrl.env.test.ts`
+  - `client/src/test/config/previewAllowedHosts.test.ts`
+  - `client/vite.config.ts`
+  - `docker-compose.local.yml`
+  - `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- Docs already referenced by this story that remain relevant:
+  - Vite docs via Context7 `/vitejs/vite`
+
+#### Subtasks
+
+1. [ ] Re-check the `apiBaseUrl` precedence contract in `client/src/config/runtimeConfig.ts` and make the explicit malformed-directive path non-silent. A malformed explicit `USE_BROWSER_HOST:<port>` value from runtime config or env must no longer look like a clean defaulted browser-origin success.
+2. [ ] Preserve the existing browser-origin fallback only for the true "no explicit api base url configured" case. Do not let an invalid explicit directive collapse into the same success path as "nothing configured".
+3. [ ] Surface the invalid explicit-config state through a caller-visible or otherwise actionable mechanism in the current client runtime path, rather than relying only on a one-time console info log.
+4. [ ] Add or update regression tests for:
+   - malformed env directive;
+   - malformed runtime directive;
+   - mixed runtime/env inputs where one source is malformed and the other is valid;
+   - valid directive precedence over literal env/runtime fallback.
+5. [ ] Re-check the related local preview and Docker-local support files touched by this story (`client/vite.config.ts`, `docker-compose.local.yml`, and `client/src/config/previewAllowedHosts.ts`) and confirm the repaired runtime-config behavior does not accidentally widen or hide host-resolution behavior there.
+6. [ ] Record the repaired explicit-invalid-input behavior and the chosen surfacing contract in this task's `Implementation notes`.
+
+#### Testing
+
+1. [ ] `npm run test:summary:client -- --file client/src/test/baseUrl.env.test.ts`
+2. [ ] `npm run test:summary:client -- --file client/src/test/config/previewAllowedHosts.test.ts`
+3. [ ] `npm run typecheck:summary:client`
+
+#### Implementation notes
+
+- Review fix pending.
+
+### 14. Review Revalidation and Final Closeout
+
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Revalidate Story 49 end to end after the review-fix tasks land, and only then close the story again. This task replaces the old "finished" state with a fresh closeout pass that proves the review fixes did not regress the previously completed transcript behavior, server-side stop alignment exception, or browser/manual validation path.
+
+#### Documentation Locations
+
+- Durable review artifacts:
+  - `codeInfoStatus/reviews/0000049-20260319T110609Z-719900be-evidence.md`
+  - `codeInfoStatus/reviews/0000049-20260319T110609Z-719900be-findings.md`
+- Local code and doc files touched by Story 49 as needed during closeout
+- This story plan file
+
+#### Subtasks
+
+1. [ ] Re-read the durable evidence and findings artifacts above and confirm every `must_fix` and `should_fix` item is fully resolved in code, tests, and implementation notes before closing the story again.
+2. [ ] Re-run the acceptance-criteria proof check and update this plan so every acceptance criterion is still classified as `direct`, `indirect`, or `missing proof` after the review fixes. The story must not close if any acceptance criterion becomes `missing proof`.
+3. [ ] Re-check the runtime-config and Docker-local scope-adjacent files touched by Story 49 and confirm there is no remaining silent malformed-input fallback or hidden host-resolution behavior.
+4. [ ] Re-check the shared scroll and virtualization paths and confirm the repaired anchor logic does not regress pinned-bottom behavior, row growth remeasurement, or retained-assistant behavior on Flows.
+5. [ ] Update `planning/0000049-pr-summary.md` only if the final shipped Story 49 result changed materially because of the review-fix tasks.
+6. [ ] Add a short `Post-Review Closeout` note to this task's `Implementation notes` summarizing:
+   - which reopened findings were fixed;
+   - whether the deferred `optional_simplification` was still deferred;
+   - why the story is safe to close again.
+7. [ ] Commit this plan plus the durable review artifacts (`codeInfoStatus/reviews/0000049-20260319T110609Z-719900be-evidence.md` and `codeInfoStatus/reviews/0000049-20260319T110609Z-719900be-findings.md`) when the reopened review-fix work is complete. Do not rely on the transient `codeInfoStatus/reviews/0000049-current-review.json` file as the durable artifact; leave it untracked or remove it before the final commit.
+
+#### Testing
+
+1. [ ] `npm run build:summary:client`
+2. [ ] `npm run test:summary:client`
+3. [ ] `npm run test:summary:e2e`
+4. [ ] `npm run compose:build:summary`
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP validation rerun against `http://host.docker.internal:5001` covering Chat, Agents, and Flows with the repaired review fixes in place. Reconfirm the Story 49 browser-visible markers and save fresh acceptance screenshots under `playwright-output-local/0000049-14-<short-name>.png`.
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Review revalidation pending.

@@ -251,7 +251,7 @@ function normalizeApiBaseUrl(
   if (directive.value) {
     return {
       value: directive.value,
-      mode: directive.mode,
+      mode: 'browser_host',
     };
   }
   return {

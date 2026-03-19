@@ -41,6 +41,93 @@ const routes = [
 ];
 
 describe('Agents page - run', () => {
+  it('shows the existing turns warning when conversation history fails to load', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ mongoConnected: true }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      }
+
+      if (target.includes('/agents') && !target.includes('/commands')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ agents: [{ name: 'coding_agent' }] }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      }
+
+      if (target.includes('/agents/coding_agent/commands')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ commands: [] }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      }
+
+      if (target.includes('/conversations') && target.includes('agentName=')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              items: [
+                {
+                  conversationId: 'c1',
+                  title: 'Agent conversation',
+                  provider: 'codex',
+                  model: 'gpt-5.2',
+                  lastMessageAt: '2025-01-01T00:00:00.000Z',
+                  archived: false,
+                },
+              ],
+              nextCursor: null,
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        );
+      }
+
+      if (target.includes('/conversations/c1/turns')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: 'boom' }), {
+            status: 500,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      }
+
+      return Promise.resolve(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const conversation = await screen.findByText('Agent conversation');
+    await act(async () => {
+      conversation.click();
+    });
+
+    const warning = await screen.findByTestId('agent-turns-error');
+    expect(warning).toHaveTextContent(
+      'Failed to load conversation turns (500)',
+    );
+    expect(screen.getByTestId('agents-page')).toBeInTheDocument();
+  });
+
   it('realtime-enabled mode renders transcript from WS events and ignores REST segments', async () => {
     const user = userEvent.setup();
     const runBodies: Record<string, unknown>[] = [];
@@ -792,121 +879,115 @@ describe('Agents page - run', () => {
     expect(commandRunUrls).toHaveLength(0);
   });
 
-  it(
-    'keeps conversation lifecycle behavior: reuse active conversation and create new when none active',
-    async () => {
-      const user = userEvent.setup();
-      const runBodies: Record<string, unknown>[] = [];
+  it('keeps conversation lifecycle behavior: reuse active conversation and create new when none active', async () => {
+    const user = userEvent.setup();
+    const runBodies: Record<string, unknown>[] = [];
 
-      mockFetch.mockImplementation(
-        (url: RequestInfo | URL, init?: RequestInit) => {
-          const target = typeof url === 'string' ? url : url.toString();
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
 
-          if (target.includes('/health')) {
-            return Promise.resolve({
-              ok: true,
-              status: 200,
-              json: async () => ({ mongoConnected: true }),
-            } as Response);
-          }
-
-          if (target.includes('/agents') && !target.includes('/run')) {
-            return Promise.resolve({
-              ok: true,
-              status: 200,
-              json: async () => ({ agents: [{ name: 'coding_agent' }] }),
-            } as Response);
-          }
-
-          if (target.includes('/conversations')) {
-            return Promise.resolve({
-              ok: true,
-              status: 200,
-              json: async () => ({
-                items: [
-                  {
-                    conversationId: 'c-existing',
-                    title: 'Existing conversation',
-                    provider: 'codex',
-                    model: 'gpt-5.3-codex',
-                    lastMessageAt: '2025-01-01T00:00:00.000Z',
-                    archived: false,
-                  },
-                ],
-              }),
-            } as Response);
-          }
-
-          if (target.includes('/agents/coding_agent/run')) {
-            if (init?.body) {
-              runBodies.push(JSON.parse(init.body.toString()));
-            }
-            const body = runBodies.at(-1) ?? {};
-            return Promise.resolve({
-              ok: true,
-              status: 202,
-              json: async () => ({
-                status: 'started',
-                agentName: 'coding_agent',
-                conversationId:
-                  typeof body.conversationId === 'string'
-                    ? body.conversationId
-                    : 'fallback-cid',
-                inflightId: 'i1',
-                modelId: 'gpt-5.3-codex',
-              }),
-            } as Response);
-          }
-
+        if (target.includes('/health')) {
           return Promise.resolve({
             ok: true,
             status: 200,
-            json: async () => ({}),
+            json: async () => ({ mongoConnected: true }),
           } as Response);
-        },
-      );
+        }
 
-      const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
-      render(<RouterProvider router={router} />);
+        if (target.includes('/agents') && !target.includes('/run')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+          } as Response);
+        }
 
-      await waitFor(() => {
-        const registry = (
-          globalThis as unknown as {
-            __wsMock?: { last: () => { readyState: number } | null };
+        if (target.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              items: [
+                {
+                  conversationId: 'c-existing',
+                  title: 'Existing conversation',
+                  provider: 'codex',
+                  model: 'gpt-5.3-codex',
+                  lastMessageAt: '2025-01-01T00:00:00.000Z',
+                  archived: false,
+                },
+              ],
+            }),
+          } as Response);
+        }
+
+        if (target.includes('/agents/coding_agent/run')) {
+          if (init?.body) {
+            runBodies.push(JSON.parse(init.body.toString()));
           }
-        ).__wsMock;
-        expect(registry?.last()?.readyState).toBe(1);
-      });
+          const body = runBodies.at(-1) ?? {};
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({
+              status: 'started',
+              agentName: 'coding_agent',
+              conversationId:
+                typeof body.conversationId === 'string'
+                  ? body.conversationId
+                  : 'fallback-cid',
+              inflightId: 'i1',
+              modelId: 'gpt-5.3-codex',
+            }),
+          } as Response);
+        }
 
-      await user.click(await screen.findByText('Existing conversation'));
-      const input = await screen.findByTestId('agent-input');
-      const sendButton = await screen.findByTestId('agent-send');
-      await user.type(input, 'Reuse this conversation id');
-      await waitFor(() => expect(sendButton).toBeEnabled());
-      await user.click(sendButton);
-      await waitFor(() => expect(runBodies.length).toBeGreaterThanOrEqual(1));
-      expect(runBodies[0]).toHaveProperty('conversationId', 'c-existing');
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        } as Response);
+      },
+    );
 
-      await user.click(
-        await screen.findByRole('button', { name: /new conversation/i }),
-      );
-      await user.clear(input);
-      await user.type(input, 'Create a new conversation id');
-      await waitFor(() => expect(sendButton).toBeEnabled());
-      await user.click(sendButton);
-      await waitFor(() => expect(runBodies.length).toBeGreaterThanOrEqual(2));
-      expect(typeof runBodies[1].conversationId).toBe('string');
-      expect((runBodies[1].conversationId as string).length).toBeGreaterThan(0);
-      expect(runBodies[1].conversationId).not.toBe('c-existing');
-    },
-    10000,
-  );
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
 
-  it(
-    'preserves run state transitions for standard Send path',
-    async () => {
-      const user = userEvent.setup();
-      let resolveRun: ((value: Response) => void) | null = null;
+    await waitFor(() => {
+      const registry = (
+        globalThis as unknown as {
+          __wsMock?: { last: () => { readyState: number } | null };
+        }
+      ).__wsMock;
+      expect(registry?.last()?.readyState).toBe(1);
+    });
+
+    await user.click(await screen.findByText('Existing conversation'));
+    const input = await screen.findByTestId('agent-input');
+    const sendButton = await screen.findByTestId('agent-send');
+    await user.type(input, 'Reuse this conversation id');
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await user.click(sendButton);
+    await waitFor(() => expect(runBodies.length).toBeGreaterThanOrEqual(1));
+    expect(runBodies[0]).toHaveProperty('conversationId', 'c-existing');
+
+    await user.click(
+      await screen.findByRole('button', { name: /new conversation/i }),
+    );
+    await user.clear(input);
+    await user.type(input, 'Create a new conversation id');
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await user.click(sendButton);
+    await waitFor(() => expect(runBodies.length).toBeGreaterThanOrEqual(2));
+    expect(typeof runBodies[1].conversationId).toBe('string');
+    expect((runBodies[1].conversationId as string).length).toBeGreaterThan(0);
+    expect(runBodies[1].conversationId).not.toBe('c-existing');
+  }, 10000);
+
+  it('preserves run state transitions for standard Send path', async () => {
+    const user = userEvent.setup();
+    let resolveRun: ((value: Response) => void) | null = null;
 
     mockFetch.mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
@@ -963,39 +1044,37 @@ describe('Agents page - run', () => {
       expect(registry?.last()?.readyState).toBe(1);
     });
 
-      const input = await screen.findByTestId('agent-input');
-      const sendButton = await screen.findByTestId('agent-send');
-      await user.type(input, 'State transition request');
-      await waitFor(() => expect(sendButton).toBeEnabled());
+    const input = await screen.findByTestId('agent-input');
+    const sendButton = await screen.findByTestId('agent-send');
+    await user.type(input, 'State transition request');
+    await waitFor(() => expect(sendButton).toBeEnabled());
 
-      await user.click(sendButton);
-      await waitFor(() => expect(resolveRun).toEqual(expect.any(Function)));
+    await user.click(sendButton);
+    await waitFor(() => expect(resolveRun).toEqual(expect.any(Function)));
 
-      if (!resolveRun) {
-        throw new Error('Expected resolveRun to be assigned');
-      }
+    if (!resolveRun) {
+      throw new Error('Expected resolveRun to be assigned');
+    }
 
-      const completeRun = resolveRun as (value: Response) => void;
+    const completeRun = resolveRun as (value: Response) => void;
 
-      completeRun(
-        new Response(
-          JSON.stringify({
-            status: 'started',
-            agentName: 'coding_agent',
-            conversationId: 'c1',
-            inflightId: 'i1',
-            modelId: 'gpt-5.3-codex',
-          }),
-          {
-            status: 202,
-            headers: { 'content-type': 'application/json' },
-          },
-        ),
-      );
+    completeRun(
+      new Response(
+        JSON.stringify({
+          status: 'started',
+          agentName: 'coding_agent',
+          conversationId: 'c1',
+          inflightId: 'i1',
+          modelId: 'gpt-5.3-codex',
+        }),
+        {
+          status: 202,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    );
 
-      await waitFor(() => expect(sendButton).toBeEnabled());
-      expect(screen.queryByTestId('agents-run-error')).toBeNull();
-    },
-    10000,
-  );
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    expect(screen.queryByTestId('agents-run-error')).toBeNull();
+  }, 10000);
 });

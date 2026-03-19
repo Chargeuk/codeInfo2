@@ -16,7 +16,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import type {
   ChatMessage,
   ToolCall,
@@ -36,12 +36,19 @@ type SharedTranscriptMessageRowProps = {
   activeToolsAvailable: boolean;
   citationsEnabled?: boolean;
   isStopping: boolean;
+  visibleStreamStatus?: ChatMessage['streamStatus'];
   thinkOpen: Record<string, boolean>;
   toolOpen: Record<string, boolean>;
   toolErrorOpen: Record<string, boolean>;
   onToggleThink: (messageId: string) => void;
   onToggleTool: (toggleKey: string) => void;
   onToggleToolError: (toggleKey: string) => void;
+  renderToolExtraContent?: (
+    tool: ToolCall,
+    toggleKey: string,
+    message: ChatMessage,
+  ) => ReactNode;
+  userMarkdownTestId?: string;
   log: (
     level: 'error' | 'warn' | 'info' | 'debug',
     message: string,
@@ -57,12 +64,15 @@ function SharedTranscriptMessageRow({
   activeToolsAvailable,
   citationsEnabled = true,
   isStopping,
+  visibleStreamStatus,
   thinkOpen,
   toolOpen,
   toolErrorOpen,
   onToggleThink,
   onToggleTool,
   onToggleToolError,
+  renderToolExtraContent,
+  userMarkdownTestId = 'user-markdown',
   log,
   markdownLogSource = 'SharedTranscript',
 }: SharedTranscriptMessageRowProps) {
@@ -179,50 +189,58 @@ function SharedTranscriptMessageRow({
                 )}
               </Stack>
             )}
-            {message.role === 'assistant' && message.streamStatus && (
-              <Chip
-                size="small"
-                variant="outlined"
-                color={
-                  message.streamStatus === 'complete'
-                    ? 'success'
-                    : message.streamStatus === 'failed'
-                      ? 'error'
-                      : message.streamStatus === 'stopped'
-                        ? 'warning'
-                        : isStopping
+            {message.role === 'assistant' &&
+              (visibleStreamStatus ?? message.streamStatus) && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color={
+                    (visibleStreamStatus ?? message.streamStatus) === 'complete'
+                      ? 'success'
+                      : (visibleStreamStatus ?? message.streamStatus) ===
+                          'failed'
+                        ? 'error'
+                        : (visibleStreamStatus ?? message.streamStatus) ===
+                            'stopped'
                           ? 'warning'
-                          : 'default'
-                }
-                icon={
-                  message.streamStatus === 'complete' ? (
-                    <CheckCircleOutlineIcon fontSize="small" />
-                  ) : message.streamStatus === 'failed' ? (
-                    <ErrorOutlineIcon fontSize="small" />
-                  ) : message.streamStatus === 'stopped' ? (
-                    <HourglassTopIcon fontSize="small" />
-                  ) : (
-                    <CircularProgress
-                      size={14}
-                      color={isStopping ? 'warning' : 'inherit'}
-                    />
-                  )
-                }
-                label={
-                  message.streamStatus === 'complete'
-                    ? 'Complete'
-                    : message.streamStatus === 'failed'
-                      ? 'Failed'
-                      : message.streamStatus === 'stopped'
-                        ? 'Stopped'
-                        : isStopping
-                          ? 'Stopping'
-                          : 'Processing'
-                }
-                data-testid="status-chip"
-                sx={{ alignSelf: 'flex-start' }}
-              />
-            )}
+                          : isStopping
+                            ? 'warning'
+                            : 'default'
+                  }
+                  icon={
+                    (visibleStreamStatus ?? message.streamStatus) ===
+                    'complete' ? (
+                      <CheckCircleOutlineIcon fontSize="small" />
+                    ) : (visibleStreamStatus ?? message.streamStatus) ===
+                      'failed' ? (
+                      <ErrorOutlineIcon fontSize="small" />
+                    ) : (visibleStreamStatus ?? message.streamStatus) ===
+                      'stopped' ? (
+                      <HourglassTopIcon fontSize="small" />
+                    ) : (
+                      <CircularProgress
+                        size={14}
+                        color={isStopping ? 'warning' : 'inherit'}
+                      />
+                    )
+                  }
+                  label={
+                    (visibleStreamStatus ?? message.streamStatus) === 'complete'
+                      ? 'Complete'
+                      : (visibleStreamStatus ?? message.streamStatus) ===
+                          'failed'
+                        ? 'Failed'
+                        : (visibleStreamStatus ?? message.streamStatus) ===
+                            'stopped'
+                          ? 'Stopped'
+                          : isStopping
+                            ? 'Stopping'
+                            : 'Processing'
+                  }
+                  data-testid="status-chip"
+                  sx={{ alignSelf: 'flex-start' }}
+                />
+              )}
             {message.role === 'assistant' &&
               message.warnings &&
               message.warnings.length > 0 && (
@@ -271,7 +289,7 @@ function SharedTranscriptMessageRow({
                   <Markdown
                     key={segment.id}
                     content={userContent}
-                    data-testid="user-markdown"
+                    data-testid={userMarkdownTestId}
                   />
                 );
               }
@@ -352,6 +370,11 @@ function SharedTranscriptMessageRow({
                       toggleKey={toggleKey}
                       isToolErrorOpen={!!toolErrorOpen[toggleKey]}
                       onToggleToolError={onToggleToolError}
+                      extraContent={renderToolExtraContent?.(
+                        tool,
+                        toggleKey,
+                        message,
+                      )}
                     />
                   </Collapse>
                 </Box>

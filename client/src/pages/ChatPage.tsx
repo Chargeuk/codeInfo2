@@ -1808,7 +1808,11 @@ export default function ChatPage() {
                     onToggleToolError={toggleToolError}
                     onScroll={handleTranscriptScroll}
                     markdownLogSource="ChatPage"
-                    logSharedRender
+                    sharedRenderLogConfig={{
+                      eventName:
+                        'DEV-0000049:T01:chat_shared_transcript_rendered',
+                      context: {},
+                    }}
                   />
                 )}
               </Paper>

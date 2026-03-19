@@ -166,9 +166,12 @@ describe('Agents citations rendering', () => {
 
     const toggle = await screen.findByTestId('citations-toggle');
     expect(toggle).toHaveTextContent('Citations (1)');
-    expect(screen.getByTestId('citations')).not.toBeVisible();
+    expect(screen.queryByTestId('citations')).toBeNull();
 
     await user.click(toggle);
+
+    const citations = await screen.findByTestId('citations');
+    await waitFor(() => expect(citations).toBeVisible());
 
     const pathRow = await screen.findByTestId('citation-path');
     expect(pathRow).toHaveTextContent(
@@ -176,7 +179,5 @@ describe('Agents citations rendering', () => {
     );
     const chunk = await screen.findByTestId('citation-chunk');
     expect(chunk).toHaveTextContent('fixture chunk');
-
-    await waitFor(() => expect(screen.getByTestId('citations')).toBeVisible());
   });
 });

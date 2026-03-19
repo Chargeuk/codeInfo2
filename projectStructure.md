@@ -59,7 +59,7 @@ Modified files (implementation traceability):
 Story notes:
 
 - Task 2 isolates the Agents composer from the transcript subtree without adopting the shared transcript path yet.
-- `AgentsTranscriptPane.tsx` is intentionally temporary and remains page-local until Task 3 replaces its internals with the shared transcript renderer.
+- `AgentsTranscriptPane.tsx` remains the memoized Task 2 isolation boundary, but Task 4 replaces its old page-local renderer with a thin wrapper around `client/src/components/chat/SharedTranscript.tsx`.
 
 ## Story 0000049 Task 1 structural change ledger
 
@@ -1122,7 +1122,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ components/
 â”‚     â”‚  â”œâ”€ agents/
 â”‚     â”‚  â”‚  â”œâ”€ AgentsComposerPanel.tsx â€” Agents control-panel boundary for selector, command, folder, prompt, and instruction/send-stop UI
-â”‚     â”‚  â”‚  â””â”€ AgentsTranscriptPane.tsx â€” temporary memoized Agents transcript boundary that keeps the page-local renderer isolated from composer typing
+â”‚     â”‚  â”‚  â””â”€ AgentsTranscriptPane.tsx â€” memoized Agents transcript boundary that preserves composer isolation while delegating rendering to the shared transcript
 â”‚     â”‚  â”œâ”€ codex/
 â”‚     â”‚  â”‚  â””â”€ CodexDeviceAuthDialog.tsx â€” device-auth dialog with target select, API call, and copy helpers
 â”‚     â”‚  â”œâ”€ NavBar.tsx â€” top navigation AppBar/Tabs

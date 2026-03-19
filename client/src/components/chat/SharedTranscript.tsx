@@ -4,11 +4,17 @@ import {
   useEffect,
   useMemo,
   useRef,
+  type ReactNode,
   type UIEventHandler,
 } from 'react';
-import type { ChatMessage } from '../../hooks/useChatStream';
+import type { ChatMessage, ToolCall } from '../../hooks/useChatStream';
 import { createLogger } from '../../logging/logger';
 import SharedTranscriptMessageRow from './SharedTranscriptMessageRow';
+
+type SharedTranscriptLogConfig = {
+  eventName: string;
+  context: Record<string, unknown>;
+};
 
 type SharedTranscriptProps = {
   surface: 'chat' | 'agents' | 'flows';
@@ -30,7 +36,16 @@ type SharedTranscriptProps = {
   onToggleToolError: (toggleKey: string) => void;
   onScroll?: UIEventHandler<HTMLDivElement>;
   markdownLogSource?: string;
-  logSharedRender?: boolean;
+  userMarkdownTestId?: string;
+  resolveStreamStatus?: (
+    message: ChatMessage,
+  ) => ChatMessage['streamStatus'] | null | undefined;
+  renderToolExtraContent?: (
+    tool: ToolCall,
+    toggleKey: string,
+    message: ChatMessage,
+  ) => ReactNode;
+  sharedRenderLogConfig?: SharedTranscriptLogConfig;
 };
 
 const sharedTranscriptLog = createLogger('client');
@@ -57,7 +72,10 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       onToggleToolError,
       onScroll,
       markdownLogSource,
-      logSharedRender = false,
+      userMarkdownTestId,
+      resolveStreamStatus,
+      renderToolExtraContent,
+      sharedRenderLogConfig,
     },
     ref,
   ) {
@@ -71,32 +89,36 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
           messageCount: messages.length,
           hasWarningState,
           hasEmptyState,
+          sharedRenderLogContext: sharedRenderLogConfig?.context ?? null,
         }),
-      [surface, messages.length, hasWarningState, hasEmptyState],
+      [
+        surface,
+        messages.length,
+        hasWarningState,
+        hasEmptyState,
+        sharedRenderLogConfig,
+      ],
     );
 
     useEffect(() => {
-      if (!logSharedRender || surface !== 'chat') {
+      if (!sharedRenderLogConfig) {
         return;
       }
       if (lastRenderStateRef.current === renderStateKey) {
         return;
       }
       lastRenderStateRef.current = renderStateKey;
-      sharedTranscriptLog(
-        'info',
-        'DEV-0000049:T01:chat_shared_transcript_rendered',
-        {
-          surface,
-          messageCount: messages.length,
-          hasWarningState,
-          hasEmptyState,
-        },
-      );
+      sharedTranscriptLog('info', sharedRenderLogConfig.eventName, {
+        surface,
+        messageCount: messages.length,
+        hasWarningState,
+        hasEmptyState,
+        ...sharedRenderLogConfig.context,
+      });
     }, [
-      logSharedRender,
-      surface,
+      sharedRenderLogConfig,
       renderStateKey,
+      surface,
       messages.length,
       hasWarningState,
       hasEmptyState,
@@ -152,6 +174,11 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
               onToggleThink={onToggleThink}
               onToggleTool={onToggleTool}
               onToggleToolError={onToggleToolError}
+              visibleStreamStatus={
+                resolveStreamStatus?.(message) ?? message.streamStatus
+              }
+              renderToolExtraContent={renderToolExtraContent}
+              userMarkdownTestId={userMarkdownTestId}
               log={sharedTranscriptLog}
               markdownLogSource={markdownLogSource}
             />

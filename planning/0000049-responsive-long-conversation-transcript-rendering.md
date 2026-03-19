@@ -1508,8 +1508,9 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 
 ### 14. Review Revalidation and Final Closeout
 
-- Task Status: `__in_progress__`
+- Task Status: `__completed__`
 - Git Commits:
+  - `582e3ae8` - `DEV-[49] - Revalidate Story 49 after review fixes`
 
 #### Overview
 
@@ -1534,7 +1535,7 @@ Revalidate Story 49 end to end after the review-fix tasks land, and only then cl
    - which reopened findings were fixed;
    - whether the deferred `optional_simplification` was still deferred;
    - why the story is safe to close again.
-7. [ ] Commit this plan plus the durable review artifacts (`codeInfoStatus/reviews/0000049-20260319T110609Z-719900be-evidence.md` and `codeInfoStatus/reviews/0000049-20260319T110609Z-719900be-findings.md`) when the reopened review-fix work is complete. Do not rely on the transient `codeInfoStatus/reviews/0000049-current-review.json` file as the durable artifact; leave it untracked or remove it before the final commit.
+7. [x] Commit this plan plus the durable review artifacts (`codeInfoStatus/reviews/0000049-20260319T110609Z-719900be-evidence.md` and `codeInfoStatus/reviews/0000049-20260319T110609Z-719900be-findings.md`) when the reopened review-fix work is complete. Do not rely on the transient `codeInfoStatus/reviews/0000049-current-review.json` file as the durable artifact; leave it untracked or remove it before the final commit.
 
 #### Testing
 
@@ -1571,6 +1572,7 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 - Subtask 4: Re-checked `SharedTranscript.tsx`, `VirtualizedTranscript.tsx`, and `sharedTranscript.scrollBehavior.test.tsx`; the repaired anchor contract now distinguishes above-viewport vs below-viewport growth, keeps pinned-bottom growth following correctly, and leaves the Flows retained-assistant path untouched.
 - Subtask 5: Reviewed `planning/0000049-pr-summary.md` after the review fixes and left it unchanged because Tasks 12 and 13 repaired proof and runtime-config behavior without materially changing the shipped Story 49 scope or outcome.
 - Subtask 6: Post-Review Closeout - the reopened `must_fix` shared-scroll anchor issue is resolved by Task 12's above-viewport-only anchor preservation repair, the reopened `should_fix` runtime-config directive issue is resolved by Task 13's blocking invalid-explicit handling and alert path, the `optional_simplification` note remains deferred with no new follow-up folded into Story 49, and the story is safe to close again because the durable review findings, AC classification, full wrapper sweep, and fresh browser evidence all agree.
+- Subtask 7: Committed the refreshed Task 14 plan after the full post-review wrapper and browser sweep, kept the durable review evidence/findings artifacts as the authoritative tracked review context on the branch, and cleared the transient `0000049-current-review.json` pointer out of the final closeout worktree.
 - Testing 1: `npm run build:summary:server` passed cleanly, so the narrow Task 3 server-side stop-alignment exception still builds after the review-fix tasks.
 - Testing 2: `npm run build:summary:client` passed cleanly, so the shared transcript, review-fix runtime-config path, and Task 11 browser logging hooks still build together in the final client bundle.
 - Testing 3: `npm run test:summary:server:unit` passed with `1293/1293`, so the Task 3 deferred-stop exception and the rest of the server unit/integration surface still hold after the review-fix tasks.

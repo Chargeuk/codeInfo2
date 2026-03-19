@@ -1754,3 +1754,73 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 - Testing 8: `npm run compose:up` started the validation stack cleanly with healthy server and client containers, so the final per-surface manual browser rerun can proceed against `http://host.docker.internal:5001`.
 - Testing 9: reran the final browser validation as fresh Chat, Agents, and Flows sessions on `http://host.docker.internal:5001`, reconfirmed the repaired Story 49 marker contract (`T08` scroll-mode only, `T10` anchor-preserving row growth, `T04` on Agents, `T05` on Flows, plus the existing Chat/Agents/Flows shared-render markers), reviewed the UI states through Playwright-MCP, and saved fresh durable screenshots at `playwright-output-local/0000049-16-chat.png`, `playwright-output-local/0000049-16-agents.png`, and `playwright-output-local/0000049-16-flows.png`. `browser_console_messages` at `level: \"error\"` stayed empty for each accepted surface session.
 - Testing 10: `npm run compose:down` completed cleanly after the final post-review browser sweep, so the validation stack shut down without teardown issues and Story 49 is ready for its final closeout commit.
+
+## Post-Implementation Code Review
+
+- Review pass: `0000049-20260319T140004Z-68b9d93d`
+- Branch-vs-main checks performed:
+  - re-read the active Story 49 plan from `planning/0000049-responsive-long-conversation-transcript-rendering.md`;
+  - reviewed `git diff --name-status main...HEAD` and `git diff --stat main...HEAD`;
+  - checked recent branch commits through the final Task 15 and Task 16 closeout ledger commits;
+  - bucketed changed files into planned implementation files, planned docs/tests, allowed support-file changes, approved workflow config under `flows/**`, and suspicious/out-of-scope files;
+  - found no suspicious or out-of-scope files after applying the story's explicit narrow server exception and the support-file/workflow policy.
+- Acceptance-evidence checks performed:
+  - AC1 long-transcript responsiveness, including Agents typing: `direct`
+  - AC2 no full rich-transcript rerender on every Agents keystroke: `direct`
+  - AC3 reusable shared transcript rendering path: `direct`
+  - AC4 shared transcript path applied across Chat, Agents, and Flows: `direct`
+  - AC5 page-local inline transcript loops removed: `direct`
+  - AC6 newest-last display order preserved: `indirect`
+  - AC7 transcript path no longer mounts every row in long conversations: `direct`
+  - AC8 rich transcript features preserved: `direct`
+  - AC9 citations remain page-configured by surface: `direct`
+  - AC10 hydration and update path avoids unnecessary whole-transcript replacement: `direct`
+  - AC11 existing message and hydration sources remain authoritative: `direct`
+  - AC12 virtualization or render windowing supports variable-height rows: `direct`
+  - AC13 stable `message.id` keys, dynamic measurement, and bounded overscan: `direct`
+  - AC14 pinned-bottom versus scrolled-away behavior remains correct: `direct`
+  - AC15 row remeasurement after streaming and expansion remains correct: `direct`
+  - AC16 rich-row expansion state survives virtual unmount or remount: `direct`
+  - AC17 shared transcript owns reusable transcript rendering while page controls remain local: `direct`
+  - AC18 shared transcript owns the real scroll and anchor behavior: `direct`
+  - AC19 stable message identity, hydration/in-flight merge behavior, and Flows retained-assistant behavior preserved: `direct`
+  - AC20 explicit reproducible long-transcript validation scenario exists: `direct`
+  - AC21 the same validation pass covers Chat and Flows too: `direct`
+  - AC22 transcript-facing tests still target stable transcript containers and affordances: `direct`
+  - AC23 story remains client-focused except for the narrow server exception: `indirect`
+  - AC24 the narrow server exception is implemented correctly without new API or payload shapes: `direct`
+  - AC25 transcript rendering logic is centralized for easier tuning later: `indirect`
+  - No acceptance criterion is currently `missing proof`.
+- Files and areas inspected during the code review:
+  - `client/src/components/chat/SharedTranscript.tsx`
+  - `client/src/components/chat/SharedTranscriptMessageRow.tsx`
+  - `client/src/components/chat/SharedTranscriptToolDetails.tsx`
+  - `client/src/components/chat/VirtualizedTranscript.tsx`
+  - `client/src/components/chat/useSharedTranscriptState.ts`
+  - `client/src/components/agents/AgentsComposerPanel.tsx`
+  - `client/src/components/agents/AgentsTranscriptPane.tsx`
+  - `client/src/config/apiBaseUrl.ts`
+  - `client/src/config/runtimeConfig.ts`
+  - `client/src/config/previewAllowedHosts.ts`
+  - `client/src/logging/logger.ts`
+  - `client/src/logging/transport.ts`
+  - `client/src/hooks/useChatStream.ts`
+  - `client/src/pages/ChatPage.tsx`
+  - `client/src/pages/AgentsPage.tsx`
+  - `client/src/pages/FlowsPage.tsx`
+  - `client/src/pages/HomePage.tsx`
+  - `server/src/chat/chatStreamBridge.ts`
+  - `server/src/chat/inflightRegistry.ts`
+  - `server/src/flows/service.ts`
+  - `server/src/ws/server.ts`
+  - `e2e/agents.spec.ts`
+  - the updated client/server/e2e regression files and the durable review artifacts.
+- Succinctness assessment:
+  - the implementation is functionally aligned with the story;
+  - `SharedTranscript.tsx`, `SharedTranscriptMessageRow.tsx`, `VirtualizedTranscript.tsx`, and `runtimeConfig.ts` are denser than the minimum shape the behavior might ideally need, but the clean review pass did not surface a correctness issue that justifies reopening the story for further simplification;
+  - the previously noted logger-hook cleanup remains a deferred simplification rather than a defect.
+- Why the story remains complete:
+  - the branch passed the evidence gate and findings pass for review pass `0000049-20260319T140004Z-68b9d93d`;
+  - that findings pass produced no `must_fix`, `should_fix`, or `optional_simplification` item that warranted reopening the story;
+  - the durable evidence and findings artifacts now document the review outcome alongside the final plan;
+  - the active plan remains fully `__completed__`, and the post-review checks did not reveal a missing proof path or a new contract problem.

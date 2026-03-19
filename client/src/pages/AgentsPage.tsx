@@ -809,7 +809,7 @@ export default function AgentsPage() {
 
   const turnsConversationId = persistenceUnavailable
     ? undefined
-    : activeConversationId;
+    : selectedConversationId;
 
   const {
     turns,

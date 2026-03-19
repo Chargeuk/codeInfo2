@@ -548,11 +548,10 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 
 1. [x] `npm run build:summary:client` - Use because this task changes client code and root documentation that describes the client path. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
 2. [x] `npm run test:summary:client` - Use because this task changes client behavior. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
-3. [x] `npm run test:summary:client -- --file client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
-4. [x] `npm run compose:build:summary` - Use because this task changes browser-visible client behavior and the manual Playwright-MCP pass depends on the stack building successfully. If status is `failed`, or item counts indicate failures or unknown results in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target or targets.
-5. [x] `npm run compose:up`
-6. [x] Manual Playwright-MCP testing step: while the stack is running at `http://host.docker.internal:5001`, open Chat, confirm the shared transcript still renders the expected bubble layout, warning or empty states, tool sections, citation toggles, reasoning toggles, and stable refreshed or inflight rows, and verify the browser console contains `DEV-0000049:T01:chat_shared_transcript_rendered` with `surface: 'chat'`. Treat missing proof logs, broken transcript layout, duplicated or missing refreshed rows, or any browser-console error log as a failure.
-7. [x] `npm run compose:down`
+3. [x] `npm run compose:build:summary` - Use because this task changes browser-visible client behavior and the manual Playwright-MCP pass depends on the stack building successfully. If status is `failed`, or item counts indicate failures or unknown results in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target or targets.
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP testing step: while the stack is running at `http://host.docker.internal:5001`, open Chat, confirm the shared transcript still renders the expected bubble layout, warning or empty states, tool sections, citation toggles, reasoning toggles, and stable refreshed or inflight rows, and verify the browser console contains `DEV-0000049:T01:chat_shared_transcript_rendered` with `surface: 'chat'`. Treat missing proof logs, broken transcript layout, duplicated or missing refreshed rows, or any browser-console error log as a failure.
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 

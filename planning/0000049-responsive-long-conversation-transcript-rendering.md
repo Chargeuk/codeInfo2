@@ -700,7 +700,7 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 ### 4. Agents Shared Transcript Adoption
 
 - Task Status: `__completed__`
-- Git Commits: `bae8c03c - DEV-[49] - Adopt shared transcript on Agents with blocker notes`
+- Git Commits: `bae8c03c - DEV-[49] - Adopt shared transcript on Agents with blocker notes`; `16b5cf1f - DEV-[49] - Close Task 4 Agents shared transcript adoption`
 
 #### Overview
 

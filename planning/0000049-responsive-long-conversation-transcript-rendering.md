@@ -835,7 +835,7 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 ### 6. Transcript Test Harness Support
 
 - Task Status: `__completed__`
-- Git Commits: ``
+- Git Commits: `05a9343e - DEV-[49] - Add transcript measurement harness support`
 
 #### Overview
 

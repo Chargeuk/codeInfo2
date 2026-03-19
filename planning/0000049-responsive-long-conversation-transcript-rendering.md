@@ -1147,7 +1147,8 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 ### 11. Final Validation and Review Closeout
 
 - Task Status: `__in_progress__`
-- Git Commits: ``
+- Git Commits:
+  - `3498797a` - `DEV-[49] - Start Task 11 final validation closeout`
 
 #### Overview
 
@@ -1217,6 +1218,7 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 - Testing 4: `npm run compose:build:summary` passed with both Compose targets green, so the final browser-validation stack is rebuildable from the finished Story 49 branch state before the last manual proof run.
 - Testing 5: `npm run compose:up` brought the final validation stack up cleanly with healthy Mongo, server, client, Chroma, Playwright-MCP, collector, and Zipkin containers, so the browser manual-validation step can now run against `http://host.docker.internal:5001`.
 - **BLOCKER** Testing 6: the final manual proof wording currently requires `DEV-0000049:T03:stop_path_registered`, `DEV-0000049:T03:flow_instruction_status_reclassified`, and `DEV-0000049:T03:deferred_final_status_aligned` to appear in the browser debug console during the Task 11 sweep, but those markers still exist only on the server side in `server/src/ws/server.ts`, `server/src/flows/service.ts`, `server/src/chat/chatStreamBridge.ts`, and `server/src/chat/inflightRegistry.ts`. I verified the new Task 11 browser hook works by loading `/chat` and seeing `DEV-0000049:T11:manual_validation_started` plus browser-visible `DEV-0000049:T01:chat_shared_transcript_rendered` and `DEV-0000049:T06:transcript_measurement_support_ready`, then confirmed by repo search that there is no client emission path for the exact required T03 markers. The missing capability is a browser-visible surfacing path for those exact stop-alignment markers, or a task rewrite that treats the already-passing Task 3 server proof (`server/src/test/integration/flows.run.command.test.ts`) plus server-log evidence as the authoritative T03 seam while Task 11's browser proof remains responsible for the client-visible Story 49 markers and screenshots. I think Task 11 should be re-written or split so the browser sweep validates the cross-surface client markers and screenshots, while the exact T03 stop-race markers remain authoritative in the existing Task 3 server proof and/or server-log inspection instead of being required from the browser console.
+- **BLOCKER CONFIRMED** Follow-up recheck after the first blocker write-up: I re-ran the repo search against both `client/` and `server/` and the exact required T03 markers still only exist in server code and server tests. No client-side emitter or browser-surfacing path for those exact marker names has been added since the previous blocker note, so Testing 6 is still blocked on the same proof-contract mismatch rather than on missed implementation work in the client.
 
 ## Questions
 

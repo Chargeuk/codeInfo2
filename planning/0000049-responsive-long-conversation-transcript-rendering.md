@@ -1390,6 +1390,7 @@ No acceptance criterion was assessed as `missing proof`, but the review judged s
 
 - Task Status: `__completed__`
 - Git Commits:
+  - `232687d4` - `DEV-[49] - Fix shared scroll anchor review finding`
 
 #### Overview
 

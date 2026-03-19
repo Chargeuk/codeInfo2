@@ -182,25 +182,21 @@ export function installStory0000049ManualValidationHooks() {
   window.__story0000049ManualValidation = {
     start: (context: Story0000049ManualValidationPayload) => {
       const { screenshotsCaptured, consoleErrorsSeen, ...rest } = context;
-      return (
-      logStory0000049ManualValidationStarted({
+      return logStory0000049ManualValidationStarted({
         story: '0000049',
         screenshotsCaptured,
         consoleErrorsSeen,
         ...rest,
-      })
-      );
+      });
     },
     complete: (context: Story0000049ManualValidationPayload) => {
       const { screenshotsCaptured, consoleErrorsSeen, ...rest } = context;
-      return (
-      logStory0000049ManualValidationCompleted({
+      return logStory0000049ManualValidationCompleted({
         story: '0000049',
         screenshotsCaptured,
         consoleErrorsSeen,
         ...rest,
-      })
-      );
+      });
     },
   };
 }

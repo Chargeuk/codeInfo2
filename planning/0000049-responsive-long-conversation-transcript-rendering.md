@@ -1417,10 +1417,14 @@ Fix the reopened shared scroll-anchor bug so the transcript preserves the user's
 
 #### Testing
 
-1. [ ] `npm run test:summary:client -- --file client/src/test/sharedTranscript.scrollBehavior.test.tsx`
-2. [ ] `npm run test:summary:client -- --file client/src/test/chatPage.layoutWrap.test.tsx`
-3. [ ] `npm run test:summary:client -- --file client/src/test/agentsPage.layoutWrap.test.tsx`
-4. [ ] `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx`
+Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
+
+1. [ ] `npm run build:summary:client` - Use when client or common code may be affected. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use when client or common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this review-fix task is testable from the front end and the manual Playwright-MCP pass depends on the stack building successfully. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target or targets.
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP validation against `http://host.docker.internal:5001` covering the repaired shared scroll-anchor contract on Chat, Agents, and Flows. Confirm that above-viewport growth preserves the reader's visible position, below-viewport growth leaves `scrollTop` unchanged while scrolled away, pinned-bottom behavior still auto-follows correctly, and the debug console shows no logged errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1463,9 +1467,14 @@ Repair the reopened runtime-config defect so an explicitly malformed `USE_BROWSE
 
 #### Testing
 
-1. [ ] `npm run test:summary:client -- --file client/src/test/baseUrl.env.test.ts`
-2. [ ] `npm run test:summary:client -- --file client/src/test/config/previewAllowedHosts.test.ts`
-3. [ ] `npm run typecheck:summary:client`
+Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
+
+1. [ ] `npm run build:summary:client` - Use when client or common code may be affected. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:client` - Use when client or common behavior may be affected. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+3. [ ] `npm run compose:build:summary` - Use because this review-fix task changes front-end runtime-config behavior that should still be validated through the browser stack. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target or targets.
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP validation against `http://host.docker.internal:5001` confirming malformed explicit `USE_BROWSER_HOST:<port>` input no longer degrades into a silent browser-origin success path, valid directive handling still works as intended, and the debug console shows no logged errors.
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1503,13 +1512,18 @@ Revalidate Story 49 end to end after the review-fix tasks land, and only then cl
 
 #### Testing
 
-1. [ ] `npm run build:summary:client`
-2. [ ] `npm run test:summary:client`
-3. [ ] `npm run test:summary:e2e`
-4. [ ] `npm run compose:build:summary`
-5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP validation rerun against `http://host.docker.internal:5001` covering Chat, Agents, and Flows with the repaired review fixes in place. Reconfirm the Story 49 browser-visible markers and save fresh acceptance screenshots under `playwright-output-local/0000049-14-<short-name>.png`.
-7. [ ] `npm run compose:down`
+Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
+
+1. [ ] `npm run build:summary:server` - Use when server or common code may be affected. Mandatory for this final regression task because Story 49 includes the narrow server-side deferred-stop exception. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Use when client or common code may be affected. Mandatory for this final regression task because Story 49 is primarily client-facing. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` - Use for server `node:test` unit and integration coverage when server or common behavior may be affected. Mandatory for this final regression task because Story 49 includes the narrow server-side deferred-stop exception. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature and step coverage when server or common behavior may be affected. Mandatory for this final regression task because Story 49 includes the narrow server-side deferred-stop exception and must be revalidated through the full server wrapper set. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:client` - Use when client or common behavior may be affected. Mandatory for this final regression task because Story 49 changes shared client transcript behavior. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] `npm run test:summary:e2e` - Allow up to 7 minutes; for example, use `timeout 7m` or set `timeout_ms=420000` in the harness. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] `npm run compose:build:summary` - Use because the final regression path is testable from the front end and must prove the stack still builds. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target or targets.
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP validation rerun against `http://host.docker.internal:5001` covering Chat, Agents, and Flows with the repaired review fixes in place. Reconfirm the Story 49 browser-visible markers, save fresh acceptance screenshots under `playwright-output-local/0000049-14-<short-name>.png`, and confirm the debug console shows no logged errors.
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 

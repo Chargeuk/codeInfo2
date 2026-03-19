@@ -105,6 +105,26 @@ const routeAgentsApis = async (
   });
 };
 
+const buildLongTranscriptTurns = (conversationId: string) => {
+  const turns: Array<Record<string, unknown>> = [];
+  for (let index = 0; index < 28; index += 1) {
+    const createdAt = new Date(Date.UTC(2025, 0, 1, 0, 0, index)).toISOString();
+    turns.push({
+      conversationId,
+      role: index % 2 === 0 ? 'user' : 'assistant',
+      content:
+        index % 2 === 0
+          ? `User turn ${index + 1}: explain how transcript virtualization should preserve scroll state, keep rich rows stable, and avoid input lag while the list is long.`
+          : `Assistant turn ${index + 1}: this is a deliberately long transcript row for Story 49 validation. `.repeat(
+              10,
+            ),
+      createdAt,
+      status: 'ok',
+    });
+  }
+  return turns;
+};
+
 test('agents preserves raw outbound payload and blocks whitespace-only submit', async ({
   page,
 }) => {
@@ -268,4 +288,57 @@ test('agents malformed mermaid input uses safe fallback for user and assistant b
     .first();
   await expect(userMarkdown).toContainText('Diagram failed to render');
   await expect(assistantMarkdown).toContainText('Diagram failed to render');
+});
+
+test('agents keeps instruction input responsive while a long transcript is visible', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+
+  const runBodies: Array<Record<string, unknown>> = [];
+  const conversationId = 'long-transcript-agents';
+  await routeAgentsApis(page, runBodies, {
+    conversations: [
+      {
+        conversationId,
+        title: 'Long transcript responsiveness',
+        provider: 'codex',
+        model: 'gpt-5.3-codex',
+        lastMessageAt: '2025-01-01T00:00:30.000Z',
+      },
+    ],
+    turnsByConversationId: {
+      [conversationId]: buildLongTranscriptTurns(conversationId),
+    },
+  });
+
+  await page.goto(`${baseUrl}/agents`);
+  await page.getByTestId('conversation-row').first().click();
+
+  const transcript = page.getByTestId('chat-transcript');
+  await expect(transcript).toBeVisible();
+  await expect(page.getByTestId('chat-bubble').first()).toBeVisible();
+
+  await expect
+    .poll(
+      async () =>
+        await transcript.evaluate((node) => {
+          const element = node as HTMLDivElement;
+          return element.scrollHeight > element.clientHeight;
+        }),
+      { timeout: 10000, message: 'Expected the long transcript to scroll' },
+    )
+    .toBe(true);
+
+  const input = page.getByTestId('agent-input');
+  const send = page.getByTestId('agent-send');
+  const longInstruction = [
+    'Please continue the long transcript validation.',
+    'Keep the rendered transcript visible while I type.',
+    'Do not drop characters or disable the send button.',
+  ].join(' ');
+
+  await input.fill(longInstruction);
+  await expect(input).toHaveValue(longInstruction);
+  await expect(send).toBeEnabled();
 });

@@ -700,7 +700,7 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 ### 4. Agents Shared Transcript Adoption
 
 - Task Status: `__in_progress__`
-- Git Commits: ``
+- Git Commits: `bae8c03c - DEV-[49] - Adopt shared transcript on Agents with blocker notes`
 
 #### Overview
 

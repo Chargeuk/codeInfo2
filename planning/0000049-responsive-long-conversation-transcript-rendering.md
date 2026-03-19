@@ -768,7 +768,7 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 ### 5. Flows Shared Transcript Adoption
 
 - Task Status: `__completed__`
-- Git Commits: `1ffe5edc - DEV-[49] - Adopt shared transcript on Flows with blocker notes`
+- Git Commits: `1ffe5edc - DEV-[49] - Adopt shared transcript on Flows with blocker notes`; `a86d7146 - DEV-[49] - Close Task 5 manual proof`
 
 #### Overview
 

@@ -1637,6 +1637,7 @@ No acceptance criterion is currently assessed as `missing proof`, but AC18, AC20
 
 - Task Status: `__completed__`
 - Git Commits:
+  - `5aa18712` - `DEV-[49] - Reconcile scroll anchor proof contract`
 
 #### Overview
 

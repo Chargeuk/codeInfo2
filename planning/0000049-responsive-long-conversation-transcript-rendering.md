@@ -1614,16 +1614,16 @@ The review pass rechecked every acceptance criterion against the shipped branch 
 - AC15 row remeasurement after streaming and expand or collapse remains correct: `direct`
 - AC16 rich-row expansion state survives virtual unmount or remount: `direct`
 - AC17 shared transcript owns transcript rendering while page controls remain local: `direct`
-- AC18 shared transcript owns the real scroll and anchor contract: `indirect`
+- AC18 shared transcript owns the real scroll and anchor contract: `direct`
 - AC19 stable identity, hydration/inflight merge behavior, and Flows retained-assistant behavior preserved: `direct`
-- AC20 explicit reproducible long-transcript validation scenario exists: `indirect`
-- AC21 same validation pass covers Chat and Flows: `indirect`
+- AC20 explicit reproducible long-transcript validation scenario exists: `direct`
+- AC21 same validation pass covers Chat and Flows: `direct`
 - AC22 transcript-facing tests still have stable targets: `direct`
 - AC23 story remains client-focused except for the narrow server exception: `indirect`
 - AC24 narrow server-side exception implemented correctly and narrowly: `direct`
 - AC25 client structure is easier to tune later because transcript logic is centralized: `indirect`
 
-No acceptance criterion is currently assessed as `missing proof`, but AC18, AC20, and AC21 are now weakened by the stale `T08` marker contract and must be revalidated after the review fix lands.
+No acceptance criterion is currently assessed as `missing proof`. After Task 15, AC18, AC20, and AC21 return to `direct` because the shipped `T08` versus `T10` proof contract, the automated regression, and the browser/manual wording now agree again.
 
 ### Succinctness Review
 
@@ -1689,7 +1689,7 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 
 ### 16. Review Revalidation and Final Closeout
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -1706,12 +1706,12 @@ Revalidate Story 49 end to end after Task 15 lands, and only then close the stor
 
 #### Subtasks
 
-1. [ ] Re-read the durable evidence and findings artifacts above and confirm the reopened `must_fix` item is fully resolved in code, tests, and implementation notes before closing the story again.
-2. [ ] Re-run the acceptance-criteria proof check and update this plan so every acceptance criterion is still classified as `direct`, `indirect`, or `missing proof` after Task 15. The story must not close if any acceptance criterion becomes `missing proof`.
-3. [ ] Re-check the final browser/manual proof wording in this plan and confirm every cited Story 49 marker is emitted by the shipped code with the payload vocabulary the wording claims.
-4. [ ] Re-check the shared scroll and virtualization paths and confirm the repaired proof contract does not regress pinned-bottom behavior, row-growth remeasurement, or retained-assistant behavior on Flows.
-5. [ ] Update `planning/0000049-pr-summary.md` only if the final shipped Story 49 result changed materially because of the reopened review-fix task.
-6. [ ] Add a short `Post-Review Closeout` note to this task's `Implementation notes` summarizing:
+1. [x] Re-read the durable evidence and findings artifacts above and confirm the reopened `must_fix` item is fully resolved in code, tests, and implementation notes before closing the story again.
+2. [x] Re-run the acceptance-criteria proof check and update this plan so every acceptance criterion is still classified as `direct`, `indirect`, or `missing proof` after Task 15. The story must not close if any acceptance criterion becomes `missing proof`.
+3. [x] Re-check the final browser/manual proof wording in this plan and confirm every cited Story 49 marker is emitted by the shipped code with the payload vocabulary the wording claims.
+4. [x] Re-check the shared scroll and virtualization paths and confirm the repaired proof contract does not regress pinned-bottom behavior, row-growth remeasurement, or retained-assistant behavior on Flows.
+5. [x] Update `planning/0000049-pr-summary.md` only if the final shipped Story 49 result changed materially because of the reopened review-fix task.
+6. [x] Add a short `Post-Review Closeout` note to this task's `Implementation notes` summarizing:
    - which reopened review finding was fixed;
    - whether the deferred simplification note remains deferred;
    - why the story is safe to close again.
@@ -1721,17 +1721,32 @@ Revalidate Story 49 end to end after Task 15 lands, and only then close the stor
 
 Wrapper-only rule: do not attempt to run builds or tests without using the summary wrappers below. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] `npm run build:summary:server` - Use when server or common code may be affected. Mandatory for this final regression task because Story 49 includes the narrow server-side deferred-stop exception. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run build:summary:client` - Use when client or common code may be affected. Mandatory for this final regression task because Story 49 is primarily client-facing. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-3. [ ] `npm run test:summary:server:unit` - Use for server `node:test` unit and integration coverage when server or common behavior may be affected. Mandatory for this final regression task because Story 49 includes the narrow server-side deferred-stop exception. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
-4. [ ] `npm run test:summary:server:cucumber` - Use for server Cucumber feature and step coverage when server or common behavior may be affected. Mandatory for this final regression task because Story 49 includes the narrow server-side deferred-stop exception and must be revalidated through the full server wrapper set. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
-5. [ ] `npm run test:summary:client` - Use when client or common behavior may be affected. Mandatory for this final regression task because Story 49 changes shared client transcript behavior. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
-6. [ ] `npm run test:summary:e2e` - Allow up to 7 minutes; for example, use `timeout 7m` or set `timeout_ms=420000` in the harness. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
-7. [ ] `npm run compose:build:summary` - Use because the final regression path is testable from the front end and must prove the stack still builds. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target or targets.
-8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP validation rerun against `http://host.docker.internal:5001` covering Chat, Agents, and Flows with the repaired review fix in place. Reconfirm the final Story 49 browser-visible markers, save fresh acceptance screenshots under `playwright-output-local/0000049-16-<short-name>.png`, and confirm the debug console shows no logged errors.
-10. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server` - Use when server or common code may be affected. Mandatory for this final regression task because Story 49 includes the narrow server-side deferred-stop exception. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run build:summary:client` - Use when client or common code may be affected. Mandatory for this final regression task because Story 49 is primarily client-facing. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [x] `npm run test:summary:server:unit` - Use for server `node:test` unit and integration coverage when server or common behavior may be affected. Mandatory for this final regression task because Story 49 includes the narrow server-side deferred-stop exception. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [x] `npm run test:summary:server:cucumber` - Use for server Cucumber feature and step coverage when server or common behavior may be affected. Mandatory for this final regression task because Story 49 includes the narrow server-side deferred-stop exception and must be revalidated through the full server wrapper set. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [x] `npm run test:summary:client` - Use when client or common behavior may be affected. Mandatory for this final regression task because Story 49 changes shared client transcript behavior. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+6. [x] `npm run test:summary:e2e` - Allow up to 7 minutes; for example, use `timeout 7m` or set `timeout_ms=420000` in the harness. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [x] `npm run compose:build:summary` - Use because the final regression path is testable from the front end and must prove the stack still builds. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target or targets.
+8. [x] `npm run compose:up`
+9. [x] Manual Playwright-MCP validation rerun against `http://host.docker.internal:5001` covering Chat, Agents, and Flows with the repaired review fix in place. Reconfirm the final Story 49 browser-visible markers, save fresh acceptance screenshots under `playwright-output-local/0000049-16-<short-name>.png`, and confirm the debug console shows no logged errors.
+10. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Review revalidation pending.
+- Subtask 1: re-read the durable evidence and findings artifacts for review pass `0000049-20260319T130208Z-644b72c6`, then confirmed the reopened `must_fix` is now resolved by Task 15's plan-contract repair: the shipped code still emits only `DEV-0000049:T08:shared_transcript_scroll_mode_changed` on the shared scroll path, the new `client/src/test/sharedTranscript.proofContract.test.tsx` directly proves `T10` owns anchor-preserving row-growth proof, and the stale completed-task/browser-proof wording has been reconciled accordingly.
+- Subtask 2: re-ran the acceptance-criteria proof pass in this plan and restored AC18, AC20, and AC21 to `direct` because the repaired `T08` versus `T10` contract, the direct regression, and the browser/manual wording now line up again; no acceptance criterion is currently `missing proof`.
+- Subtask 3: re-checked every final browser-visible Story 49 marker cited in the completed-task and closeout wording against the shipped code paths, and confirmed the only remaining `DEV-0000049:T08:shared_transcript_scroll_anchor_preserved` references are historical review/task-context notes rather than active proof requirements.
+- Subtask 4: rechecked the repaired shared scroll and virtualization paths through the full client wrapper suite plus the final browser rerun, and confirmed the `T08` proof-contract repair did not disturb pinned-bottom behavior, `T10` row-growth remeasurement, or Flows retained-assistant rendering.
+- Subtask 5: reviewed `planning/0000049-pr-summary.md` and left it unchanged because Task 15 repaired the proof contract without materially changing the shipped Story 49 behavior or scope.
+- Subtask 6: Post-Review Closeout - the reopened `must_fix` plan-contract issue is resolved by Task 15's truthful `T08` versus `T10` ownership split, the deferred simplification note remains deferred with no extra cleanup folded into Story 49, and the story is safe to close again because the durable review artifacts, AC classification, full wrapper rerun, and fresh browser evidence all agree.
+- Testing 1: `npm run build:summary:server` passed cleanly, so the narrow server-side deferred-stop exception still builds alongside the reopened client proof repair.
+- Testing 2: `npm run build:summary:client` passed cleanly, so the repaired proof-contract plan state and the Task 15 direct regression still typecheck and build on the full client wrapper path.
+- Testing 3: `npm run test:summary:server:unit` passed with `1293/1293`, so the narrow server-side deferred-stop exception and its direct proof path remain intact after the reopened client-side contract repair.
+- Testing 4: `npm run test:summary:server:cucumber` passed with `71/71`, so the story's narrow server-side exception also survived the full Cucumber wrapper pass during this final revalidation.
+- Testing 5: `npm run test:summary:client` passed with `629/629`, so the shared transcript path, Task 15 proof-contract regression, runtime-config review fix, and cross-surface client behavior all remain green on the full client wrapper pass.
+- Testing 6: `npm run test:summary:e2e` passed with `46/46`, so the long-transcript browser regressions, including the final Agents input responsiveness path, remain green after the reopened proof-contract repair.
+- Testing 7: `npm run compose:build:summary` passed with both Compose targets green, so the final browser-validation stack still builds cleanly after the reopened Story 49 review fix.
+- Testing 8: `npm run compose:up` started the validation stack cleanly with healthy server and client containers, so the final per-surface manual browser rerun can proceed against `http://host.docker.internal:5001`.
+- Testing 9: reran the final browser validation as fresh Chat, Agents, and Flows sessions on `http://host.docker.internal:5001`, reconfirmed the repaired Story 49 marker contract (`T08` scroll-mode only, `T10` anchor-preserving row growth, `T04` on Agents, `T05` on Flows, plus the existing Chat/Agents/Flows shared-render markers), reviewed the UI states through Playwright-MCP, and saved fresh durable screenshots at `playwright-output-local/0000049-16-chat.png`, `playwright-output-local/0000049-16-agents.png`, and `playwright-output-local/0000049-16-flows.png`. `browser_console_messages` at `level: \"error\"` stayed empty for each accepted surface session.
+- Testing 10: `npm run compose:down` completed cleanly after the final post-review browser sweep, so the validation stack shut down without teardown issues and Story 49 is ready for its final closeout commit.

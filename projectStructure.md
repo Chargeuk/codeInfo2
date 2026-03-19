@@ -52,7 +52,12 @@ Renamed files:
 Modified files (implementation traceability):
 
 - `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/FlowsPage.tsx`
+- `client/src/test/flowsPage.run.test.tsx`
+- `client/src/test/flowsPage.test.tsx`
 - `design.md`
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/components/chat/SharedTranscriptMessageRow.tsx`
 - `planning/0000049-responsive-long-conversation-transcript-rendering.md`
 - `projectStructure.md`
 
@@ -60,6 +65,7 @@ Story notes:
 
 - Task 2 isolates the Agents composer from the transcript subtree without adopting the shared transcript path yet.
 - `AgentsTranscriptPane.tsx` remains the memoized Task 2 isolation boundary, but Task 4 replaces its old page-local renderer with a thin wrapper around `client/src/components/chat/SharedTranscript.tsx`.
+- Task 5 moves Flows onto `SharedTranscript.tsx` as well, while keeping `buildFlowMetaLine(...)` page-owned and leaving citations disabled on the Flows surface.
 
 ## Story 0000049 Task 1 structural change ledger
 

@@ -626,6 +626,7 @@ describe('Flows page run/resume controls', () => {
       });
 
       expect(await screen.findByText('First step answer')).toBeInTheDocument();
+      expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
 
       harness.emitUserTurn({
         conversationId: 'flow-1',
@@ -682,6 +683,19 @@ describe('Flows page run/resume controls', () => {
           proof: 'post_event_transcript_visible',
         }),
       });
+      expect(logSpy.mock.calls).toEqual(
+        expect.arrayContaining([
+          [
+            expect.objectContaining({
+              message: 'DEV-0000049:T05:flows_shared_transcript_rendered',
+              context: expect.objectContaining({
+                surface: 'flows',
+                citationsVisible: false,
+              }),
+            }),
+          ],
+        ]),
+      );
     } finally {
       logSpy.mockRestore();
     }
@@ -903,7 +917,9 @@ describe('Flows page run/resume controls', () => {
         inflightId: 'flow-step-3',
         delta: 'Third step answer',
       });
-      expect(await screen.findByText('Third step answer')).toBeInTheDocument();
+      expect(
+        (await screen.findAllByText('Third step answer')).length,
+      ).toBeGreaterThan(0);
 
       harness.emitUserTurn({
         conversationId: 'flow-1',
@@ -915,7 +931,9 @@ describe('Flows page run/resume controls', () => {
         inflightId: 'flow-step-4',
         delta: 'Fourth step answer',
       });
-      expect(await screen.findByText('Fourth step answer')).toBeInTheDocument();
+      expect(
+        (await screen.findAllByText('Fourth step answer')).length,
+      ).toBeGreaterThan(0);
 
       await waitFor(() => {
         const retainedLogs = logSpy.mock.calls

@@ -24,6 +24,7 @@ type SharedTranscriptProps = {
   turnsError?: boolean;
   turnsErrorMessage?: string | null;
   emptyMessage: string;
+  emptyStateContent?: ReactNode;
   warningTestId?: string;
   transcriptTestId?: string;
   citationsEnabled?: boolean;
@@ -45,6 +46,7 @@ type SharedTranscriptProps = {
     toggleKey: string,
     message: ChatMessage,
   ) => ReactNode;
+  renderMetadataContent?: (message: ChatMessage) => ReactNode;
   sharedRenderLogConfig?: SharedTranscriptLogConfig;
 };
 
@@ -60,6 +62,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       turnsError = false,
       turnsErrorMessage,
       emptyMessage,
+      emptyStateContent,
       warningTestId = 'turns-error',
       transcriptTestId = 'chat-transcript',
       citationsEnabled = true,
@@ -75,6 +78,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       userMarkdownTestId,
       resolveStreamStatus,
       renderToolExtraContent,
+      renderMetadataContent,
       sharedRenderLogConfig,
     },
     ref,
@@ -158,9 +162,10 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
               {turnsErrorMessage ?? 'Failed to load conversation history.'}
             </Alert>
           )}
-          {messages.length === 0 && (
-            <Typography color="text.secondary">{emptyMessage}</Typography>
-          )}
+          {messages.length === 0 &&
+            (emptyStateContent ?? (
+              <Typography color="text.secondary">{emptyMessage}</Typography>
+            ))}
           {messages.map((message) => (
             <SharedTranscriptMessageRow
               key={message.id}
@@ -178,6 +183,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
                 resolveStreamStatus?.(message) ?? message.streamStatus
               }
               renderToolExtraContent={renderToolExtraContent}
+              renderMetadataContent={renderMetadataContent}
               userMarkdownTestId={userMarkdownTestId}
               log={sharedTranscriptLog}
               markdownLogSource={markdownLogSource}

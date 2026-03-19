@@ -48,6 +48,7 @@ type SharedTranscriptMessageRowProps = {
     toggleKey: string,
     message: ChatMessage,
   ) => ReactNode;
+  renderMetadataContent?: (message: ChatMessage) => ReactNode;
   userMarkdownTestId?: string;
   log: (
     level: 'error' | 'warn' | 'info' | 'debug',
@@ -72,6 +73,7 @@ function SharedTranscriptMessageRow({
   onToggleTool,
   onToggleToolError,
   renderToolExtraContent,
+  renderMetadataContent,
   userMarkdownTestId = 'user-markdown',
   log,
   markdownLogSource = 'SharedTranscript',
@@ -187,6 +189,7 @@ function SharedTranscriptMessageRow({
                     {stepLine}
                   </Typography>
                 )}
+                {renderMetadataContent?.(message)}
               </Stack>
             )}
             {message.role === 'assistant' &&

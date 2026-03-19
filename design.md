@@ -83,6 +83,25 @@ sequenceDiagram
   Client-->>Client: DEV-0000049:T03:hydrated_persisted_turn_status
 ```
 
+## Story 0000049 Task 5 Flows shared transcript adoption
+
+- `client/src/pages/FlowsPage.tsx` now keeps flow selection, run controls, loading/error banners, and `buildFlowMetaLine(...)` page-owned while delegating transcript row rendering to `client/src/components/chat/SharedTranscript.tsx`.
+- The shared transcript API now accepts Flow-specific metadata rendering and page-owned empty-state content so Flows can preserve `bubble-flow-meta`, loading/empty copy, and `flows-turns-error` without reviving a page-local bubble loop.
+- Flows keeps `citationsEnabled={false}` explicitly on the shared transcript path. That makes the no-citations contract visible in code instead of relying on implicit behavior.
+- Retained-assistant behavior still lives in the Flows page state/orchestration layer; the shared transcript only renders the already-derived `displayMessages` state that Flows passes into it.
+
+```mermaid
+flowchart LR
+  FlowsPage["FlowsPage.tsx"] --> ConversationList["ConversationList.tsx (page-owned)"]
+  FlowsPage --> FlowMeta["buildFlowMetaLine(...) (page-owned)"]
+  FlowsPage --> SharedTranscript["SharedTranscript.tsx"]
+  SharedTranscript --> MessageRow["SharedTranscriptMessageRow.tsx"]
+  FlowMeta --> MessageRow
+  MessageRow --> Markdown["Markdown.tsx"]
+  MessageRow --> Formatting["chatTranscriptFormatting.ts"]
+  SharedTranscript --> NoCitations["citationsEnabled = false"]
+```
+
 ## Common package
 
 - Purpose: shared DTOs/utilities consumed by client and server to prove workspace linking.

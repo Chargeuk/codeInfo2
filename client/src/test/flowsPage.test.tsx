@@ -133,6 +133,64 @@ describe('Flows page basics', () => {
 
     const metadata = await screen.findByTestId('bubble-flow-meta');
     expect(metadata).toHaveTextContent('Plan · planning_agent/main');
+    expect(screen.getByTestId('flows-transcript')).toBeInTheDocument();
+    expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
+  });
+
+  it('shows the flow turns warning when conversation history fails to load', async () => {
+    const now = new Date().toISOString();
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: 'boom' }), {
+            status: 500,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: {},
+            },
+          ],
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    expect(await screen.findByTestId('flows-turns-error')).toHaveTextContent(
+      'Failed to load conversation turns (500)',
+    );
+    expect(screen.getByTestId('flow-select')).toBeInTheDocument();
   });
 
   it('does not show stale conversations when flow has no history', async () => {

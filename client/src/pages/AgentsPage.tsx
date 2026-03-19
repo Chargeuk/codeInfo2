@@ -1386,8 +1386,6 @@ export default function AgentsPage() {
     });
   }, [activeConversationId, displayMessages]);
 
-  const handleTranscriptScroll = useCallback(() => {}, []);
-
   const handleSelectConversation = (conversationId: string) => {
     if (conversationId === activeConversationId) return;
     if (isRunActive && activeConversationId) {
@@ -2057,7 +2055,6 @@ export default function AgentsPage() {
               <AgentsTranscriptPane
                 conversationId={activeConversationId}
                 transcriptRef={transcriptRef}
-                onScroll={handleTranscriptScroll}
                 displayMessages={displayMessages}
                 turnsLoading={turnsLoading}
                 turnsError={turnsError}

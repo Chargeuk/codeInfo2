@@ -1104,8 +1104,6 @@ export default function ChatPage() {
     workingFolder,
   ]);
 
-  const handleTranscriptScroll = () => {};
-
   const mapToolCalls = useCallback((toolCalls: unknown): ToolCall[] => {
     const calls =
       toolCalls &&
@@ -1806,7 +1804,6 @@ export default function ChatPage() {
                     onToggleThink={toggleThink}
                     onToggleTool={handleToggleTool}
                     onToggleToolError={toggleToolError}
-                    onScroll={handleTranscriptScroll}
                     markdownLogSource="ChatPage"
                     sharedRenderLogConfig={{
                       eventName:

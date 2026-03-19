@@ -137,6 +137,25 @@ flowchart LR
   MessageRow --> Tools["tool details + tool errors (controlled)"]
 ```
 
+## Story 0000049 Task 8 shared transcript scroll contract
+
+- `client/src/components/chat/SharedTranscript.tsx` now owns the non-virtualized shared scroll contract for Chat, Agents, and Flows instead of leaving placeholder page-local scroll handlers behind.
+- The shared transcript uses one near-bottom threshold for all three surfaces and switches between two explicit modes: `pinned-bottom` and `scrolled-away`.
+- While the reader is scrolled away, row growth is handled at the transcript-container level by comparing the previous and current `scrollHeight` values and adjusting `scrollTop` by the delta so the reader keeps their place.
+- The Task 6 measurement harness remains test-only. Production scroll math stays inside `SharedTranscript.tsx`, while `client/src/test/sharedTranscript.scrollBehavior.test.tsx` is the source-of-truth regression seam for the shared contract.
+
+```mermaid
+flowchart LR
+  ChatPage["ChatPage.tsx"] --> SharedTranscript["SharedTranscript.tsx"]
+  AgentsPage["AgentsPage.tsx"] --> SharedTranscript
+  FlowsPage["FlowsPage.tsx"] --> SharedTranscript
+  SharedTranscript --> ScrollMode["pinned-bottom | scrolled-away"]
+  SharedTranscript --> AnchorMath["container scrollHeight delta adjustment"]
+  SharedTranscript --> Rows["SharedTranscriptMessageRow.tsx"]
+  Harness["transcriptMeasurementHarness.ts (test-only)"] --> ScrollTests["sharedTranscript.scrollBehavior.test.tsx"]
+  ScrollTests --> SharedTranscript
+```
+
 ## Common package
 
 - Purpose: shared DTOs/utilities consumed by client and server to prove workspace linking.

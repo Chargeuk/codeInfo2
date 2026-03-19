@@ -1,5 +1,39 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000049 Task 8 structural change ledger
+
+Added files:
+
+- `client/src/test/sharedTranscript.scrollBehavior.test.tsx`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/components/agents/AgentsTranscriptPane.tsx`
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/test/agentsPage.layoutWrap.test.tsx`
+- `client/src/test/chatPage.layoutHeight.test.tsx`
+- `client/src/test/chatPage.layoutWrap.test.tsx`
+- `client/src/test/flowsPage.test.tsx`
+- `design.md`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 8 keeps the scroll contract inside `client/src/components/chat/SharedTranscript.tsx` instead of adding a second production helper file.
+- `client/src/test/sharedTranscript.scrollBehavior.test.tsx` becomes the shared source-of-truth regression for pinned-bottom versus scrolled-away behavior and anchor preservation during row growth.
+- Chat, Agents, and Flows now inherit the same non-virtualized scroll behavior while still keeping their page-owned shell concerns outside the shared transcript.
+
 ## Story 0000049 Task 7 structural change ledger
 
 Added files:

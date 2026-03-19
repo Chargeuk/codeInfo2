@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import SharedTranscript from '../components/chat/SharedTranscript';
 import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
@@ -286,6 +286,73 @@ describe('Chat transcript viewport height fill', () => {
     expect(() => harness.triggerResize(row)).not.toThrow();
     expect(screen.getByTestId('chat-transcript')).toBeInTheDocument();
 
+    harness.restore();
+  });
+
+  it('preserves reading position during row growth on the chat transcript path', async () => {
+    const harness = installTranscriptMeasurementHarness();
+
+    render(
+      <SharedTranscript
+        surface="chat"
+        conversationId="chat-scroll-anchor"
+        messages={[
+          {
+            id: 'assistant-1',
+            role: 'assistant',
+            content: 'First response',
+            createdAt: '2026-03-19T00:00:00.000Z',
+          },
+          {
+            id: 'assistant-2',
+            role: 'assistant',
+            content: 'Second response',
+            createdAt: '2026-03-19T00:01:00.000Z',
+          },
+          {
+            id: 'assistant-3',
+            role: 'assistant',
+            content: 'Third response',
+            createdAt: '2026-03-19T00:02:00.000Z',
+          },
+        ]}
+        activeToolsAvailable={false}
+        emptyMessage="Transcript will appear here once you send a message."
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    const row = transcript.querySelector(
+      '[data-transcript-row-id="assistant-2"]',
+    ) as HTMLElement | null;
+
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 1000,
+      scrollTop: 340,
+    });
+
+    transcript.scrollTop = 340;
+    fireEvent.scroll(transcript);
+
+    harness.setScrollMetrics(transcript, {
+      scrollHeight: 1180,
+      scrollTop: 340,
+    });
+    expect(row).not.toBeNull();
+    harness.triggerResize(row);
+
+    expect(transcript.scrollTop).toBe(520);
     harness.restore();
   });
 });

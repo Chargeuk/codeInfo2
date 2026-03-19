@@ -9,8 +9,9 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { setupChatWsHarness } from './support/mockChatWs';
 import { createLogger } from '../logging/logger';
+import { setupChatWsHarness } from './support/mockChatWs';
+import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -730,5 +731,77 @@ describe('Chat page layout alignment', () => {
       loadMoreInside: true,
       overflowGuarded: true,
     });
+  });
+
+  it('uses the shared pinned-bottom and scroll-away rules on Chat', async () => {
+    const measurementHarness = installTranscriptMeasurementHarness();
+    setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId: 'c-scroll',
+            title: 'Scroll conversation',
+            provider: 'lmstudio',
+            model: 'm1',
+            lastMessageAt: '2026-03-19T00:00:00.000Z',
+            archived: false,
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: {
+        items: Array.from({ length: 6 }, (_, index) => ({
+          turnId: `turn-${index + 1}`,
+          conversationId: 'c-scroll',
+          role: index % 2 === 0 ? 'assistant' : 'user',
+          content: `Message ${index + 1}`,
+          provider: 'lmstudio',
+          model: 'm1',
+          status: 'ok',
+          createdAt: `2026-03-19T00:0${index}:00.000Z`,
+        })),
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const conversationRow = await screen.findByTestId('conversation-row');
+    fireEvent.click(conversationRow);
+    const transcript = await screen.findByTestId('chat-transcript');
+    await waitFor(() =>
+      expect(screen.getAllByTestId('chat-bubble')).toHaveLength(6),
+    );
+
+    measurementHarness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 1200,
+      scrollTop: 880,
+    });
+
+    transcript.scrollTop = 420;
+    fireEvent.scroll(transcript);
+
+    measurementHarness.setScrollMetrics(transcript, {
+      scrollHeight: 1320,
+      scrollTop: 420,
+    });
+    measurementHarness.triggerResize(transcript);
+    expect(transcript.scrollTop).toBe(540);
+
+    transcript.scrollTop = 960;
+    fireEvent.scroll(transcript);
+
+    measurementHarness.setScrollMetrics(transcript, {
+      scrollHeight: 1400,
+      scrollTop: 960,
+    });
+    measurementHarness.triggerResize(transcript);
+    expect(transcript.scrollTop).toBe(1080);
+
+    measurementHarness.restore();
   });
 });

@@ -7,7 +7,7 @@ import {
   Paper,
   Typography,
 } from '@mui/material';
-import { memo, useEffect, useMemo, useRef, type UIEventHandler } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import type { ChatMessage, ToolCall } from '../../hooks/useChatStream';
 import { createLogger } from '../../logging/logger';
 import SharedTranscript from '../chat/SharedTranscript';
@@ -22,7 +22,6 @@ type LiveStoppedMarker = {
 type AgentsTranscriptPaneProps = {
   conversationId?: string;
   transcriptRef?: React.Ref<HTMLDivElement>;
-  onScroll?: UIEventHandler<HTMLDivElement>;
   displayMessages: ChatMessage[];
   turnsLoading: boolean;
   turnsError: boolean;
@@ -84,7 +83,6 @@ function renderResultAccordion(payload: unknown, accordionId: string) {
 const AgentsTranscriptPane = memo(function AgentsTranscriptPane({
   conversationId,
   transcriptRef,
-  onScroll,
   displayMessages,
   turnsLoading,
   turnsError,
@@ -194,7 +192,6 @@ const AgentsTranscriptPane = memo(function AgentsTranscriptPane({
         onToggleThink={onToggleThink}
         onToggleTool={onToggleTool}
         onToggleToolError={onToggleToolError}
-        onScroll={onScroll}
         markdownLogSource="AgentsPage"
         userMarkdownTestId="agents-user-markdown"
         resolveStreamStatus={(message) => {

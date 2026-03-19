@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -609,5 +610,109 @@ describe('Flows info popover', () => {
     expect(emptyState).toHaveTextContent(
       'No description or warnings are available for this flow yet.',
     );
+  });
+
+  it('uses the shared scroll contract without forcing Flows back to the bottom', async () => {
+    const measurementHarness = installTranscriptMeasurementHarness();
+    const now = new Date().toISOString();
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({
+          items: Array.from({ length: 6 }, (_, index) => ({
+            turnId: `flow-turn-${index + 1}`,
+            conversationId: 'flow-scroll',
+            role: index % 2 === 0 ? 'assistant' : 'user',
+            content: `Flow message ${index + 1}`,
+            provider: 'codex',
+            model: 'gpt-5',
+            status: 'ok',
+            command:
+              index % 2 === 0
+                ? {
+                    name: 'flow',
+                    stepIndex: 1,
+                    totalSteps: 3,
+                    label: 'Plan',
+                    agentType: 'planning_agent',
+                    identifier: 'main',
+                  }
+                : undefined,
+            createdAt: now,
+          })),
+        });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-scroll',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: {},
+            },
+          ],
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const transcript = await screen.findByTestId('flows-transcript');
+    await waitFor(() =>
+      expect(screen.getAllByTestId('chat-bubble')).toHaveLength(6),
+    );
+
+    measurementHarness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 1200,
+      scrollTop: 880,
+    });
+
+    transcript.scrollTop = 410;
+    fireEvent.scroll(transcript);
+
+    measurementHarness.setScrollMetrics(transcript, {
+      scrollHeight: 1310,
+      scrollTop: 410,
+    });
+    measurementHarness.triggerResize(transcript);
+    expect(transcript.scrollTop).toBe(520);
+
+    const row = transcript.querySelector(
+      '[data-transcript-row-id="turn-flow-turn-2"]',
+    );
+    expect(row).toBeTruthy();
+    act(() => {
+      row?.remove();
+    });
+
+    expect(() => measurementHarness.triggerResize(row)).not.toThrow();
+    expect(screen.getByTestId('flows-transcript')).toBeInTheDocument();
+    measurementHarness.restore();
   });
 });

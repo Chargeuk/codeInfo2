@@ -1,7 +1,9 @@
 import { Alert, Box, Stack, Typography } from '@mui/material';
 import {
   forwardRef,
+  useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   type ReactNode,
@@ -54,6 +56,8 @@ type SharedTranscriptProps = {
 };
 
 const sharedTranscriptLog = createLogger('client');
+const SHARED_TRANSCRIPT_NEAR_BOTTOM_THRESHOLD_PX = 64;
+type SharedTranscriptScrollMode = 'pinned-bottom' | 'scrolled-away';
 
 const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
   function SharedTranscript(
@@ -89,11 +93,19 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
     },
     ref,
   ) {
+    const transcriptContainerRef = useRef<HTMLDivElement | null>(null);
     const lastRenderStateRef = useRef<string | null>(null);
     const measurementReadyRef = useRef<string | null>(null);
     const missingRowLoggedRef = useRef(new Set<string>());
+    const scrollModeRef = useRef<SharedTranscriptScrollMode>('pinned-bottom');
+    const scrollMetricsRef = useRef<{
+      conversationKey: string;
+      scrollHeight: number;
+      scrollTop: number;
+    } | null>(null);
     const hasWarningState = turnsError;
     const hasEmptyState = messages.length === 0;
+    const conversationKey = `${surface}:${conversationId ?? 'none'}`;
     const renderStateKey = useMemo(
       () =>
         JSON.stringify({
@@ -110,6 +122,123 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
         hasEmptyState,
         sharedRenderLogConfig,
       ],
+    );
+
+    const setContainerRef = useCallback(
+      (node: HTMLDivElement | null) => {
+        transcriptContainerRef.current = node;
+        if (typeof ref === 'function') {
+          ref(node);
+          return;
+        }
+        if (ref) {
+          ref.current = node;
+        }
+      },
+      [ref],
+    );
+
+    const isNearBottom = useCallback((element: HTMLDivElement) => {
+      const distanceFromBottom =
+        element.scrollHeight - element.clientHeight - element.scrollTop;
+      return distanceFromBottom <= SHARED_TRANSCRIPT_NEAR_BOTTOM_THRESHOLD_PX;
+    }, []);
+
+    const setScrollMode = useCallback(
+      (nextMode: SharedTranscriptScrollMode) => {
+        if (scrollModeRef.current === nextMode) {
+          return;
+        }
+        scrollModeRef.current = nextMode;
+        sharedTranscriptLog(
+          'info',
+          'DEV-0000049:T08:shared_transcript_scroll_mode_changed',
+          {
+            surface,
+            conversationId: conversationId ?? null,
+            mode: nextMode,
+          },
+        );
+      },
+      [conversationId, surface],
+    );
+
+    const syncScrollMetrics = useCallback(() => {
+      const transcriptElement = transcriptContainerRef.current;
+      if (!transcriptElement) {
+        return;
+      }
+      scrollMetricsRef.current = {
+        conversationKey,
+        scrollHeight: transcriptElement.scrollHeight,
+        scrollTop: transcriptElement.scrollTop,
+      };
+    }, [conversationKey]);
+
+    const reconcileScrollPosition = useCallback(() => {
+      const transcriptElement = transcriptContainerRef.current;
+      if (!transcriptElement) {
+        return;
+      }
+
+      const previousMetrics = scrollMetricsRef.current;
+      if (
+        !previousMetrics ||
+        previousMetrics.conversationKey !== conversationKey
+      ) {
+        if (scrollModeRef.current === 'pinned-bottom') {
+          transcriptElement.scrollTop = Math.max(
+            0,
+            transcriptElement.scrollHeight - transcriptElement.clientHeight,
+          );
+        }
+        syncScrollMetrics();
+        return;
+      }
+
+      const deltaScrollHeight =
+        transcriptElement.scrollHeight - previousMetrics.scrollHeight;
+      if (deltaScrollHeight === 0) {
+        syncScrollMetrics();
+        return;
+      }
+
+      if (scrollModeRef.current === 'pinned-bottom') {
+        transcriptElement.scrollTop = Math.max(
+          0,
+          transcriptElement.scrollHeight - transcriptElement.clientHeight,
+        );
+      } else if (deltaScrollHeight > 0) {
+        transcriptElement.scrollTop = Math.max(
+          0,
+          previousMetrics.scrollTop + deltaScrollHeight,
+        );
+        sharedTranscriptLog(
+          'info',
+          'DEV-0000049:T08:shared_transcript_scroll_anchor_preserved',
+          {
+            surface,
+            conversationId: conversationId ?? null,
+            deltaScrollHeight,
+          },
+        );
+      }
+
+      syncScrollMetrics();
+    }, [conversationId, conversationKey, surface, syncScrollMetrics]);
+
+    const handleSharedTranscriptScroll = useCallback<
+      UIEventHandler<HTMLDivElement>
+    >(
+      (event) => {
+        const nextMode = isNearBottom(event.currentTarget)
+          ? 'pinned-bottom'
+          : 'scrolled-away';
+        setScrollMode(nextMode);
+        syncScrollMetrics();
+        onScroll?.(event);
+      },
+      [isNearBottom, onScroll, setScrollMode, syncScrollMetrics],
     );
 
     useEffect(() => {
@@ -141,7 +270,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
     }, [surface, conversationId]);
 
     useEffect(() => {
-      const transcriptElement = ref && 'current' in ref ? ref.current : null;
+      const transcriptElement = transcriptContainerRef.current;
       if (!transcriptElement || typeof ResizeObserver === 'undefined') {
         return;
       }
@@ -183,6 +312,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
             },
           );
         });
+        reconcileScrollPosition();
       });
 
       observer.observe(transcriptElement);
@@ -191,12 +321,30 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
         .forEach((row) => observer.observe(row));
 
       return () => observer.disconnect();
-    }, [conversationId, messages, ref, surface]);
+    }, [conversationId, messages, reconcileScrollPosition, surface]);
+
+    useEffect(() => {
+      scrollModeRef.current = 'pinned-bottom';
+      scrollMetricsRef.current = null;
+    }, [conversationKey]);
+
+    useLayoutEffect(() => {
+      reconcileScrollPosition();
+    }, [
+      reconcileScrollPosition,
+      messages,
+      citationsOpen,
+      thinkOpen,
+      toolOpen,
+      toolErrorOpen,
+      turnsLoading,
+      turnsError,
+    ]);
 
     return (
       <Box
-        ref={ref}
-        onScroll={onScroll}
+        ref={setContainerRef}
+        onScroll={handleSharedTranscriptScroll}
         data-testid={transcriptTestId}
         style={{
           flex: '1 1 0%',

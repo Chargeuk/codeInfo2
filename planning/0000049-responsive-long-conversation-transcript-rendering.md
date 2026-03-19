@@ -1079,7 +1079,7 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 ### 10. Dynamic Measurement Regression Coverage
 
 - Task Status: `__completed__`
-- Git Commits: ``
+- Git Commits: `b223ade1 - DEV-[49] - Add Task 10 dynamic measurement coverage`
 
 #### Overview
 

@@ -73,6 +73,72 @@ describe('Shared transcript scroll behavior', () => {
     harness.restore();
   });
 
+  it('keeps an existing conversation at the top while virtualized rows settle after load', async () => {
+    const harness = installTranscriptMeasurementHarness();
+
+    const { rerender } = render(
+      <SharedTranscript
+        surface="chat"
+        conversationId="existing-history-growth"
+        messages={buildMessages(14)}
+        activeToolsAvailable={false}
+        turnsLoading
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 1400,
+      scrollTop: 0,
+    });
+
+    rerender(
+      <SharedTranscript
+        surface="chat"
+        conversationId="existing-history-growth"
+        messages={buildMessages(14)}
+        activeToolsAvailable={false}
+        turnsLoading={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const measuredRow = transcript.querySelector(
+      '[data-virtualized-message-id="assistant-5"]',
+    ) as HTMLElement | null;
+
+    expect(measuredRow).not.toBeNull();
+    harness.setScrollMetrics(transcript, {
+      scrollHeight: 1580,
+      scrollTop: 0,
+    });
+    harness.setElementRect(measuredRow!, { height: 180 });
+    harness.triggerResize(measuredRow!);
+
+    await waitFor(() => expect(transcript.scrollTop).toBe(0));
+    harness.restore();
+  });
+
   it('leaves scrollTop unchanged when transcript growth happens below the viewport', async () => {
     const harness = installTranscriptMeasurementHarness();
 

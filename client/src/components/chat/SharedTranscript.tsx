@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   type ReactNode,
   type UIEventHandler,
 } from 'react';
@@ -112,6 +113,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       scrollHeight: number;
       scrollTop: number;
     } | null>(null);
+    const [historyTopLockActive, setHistoryTopLockActive] = useState(false);
     const hasWarningState = turnsError;
     const hasEmptyState = messages.length === 0;
     const conversationKey = `${surface}:${conversationId ?? 'none'}`;
@@ -338,8 +340,18 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
     useEffect(() => {
       scrollModeRef.current = 'pinned-bottom';
       scrollMetricsRef.current = null;
-      openHistoryAtTopRef.current = turnsLoading;
-    }, [conversationKey, turnsLoading]);
+      openHistoryAtTopRef.current = false;
+      setHistoryTopLockActive(false);
+    }, [conversationKey]);
+
+    useEffect(() => {
+      if (!turnsLoading) {
+        return;
+      }
+      scrollMetricsRef.current = null;
+      openHistoryAtTopRef.current = true;
+      setHistoryTopLockActive(true);
+    }, [turnsLoading]);
 
     useLayoutEffect(() => {
       const transcriptElement = transcriptContainerRef.current;
@@ -508,6 +520,10 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
             renderMessageRow={renderMessageRow}
             measurementKeyByMessageId={measurementKeyByMessageId}
             getScrollSnapshot={getScrollSnapshot}
+            historyTopLockActive={historyTopLockActive}
+            onHistoryTopSettled={() => {
+              setHistoryTopLockActive(false);
+            }}
           />
         </Stack>
       </Box>

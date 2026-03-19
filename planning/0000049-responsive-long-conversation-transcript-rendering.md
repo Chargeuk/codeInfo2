@@ -1689,8 +1689,9 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 
 ### 16. Review Revalidation and Final Closeout
 
-- Task Status: `__in_progress__`
+- Task Status: `__completed__`
 - Git Commits:
+  - `cf59c0ae` - `DEV-[49] - Revalidate Story 49 after Task 15`
 
 #### Overview
 
@@ -1715,7 +1716,7 @@ Revalidate Story 49 end to end after Task 15 lands, and only then close the stor
    - which reopened review finding was fixed;
    - whether the deferred simplification note remains deferred;
    - why the story is safe to close again.
-7. [ ] Commit this plan plus the durable review artifacts (`codeInfoStatus/reviews/0000049-20260319T130208Z-644b72c6-evidence.md` and `codeInfoStatus/reviews/0000049-20260319T130208Z-644b72c6-findings.md`) when the reopened review-fix work is complete. Do not rely on the transient `codeInfoStatus/reviews/0000049-current-review.json` file as the durable artifact; leave it untracked or remove it before the final commit.
+7. [x] Commit this plan plus the durable review artifacts (`codeInfoStatus/reviews/0000049-20260319T130208Z-644b72c6-evidence.md` and `codeInfoStatus/reviews/0000049-20260319T130208Z-644b72c6-findings.md`) when the reopened review-fix work is complete. Do not rely on the transient `codeInfoStatus/reviews/0000049-current-review.json` file as the durable artifact; leave it untracked or remove it before the final commit.
 
 #### Testing
 
@@ -1740,6 +1741,7 @@ Wrapper-only rule: do not attempt to run builds or tests without using the summa
 - Subtask 4: rechecked the repaired shared scroll and virtualization paths through the full client wrapper suite plus the final browser rerun, and confirmed the `T08` proof-contract repair did not disturb pinned-bottom behavior, `T10` row-growth remeasurement, or Flows retained-assistant rendering.
 - Subtask 5: reviewed `planning/0000049-pr-summary.md` and left it unchanged because Task 15 repaired the proof contract without materially changing the shipped Story 49 behavior or scope.
 - Subtask 6: Post-Review Closeout - the reopened `must_fix` plan-contract issue is resolved by Task 15's truthful `T08` versus `T10` ownership split, the deferred simplification note remains deferred with no extra cleanup folded into Story 49, and the story is safe to close again because the durable review artifacts, AC classification, full wrapper rerun, and fresh browser evidence all agree.
+- Subtask 7: committed the final Task 16 revalidation closeout in `cf59c0ae` and left the transient `codeInfoStatus/reviews/0000049-current-review.json` pointer outside the durable story record, since the committed review evidence and findings files remain the canonical artifacts for this review cycle.
 - Testing 1: `npm run build:summary:server` passed cleanly, so the narrow server-side deferred-stop exception still builds alongside the reopened client proof repair.
 - Testing 2: `npm run build:summary:client` passed cleanly, so the repaired proof-contract plan state and the Task 15 direct regression still typecheck and build on the full client wrapper path.
 - Testing 3: `npm run test:summary:server:unit` passed with `1293/1293`, so the narrow server-side deferred-stop exception and its direct proof path remain intact after the reopened client-side contract repair.

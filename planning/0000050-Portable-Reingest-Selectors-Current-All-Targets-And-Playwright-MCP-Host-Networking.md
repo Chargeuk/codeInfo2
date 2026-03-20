@@ -187,6 +187,13 @@ None currently. The remaining MCP placeholder-consumer scope and host-network wr
    - Where the answer came from: direct user answer in this planning conversation agreeing with the previously researched best answer, plus repository evidence in `scripts/docker-compose-with-env.sh`, `package.json`, `AGENTS.md`, and this story file.
    - Why it is the best answer: it puts the environment-specific checks in the existing upstream wrapper layer, where this repository already handles Docker runtime differences, instead of expecting developers to diagnose host-networking problems manually.
 
+13. Implement the flow and command re-ingest behavior first, then the MCP/config contract work, and leave the Docker host-network cutover until last.
+   - Question being addressed: In what order should this story be implemented so the running local stack does not lose MCP functionality partway through the work?
+   - Why the question matters: the checked-in `config.toml` files are visible to the running local stack before the compose services are restarted, so changing placeholder contracts or compose networking too early can break the MCP tools available during development even if the final host ports stay the same.
+   - What the answer is: do the flow and command re-ingest behavior work first, including portable selectors, `current` and `all` targets, batch result recording, and empty-markdown skips. After that, do the MCP placeholder and env-contract work, then update the checked-in config files, then update compose and `.env` wiring, and only then perform the host-networking cutover and final restart-based validation.
+   - Where the answer came from: direct user answer in this planning conversation.
+   - Why it is the best answer: it keeps the MCP tooling available for as long as possible during implementation, isolates the workflow-behavior changes from the environment-contract changes, and pushes the most self-disrupting Docker/networking work to the end when the stack is ready for final validation.
+
 ## Implementation Ideas
 
 - Reuse the existing repository-selector helper as the shared selector-to-repository resolver. Current research shows it already resolves selectors by:
@@ -218,6 +225,10 @@ None currently. The remaining MCP placeholder-consumer scope and host-network wr
   - non-ingested `current` repositories fail fast with a clear message;
   - resolved markdown files that are empty or whitespace-only are skipped with an info-level log instead of being executed as empty prompts.
 - Implement the empty-markdown behavior at the shared markdown-file execution layer used by both flows and commands so both surfaces stay aligned and do not drift into separate edge-case handling.
+- Sequence the story in three broad phases:
+  - first, the command and flow re-ingest behavior changes plus empty-markdown skip handling;
+  - second, the MCP placeholder replacement and env-contract work;
+  - third, the compose, `.env`, wrapper-validation, and host-networking cutover.
 - For the host-networking implementation, use the already captured `future ideas.md` notes only as starting context, not as the final scope. The story should now plan and implement the host-networked end state for the checked-in `server` and `playwright-mcp` services.
 - The current checked-in stacks show that:
   - `docker-compose.yml` defines a `server` service that currently publishes host ports `5010`, `5011`, and `5012`, and a `playwright-mcp` service on bridge-style wiring without an explicit published `8931:8931` mapping;
@@ -237,6 +248,7 @@ None currently. The remaining MCP placeholder-consumer scope and host-network wr
 - Introduce a deliberate per-environment Playwright MCP port strategy. The current decision is to keep `8931` for the local stack and a different checked-in value such as `8932` for the main stack, while still allowing explicit environment configuration where needed.
 - Introduce a deliberate per-environment MCP endpoint strategy. Because service-name DNS no longer works the same way for host-networked services and the server bind ports now differ by stack, the story should replace hard-coded `http://localhost:5010/mcp`, `http://localhost:5011/mcp`, and `http://playwright-mcp:8931/mcp` assumptions with named placeholders in checked-in configs plus shared runtime replacement logic used by chat runtime config, agent runtime config, and wrappers while preserving the intentional tool-access split.
 - Apply the MCP placeholder replacement in one shared runtime-config layer and route every consuming path through it, rather than patching chat, agents, probes, wrappers, and tests independently.
+- Keep the checked-in `config.toml` edits and host-networking compose changes late in the implementation order, because the running local compose stack can observe those file changes before it is restarted and may temporarily lose MCP functionality if the new contracts land too early.
 - Follow the existing Context7 pattern rather than assuming TOML env interpolation exists. Current repository evidence shows Context7 is overlaid in memory from an environment variable during runtime config normalization, so CodeInfo MCP and Playwright MCP should use matching runtime overlay approaches for their endpoints rather than file rewriting or `${ENV_VAR}` syntax assumptions.
 - Prefer names that reflect the actual product surface rather than raw port numbers. The chosen Playwright contract name remains `CODEINFO_PLAYWRIGHT_MCP_URL`, and the CodeInfo side should use `CODEINFO_SERVER_PORT`, `CODEINFO_CHAT_MCP_PORT`, and `CODEINFO_AGENTS_MCP_PORT` inside checked-in localhost URL placeholders so each Compose file can supply values that stay aligned with the real listener contracts without inventing a fourth bind port for the classic `/mcp` surface.
 - Keep browser-navigation URLs and agent-control MCP URLs as separate concerns. Host networking is being introduced so the browser launched by Playwright can use `localhost` semantics against host-published applications. That does not automatically mean the agent control channel should use the same URL.

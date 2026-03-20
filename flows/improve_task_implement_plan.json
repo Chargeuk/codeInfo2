@@ -211,12 +211,7 @@
               "label": "Explain Gotchas",
               "agentType": "coding_agent",
               "identifier": "coder",
-              "messages": [
-                {
-                  "role": "user",
-                  "markdownFile": "implement_next_task_gotchas.md"
-                }
-              ]
+              "markdownFile": "implement_next_task_gotchas.md"
             },
             {
               "type": "llm",

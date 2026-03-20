@@ -626,6 +626,7 @@ describe('Flows page run/resume controls', () => {
       });
 
       expect(await screen.findByText('First step answer')).toBeInTheDocument();
+      expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
 
       harness.emitUserTurn({
         conversationId: 'flow-1',
@@ -662,6 +663,7 @@ describe('Flows page run/resume controls', () => {
       expect(screen.getByText('First step answer')).toBeInTheDocument();
       expect(screen.queryByText('Run step one replay')).not.toBeInTheDocument();
       expect(screen.queryByText('First step answer hidden')).toBeNull();
+      expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(2);
 
       const retainedLog = logSpy.mock.calls.find(([entry]) => {
         if (!entry || typeof entry !== 'object') return false;
@@ -682,6 +684,19 @@ describe('Flows page run/resume controls', () => {
           proof: 'post_event_transcript_visible',
         }),
       });
+      expect(logSpy.mock.calls).toEqual(
+        expect.arrayContaining([
+          [
+            expect.objectContaining({
+              message: 'DEV-0000049:T05:flows_shared_transcript_rendered',
+              context: expect.objectContaining({
+                surface: 'flows',
+                citationsVisible: false,
+              }),
+            }),
+          ],
+        ]),
+      );
     } finally {
       logSpy.mockRestore();
     }
@@ -730,6 +745,160 @@ describe('Flows page run/resume controls', () => {
       await screen.findByText('Second step still streaming'),
     ).toBeInTheDocument();
     expect(screen.getByText('First step answer')).toBeInTheDocument();
+  });
+
+  it('clears stale virtualized rows when switching from a populated flow conversation to an empty one', async () => {
+    const user = userEvent.setup();
+    const turnsByConversation: Record<
+      string,
+      { items: Record<string, unknown>[] }
+    > = {
+      'flow-1': {
+        items: [
+          {
+            turnId: 'flow-user-1',
+            conversationId: 'flow-1',
+            role: 'user',
+            content: 'Run step one',
+            provider: 'codex',
+            model: 'gpt-5',
+            status: 'ok',
+            createdAt: '2025-01-01T00:00:00.000Z',
+          },
+          {
+            turnId: 'flow-assistant-1',
+            conversationId: 'flow-1',
+            role: 'assistant',
+            content: 'First step answer',
+            provider: 'codex',
+            model: 'gpt-5',
+            status: 'ok',
+            createdAt: '2025-01-01T00:00:01.000Z',
+          },
+        ],
+      },
+      'flow-2': { items: [] },
+    };
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target =
+          typeof url === 'string'
+            ? url
+            : url instanceof URL
+              ? url.toString()
+              : 'url' in url && typeof url.url === 'string'
+                ? url.url
+                : url.toString();
+        const method =
+          init?.method ??
+          (typeof url === 'object' &&
+          url !== null &&
+          'method' in url &&
+          typeof url.method === 'string'
+            ? url.method
+            : undefined);
+
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+
+        if (target.includes('/flows') && !target.includes('/run')) {
+          return mockJsonResponse({
+            flows: [
+              { name: 'daily', description: 'Daily flow', disabled: false },
+            ],
+          });
+        }
+
+        const turnsMatch = target.match(/\/conversations\/([^/]+)\/turns/);
+        if (turnsMatch) {
+          const conversationId = turnsMatch[1] ?? '';
+          return mockJsonResponse({
+            items: turnsByConversation[conversationId]?.items ?? [],
+            nextCursor: null,
+          });
+        }
+
+        if (
+          target.includes('/conversations/') &&
+          target.includes('/working-folder') &&
+          method === 'POST'
+        ) {
+          return mockJsonResponse({
+            status: 'ok',
+            conversation: {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              archived: false,
+              flowName: 'daily',
+              flags: {},
+            },
+          });
+        }
+
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({
+            items: [
+              {
+                conversationId: 'flow-1',
+                title: 'Flow: daily',
+                provider: 'codex',
+                model: 'gpt-5',
+                source: 'REST',
+                lastMessageAt: '2025-01-01T00:00:01.000Z',
+                archived: false,
+                flowName: 'daily',
+                flags: {},
+              },
+              {
+                conversationId: 'flow-2',
+                title: 'Flow: nightly',
+                provider: 'codex',
+                model: 'gpt-5',
+                source: 'REST',
+                lastMessageAt: '2025-01-01T00:10:00.000Z',
+                archived: false,
+                flowName: 'daily',
+                flags: {},
+              },
+            ],
+            nextCursor: null,
+          });
+        }
+
+        return mockJsonResponse({});
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const firstConversation = await screen.findByText('Flow: daily');
+    const firstRow = firstConversation.closest(
+      '[data-testid="conversation-row"]',
+    );
+    expect(firstRow).toBeTruthy();
+    await user.click(firstRow!);
+
+    expect(await screen.findByText('Run step one')).toBeInTheDocument();
+    expect(await screen.findByText('First step answer')).toBeInTheDocument();
+
+    const secondConversation = await screen.findByText('Flow: nightly');
+    const secondRow = secondConversation.closest(
+      '[data-testid="conversation-row"]',
+    );
+    expect(secondRow).toBeTruthy();
+    await user.click(secondRow!);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Run step one')).toBeNull();
+      expect(screen.queryByText('First step answer')).toBeNull();
+      expect(screen.queryAllByTestId('chat-bubble')).toHaveLength(0);
+    });
   });
 
   it('keeps visible transcript text if a flow refresh temporarily omits the active conversation while streaming', async () => {
@@ -849,6 +1018,7 @@ describe('Flows page run/resume controls', () => {
       expect(
         await screen.findByText('Latest live output still running'),
       ).toBeInTheDocument();
+      expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(2);
       const hiddenLogs = logSpy.mock.calls.filter(([entry]) => {
         if (!entry || typeof entry !== 'object') return false;
         return (
@@ -903,7 +1073,9 @@ describe('Flows page run/resume controls', () => {
         inflightId: 'flow-step-3',
         delta: 'Third step answer',
       });
-      expect(await screen.findByText('Third step answer')).toBeInTheDocument();
+      expect(
+        (await screen.findAllByText('Third step answer')).length,
+      ).toBeGreaterThan(0);
 
       harness.emitUserTurn({
         conversationId: 'flow-1',
@@ -915,7 +1087,9 @@ describe('Flows page run/resume controls', () => {
         inflightId: 'flow-step-4',
         delta: 'Fourth step answer',
       });
-      expect(await screen.findByText('Fourth step answer')).toBeInTheDocument();
+      expect(
+        (await screen.findAllByText('Fourth step answer')).length,
+      ).toBeGreaterThan(0);
 
       await waitFor(() => {
         const retainedLogs = logSpy.mock.calls

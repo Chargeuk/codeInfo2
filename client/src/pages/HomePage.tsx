@@ -1,8 +1,9 @@
 import { fetchServerVersion, VersionInfo } from '@codeinfo2/common';
-import { Box, Card, CardContent, Typography } from '@mui/material';
+import { Alert, Box, Card, CardContent, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import pkg from '../../package.json';
 import { getApiBaseUrl } from '../api/baseUrl';
+import { getApiBaseUrlBlockingIssueMessage } from '../config/runtimeConfig';
 import { createLogger } from '../logging';
 
 export default function HomePage() {
@@ -12,8 +13,15 @@ export default function HomePage() {
   const clientVersion = pkg.version;
   const logger = useMemo(() => createLogger('client-home'), []);
   const apiUrl = getApiBaseUrl();
+  const apiBaseUrlBlockingIssueMessage = getApiBaseUrlBlockingIssueMessage();
 
   useEffect(() => {
+    if (apiBaseUrlBlockingIssueMessage) {
+      setServerVersion(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -32,10 +40,19 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [apiUrl, logger]);
+  }, [apiBaseUrlBlockingIssueMessage, apiUrl, logger]);
 
   return (
     <Box sx={{ mt: 0, maxWidth: 540, width: '100%' }}>
+      {apiBaseUrlBlockingIssueMessage && (
+        <Alert
+          severity="error"
+          data-testid="runtime-config-api-base-url-home-banner"
+          sx={{ mb: 2 }}
+        >
+          {apiBaseUrlBlockingIssueMessage}
+        </Alert>
+      )}
       <Card>
         <CardContent>
           <Typography variant="h4" gutterBottom>

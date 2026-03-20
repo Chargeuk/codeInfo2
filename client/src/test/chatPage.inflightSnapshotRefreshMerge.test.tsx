@@ -98,6 +98,8 @@ test('hydrates inflight snapshot from turns refresh and continues streaming', as
     .getAllByTestId('assistant-markdown')
     .map((node) => node.textContent ?? '');
   expect(assistantTexts.join('\n')).toContain('Snapshot partial');
+  expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(1);
+  expect(screen.getAllByTestId('chat-bubble').length).toBeGreaterThanOrEqual(2);
 
   await act(async () => {
     harness.emitAssistantDelta({
@@ -109,6 +111,7 @@ test('hydrates inflight snapshot from turns refresh and continues streaming', as
 
   await waitFor(() => {
     expect(screen.getByText('Snapshot partial + delta')).toBeInTheDocument();
+    expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(1);
   });
 });
 

@@ -1,0 +1,10 @@
+{
+  "story_id": "0000049",
+  "plan_path": "planning/0000049-responsive-long-conversation-transcript-rendering.md",
+  "branch": "feature/0000049-responsive-long-conversation-transcript-rendering",
+  "base_branch": "main",
+  "head_commit": "68b9d93d",
+  "review_pass_id": "0000049-20260319T140004Z-68b9d93d",
+  "evidence_file": "codeInfoStatus/reviews/0000049-20260319T140004Z-68b9d93d-evidence.md",
+  "findings_file": "codeInfoStatus/reviews/0000049-20260319T140004Z-68b9d93d-findings.md"
+}

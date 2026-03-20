@@ -11,6 +11,198 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Husky + lint-staged: pre-commit runs ESLint (no warnings) and Prettier check on staged TS/JS/TSX/JSX files.
 - Environment policy: commit `.env` with safe defaults; keep `.env.local` for overrides and secrets (ignored from git and Docker contexts).
 
+## Story 0000049 Task 1 shared Chat transcript boundary
+
+- `client/src/pages/ChatPage.tsx` still owns the Chat page shell, model/provider controls, `ConversationList`, and `CodexFlagsPanel`.
+- The transcript bubble loop now lives under `client/src/components/chat/SharedTranscript.tsx` and `client/src/components/chat/SharedTranscriptMessageRow.tsx`.
+- Shared rich transcript helpers now live alongside that path:
+  - `client/src/components/chat/chatTranscriptFormatting.ts` owns timestamp, usage, timing, and step-line formatting.
+  - `client/src/components/chat/SharedTranscriptToolDetails.tsx` owns the shared tool-details rendering path reused by Chat and Agents.
+- Collapsed heavy accordion content in the shared transcript uses `slotProps.transition.unmountOnExit` so hidden tool and citation trees do not stay mounted unnecessarily.
+
+```mermaid
+flowchart LR
+  ChatPage["ChatPage.tsx"] --> ConversationList["ConversationList.tsx (page-owned)"]
+  ChatPage --> Flags["CodexFlagsPanel.tsx (page-owned)"]
+  ChatPage --> SharedTranscript["SharedTranscript.tsx"]
+  SharedTranscript --> MessageRow["SharedTranscriptMessageRow.tsx"]
+  MessageRow --> Formatting["chatTranscriptFormatting.ts"]
+  MessageRow --> ToolDetails["SharedTranscriptToolDetails.tsx"]
+  MessageRow --> Markdown["Markdown.tsx"]
+```
+
+## Story 0000049 Task 2 Agents composer isolation boundary
+
+- `client/src/pages/AgentsPage.tsx` now owns the surface state and fetch/run orchestration, but it no longer renders the Agents controls and transcript inline from the same JSX subtree.
+- `client/src/components/agents/AgentsComposerPanel.tsx` owns the page-local composer boundary: agent selection, command/start-step controls, working-folder controls, prompt execution controls, the multiline `agent-input`, and the fixed-width send/stop slot.
+- `client/src/components/agents/AgentsTranscriptPane.tsx` is a temporary page-local transcript boundary for Task 2. It keeps the current Agents-specific transcript rendering path intact until Task 3 swaps that implementation to the shared transcript component.
+- The isolation fix is the component boundary itself: `agent-input` stays urgent and controlled, while transcript props are kept narrow and memo-friendly so typing does not need to recreate the transcript pane.
+
+```mermaid
+flowchart LR
+  AgentsPage["AgentsPage.tsx"] --> Composer["AgentsComposerPanel.tsx"]
+  AgentsPage --> Transcript["AgentsTranscriptPane.tsx (page-local until Task 3)"]
+  Composer --> Controls["Agent/command/folder/input controls"]
+  Transcript --> Markdown["Markdown.tsx"]
+  Transcript --> ToolDetails["SharedTranscriptToolDetails.tsx"]
+  Transcript --> Formatting["chatTranscriptFormatting.ts"]
+```
+
+## Story 0000049 Task 3 deferred stop status alignment and diagnostics
+
+- Story 49 stays client-led, but Task 3 adds one narrow server-side exception so stop-near-complete Flow and coding-agent runs do not leave websocket `turn_final` status out of sync with the persisted assistant turn status.
+- `server/src/chat/chatStreamBridge.ts` now treats a later `stopped` or `failed` terminal result as authoritative over an earlier deferred pending `ok`, while still preserving completion metadata such as `threadId`, usage, and timing when those values were already captured.
+- The stop investigation path is now meant to be traceable across five seams:
+  - `DEV-0000049:T03:stop_path_registered`
+  - `DEV-0000049:T03:flow_instruction_status_reclassified`
+  - `DEV-0000049:T03:flow_turn_status_persisted`
+  - `DEV-0000049:T03:live_final_applied`
+  - `DEV-0000049:T03:hydrated_persisted_turn_status`
+- The client-side breadcrumbs matter because a future visible `Stopped` chip can now be traced to either live websocket final application or later persisted-turn hydration after refresh, instead of leaving that distinction implicit.
+
+```mermaid
+sequenceDiagram
+  participant Stop as Stop request path
+  participant Flow as flows/service.ts
+  participant Bridge as chatStreamBridge.ts
+  participant Persist as Flow turn persistence
+  participant Client as useChatStream / FlowsPage
+
+  Stop->>Flow: cancel_inflight / pending stop
+  Stop-->>Flow: DEV-0000049:T03:stop_path_registered
+  Bridge-->>Bridge: pending deferred final = ok
+  Flow->>Flow: inflightSignal.aborted after complete
+  Flow-->>Flow: DEV-0000049:T03:flow_instruction_status_reclassified
+  Flow->>Persist: write stopped assistant turn(s)
+  Persist-->>Persist: DEV-0000049:T03:flow_turn_status_persisted
+  Flow->>Bridge: finalize(fallback = stopped)
+  Bridge-->>Bridge: DEV-0000049:T03:deferred_final_status_aligned
+  Bridge->>Client: turn_final(status=stopped)
+  Client-->>Client: DEV-0000049:T03:live_final_applied
+  Client->>Client: refresh / turns reload
+  Client-->>Client: DEV-0000049:T03:hydrated_persisted_turn_status
+```
+
+## Story 0000049 Task 5 Flows shared transcript adoption
+
+- `client/src/pages/FlowsPage.tsx` now keeps flow selection, run controls, loading/error banners, and `buildFlowMetaLine(...)` page-owned while delegating transcript row rendering to `client/src/components/chat/SharedTranscript.tsx`.
+- The shared transcript API now accepts Flow-specific metadata rendering and page-owned empty-state content so Flows can preserve `bubble-flow-meta`, loading/empty copy, and `flows-turns-error` without reviving a page-local bubble loop.
+- Flows keeps `citationsEnabled={false}` explicitly on the shared transcript path. That makes the no-citations contract visible in code instead of relying on implicit behavior.
+- Retained-assistant behavior still lives in the Flows page state/orchestration layer; the shared transcript only renders the already-derived `displayMessages` state that Flows passes into it.
+
+```mermaid
+flowchart LR
+  FlowsPage["FlowsPage.tsx"] --> ConversationList["ConversationList.tsx (page-owned)"]
+  FlowsPage --> FlowMeta["buildFlowMetaLine(...) (page-owned)"]
+  FlowsPage --> SharedTranscript["SharedTranscript.tsx"]
+  SharedTranscript --> MessageRow["SharedTranscriptMessageRow.tsx"]
+  FlowMeta --> MessageRow
+  MessageRow --> Markdown["Markdown.tsx"]
+  MessageRow --> Formatting["chatTranscriptFormatting.ts"]
+  SharedTranscript --> NoCitations["citationsEnabled = false"]
+```
+
+## Story 0000049 Task 6 transcript measurement harness support
+
+- `client/src/test/support/transcriptMeasurementHarness.ts` is the new opt-in measurement helper for Story 49. It installs a small mock `ResizeObserver`, element sizing hooks, scroll metrics, and an explicit invalid-target error path for transcript-facing tests.
+- The helper is intentionally imported only by the tests that need it. `client/src/test/setupTests.ts` stays unchanged so the measurement seam does not become accidental global test state.
+- `client/src/components/chat/SharedTranscript.tsx` now exposes the first shared measurement owner that later tasks will build on. It tags each row with `data-transcript-row-id`, logs `DEV-0000049:T06:transcript_measurement_support_ready` when a measurement-capable transcript initializes, and logs `DEV-0000049:T06:transcript_measurement_missing_row_ignored` when a late callback targets a detached row safely.
+- `client/src/test/transcriptTestHarness.test.ts` proves the harness itself, while `client/src/test/chatPage.layoutHeight.test.tsx` proves the same harness works against a real shared transcript render path without crashing on a detached-row callback.
+
+```mermaid
+flowchart LR
+  Harness["transcriptMeasurementHarness.ts (test-only)"] --> HarnessProof["transcriptTestHarness.test.ts"]
+  Harness --> ChatLayout["chatPage.layoutHeight.test.tsx"]
+  ChatLayout --> SharedTranscript["SharedTranscript.tsx"]
+  SharedTranscript --> ReadyLog["DEV-0000049:T06:transcript_measurement_support_ready"]
+  SharedTranscript --> MissingRowLog["DEV-0000049:T06:transcript_measurement_missing_row_ignored"]
+```
+
+## Story 0000049 Task 7 shared transcript state ownership
+
+- `client/src/components/chat/useSharedTranscriptState.ts` now owns conversation-scoped rich-row expansion state for citations, thought-process content, tool details, and tool-error disclosures.
+- `client/src/components/chat/SharedTranscript.tsx` and `client/src/components/chat/SharedTranscriptMessageRow.tsx` now render those sections as controlled shared state instead of page-local state or uncontrolled accordions.
+- `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx` pass the active conversation identity into that shared owner so state resets at conversation boundaries without changing message transport contracts.
+- The shared-state proof marker is `DEV-0000049:T07:shared_transcript_state_changed`, emitted only when a keyed row-state value actually flips.
+
+```mermaid
+flowchart LR
+  ChatPage["ChatPage.tsx"] --> SharedState["useSharedTranscriptState.ts"]
+  AgentsPage["AgentsPage.tsx"] --> SharedState
+  FlowsPage["FlowsPage.tsx"] --> SharedState
+  SharedState --> SharedTranscript["SharedTranscript.tsx"]
+  SharedTranscript --> MessageRow["SharedTranscriptMessageRow.tsx"]
+  MessageRow --> Citations["citation accordion (controlled)"]
+  MessageRow --> Thinking["thought process collapse (controlled)"]
+  MessageRow --> Tools["tool details + tool errors (controlled)"]
+```
+
+## Story 0000049 Task 8 shared transcript scroll contract
+
+- `client/src/components/chat/SharedTranscript.tsx` now owns the non-virtualized shared scroll contract for Chat, Agents, and Flows instead of leaving placeholder page-local scroll handlers behind.
+- The shared transcript uses one near-bottom threshold for all three surfaces and switches between two explicit modes: `pinned-bottom` and `scrolled-away`.
+- While the reader is scrolled away, row growth is handled at the transcript-container level by comparing the previous and current `scrollHeight` values and adjusting `scrollTop` by the delta so the reader keeps their place.
+- The Task 6 measurement harness remains test-only. Production scroll math stays inside `SharedTranscript.tsx`, while `client/src/test/sharedTranscript.scrollBehavior.test.tsx` is the source-of-truth regression seam for the shared contract.
+
+```mermaid
+flowchart LR
+  ChatPage["ChatPage.tsx"] --> SharedTranscript["SharedTranscript.tsx"]
+  AgentsPage["AgentsPage.tsx"] --> SharedTranscript
+  FlowsPage["FlowsPage.tsx"] --> SharedTranscript
+  SharedTranscript --> ScrollMode["pinned-bottom | scrolled-away"]
+  SharedTranscript --> AnchorMath["container scrollHeight delta adjustment"]
+  SharedTranscript --> Rows["SharedTranscriptMessageRow.tsx"]
+  Harness["transcriptMeasurementHarness.ts (test-only)"] --> ScrollTests["sharedTranscript.scrollBehavior.test.tsx"]
+  ScrollTests --> SharedTranscript
+```
+
+## Story 0000049 Task 9 transcript virtualization foundation
+
+- `client/src/components/chat/SharedTranscript.tsx` still owns the transcript container, its `data-testid`, and the shared scroll contract from Task 8. Task 9 does not move that responsibility.
+- `client/src/components/chat/VirtualizedTranscript.tsx` is the new windowing seam. It receives the already-ordered transcript messages plus the shared scroll-container ref, owns `useVirtualizer(...)`, and renders only the visible rows through measured wrappers keyed by `message.id`.
+- The shared row renderer stays the same `SharedTranscriptMessageRow.tsx` path, so Chat, Agents, and Flows keep one transcript row implementation while only the mounting strategy changes.
+- `ConversationList` and `CodexFlagsPanel` remain outside the virtualized subtree. Virtualization is limited to transcript rows, not page shell UI or sidebar structure.
+
+```mermaid
+flowchart LR
+  ChatPage["ChatPage.tsx"] --> SharedTranscript["SharedTranscript.tsx"]
+  AgentsPage["AgentsPage.tsx"] --> SharedTranscript
+  FlowsPage["FlowsPage.tsx"] --> SharedTranscript
+  SharedTranscript --> ScrollContainer["shared scroll container + data-testid"]
+  SharedTranscript --> VirtualizedTranscript["VirtualizedTranscript.tsx"]
+  VirtualizedTranscript --> Virtualizer["useVirtualizer(...)"]
+  VirtualizedTranscript --> RowWrapper["measured row wrapper (data-index + measureElement)"]
+  RowWrapper --> MessageRow["SharedTranscriptMessageRow.tsx"]
+  ChatPage --> ConversationList["ConversationList.tsx (outside virtualized subtree)"]
+  ChatPage --> Flags["CodexFlagsPanel.tsx (outside virtualized subtree)"]
+```
+
+## Story 0000049 Task 10 dynamic row measurement coverage
+
+- `client/src/components/chat/VirtualizedTranscript.tsx` now owns the final measured-row growth path on top of the Task 9 virtualizer seam. Each visible row still renders through one measured wrapper, but row-height changes now trigger remeasurement and settled-growth proof logs instead of relying on the older container-only path.
+- `client/src/components/chat/SharedTranscript.tsx` still owns the scroll container and shared scroll mode, but row-triggered size adjustments are now left to the virtualized measurement path. The shared layer only keeps the transcript-level anchor contract and the detached-row safety seam from Task 6.
+- `client/src/components/chat/useSharedTranscriptState.ts` remains the single conversation-scoped owner for citation, thought-process, tool-details, and tool-error expansion state. Task 10 does not move any of that state back into row-local components, which is what allows reasoning and rich-row state to survive virtual unmount and remount.
+- `client/src/test/support/transcriptMeasurementHarness.ts` remains test-only and outside production imports. The Task 10 regressions exercise the final measured-row path through that harness instead of introducing hidden DOM stubs.
+- The final browser-visible measurement markers for Story 49 are:
+  - `DEV-0000049:T10:virtualized_row_remeasured`
+  - `DEV-0000049:T10:virtualized_row_growth_settled`
+
+```mermaid
+flowchart LR
+  ChatPage["ChatPage.tsx"] --> SharedTranscript["SharedTranscript.tsx"]
+  AgentsPage["AgentsPage.tsx"] --> SharedTranscript
+  FlowsPage["FlowsPage.tsx"] --> SharedTranscript
+  SharedTranscript --> SharedState["useSharedTranscriptState.ts"]
+  SharedTranscript --> VirtualizedTranscript["VirtualizedTranscript.tsx"]
+  VirtualizedTranscript --> Virtualizer["useVirtualizer(...)"]
+  VirtualizedTranscript --> MeasuredRow["single measured row wrapper<br/>data-index + data-virtualized-message-id + measureElement"]
+  MeasuredRow --> MessageRow["SharedTranscriptMessageRow.tsx"]
+  MeasuredRow --> RemeasureLog["DEV-0000049:T10:virtualized_row_remeasured"]
+  MeasuredRow --> SettledLog["DEV-0000049:T10:virtualized_row_growth_settled"]
+  Harness["transcriptMeasurementHarness.ts (test-only)"] --> Task10Tests["Task 10 RTL regressions"]
+  Harness -. no production imports .-> VirtualizedTranscript
+```
+
 ## Common package
 
 - Purpose: shared DTOs/utilities consumed by client and server to prove workspace linking.

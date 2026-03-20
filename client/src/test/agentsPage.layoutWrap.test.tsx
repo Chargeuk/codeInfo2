@@ -1,6 +1,13 @@
 import { jest } from '@jest/globals';
-import { render, screen, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -51,7 +58,10 @@ function mockJsonResponse(payload: unknown, init?: { status?: number }) {
   );
 }
 
-function mockAgentsFetch() {
+function mockAgentsFetch(options?: {
+  conversations?: unknown[];
+  turns?: unknown[];
+}) {
   mockFetch.mockImplementation((url: RequestInfo | URL) => {
     const target = typeof url === 'string' ? url : url.toString();
 
@@ -68,11 +78,14 @@ function mockAgentsFetch() {
     }
 
     if (target.includes('/conversations') && target.includes('agentName=')) {
-      return mockJsonResponse({ items: baseConversations, nextCursor: 'next' });
+      return mockJsonResponse({
+        items: options?.conversations ?? baseConversations,
+        nextCursor: 'next',
+      });
     }
 
     if (target.includes('/conversations/')) {
-      return mockJsonResponse({ items: [] });
+      return mockJsonResponse({ items: options?.turns ?? [] });
     }
 
     return mockJsonResponse({});
@@ -225,5 +238,72 @@ describe('Agents page layout wrap', () => {
       'MuiButton-contained',
       'MuiButton-sizeSmall',
     );
+  });
+
+  it('uses the shared pinned-bottom and scroll-away rules on Agents', async () => {
+    const measurementHarness = installTranscriptMeasurementHarness();
+    mockAgentsFetch({
+      conversations: [
+        {
+          conversationId: 'a-scroll',
+          title: 'Agents scroll conversation',
+          provider: 'codex',
+          model: 'gpt-5.2',
+          lastMessageAt: '2026-03-19T00:00:00.000Z',
+          archived: false,
+          agentName: 'coding_agent',
+        },
+      ],
+      turns: Array.from({ length: 14 }, (_, index) => ({
+        turnId: `turn-${index + 1}`,
+        conversationId: 'a-scroll',
+        role: index % 2 === 0 ? 'assistant' : 'user',
+        content: `Agent message ${index + 1}`,
+        provider: 'codex',
+        model: 'gpt-5.2',
+        status: 'ok',
+        createdAt: `2026-03-19T00:0${index}:00.000Z`,
+      })),
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const conversationRow = await screen.findByTestId('conversation-row');
+    fireEvent.click(conversationRow);
+    const transcript = await screen.findByTestId('chat-transcript');
+    await waitFor(() =>
+      expect(screen.getAllByTestId('chat-bubble')).toHaveLength(14),
+    );
+
+    measurementHarness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 1200,
+      scrollTop: 880,
+    });
+
+    transcript.scrollTop = 430;
+    fireEvent.scroll(transcript);
+
+    measurementHarness.setScrollMetrics(transcript, {
+      scrollHeight: 1320,
+      scrollTop: 430,
+    });
+    measurementHarness.triggerResize(transcript);
+    expect(transcript.scrollTop).toBe(430);
+
+    transcript.scrollTop = 960;
+    fireEvent.scroll(transcript);
+
+    measurementHarness.setScrollMetrics(transcript, {
+      scrollHeight: 1410,
+      scrollTop: 960,
+    });
+    measurementHarness.triggerResize(transcript);
+    expect(transcript.scrollTop).toBe(1090);
+
+    measurementHarness.restore();
   });
 });

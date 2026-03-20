@@ -1,5 +1,246 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000049 Task 10 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/components/chat/VirtualizedTranscript.tsx`
+- `client/src/test/agentsPage.layoutWrap.test.tsx`
+- `client/src/test/agentsPage.reasoning.test.tsx`
+- `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
+- `client/src/test/chatPage.layoutHeight.test.tsx`
+- `client/src/test/chatPage.reasoning.test.tsx`
+- `client/src/test/flowsPage.run.test.tsx`
+- `client/src/test/flowsPage.test.tsx`
+- `client/src/test/sharedTranscript.scrollBehavior.test.tsx`
+- `client/src/test/useChatStream.inflightMismatch.test.tsx`
+- `client/src/test/useConversationTurns.commandMetadata.test.ts`
+- `client/src/test/useConversationTurns.refresh.test.ts`
+- `design.md`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 10 finishes the final measured-row contract on top of the Task 9 virtualizer by keeping one measured wrapper in `client/src/components/chat/VirtualizedTranscript.tsx` and remeasuring row growth there instead of reviving page-local transcript logic.
+- `client/src/components/chat/SharedTranscript.tsx` keeps the shared container and scroll contract, while `client/src/components/chat/useSharedTranscriptState.ts` remains the single owner for citation, thought-process, tool-detail, and tool-error expansion state across Chat, Agents, and Flows.
+- The Task 10 regression sweep stays anchored to the existing named files and the existing test-only `client/src/test/support/transcriptMeasurementHarness.ts` seam rather than adding a new production helper file.
+
+## Story 0000049 Task 9 structural change ledger
+
+Added files:
+
+- `client/src/components/chat/VirtualizedTranscript.tsx`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/package.json`
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/test/agentsPage.run.test.tsx`
+- `client/src/test/chatPage.stream.test.tsx`
+- `client/src/test/flowsPage.run.test.tsx`
+- `design.md`
+- `package-lock.json`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 9 introduces `client/src/components/chat/VirtualizedTranscript.tsx` as the first shared row-windowing seam while leaving transcript-container and scroll ownership in `client/src/components/chat/SharedTranscript.tsx`.
+- Chat, Agents, and Flows still feed one ordered message list into the shared transcript path; the virtualizer only changes which rows mount at a given time.
+- `ConversationList` and `CodexFlagsPanel` remain outside the virtualized subtree.
+
+## Story 0000049 Task 8 structural change ledger
+
+Added files:
+
+- `client/src/test/sharedTranscript.scrollBehavior.test.tsx`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/components/agents/AgentsTranscriptPane.tsx`
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/test/agentsPage.layoutWrap.test.tsx`
+- `client/src/test/chatPage.layoutHeight.test.tsx`
+- `client/src/test/chatPage.layoutWrap.test.tsx`
+- `client/src/test/flowsPage.test.tsx`
+- `design.md`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 8 keeps the scroll contract inside `client/src/components/chat/SharedTranscript.tsx` instead of adding a second production helper file.
+- `client/src/test/sharedTranscript.scrollBehavior.test.tsx` becomes the shared source-of-truth regression for pinned-bottom versus scrolled-away behavior and anchor preservation during row growth.
+- Chat, Agents, and Flows now inherit the same non-virtualized scroll behavior while still keeping their page-owned shell concerns outside the shared transcript.
+
+## Story 0000049 Task 7 structural change ledger
+
+Added files:
+
+- `client/src/components/chat/useSharedTranscriptState.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/components/agents/AgentsTranscriptPane.tsx`
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/components/chat/SharedTranscriptMessageRow.tsx`
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/pages/FlowsPage.tsx`
+- `client/src/test/agentsPage.citations.test.tsx`
+- `client/src/test/agentsPage.reasoning.test.tsx`
+- `client/src/test/chatPage.citations.test.tsx`
+- `client/src/test/chatPage.layoutHeight.test.tsx`
+- `client/src/test/chatPage.reasoning.test.tsx`
+- `client/src/test/flowsPage.test.tsx`
+- `design.md`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 7 moves citation, thought-process, tool-details, and tool-error expansion state into one conversation-scoped shared hook under `client/src/components/chat/`.
+- The shared transcript row renderer is now controlled by that single owner, while Chat, Agents, and Flows still keep their page-specific shell behavior and transcript-derived metadata outside the hook.
+- Conversation changes now clear shared row state at the transcript boundary so one conversation cannot inherit stale expansion state from another.
+
+## Story 0000049 Task 3 structural change ledger
+
+Added files:
+
+- `server/src/test/unit/chat-stream-bridge.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/hooks/useChatStream.ts`
+- `client/src/pages/FlowsPage.tsx`
+- `design.md`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- `projectStructure.md`
+- `server/src/chat/chatStreamBridge.ts`
+- `server/src/chat/inflightRegistry.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+- `server/src/ws/server.ts`
+
+Story notes:
+
+- Task 3 is the one allowed server-side exception inside Story 49: it keeps deferred websocket final status aligned with persisted assistant-turn status during stop-near-complete races.
+- The diagnostic chain now spans stop registration, Flow-side reclassification, Flow-side persisted status writes, live-final client application, and persisted-turn hydration so future `Stopped` investigations can be traced end to end.
+- `server/src/test/unit/chat-stream-bridge.test.ts` is the focused low-seam regression for deferred final alignment, while `server/src/test/integration/flows.run.command.test.ts` proves the Flow-visible stop path stays internally consistent.
+
+## Story 0000049 Task 2 structural change ledger
+
+Added files:
+
+- `client/src/components/agents/AgentsComposerPanel.tsx`
+- `client/src/components/agents/AgentsTranscriptPane.tsx`
+- `client/src/test/agentsPage.inputIsolation.test.tsx`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/FlowsPage.tsx`
+- `client/src/test/flowsPage.run.test.tsx`
+- `client/src/test/flowsPage.test.tsx`
+- `design.md`
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/components/chat/SharedTranscriptMessageRow.tsx`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 2 isolates the Agents composer from the transcript subtree without adopting the shared transcript path yet.
+- `AgentsTranscriptPane.tsx` remains the memoized Task 2 isolation boundary, but Task 4 replaces its old page-local renderer with a thin wrapper around `client/src/components/chat/SharedTranscript.tsx`.
+- Task 5 moves Flows onto `SharedTranscript.tsx` as well, while keeping `buildFlowMetaLine(...)` page-owned and leaving citations disabled on the Flows surface.
+
+## Story 0000049 Task 1 structural change ledger
+
+Added files:
+
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/components/chat/SharedTranscriptMessageRow.tsx`
+- `client/src/components/chat/SharedTranscriptToolDetails.tsx`
+- `client/src/components/chat/chatTranscriptFormatting.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/test/chatPage.toolDetails.test.tsx`
+- `design.md`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 1 introduces the first shared non-virtualized Chat transcript renderer while leaving `ConversationList` and `CodexFlagsPanel` page-owned.
+- The shared transcript formatting and tool-detail helpers are now reusable from both Chat and Agents ahead of later shared-transcript adoption tasks.
+
 ## Story 0000048 final implementation footprint
 
 Added files:
@@ -1028,12 +1269,16 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ App.tsx â€” app shell with CssBaseline/NavBar/Container
 â”‚     â”œâ”€ assets/react.svg â€” React logo asset
 â”‚     â”œâ”€ components/
+â”‚     â”‚  â”œâ”€ agents/
+â”‚     â”‚  â”‚  â”œâ”€ AgentsComposerPanel.tsx â€” Agents control-panel boundary for selector, command, folder, prompt, and instruction/send-stop UI
+â”‚     â”‚  â”‚  â””â”€ AgentsTranscriptPane.tsx â€” memoized Agents transcript boundary that preserves composer isolation while delegating rendering to the shared transcript
 â”‚     â”‚  â”œâ”€ codex/
 â”‚     â”‚  â”‚  â””â”€ CodexDeviceAuthDialog.tsx â€” device-auth dialog with target select, API call, and copy helpers
 â”‚     â”‚  â”œâ”€ NavBar.tsx â€” top navigation AppBar/Tabs
 |     |  |  |- chat/
 |     |  |  |  â”œâ”€ CodexFlagsPanel.tsx â€” Codex-only flags accordion with sandbox select
 |     |  |  |  â””â”€ ConversationList.tsx â€” conversation sidebar with infinite scroll + archive/restore
+|     |  |  |  â””â”€ useSharedTranscriptState.ts â€” conversation-scoped shared rich-row expansion owner for citations, thought-process, tool details, and tool errors
 |     |  |- Markdown.tsx ? sanitized GFM renderer shared by chat+agents assistant/user bubbles (and expanded think text) with code block + mermaid handling
 â”‚     â”‚  â””â”€ ingest/
 â”‚     â”‚     â”œâ”€ ActiveRunCard.tsx — shows active ingest status, counts, cancel + logs link
@@ -1127,6 +1372,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- agentsPage.commandsRun.persistenceDisabled.test.tsx ? Agents page persistence guard plus command-run payload coverage for selected `startStep`
 |     |     |- agentsPage.commandMetadataRender.test.tsx ? Agents page renders per-turn command metadata note with step progress
 |     |     |- agentsPage.commandsRun.abort.test.tsx ? Agents page Stop sends WS cancel_inflight (does not abort HTTP start)
+|     |     |- agentsPage.inputIsolation.test.tsx ? Agents page keeps the transcript child render count flat while typing into `agent-input`
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
 |     |     |- ingestPage.layout.test.tsx ? ingest page stays full width (no maxWidth lg container)
 |     |     |- ingestStatus.test.tsx ? ingest status polling/cancel card tests
@@ -1685,6 +1931,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - client/src/test/useChatWs.test.ts — hook-level coverage for chat WebSocket connect/reconnect, per-inflight seq gating, new-inflight seq resets, and disabled realtime mode
 - client/src/test/support/mockChatWs.ts — shared websocket harness for Chat/Agents/Flows page tests with inflight emit helpers used by stream-retention regressions
 - client/src/test/support/mockWebSocket.ts — shared deterministic JSDOM WebSocket mock used by WS-driven client tests
+- client/src/test/support/transcriptMeasurementHarness.ts — opt-in transcript measurement helper with mock `ResizeObserver`, element sizing hooks, scroll metrics, and checked invalid-target errors
+- client/src/test/transcriptTestHarness.test.ts — focused proof that the transcript measurement harness drives resize callbacks and surfaces misuse clearly
 - client/src/test/useConversationTurns.refresh.test.ts — unit coverage for `useConversationTurns.refresh()` replace-only snapshots + error case retains prior turns
 - client/src/test/useConversationTurns.commandMetadata.test.ts — unit coverage that turns preserve optional `command` metadata for UI rendering
 - client/src/test/chatPage.inflightNavigate.test.tsx — RTL coverage that navigating away/back during inflight keeps full history + inflight text

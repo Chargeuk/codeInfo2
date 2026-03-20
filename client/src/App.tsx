@@ -1,12 +1,14 @@
-import { Box, Container, CssBaseline } from '@mui/material';
+import { Alert, Box, Container, CssBaseline } from '@mui/material';
 import { useEffect, useMemo } from 'react';
 import { Outlet } from 'react-router-dom';
 import NavBar from './components/NavBar';
+import { getApiBaseUrlBlockingIssueMessage } from './config/runtimeConfig';
 import { createLogger } from './logging';
 import { isDevEnv } from './utils/isDevEnv';
 
 export default function App() {
   const logInfo = useMemo(() => createLogger('client'), []);
+  const apiBaseUrlBlockingIssueMessage = getApiBaseUrlBlockingIssueMessage();
 
   useEffect(() => {
     if (isDevEnv()) {
@@ -36,6 +38,15 @@ export default function App() {
           overflow: 'auto',
         }}
       >
+        {apiBaseUrlBlockingIssueMessage && (
+          <Alert
+            severity="error"
+            data-testid="runtime-config-api-base-url-banner"
+            sx={{ mb: 2 }}
+          >
+            {apiBaseUrlBlockingIssueMessage}
+          </Alert>
+        )}
         <Outlet />
       </Container>
     </Box>

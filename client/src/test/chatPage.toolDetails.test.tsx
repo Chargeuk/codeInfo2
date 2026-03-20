@@ -323,6 +323,7 @@ describe('Chat tool details rendering (WS transcript events)', () => {
 
     const toolToggle = await screen.findByTestId('tool-toggle');
     await user.click(toolToggle);
+    await user.click(await screen.findByText('repo-one'));
     expect(
       await screen.findByText(/Model: openai \/ text-embedding-3-small/),
     ).toBeInTheDocument();

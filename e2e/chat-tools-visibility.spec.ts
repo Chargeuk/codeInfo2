@@ -293,6 +293,7 @@ test.describe('Chat tool visibility details', () => {
     await expect(repoItems).toHaveCount(2);
     await repoItems.first().click();
     await expect(repoItems.first()).toContainText('/data/repo-one');
+    await repoItems.last().click();
     await expect(repoItems.last()).toContainText('previous failure');
 
     // Expand vector tool and verify aggregation (alphabetical order, counts, lines)

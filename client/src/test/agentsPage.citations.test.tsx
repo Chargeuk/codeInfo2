@@ -166,9 +166,12 @@ describe('Agents citations rendering', () => {
 
     const toggle = await screen.findByTestId('citations-toggle');
     expect(toggle).toHaveTextContent('Citations (1)');
-    expect(screen.getByTestId('citations')).not.toBeVisible();
+    expect(screen.queryByTestId('citations')).toBeNull();
 
     await user.click(toggle);
+
+    const citations = await screen.findByTestId('citations');
+    await waitFor(() => expect(citations).toBeVisible());
 
     const pathRow = await screen.findByTestId('citation-path');
     expect(pathRow).toHaveTextContent(
@@ -176,7 +179,181 @@ describe('Agents citations rendering', () => {
     );
     const chunk = await screen.findByTestId('citation-chunk');
     expect(chunk).toHaveTextContent('fixture chunk');
+  });
 
-    await waitFor(() => expect(screen.getByTestId('citations')).toBeVisible());
+  it('resets citation expansion when the active conversation changes', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/agents') && !target.includes('/commands')) {
+        return mockJsonResponse({ agents: [{ name: 'a1' }] });
+      }
+
+      if (target.includes('/agents/a1/commands')) {
+        return mockJsonResponse({ commands: [] });
+      }
+
+      if (
+        target.includes('/conversations') &&
+        target.includes('agentName=a1')
+      ) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'c1',
+              title: 'Conversation 1',
+              provider: 'codex',
+              model: 'gpt-5.2',
+              lastMessageAt: '2025-01-01T00:00:00.000Z',
+              archived: false,
+            },
+            {
+              conversationId: 'c2',
+              title: 'Conversation 2',
+              provider: 'codex',
+              model: 'gpt-5.2',
+              lastMessageAt: '2025-01-01T00:01:00.000Z',
+              archived: false,
+            },
+          ],
+          nextCursor: null,
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Conversation 1');
+    await user.click(screen.getByText('Conversation 1'));
+
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'inflight_snapshot',
+      conversationId: 'c1',
+      seq: 1,
+      inflight: {
+        inflightId: 'i1',
+        assistantText: '',
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: '2025-01-01T00:00:00.000Z',
+      },
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'tool_event',
+      conversationId: 'c1',
+      seq: 2,
+      inflightId: 'i1',
+      event: {
+        type: 'tool-result',
+        callId: 'call-1',
+        name: 'VectorSearch',
+        stage: 'success',
+        result: {
+          results: [
+            {
+              repo: 'repo-one',
+              relPath: 'docs/one.md',
+              hostPath: '/host/one.md',
+              chunk: 'chunk-one',
+              chunkId: 'chunk-one',
+            },
+          ],
+        },
+      },
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      conversationId: 'c1',
+      seq: 3,
+      inflightId: 'i1',
+      delta: 'Reply One',
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'turn_final',
+      conversationId: 'c1',
+      seq: 4,
+      inflightId: 'i1',
+      status: 'ok',
+    });
+
+    await user.click(await screen.findByTestId('citations-toggle'));
+    expect(await screen.findByTestId('citations')).toBeVisible();
+
+    await user.click(await screen.findByText('Conversation 2'));
+
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'inflight_snapshot',
+      conversationId: 'c2',
+      seq: 5,
+      inflight: {
+        inflightId: 'i2',
+        assistantText: '',
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: '2025-01-01T00:01:00.000Z',
+      },
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'tool_event',
+      conversationId: 'c2',
+      seq: 6,
+      inflightId: 'i2',
+      event: {
+        type: 'tool-result',
+        callId: 'call-2',
+        name: 'VectorSearch',
+        stage: 'success',
+        result: {
+          results: [
+            {
+              repo: 'repo-two',
+              relPath: 'docs/two.md',
+              hostPath: '/host/two.md',
+              chunk: 'chunk-two',
+              chunkId: 'chunk-two',
+            },
+          ],
+        },
+      },
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      conversationId: 'c2',
+      seq: 7,
+      inflightId: 'i2',
+      delta: 'Reply Two',
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'turn_final',
+      conversationId: 'c2',
+      seq: 8,
+      inflightId: 'i2',
+      status: 'ok',
+    });
+
+    const secondToggle = await screen.findByTestId('citations-toggle');
+    expect(secondToggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByTestId('citations')).toBeNull();
+    expect(await screen.findByText('Reply Two')).toBeInTheDocument();
   });
 });

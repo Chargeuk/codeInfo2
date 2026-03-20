@@ -1,6 +1,8 @@
 import { jest } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import SharedTranscript from '../components/chat/SharedTranscript';
+import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -34,10 +36,13 @@ function setViewportHeight(value: number) {
   window.dispatchEvent(new Event('resize'));
 }
 
-function installTranscriptHeightMock(options: {
-  controlsHeight: number;
-  minTranscriptHeight?: number;
-}) {
+function installTranscriptHeightMock(
+  harness: ReturnType<typeof installTranscriptMeasurementHarness>,
+  options: {
+    controlsHeight: number;
+    minTranscriptHeight?: number;
+  },
+) {
   const transcript = screen.getByTestId('chat-transcript') as HTMLElement;
   const chatControls = screen.getByTestId('chat-controls') as HTMLElement;
 
@@ -48,7 +53,7 @@ function installTranscriptHeightMock(options: {
     transcript.style.overflowY === 'auto' &&
     chatControls.style.flex === '0 0 auto';
 
-  transcript.getBoundingClientRect = () => {
+  const updateMetrics = () => {
     const minTranscriptHeight = options.minTranscriptHeight ?? 0;
     const computedHeight = Math.max(
       minTranscriptHeight,
@@ -56,39 +61,27 @@ function installTranscriptHeightMock(options: {
     );
 
     const height = layoutConfigured ? computedHeight : 320;
-
-    return {
-      x: 0,
-      y: 0,
+    harness.setContainerMetrics(transcript, {
       width: 640,
       height,
-      top: 0,
-      bottom: height,
-      left: 0,
-      right: 640,
-      toJSON: () => ({}),
-    } as DOMRect;
-  };
-
-  chatControls.getBoundingClientRect = () => {
-    return {
-      x: 0,
-      y: 0,
+      clientHeight: height,
+      scrollHeight: height,
+      scrollTop: transcript.scrollTop,
+    });
+    harness.setElementRect(chatControls, {
       width: 640,
       height: options.controlsHeight,
-      top: 0,
-      bottom: options.controlsHeight,
-      left: 0,
-      right: 640,
-      toJSON: () => ({}),
-    } as DOMRect;
+    });
   };
 
-  return { transcript };
+  updateMetrics();
+
+  return { transcript, updateMetrics };
 }
 
 describe('Chat transcript viewport height fill', () => {
   it('grows when the viewport height increases', async () => {
+    const harness = installTranscriptMeasurementHarness();
     mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
       if (target.includes('/health')) {
@@ -129,7 +122,15 @@ describe('Chat transcript viewport height fill', () => {
             provider: 'lmstudio',
             available: true,
             toolsAvailable: true,
-            models: [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
+            models: [
+              {
+                key: 'm1',
+                displayName: 'Model 1',
+                type: 'gguf',
+                supportedReasoningEfforts: ['low'],
+                defaultReasoningEffort: 'low',
+              },
+            ],
           }),
         }) as unknown as Response;
       }
@@ -149,18 +150,23 @@ describe('Chat transcript viewport height fill', () => {
     );
 
     setViewportHeight(700);
-    const { transcript } = installTranscriptHeightMock({ controlsHeight: 260 });
+    const { transcript, updateMetrics } = installTranscriptHeightMock(harness, {
+      controlsHeight: 260,
+    });
     const height700 = transcript.getBoundingClientRect().height;
     expect(height700).toBe(440);
 
     setViewportHeight(900);
+    updateMetrics();
     const height900 = transcript.getBoundingClientRect().height;
     expect(height900).toBe(640);
 
     expect(height900).toBeGreaterThan(height700);
+    harness.restore();
   });
 
   it('keeps transcript height non-negative with tall controls (Codex flags expanded)', async () => {
+    const harness = installTranscriptMeasurementHarness();
     mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
       if (target.includes('/health')) {
@@ -201,7 +207,15 @@ describe('Chat transcript viewport height fill', () => {
             provider: 'codex',
             available: true,
             toolsAvailable: true,
-            models: [{ key: 'c1', displayName: 'Codex Model', type: 'codex' }],
+            models: [
+              {
+                key: 'c1',
+                displayName: 'Codex Model',
+                type: 'codex',
+                supportedReasoningEfforts: ['high'],
+                defaultReasoningEffort: 'high',
+              },
+            ],
           }),
         }) as unknown as Response;
       }
@@ -218,14 +232,128 @@ describe('Chat transcript viewport height fill', () => {
     await screen.findByTestId('codex-flags-panel');
 
     setViewportHeight(480);
-    const { transcript } = installTranscriptHeightMock({ controlsHeight: 460 });
+    const { transcript, updateMetrics } = installTranscriptHeightMock(harness, {
+      controlsHeight: 460,
+    });
     const height480 = transcript.getBoundingClientRect().height;
 
     expect(height480).toBeGreaterThanOrEqual(0);
     expect(transcript.style.overflowY).toBe('auto');
 
     setViewportHeight(700);
+    updateMetrics();
     const height700 = transcript.getBoundingClientRect().height;
     expect(height700).toBeGreaterThan(height480);
+    harness.restore();
+  });
+
+  it('ignores a late measurement callback for a removed row without crashing the transcript', async () => {
+    const harness = installTranscriptMeasurementHarness();
+
+    render(
+      <SharedTranscript
+        surface="chat"
+        conversationId="chat-measurement"
+        messages={[
+          {
+            id: 'assistant-1',
+            role: 'assistant',
+            content: 'Measured response',
+            createdAt: '2026-03-19T00:00:00.000Z',
+          },
+        ]}
+        activeToolsAvailable={false}
+        emptyMessage="Transcript will appear here once you send a message."
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    const row = transcript.querySelector(
+      '[data-transcript-row-id="assistant-1"]',
+    );
+
+    expect(row).toBeTruthy();
+    row?.remove();
+
+    expect(() => harness.triggerResize(row)).not.toThrow();
+    expect(screen.getByTestId('chat-transcript')).toBeInTheDocument();
+
+    harness.restore();
+  });
+
+  it('preserves reading position during row growth on the chat transcript path', async () => {
+    const harness = installTranscriptMeasurementHarness();
+
+    render(
+      <SharedTranscript
+        surface="chat"
+        conversationId="chat-scroll-anchor"
+        messages={[
+          {
+            id: 'assistant-1',
+            role: 'assistant',
+            content: 'First response',
+            createdAt: '2026-03-19T00:00:00.000Z',
+          },
+          {
+            id: 'assistant-2',
+            role: 'assistant',
+            content: 'Second response',
+            createdAt: '2026-03-19T00:01:00.000Z',
+          },
+          {
+            id: 'assistant-3',
+            role: 'assistant',
+            content: 'Third response',
+            createdAt: '2026-03-19T00:02:00.000Z',
+          },
+        ]}
+        activeToolsAvailable={false}
+        emptyMessage="Transcript will appear here once you send a message."
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    const measuredRow = transcript.querySelector(
+      '[data-virtualized-message-id="assistant-2"]',
+    ) as HTMLElement | null;
+
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 1000,
+      scrollTop: 340,
+    });
+
+    transcript.scrollTop = 340;
+    fireEvent.scroll(transcript);
+
+    harness.setScrollMetrics(transcript, {
+      scrollHeight: 1180,
+      scrollTop: 340,
+    });
+    expect(measuredRow).not.toBeNull();
+    harness.setElementRect(measuredRow, { height: 180 });
+    harness.triggerResize(measuredRow);
+
+    await waitFor(() => expect(transcript.scrollTop).toBe(520));
+    harness.restore();
   });
 });

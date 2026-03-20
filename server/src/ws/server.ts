@@ -614,6 +614,14 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
         };
 
         if (message.inflightId) {
+          logPublish('DEV-0000049:T03:stop_path_registered', {
+            requestId: message.requestId,
+            connectionId,
+            conversationId: message.conversationId,
+            inflightId: message.inflightId,
+            runToken: null,
+            stopPath: 'inflight_target',
+          });
           const cancelled = abortInflight({
             conversationId: message.conversationId,
             inflightId: message.inflightId,
@@ -659,6 +667,14 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
 
         const cancelled = abortInflightByConversation(message.conversationId);
         if (cancelled.ok) {
+          logPublish('DEV-0000049:T03:stop_path_registered', {
+            requestId: message.requestId,
+            connectionId,
+            conversationId: message.conversationId,
+            inflightId: cancelled.inflightId,
+            runToken: null,
+            stopPath: 'conversation_only_inflight',
+          });
           logPublish('DEV-0000046:T6:cancel-explicit-stop', {
             requestId: message.requestId,
             connectionId,

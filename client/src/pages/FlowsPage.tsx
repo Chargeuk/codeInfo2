@@ -1,14 +1,9 @@
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import HourglassTopIcon from '@mui/icons-material/HourglassTop';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
 import {
   Alert,
   Box,
   Button,
-  Chip,
-  CircularProgress,
   Container,
   Drawer,
   IconButton,
@@ -40,6 +35,8 @@ import {
 } from '../api/flows';
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
+import SharedTranscript from '../components/chat/SharedTranscript';
+import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
 import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
 import useChatStream, { ChatMessage, ToolCall } from '../hooks/useChatStream';
 import useChatWs, { type ChatWsServerEvent } from '../hooks/useChatWs';
@@ -49,66 +46,6 @@ import useConversationTurns, {
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
-
-const bubbleTimestampFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
-
-const formatBubbleTimestamp = (value?: string) => {
-  const candidate = value ? new Date(value) : new Date();
-  if (Number.isNaN(candidate.getTime())) {
-    return bubbleTimestampFormatter.format(new Date());
-  }
-  return bubbleTimestampFormatter.format(candidate);
-};
-
-const formatDecimal = (value: number) =>
-  value.toFixed(2).replace(/\.?(0+)$/, '');
-
-const buildUsageLine = (usage: ChatMessage['usage']) => {
-  if (!usage) return null;
-  const hasUsage =
-    usage.inputTokens !== undefined ||
-    usage.outputTokens !== undefined ||
-    usage.totalTokens !== undefined ||
-    usage.cachedInputTokens !== undefined;
-  if (!hasUsage) return null;
-  const cachedSuffix =
-    usage.cachedInputTokens !== undefined
-      ? ` (cached ${usage.cachedInputTokens})`
-      : '';
-  return (
-    `Tokens: in ${usage.inputTokens ?? 0} · out ${usage.outputTokens ?? 0} · total ` +
-    `${usage.totalTokens ?? 0}${cachedSuffix}`
-  );
-};
-
-const buildTimingLine = (timing: ChatMessage['timing']) => {
-  if (!timing) return null;
-  const hasTiming =
-    timing.totalTimeSec !== undefined || timing.tokensPerSecond !== undefined;
-  if (!hasTiming) return null;
-  const parts: string[] = [];
-  if (timing.totalTimeSec !== undefined) {
-    parts.push(`Time: ${formatDecimal(timing.totalTimeSec)}s`);
-  }
-  if (timing.tokensPerSecond !== undefined) {
-    parts.push(`Rate: ${formatDecimal(timing.tokensPerSecond)} tok/s`);
-  }
-  return parts.length > 0 ? parts.join(' · ') : null;
-};
-
-const buildStepLine = (command: ChatMessage['command']) => {
-  if (!command) return null;
-  if (
-    !Number.isFinite(command.stepIndex) ||
-    !Number.isFinite(command.totalSteps)
-  ) {
-    return null;
-  }
-  return `Step ${command.stepIndex} of ${command.totalSteps}`;
-};
 
 const buildFlowMetaLine = (command: ChatMessage['command']) => {
   if (!command || command.name !== 'flow') return null;
@@ -279,6 +216,15 @@ export default function FlowsPage() {
   const displayMessages = useMemo<ChatMessage[]>(
     () => [...messages].reverse(),
     [messages],
+  );
+  const hasFlowMetaLine = useMemo(
+    () =>
+      displayMessages.some(
+        (message) =>
+          message.role === 'assistant' &&
+          buildFlowMetaLine(message.command) !== null,
+      ),
+    [displayMessages],
   );
 
   const flowDescription = selectedFlow?.description?.trim();
@@ -864,6 +810,7 @@ export default function FlowsPage() {
   );
 
   const lastHydratedRef = useRef<string | null>(null);
+  const hydratedStatusLogKeysRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!activeConversationId) return;
     const oldest = turns?.[0]?.createdAt ?? 'none';
@@ -876,10 +823,28 @@ export default function FlowsPage() {
       return;
     }
 
-    hydrateHistory(activeConversationId, mapTurnsToMessages(turns), 'replace');
+    const hydratedMessages = mapTurnsToMessages(turns);
+    hydratedMessages.forEach((message) => {
+      if (message.role !== 'assistant' || !message.streamStatus) return;
+      const logKey = `${activeConversationId}:${message.id}:${message.streamStatus}`;
+      if (hydratedStatusLogKeysRef.current.has(logKey)) return;
+      hydratedStatusLogKeysRef.current.add(logKey);
+      log('info', 'DEV-0000049:T03:hydrated_persisted_turn_status', {
+        conversationId: activeConversationId,
+        turnId: message.id.startsWith('turn-')
+          ? message.id.slice(5)
+          : message.id,
+        messageId: message.id,
+        streamStatus: message.streamStatus,
+        source: 'rest_hydration',
+      });
+    });
+
+    hydrateHistory(activeConversationId, hydratedMessages, 'replace');
   }, [
     activeConversationId,
     hydrateHistory,
+    log,
     mapTurnsToMessages,
     messages.length,
     turns,
@@ -1131,6 +1096,28 @@ export default function FlowsPage() {
 
   const isSending = startPending || isStreaming || status === 'sending';
   const isStopping = status === 'stopping';
+  const {
+    citationsOpen,
+    thinkOpen,
+    toolOpen,
+    toolErrorOpen,
+    toggleCitation,
+    toggleThink,
+    toggleTool,
+    toggleToolError,
+  } = useSharedTranscriptState({
+    surface: 'flows',
+    conversationId: selectedConversation?.conversationId ?? null,
+  });
+  const retainedAssistantVisible = useMemo(
+    () =>
+      displayMessages.some((message) => isVisibleAssistantMessage(message)) &&
+      (isSending ||
+        isStopping ||
+        Boolean(inflightSnapshot?.inflightId) ||
+        Boolean(serverVisibleInflightIdRef.current)),
+    [displayMessages, inflightSnapshot?.inflightId, isSending, isStopping],
+  );
   const flowWorkingFolderLocked =
     isSending ||
     isStopping ||
@@ -1547,243 +1534,70 @@ export default function FlowsPage() {
                   p: 2,
                 }}
               >
-                <Box
-                  data-testid="flows-transcript"
-                  style={{
-                    flex: '1 1 0%',
-                    minHeight: 0,
-                    overflowY: 'auto',
-                  }}
-                  sx={{
-                    flex: 1,
-                    minHeight: 0,
-                    overflowY: 'auto',
-                    overflowX: 'hidden',
-                    pr: 1,
-                    minWidth: 0,
-                  }}
-                >
-                  <Stack spacing={1} sx={{ minHeight: 0 }}>
-                    {turnsLoading && (
-                      <Typography
-                        color="text.secondary"
-                        variant="caption"
-                        sx={{ px: 0.5 }}
-                      >
-                        Loading history...
-                      </Typography>
-                    )}
-                    {turnsError && (
-                      <Alert severity="warning" data-testid="flows-turns-error">
-                        {turnsErrorMessage ??
-                          'Failed to load conversation history.'}
-                      </Alert>
-                    )}
-                    {flowsLoading && flows.length === 0 && (
+                <SharedTranscript
+                  surface="flows"
+                  conversationId={selectedConversation?.conversationId ?? null}
+                  messages={displayMessages}
+                  activeToolsAvailable={false}
+                  turnsLoading={turnsLoading}
+                  turnsError={turnsError}
+                  turnsErrorMessage={turnsErrorMessage}
+                  emptyMessage="Transcript will appear here once a flow run starts."
+                  emptyStateContent={
+                    flowsLoading && flows.length === 0 ? (
                       <Typography color="text.secondary">
                         Loading flows...
                       </Typography>
-                    )}
-                    {!flowsLoading && flows.length === 0 && (
+                    ) : !flowsLoading && flows.length === 0 ? (
                       <Typography color="text.secondary">
                         No flows found. Add a flow JSON file under `flows/` to
                         get started.
                       </Typography>
-                    )}
-                    {displayMessages.length === 0 && flows.length > 0 && (
-                      <Typography color="text.secondary">
-                        Transcript will appear here once a flow run starts.
-                      </Typography>
-                    )}
-
-                    {displayMessages.map((message) => {
-                      const alignSelf =
-                        message.role === 'user' ? 'flex-end' : 'flex-start';
-                      const isErrorBubble = message.kind === 'error';
-                      const isStatusBubble = message.kind === 'status';
-                      const isUser = message.role === 'user';
-                      const showMetadata = !isErrorBubble && !isStatusBubble;
-                      const timestampLabel = showMetadata
-                        ? formatBubbleTimestamp(message.createdAt)
+                    ) : undefined
+                  }
+                  warningTestId="flows-turns-error"
+                  transcriptTestId="flows-transcript"
+                  citationsEnabled={false}
+                  isStopping={isStopping}
+                  citationsOpen={citationsOpen}
+                  thinkOpen={thinkOpen}
+                  toolOpen={toolOpen}
+                  toolErrorOpen={toolErrorOpen}
+                  onToggleCitation={toggleCitation}
+                  onToggleThink={toggleThink}
+                  onToggleTool={toggleTool}
+                  onToggleToolError={toggleToolError}
+                  renderMetadataContent={(message) => {
+                    const flowLine =
+                      message.role === 'assistant'
+                        ? buildFlowMetaLine(message.command)
                         : null;
-                      const usageLine =
-                        message.role === 'assistant'
-                          ? buildUsageLine(message.usage)
-                          : null;
-                      const timingLine =
-                        message.role === 'assistant'
-                          ? buildTimingLine(message.timing)
-                          : null;
-                      const stepLine =
-                        message.role === 'assistant'
-                          ? buildStepLine(message.command)
-                          : null;
-                      const flowLine =
-                        message.role === 'assistant'
-                          ? buildFlowMetaLine(message.command)
-                          : null;
-                      const metadataColor = isUser
-                        ? 'inherit'
-                        : 'text.secondary';
-                      return (
-                        <Stack
-                          key={message.id}
-                          alignItems={
-                            alignSelf === 'flex-end' ? 'flex-end' : 'flex-start'
-                          }
-                        >
-                          <Box
-                            sx={{
-                              maxWidth: { xs: '100%', sm: '80%' },
-                              alignSelf,
-                            }}
-                          >
-                            <Paper
-                              variant="outlined"
-                              data-testid="chat-bubble"
-                              data-role={message.role}
-                              data-kind={message.kind ?? 'normal'}
-                              sx={{
-                                p: 1.5,
-                                borderRadius: '14px',
-                                bgcolor: isErrorBubble
-                                  ? 'error.light'
-                                  : isStatusBubble
-                                    ? 'info.light'
-                                    : isUser
-                                      ? 'primary.main'
-                                      : 'background.paper',
-                                color: isErrorBubble
-                                  ? 'error.contrastText'
-                                  : isStatusBubble
-                                    ? 'info.dark'
-                                    : isUser
-                                      ? 'primary.contrastText'
-                                      : 'text.primary',
-                                borderColor: isErrorBubble
-                                  ? 'error.main'
-                                  : isStatusBubble
-                                    ? 'info.main'
-                                    : undefined,
-                              }}
-                            >
-                              <Stack spacing={1}>
-                                {showMetadata && timestampLabel && (
-                                  <Stack spacing={0.25}>
-                                    <Typography
-                                      variant="caption"
-                                      color={metadataColor}
-                                      data-testid="bubble-timestamp"
-                                    >
-                                      {timestampLabel}
-                                    </Typography>
-                                    {usageLine && (
-                                      <Typography
-                                        variant="caption"
-                                        color={metadataColor}
-                                        data-testid="bubble-tokens"
-                                      >
-                                        {usageLine}
-                                      </Typography>
-                                    )}
-                                    {timingLine && (
-                                      <Typography
-                                        variant="caption"
-                                        color={metadataColor}
-                                        data-testid="bubble-timing"
-                                      >
-                                        {timingLine}
-                                      </Typography>
-                                    )}
-                                    {stepLine && (
-                                      <Typography
-                                        variant="caption"
-                                        color={metadataColor}
-                                        data-testid="bubble-step"
-                                      >
-                                        {stepLine}
-                                      </Typography>
-                                    )}
-                                    {flowLine && (
-                                      <Typography
-                                        variant="caption"
-                                        color={metadataColor}
-                                        data-testid="bubble-flow-meta"
-                                      >
-                                        {flowLine}
-                                      </Typography>
-                                    )}
-                                  </Stack>
-                                )}
-                                {message.role === 'assistant' &&
-                                  message.streamStatus && (
-                                    <Chip
-                                      size="small"
-                                      variant="outlined"
-                                      color={
-                                        message.streamStatus === 'complete'
-                                          ? 'success'
-                                          : message.streamStatus === 'failed'
-                                            ? 'error'
-                                            : message.streamStatus === 'stopped'
-                                              ? 'warning'
-                                              : isStopping
-                                                ? 'warning'
-                                                : 'default'
-                                      }
-                                      icon={
-                                        message.streamStatus === 'complete' ? (
-                                          <CheckCircleOutlineIcon fontSize="small" />
-                                        ) : message.streamStatus ===
-                                          'failed' ? (
-                                          <ErrorOutlineIcon fontSize="small" />
-                                        ) : message.streamStatus ===
-                                          'stopped' ? (
-                                          <HourglassTopIcon fontSize="small" />
-                                        ) : (
-                                          <CircularProgress
-                                            size={14}
-                                            color={
-                                              isStopping ? 'warning' : 'inherit'
-                                            }
-                                          />
-                                        )
-                                      }
-                                      label={
-                                        message.streamStatus === 'complete'
-                                          ? 'Complete'
-                                          : message.streamStatus === 'failed'
-                                            ? 'Failed'
-                                            : message.streamStatus === 'stopped'
-                                              ? 'Stopped'
-                                              : isStopping
-                                                ? 'Stopping'
-                                                : 'Processing'
-                                      }
-                                      data-testid="status-chip"
-                                      sx={{ alignSelf: 'flex-start' }}
-                                    />
-                                  )}
-
-                                {message.role === 'assistant' ? (
-                                  <Markdown content={message.content ?? ''} />
-                                ) : (
-                                  <Typography
-                                    variant="body1"
-                                    component="div"
-                                    sx={{ whiteSpace: 'pre-wrap' }}
-                                  >
-                                    {message.content}
-                                  </Typography>
-                                )}
-                              </Stack>
-                            </Paper>
-                          </Box>
-                        </Stack>
-                      );
-                    })}
-                  </Stack>
-                </Box>
+                    if (!flowLine) {
+                      return null;
+                    }
+                    return (
+                      <Typography
+                        variant="caption"
+                        color={
+                          message.role === 'user' ? 'inherit' : 'text.secondary'
+                        }
+                        data-testid="bubble-flow-meta"
+                      >
+                        {flowLine}
+                      </Typography>
+                    );
+                  }}
+                  sharedRenderLogConfig={{
+                    eventName:
+                      'DEV-0000049:T05:flows_shared_transcript_rendered',
+                    context: {
+                      hasTurnsError: turnsError,
+                      retainedAssistantVisible,
+                      hasFlowMetaLine,
+                      citationsVisible: false,
+                    },
+                  }}
+                />
               </Paper>
             </Stack>
           </Box>

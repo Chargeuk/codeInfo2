@@ -9,6 +9,10 @@ export const MANUAL_ACCEPTANCE_CHECK_STARTED_TAG =
   'DEV-0000035:T13:manual_acceptance_check_started';
 export const MANUAL_ACCEPTANCE_CHECK_COMPLETED_TAG =
   'DEV-0000035:T13:manual_acceptance_check_completed';
+export const STORY_0000049_MANUAL_VALIDATION_STARTED_TAG =
+  'DEV-0000049:T11:manual_validation_started';
+export const STORY_0000049_MANUAL_VALIDATION_COMPLETED_TAG =
+  'DEV-0000049:T11:manual_validation_completed';
 
 function generateClientId() {
   return (
@@ -135,15 +139,82 @@ export function installManualAcceptanceCheckHooks() {
   };
 }
 
+type Story0000049ManualValidationContext = ManualAcceptanceContext & {
+  story: '0000049';
+  screenshotsCaptured: number;
+  consoleErrorsSeen: number;
+};
+
+type Story0000049ManualValidationPayload = ManualAcceptanceContext & {
+  screenshotsCaptured: number;
+  consoleErrorsSeen: number;
+};
+
+function logStory0000049ManualValidationTag(
+  tag: string,
+  context: Story0000049ManualValidationContext,
+) {
+  const log = createLogger('client');
+  log('info', tag, context);
+}
+
+export function logStory0000049ManualValidationStarted(
+  context: Story0000049ManualValidationContext,
+) {
+  logStory0000049ManualValidationTag(
+    STORY_0000049_MANUAL_VALIDATION_STARTED_TAG,
+    context,
+  );
+}
+
+export function logStory0000049ManualValidationCompleted(
+  context: Story0000049ManualValidationContext,
+) {
+  logStory0000049ManualValidationTag(
+    STORY_0000049_MANUAL_VALIDATION_COMPLETED_TAG,
+    context,
+  );
+}
+
+export function installStory0000049ManualValidationHooks() {
+  if (typeof window === 'undefined') return;
+
+  window.__story0000049ManualValidation = {
+    start: (context: Story0000049ManualValidationPayload) => {
+      const { screenshotsCaptured, consoleErrorsSeen, ...rest } = context;
+      return logStory0000049ManualValidationStarted({
+        story: '0000049',
+        screenshotsCaptured,
+        consoleErrorsSeen,
+        ...rest,
+      });
+    },
+    complete: (context: Story0000049ManualValidationPayload) => {
+      const { screenshotsCaptured, consoleErrorsSeen, ...rest } = context;
+      return logStory0000049ManualValidationCompleted({
+        story: '0000049',
+        screenshotsCaptured,
+        consoleErrorsSeen,
+        ...rest,
+      });
+    },
+  };
+}
+
 declare global {
   interface Window {
     __codeinfoManualAcceptanceCheck?: {
       start: (context?: ManualAcceptanceContext) => void;
       complete: (context?: ManualAcceptanceContext) => void;
     };
+    __story0000049ManualValidation?: {
+      start: (context: Story0000049ManualValidationPayload) => void;
+      complete: (context: Story0000049ManualValidationPayload) => void;
+    };
   }
 }
 
 if (typeof window !== 'undefined') {
   installManualAcceptanceCheckHooks();
+  installStory0000049ManualValidationHooks();
 }

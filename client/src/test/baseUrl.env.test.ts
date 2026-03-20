@@ -1,7 +1,11 @@
 import {
   getApiBaseUrl,
+  getApiBaseUrlBlockingIssue,
+  getApiBaseUrlBlockingIssueMessage,
   getClientRuntimeConfigDiagnostics,
   hasInvalidCanonicalRuntimeConfig,
+  hasBlockingApiBaseUrlConfigIssue,
+  INVALID_EXPLICIT_API_BASE_URL,
   resetClientRuntimeConfigLogForTests,
 } from '../config/runtimeConfig';
 import { resolveBrowserHostApiBaseUrl } from '../config/apiBaseUrl';
@@ -149,6 +153,7 @@ describe('baseUrl env rename', () => {
 
     expect(getApiBaseUrl()).toBe('http://localhost:5510');
     expect(getClientRuntimeConfigDiagnostics()).toEqual([]);
+    expect(hasBlockingApiBaseUrlConfigIssue()).toBe(false);
   });
 
   it('lets runtime config directives override env api base urls', () => {
@@ -161,12 +166,21 @@ describe('baseUrl env rename', () => {
 
     expect(getApiBaseUrl()).toBe('http://localhost:5511');
     expect(getClientRuntimeConfigDiagnostics()).toEqual([]);
+    expect(hasBlockingApiBaseUrlConfigIssue()).toBe(false);
   });
 
-  it('falls back to the browser origin when the env directive port is malformed', () => {
+  it('surfaces malformed env directives through a blocking api base url issue instead of browser-origin success', () => {
     process.env.VITE_CODEINFO_API_URL = 'USE_BROWSER_HOST:not-a-port';
 
-    expect(getApiBaseUrl()).toBe(window.location.origin);
+    expect(getApiBaseUrl()).toBe(INVALID_EXPLICIT_API_BASE_URL);
+    expect(getApiBaseUrlBlockingIssue()).toEqual({
+      source: 'env',
+      rawValue: 'USE_BROWSER_HOST:not-a-port',
+      reason: 'invalid_browser_host_directive',
+    });
+    expect(getApiBaseUrlBlockingIssueMessage()).toContain(
+      'VITE_CODEINFO_API_URL',
+    );
     expect(getClientRuntimeConfigDiagnostics()).toEqual([
       {
         field: 'apiBaseUrl',
@@ -175,6 +189,56 @@ describe('baseUrl env rename', () => {
         reason: 'invalid_browser_host_directive',
       },
     ]);
+    expect(hasBlockingApiBaseUrlConfigIssue()).toBe(true);
+  });
+
+  it('treats malformed runtime directives as blocking even when env fallback is valid', () => {
+    (
+      globalThis as typeof globalThis & {
+        __CODEINFO_CONFIG__?: { apiBaseUrl?: string };
+      }
+    ).__CODEINFO_CONFIG__ = { apiBaseUrl: 'USE_BROWSER_HOST:not-a-port' };
+    process.env.VITE_CODEINFO_API_URL = 'http://renamed.example:5010';
+
+    expect(getApiBaseUrl()).toBe(INVALID_EXPLICIT_API_BASE_URL);
+    expect(getApiBaseUrlBlockingIssue()).toEqual({
+      source: 'runtime',
+      rawValue: 'USE_BROWSER_HOST:not-a-port',
+      reason: 'invalid_browser_host_directive',
+    });
+    expect(getApiBaseUrlBlockingIssueMessage()).toContain(
+      'window.__CODEINFO_CONFIG__.apiBaseUrl',
+    );
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([
+      {
+        field: 'apiBaseUrl',
+        source: 'runtime',
+        rawValue: 'USE_BROWSER_HOST:not-a-port',
+        reason: 'invalid_browser_host_directive',
+      },
+    ]);
+    expect(hasBlockingApiBaseUrlConfigIssue()).toBe(true);
+  });
+
+  it('lets valid runtime directives win over malformed env directives', () => {
+    (
+      globalThis as typeof globalThis & {
+        __CODEINFO_CONFIG__?: { apiBaseUrl?: string };
+      }
+    ).__CODEINFO_CONFIG__ = { apiBaseUrl: 'USE_BROWSER_HOST:5512' };
+    process.env.VITE_CODEINFO_API_URL = 'USE_BROWSER_HOST:not-a-port';
+
+    expect(getApiBaseUrl()).toBe('http://localhost:5512');
+    expect(getApiBaseUrlBlockingIssue()).toBeNull();
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([
+      {
+        field: 'apiBaseUrl',
+        source: 'env',
+        rawValue: 'USE_BROWSER_HOST:not-a-port',
+        reason: 'invalid_browser_host_directive',
+      },
+    ]);
+    expect(hasBlockingApiBaseUrlConfigIssue()).toBe(false);
   });
 });
 
@@ -205,5 +269,4 @@ describe('browser-host api directive helper', () => {
       diagnosticReason: 'invalid_browser_host_directive',
     });
   });
-});
 });

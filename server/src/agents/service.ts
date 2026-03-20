@@ -740,8 +740,6 @@ export async function startAgentInstruction(
         repos: [] as RepoEntry[],
         knownRepositoryPathsState: knownRepositoryPathsUnavailable(error),
       }));
-    const listedRepos = listedReposResult.repos;
-
     const existingConversation = await getConversation(conversationId);
     const isNewConversation = !existingConversation;
     if (mustExist && isNewConversation) {
@@ -1116,8 +1114,7 @@ export async function startAgentCommand(params: {
         conversation: existingConversation,
         requestedWorkingFolder: params.working_folder,
         surface: 'agent_command_run',
-        knownRepositoryPathsState:
-          ingestRootsResult.knownRepositoryPathsState,
+        knownRepositoryPathsState: ingestRootsResult.knownRepositoryPathsState,
       },
     );
 

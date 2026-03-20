@@ -139,6 +139,102 @@ describe('Shared transcript scroll behavior', () => {
     harness.restore();
   });
 
+  it('does not jump back to the top on a later history refresh for the same conversation', async () => {
+    const harness = installTranscriptMeasurementHarness();
+
+    const { rerender } = render(
+      <SharedTranscript
+        surface="chat"
+        conversationId="refresh-without-top-jump"
+        messages={buildMessages(14)}
+        activeToolsAvailable={false}
+        turnsLoading
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    harness.setContainerMetrics(transcript, {
+      width: 640,
+      height: 320,
+      clientHeight: 320,
+      scrollHeight: 1400,
+      scrollTop: 0,
+    });
+
+    rerender(
+      <SharedTranscript
+        surface="chat"
+        conversationId="refresh-without-top-jump"
+        messages={buildMessages(14)}
+        activeToolsAvailable={false}
+        turnsLoading={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    transcript.scrollTop = 360;
+    fireEvent.scroll(transcript);
+
+    rerender(
+      <SharedTranscript
+        surface="chat"
+        conversationId="refresh-without-top-jump"
+        messages={buildMessages(14)}
+        activeToolsAvailable={false}
+        turnsLoading
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    rerender(
+      <SharedTranscript
+        surface="chat"
+        conversationId="refresh-without-top-jump"
+        messages={buildMessages(14)}
+        activeToolsAvailable={false}
+        turnsLoading={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    expect(transcript.scrollTop).toBe(360);
+    expect(transcript.scrollTop).not.toBe(0);
+    harness.restore();
+  });
+
   it('leaves scrollTop unchanged when transcript growth happens below the viewport', async () => {
     const harness = installTranscriptMeasurementHarness();
 

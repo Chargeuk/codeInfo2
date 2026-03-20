@@ -107,6 +107,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
     const measurementReadyRef = useRef<string | null>(null);
     const missingRowLoggedRef = useRef(new Set<string>());
     const scrollModeRef = useRef<SharedTranscriptScrollMode>('pinned-bottom');
+    const initialHistoryOpenHandledRef = useRef(false);
     const openHistoryAtTopRef = useRef(false);
     const scrollMetricsRef = useRef<{
       conversationKey: string;
@@ -339,13 +340,14 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
 
     useEffect(() => {
       scrollModeRef.current = 'pinned-bottom';
+      initialHistoryOpenHandledRef.current = false;
       scrollMetricsRef.current = null;
       openHistoryAtTopRef.current = false;
       setHistoryTopLockActive(false);
     }, [conversationKey]);
 
     useEffect(() => {
-      if (!turnsLoading) {
+      if (!turnsLoading || initialHistoryOpenHandledRef.current) {
         return;
       }
       scrollMetricsRef.current = null;
@@ -360,11 +362,17 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
         openHistoryAtTopRef.current &&
         !turnsLoading
       ) {
+        initialHistoryOpenHandledRef.current = true;
         openHistoryAtTopRef.current = false;
         transcriptElement.scrollTop = 0;
         setScrollMode('scrolled-away');
         syncScrollMetrics();
         return;
+      }
+      if (openHistoryAtTopRef.current && !turnsLoading) {
+        initialHistoryOpenHandledRef.current = true;
+        openHistoryAtTopRef.current = false;
+        setHistoryTopLockActive(false);
       }
       reconcileScrollPosition();
     }, [

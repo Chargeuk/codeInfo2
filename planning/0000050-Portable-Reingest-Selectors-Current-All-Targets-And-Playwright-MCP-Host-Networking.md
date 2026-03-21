@@ -2246,7 +2246,7 @@ Use only the checked-in summary-wrapper outputs already produced by Task 15 for 
 
 - Repository Name: `codeInfo2`
 - Task Status: **completed**
-- Git Commits: `to_do`
+- Git Commits: `209758ed` `DEV-[50] - Stabilize task 17 flow-command cleanup harness`
 
 #### Overview
 

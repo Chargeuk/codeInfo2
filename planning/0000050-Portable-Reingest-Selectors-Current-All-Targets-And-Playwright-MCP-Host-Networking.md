@@ -2457,7 +2457,7 @@ Use only the checked-in summary wrappers below. Do not attempt to run tests with
 ### Task 21. Correct the remaining MCP env-name documentation drift from Story 0000050
 
 - Repository Name: `codeInfo2`
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits: `to_do`
 
 #### Overview
@@ -2472,21 +2472,26 @@ Close review Finding 3 by making the final Story 50 docs describe the same MCP e
 
 #### Subtasks
 
-1. [ ] Re-read review Finding 3 and search the Story 50 documentation surfaces for `CODEINFO_MCP_PORT` and `CODEINFO_CHAT_MCP_PORT` before editing. Capture the exact files/lines being corrected in the implementation notes.
-2. [ ] Update `docs/developer-reference.md` so it no longer describes `CODEINFO_MCP_PORT` as the active dedicated MCP env contract. Keep the final wording aligned with the checked-in runtime behavior and the Story 50 port matrix.
-3. [ ] Update `design.md` so the architecture description uses the same final env-name vocabulary as the implemented runtime and the developer reference.
-4. [ ] If any other already-changed Story 50 doc still repeats the obsolete env name as an active contract, correct it in this task. Do not broaden this into a general documentation sweep outside the Story 50 surfaces already touched by the story.
-5. [ ] Re-check the final wording against the Task 15/16 proof notes so the docs do not imply that the legacy env fallback is still the recommended path.
+1. [x] Re-read review Finding 3 and search the Story 50 documentation surfaces for `CODEINFO_MCP_PORT` and `CODEINFO_CHAT_MCP_PORT` before editing. Capture the exact files/lines being corrected in the implementation notes.
+2. [x] Update `docs/developer-reference.md` so it no longer describes `CODEINFO_MCP_PORT` as the active dedicated MCP env contract. Keep the final wording aligned with the checked-in runtime behavior and the Story 50 port matrix.
+3. [x] Update `design.md` so the architecture description uses the same final env-name vocabulary as the implemented runtime and the developer reference.
+4. [x] If any other already-changed Story 50 doc still repeats the obsolete env name as an active contract, correct it in this task. Do not broaden this into a general documentation sweep outside the Story 50 surfaces already touched by the story.
+5. [x] Re-check the final wording against the Task 15/16 proof notes so the docs do not imply that the legacy env fallback is still the recommended path.
 
 #### Testing
 
 This task is documentation-only. Do not attempt to run tests without using the wrapper. No standalone app-level suite is required here; Task 22 owns the full wrapper-first regression pass after these wording fixes land.
 
-1. [ ] No standalone wrapper run is required in this task because it only corrects Story 50 documentation wording. Verify the wording change directly in the edited docs, then rely on Task 22 for the full wrapper-first regression pass.
+1. [x] No standalone wrapper run is required in this task because it only corrects Story 50 documentation wording. Verify the wording change directly in the edited docs, then rely on Task 22 for the full wrapper-first regression pass.
 
 #### Implementation notes
 
 - Review disposition seed: this task was added after review pass `0000050-review-20260321T163857Z-eae3d4fc` found that the final Story 50 docs still advertised `CODEINFO_MCP_PORT` as a live final contract even though the code and proof markers had already moved the canonical dedicated MCP env name to `CODEINFO_CHAT_MCP_PORT`.
+- Re-read review Finding 3 and searched the Story 50 documentation surfaces first; the remaining active-contract drift was limited to `docs/developer-reference.md:131`, `docs/developer-reference.md:153`, and `design.md:5145`, while the already-updated Story 50 summary surfaces were already using `CODEINFO_CHAT_MCP_PORT`.
+- Updated `docs/developer-reference.md` so the MCP-for-Codex section and the server env-contract section now describe the dedicated chat MCP listener as `CODEINFO_CHAT_MCP_PORT`, matching the validated Story 50 port split.
+- Updated `design.md` so the MCP v2 architecture description also uses `CODEINFO_CHAT_MCP_PORT` for the dedicated chat MCP listener on port `5011`.
+- Rechecked the scoped Story 50 docs with `rg` after editing and confirmed the remaining matches are the expected final-state `CODEINFO_CHAT_MCP_PORT` references, not active-contract `CODEINFO_MCP_PORT` guidance.
+- Task 22 documentation delta: use the updated `docs/developer-reference.md` and `design.md` wording as the direct closure proof for review Finding 3 during the final revalidation pass.
 
 ### Task 22. Re-run final validation after the code review fixes
 

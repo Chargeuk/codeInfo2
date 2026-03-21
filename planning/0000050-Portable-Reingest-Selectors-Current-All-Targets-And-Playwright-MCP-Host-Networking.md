@@ -2496,7 +2496,7 @@ This task is documentation-only. Do not attempt to run tests without using the w
 ### Task 22. Re-run final validation after the code review fixes
 
 - Repository Name: `codeInfo2`
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits: `to_do`
 
 #### Overview
@@ -2511,34 +2511,53 @@ Revalidate Story 0000050 after the code review fixes from Tasks 17 through 21 la
 
 #### Subtasks
 
-1. [ ] Re-read the story description, acceptance criteria, out-of-scope notes, traceability proof pass, final validation section, and the new `## Code Review Findings` section before running anything. Keep both the original story contract and the review-fix closure criteria visible while you work.
-2. [ ] Re-run the wrapper-first build and test paths listed in this task and record the saved-output paths that close-out notes and reviewers should inspect. Use the same wrapper-first rule as earlier Story 50 validation: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
-3. [ ] Prove each review finding is now closed with direct evidence where the checked-in harness allows it:
+1. [x] Re-read the story description, acceptance criteria, out-of-scope notes, traceability proof pass, final validation section, and the new `## Code Review Findings` section before running anything. Keep both the original story contract and the review-fix closure criteria visible while you work.
+2. [x] Re-run the wrapper-first build and test paths listed in this task and record the saved-output paths that close-out notes and reviewers should inspect. Use the same wrapper-first rule as earlier Story 50 validation: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+3. [x] Prove each review finding is now closed with direct evidence where the checked-in harness allows it:
    - Finding 1: direct server test proof that selector-resolution outages are surfaced honestly instead of being re-labeled as `INVALID_SOURCE_ID`;
    - Finding 2: direct shell-harness proof that docker-host probe failures fail closed with actionable output;
    - Finding 3: direct documentation proof that the final Story 50 docs now present `CODEINFO_CHAT_MCP_PORT` as the canonical contract.
-4. [ ] After `npm run compose:up` starts the main stack in this task, run `npm run test:summary:host-network:main` and re-check the final host-visible runtime behavior against the acceptance criteria and earlier Task 15 proof seams.
-5. [ ] Use Playwright MCP tools against `http://host.docker.internal:5001` to repeat the manual regression checks needed for Story 50 completion, confirm the required log markers still appear for the exercised paths, and save updated GUI-proof screenshots only if the existing Task 15 screenshots no longer match the final behavior.
-6. [ ] Re-check the acceptance-criteria proof sources and residual-risk areas recorded in the review artifacts. If any proof remains indirect or missing after the review-fix work, document that explicitly in the implementation notes instead of implying exhaustive proof.
-7. [ ] Record any final close-out delta needed after the review-fix revalidation. Do not update shared docs in this task unless a new file is created here.
+4. [x] After `npm run compose:up` starts the main stack in this task, run `npm run test:summary:host-network:main` and re-check the final host-visible runtime behavior against the acceptance criteria and earlier Task 15 proof seams.
+5. [x] Use Playwright MCP tools against `http://host.docker.internal:5001` to repeat the manual regression checks needed for Story 50 completion, confirm the required log markers still appear for the exercised paths, and save updated GUI-proof screenshots only if the existing Task 15 screenshots no longer match the final behavior.
+6. [x] Re-check the acceptance-criteria proof sources and residual-risk areas recorded in the review artifacts. If any proof remains indirect or missing after the review-fix work, document that explicitly in the implementation notes instead of implying exhaustive proof.
+7. [x] Record any final close-out delta needed after the review-fix revalidation. Do not update shared docs in this task unless a new file is created here.
 
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run build:summary:client` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-3. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:server:unit`.
-4. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:server:cucumber`.
-5. [ ] `npm run test:summary:shell` If `failed > 0`, inspect the exact log path printed by the summary under `logs/test-summaries/`, then diagnose with wrapper-supported targeted args only if needed. After fixes, rerun full `npm run test:summary:shell`.
-6. [ ] `npm run test:summary:client` If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:client`.
-7. [ ] `npm run test:summary:e2e` Allow up to 7 minutes. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:e2e`.
-8. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
-9. [ ] `npm run compose:up`
-10. [ ] `npm run test:summary:host-network:main` If status is `failed` or the summary reports ambiguous counts, inspect `logs/test-summaries/host-network-main-latest.log` before retrying.
-11. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm Story 50 behavior and review-fix closure from the running stack, including a check that there are no logged errors in the debug console and that the expected Story 50 proof markers remain visible for the exercised paths.
-12. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run build:summary:client` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [x] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [x] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [x] `npm run test:summary:shell` If `failed > 0`, inspect the exact log path printed by the summary under `logs/test-summaries/`, then diagnose with wrapper-supported targeted args only if needed. After fixes, rerun full `npm run test:summary:shell`.
+6. [x] `npm run test:summary:client` If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:client`.
+7. [x] `npm run test:summary:e2e` Allow up to 7 minutes. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:e2e`.
+8. [x] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
+9. [x] `npm run compose:up`
+10. [x] `npm run test:summary:host-network:main` If status is `failed` or the summary reports ambiguous counts, inspect `logs/test-summaries/host-network-main-latest.log` before retrying.
+11. [x] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm Story 50 behavior and review-fix closure from the running stack, including a check that there are no logged errors in the debug console and that the expected Story 50 proof markers remain visible for the exercised paths.
+12. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - Review disposition seed: this task was added as the new story-completion gate because review pass `0000050-review-20260321T163857Z-eae3d4fc` found one `must_fix` defect and two `should_fix` defects after the story had previously been marked complete. Story 50 is not complete again until this task closes those findings, absorbs the later prerequisite repairs, and re-proves the acceptance criteria.
+- Re-read the story `Description`, `Acceptance Criteria`, `Out Of Scope`, `Traceability And Proof Pass`, `Final Validation`, and `Code Review Findings` sections before starting Task 22 so the rerun covers both the original Story 50 contract and the later review-fix closure requirements.
+- `npm run build:summary:server` passed cleanly with `warning_count: 0`, `agent_action: skip_log`, and saved output `logs/test-summaries/build-server-latest.log`.
+- `npm run build:summary:client` passed cleanly with `warning_count: 0`, `agent_action: skip_log`, and saved output `logs/test-summaries/build-client-latest.log`.
+- `npm run test:summary:server:unit` passed cleanly with `tests run: 1372`, `failed: 0`, `agent_action: skip_log`, and saved output `test-results/server-unit-tests-2026-03-21T20-34-08-981Z.log`.
+- `npm run test:summary:server:cucumber` passed cleanly with `tests run: 71`, `failed: 0`, `agent_action: skip_log`, and saved output `test-results/server-cucumber-tests-2026-03-21T20-44-07-169Z.log`.
+- `npm run test:summary:shell` passed cleanly with `tests run: 12`, `failed: 0`, `agent_action: skip_log`, and saved output `logs/test-summaries/shell-tests-2026-03-21T20-45-39-413Z.log`.
+- `npm run test:summary:client` passed cleanly with `tests run: 632`, `failed: 0`, `agent_action: skip_log`, and saved output `test-results/client-tests-2026-03-21T20-45-51-273Z.log`.
+- The first `npm run test:summary:e2e` pass exposed a real wrapper-env bug: `scripts/test-summary-e2e.mjs` was letting an inherited `CODEINFO_PLAYWRIGHT_MCP_URL` override the e2e-specific control URL and mis-point the env-runtime-config assertions to `http://host.docker.internal:8931/mcp`. Removed that fallback, reran the full wrapper, and the clean pass now reports `tests run: 49`, `failed: 0`, `agent_action: skip_log`, and saved output `logs/test-summaries/e2e-tests-latest.log`.
+- `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and saved output `logs/test-summaries/compose-build-latest.log`; the wrapper also re-emitted `DEV-0000050:T10:image_runtime_assets_baked` during the successful image build.
+- `npm run compose:up` started the main stack cleanly after the pass-closed preflight marker `DEV-0000050:T09:compose_preflight_result {"composeFile":"docker-compose.yml","result":"passed","playwrightServicePresent":true,"checkedPorts":[5010,5011,5012,8932]}` and brought the host-networked server/client services to a healthy state.
+- `npm run test:summary:host-network:main` passed cleanly with direct reachability proof for classic MCP, chat MCP, agents MCP, and Playwright MCP on the host-visible URLs; saved output `logs/test-summaries/host-network-main-latest.log` and marker `DEV-0000050:T12:main_stack_probe_completed {"classicMcp":"reachable","chatMcp":"reachable","agentsMcp":"reachable","playwrightMcp":"reachable","result":"passed"}`.
+- Manual Playwright MCP validation against `http://host.docker.internal:5001` passed: Home, Chat, and Logs loaded on the host-visible UI; the browser console had no error-level entries; and the logs view showed current Story 50 markers including `DEV-0000050:T06:mcp_endpoints_normalized` and `DEV-0000050:T11:host_network_runtime_ready`. The existing Task 15 screenshots still match this final behavior, so no replacement screenshots were needed.
+- `npm run compose:down` completed cleanly after the manual proof pass and removed the main-stack containers plus the `codeinfo2_internal` network without teardown errors.
+- Task 22 reran every required wrapper-first proof surface and the reviewer-facing saved outputs are now: `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-2026-03-21T20-34-08-981Z.log`, `test-results/server-cucumber-tests-2026-03-21T20-44-07-169Z.log`, `logs/test-summaries/shell-tests-2026-03-21T20-45-39-413Z.log`, `test-results/client-tests-2026-03-21T20-45-51-273Z.log`, `logs/test-summaries/e2e-tests-latest.log`, `logs/test-summaries/compose-build-latest.log`, and `logs/test-summaries/host-network-main-latest.log`.
+- Review Finding 1 is now closed with direct rerun proof from `test-results/server-unit-tests-2026-03-21T20-34-08-981Z.log` and `test-results/server-cucumber-tests-2026-03-21T20-44-07-169Z.log`, plus the earlier Task 19 regression tests that keep selector-resolution outages honest instead of re-labeling them as `INVALID_SOURCE_ID`.
+- Review Finding 2 is now closed with direct rerun proof from `logs/test-summaries/shell-tests-2026-03-21T20-45-39-413Z.log`, which exercises the checked-in compose wrapper’s fail-closed docker-host probe behavior alongside the happy path.
+- Review Finding 3 is now closed with direct documentation proof in `docs/developer-reference.md` and `design.md`, where the final Story 50 contract now consistently presents `CODEINFO_CHAT_MCP_PORT` as canonical and no longer advertises `CODEINFO_MCP_PORT` as a live operator contract.
+- Re-checked the review evidence acceptance-criteria map against the rerun outputs and the review-fix work did not reopen any original Story 50 proof seams. The remaining residual-risk notes are unchanged and still explicit: Docker Desktop `4.34+` with host networking enabled remains indirectly proven through preflight logic and shell-harness coverage rather than a live Desktop run on this branch, and `codex/chat/config.toml` remains indirect because it stayed compliant without a branch-local edit.
+- Final close-out delta: Task 22 found and fixed one additional wrapper-only regression while rerunning the required suites. `scripts/test-summary-e2e.mjs` no longer lets an inherited `CODEINFO_PLAYWRIGHT_MCP_URL` override the e2e-specific control URL, so the final e2e proof once again matches the main-stack Playwright contract instead of leaking the local-stack `8931` port into the host-network assertions.

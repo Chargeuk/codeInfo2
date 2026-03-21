@@ -194,10 +194,7 @@ if (options.grep) {
 const e2eRuntimeConfig = {
   browserBaseUrl: process.env.E2E_BASE_URL ?? defaultBrowserBaseUrl,
   apiBaseUrl: process.env.E2E_API_URL ?? defaultApiBaseUrl,
-  mcpControlUrl:
-    process.env.E2E_MCP_CONTROL_URL ??
-    process.env.CODEINFO_PLAYWRIGHT_MCP_URL ??
-    defaultMcpControlUrl,
+  mcpControlUrl: process.env.E2E_MCP_CONTROL_URL ?? defaultMcpControlUrl,
   useMockChat: process.env.E2E_USE_MOCK_CHAT ?? 'true',
 };
 

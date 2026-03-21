@@ -4807,6 +4807,43 @@ flowchart TD
 
 - `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `CODEINFO_HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.
 - `/tools/vector-search` validates `{ query, repository?, limit? }` (query required, limit default 5/max 20, repository must match a known repo id from roots), builds a repo->root map, and queries the vectors collection with an optional `root` filter. Results carry `repo`, `relPath`, `containerPath`, `hostPath`, `chunk`, `chunkId`, `score` (distance), and `modelId`; file summaries report the lowest distance per file. The response also returns the current `lockedModelId`. Errors: 400 validation, 404 unknown repo, 502 Chroma unavailable.
+
+## Story 0000050 Task 3: shared re-ingest target orchestration
+
+- Task 3 adds one shared orchestration seam in `server/src/ingest/reingestExecution.ts` above the strict single-repository `runReingestRepository(...)` service.
+- Request modes now resolve like this before strict execution starts:
+  - explicit `sourceId` tries the existing repository selector first and falls back to the original selector when no canonical match is found, so the strict service still owns the final validation categories;
+  - `target: "current"` uses the already-threaded owner for the current surface:
+    - direct command: command file repository;
+    - top-level flow step: flow file repository;
+    - nested flow-owned command item: command file repository, not the parent flow owner;
+  - `target: "all"` resolves the currently ingested repositories in ascending canonical container-path order and executes them sequentially.
+- The shared orchestration result stays intentionally intermediate for Task 3:
+  - single-target runs return `{ kind: "single", targetMode, requestedSelector, resolvedSourceId, outcome }`;
+  - batch runs return `{ kind: "batch", targetMode: "all", requestedSelector: null, repositories }`;
+  - each batch repository item keeps `sourceId`, `resolvedRepositoryId`, normalized `outcome`, lower-level `status` and `completionMode`, counts, `runId`, `errorCode`, and `errorMessage`.
+- `target: "all"` keeps running after per-repository failures. A strict-service validation refusal or terminal error becomes one failed repository item in the ordered batch result rather than aborting the remainder of the run.
+- The shared helper emits `DEV-0000050:T03:reingest_targets_resolved` before strict execution begins so manual proof can confirm `surface`, `targetMode`, `requestedSelector`, `resolvedCount`, and the ordered `resolvedPaths`.
+
+```mermaid
+flowchart TD
+    A[Reingest request] --> B{Request mode}
+    B -->|sourceId| C[Try repositorySelector]
+    B -->|current| D{Owner path available?}
+    B -->|all| E[List ingested repos]
+    C --> F[Resolve one canonical path]
+    D -->|no| G[Fail fast before strict service]
+    D -->|yes| H{Owner repo currently ingested?}
+    H -->|no| I[Return clear pre-start NOT_FOUND]
+    H -->|yes| F
+    E --> J[Sort by canonical container path]
+    J --> K[Run strict service sequentially]
+    K --> L[Collect ordered repository outcomes]
+    F --> M[Run strict service once]
+    M --> N[Single intermediate result]
+    L --> O[Batch intermediate result]
+```
+
 - Retrieval cutoff: results are filtered to distance `<= CODEINFO_RETRIEVAL_DISTANCE_CUTOFF` (default `1.4`, lower is better) unless `CODEINFO_RETRIEVAL_CUTOFF_DISABLED=true`. If nothing passes the cutoff, the server falls back to the best `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS` results (default `2`, lowest distance with original-order tie-breaks). Summaries are rebuilt from the filtered set so file counts align with what the tool returns.
 - Payload caps + dedupe: the server de-dupes VectorSearch results per `repo + relPath` (duplicate `chunkId` or identical chunk text), keeps the 2 lowest-distance chunks per file, then truncates chunk text to `CODEINFO_TOOL_CHUNK_MAX_CHARS` (default `5000`) and enforces total payload size `CODEINFO_TOOL_MAX_CHARS` (default `40000`). Summaries reflect the capped results.
 - Citation rendering: the client renders citations exactly as returned by the server; there is no client-side dedupe in this story.

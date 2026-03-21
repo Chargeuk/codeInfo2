@@ -1589,6 +1589,151 @@ test('flow-owned commands can execute reingest items', async () => {
   );
 });
 
+test('top-level flow target current resolves to the flow owner repository', async () => {
+  const repos: RepoEntry[] = [];
+  let capturedSourceId: string | undefined;
+
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'repo-flow-current');
+      const conversationId = 'flow-target-current';
+      await fs.mkdir(path.join(sourceRoot, 'flows'), { recursive: true });
+      await fs.writeFile(
+        path.join(sourceRoot, 'flows', 'repo-flow-current.json'),
+        JSON.stringify({
+          description: 'flow current target',
+          steps: [{ type: 'reingest', target: 'current' }],
+        }),
+      );
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/repo-flow-current/run')
+        .send({ conversationId, sourceId: sourceRoot })
+        .expect(202);
+
+      await waitForFlowFinal({
+        ws: wsUrl,
+        conversationId,
+        status: 'ok',
+      });
+      assert.equal(capturedSourceId, sourceRoot);
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({
+        repos,
+        lockedModelId: null,
+      }),
+      flowServiceDeps: {
+        runReingestRepository: async ({ sourceId }) => {
+          capturedSourceId = sourceId;
+          return {
+            ok: true,
+            value: buildReingestSuccess({ sourceId }),
+          };
+        },
+      },
+    },
+  );
+});
+
+test('flow-owned command target current resolves to the command owner repository', async () => {
+  const repos: RepoEntry[] = [];
+  let capturedSourceId: string | undefined;
+
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'repo-command-current');
+      const commandName = 'task11_reingest_current';
+      const conversationId = 'flow-command-target-current';
+      await writeRepoFlow({
+        repoRoot: sourceRoot,
+        flowName: 'repo-command-current',
+        commandName,
+      });
+      await writeRepoCommand({
+        repoRoot: sourceRoot,
+        commandName,
+        items: [{ type: 'reingest', target: 'current' }],
+      });
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/repo-command-current/run')
+        .send({ conversationId, sourceId: sourceRoot })
+        .expect(202);
+
+      await waitForFlowFinal({
+        ws: wsUrl,
+        conversationId,
+        status: 'ok',
+      });
+      assert.equal(capturedSourceId, sourceRoot);
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({
+        repos,
+        lockedModelId: null,
+      }),
+      flowServiceDeps: {
+        runReingestRepository: async ({ sourceId }) => {
+          capturedSourceId = sourceId;
+          return {
+            ok: true,
+            value: buildReingestSuccess({ sourceId }),
+          };
+        },
+      },
+    },
+  );
+});
+
+test('top-level flow target current fails fast when there is no owning repository path', async () => {
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const conversationId = 'flow-target-current-missing-owner';
+      await fs.writeFile(
+        path.join(tmpDir, 'flow-current-missing-owner.json'),
+        JSON.stringify({
+          description: 'missing owner',
+          steps: [{ type: 'reingest', target: 'current' }],
+        }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/flow-current-missing-owner/run')
+        .send({ conversationId })
+        .expect(202);
+
+      const final = (await waitForFlowFinal({
+        ws: wsUrl,
+        conversationId,
+        status: 'failed',
+      })) as { error?: { message?: string } };
+      assert.match(
+        final.error?.message ?? '',
+        /target "current" requires an owning repository path/i,
+      );
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({
+        repos: [],
+        lockedModelId: null,
+      }),
+    },
+  );
+});
+
 test('flow-owned command reingest results publish live tool_event updates', async () => {
   const repos: RepoEntry[] = [];
   await withFlowServer(

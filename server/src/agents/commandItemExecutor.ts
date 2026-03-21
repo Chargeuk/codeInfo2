@@ -1,5 +1,9 @@
 import { resolveMarkdownFileWithMetadata } from '../flows/markdownFileResolver.js';
 import type { RepositoryCandidateLookupSummary } from '../flows/repositoryCandidateOrder.js';
+import type {
+  ReingestExecutionBatchResult,
+  ReingestExecutionSingleResult,
+} from '../ingest/reingestExecution.js';
 import { append } from '../logStore.js';
 
 import type {
@@ -18,13 +22,22 @@ export type ExecuteCommandItemInstruction = {
   resolvedSourceId?: string;
 };
 
-export type ExecuteCommandItemReingestResult = {
-  status: 'completed' | 'cancelled' | 'error';
-  sourceId: string;
-  callId: string;
-  continuedToNextItem: boolean;
-  stopAfter: boolean;
-};
+export type ExecuteCommandItemSingleReingestResult =
+  ReingestExecutionSingleResult & {
+    callId: string;
+    continuedToNextItem: boolean;
+    stopAfter: boolean;
+  };
+
+export type ExecuteCommandItemBatchReingestResult =
+  ReingestExecutionBatchResult & {
+    continuedToNextItem: boolean;
+    stopAfter: boolean;
+  };
+
+export type ExecuteCommandItemReingestResult =
+  | ExecuteCommandItemSingleReingestResult
+  | ExecuteCommandItemBatchReingestResult;
 
 type ExecuteCommandMessageResult<T> = ExecuteCommandItemInstruction & {
   itemType: 'message';
@@ -126,12 +139,6 @@ export async function executeCommandItem<T>(params: {
       }),
     });
 
-    if (!('sourceId' in params.item)) {
-      throw new Error(
-        `Re-ingest target "${params.item.target}" is not executable until Task 3 target orchestration is implemented.`,
-      );
-    }
-
     const result = await params.executeReingest(params.item);
     if (params.flowContext) {
       append({
@@ -144,9 +151,14 @@ export async function executeCommandItem<T>(params: {
           stepIndex: params.flowContext.stepIndex,
           commandName: params.commandName,
           itemIndex: params.itemIndex,
-          sourceId: result.sourceId,
-          status: result.status,
-          callId: result.callId,
+          targetMode: result.targetMode,
+          requestedSelector: result.requestedSelector,
+          sourceId: result.kind === 'single' ? result.outcome.sourceId : null,
+          status: result.kind === 'single' ? result.outcome.status : null,
+          repositoryCount:
+            result.kind === 'batch' ? result.repositories.length : 1,
+          repositories: result.kind === 'batch' ? result.repositories : null,
+          callId: result.kind === 'single' ? result.callId : null,
           continuedToNextItem: result.continuedToNextItem,
         },
       });

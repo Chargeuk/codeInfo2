@@ -12,7 +12,10 @@ import { buildReingestToolResult } from '../chat/reingestToolResult.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
 import type { RepositoryCandidateLookupSummary } from '../flows/repositoryCandidateOrder.js';
 import { formatReingestPrestartReason } from '../ingest/reingestError.js';
+import { executeReingestRequest } from '../ingest/reingestExecution.js';
+import type { ReingestResult } from '../ingest/reingestService.js';
 import { runReingestRepository } from '../ingest/reingestService.js';
+import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import type { TurnRuntimeMetadata } from '../mongo/turn.js';
@@ -68,6 +71,7 @@ export type RunAgentCommandRunnerParams = {
   commandsRoot?: string;
   commandFilePath?: string;
   sourceId?: string;
+  listIngestedRepositories?: typeof listIngestedRepositories;
   lockAlreadyHeld?: boolean;
   working_folder?: string;
   signal?: AbortSignal;
@@ -98,7 +102,9 @@ export type RunAgentCommandRunnerParams = {
 };
 
 type CommandRunnerDeps = {
-  runReingestRepository: typeof runReingestRepository;
+  runReingestRepository: (args: {
+    sourceId?: string;
+  }) => Promise<ReingestResult>;
   buildReingestToolResult: typeof buildReingestToolResult;
   runReingestStepLifecycle: typeof runReingestStepLifecycle;
   createCallId: () => string;
@@ -312,21 +318,24 @@ export async function runAgentCommandRunner(
           context: getReingestRequestLogContext(item, 'command'),
         });
 
-        if (!('sourceId' in item)) {
-          throw toCommandRunnerError(
-            'COMMAND_INVALID',
-            `Re-ingest target "${item.target}" is not executable until Task 3 target orchestration is implemented.`,
-          );
-        }
-
-        const result = await commandRunnerDeps.runReingestRepository({
-          sourceId: item.sourceId,
+        const result = await executeReingestRequest({
+          request: item,
+          surface: 'command',
+          currentOwnerSourceId: params.sourceId,
+          deps: {
+            listIngestedRepositories:
+              params.listIngestedRepositories ?? listIngestedRepositories,
+            runReingestRepository: commandRunnerDeps.runReingestRepository,
+            appendLog: append,
+          },
         });
 
         if (!result.ok) {
+          const requestedLabel =
+            'sourceId' in item ? item.sourceId : `target: ${item.target}`;
           await params.onPrestartFailure?.({
             command: stepMeta,
-            instruction: `Re-ingest repository ${item.sourceId}`,
+            instruction: `Re-ingest repository ${requestedLabel}`,
             message: formatReingestPrestartReason(result.error),
             errorCode: 'COMMAND_INVALID',
           });
@@ -336,19 +345,22 @@ export async function runAgentCommandRunner(
           );
         }
 
-        const callId = commandRunnerDeps.createCallId();
-        const toolResult = commandRunnerDeps.buildReingestToolResult({
-          callId,
-          outcome: result.value,
-        });
+        let callId: string | null = null;
+        if (result.value.kind === 'single') {
+          callId = commandRunnerDeps.createCallId();
+          const toolResult = commandRunnerDeps.buildReingestToolResult({
+            callId,
+            outcome: result.value.outcome,
+          });
 
-        await commandRunnerDeps.runReingestStepLifecycle({
-          conversationId,
-          modelId,
-          source: params.source,
-          command: stepMeta,
-          toolResult,
-        });
+          await commandRunnerDeps.runReingestStepLifecycle({
+            conversationId,
+            modelId,
+            source: params.source,
+            command: stepMeta,
+            toolResult,
+          });
+        }
 
         consumePendingCommandStop();
         const continuedToNextItem =
@@ -361,8 +373,22 @@ export async function runAgentCommandRunner(
           context: {
             commandName,
             itemIndex: i,
-            sourceId: result.value.sourceId,
-            status: result.value.status,
+            targetMode: result.value.targetMode,
+            requestedSelector: result.value.requestedSelector,
+            sourceId:
+              result.value.kind === 'single'
+                ? result.value.outcome.sourceId
+                : null,
+            status:
+              result.value.kind === 'single'
+                ? result.value.outcome.status
+                : null,
+            repositoryCount:
+              result.value.kind === 'batch'
+                ? result.value.repositories.length
+                : 1,
+            repositories:
+              result.value.kind === 'batch' ? result.value.repositories : null,
             callId,
             continuedToNextItem,
           },

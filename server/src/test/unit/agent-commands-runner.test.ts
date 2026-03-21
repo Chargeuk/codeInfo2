@@ -1006,6 +1006,153 @@ describe('agent commands runner (v1)', () => {
     assert.deepEqual(messageSteps, [2]);
   });
 
+  test('target all reingest carries batch execution metadata and ordered per-repository outcomes', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-all-batch',
+      jsonText: JSON.stringify({
+        Description: 'Reingest all',
+        items: [
+          { type: 'reingest', target: 'all' },
+          { type: 'message', role: 'user', content: ['after'] },
+        ],
+      }),
+    });
+
+    const reingestCalls: string[] = [];
+    const lifecycleCalls: string[] = [];
+    const messageSteps: number[] = [];
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async ({ sourceId }) => {
+        reingestCalls.push(sourceId ?? '(missing)');
+        if (sourceId === '/repo/a') {
+          return {
+            ok: true,
+            value: buildReingestSuccess({
+              sourceId,
+              resolvedRepositoryId: 'repo-a',
+            }),
+          };
+        }
+        if (sourceId === '/repo/b') {
+          return {
+            ok: false,
+            error: buildReingestError({
+              message: 'BUSY',
+              code: 'BUSY',
+              fieldMessage:
+                'reingest is currently locked by another ingest operation',
+            }),
+          };
+        }
+        return {
+          ok: true,
+          value: buildReingestSuccess({
+            sourceId,
+            resolvedRepositoryId: 'repo-c',
+            completionMode: 'skipped',
+          }),
+        };
+      },
+      runReingestStepLifecycle: async (params) => {
+        lifecycleCalls.push(params.command.name);
+      },
+    });
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'reingest-all-batch',
+      initialModelId: 'agent-model-1',
+      source: 'REST',
+      listIngestedRepositories: async () => ({
+        repos: [
+          buildRepoEntry({ id: 'repo-c', containerPath: '/repo/c' }),
+          buildRepoEntry({ id: 'repo-a', containerPath: '/repo/a' }),
+          buildRepoEntry({ id: 'repo-b', containerPath: '/repo/b' }),
+        ],
+        lockedModelId: null,
+      }),
+      runAgentInstructionUnlocked: async (params) => {
+        messageSteps.push(params.command?.stepIndex ?? -1);
+        return { modelId: 'agent-model-1' };
+      },
+    });
+
+    assert.deepEqual(reingestCalls, ['/repo/a', '/repo/b', '/repo/c']);
+    assert.deepEqual(lifecycleCalls, []);
+    assert.deepEqual(messageSteps, [2]);
+
+    const resolutionLog = query({
+      text: 'DEV-0000050:T03:reingest_targets_resolved',
+    }).find(
+      (entry) =>
+        entry.context?.targetMode === 'all' &&
+        entry.context?.surface === 'command',
+    );
+    assert.deepEqual(resolutionLog?.context?.resolvedPaths, [
+      '/repo/a',
+      '/repo/b',
+      '/repo/c',
+    ]);
+
+    const batchLog = query({
+      text: 'DEV-0000045:T9:direct_command_reingest_recorded',
+    }).find(
+      (entry) =>
+        entry.context?.targetMode === 'all' &&
+        entry.context?.commandName === 'reingest-all-batch',
+    );
+    assert.equal(batchLog?.context?.requestedSelector, null);
+    assert.equal(batchLog?.context?.repositoryCount, 3);
+    assert.deepEqual(batchLog?.context?.repositories, [
+      {
+        sourceId: '/repo/a',
+        resolvedRepositoryId: 'repo-a',
+        outcome: 'reingested',
+        status: 'completed',
+        completionMode: 'reingested',
+        runId: 'run-123',
+        files: 3,
+        chunks: 7,
+        embedded: 7,
+        errorCode: null,
+        errorMessage: null,
+      },
+      {
+        sourceId: '/repo/b',
+        resolvedRepositoryId: 'repo-b',
+        outcome: 'failed',
+        status: 'error',
+        completionMode: null,
+        runId: null,
+        files: 0,
+        chunks: 0,
+        embedded: 0,
+        errorCode: 'BUSY',
+        errorMessage:
+          'reingest is currently locked by another ingest operation',
+      },
+      {
+        sourceId: '/repo/c',
+        resolvedRepositoryId: 'repo-c',
+        outcome: 'skipped',
+        status: 'completed',
+        completionMode: 'skipped',
+        runId: 'run-123',
+        files: 3,
+        chunks: 7,
+        embedded: 7,
+        errorCode: null,
+        errorMessage: null,
+      },
+    ]);
+  });
+
   test('terminal cancelled reingest outcomes remain non-fatal once started', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');

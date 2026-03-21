@@ -1,5 +1,38 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000050 Task 3 structural change ledger
+
+Added files:
+
+- `server/src/ingest/reingestExecution.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `projectStructure.md`
+- `server/src/agents/commandItemExecutor.ts`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/agents/service.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/commands.reingest.test.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+- `server/src/test/unit/agent-commands-runner.test.ts`
+
+Story notes:
+
+- Task 3 introduces `server/src/ingest/reingestExecution.ts` as the shared orchestration seam above the strict single-repository re-ingest service so direct commands, dedicated flow steps, and flow-owned command items all resolve `sourceId`, `current`, and `all` the same way.
+- The execution seams in `server/src/agents/commandsRunner.ts`, `server/src/agents/commandItemExecutor.ts`, and `server/src/flows/service.ts` now carry one shared single-versus-batch intermediate result contract for later transcript work instead of forcing Task 4 to reconstruct batch metadata from ad hoc runner state.
+- Task 3 test coverage is split across `server/src/test/unit/agent-commands-runner.test.ts` for the internal batch seam and the integration files for direct-command and flow-owner resolution rules.
+
 ## Story 0000049 Task 10 structural change ledger
 
 Added files:

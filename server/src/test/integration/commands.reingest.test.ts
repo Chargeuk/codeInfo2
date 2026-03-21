@@ -13,6 +13,7 @@ import {
 } from '../../agents/commandsRunner.js';
 import {
   __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
   runAgentCommand,
   startAgentCommand,
 } from '../../agents/service.js';
@@ -25,6 +26,7 @@ import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { attachWs } from '../../ws/server.js';
 import {
   closeWs,
@@ -75,6 +77,32 @@ const buildReingestSuccess = (
   embedded: 7,
   errorCode: null,
   ...overrides,
+});
+
+const buildRepoEntry = (params: {
+  id: string;
+  containerPath: string;
+  lastIngestAt?: string | null;
+}): RepoEntry => ({
+  id: params.id,
+  description: null,
+  containerPath: params.containerPath,
+  hostPath: `/host${params.containerPath}`,
+  lastIngestAt: params.lastIngestAt ?? null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model',
+  embeddingDimensions: 768,
+  model: 'model',
+  modelId: 'model',
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    lockedModelId: 'model',
+    modelId: 'model',
+  },
+  counts: { files: 1, chunks: 1, embedded: 1 },
+  lastError: null,
 });
 
 const writeAgentScaffold = async (params: {
@@ -149,6 +177,51 @@ const waitForMemoryTurns = async (
   throw new Error(
     `Timed out waiting for ${expectedCount} memory turns for ${conversationId}`,
   );
+};
+
+const setupRepoCommandHarness = async (suffix: string) => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), `commands-reingest-${suffix}-`),
+  );
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const repoRoot = path.join(tempRoot, 'repo-owner');
+  const agentsHome = path.join(repoRoot, 'codex_agents');
+  const agentHome = await writeAgentScaffold({
+    agentsHome,
+    agentName: 'coding_agent',
+    codexHome,
+  });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+
+  return {
+    tempRoot,
+    repoRoot,
+    codexHome,
+    agentsHome,
+    agentHome,
+    restore: async () => {
+      __resetAgentCommandRunnerDepsForTests();
+      __resetAgentServiceDepsForTests();
+      __resetMarkdownFileResolverDepsForTests();
+      if (previousAgentsHome === undefined) {
+        delete process.env.CODEINFO_CODEX_AGENT_HOME;
+      } else {
+        process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+      }
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEINFO_CODEX_HOME;
+      } else {
+        process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+      }
+      memoryConversations.clear();
+      memoryTurns.clear();
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    },
+  };
 };
 
 test('runAgentCommand bootstraps a new conversation for a reingest-only command', async () => {
@@ -556,6 +629,416 @@ test('multiple direct-command reingest items retain distinct callIds', async () 
     memoryConversations.clear();
     memoryTurns.clear();
     await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('repo id selectors resolve to the canonical container path before direct command reingest starts', async () => {
+  const harness = await setupRepoCommandHarness('selector-id');
+  const selectedRoot = path.join(harness.tempRoot, 'repo-selected');
+  let capturedSourceId: string | undefined;
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: 'repo-id-selector',
+      items: [{ type: 'reingest', sourceId: 'Repo Selected' }],
+    });
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: async () => ({
+        repos: [
+          buildRepoEntry({
+            id: 'Owner Repo',
+            containerPath: harness.repoRoot,
+          }),
+          buildRepoEntry({
+            id: 'Repo Selected',
+            containerPath: selectedRoot,
+          }),
+        ],
+        lockedModelId: null,
+      }),
+    });
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async ({ sourceId }) => {
+        capturedSourceId = sourceId;
+        return { ok: true, value: buildReingestSuccess({ sourceId }) };
+      },
+    });
+
+    await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'repo-id-selector',
+      source: 'REST',
+    });
+
+    assert.equal(capturedSourceId, selectedRoot);
+  } finally {
+    await harness.restore();
+  }
+});
+
+test('absolute-path selectors still execute against the explicit canonical path', async () => {
+  const harness = await setupRepoCommandHarness('selector-path');
+  const selectedRoot = path.join(harness.tempRoot, 'repo-path-target');
+  let capturedSourceId: string | undefined;
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: 'path-selector',
+      items: [{ type: 'reingest', sourceId: selectedRoot }],
+    });
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: async () => ({
+        repos: [
+          buildRepoEntry({
+            id: 'Owner Repo',
+            containerPath: harness.repoRoot,
+          }),
+          buildRepoEntry({
+            id: 'Path Repo',
+            containerPath: selectedRoot,
+          }),
+        ],
+        lockedModelId: null,
+      }),
+    });
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async ({ sourceId }) => {
+        capturedSourceId = sourceId;
+        return { ok: true, value: buildReingestSuccess({ sourceId }) };
+      },
+    });
+
+    await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'path-selector',
+      source: 'REST',
+    });
+
+    assert.equal(capturedSourceId, selectedRoot);
+  } finally {
+    await harness.restore();
+  }
+});
+
+test('duplicate case-insensitive repository ids still resolve to the latest ingest', async () => {
+  const harness = await setupRepoCommandHarness('selector-latest');
+  const olderRoot = path.join(harness.tempRoot, 'repo-older');
+  const newerRoot = path.join(harness.tempRoot, 'repo-newer');
+  let capturedSourceId: string | undefined;
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: 'latest-selector',
+      items: [{ type: 'reingest', sourceId: 'Shared Repo' }],
+    });
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: async () => ({
+        repos: [
+          buildRepoEntry({
+            id: 'Owner Repo',
+            containerPath: harness.repoRoot,
+          }),
+          buildRepoEntry({
+            id: 'shared repo',
+            containerPath: olderRoot,
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+          }),
+          buildRepoEntry({
+            id: 'Shared Repo',
+            containerPath: newerRoot,
+            lastIngestAt: '2026-02-01T00:00:00.000Z',
+          }),
+        ],
+        lockedModelId: null,
+      }),
+    });
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async ({ sourceId }) => {
+        capturedSourceId = sourceId;
+        return { ok: true, value: buildReingestSuccess({ sourceId }) };
+      },
+    });
+
+    await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'latest-selector',
+      source: 'REST',
+    });
+
+    assert.equal(capturedSourceId, newerRoot);
+  } finally {
+    await harness.restore();
+  }
+});
+
+test('direct command target current resolves to the command owner repository', async () => {
+  const harness = await setupRepoCommandHarness('target-current');
+  let capturedSourceId: string | undefined;
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: 'current-target',
+      items: [{ type: 'reingest', target: 'current' }],
+    });
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: async () => ({
+        repos: [
+          buildRepoEntry({
+            id: 'Owner Repo',
+            containerPath: harness.repoRoot,
+          }),
+        ],
+        lockedModelId: null,
+      }),
+    });
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async ({ sourceId }) => {
+        capturedSourceId = sourceId;
+        return { ok: true, value: buildReingestSuccess({ sourceId }) };
+      },
+    });
+
+    await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'current-target',
+      source: 'REST',
+    });
+
+    assert.equal(capturedSourceId, harness.repoRoot);
+  } finally {
+    await harness.restore();
+  }
+});
+
+test('target all executes in ascending canonical path order and continues after failures', async () => {
+  const harness = await setupRepoCommandHarness('target-all-order');
+  const repoA = path.join(harness.tempRoot, 'repo-a');
+  const repoB = path.join(harness.tempRoot, 'repo-b');
+  const repoC = path.join(harness.tempRoot, 'repo-c');
+  const messages: string[] = [];
+  const calls: string[] = [];
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: 'all-target',
+      items: [
+        { type: 'reingest', target: 'all' },
+        { type: 'message', role: 'user', content: ['after batch'] },
+      ],
+    });
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: async () => ({
+        repos: [
+          buildRepoEntry({ id: 'Repo C', containerPath: repoC }),
+          buildRepoEntry({ id: 'Repo A', containerPath: repoA }),
+          buildRepoEntry({ id: 'Repo B', containerPath: repoB }),
+        ],
+        lockedModelId: null,
+      }),
+    });
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async ({ sourceId }) => {
+        calls.push(sourceId ?? '(missing)');
+        if (sourceId === repoB) {
+          return {
+            ok: false,
+            error: {
+              code: 429,
+              message: 'BUSY',
+              data: {
+                tool: 'reingest_repository',
+                code: 'BUSY',
+                retryable: true,
+                retryMessage: 'retry',
+                reingestableRepositoryIds: [],
+                reingestableSourceIds: [],
+                fieldErrors: [
+                  {
+                    field: 'sourceId',
+                    reason: 'busy',
+                    message:
+                      'reingest is currently locked by another ingest operation',
+                  },
+                ],
+              },
+            },
+          };
+        }
+        return {
+          ok: true,
+          value: buildReingestSuccess({
+            sourceId,
+            resolvedRepositoryId: sourceId === repoA ? 'Repo A' : 'Repo C',
+            completionMode: sourceId === repoC ? 'skipped' : 'reingested',
+          }),
+        };
+      },
+    });
+
+    await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'all-target',
+      source: 'REST',
+      chatFactory: () => new CapturingChat(messages),
+    });
+
+    assert.deepEqual(calls, [repoA, repoB, repoC]);
+    assert.deepEqual(messages, ['after batch']);
+  } finally {
+    await harness.restore();
+  }
+});
+
+test('target all returns an empty batch without calling the strict reingest service when no repositories are ingested', async () => {
+  const harness = await setupRepoCommandHarness('target-all-empty');
+  const messages: string[] = [];
+  let reingestCalls = 0;
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: 'all-target-empty',
+      items: [
+        { type: 'reingest', target: 'all' },
+        { type: 'message', role: 'user', content: ['after empty batch'] },
+      ],
+    });
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: async () => ({
+        repos: [],
+        lockedModelId: null,
+      }),
+    });
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => {
+        reingestCalls += 1;
+        return { ok: true, value: buildReingestSuccess() };
+      },
+    });
+
+    await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'all-target-empty',
+      source: 'REST',
+      chatFactory: () => new CapturingChat(messages),
+    });
+
+    assert.equal(reingestCalls, 0);
+    assert.deepEqual(messages, ['after empty batch']);
+  } finally {
+    await harness.restore();
+  }
+});
+
+test('target current preserves strict-service BUSY failures instead of collapsing them into a generic orchestration error', async () => {
+  const harness = await setupRepoCommandHarness('target-current-busy');
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: 'current-target-busy',
+      items: [{ type: 'reingest', target: 'current' }],
+    });
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: async () => ({
+        repos: [
+          buildRepoEntry({
+            id: 'Owner Repo',
+            containerPath: harness.repoRoot,
+          }),
+        ],
+        lockedModelId: null,
+      }),
+    });
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => ({
+        ok: false,
+        error: {
+          code: 429,
+          message: 'BUSY',
+          data: {
+            tool: 'reingest_repository',
+            code: 'BUSY',
+            retryable: true,
+            retryMessage: 'retry',
+            reingestableRepositoryIds: ['Owner Repo'],
+            reingestableSourceIds: [harness.repoRoot],
+            fieldErrors: [
+              {
+                field: 'sourceId',
+                reason: 'busy',
+                message:
+                  'reingest is currently locked by another ingest operation',
+              },
+            ],
+          },
+        },
+      }),
+    });
+
+    await assert.rejects(
+      async () =>
+        runAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'current-target-busy',
+          source: 'REST',
+        }),
+      (error) =>
+        (error as { code?: string; reason?: string }).code ===
+          'COMMAND_INVALID' &&
+        (error as { code?: string; reason?: string }).reason ===
+          'reingest is currently locked by another ingest operation',
+    );
+  } finally {
+    await harness.restore();
+  }
+});
+
+test('direct command target current fails before strict execution when the owner is not currently ingested', async () => {
+  const harness = await setupRepoCommandHarness('target-current-not-ingested');
+  let strictCalls = 0;
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: 'current-target-not-ingested',
+      items: [{ type: 'reingest', target: 'current' }],
+    });
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: async () => ({
+        repos: [],
+        lockedModelId: null,
+      }),
+    });
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => {
+        strictCalls += 1;
+        return { ok: true, value: buildReingestSuccess() };
+      },
+    });
+
+    await assert.rejects(
+      async () =>
+        runAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'current-target-not-ingested',
+          source: 'REST',
+        }),
+      (error) =>
+        (error as { code?: string; reason?: string }).code ===
+          'COMMAND_INVALID' &&
+        /owner repository is not currently ingested/i.test(
+          (error as { reason?: string }).reason ?? '',
+        ),
+    );
+    assert.equal(strictCalls, 0);
+  } finally {
+    await harness.restore();
   }
 });
 

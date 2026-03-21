@@ -23,6 +23,8 @@ Current-repository and all-repositories targeting are additions to the workflow 
 
 The dedicated batch result for `target: "all"` also needs a concrete minimum contract. One transcript item should represent the whole batch and should include enough structured data for the UI, logs, and tests to reason about the outcome without reconstructing it from per-repository messages. At minimum that payload should identify that the target mode was `all`, preserve the ordered list of repositories attempted, and record for each repository the resolved repository identity, canonical container path, and terminal outcome (`reingested`, `skipped`, or `failed`) plus an error message when the outcome is `failed`.
 
+For consistency across the story, `reingested`, `skipped`, and `failed` are the user-facing transcript outcomes. Lower-level ingest terminal states such as `completed`, `cancelled`, and `error` may still exist underneath in the strict single-repository service contract, but transcript payloads should expose the normalized user-facing outcome directly.
+
 This story should preserve the current blocking re-ingest semantics. A workflow step should still wait for each re-ingest target to reach a terminal outcome before moving on. Pre-start validation failures should still fail the relevant workflow step early with a clear message. Terminal ingest failures should still be recorded as structured outcomes rather than being silently swallowed.
 
 This story also tightens one part of the markdown-file workflow contract used by commands and flows. If a loaded markdown file resolves successfully but its content is empty or contains only whitespace, the runtime should not try to execute that instruction as an empty prompt. Instead, that specific flow or command step should be skipped, and the system should emit an info-level log entry that makes it clear the step was skipped because the resolved markdown content was empty. This keeps reusable prompt files safe to leave temporarily blank without turning them into confusing no-op agent calls or avoidable failures.
@@ -292,7 +294,7 @@ This remains a single-repository story inside `codeInfo2`. The runtime behavior 
   - `server/src/chat/reingestToolResult.ts`;
   - `server/src/chat/reingestStepLifecycle.ts`;
   - the command and flow call sites in `server/src/agents/commandsRunner.ts` and `server/src/flows/service.ts`.
-- Keep single-repository result handling intact for explicit `sourceId` and resolved `current` runs.
+- Keep the single-repository execution flow for explicit `sourceId` and resolved `current` runs, but extend the single-result payload to match the contract defined in `## Message Contracts And Storage Shapes`.
 - Implement the blank-markdown skip behavior in the shared markdown-backed execution path so commands and flows cannot drift:
   - `server/src/flows/markdownFileResolver.ts`;
   - `server/src/agents/commandItemExecutor.ts`;
@@ -584,6 +586,7 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
       "requestedSelector": "<original selector>",
       "sourceId": "<canonical container path>",
       "resolvedRepositoryId": "<repo id or null>",
+      "outcome": "reingested",
       "status": "completed",
       "completionMode": "reingested",
       "operation": "reembed",
@@ -597,6 +600,10 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
   - `targetMode` is `"sourceId"` for explicit selector runs and `"current"` for owner-derived runs.
   - `requestedSelector` stores the original `sourceId` string for explicit selector runs and `null` for `current`.
   - `sourceId` keeps its existing meaning as the canonical resolved container path so older consumers do not lose the main identifier they already expect.
+  - `outcome` is the normalized user-facing value:
+    - `reingested` when `status === "completed"` and `completionMode === "reingested"`;
+    - `skipped` when `status === "completed"` and `completionMode === "skipped"`;
+    - `failed` when `status === "cancelled"` or `status === "error"`.
 - Batch payload shape for `target: "all"`:
   - Introduce a new discriminated payload variant rather than overloading the single-repository shape:
     ```json
@@ -608,6 +615,7 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
         {
           "sourceId": "<canonical container path>",
           "resolvedRepositoryId": "<repo id or null>",
+          "outcome": "reingested",
           "status": "completed",
           "completionMode": "reingested",
           "runId": "<run id or null>",
@@ -627,10 +635,15 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
     }
     ```
   - `repositories` must remain in ascending canonical container path order.
+  - `outcome` is the normalized user-facing field for each repository item:
+    - `reingested` when `status === "completed"` and `completionMode === "reingested"`;
+    - `skipped` when `status === "completed"` and `completionMode === "skipped"`;
+    - `failed` when `status === "cancelled"` or `status === "error"`.
   - `summary.failed` counts any repository item with `status === "error"` or `status === "cancelled"`.
   - `completionMode` is `null` when `status` is `cancelled` or `error`.
 - Validation and compatibility rule:
   - This is a discriminated-union expansion, not a replacement. The existing single payload stays valid, and the new batch payload is added as a second `kind` variant so the repo can extend current Zod and runtime parsing without breaking older stored turns.
+  - `outcome` is the normalized transcript-facing field, while `status` and `completionMode` remain the lower-level runtime detail fields needed to preserve the existing strict-service semantics.
   - This matches the repository evidence from `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, and `server/src/chat/interfaces/ChatInterface.ts`, and it also matches the additive discriminated-union guidance gathered from DeepWiki and Context7 for `colinhacks/zod`.
 
 ### 4. Turn storage impact

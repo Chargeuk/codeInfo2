@@ -997,7 +997,7 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
 - Missing prerequisite capabilities:
   - These prerequisites have now been satisfied by Tasks 2 and 3, so Task 4 can assume the strict result contract already carries the extended fields and the orchestration layer already produces ordered single-target and batch-target intermediate outcomes.
 - Assumptions currently invalid:
-  - No batch payload shape exists yet, so this task must extend the existing lifecycle rather than assuming a second persistence channel exists.
+  - This assumption has now been resolved by Task 4. Later tasks may assume the single-result and batch-result transcript payloads exist and persist through `Turn.toolCalls`, but they must not assume blank-markdown skipping, MCP config migration, or Docker/runtime proof-path work exists yet.
 
 ### Task 5. Skip blank markdown instructions without weakening real markdown failures
 

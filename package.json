@@ -8,6 +8,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:summary:server:unit": "node ./scripts/test-summary-server-unit.mjs",
     "test:summary:server:cucumber": "node ./scripts/test-summary-server-cucumber.mjs",
+    "test:summary:shell": "node ./scripts/test-summary-shell.mjs",
     "test:summary:client": "node ./scripts/test-summary-client.mjs",
     "test:summary:e2e": "node ./scripts/test-summary-e2e.mjs",
     "typecheck:summary:client": "node ./scripts/typecheck-summary-client.mjs",

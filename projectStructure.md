@@ -1,5 +1,38 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000050 Task 8 structural change ledger
+
+Added files:
+
+- `scripts/test-summary-shell.mjs`
+- `scripts/test/bats/shell-harness.bats`
+- `scripts/test/bats/test_helper/common.bash`
+- `scripts/test/bats/fixtures/bin/fixture-success`
+- `scripts/test/bats/fixtures/bin/fixture-fail`
+- `scripts/test/bats/vendor/bats-core/`
+- `scripts/test/bats/vendor/bats-support/`
+- `scripts/test/bats/vendor/bats-assert/`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `package.json`
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 8 adds `scripts/test-summary-shell.mjs` as the summary-wrapper entry point for the new vendored shell harness so later shell-based proof tasks reuse the same heartbeat, saved-log, and final-guidance contract as the existing wrappers.
+- The shell harness lives under `scripts/test/bats/` with one shared helper in `scripts/test/bats/test_helper/common.bash`, checked-in fixture binaries in `scripts/test/bats/fixtures/bin/`, and vendored `bats-core`, `bats-support`, and `bats-assert` runtimes under `scripts/test/bats/vendor/`.
+- `scripts/test/bats/shell-harness.bats` is the first proof seam for the vendored runtime and targeted suite execution before Task 9 adds Docker-wrapper-specific shell coverage on top of the same harness.
+
 ## Story 0000050 Task 6 structural change ledger
 
 Added files:

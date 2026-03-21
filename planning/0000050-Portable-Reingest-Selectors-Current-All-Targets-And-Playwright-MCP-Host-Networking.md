@@ -1640,7 +1640,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 ### Task 8. Add a repo-local shell harness
 
 - Repository Name: `codeInfo2`
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1654,33 +1654,42 @@ Create the reusable repo-local shell harness that later wrapper and compose task
 
 #### Subtasks
 
-1. [ ] Read `scripts/summary-wrapper-protocol.mjs`, `scripts/summary-wrapper-protocol-fixture.mjs`, and `package.json` together with story section `## Test Harnesses`. This harness must follow the same saved-log and heartbeat contract as the other repo wrappers.
-2. [ ] Add the repo-local shell harness files under `scripts/test/bats/` with this minimum shape so another developer can find everything in one place:
+1. [x] Read `scripts/summary-wrapper-protocol.mjs`, `scripts/summary-wrapper-protocol-fixture.mjs`, and `package.json` together with story section `## Test Harnesses`. This harness must follow the same saved-log and heartbeat contract as the other repo wrappers.
+2. [x] Add the repo-local shell harness files under `scripts/test/bats/` with this minimum shape so another developer can find everything in one place:
    - `.bats` test file;
    - shared helper file;
    - fixture binaries.
-3. [ ] Check in the Bats runtime and helper libraries under `scripts/test/bats/vendor/` so the harness is runnable from a clean checkout with no global Bats installation.
-4. [ ] Add `scripts/test-summary-shell.mjs` and the root `package.json` script entry `npm run test:summary:shell` so the shell harness uses the same summary-wrapper protocol fields as the other wrappers: saved log path, heartbeat output, and final guidance.
-5. [ ] Implement `scripts/test-summary-shell.mjs` so it discovers every checked-in `.bats` file under `scripts/test/bats/` by default and supports one or more `--file <path>` selectors for targeted later-task runs. The wrapper must fail clearly when a requested `.bats` file does not exist and must record which shell suites were executed in the saved log so Task 9 and later tasks can prove their own files ran.
-6. [ ] Create `scripts/test/bats/shell-harness.bats` and add a shell test there that exercises a passing harness fixture. Purpose: prove the vendored Bats harness can execute a normal success case from a clean checkout.
-7. [ ] In `scripts/test/bats/shell-harness.bats`, add a shell test that exercises an intentionally failing fixture and asserts the failure is expected. Purpose: prove the harness can report controlled failures without treating them as accidental crashes.
-8. [ ] Update `projectStructure.md` after all new shell-harness files are added in this task. Document `scripts/test-summary-shell.mjs`, the `scripts/test/bats/` tree, and the vendored Bats runtime paths so the repository structure doc reflects the new shell-test harness entry points.
-9. [ ] Add or update the structured wrapper log marker `DEV-0000050:T08:shell_harness_ready` in `scripts/test-summary-shell.mjs`. Include `suiteCount`, `vendorMode`, and `targetedRunSupported`. Purpose: later Manual Playwright-MCP validation checks this exact wrapper log line in the saved shell-harness output to prove the checked-in shell harness exists and is ready to run scoped suites.
-10. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-11. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-12. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+3. [x] Check in the Bats runtime and helper libraries under `scripts/test/bats/vendor/` so the harness is runnable from a clean checkout with no global Bats installation.
+4. [x] Add `scripts/test-summary-shell.mjs` and the root `package.json` script entry `npm run test:summary:shell` so the shell harness uses the same summary-wrapper protocol fields as the other wrappers: saved log path, heartbeat output, and final guidance.
+5. [x] Implement `scripts/test-summary-shell.mjs` so it discovers every checked-in `.bats` file under `scripts/test/bats/` by default and supports one or more `--file <path>` selectors for targeted later-task runs. The wrapper must fail clearly when a requested `.bats` file does not exist and must record which shell suites were executed in the saved log so Task 9 and later tasks can prove their own files ran.
+6. [x] Create `scripts/test/bats/shell-harness.bats` and add a shell test there that exercises a passing harness fixture. Purpose: prove the vendored Bats harness can execute a normal success case from a clean checkout.
+7. [x] In `scripts/test/bats/shell-harness.bats`, add a shell test that exercises an intentionally failing fixture and asserts the failure is expected. Purpose: prove the harness can report controlled failures without treating them as accidental crashes.
+8. [x] Update `projectStructure.md` after all new shell-harness files are added in this task. Document `scripts/test-summary-shell.mjs`, the `scripts/test/bats/` tree, and the vendored Bats runtime paths so the repository structure doc reflects the new shell-test harness entry points.
+9. [x] Add or update the structured wrapper log marker `DEV-0000050:T08:shell_harness_ready` in `scripts/test-summary-shell.mjs`. Include `suiteCount`, `vendorMode`, and `targetedRunSupported`. Purpose: later Manual Playwright-MCP validation checks this exact wrapper log line in the saved shell-harness output to prove the checked-in shell harness exists and is ready to run scoped suites.
+10. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+11. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+12. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
-3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
+1. [x] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [x] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 
 #### Implementation notes
 
-- **to_do**
+- Confirmed Task 8 will extend the existing summary-wrapper contract rather than inventing a separate shell runner, and used the Bats docs to keep the vendored runtime, helper loading, and targeted file execution aligned with a clean-checkout workflow.
+- Added the checked-in shell harness under `scripts/test/bats/`, vendored `bats-core` plus `bats-support` and `bats-assert`, and exposed it through `npm run test:summary:shell` so a clean checkout can run shell proofs without a global Bats install.
+- Implemented default `.bats` discovery, targeted `--file` support, suite logging, and the `DEV-0000050:T08:shell_harness_ready` marker in `scripts/test-summary-shell.mjs`, then proved both default and targeted wrapper runs against `scripts/test/bats/shell-harness.bats`.
+- Added one passing and one expected-failure fixture-backed shell test in `scripts/test/bats/shell-harness.bats`, plus the shared helper and fixture-bin layout that Task 9 can extend for Docker-wrapper preflight simulation.
+- Updated `projectStructure.md` immediately after the new wrapper, harness tree, fixture binaries, and vendored runtime directories were in place so Task 8 leaves the repository structure doc pointing at the new shell-proof entry points.
+- `npm run lint` still fails repo-wide on the existing non-Task-8 warning set after `npm run lint:fix`, but the Task 8 files were kept clean and the harness-specific files were validated with `npx prettier --check`, `bash -n`, and live `npm run test:summary:shell` runs.
+- `npm run format:check` still fails repo-wide on the known baseline set plus the intentionally invalid `server/src/test/fixtures/flows/invalid-json.json`; after `npm run format` touched unrelated files, those spillover edits were restored so only the Task 8 files remain changed.
+- `npm run build:summary:server` passed cleanly with `warning_count: 0`, so the new shell wrapper and vendored harness tree do not break the server workspace build path.
+- `npm run test:summary:server:unit` passed cleanly at `1361` passed and `0` failed in `test-results/server-unit-tests-2026-03-21T08-36-05-794Z.log`, so the new shell harness files and wrapper entrypoint do not regress the full server unit/integration suite.
+- `npm run test:summary:server:cucumber` also passed cleanly at `71` passed and `0` failed in `test-results/server-cucumber-tests-2026-03-21T08-46-20-600Z.log`, so the Task 8 shell-harness additions clear the full wrapper-first server validation loop.
 
 ---
 

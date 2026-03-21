@@ -107,6 +107,7 @@ This remains a single-repository story inside `codeInfo2`. The runtime behavior 
 - For `target: "all"`, deterministic order is defined as ascending canonical container path order of the currently ingested repositories.
 - "All repositories" mode records one dedicated batch result payload in conversation history rather than one existing single-repository result per repository.
 - The dedicated batch result payload for `target: "all"` contains one ordered result entry per attempted repository, including the resolved repository identity, canonical container path, terminal outcome (`reingested`, `skipped`, or `failed`), and error text when a repository fails.
+- The dedicated batch result payload for `target: "all"` also contains a summary block with explicit `total`, `reingested`, `skipped`, and `failed` counts so the UI, logs, and tests can assert the whole batch outcome without recalculating it from the per-repository entries.
 - If a "current repository" target resolves to a repository that is not currently ingested, the step fails fast with a clear pre-start error instead of silently falling back to another repository.
 - The low-level single-repository re-ingest service remains the canonical strict container-path execution layer, with selector expansion handled above it.
 - Structured re-ingest result recording remains intact for direct commands, dedicated flow re-ingest steps, and command items executed inside flows.
@@ -124,6 +125,7 @@ This remains a single-repository story inside `codeInfo2`. The runtime behavior 
 - The Dockerfiles and the relevant `.dockerignore` files are updated together wherever this story changes what checked-in runtime files must be copied into the image, so only required files enter the build context and no host source bind mount is needed for runtime application code.
 - The implementation removes any incompatible bridge-style `server` and `playwright-mcp` wiring that cannot coexist with host networking.
 - The final host-networked compose path does not introduce new bind mounts for application source trees or checked-in runtime config trees. If container-generated output must persist, it uses Docker-managed volumes for generated output only, while log output may remain host-visible.
+- The final host-networked runtime proves that the checked-in runtime assets required by the stack, including the `codex/` and `codex_agents/` trees and any checked-in flow directory used by that stack, are available from image contents instead of from host source bind mounts.
 - Checked-in runtime MCP endpoint configuration is updated so host-networked stacks are no longer hard-coded only to `http://localhost:5010/mcp`, `http://localhost:5011/mcp`, or `http://playwright-mcp:8931/mcp`.
 - The implementation preserves the intentional split between the chat/base CodeInfo MCP endpoint and the other checked-in CodeInfo MCP endpoint rather than collapsing them into one shared URL contract.
 - The runtime MCP endpoint overrides are implemented through explicit runtime environment overlays rather than assuming native TOML environment interpolation.
@@ -796,6 +798,7 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
   - `docker-compose.yml` host-networked server surfaces bind `5010`, `5011`, and `5012` directly on the host, and `playwright-mcp` binds `8932`.
   - `docker-compose.local.yml` host-networked server surfaces bind `5510`, `5511`, and `5512` directly on the host, `playwright-mcp` binds `8931`, and the existing Chrome DevTools port remains `9222`.
   - `docker-compose.e2e.yml` host-networked server surfaces bind `6010`, `6011`, and `6012` directly on the host.
+  - the main-stack proof wrapper and the final validation task both show the classic `/mcp`, dedicated chat MCP, dedicated agents MCP, and Playwright MCP surfaces reachable on their documented host-visible endpoints instead of only proving that the containers started.
   - Checked-in config files resolve the MCP placeholders to literal runtime URLs for the server-owned MCP surfaces and the Playwright override without leaving raw placeholders in the runtime config passed to Codex.
   - Direct `sourceId`, `target: "current"`, and `target: "all"` re-ingest runs all produce the transcript and storage shapes defined in `## Message Contracts And Storage Shapes`.
   - Empty-markdown command or flow steps are skipped with the documented info-level log contract and do not create a new persisted storage shape of their own.

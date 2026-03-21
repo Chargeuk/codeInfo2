@@ -216,6 +216,13 @@
     {
       "type": "message",
       "role": "user",
+      "content": [
+        "Please re-read the full task list and update the plan's `### Additional Repositories` section so it exactly matches every non-current repository that the planned tasks, subtasks, testing steps, and final validation steps will change. Add any missing repository, remove any repository that is no longer updated by the plan, keep the current repository out of that list because it is already implicit, and ensure the remaining repository names and paths stay consistent with the task ownership described throughout the plan. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
       "markdownFile": "create_simple_story.md"
     }
   ]

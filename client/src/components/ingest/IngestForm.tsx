@@ -10,8 +10,8 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { getApiBaseUrl } from '../../api/baseUrl';
-import { createLogger } from '../../logging';
 import type { OpenAiStatus } from '../../hooks/useIngestModels';
+import { createLogger } from '../../logging';
 import DirectoryPickerDialog from './DirectoryPickerDialog';
 
 const serverBase = getApiBaseUrl();

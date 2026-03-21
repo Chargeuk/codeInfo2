@@ -124,7 +124,7 @@ This story does **not** add new business features; it only improves how the syst
 
 ### 1. Server: Device-auth CLI parsing helper
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: fadc1db, 2d8606c, ab7fc53, 5622418, df0937a, 9e8eef3, 132de26, 2f2aee2, f4d4632, c20fe2a, e7736dd, ca9a2ff, 1f489cb, 1d5942e, cae96c5, 751227d, dd8a311, f4c3873, 3cb26a9, d2a98fe, bf88193, 67981cb, ac612b1, e0c7abb, 402fbc3, 00b5629, fb6e17b, 2d91c23, 720b67b, 2d3f510, 64ffdbf, 91fdb95, e881736, bfd8598, 391453b, ab990e1, 1b09636, 2c3a4c2, f5b8fa7, a90dfbd, 2774bf2, d5e253a
 
 #### Overview
@@ -298,7 +298,7 @@ Create a reusable helper that runs `codex login --device-auth`, captures ANSI-st
 
 ### 2. Server: Device-auth route contract
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: bc1a768, b6ba394
 
 #### Overview
@@ -537,7 +537,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 
 ### 3. Server: Persist auth configuration for device-auth
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: f1d9a07, 0e573fc
 
 #### Overview
@@ -690,7 +690,7 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 
 ### 4. Server: Auth propagation + Codex availability refresh
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: b658207, b1ec61d
 
 #### Overview
@@ -846,7 +846,7 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
 
 ### 5. Client: Codex device-auth API helper
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: dc8e625, 4eb15cb
 
 #### Overview
@@ -1005,7 +1005,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
 
 ### 6. Client: CodexDeviceAuthDialog component
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 2ffe048, 247378c
 
 #### Overview
@@ -1199,7 +1199,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 
 ### 7. Client: Chat page device-auth entry point
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 0193108, 7314943
 
 #### Overview
@@ -1361,7 +1361,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
 
 ### 8. Client: Agents page device-auth entry point
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 453f073, 84881b9, 7314943
 
 #### Overview
@@ -1540,7 +1540,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 
 ### 9. Final Task: Validate, document, and summarize
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: af6684a, 4e9a1d4
 
 #### Overview
@@ -1698,7 +1698,7 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 
 ### 10. Server: Device-auth persistence + post-completion propagation
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 22b3b8f
 
 #### Overview
@@ -1852,7 +1852,7 @@ Ensure device-auth always writes to `auth.json` by enforcing file-store config f
 
 ### 11. Final Task: Re-validate after device-auth persistence fixes
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 226ef04
 
 #### Overview
@@ -1947,7 +1947,7 @@ Re-run the full validation suite and documentation checks after Task 10 to ensur
 
 ### 12. Server: Device-auth output parsing hardening
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: f86616f
 
 #### Overview
@@ -2084,7 +2084,7 @@ Harden device-auth stdout parsing to strip ANSI escape codes and prevent the use
 
 ### 13. Client: Device-auth dialog link + text presentation
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 5e8efa8
 
 #### Overview
@@ -2221,7 +2221,7 @@ Render the verification URL as a clickable link (opens in a new tab) and render 
 
 ### 14. Client + server: show raw device-auth output
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 951c085
 
 #### Overview
@@ -2373,7 +2373,7 @@ Replace the verification URL + user code fields with a single read-only output b
 
 ### 15. Final Task: Re-validate after parsing hardening
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: d0dbe6a, 4ab4a17
 
 #### Overview

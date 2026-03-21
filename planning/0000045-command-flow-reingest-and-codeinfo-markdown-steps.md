@@ -633,7 +633,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 
 #### Implementation notes
 
-- 
+-
 - Read the Story 45 command contract plus the current command schema, command schema tests, agent service, and command runner; confirmed `AgentCommandMessageItemSchema` and `parseAgentCommandFile(...)` are the current validation anchors and `commandsRunner.ts` still assumes every item has `content`.
 - Expanded the command item schema into a discriminated union for `message` and `reingest`, added XOR validation for `content` versus `markdownFile`, and kept the top-level `Description` plus `items` contract unchanged.
 - Updated command-side consumers to narrow on item type before reading instruction fields; kept pre-runtime handling explicit by rejecting `reingest` execution in `commandsRunner.ts` until the later Story 45 runtime tasks are implemented.
@@ -721,7 +721,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 
 #### Implementation notes
 
-- 
+-
 - Read the Story 45 flow contract plus the current flow schema, flow schema tests, flow service, and design doc context; confirmed `FlowLlmStepSchema`, `flowStepUnionSchema()`, and `parseFlowFile(...)` are the current schema anchors and the flow runner still assumes `llm` steps always expose `messages`.
 - Expanded the flow schema so `llm` accepts exactly one of `messages` or `markdownFile`, added the dedicated `reingest` step shape, and kept the top-level `{ description, steps }` contract plus existing `command`, `break`, and `startLoop` shapes intact.
 - Updated flow-side parsing consumers to pass `flowName` into `parseFlowFile(...)` for the required Task 2 observability and tightened flow service narrowing so the widened step union compiles cleanly without starting the later runtime behavior.
@@ -1132,7 +1132,15 @@ export function buildReingestToolResult(params: {
   callId: string;
   outcome: ReingestTerminalOutcome;
 }): ChatToolResultEvent {
-  return { type: 'tool-result', callId: params.callId, name: 'reingest_repository', stage: 'success', result: {/* nested payload */} };
+  return {
+    type: 'tool-result',
+    callId: params.callId,
+    name: 'reingest_repository',
+    stage: 'success',
+    result: {
+      /* nested payload */
+    },
+  };
 }
 ```
 
@@ -1238,7 +1246,7 @@ export async function runReingestStepLifecycle(params: {
    - [attachChatStreamBridge()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/chatStreamBridge.ts);
    - [markInflightPersisted()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts) and [markInflightFinal()](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/chat/inflightRegistry.ts);
    - the existing synthetic-turn pattern in [flows/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) (`createNoopChat`, `persistFlowTurn`, and manual user/assistant persistence) as the source pattern to extract from when a shared helper is needed.
-   Extract only the minimal common code required so direct commands and dedicated flow reingest steps share one lifecycle. Require callers to provide the already-resolved `conversationId`, `modelId`, `source`, and `command` metadata that should be published and persisted. Do not import or depend on private flow-only helpers from `flows/service.ts` without first moving them to an explicitly shared module.
+     Extract only the minimal common code required so direct commands and dedicated flow reingest steps share one lifecycle. Require callers to provide the already-resolved `conversationId`, `modelId`, `source`, and `command` metadata that should be published and persisted. Do not import or depend on private flow-only helpers from `flows/service.ts` without first moving them to an explicitly shared module.
 3. [x] Keep this task lifecycle-only. Do not yet wire direct command or flow `reingest` execution to call the helper.
 4. [x] Add one unit test in [reingest-step-lifecycle.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-step-lifecycle.test.ts) for inflight creation before tool-event append/publish and final persistence. Purpose: prove the shared lifecycle initializes runtime state in the correct order.
 5. [x] Add one unit test in [reingest-step-lifecycle.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/reingest-step-lifecycle.test.ts) for user-turn publication. Purpose: prove the shared non-agent lifecycle still emits the expected user-turn event.
@@ -1315,7 +1323,12 @@ Teach the direct command runner to execute `reingest` items once, record their s
 ```ts
 const outcome = await runReingestRepository({ sourceId: item.sourceId });
 const toolResult = buildReingestToolResult({ callId, outcome });
-await runReingestStepLifecycle({ conversationId, modelId, command, toolResult });
+await runReingestStepLifecycle({
+  conversationId,
+  modelId,
+  command,
+  toolResult,
+});
 ```
 
 #### Subtasks
@@ -1416,7 +1429,12 @@ Teach the flow runner to execute dedicated `reingest` steps and to respect Story
 async function runReingestStep(step: FlowReingestStep): Promise<void> {
   const outcome = await runReingestRepository({ sourceId: step.sourceId });
   const toolResult = buildReingestToolResult({ callId, outcome });
-  await runReingestStepLifecycle({ conversationId, modelId, command, toolResult });
+  await runReingestStepLifecycle({
+    conversationId,
+    modelId,
+    command,
+    toolResult,
+  });
 }
 ```
 
@@ -1516,7 +1534,12 @@ Finish Story 45’s parity work by making flow-owned command files execute `rein
 if (item.type === 'reingest') {
   const outcome = await runReingestRepository({ sourceId: item.sourceId });
   const toolResult = buildReingestToolResult({ callId, outcome });
-  await runReingestStepLifecycle({ conversationId, modelId, command, toolResult });
+  await runReingestStepLifecycle({
+    conversationId,
+    modelId,
+    command,
+    toolResult,
+  });
 }
 ```
 
@@ -1873,7 +1896,7 @@ Use only the summary wrappers listed below. Do not attempt to run builds or test
 
 #### Implementation notes
 
-- 
+-
 - Subtask 1: Re-read `flowSchema.ts`, `flows/service.ts`, and `commandsRunner.ts`, then placed the shared prestart re-ingest reason formatter in a small ingest-layer helper beside `reingestService.ts` so flow and direct-command paths can reuse the same message contract.
 - Subtasks 2-4: Restored `type`-discriminated flow-step parsing in `flowSchema.ts`, moved the `llm` XOR enforcement to flow-file validation so the discriminated union still compiles cleanly, extracted `formatReingestPrestartReason(...)` into a shared ingest helper, and moved the `llm.markdownFile` flow path onto agent/runtime prechecks before markdown resolution.
 - Subtasks 5-6: Added a schema regression proving `reingest` stays distinct under the restored discriminator, added direct-command and dedicated-flow formatter-alignment coverage for fieldless prestart errors, and updated the flow markdown precheck tests to assert the actual `AGENT_NOT_FOUND` / `CODEX_UNAVAILABLE` rejection contract before markdown resolution runs.

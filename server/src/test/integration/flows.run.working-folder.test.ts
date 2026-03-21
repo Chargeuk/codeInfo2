@@ -12,8 +12,8 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
-import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { startFlowRun } from '../../flows/service.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';

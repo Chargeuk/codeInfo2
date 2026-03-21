@@ -261,8 +261,7 @@ test('POST /agents/:agentName/run maps WORKING_FOLDER_REPOSITORY_UNAVAILABLE to 
       startAgentInstruction: async () => {
         throw {
           code: 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE',
-          reason:
-            'working_folder repository membership could not be validated',
+          reason: 'working_folder repository membership could not be validated',
         };
       },
     }),

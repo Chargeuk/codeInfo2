@@ -207,7 +207,7 @@ These instructions will be followed during implementation.
 
 ### 1. Server: Flow schema
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: f0e76ea, a843fae
 
 #### Overview
@@ -373,7 +373,7 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
 
 ### 2. Server: Flow discovery + list endpoint
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 7adea01, 98dd756
 
 #### Overview
@@ -527,7 +527,7 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
 
 ### 3. Server: Conversation flowName persistence
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 2fead1b, 39f50dd
 
 #### Overview
@@ -676,7 +676,7 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
 
 ### 4. Server: Conversation flowName filtering
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: e742c89, f7d8180
 
 #### Overview
@@ -800,7 +800,7 @@ Add `flowName` filtering to `GET /conversations` (`flowName=<name>` and `flowNam
 
 ### 5. Server: Flow run core (llm steps only)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 9d78c5b, 9a4f1b2
 
 #### Overview
@@ -1023,7 +1023,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
 
 ### 6. Server: Loop + break step support
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 9253545, d10dc1a
 
 #### Overview
@@ -1164,7 +1164,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
 
 ### 7. Server: Command step support
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 12a60a2, 8d3f288
 
 #### Overview
@@ -1288,7 +1288,7 @@ Add support for `command` steps that run agent command macros (`commands/<comman
 
 ### 8. Server: Resume state persistence
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 7c548b9, a23ca6b
 
 #### Overview
@@ -1420,7 +1420,7 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
 
 ### 9. Server: Resume execution support
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: ed1fa1a, 429a62b
 
 #### Overview
@@ -1540,7 +1540,7 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
 
 ### 10. Server: Flow turn metadata for UI (message changes)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 65d8d40, 04288d0
 
 #### Overview
@@ -1687,7 +1687,7 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
 
 ### 11. Client: Flows API helpers
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 9a76538, 7962776
 
 #### Overview
@@ -1809,7 +1809,7 @@ Add client API helpers for listing flows and starting flow runs. This task expos
 
 ### 12. Client: Flows UI
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 78d13e0, 327f8c7
 
 #### Overview
@@ -1998,7 +1998,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
 
 ### 13. Client: Flow filtering
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: d0ab5de, e098945
 
 #### Overview
@@ -2098,7 +2098,7 @@ Update client conversation list filtering so Chat and Agents exclude flow conver
 
 ### 14. Client: Flow command metadata support
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 928cfe5, 9f12bea
 
 #### Overview
@@ -2197,7 +2197,7 @@ Preserve the extended flow step metadata (`loopDepth`, `label`, `agentType`, `id
 
 ### 15. Final verification + documentation + PR summary
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 6bf392f, 26ea09e
 
 #### Overview
@@ -2317,7 +2317,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 
 ### 16. Review follow-ups: flows directory + resume loop stack keys
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 64eee0d
 
 #### Overview
@@ -2412,7 +2412,7 @@ Address review feedback by aligning flow discovery/run paths with the repo-root 
 
 ### 17. Flows UI: prevent stale active conversation when no flow is selected
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: d08ee65
 
 #### Overview

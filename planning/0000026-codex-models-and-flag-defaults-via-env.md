@@ -158,7 +158,7 @@ These instructions will be followed during implementation.
 
 ### 1. Server: Codex env defaults helper
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 90770a6, b99ef7b
 
 #### Overview
@@ -363,7 +363,7 @@ Create a reusable helper that reads Codex default flag values from environment v
 
 ### 2. Server: Apply env defaults in chat validation
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 8123872, 76b7fc7
 
 #### Overview
@@ -541,7 +541,7 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
 
 ### 3. Server: Align ChatInterfaceCodex defaults
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 64ab263, e46782b
 
 #### Overview
@@ -702,7 +702,7 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
 
 ### 4. Shared: Codex defaults response types
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 27f2fd1
 
 #### Overview
@@ -864,7 +864,7 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
 
 ### 5. Server: Codex models response + warnings
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 17867f7
 
 #### Overview
@@ -1109,7 +1109,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
 
 ### 6. Client: Codex defaults consumption + flags init
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: eeef8f2
 
 #### Overview
@@ -1318,7 +1318,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
 
 ### 7. Client: Codex payload omission + warnings banner
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 63dcd70, ed1e246
 
 #### Overview
@@ -1524,7 +1524,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
 
 ### 8. Docs: Codex env defaults updates
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 39bece7
 
 #### Overview
@@ -1636,7 +1636,7 @@ Update user-facing documentation to describe env-driven Codex models and default
 
 ### 9. Final verification + PR summary
 
-- status: ****done****
+- status: \***\*done\*\***
 - Git Commits: 31c9248, 7dc8d0d
 
 #### Overview
@@ -1755,7 +1755,7 @@ The final task must always check against the acceptance criteria of the story. I
 
 ### 10. Review fixes
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 120f59d, 98b6d35
 
 #### Overview

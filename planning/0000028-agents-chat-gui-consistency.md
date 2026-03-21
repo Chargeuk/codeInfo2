@@ -127,7 +127,7 @@ These instructions will be followed during implementation.
 
 ### 1. Client: Chat/Agents transcript fills viewport
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **c939d4a, 5f2ff38**
 
 #### Overview
@@ -324,7 +324,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
 
 ### 2. Client: Agents description/warnings popover
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **391df14, f2d5def**
 
 #### Overview
@@ -569,7 +569,7 @@ Replace the inline agent description block with an info icon and popover that re
 
 ### 3. Client: Agents control rows layout
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **cc80949, 637ee94**
 
 #### Overview
@@ -772,7 +772,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
 
 ### 4. Client: Agents send/stop width stability
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **673006a, 48786af**
 
 #### Overview
@@ -950,7 +950,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
 
 ### 5. Client: Agents working-folder picker reuse
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **e098241**
 
 #### Overview
@@ -1207,7 +1207,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
 
 ### 6. Client: Control sizing + variant consistency (Chat + Agents)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **093038f**
 
 #### Overview
@@ -1416,7 +1416,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
 
 ### 7. Client: Control sizing + variant consistency (LM Studio + Ingest)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: b93bb08
 
 #### Overview
@@ -1618,7 +1618,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
 
 ### 8. Final: Verify acceptance criteria + full regression
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 9336a1b
 
 #### Overview

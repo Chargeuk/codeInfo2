@@ -1,7 +1,9 @@
 # Title
+
 Users can run portable repository refresh workflows and use a more reliable host-networked testing stack
 
 # Acceptance
+
 1. Workflow users can refresh a repository without hard-coding a machine-specific path, including by using a repository selector, the current repository, or all ingested repositories.
 2. Workflow users can run refresh steps that behave consistently across developer machines, containers, and environments.
 3. Users can see clearer refresh outcomes in conversation history, including one combined result for all-repository refresh runs.
@@ -9,9 +11,11 @@ Users can run portable repository refresh workflows and use a more reliable host
 5. Support and developer users can run the checked-in server and Playwright MCP stack on the intended host-visible ports with clearer runtime checks and proof steps.
 
 # Description
+
 This story makes repository refresh workflows easier to reuse and more dependable. Instead of relying on absolute paths that only work on one machine, workflows will be able to target repositories in portable ways, including refreshing the repository that owns the running workflow or refreshing every ingested repository in a stable order. It also improves the runtime and testing stack so the checked-in server and Playwright MCP services use the intended host-network model, making manual validation and support troubleshooting more reliable.
 
 # Tasks
+
 1. [codeInfo2] - Extend re-ingest schema parsing for command and flow files
    - Update the server re-ingest schemas so workflow JSON can accept `sourceId`, `target: "current"`, and `target: "all"`.
    - Edit the command and flow schema files in `server/src/agents/` and `server/src/flows/`.
@@ -40,20 +44,31 @@ This story makes repository refresh workflows easier to reuse and more dependabl
    - Extend the compose wrapper so it fails early when host-network requirements or ports are invalid.
    - Update the compose wrapper and shell-harness fixtures in `scripts/` and `scripts/test/bats/`.
 10. [codeInfo2] - Bake runtime assets into the image-based host-network model
-   - Move the needed runtime assets into the checked-in images so host-network containers do not depend on forbidden bind mounts.
-   - Update the Dockerfiles and related build files at the repository root and under `server/`.
+
+- Move the needed runtime assets into the checked-in images so host-network containers do not depend on forbidden bind mounts.
+- Update the Dockerfiles and related build files at the repository root and under `server/`.
+
 11. [codeInfo2] - Convert Compose definitions to the final host-network runtime model
-   - Update the checked-in compose files so the server and existing `playwright-mcp` services use host networking and the required ports.
-   - Edit `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`.
+
+- Update the checked-in compose files so the server and existing `playwright-mcp` services use host networking and the required ports.
+- Edit `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`.
+
 12. [codeInfo2] - Add the main-stack host-network proof wrapper
-   - Create the reusable proof wrapper that confirms the main stack is reachable and correctly wired on host networking.
-   - Update the summary wrapper script files in `scripts/` and the root `package.json` commands.
+
+- Create the reusable proof wrapper that confirms the main stack is reachable and correctly wired on host networking.
+- Update the summary wrapper script files in `scripts/` and the root `package.json` commands.
+
 13. [codeInfo2] - Align the e2e proof path with host-network addresses
-   - Update the checked-in e2e path so automated proof uses the final host-network addresses and contracts.
-   - Edit the e2e wrapper, env, and supporting proof files at the repository root, under `e2e/`, and under `server/`.
+
+- Update the checked-in e2e path so automated proof uses the final host-network addresses and contracts.
+- Edit the e2e wrapper, env, and supporting proof files at the repository root, under `e2e/`, and under `server/`.
+
 14. [codeInfo2] - Run final validation for Story 0000050
-   - Perform the full story proof using the checked-in wrappers, compose stack, runtime logs, and manual Playwright MCP checks.
-   - Use the final validation assets, logs, and screenshots stored under `logs/`, `test-results/`, and `playwright-output-local/`.
+
+- Perform the full story proof using the checked-in wrappers, compose stack, runtime logs, and manual Playwright MCP checks.
+- Use the final validation assets, logs, and screenshots stored under `logs/`, `test-results/`, and `playwright-output-local/`.
+
 15. [codeInfo2] - Update documentation and story close-out
-   - Update the shared documentation so developers and support users can understand the new workflow targets, runtime setup, and proof commands.
-   - Edit `README.md`, `design.md`, `projectStructure.md`, `docs/developer-reference.md`, and the final review summary content.
+
+- Update the shared documentation so developers and support users can understand the new workflow targets, runtime setup, and proof commands.
+- Edit `README.md`, `design.md`, `projectStructure.md`, `docs/developer-reference.md`, and the final review summary content.

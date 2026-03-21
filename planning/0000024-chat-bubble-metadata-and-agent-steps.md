@@ -129,7 +129,7 @@ We want each chat and agent message bubble header to show the message date and t
 
 ### 1. Server: persist usage/timing metadata on assistant turns (REST + storage)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **03e756a, 378fe9b, 5f65561, 8fa48a0, cc6a8b5**
 
 #### Overview
@@ -327,7 +327,7 @@ Extend the serverâ€™s stored turn shape to include optional usage and timing met
 
 ### 2. Server: propagate usage/timing through chat events
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **cdb2fae, 024a019**
 
 #### Overview
@@ -498,7 +498,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
 
 ### 3. Server: capture Codex usage metadata
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **45f893b, 1e12ffb**
 
 #### Overview
@@ -649,7 +649,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
 
 ### 4. Server: capture LM Studio prediction stats
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **1cd6e03**
 
 #### Overview
@@ -786,7 +786,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
 
 ### 5. Server: include command metadata in inflight snapshots (WS + REST)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **7b91300**
 
 #### Overview
@@ -962,7 +962,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render â
 
 ### 6. Server: extend WS `turn_final` payload with usage/timing
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **3f2c488**
 
 #### Overview
@@ -1100,7 +1100,7 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
 
 ### 7. Client: map REST usage/timing into stored turns
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **199c801**
 
 #### Overview
@@ -1268,7 +1268,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
 
 ### 8. Client: map WS usage/timing into stream state
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **aa68b3c**
 
 #### Overview
@@ -1454,7 +1454,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
 
 ### 9. Client: render bubble header metadata (Chat + Agents)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **7a7cffa**
 
 #### Overview
@@ -1698,7 +1698,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
 
 ### 10. Final verification + documentation + PR summary
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 74d4092, a9f6576
 
 #### Overview

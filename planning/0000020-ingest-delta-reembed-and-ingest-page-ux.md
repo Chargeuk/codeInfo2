@@ -218,7 +218,7 @@ None (resolved; details folded into Description / Acceptance Criteria / Out Of S
 
 ### 1. MongoDB per-file index schema (`ingest_files`)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 64751be
 
 #### Overview
@@ -414,7 +414,7 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
 
 ### 2. MongoDB per-file index repository helpers (safe when Mongo is unavailable)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 2ad58ce
 
 #### Overview
@@ -609,7 +609,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
 
 ### 3. Delta decision engine (pure planning of new/changed/deleted files)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 85d37ca
 
 #### Overview
@@ -794,7 +794,7 @@ Create a pure “delta planner” that compares the discovered on-disk file list
 
 ### 4. Server delta re-embed (file-level replacement) + legacy upgrade
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 0531ae5
 
 #### Overview
@@ -1393,6 +1393,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
         I --> J[Delete old vectors for changed]\n+ delete vectors for deleted
         J --> K[Update ingest_files]\n(upsert added/changed, delete deleted)
       ```
+
     ```
 
     ```
@@ -1465,7 +1466,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
 
 ### 5. Server directory picker endpoint (`GET /ingest/dirs`)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 18cbca5, 0b28e64
 
 #### Overview
@@ -1760,7 +1761,7 @@ Add a small server endpoint that lists child directories under a single allowed 
 
 ### 6. Client ingest status: handle `skipped` as a terminal state
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: fc7cc7f
 
 #### Overview
@@ -1999,7 +2000,7 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
 
 ### 7. Ingest UI: remove duplicate “model locked” notice
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 1408145
 
 #### Overview
@@ -2130,7 +2131,7 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
 
 ### 8. Ingest UI: server-backed directory picker modal (“Choose folder…”)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: e6655a3
 
 #### Overview
@@ -2453,7 +2454,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
 
 ### 9. Final verification (acceptance criteria, clean builds, docs, and PR summary)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 9bb1be5
 
 #### Overview

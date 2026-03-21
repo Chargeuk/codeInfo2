@@ -442,7 +442,7 @@ The story is ready to be tasked only when all the following are explicit in the 
 
 ### 1. Server: Upgrade Codex SDK to latest stable
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `bc9f818`
 
 #### Overview
@@ -509,7 +509,7 @@ Upgrade `@openai/codex-sdk` to latest stable at implementation start and lock de
 
 ### 2. Server: Remove local reasoning-effort widening shims and align shared/client/server typing
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `e62a65d`
 
 #### Overview
@@ -616,7 +616,7 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
 
 ### 3. Server: Implement canonical runtime config loading, bootstrap, and normalization layer
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `4b7c2e0`
 
 #### Overview
@@ -785,7 +785,7 @@ Create one server-side config resolution layer that reads shared base config, ch
 
 ### 4. Server: Implement runtime config merge precedence, validation policy, and deterministic failure behavior
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `835dee7`
 
 #### Overview
@@ -1010,7 +1010,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
 
 ### 5. Server: Replace model-only parsing with shared runtime config resolver across execution entrypoints
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `7d29556`
 
 #### Overview
@@ -1107,7 +1107,7 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
 
 ### 6. Server: Wire runtime config overrides into chat, agent run, and agent command execution paths
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `a706e81`
 
 #### Overview
@@ -1227,7 +1227,7 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
 
 ### 7. Server: Wire runtime config overrides into flow and MCP execution paths
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `a38b768`
 
 #### Overview
@@ -1339,7 +1339,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
 
 ### 8. Server: Shared-home detection alignment for Codex availability and startup semantics
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `638ded6`
 
 #### Overview
@@ -1435,7 +1435,7 @@ Move Codex availability and startup checks to shared-home semantics for chat and
 
 ### 9. Server: Non-destructive auth compatibility and agent-file safety guards
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `3f30728`
 
 #### Overview
@@ -1535,7 +1535,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
 
 ### 10. Server Message Contract: Simplify `POST /codex/device-auth` to single request shape
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `21d981e`
 
 #### Overview
@@ -1711,7 +1711,7 @@ Implement the server-side device-auth message contract change first: request bod
 
 ### 11. Server Message Contract: Device-auth concurrency handling and post-success side effects
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `721eabe`
 
 #### Overview
@@ -1832,7 +1832,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
 
 ### 12. Server Message Contract: Add codex model reasoning-capability payload to `/chat/models`
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `b668154`
 
 #### Overview
@@ -1961,7 +1961,7 @@ Implement backend model-capability payload contract for Codex models so frontend
 
 ### 13. Server: Share codex capability resolver across `/chat/models` and `/chat`
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `e53305f`
 
 #### Overview
@@ -2110,7 +2110,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
 
 ### 14. Frontend: Consume simplified device-auth API contract
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `ae1c263`
 
 #### Overview
@@ -2220,7 +2220,7 @@ After Task 10 is complete, update frontend API request/response types for the si
 
 ### 15. Frontend: Remove device-auth target selector UX and wire one shared auth dialog flow
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `15e301c`
 
 #### Overview
@@ -2363,7 +2363,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
 
 ### 16. Frontend: Expose codex model capabilities in chat model state and enforce deterministic defaults
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `270e2c6`
 
 #### Overview
@@ -2492,7 +2492,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
 
 ### 17. Frontend: Render dynamic reasoning-effort options and enforce payload validity per selected model
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `6a2a15a`
 
 #### Overview
@@ -2624,7 +2624,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
 
 ### 18. Server: Add cross-surface regression tests for precedence and normalization rules
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `bbe77a3`
 
 #### Overview
@@ -2759,7 +2759,7 @@ Add focused regression coverage for precedence/normalization behavior across RES
 
 ### 19. Server: Add compatibility and safety regression tests for migration behavior
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `5aa82fd`
 
 #### Overview
@@ -2884,7 +2884,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
 
 ### 20. Documentation: Update shared-home runtime architecture and API contract docs in `design.md`
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `052ffda`
 
 #### Overview
@@ -2945,7 +2945,7 @@ Update architecture and contract documentation after implementation tasks above 
 
 ### 21. Documentation: Update file map and compatibility examples in `projectStructure.md`
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `741594c`
 
 #### Overview
@@ -3006,7 +3006,7 @@ Update repository file-map and compatibility alias examples after implementation
 
 ### 22. Final isolated migration step: Minimize `./codex/config.toml` (projects-only)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `7c074c8`
 
 #### Overview
@@ -3127,7 +3127,7 @@ Perform final shared-base config minimization as an isolated end-of-story step o
 
 ### 23. Post-implementation review fix: restore `codex_agents/*` file-set parity with `main`
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `4590736`
 
 #### Overview
@@ -3195,7 +3195,7 @@ Resolve post-review acceptance drift where branch changes removed files under `c
 
 ### 24. Full story re-test after review-driven fixes (acceptance re-validation gate)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `5bb60b6`
 
 #### Overview
@@ -3300,7 +3300,7 @@ Re-run full Story 0000037 validation after Task 23 fixes to ensure all acceptanc
 
 ### 25. Post-code-review remediation: resolve accepted Copilot findings and re-validate story stability
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `0160e1c`
 
 #### Overview
@@ -3478,7 +3478,7 @@ Implement follow-up fixes for accepted Copilot review findings after Task 24, in
 
 ### 26. Frontend cleanup: remove unused `postCodexDeviceAuth` request parameter and align tests/callers
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `04aabf0`
 
 #### Overview

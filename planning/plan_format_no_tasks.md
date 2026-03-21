@@ -1,4 +1,5 @@
 # Story [Number] – [Title]
+
 Note that the title should always be from a user perspective based on what they will be able to do when the story is completed. It should be in the format `[Optional Usertype] Users can [see/perform/do some business based feature]`. For example: `Support Users can monitor the number of polygons a player's machine can handle per second` OR `Users can clear the scene` OR `Users see a confirmation dialogue when attempting to quit` etc...
 
 ## Implementation Plan

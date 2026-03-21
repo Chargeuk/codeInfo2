@@ -1183,7 +1183,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 6. Frontend: prompt discovery request lifecycle (commit triggers and stale-response guard)
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: `f7b6867f`
 
 #### Overview
@@ -1383,7 +1383,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 7. Frontend: prompt selector UI state transitions and visibility rules
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: `bbd1a106`
 
 #### Overview
@@ -1542,7 +1542,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 8. Frontend: execute prompt through instruction run path
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: `49443ed7`
 
 #### Overview
@@ -1767,7 +1767,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 9. Documentation: update story-facing product and architecture docs for final 0000039 behavior
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: `33e8766e`
 
 #### Overview
@@ -1849,7 +1849,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 10. Final verification: full acceptance and regression gate for story 0000039
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: `5a7d23ba`
 
 #### Overview
@@ -1958,7 +1958,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 11. Post-review remediation: invalidate stale prompt-discovery responses on prompt-state reset paths
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: `186c5200`
 
 #### Overview
@@ -2043,7 +2043,7 @@ Do not attempt to run builds or tests without using the wrapper commands listed 
 
 ### 12. Final verification (re-run): full acceptance and regression gate after Task 11 remediation
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: `4617493d`
 
 #### Overview

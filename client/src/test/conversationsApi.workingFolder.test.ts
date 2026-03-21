@@ -17,9 +17,11 @@ describe('conversations API working folder payload', () => {
 
   it('sends the save payload for an existing conversation working folder', async () => {
     let requestBody: Record<string, unknown> | null = null;
-    let conversation: Awaited<
-      ReturnType<typeof updateConversationWorkingFolder>
-    >['conversation'] | null = null;
+    let conversation:
+      | Awaited<
+          ReturnType<typeof updateConversationWorkingFolder>
+        >['conversation']
+      | null = null;
 
     mockFetch.mockImplementation(
       asFetchImplementation((input: RequestInfo | URL, init?: RequestInit) => {

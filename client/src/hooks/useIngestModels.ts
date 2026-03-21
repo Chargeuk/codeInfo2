@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
-import { createLogger } from '../logging';
 import type { IngestModel } from '../components/ingest/IngestForm';
+import { createLogger } from '../logging';
 
 type Status = 'idle' | 'loading' | 'success' | 'error';
 

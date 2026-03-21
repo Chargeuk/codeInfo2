@@ -457,8 +457,7 @@ describe('ChatInterface.run persistence', () => {
       (error) =>
         (error as { code?: string; causeCode?: string }).code ===
           'WORKING_FOLDER_UNAVAILABLE' &&
-        (error as { code?: string; causeCode?: string }).causeCode ===
-          'EACCES',
+        (error as { code?: string; causeCode?: string }).causeCode === 'EACCES',
     );
 
     assert.equal(clearedConversationId, undefined);

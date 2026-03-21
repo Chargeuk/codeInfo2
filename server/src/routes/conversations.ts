@@ -240,7 +240,8 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
       (shouldUseMemoryPersistence()
         ? listMemoryConversations
         : defaultListConversations),
-    listIngestedRepositories: listIngestedRepositoriesFn = listIngestedRepositories,
+    listIngestedRepositories:
+      listIngestedRepositoriesFn = listIngestedRepositories,
     createConversation = defaultCreateConversation,
     archiveConversation = defaultArchiveConversation,
     restoreConversation = defaultRestoreConversation,
@@ -899,7 +900,8 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     try {
       const updated = await persistConversationWorkingFolder({
         conversationId: parsedParams.data.id,
-        workingFolder: rawWorkingFolder === null ? null : validatedWorkingFolder,
+        workingFolder:
+          rawWorkingFolder === null ? null : validatedWorkingFolder,
       });
       if (!updated) return res.status(404).json({ error: 'not_found' });
       appendWorkingFolderDecisionLog({

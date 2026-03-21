@@ -105,7 +105,7 @@ Current repository evidence shows that the checked-in Compose files do not all d
 
 ### Questions
 
-None currently. The remaining config-migration scope questions are now resolved for this story.
+- No Further Questions
 
 ## Decisions
 

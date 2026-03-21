@@ -2458,7 +2458,7 @@ Use only the checked-in summary wrappers below. Do not attempt to run tests with
 
 - Repository Name: `codeInfo2`
 - Task Status: **completed**
-- Git Commits: `to_do`
+- Git Commits: `bd72a3a8` `DEV-[50] - Complete task 21 MCP env-name doc correction`
 
 #### Overview
 

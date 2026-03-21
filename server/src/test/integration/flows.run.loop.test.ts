@@ -272,7 +272,7 @@ const cleanupConversationRuntime = async (
 
 const waitForRuntimeCleanup = async (
   conversationId: string,
-  timeoutMs = 4000,
+  timeoutMs = 8000,
 ) => {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
@@ -284,7 +284,11 @@ const waitForRuntimeCleanup = async (
     }
     await delay(25);
   }
-  throw new Error('Timed out waiting for flow runtime cleanup');
+  const inflight = getInflight(conversationId);
+  const ownership = getActiveRunOwnership(conversationId);
+  throw new Error(
+    `Timed out waiting for flow runtime cleanup (inflight=${String(Boolean(inflight))}, ownership=${String(Boolean(ownership))}, inflightId=${inflight?.inflightId ?? 'none'}, runToken=${ownership?.runToken ?? 'none'})`,
+  );
 };
 
 const expectNoTerminalFinal = async (

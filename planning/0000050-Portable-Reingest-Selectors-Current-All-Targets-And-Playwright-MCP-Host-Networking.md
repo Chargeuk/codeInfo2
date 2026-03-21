@@ -2561,3 +2561,82 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 - Review Finding 3 is now closed with direct documentation proof in `docs/developer-reference.md` and `design.md`, where the final Story 50 contract now consistently presents `CODEINFO_CHAT_MCP_PORT` as canonical and no longer advertises `CODEINFO_MCP_PORT` as a live operator contract.
 - Re-checked the review evidence acceptance-criteria map against the rerun outputs and the review-fix work did not reopen any original Story 50 proof seams. The remaining residual-risk notes are unchanged and still explicit: Docker Desktop `4.34+` with host networking enabled remains indirectly proven through preflight logic and shell-harness coverage rather than a live Desktop run on this branch, and `codex/chat/config.toml` remains indirect because it stayed compliant without a branch-local edit.
 - Final close-out delta: Task 22 found and fixed one additional wrapper-only regression while rerunning the required suites. `scripts/test-summary-e2e.mjs` no longer lets an inherited `CODEINFO_PLAYWRIGHT_MCP_URL` override the e2e-specific control URL, so the final e2e proof once again matches the main-stack Playwright contract instead of leaking the local-stack `8931` port into the host-network assertions.
+
+## Post-Implementation Code Review
+
+- Review pass consumed: `codeInfoStatus/reviews/0000050-review-20260321T210157Z-56e07e11-evidence.md` and `codeInfoStatus/reviews/0000050-review-20260321T210157Z-56e07e11-findings.md`.
+- Review scope validation: the current-plan handoff stayed on `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`; the branch remained `feature/0000050-portable-reingest-selectors-host-networking`; the review handoff stayed aligned with HEAD `56e07e11`; and the review remained single-repository against `main...HEAD`.
+- Branch-vs-main checks performed: re-read the active Story 50 plan, re-checked `git diff --name-status main...HEAD`, re-checked the latest branch commits, re-validated the default wrapper entrypoints in `package.json`, and re-opened the highest-risk runtime, wrapper, compose, and test files named in the evidence artifact before deciding disposition.
+- Files inspected during the no-findings disposition included: `server/src/ingest/reingestExecution.ts`, `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`, `server/src/chat/reingestToolResult.ts`, `server/src/config/runtimeConfig.ts`, `server/src/config/mcpEndpoints.ts`, `server/src/config/codexConfig.ts`, `server/src/providers/mcpStatus.ts`, `scripts/docker-compose-with-env.sh`, `scripts/test-summary-e2e.mjs`, `scripts/test-summary-host-network-main.mjs`, `scripts/test-summary-shell.mjs`, `server/src/test/support/hostNetworkMainProbe.mjs`, `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/host-network-compose-contract.test.ts`, `server/src/test/unit/mcpStatus.test.ts`, `server/src/test/unit/test-summary-host-network-main.test.ts`, `scripts/test/bats/docker-compose-with-env.bats`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `server/src/mcp2/server.ts`, `server/src/mcp2/router.ts`, `server/src/mcpAgents/server.ts`, `server/src/mcpAgents/router.ts`, `client/src/config/runtimeConfig.ts`, and `e2e/env-runtime-config.spec.ts`.
+- Review outcome: no `must_fix`, `should_fix`, or `optional_simplification` findings were raised, so Story 0000050 remains complete and no follow-up review-fix tasks were added.
+
+### Acceptance Criteria Review Status
+
+1. AC1 path-based re-ingest validity: `direct` proof. The implementation is appropriately succinct for the required behavior.
+2. AC2 portable selector support for commands and flows: `direct` proof. The implementation is appropriately succinct for the required behavior.
+3. AC3 selector alignment with the shared repository-selector helper: `direct` proof with an unchanged-helper dependency that remains partly indirect. The implementation is appropriately succinct for the required behavior.
+4. AC4 duplicate case-insensitive ids choose the latest ingest: `indirect` proof through the shared selector helper reuse and no conflicting caller was found. The implementation is appropriately succinct for the required behavior.
+5. AC5 direct command `target: "current"` without hard-coded repo path: `direct` proof. The implementation is appropriately succinct for the required behavior.
+6. AC6 top-level flow `target: "current"` without hard-coded repo path: `direct` proof. The implementation is appropriately succinct for the required behavior.
+7. AC7 nested flow command-item `target: "current"` uses the command owner: `direct` proof. The implementation is appropriately succinct for the required behavior.
+8. AC8 `target: "all"` exists: `direct` proof. The implementation is appropriately succinct for the required behavior.
+9. AC9 `target: "all"` executes sequentially and waits for terminal outcomes: `direct` proof. The implementation is appropriately succinct for the required behavior.
+10. AC10 `target: "all"` uses ascending canonical container-path order: `direct` proof. The implementation is appropriately succinct for the required behavior.
+11. AC11 `target: "all"` writes one dedicated batch transcript payload: `direct` proof. The implementation is appropriately succinct for the required behavior.
+12. AC12 batch payload entries include repository identity, canonical path, normalized outcome, and failure text: `direct` proof. The implementation is appropriately succinct for the required behavior.
+13. AC13 batch payload summary contains `total`, `reingested`, `skipped`, and `failed`: `direct` proof. The implementation is appropriately succinct for the required behavior.
+14. AC14 `current` target fails fast when its owner is not ingested: `direct` proof. The implementation is appropriately succinct for the required behavior.
+15. AC15 strict single-repository re-ingest service remains canonical: `direct` proof. The implementation is appropriately succinct for the required behavior.
+16. AC16 structured re-ingest result recording still works across direct commands, flow steps, and nested command items: `direct` proof. The implementation is appropriately succinct for the required behavior.
+17. AC17 empty or whitespace-only markdown is skipped instead of executed: `direct` proof. The implementation is appropriately succinct for the required behavior.
+18. AC18 empty-markdown skip logs explicitly say the content was empty: `direct` proof. The implementation is appropriately succinct for the required behavior.
+19. AC19 empty-markdown skip logs include execution surface and resolved path: `direct` proof. The implementation is appropriately succinct for the required behavior.
+20. AC20 every checked-in Compose file with `server` uses host networking: `direct` proof. The implementation is appropriately succinct for the required behavior.
+21. AC21 host-networked server services preserve the checked-in host-visible port contract: `direct` proof. The implementation is appropriately succinct for the required behavior.
+22. AC22 checked-in default server port strategy remains `5010/5011/5012`, `5510/5511/5512`, and `6010/6011/6012`: `direct` proof. The implementation is appropriately succinct for the required behavior.
+23. AC23 server and client application code is image-baked rather than `.:/app` mounted: `direct` proof. The implementation is appropriately succinct for the required behavior.
+24. AC24 every checked-in Compose file with `playwright-mcp` uses host networking: `direct` proof. The implementation is appropriately succinct for the required behavior.
+25. AC25 compose files without `playwright-mcp` stay out of scope: `direct` proof. The implementation is appropriately succinct for the required behavior.
+26. AC26 Playwright MCP ports stay distinct across stacks: `direct` proof. The implementation is appropriately succinct for the required behavior.
+27. AC27 `.dockerignore` and Docker packaging were updated alongside runtime asset copy rules: `direct` proof. The implementation is appropriately succinct for the required behavior.
+28. AC28 incompatible bridge-style `server` and `playwright-mcp` wiring is removed: `direct` proof. The implementation is appropriately succinct for the required behavior.
+29. AC29 final host-network runtime does not add source-tree or config-tree bind mounts beyond allowed exceptions: `direct` proof. The implementation is appropriately succinct for the required behavior.
+30. AC30 required runtime assets are available from image contents: `direct` proof with a small indirect edge for unchanged shared-home compatibility. The implementation is appropriately succinct for the required behavior.
+31. AC31 checked-in MCP endpoint config is no longer hard-coded only to old localhost or service-name URLs: `direct` proof. The implementation is appropriately succinct for the required behavior.
+32. AC32 intentional chat/base versus other MCP endpoint split is preserved: `direct` proof. The implementation is appropriately succinct for the required behavior.
+33. AC33 MCP endpoint overrides use explicit runtime overlays rather than generic TOML interpolation: `direct` proof. The implementation is appropriately succinct for the required behavior.
+34. AC34 checked-in config values use explicit named placeholders: `direct` proof. The implementation is appropriately succinct for the required behavior.
+35. AC35 placeholder replacement happens before runtime config reaches consumers: `direct` proof. The implementation is appropriately succinct for the required behavior.
+36. AC36 final env contract uses `CODEINFO_SERVER_PORT`, `CODEINFO_CHAT_MCP_PORT`, `CODEINFO_AGENTS_MCP_PORT`, and `CODEINFO_PLAYWRIGHT_MCP_URL`: `direct` proof. The implementation is appropriately succinct for the required behavior.
+37. AC37 shared normalization layer is used by all major runtime consumers: `direct` proof for the changed consumers and `indirect` proof for unchanged consumers; overall status `direct` with explicit residual risk already recorded in the findings artifact. The implementation is appropriately succinct for the required behavior.
+38. AC38 legacy `CODEINFO_MCP_PORT` fallback is removed from the final checked-in contract: `direct` proof. The implementation is appropriately succinct for the required behavior.
+39. AC39 checked-in shared-home runtime configs under `codex/` were included in the migration scope: `indirect` proof. No concrete mismatch was found, and the implementation remains appropriately succinct for the required behavior.
+40. AC40 browser navigation and control-channel URLs remain separate concerns: `direct` proof. The implementation is appropriately succinct for the required behavior.
+41. AC41 compose wrapper and docs validate or fail fast on host-network prerequisites: `direct` proof. The implementation is appropriately succinct for the required behavior.
+42. AC42 supported host-network prerequisites are explicitly documented as Linux Docker Engine or Docker Desktop `4.34+` with host networking enabled: `direct` documentation proof and `indirect` live-environment proof; overall status `direct` with explicit residual risk already recorded in the findings artifact. The implementation is appropriately succinct for the required behavior.
+43. AC43 host-network prerequisite failures are actionable and name the affected compose file or service: `direct` proof. The implementation is appropriately succinct for the required behavior.
+44. AC44 final validation does not assume dedicated `/health` endpoints on every MCP or Playwright surface: `direct` proof. The implementation is appropriately succinct for the required behavior.
+45. AC45 legacy and static checked-in defaults were migrated, including env files and runtime config files: `direct` proof with a retained indirect edge for unchanged shared-home consumers. The implementation is appropriately succinct for the required behavior.
+46. AC46 the test plan added coverage for target-based re-ingest, batch result payloads, blank-markdown skip logging, wrapper preflight validation, and host-network verification: `direct` proof. The implementation is appropriately succinct for the required behavior.
+47. AC47 final validation proves image-baked runtime contents and Docker-managed output volume rules: `direct` proof. The implementation is appropriately succinct for the required behavior.
+48. AC48 manual-testing setup still supports REST/API, Codex MCP, browser control, websocket flows, screenshots, and manual UI verification: `direct` proof with a partly indirect screenshot-history edge because the original Task 15 screenshots remained the canonical image set. The implementation is appropriately succinct for the required behavior.
+
+### Generic Adversarial Checklist Status
+
+- Execution-routing or harness dependence: `direct` proof for the standard repo wrappers named in `package.json`; residual risk remains `indirect` only for unchanged alternate entrypoints that were outside the plan contract and not used by the final validation.
+- Default launcher, wrapper, dispatcher, CI, or startup-path inclusion: `direct` proof for `compose:*`, `test:summary:*`, and server startup entrypoints inspected during review. No silent opt-in path was found.
+- Shared-state or concurrency safety: `direct` proof for the repaired flow-command and flow-loop harnesses plus the final server-unit rerun; residual risk remains `indirect` for broader suite interference outside the exercised Story 50 paths.
+- Reader and writer atomicity or partial-write tolerance: `indirect` proof. The review did not find a concrete persisted-artifact mismatch in the changed Story 50 paths, but storage compatibility still relies partly on unchanged readers and writers outside the branch-local edits.
+- Cleanup ownership or stale-state safety: `direct` proof for the repaired wrapper and test-harness cleanup paths that Story 50 changed; residual risk remains `indirect` for unrelated stale-state recovery paths not reopened by this story.
+- Lifecycle ordering: `direct` proof for the changed re-ingest orchestration, wrapper startup, and test teardown paths. No new ordering defect was found in the reviewed launch and cleanup flows.
+- Test isolation: `direct` proof for the wrapper-first suites used as acceptance evidence, plus explicit review of the changed Bats and flow-harness tests; residual risk remains `indirect` only for the normal limits of not re-auditing every unchanged suite fixture in the repository.
+
+### Residual Risk Summary
+
+- Docker Desktop host-network enablement remains partly indirect because this branch’s live proof and shell-harness coverage do not substitute for every Docker Desktop `4.34+` environment permutation.
+- Shared-home Codex runtime compatibility remains partly indirect because unchanged downstream `mcp-remote` behavior and unchanged `codex/` consumers stayed compliant without a dedicated branch-local consumer rewrite.
+- The vendored Bats runtime remains accepted support machinery rather than a line-by-line re-reviewed code surface; the repo-owned shell wrapper and Story 50 shell tests themselves were reviewed directly.
+
+### Completion Rationale
+
+- Story 0000050 remains complete because the `main...HEAD` diff still matches the planned implementation surfaces, the durable review artifacts found no actionable defects, every acceptance criterion has direct or explicitly documented indirect proof, and the remaining weak-proof areas are already transparent rather than hidden.

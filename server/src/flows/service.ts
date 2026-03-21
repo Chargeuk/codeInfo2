@@ -221,6 +221,19 @@ const normalizeStringMap = (value: unknown): Record<string, string> => {
   return Object.fromEntries(entries);
 };
 
+const buildFlowReingestRequestLogContext = (params: {
+  flowName: string;
+  stepIndex: number;
+  step: FlowReingestStep;
+}) => ({
+  surface: 'flow',
+  targetMode: 'sourceId' in params.step ? 'sourceId' : params.step.target,
+  requestedSelector: 'sourceId' in params.step ? params.step.sourceId : null,
+  schemaSource: 'flow',
+  flowName: params.flowName,
+  stepIndex: params.stepIndex,
+});
+
 const parseFlowResumeState = (
   flags: Record<string, unknown> | undefined,
 ): FlowResumeState | null => {
@@ -2767,6 +2780,12 @@ async function runFlowUnlocked(params: {
                 },
               }),
             executeReingest: async (reingestItem) => {
+              if (!('sourceId' in reingestItem)) {
+                throw new Error(
+                  `Re-ingest target "${reingestItem.target}" is not executable until Task 3 target orchestration is implemented.`,
+                );
+              }
+
               const result = await flowServiceDeps.runReingestRepository({
                 sourceId: reingestItem.sourceId,
               });
@@ -2858,6 +2877,32 @@ async function runFlowUnlocked(params: {
     step: FlowReingestStep,
     command: TurnCommandMetadata,
   ): Promise<TurnStatus> => {
+    append({
+      level: 'info',
+      message: 'DEV-0000050:T01:reingest_request_shape_accepted',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: buildFlowReingestRequestLogContext({
+        flowName: params.flowName,
+        stepIndex: command.stepIndex,
+        step,
+      }),
+    });
+
+    if (!('sourceId' in step)) {
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction: `Reingest repository target: ${step.target}`,
+        modelId: params.modelId,
+        source: params.source,
+        message: `Re-ingest target "${step.target}" is not executable until Task 3 target orchestration is implemented.`,
+        errorCode: 'INVALID_REQUEST',
+        command,
+      });
+      return 'failed';
+    }
+
     const instruction = `Reingest repository: ${step.sourceId}`;
     let result;
     try {

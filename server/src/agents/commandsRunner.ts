@@ -141,6 +141,19 @@ const toCommandRunnerError = (
   reason?: string,
 ): CommandRunnerError => ({ code, reason });
 
+const getReingestRequestLogContext = (
+  item: { type: 'reingest' } & (
+    | { sourceId: string }
+    | { target: 'current' | 'all' }
+  ),
+  schemaSource: 'command',
+) => ({
+  surface: 'command',
+  targetMode: 'sourceId' in item ? 'sourceId' : item.target,
+  requestedSelector: 'sourceId' in item ? item.sourceId : null,
+  schemaSource,
+});
+
 function isSafeCommandName(raw: string): boolean {
   const name = raw.trim();
   if (!name) return false;
@@ -291,6 +304,21 @@ export async function runAgentCommandRunner(
       };
 
       if (item.type === 'reingest') {
+        append({
+          level: 'info',
+          message: 'DEV-0000050:T01:reingest_request_shape_accepted',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: getReingestRequestLogContext(item, 'command'),
+        });
+
+        if (!('sourceId' in item)) {
+          throw toCommandRunnerError(
+            'COMMAND_INVALID',
+            `Re-ingest target "${item.target}" is not executable until Task 3 target orchestration is implemented.`,
+          );
+        }
+
         const result = await commandRunnerDeps.runReingestRepository({
           sourceId: item.sourceId,
         });

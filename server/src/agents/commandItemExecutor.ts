@@ -36,6 +36,25 @@ type ExecuteCommandReingestOutcome = {
   result: ExecuteCommandItemReingestResult;
 };
 
+const buildReingestRequestLogContext = (params: {
+  item: AgentCommandReingestItem;
+  commandName: string;
+  itemIndex: number;
+  flowContext?: {
+    flowName: string;
+    stepIndex: number;
+  };
+}) => ({
+  surface: params.flowContext ? 'flow_command' : 'command',
+  targetMode: 'sourceId' in params.item ? 'sourceId' : params.item.target,
+  requestedSelector: 'sourceId' in params.item ? params.item.sourceId : null,
+  schemaSource: 'command',
+  commandName: params.commandName,
+  itemIndex: params.itemIndex,
+  flowName: params.flowContext?.flowName ?? null,
+  flowStepIndex: params.flowContext?.stepIndex ?? null,
+});
+
 export function executeCommandItem<T>(params: {
   item: AgentCommandMessageItem;
   itemIndex: number;
@@ -94,6 +113,25 @@ export async function executeCommandItem<T>(params: {
     if (!params.executeReingest) {
       throw new Error('Reingest execution is not configured for this command.');
     }
+    append({
+      level: 'info',
+      message: 'DEV-0000050:T01:reingest_request_shape_accepted',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: buildReingestRequestLogContext({
+        item: params.item,
+        commandName: params.commandName,
+        itemIndex: params.itemIndex,
+        flowContext: params.flowContext,
+      }),
+    });
+
+    if (!('sourceId' in params.item)) {
+      throw new Error(
+        `Re-ingest target "${params.item.target}" is not executable until Task 3 target orchestration is implemented.`,
+      );
+    }
+
     const result = await params.executeReingest(params.item);
     if (params.flowContext) {
       append({

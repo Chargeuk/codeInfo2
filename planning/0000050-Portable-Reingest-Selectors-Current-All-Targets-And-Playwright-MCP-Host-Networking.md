@@ -225,53 +225,60 @@ This remains a single-repository story inside `codeInfo2`. The runtime behavior 
    - Why it is the best answer: it preserves the existing access model, avoids silently broadening or narrowing tool visibility, and changes the implementation problem from “pick one port” to “inject the right URL for each intended surface.”
 
 10. Use named placeholders inside checked-in config values to declare which MCP override contract should be resolved before runtime config is passed to Codex.
-   - Question being addressed: How should the story make it obvious which environment-provided MCP URL belongs in each checked-in config location without guessing from hard-coded ports at runtime?
-   - Why the question matters: if the mapping lives only in replacement code, the implementation becomes brittle and developers have to reverse-engineer which env var should apply to which config entry whenever a new surface is added.
-   - What the answer is: let the checked-in config values declare the intended override directly by using named placeholders in the URL, for example `http://localhost:${CODEINFO_SERVER_PORT}/mcp`, `http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp`, and `http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp`, then resolve those placeholders to the correct environment-provided values before the runtime config is passed to Codex.
-   - Where the answer came from: direct user answer in this planning conversation.
-   - Why it is the best answer: it keeps the mapping upstream in the config itself, makes the intended override explicit, avoids inferring behavior from raw port literals, and fits the repository’s existing in-memory placeholder-normalization pattern without needing opaque numbered tokens.
+
+- Question being addressed: How should the story make it obvious which environment-provided MCP URL belongs in each checked-in config location without guessing from hard-coded ports at runtime?
+- Why the question matters: if the mapping lives only in replacement code, the implementation becomes brittle and developers have to reverse-engineer which env var should apply to which config entry whenever a new surface is added.
+- What the answer is: let the checked-in config values declare the intended override directly by using named placeholders in the URL, for example `http://localhost:${CODEINFO_SERVER_PORT}/mcp`, `http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp`, and `http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp`, then resolve those placeholders to the correct environment-provided values before the runtime config is passed to Codex.
+- Where the answer came from: direct user answer in this planning conversation.
+- Why it is the best answer: it keeps the mapping upstream in the config itself, makes the intended override explicit, avoids inferring behavior from raw port literals, and fits the repository’s existing in-memory placeholder-normalization pattern without needing opaque numbered tokens.
 
 11. Replace MCP placeholders in one shared runtime-config layer and require every consuming path to use it.
-   - Question being addressed: Which parts of the app need to replace the MCP placeholders with real URLs so chat, agents, status checks, and tests all keep using the correct MCP endpoints?
-   - Why the question matters: this repository already loads and uses MCP config in several places, including base-config bootstrap, chat runtime config, agent runtime config, flow execution, MCP tooling, status probes, wrapper scripts, and tests. If the story only patches one of those places, some paths will still see raw placeholders or stale URLs.
-   - What the answer is: handle the replacement in one shared runtime-config layer and make sure every path that reads these values goes through it. That includes the checked-in placeholders for `http://localhost:${CODEINFO_SERVER_PORT}/mcp`, `http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp`, `http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp`, and `CODEINFO_PLAYWRIGHT_MCP_URL`. The consumers in scope include config seeding, chat runtime config loading, agent runtime config loading, flow and MCP execution, status probes, wrapper-facing guidance, and the main tests around those paths.
-   - Where the answer came from: direct user answer in this planning conversation agreeing with the previously researched best answer, plus repository evidence in `server/src/config/codexConfig.ts`, `server/src/config/runtimeConfig.ts`, `server/src/routes/chat.ts`, `server/src/agents/config.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/providers/mcpStatus.ts`, and the related tests under `server/src/test/`.
-   - Why it is the best answer: it solves the placeholder problem once upstream instead of patching each path separately, which keeps chat, agents, status checks, and tests aligned.
+
+- Question being addressed: Which parts of the app need to replace the MCP placeholders with real URLs so chat, agents, status checks, and tests all keep using the correct MCP endpoints?
+- Why the question matters: this repository already loads and uses MCP config in several places, including base-config bootstrap, chat runtime config, agent runtime config, flow execution, MCP tooling, status probes, wrapper scripts, and tests. If the story only patches one of those places, some paths will still see raw placeholders or stale URLs.
+- What the answer is: handle the replacement in one shared runtime-config layer and make sure every path that reads these values goes through it. That includes the checked-in placeholders for `http://localhost:${CODEINFO_SERVER_PORT}/mcp`, `http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp`, `http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp`, and `CODEINFO_PLAYWRIGHT_MCP_URL`. The consumers in scope include config seeding, chat runtime config loading, agent runtime config loading, flow and MCP execution, status probes, wrapper-facing guidance, and the main tests around those paths.
+- Where the answer came from: direct user answer in this planning conversation agreeing with the previously researched best answer, plus repository evidence in `server/src/config/codexConfig.ts`, `server/src/config/runtimeConfig.ts`, `server/src/routes/chat.ts`, `server/src/agents/config.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/providers/mcpStatus.ts`, and the related tests under `server/src/test/`.
+- Why it is the best answer: it solves the placeholder problem once upstream instead of patching each path separately, which keeps chat, agents, status checks, and tests aligned.
 
 12. Require compose-wrapper and documentation validation for host-networking prerequisites.
-   - Question being addressed: What platform-support and wrapper-validation requirement should this story document for host-networked `server` and `playwright-mcp` services, especially given the checked-in macOS/WSL/Linux compose wrapper behavior and Docker's host-networking constraints?
-   - Why the question matters: `network_mode: host` changes how ports work, invalidates the existing `ports`/`networks` service shape, and may behave differently across Docker runtimes. This repository already centralizes Docker runtime differences in wrapper scripts, so the story should decide whether compatibility validation and failure messaging are mandatory rather than leaving developers to discover host-networking problems by trial and error.
-   - What the answer is: require the compose wrapper and documentation to validate or clearly fail fast on host-networking prerequisites per environment, and explicitly document the supported host-network contract for the checked-in stacks.
-   - Where the answer came from: direct user answer in this planning conversation agreeing with the previously researched best answer, plus repository evidence in `scripts/docker-compose-with-env.sh`, `package.json`, `AGENTS.md`, and this story file.
-   - Why it is the best answer: it puts the environment-specific checks in the existing upstream wrapper layer, where this repository already handles Docker runtime differences, instead of expecting developers to diagnose host-networking problems manually.
+
+- Question being addressed: What platform-support and wrapper-validation requirement should this story document for host-networked `server` and `playwright-mcp` services, especially given the checked-in macOS/WSL/Linux compose wrapper behavior and Docker's host-networking constraints?
+- Why the question matters: `network_mode: host` changes how ports work, invalidates the existing `ports`/`networks` service shape, and may behave differently across Docker runtimes. This repository already centralizes Docker runtime differences in wrapper scripts, so the story should decide whether compatibility validation and failure messaging are mandatory rather than leaving developers to discover host-networking problems by trial and error.
+- What the answer is: require the compose wrapper and documentation to validate or clearly fail fast on host-networking prerequisites per environment, and explicitly document the supported host-network contract for the checked-in stacks.
+- Where the answer came from: direct user answer in this planning conversation agreeing with the previously researched best answer, plus repository evidence in `scripts/docker-compose-with-env.sh`, `package.json`, `AGENTS.md`, and this story file.
+- Why it is the best answer: it puts the environment-specific checks in the existing upstream wrapper layer, where this repository already handles Docker runtime differences, instead of expecting developers to diagnose host-networking problems manually.
 
 13. Implement the flow and command re-ingest behavior first, then the MCP/config contract work, and leave the Docker host-network cutover until last.
-   - Question being addressed: In what order should this story be implemented so the running local stack does not lose MCP functionality partway through the work?
-   - Why the question matters: the checked-in `config.toml` files are visible to the running local stack before the compose services are restarted, so changing placeholder contracts or compose networking too early can break the MCP tools available during development even if the final host ports stay the same.
-   - What the answer is: do the flow and command re-ingest behavior work first, including portable selectors, `current` and `all` targets, batch result recording, and empty-markdown skips. After that, do the MCP placeholder and env-contract work, then update the checked-in config files, then update compose and `.env` wiring, and only then perform the host-networking cutover and final restart-based validation.
-   - Where the answer came from: direct user answer in this planning conversation.
-   - Why it is the best answer: it keeps the MCP tooling available for as long as possible during implementation, isolates the workflow-behavior changes from the environment-contract changes, and pushes the most self-disrupting Docker/networking work to the end when the stack is ready for final validation.
+
+- Question being addressed: In what order should this story be implemented so the running local stack does not lose MCP functionality partway through the work?
+- Why the question matters: the checked-in `config.toml` files are visible to the running local stack before the compose services are restarted, so changing placeholder contracts or compose networking too early can break the MCP tools available during development even if the final host ports stay the same.
+- What the answer is: do the flow and command re-ingest behavior work first, including portable selectors, `current` and `all` targets, batch result recording, and empty-markdown skips. After that, do the MCP placeholder and env-contract work, then update the checked-in config files, then update compose and `.env` wiring, and only then perform the host-networking cutover and final restart-based validation.
+- Where the answer came from: direct user answer in this planning conversation.
+- Why it is the best answer: it keeps the MCP tooling available for as long as possible during implementation, isolates the workflow-behavior changes from the environment-contract changes, and pushes the most self-disrupting Docker/networking work to the end when the stack is ready for final validation.
 
 14. Complete and validate a pre-story MCP compatibility pass before implementing the story itself.
-   - Question being addressed: Should the repository be prepared in advance so later `config.toml` placeholder changes do not immediately break the running local stack during story implementation?
-   - Why the question matters: without this preparation, the running local compose stack can see checked-in `config.toml` edits before it is restarted, while still using older runtime config logic and older dedicated MCP env contracts. That mismatch can break the MCP tools needed to work through the story and its review flow.
-   - What the answer is: yes. The repository now has a pre-story compatibility layer that resolves the planned MCP placeholders in memory, temporarily accepts `CODEINFO_CHAT_MCP_PORT` alongside the legacy `CODEINFO_MCP_PORT`, and has been validated after a local compose restart by checking the main server, classic `/mcp`, dedicated MCP, agents MCP, and Playwright MCP endpoints.
-   - Where the answer came from: direct user decision in this planning conversation plus the implemented compatibility pre-work and restart validation completed immediately before this plan update.
-   - Why it is the best answer: it preserves MCP tooling continuity while the story is being implemented, reduces the risk of the implementation flow failing mid-story for environment-contract reasons, and lets the main story stay focused on the planned behavior and Docker cutover work rather than emergency compatibility fixes.
+
+- Question being addressed: Should the repository be prepared in advance so later `config.toml` placeholder changes do not immediately break the running local stack during story implementation?
+- Why the question matters: without this preparation, the running local compose stack can see checked-in `config.toml` edits before it is restarted, while still using older runtime config logic and older dedicated MCP env contracts. That mismatch can break the MCP tools needed to work through the story and its review flow.
+- What the answer is: yes. The repository now has a pre-story compatibility layer that resolves the planned MCP placeholders in memory, temporarily accepts `CODEINFO_CHAT_MCP_PORT` alongside the legacy `CODEINFO_MCP_PORT`, and has been validated after a local compose restart by checking the main server, classic `/mcp`, dedicated MCP, agents MCP, and Playwright MCP endpoints.
+- Where the answer came from: direct user decision in this planning conversation plus the implemented compatibility pre-work and restart validation completed immediately before this plan update.
+- Why it is the best answer: it preserves MCP tooling continuity while the story is being implemented, reduces the risk of the implementation flow failing mid-story for environment-contract reasons, and lets the main story stay focused on the planned behavior and Docker cutover work rather than emergency compatibility fixes.
 
 15. Remove the temporary legacy `CODEINFO_MCP_PORT` fallback by the final end state and keep only `CODEINFO_CHAT_MCP_PORT` as the canonical dedicated MCP env contract.
-   - Question being addressed: Should the final end state of this story remove the temporary legacy `CODEINFO_MCP_PORT` fallback and keep only `CODEINFO_CHAT_MCP_PORT` as the canonical dedicated MCP env contract?
-   - Why the question matters: the current compatibility layer was added only to keep the running local stack stable while preparing the story. If the plan does not explicitly say whether that legacy fallback must be removed at the end, the implementation may accidentally leave a permanent dual-read contract in place and drift away from the repository's usual clean-cutover pattern.
-   - What the answer is: yes. The story should treat the current dual-read support as temporary compatibility only and remove the legacy `CODEINFO_MCP_PORT` fallback by the final end state, leaving `CODEINFO_CHAT_MCP_PORT` as the single canonical dedicated MCP env contract once all checked-in compose files, env files, config placeholders, tests, and docs have been migrated.
-   - Where the answer came from: direct user answer in this planning conversation agreeing with the previously researched best answer, plus repository evidence in this story, [config.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config.ts), [startupEnv.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/startupEnv.ts), [env-loading.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/env-loading.test.ts), and story `0000048`.
-   - Why it is the best answer: it keeps the current compatibility pre-work explicitly temporary, matches the repository's earlier clean-cutover pattern for env renames, and prevents long-term ambiguity about which dedicated MCP env contract is authoritative.
+
+- Question being addressed: Should the final end state of this story remove the temporary legacy `CODEINFO_MCP_PORT` fallback and keep only `CODEINFO_CHAT_MCP_PORT` as the canonical dedicated MCP env contract?
+- Why the question matters: the current compatibility layer was added only to keep the running local stack stable while preparing the story. If the plan does not explicitly say whether that legacy fallback must be removed at the end, the implementation may accidentally leave a permanent dual-read contract in place and drift away from the repository's usual clean-cutover pattern.
+- What the answer is: yes. The story should treat the current dual-read support as temporary compatibility only and remove the legacy `CODEINFO_MCP_PORT` fallback by the final end state, leaving `CODEINFO_CHAT_MCP_PORT` as the single canonical dedicated MCP env contract once all checked-in compose files, env files, config placeholders, tests, and docs have been migrated.
+- Where the answer came from: direct user answer in this planning conversation agreeing with the previously researched best answer, plus repository evidence in this story, [config.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config.ts), [startupEnv.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/startupEnv.ts), [env-loading.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/env-loading.test.ts), and story `0000048`.
+- Why it is the best answer: it keeps the current compatibility pre-work explicitly temporary, matches the repository's earlier clean-cutover pattern for env renames, and prevents long-term ambiguity about which dedicated MCP env contract is authoritative.
 
 16. Include the checked-in shared-home runtime configs under `codex/` in the MCP endpoint migration scope.
-   - Question being addressed: Should this story update the checked-in shared-home runtime config files under `codex/` as part of the MCP endpoint migration, or only `config.toml.example` and `codex_agents/*`?
-   - Why the question matters: the repository currently reads `codex/config.toml` and `codex/chat/config.toml` as active runtime inputs for chat and MCP flows, while `config.toml.example` is only a sample. If the story updates only the examples and agent configs, the checked-in shared-home runtime config can drift and continue to encode the old MCP assumptions.
-   - What the answer is: yes, the story should include the checked-in shared-home runtime configs under `codex/` that are actually consumed at runtime, especially `codex/chat/config.toml` and `codex/config.toml` if it is present, alongside `codex_agents/*`. `config.toml.example` should still be updated, but only as documentation/sample coverage rather than being treated as the active runtime source.
-   - Where the answer came from: direct user answer in this planning conversation agreeing with the previously researched best answer, plus repository evidence in [runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), [codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts), [chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [chat route](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chat.ts), [codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts), [codexConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexConfig.test.ts), and [runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
-   - Why it is the best answer: it aligns the migration scope with the files the product actually reads at runtime, avoids leaving hidden old MCP assumptions in the checked-in shared-home config, and keeps `config.toml.example` in its proper sample/documentation role.
+
+- Question being addressed: Should this story update the checked-in shared-home runtime config files under `codex/` as part of the MCP endpoint migration, or only `config.toml.example` and `codex_agents/*`?
+- Why the question matters: the repository currently reads `codex/config.toml` and `codex/chat/config.toml` as active runtime inputs for chat and MCP flows, while `config.toml.example` is only a sample. If the story updates only the examples and agent configs, the checked-in shared-home runtime config can drift and continue to encode the old MCP assumptions.
+- What the answer is: yes, the story should include the checked-in shared-home runtime configs under `codex/` that are actually consumed at runtime, especially `codex/chat/config.toml` and `codex/config.toml` if it is present, alongside `codex_agents/*`. `config.toml.example` should still be updated, but only as documentation/sample coverage rather than being treated as the active runtime source.
+- Where the answer came from: direct user answer in this planning conversation agreeing with the previously researched best answer, plus repository evidence in [runtimeConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/runtimeConfig.ts), [codexConfig.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/codexConfig.ts), [chatDefaults.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/chatDefaults.ts), [chat route](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/chat.ts), [codebaseQuestion.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts), [codexConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/codexConfig.test.ts), and [runtimeConfig.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/runtimeConfig.test.ts).
+- Why it is the best answer: it aligns the migration scope with the files the product actually reads at runtime, avoids leaving hidden old MCP assumptions in the checked-in shared-home config, and keeps `config.toml.example` in its proper sample/documentation role.
 
 ## Implementation Ideas
 
@@ -1103,7 +1110,7 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
 ### Task 1. Extend re-ingest schema parsing for command and flow files
 
 - Repository Name: `codeInfo2`
-- Task Status: __to_do__
+- Task Status: **completed**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1117,56 +1124,86 @@ Add the new re-ingest request union to command and flow schema parsing so JSON f
 
 #### Subtasks
 
-1. [ ] In `server/src/agents/commandsSchema.ts` and `server/src/flows/flowSchema.ts`, read the current `sourceId`-only `reingest` schema together with story sections `## Message Contracts And Storage Shapes` and `## Edge Cases and Failure Modes`. The exact request contract to copy into code is:
+1. [x] In `server/src/agents/commandsSchema.ts` and `server/src/flows/flowSchema.ts`, read the current `sourceId`-only `reingest` schema together with story sections `## Message Contracts And Storage Shapes` and `## Edge Cases and Failure Modes`. The exact request contract to copy into code is:
    - `{ "type": "reingest", "sourceId": "<selector-or-path>" }`
    - `{ "type": "reingest", "target": "current" }`
    - `{ "type": "reingest", "target": "all" }`
    - invalid when both `sourceId` and `target` are present.
-2. [ ] In `server/src/agents/commandsSchema.ts`, replace the current `AgentCommandReingestItemSchema` with a plain union of strict object shapes or an equivalent mutual-exclusion helper. Do not use `z.discriminatedUnion('type', ...)`, because every allowed variant still has `type: 'reingest'`. The implementation should read like this shape, even if variable names differ:
+2. [x] In `server/src/agents/commandsSchema.ts`, replace the current `AgentCommandReingestItemSchema` with a plain union of strict object shapes or an equivalent mutual-exclusion helper. Do not use `z.discriminatedUnion('type', ...)`, because every allowed variant still has `type: 'reingest'`. The implementation should read like this shape, even if variable names differ:
    ```ts
    z.union([
-     z.object({ type: z.literal('reingest'), sourceId: trimmedNonEmptyString }).strict(),
-     z.object({ type: z.literal('reingest'), target: z.literal('current') }).strict(),
-     z.object({ type: z.literal('reingest'), target: z.literal('all') }).strict(),
+     z
+       .object({ type: z.literal('reingest'), sourceId: trimmedNonEmptyString })
+       .strict(),
+     z
+       .object({ type: z.literal('reingest'), target: z.literal('current') })
+       .strict(),
+     z
+       .object({ type: z.literal('reingest'), target: z.literal('all') })
+       .strict(),
    ]);
    ```
-3. [ ] In `server/src/flows/flowSchema.ts`, mirror the same `reingest` union for flow steps and keep the rest of the `flowStepUnionSchema()` behavior unchanged. The end result must leave `llm`, `break`, `command`, and `startLoop` validation exactly as-is while only broadening the `reingest` step shape.
-4. [ ] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that parses a command file containing `{ "type": "reingest", "sourceId": "<selector-or-path>" }`. Purpose: prove the happy-path command schema still accepts explicit selector/path re-ingest items.
-5. [ ] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that parses a command file containing `{ "type": "reingest", "target": "current" }`. Purpose: prove the command schema accepts the new current-repository target.
-6. [ ] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that parses a command file containing `{ "type": "reingest", "target": "all" }`. Purpose: prove the command schema accepts the new all-repositories target.
-7. [ ] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that rejects a command item containing both `sourceId` and `target`. Purpose: prove the union is mutually exclusive instead of silently accepting ambiguous input.
-8. [ ] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that rejects a command item whose `target` is not `current` or `all`. Purpose: prove invalid target values fail at parse time.
-9. [ ] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that rejects an empty or whitespace-only `sourceId`. Purpose: prove the command schema does not accept blank selectors.
-10. [ ] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that rejects an otherwise valid `reingest` item containing an unexpected extra property. Purpose: prove the strict object shape still rejects undeclared keys.
-11. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that parses a flow step containing `{ "type": "reingest", "sourceId": "<selector-or-path>" }`. Purpose: prove the happy-path flow schema still accepts explicit selector/path re-ingest steps.
-12. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that parses a flow step containing `{ "type": "reingest", "target": "current" }`. Purpose: prove the flow schema accepts the new current-repository target.
-13. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that parses a flow step containing `{ "type": "reingest", "target": "all" }`. Purpose: prove the flow schema accepts the new all-repositories target.
-14. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects a flow step containing both `sourceId` and `target`. Purpose: prove flow parsing keeps the same mutual-exclusion rule as command parsing.
-15. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects a flow step whose `target` is not `current` or `all`. Purpose: prove invalid flow target values fail at parse time.
-16. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects an empty or whitespace-only `sourceId`. Purpose: prove the flow schema does not accept blank selectors.
-17. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects an otherwise valid `reingest` flow step containing an unexpected extra property. Purpose: prove the strict flow step shape still rejects undeclared keys.
-18. [ ] Add or update the structured manual-validation log marker `DEV-0000050:T01:reingest_request_shape_accepted` in the command or flow execution path that first consumes the parsed re-ingest item. Include `surface`, `targetMode`, `requestedSelector`, and `schemaSource`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the schema shape accepted by Task 1 is the one that actually reached runtime.
-19. [ ] Record any new or renamed files for later documentation updates in Task 15. Do not update `README.md`, `design.md`, or `projectStructure.md` in this task unless a new file is created here.
-20. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-21. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+3. [x] In `server/src/flows/flowSchema.ts`, mirror the same `reingest` union for flow steps and keep the rest of the `flowStepUnionSchema()` behavior unchanged. The end result must leave `llm`, `break`, `command`, and `startLoop` validation exactly as-is while only broadening the `reingest` step shape.
+4. [x] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that parses a command file containing `{ "type": "reingest", "sourceId": "<selector-or-path>" }`. Purpose: prove the happy-path command schema still accepts explicit selector/path re-ingest items.
+5. [x] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that parses a command file containing `{ "type": "reingest", "target": "current" }`. Purpose: prove the command schema accepts the new current-repository target.
+6. [x] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that parses a command file containing `{ "type": "reingest", "target": "all" }`. Purpose: prove the command schema accepts the new all-repositories target.
+7. [x] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that rejects a command item containing both `sourceId` and `target`. Purpose: prove the union is mutually exclusive instead of silently accepting ambiguous input.
+8. [x] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that rejects a command item whose `target` is not `current` or `all`. Purpose: prove invalid target values fail at parse time.
+9. [x] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that rejects an empty or whitespace-only `sourceId`. Purpose: prove the command schema does not accept blank selectors.
+10. [x] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that rejects an otherwise valid `reingest` item containing an unexpected extra property. Purpose: prove the strict object shape still rejects undeclared keys.
+11. [x] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that parses a flow step containing `{ "type": "reingest", "sourceId": "<selector-or-path>" }`. Purpose: prove the happy-path flow schema still accepts explicit selector/path re-ingest steps.
+12. [x] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that parses a flow step containing `{ "type": "reingest", "target": "current" }`. Purpose: prove the flow schema accepts the new current-repository target.
+13. [x] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that parses a flow step containing `{ "type": "reingest", "target": "all" }`. Purpose: prove the flow schema accepts the new all-repositories target.
+14. [x] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects a flow step containing both `sourceId` and `target`. Purpose: prove flow parsing keeps the same mutual-exclusion rule as command parsing.
+15. [x] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects a flow step whose `target` is not `current` or `all`. Purpose: prove invalid flow target values fail at parse time.
+16. [x] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects an empty or whitespace-only `sourceId`. Purpose: prove the flow schema does not accept blank selectors.
+17. [x] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects an otherwise valid `reingest` flow step containing an unexpected extra property. Purpose: prove the strict flow step shape still rejects undeclared keys.
+18. [x] Add or update the structured manual-validation log marker `DEV-0000050:T01:reingest_request_shape_accepted` in the command or flow execution path that first consumes the parsed re-ingest item. Include `surface`, `targetMode`, `requestedSelector`, and `schemaSource`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the schema shape accepted by Task 1 is the one that actually reached runtime.
+19. [x] Record any new or renamed files for later documentation updates in Task 15. Do not update `README.md`, `design.md`, or `projectStructure.md` in this task unless a new file is created here.
+20. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+21. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
-3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
+1. [x] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [x] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 
 #### Implementation notes
 
-- __to_do__
+- Read the current command and flow re-ingest schema owners together with the story contract so the accepted Task 1 shapes stayed aligned with the plan.
+- Replaced the command re-ingest parser with a strict plain `z.union` of `sourceId`, `target: "current"`, and `target: "all"` variants so we avoided the invalid same-literal discriminated-union approach.
+- Broadened the flow re-ingest step shape with the same three strict variants while leaving the non-reingest flow validation rules untouched.
+- Kept the existing command schema happy-path `sourceId` parsing test in place while treating it as the required explicit-selector coverage for this task.
+- Added command-schema coverage for `target: "current"` so the new current-target request shape is accepted at parse time.
+- Added command-schema coverage for `target: "all"` so the new all-target request shape is accepted at parse time.
+- Added command-schema coverage that rejects mixed `sourceId` plus `target` input so the request union stays mutually exclusive.
+- Added command-schema coverage that rejects unsupported target values so invalid re-ingest target names fail during parsing.
+- Added command-schema coverage that rejects blank `sourceId` values after trimming so selector input cannot degrade to whitespace.
+- Kept the existing strict extra-property rejection test in place as the required command re-ingest strictness coverage.
+- Kept the existing flow-schema happy-path `sourceId` parsing test in place while treating it as the required explicit-selector coverage for flow steps.
+- Added flow-schema coverage for `target: "current"` so the flow parser accepts the new current-target shape.
+- Added flow-schema coverage for `target: "all"` so the flow parser accepts the new batch-target shape.
+- Added flow-schema coverage that rejects mixed `sourceId` plus `target` input so flow parsing matches the command mutual-exclusion rule.
+- Added flow-schema coverage that rejects unsupported target values so invalid flow target names fail at parse time.
+- Added flow-schema coverage that rejects blank `sourceId` values after trimming so flow selectors cannot be whitespace-only.
+- Kept the existing strict extra-property rejection test in place as the required flow re-ingest strictness coverage.
+- Added the `DEV-0000050:T01:reingest_request_shape_accepted` marker in the first command, nested-command, and flow execution seams that consume parsed re-ingest items, and made unsupported target modes fail explicitly until Task 3 lands the real orchestration.
+- No new or renamed files were introduced during Task 1, so the follow-up documentation delta for Task 15 is only that existing schema, test, and runtime-consumption files changed.
+- Ran `npm run lint`, then `npm run lint:fix`, then `npm run lint` again; the repo-wide command still fails on an unrelated pre-existing warning in `client/src/components/chat/SharedTranscript.tsx`, but no remaining lint issues were left in the Task 1 files.
+- Ran `npm run format:check`, then `npm run format`, then `npm run format:check` again; the repo-wide command still fails on unrelated formatting drift plus the intentionally invalid JSON fixture `server/src/test/fixtures/flows/invalid-json.json`, and `npx prettier --check` passed for all Task 1 files after the cleanup.
+- `npm run build:summary:server` passed cleanly with `warning_count: 0` and wrapper guidance `agent_action: skip_log`, so the Task 1 server build gate is complete without log inspection.
+- `npm run test:summary:server:unit` passed cleanly with `1306` tests run, `1306` passed, `0` failed, and wrapper guidance `agent_action: skip_log`, so the Task 1 schema and runtime-marker changes are covered by the full server unit suite.
+- `npm run test:summary:server:cucumber` passed cleanly with `71` tests run, `71` passed, `0` failed, and wrapper guidance `agent_action: skip_log`, so the Task 1 changes did not regress the checked-in cucumber flow coverage.
 
 ---
 
 ### Task 2. Extend the strict single-repository re-ingest result contract
 
 - Repository Name: `codeInfo2`
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1206,6 +1243,7 @@ Keep `runReingestRepository()` strict on one canonical repository, but extend it
 17. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 18. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 19. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1216,14 +1254,14 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Implementation notes
 
-- __to_do__
+- **to_do**
 
 ---
 
 ### Task 3. Add shared target orchestration for `sourceId`, `current`, and `all`
 
 - Repository Name: `codeInfo2`
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1271,6 +1309,7 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 22. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 23. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 24. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1281,14 +1320,14 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Implementation notes
 
-- __to_do__
+- **to_do**
 
 ---
 
 ### Task 4. Emit and persist the new single and batch re-ingest transcript payloads
 
 - Repository Name: `codeInfo2`
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1332,6 +1371,7 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
 21. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 22. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 23. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1342,14 +1382,14 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Implementation notes
 
-- __to_do__
+- **to_do**
 
 ---
 
 ### Task 5. Skip blank markdown instructions without weakening real markdown failures
 
 - Repository Name: `codeInfo2`
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1388,6 +1428,7 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 17. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 18. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 19. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1398,14 +1439,14 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Implementation notes
 
-- __to_do__
+- **to_do**
 
 ---
 
 ### Task 6. Finalize runtime MCP placeholder normalization
 
 - Repository Name: `codeInfo2`
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1446,6 +1487,7 @@ Finish the shared runtime placeholder normalization layer before any checked-in 
 19. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 20. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 21. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1456,14 +1498,14 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Implementation notes
 
-- __to_do__
+- **to_do**
 
 ---
 
 ### Task 7. Migrate checked-in MCP config and env contracts
 
 - Repository Name: `codeInfo2`
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1503,6 +1545,7 @@ Move the checked-in runtime config files and env files onto the final MCP placeh
 10. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 11. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 12. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1513,14 +1556,14 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Implementation notes
 
-- __to_do__
+- **to_do**
 
 ---
 
 ### Task 8. Add a repo-local shell harness
 
 - Repository Name: `codeInfo2`
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1549,6 +1592,7 @@ Create the reusable repo-local shell harness that later wrapper and compose task
 10. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 11. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 12. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1559,14 +1603,14 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Implementation notes
 
-- __to_do__
+- **to_do**
 
 ---
 
 ### Task 9. Add host-network wrapper preflight
 
 - Repository Name: `codeInfo2`
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1602,6 +1646,7 @@ Extend the checked-in compose wrapper so it fails fast when the checked-in host-
 13. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 14. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 15. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1612,14 +1657,14 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Implementation notes
 
-- __to_do__
+- **to_do**
 
 ---
 
 ### Task 10. Bake runtime assets into the image-based host-network model
 
 - Repository Name: `codeInfo2`
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1643,6 +1688,7 @@ Update the Docker build flow so the checked-in runtime assets needed by the host
 7. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 8. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 9. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1651,14 +1697,14 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Implementation notes
 
-- __to_do__
+- **to_do**
 
 ---
 
 ### Task 11. Convert Compose definitions to the final host-network runtime model
 
 - Repository Name: `codeInfo2`
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1679,7 +1725,7 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
    - files in scope for `server`: `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`;
    - files in scope for `playwright-mcp`: `docker-compose.yml` and `docker-compose.local.yml`;
    - no additional checked-in Compose file that defines `server` or `playwright-mcp` has appeared since the story was planned.
-   If the inventory has changed, update the story plan before changing code so the implementation does not silently miss a checked-in runtime surface.
+     If the inventory has changed, update the story plan before changing code so the implementation does not silently miss a checked-in runtime surface.
 3. [ ] Convert the scoped `server` and existing `playwright-mcp` services to the final host-network definitions with these exact port rules from the story:
    - direct host-visible bind ports for the server listeners;
    - preserve the local Chrome DevTools bind contract on `9222` by keeping the required server entrypoint or environment wiring intact under host networking;
@@ -1700,6 +1746,7 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
 9. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 10. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 11. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1715,14 +1762,14 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Implementation notes
 
-- __to_do__
+- **to_do**
 
 ---
 
 ### Task 12. Add the main-stack host-network proof wrapper
 
 - Repository Name: `codeInfo2`
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1755,6 +1802,7 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 11. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 12. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 13. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1769,14 +1817,14 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Implementation notes
 
-- __to_do__
+- **to_do**
 
 ---
 
 ### Task 13. Align the e2e proof path with host-network addresses
 
 - Repository Name: `codeInfo2`
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1802,6 +1850,7 @@ Update the checked-in e2e env injection, config, and test assumptions so the e2e
 9. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 10. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 11. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1817,14 +1866,14 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Implementation notes
 
-- __to_do__
+- **to_do**
 
 ---
 
 ### Task 14. Run final validation for Story 0000050
 
 - Repository Name: `codeInfo2`
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1846,7 +1895,7 @@ This task proves the completed story against the acceptance criteria. It must re
 5. [ ] Inspect the running containers and the wrapper-rendered Compose definitions to prove the host-network runtime is using image-baked application contents rather than host source bind mounts, with only Docker-managed generated-output volumes plus the explicitly host-visible logs remaining. Use both:
    - the wrapper-driven Compose config proof from Task 11;
    - live container inspection such as `docker inspect`.
-   Record the exact remaining mount list so a reviewer can see which mounts are still present and why each one is allowed.
+     Record the exact remaining mount list so a reviewer can see which mounts are still present and why each one is allowed.
 6. [ ] Verify the final runtime still supports the required traffic patterns on the documented host-visible endpoints:
    - REST/API access;
    - classic `/mcp`;
@@ -1861,12 +1910,13 @@ This task proves the completed story against the acceptance criteria. It must re
 8. [ ] Re-run a repository search for checked-in Compose files before closing the story and confirm the scoped inventory still matches the story assumptions from Task 11:
    - `server` remains scoped to `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`;
    - `playwright-mcp` remains scoped to `docker-compose.yml` and `docker-compose.local.yml`.
-   If the inventory changed during implementation, update the story traceability and validation notes before Task 15.
+     If the inventory changed during implementation, update the story traceability and validation notes before Task 15.
 9. [ ] Use Playwright MCP tools to manually verify the running product and save any GUI-proof screenshots to `playwright-output-local/` using the filename pattern `0000050-14-<short-name>.png`. This story does not introduce a new front-end feature, so only capture screenshots for GUI-visible acceptance that can actually be checked from the running product, such as the validated page state, logs view, or other visible runtime evidence. Capture enough screenshots for the agent to compare against the expectations in this task instead of only proving that the page loads.
 10. [ ] Add or update the final structured validation log marker `DEV-0000050:T14:story_validation_completed` in the final proof or verification path. Include `traceabilityPass`, `manualChecksPassed`, `screenshotCount`, and `proofWrapperPassed`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the final story gate completed with the expected evidence.
 11. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 12. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 13. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1884,14 +1934,14 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Implementation notes
 
-- __to_do__
+- **to_do**
 
 ---
 
 ### Task 15. Update documentation and story close-out
 
 - Repository Name: `codeInfo2`
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1916,6 +1966,7 @@ Update the shared documentation and prepare the finished story for review after 
 6. [ ] Update `README.md` and `docs/developer-reference.md` so they explicitly list the `DEV-0000050:T01` through `DEV-0000050:T14` manual-validation log markers, where those markers are expected to appear, and how the Manual Playwright-MCP step uses them as proof evidence. Purpose: make the final review handoff explicit about the exact logs reviewers should inspect.
 7. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 8. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+
 #### Testing
 
 Use only the checked-in summary-wrapper outputs already produced by Task 14 for this task. Do not attempt to rerun builds or tests without the wrapper. Only open full logs when a wrapper from Task 14 reported failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1924,6 +1975,6 @@ Use only the checked-in summary-wrapper outputs already produced by Task 14 for 
 
 #### Implementation notes
 
-- __to_do__
+- **to_do**
 
 ---

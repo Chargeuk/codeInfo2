@@ -34,6 +34,14 @@ case "${1:-}" in
     printf '%s\n' "${CODEINFO_TEST_DOCKER_COMPOSE_STDOUT:-fake compose execution}"
     exit "${CODEINFO_TEST_DOCKER_COMPOSE_EXIT_CODE:-0}"
     ;;
+  run)
+    occupied_ports=",${CODEINFO_TEST_DOCKER_HOST_OCCUPIED_PORTS:-},"
+    port="${@: -1}"
+    if [[ "${occupied_ports}" == *,"${port}",* ]]; then
+      exit 0
+    fi
+    exit 1
+    ;;
 esac
 
 echo "docker-fixture: unsupported invocation: $*" >&2

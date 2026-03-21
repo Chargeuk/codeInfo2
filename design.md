@@ -5030,6 +5030,36 @@ flowchart TD
     LocalPw --> LocalPwVolume[named volume: playwright-output-local]
 ```
 
+## Story 0000050 Task 12: main-stack host-network proof wrapper
+
+- Task 12 adds one reusable probe helper in `server/src/test/support/hostNetworkMainProbe.mjs` plus one checked-in wrapper entry point in `scripts/test-summary-host-network-main.mjs`, so the live main-stack proof path reuses the repository's shared heartbeat, saved-log, and final-guidance wrapper contract.
+- The wrapper probes the four fixed main-stack MCP surfaces independently:
+  - classic MCP on `5010` via `/mcp`
+  - chat MCP on `5011`
+  - agents MCP on `5012`
+  - Playwright MCP on `8932` via `/mcp`
+- The helper keeps the environment-sensitive host selection in one place. When the wrapper runs inside a containerized agent workspace it defaults to `host.docker.internal`; otherwise it probes `127.0.0.1`. Explicit endpoint overrides remain available for tests and diagnosis.
+- `server/src/test/unit/test-summary-host-network-main.test.ts` covers three outcomes without a live stack:
+  - all endpoints reachable
+  - one endpoint unavailable as a controlled failure
+  - failure output remains inspectable rather than collapsing into a generic crash
+- The wrapper emits `DEV-0000050:T12:main_stack_probe_completed` with per-surface reachability fields plus the overall result so later manual validation can prove the reusable main-stack probe saw the expected host-network listeners.
+
+```mermaid
+flowchart TD
+    ComposeUp[npm run compose:up] --> Wrapper[scripts/test-summary-host-network-main.mjs]
+    Wrapper --> Helper[server/src/test/support/hostNetworkMainProbe.mjs]
+    Helper --> Classic[classic MCP :5010 /mcp]
+    Helper --> Chat[chat MCP :5011]
+    Helper --> Agents[agents MCP :5012]
+    Helper --> Playwright[Playwright MCP :8932 /mcp]
+    Classic --> Marker[DEV-0000050:T12:main_stack_probe_completed]
+    Chat --> Marker
+    Agents --> Marker
+    Playwright --> Marker
+    Helper --> UnitTests[server/src/test/unit/test-summary-host-network-main.test.ts]
+```
+
 ### ChatInterface event buffering & persistence
 
 - The server unifies chat execution behind `ChatInterface` (`server/src/chat/interfaces/ChatInterface.ts`) with provider-specific subclasses (`ChatInterfaceCodex`, `ChatInterfaceLMStudio`) selected via `getChatInterface(provider)` (`server/src/chat/factory.ts`).

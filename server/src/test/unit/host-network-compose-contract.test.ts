@@ -113,10 +113,7 @@ test('e2e server host-network contract removes checked-in runtime-tree mounts', 
   assert.doesNotMatch(e2eServer, /\.\/e2e\/fixtures\/repo:/u);
   assert.doesNotMatch(e2eServer, /\.\/codex:/u);
   assert.doesNotMatch(e2eServer, /\.\/codex_agents:/u);
-  assert.match(
-    e2eServer,
-    /CODEINFO_SERVER_PORT=\$\{CODEINFO_SERVER_PORT:-6010\}/u,
-  );
+  assert.match(e2eServer, /CODEINFO_SERVER_PORT=6010/u);
   assert.match(
     e2eServer,
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:6010\/health'\]/u,

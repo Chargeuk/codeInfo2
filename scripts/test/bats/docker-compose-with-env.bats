@@ -112,3 +112,16 @@ codeinfo2_run_compose_wrapper() {
   assert_success
   assert_output --partial "\"checkedPorts\":[5510,5511,5512,9222,8931]"
 }
+
+@test "compose wrapper can probe docker-host ports when the launcher itself runs inside a container" {
+  codeinfo2_run_compose_wrapper \
+    docker-compose.local.yml \
+    host-network-local-valid.json \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    CODEINFO_HOST_PORT_CHECK_SCOPE=docker_host \
+    CODEINFO_TEST_RUNNING_IN_CONTAINER=1
+
+  assert_success
+  run grep -F "run --rm --network host --entrypoint node codeinfo2-server-local" "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_success
+}

@@ -1,5 +1,36 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000050 Task 12 structural change ledger
+
+Added files:
+
+- `scripts/test-summary-host-network-main.mjs`
+- `server/src/test/support/hostNetworkMainProbe.mjs`
+- `server/src/test/support/hostNetworkMainProbe.d.mts`
+- `server/src/test/unit/test-summary-host-network-main.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `package.json`
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `projectStructure.md`
+- `server/src/test/unit/host-network-compose-contract.test.ts`
+
+Story notes:
+
+- Task 12 adds `scripts/test-summary-host-network-main.mjs` as the checked-in wrapper-first proof command for the live main-stack host-network listeners after `npm run compose:up`.
+- The shared probe contract lives in `server/src/test/support/hostNetworkMainProbe.mjs`, so the wrapper and the new unit tests exercise the same endpoint-resolution, reachability, and failure-reporting logic instead of duplicating probe behavior.
+- `server/src/test/unit/test-summary-host-network-main.test.ts` is the focused regression seam for passing, failing, and inspectable-error host-network probe outcomes without requiring a live Compose stack.
+
 ## Story 0000050 Task 9 structural change ledger
 
 Added files:

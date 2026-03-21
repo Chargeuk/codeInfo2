@@ -254,6 +254,12 @@ process.stdin.on("end", () => {
   }
 
   const hasService = (serviceName) => Object.prototype.hasOwnProperty.call(services, serviceName);
+  const portProbeImage =
+    (typeof services.server?.image === "string" ? services.server.image : "") ||
+    hostNetworkServices
+      .map((serviceName) => services?.[serviceName]?.image)
+      .find((image) => typeof image === "string" && image.length > 0) ||
+    "";
 
   const lines = [
     `hostNetworkServices=${hostNetworkServices.join(",")}`,
@@ -261,6 +267,7 @@ process.stdin.on("end", () => {
     `hostNetworkServiceCount=${hostNetworkServices.length}`,
     `playwrightServicePresent=${hasService("playwright-mcp")}`,
     `serverServicePresent=${hasService("server")}`,
+    `portProbeImage=${portProbeImage}`,
   ];
 
   process.stdout.write(lines.join("\n"));
@@ -393,10 +400,58 @@ ensure_host_network_environment_supported() {
 
 is_port_occupied() {
   local port="$1"
+  local probe_image="${2:-}"
   local occupied_ports=",${CODEINFO_TEST_OCCUPIED_PORTS:-},"
 
   if [[ "${occupied_ports}" == *,"${port}",* ]]; then
     return 0
+  fi
+
+  case "${CODEINFO_HOST_PORT_CHECK_SCOPE:-auto}" in
+    skip)
+      return 1
+      ;;
+    docker_host)
+      ;;
+    auto)
+      if [ -f "/.dockerenv" ] || [ -n "${CODEINFO_TEST_RUNNING_IN_CONTAINER:-}" ]; then
+        if [ -n "${probe_image}" ]; then
+          docker_cmd run --rm --network host --entrypoint node "${probe_image}" -e '
+const net = require("node:net");
+const [portValue] = process.argv.slice(1);
+const port = Number(portValue);
+const socket = net.connect({ host: "127.0.0.1", port, timeout: 250 });
+const finish = (occupied) => {
+  socket.destroy();
+  process.exit(occupied ? 0 : 1);
+};
+socket.once("connect", () => finish(true));
+socket.once("timeout", () => finish(false));
+socket.once("error", () => finish(false));
+' "${port}"
+          return $?
+        fi
+      fi
+      ;;
+    *)
+      ;;
+  esac
+
+  if [ "${CODEINFO_HOST_PORT_CHECK_SCOPE:-auto}" = "docker_host" ] && [ -n "${probe_image}" ]; then
+    docker_cmd run --rm --network host --entrypoint node "${probe_image}" -e '
+const net = require("node:net");
+const [portValue] = process.argv.slice(1);
+const port = Number(portValue);
+const socket = net.connect({ host: "127.0.0.1", port, timeout: 250 });
+const finish = (occupied) => {
+  socket.destroy();
+  process.exit(occupied ? 0 : 1);
+};
+socket.once("connect", () => finish(true));
+socket.once("timeout", () => finish(false));
+socket.once("error", () => finish(false));
+' "${port}"
+    return $?
   fi
 
   case "${CODEINFO_TEST_DISABLE_REAL_PORT_CHECKS:-0}" in
@@ -438,13 +493,14 @@ run_compose_preflight_if_needed() {
   fi
 
   local inspection_output host_network_services_csv invalid_host_network_shapes host_network_service_count
-  local playwright_service_present server_service_present checked_ports_csv
+  local playwright_service_present server_service_present checked_ports_csv port_probe_image
   inspection_output="$(printf '%s' "${config_json}" | inspect_compose_config_json)"
   host_network_services_csv="$(printf '%s\n' "${inspection_output}" | sed -n 's/^hostNetworkServices=//p')"
   invalid_host_network_shapes="$(printf '%s\n' "${inspection_output}" | sed -n 's/^invalidHostNetworkShapes=//p')"
   host_network_service_count="$(printf '%s\n' "${inspection_output}" | sed -n 's/^hostNetworkServiceCount=//p')"
   playwright_service_present="$(printf '%s\n' "${inspection_output}" | sed -n 's/^playwrightServicePresent=//p')"
   server_service_present="$(printf '%s\n' "${inspection_output}" | sed -n 's/^serverServicePresent=//p')"
+  port_probe_image="$(printf '%s\n' "${inspection_output}" | sed -n 's/^portProbeImage=//p')"
   checked_ports_csv="$(determine_checked_ports_csv "${compose_profile}" "${host_network_services_csv}")"
 
   if [ "${host_network_service_count}" -gt 0 ]; then
@@ -468,7 +524,7 @@ run_compose_preflight_if_needed() {
     local port
     IFS=',' read -r -a checked_ports <<<"${checked_ports_csv}"
     for port in "${checked_ports[@]}"; do
-      if is_port_occupied "${port}"; then
+      if is_port_occupied "${port}" "${port_probe_image}"; then
         fail_preflight \
           "${compose_file_display}" \
           "${playwright_service_present}" \

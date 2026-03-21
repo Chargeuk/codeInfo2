@@ -50,6 +50,11 @@ const buildRepoEntry = (params: {
   lastError: null,
 });
 
+const listDefaultReingestRepos = async () => ({
+  repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/repo/source-a' })],
+  lockedModelId: null,
+});
+
 const buildReingestSuccess = (
   overrides: Partial<{
     status: 'completed' | 'cancelled' | 'error';
@@ -923,6 +928,7 @@ describe('agent commands runner (v1)', () => {
       commandName: 'reingest-then-message',
       initialModelId: 'agent-model-1',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
       runAgentInstructionUnlocked: async (params) => {
         seenInstructions.push(params.instruction);
         messageAttempts += 1;
@@ -1006,6 +1012,7 @@ describe('agent commands runner (v1)', () => {
       commandName: 'reingest-completed',
       initialModelId: 'agent-model-1',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
       runAgentInstructionUnlocked: async (params) => {
         messageSteps.push(params.command?.stepIndex ?? -1);
         return { modelId: 'agent-model-1' };
@@ -1227,6 +1234,7 @@ describe('agent commands runner (v1)', () => {
       commandName: 'reingest-cancelled',
       initialModelId: 'agent-model-1',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
       runAgentInstructionUnlocked: async (params) => {
         messageSteps.push(params.command?.stepIndex ?? -1);
         return { modelId: 'agent-model-1' };
@@ -1304,6 +1312,7 @@ describe('agent commands runner (v1)', () => {
       commandName: 'reingest-error',
       initialModelId: 'agent-model-1',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
       runAgentInstructionUnlocked: async (params) => {
         messageSteps.push(params.command?.stepIndex ?? -1);
         return { modelId: 'agent-model-1' };
@@ -1376,6 +1385,7 @@ describe('agent commands runner (v1)', () => {
       commandName: 'reingest-skipped-normalized',
       initialModelId: 'agent-model-1',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
       runAgentInstructionUnlocked: async () => ({ modelId: 'agent-model-1' }),
     });
 
@@ -1418,6 +1428,7 @@ describe('agent commands runner (v1)', () => {
       initialModelId: 'agent-model-1',
       source: 'REST',
       signal: controller.signal,
+      listIngestedRepositories: listDefaultReingestRepos,
       runAgentInstructionUnlocked: async (params) => {
         messageSteps.push(params.command?.stepIndex ?? -1);
         return { modelId: 'agent-model-1' };
@@ -1468,6 +1479,7 @@ describe('agent commands runner (v1)', () => {
           commandName: 'reingest-bad-source',
           initialModelId: 'agent-model-1',
           source: 'REST',
+          listIngestedRepositories: listDefaultReingestRepos,
           runAgentInstructionUnlocked: async () => {
             messageCalls += 1;
             return { modelId: 'agent-model-1' };
@@ -1521,6 +1533,7 @@ describe('agent commands runner (v1)', () => {
           commandName: 'reingest-missing-source',
           initialModelId: 'agent-model-1',
           source: 'REST',
+          listIngestedRepositories: listDefaultReingestRepos,
           runAgentInstructionUnlocked: async () => {
             messageCalls += 1;
             return { modelId: 'agent-model-1' };
@@ -1574,6 +1587,7 @@ describe('agent commands runner (v1)', () => {
           commandName: 'reingest-busy',
           initialModelId: 'agent-model-1',
           source: 'REST',
+          listIngestedRepositories: listDefaultReingestRepos,
           runAgentInstructionUnlocked: async () => {
             messageCalls += 1;
             return { modelId: 'agent-model-1' };
@@ -1622,6 +1636,7 @@ describe('agent commands runner (v1)', () => {
           commandName: 'reingest-format-fallback',
           initialModelId: 'agent-model-1',
           source: 'REST',
+          listIngestedRepositories: listDefaultReingestRepos,
           runAgentInstructionUnlocked: async () => ({
             modelId: 'agent-model-1',
           }),
@@ -1662,6 +1677,7 @@ describe('agent commands runner (v1)', () => {
           commandName: 'reingest-throws',
           initialModelId: 'agent-model-1',
           source: 'REST',
+          listIngestedRepositories: listDefaultReingestRepos,
           runAgentInstructionUnlocked: async () => ({
             modelId: 'agent-model-1',
           }),

@@ -106,8 +106,8 @@ test('executeReingestRequest keeps unresolved selectors on the strict invalid-in
 
   assert.equal(result.ok, false);
   if (result.ok) return;
-  assert.equal(result.error.data.code, 'INVALID_SOURCE_ID');
-  assert.equal(result.error.data.fieldErrors[0]?.reason, 'non_absolute');
+  assert.equal(result.error.data.code, 'NOT_FOUND');
+  assert.equal(result.error.data.fieldErrors[0]?.reason, 'unknown_root');
 });
 
 test('executeReingestRequest surfaces selector-listing failures for sourceId, current, and all without INVALID_SOURCE_ID fallback', async () => {

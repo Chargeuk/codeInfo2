@@ -1675,7 +1675,12 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
 #### Subtasks
 
 1. [ ] Read `server/entrypoint.sh`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `server/src/test/support/chromaContainer.ts`, and `server/src/test/support/mongoContainer.ts` together with story sections `## Feasibility Proof Pass`, `## Edge Cases and Failure Modes`, and `## Final Validation`. Keep these exact rules visible while you work: local server binds `5510/5511/5512`, local Chrome DevTools stays on `9222`, local Playwright MCP stays on `8931`, main Playwright MCP stays on `8932`, host-networked services must not keep `ports` or `networks`, and source-tree / checked-in runtime bind mounts must not remain. Also keep the task docs open while doing this step: Docker Compose docs via Context7 `/docker/compose`, Docker host-network docs via DeepWiki `docker/docs` plus https://docs.docker.com/engine/network/tutorials/host/, Bash docs at https://www.gnu.org/software/bash/manual/bash.html, and Mermaid docs via Context7 `/mermaid-js/mermaid`.
-2. [ ] Convert the scoped `server` and existing `playwright-mcp` services to the final host-network definitions with these exact port rules from the story:
+2. [ ] Before editing the compose files, run a repository search for checked-in Compose files and confirm the scoped inventory still matches the story assumptions:
+   - files in scope for `server`: `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`;
+   - files in scope for `playwright-mcp`: `docker-compose.yml` and `docker-compose.local.yml`;
+   - no additional checked-in Compose file that defines `server` or `playwright-mcp` has appeared since the story was planned.
+   If the inventory has changed, update the story plan before changing code so the implementation does not silently miss a checked-in runtime surface.
+3. [ ] Convert the scoped `server` and existing `playwright-mcp` services to the final host-network definitions with these exact port rules from the story:
    - direct host-visible bind ports for the server listeners;
    - preserve the local Chrome DevTools bind contract on `9222` by keeping the required server entrypoint or environment wiring intact under host networking;
    - `8931` for local Playwright MCP;
@@ -1683,13 +1688,18 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
    - remove incompatible `ports` or `networks` definitions on host-networked services;
    - remove bridge-only service-name MCP URL assumptions;
    - keep compose files that do not already define `playwright-mcp` out of scope so no new Playwright service is introduced by this task.
-3. [ ] Preserve the existing local Docker-socket, UID/GID, and Testcontainers-related runtime contract where it is still required for checked-in local workflows, while keeping that exception separate from the forbidden source-tree and checked-in-config bind mounts. Do not add new source-tree mounts to solve runtime issues.
-4. [ ] Prove the final host-networked Compose definitions no longer bind-mount application source trees or checked-in runtime asset trees into the runtime containers, and that any remaining persistence is limited to Docker-managed generated-output volumes plus the explicitly host-visible logs, with only deliberate non-source runtime mounts such as the local Docker socket remaining where required. Use the checked-in wrapper script with the `config` subcommand for this inspection instead of ad-hoc compose invocations so the same env-file and UID/GID rules are applied during validation.
-5. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the final host-network runtime topology, the preserved host-visible port matrix, and the allowed remaining runtime mounts. Purpose: document the checked-in runtime architecture after the compose cutover lands.
-6. [ ] Add or update the structured runtime log marker `DEV-0000050:T11:host_network_runtime_ready` during stack startup or readiness reporting. Include `composeFile`, `serverPorts`, `playwrightPort`, and `sourceBindMountCount`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the running stack uses the expected host-network contract and has not reintroduced source/config bind mounts.
-7. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-8. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-9. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+4. [ ] Preserve the existing local Docker-socket, UID/GID, and Testcontainers-related runtime contract where it is still required for checked-in local workflows, while keeping that exception separate from the forbidden source-tree and checked-in-config bind mounts. Do not add new source-tree mounts to solve runtime issues.
+5. [ ] Prove the final host-networked Compose definitions no longer bind-mount application source trees or checked-in runtime asset trees into the runtime containers, and that any remaining persistence is limited to Docker-managed generated-output volumes plus the explicitly host-visible logs, with only deliberate non-source runtime mounts such as the local Docker socket remaining where required. Use the checked-in wrapper script with the `config` subcommand for this inspection instead of ad-hoc compose invocations so the same env-file and UID/GID rules are applied during validation.
+6. [ ] After the compose definitions are updated, inspect the rendered wrapper-driven Compose output and write down the exact services and mount types that remain. The expected end state is:
+   - no bind mount for the repository root;
+   - no bind mount for checked-in runtime config trees such as `codex/`, `codex_agents/`, or checked-in flow directories;
+   - only Docker-managed volumes for generated output;
+   - only deliberate non-source bind mounts such as logs or the local Docker socket where the story explicitly allows them.
+7. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the final host-network runtime topology, the preserved host-visible port matrix, and the allowed remaining runtime mounts. Purpose: document the checked-in runtime architecture after the compose cutover lands.
+8. [ ] Add or update the structured runtime log marker `DEV-0000050:T11:host_network_runtime_ready` during stack startup or readiness reporting. Include `composeFile`, `serverPorts`, `playwrightPort`, and `sourceBindMountCount`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the running stack uses the expected host-network contract and has not reintroduced source/config bind mounts.
+9. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+10. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+11. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1697,7 +1707,11 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 1. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
 2. [ ] `npm run compose:up`
 3. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm the host-network runtime behavior covered by this task, verify the relevant story behavior from the running UI and stack, and confirm there are no logged errors in the debug console. Also check the running logs for `DEV-0000050:T09:compose_preflight_result` with `result: "passed"`, `DEV-0000050:T10:image_runtime_assets_baked` with `sourceBindMountRequired: false`, and `DEV-0000050:T11:host_network_runtime_ready` with the expected `composeFile`, preserved port values, and `sourceBindMountCount: 0`.
-4. [ ] `npm run compose:down`
+4. [ ] While the stack is running, inspect the live containers with `docker inspect` or an equivalent wrapper-safe inspection path and confirm the mount list matches the rendered Compose proof from Subtasks 5 and 6:
+   - no repository-root or checked-in runtime-tree bind mounts;
+   - only Docker-managed volumes for generated output;
+   - only explicitly allowed non-source bind mounts such as logs or the Docker socket.
+5. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1829,7 +1843,10 @@ This task proves the completed story against the acceptance criteria. It must re
 2. [ ] Run the wrapper-first build and test paths required by the story and record the saved-output locations that later close-out notes will reference. Keep the exact commands aligned with the `#### Testing` list in this task.
 3. [ ] After `npm run compose:up` has started the main stack in this task, run the checked-in proof wrapper command created by Task 12, `npm run test:summary:host-network:main`, and record its saved-output path. Purpose: prove the reusable host-network probe path succeeds against the final stack instead of relying only on ad hoc manual inspection.
 4. [ ] Compare the validated system against every grouped requirement in `## Traceability And Proof Pass` and record any mismatch before Task 15 starts. Purpose: prove the final validation covers the whole story and that no out-of-scope behavior was introduced while implementing it.
-5. [ ] Inspect the running containers and Compose definitions to prove the host-network runtime is using image-baked application contents rather than host source bind mounts, with only Docker-managed generated-output volumes plus the explicitly host-visible logs remaining.
+5. [ ] Inspect the running containers and the wrapper-rendered Compose definitions to prove the host-network runtime is using image-baked application contents rather than host source bind mounts, with only Docker-managed generated-output volumes plus the explicitly host-visible logs remaining. Use both:
+   - the wrapper-driven Compose config proof from Task 11;
+   - live container inspection such as `docker inspect`.
+   Record the exact remaining mount list so a reviewer can see which mounts are still present and why each one is allowed.
 6. [ ] Verify the final runtime still supports the required traffic patterns on the documented host-visible endpoints:
    - REST/API access;
    - classic `/mcp`;
@@ -1841,11 +1858,15 @@ This task proves the completed story against the acceptance criteria. It must re
    - manual UI verification;
    - and the local manual-testing Chrome DevTools contract on `9222`, keeping that `9222` endpoint as a distinct Chromium CDP surface rather than treating it as interchangeable with the Playwright MCP control URL.
 7. [ ] Inspect the saved wrapper outputs, startup reporting, and runtime logs produced during this task to prove the observability contracts introduced by the story are real in the final system. Confirm that classic/chat/agents MCP endpoints are reported separately, that actionable wrapper or compose failure text is available whenever a wrapper in this task reports failure, and that any blank-markdown skip or related informational paths still emit the documented structured context instead of silent behavior.
-8. [ ] Use Playwright MCP tools to manually verify the running product and save any GUI-proof screenshots to `playwright-output-local/` using the filename pattern `0000050-14-<short-name>.png`. This story does not introduce a new front-end feature, so only capture screenshots for GUI-visible acceptance that can actually be checked from the running product, such as the validated page state, logs view, or other visible runtime evidence. Capture enough screenshots for the agent to compare against the expectations in this task instead of only proving that the page loads.
-9. [ ] Add or update the final structured validation log marker `DEV-0000050:T14:story_validation_completed` in the final proof or verification path. Include `traceabilityPass`, `manualChecksPassed`, `screenshotCount`, and `proofWrapperPassed`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the final story gate completed with the expected evidence.
-10. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-11. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-12. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+8. [ ] Re-run a repository search for checked-in Compose files before closing the story and confirm the scoped inventory still matches the story assumptions from Task 11:
+   - `server` remains scoped to `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`;
+   - `playwright-mcp` remains scoped to `docker-compose.yml` and `docker-compose.local.yml`.
+   If the inventory changed during implementation, update the story traceability and validation notes before Task 15.
+9. [ ] Use Playwright MCP tools to manually verify the running product and save any GUI-proof screenshots to `playwright-output-local/` using the filename pattern `0000050-14-<short-name>.png`. This story does not introduce a new front-end feature, so only capture screenshots for GUI-visible acceptance that can actually be checked from the running product, such as the validated page state, logs view, or other visible runtime evidence. Capture enough screenshots for the agent to compare against the expectations in this task instead of only proving that the page loads.
+10. [ ] Add or update the final structured validation log marker `DEV-0000050:T14:story_validation_completed` in the final proof or verification path. Include `traceabilityPass`, `manualChecksPassed`, `screenshotCount`, and `proofWrapperPassed`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the final story gate completed with the expected evidence.
+11. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+12. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+13. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.

@@ -102,6 +102,24 @@ codeinfo2_run_compose_wrapper() {
   [ -d "${workspace_root}/playwright-output-local" ]
 }
 
+@test "compose wrapper creates empty local env overlay files when missing" {
+  local workspace_root
+  workspace_root="${CODEINFO2_TASK9_TMPDIR}/workspace-env"
+  mkdir -p "${workspace_root}/server" "${workspace_root}/client"
+
+  codeinfo2_run_compose_wrapper \
+    docker-compose.local.yml \
+    host-network-local-valid.json \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    CODEINFO_COMPOSE_REPO_ROOT_OVERRIDE="${workspace_root}"
+
+  assert_success
+  [ -f "${workspace_root}/server/.env.local" ]
+  [ -f "${workspace_root}/client/.env.local" ]
+  [ ! -s "${workspace_root}/server/.env.local" ]
+  [ ! -s "${workspace_root}/client/.env.local" ]
+}
+
 @test "compose wrapper does not require playwright-mcp for compose files that are out of scope" {
   codeinfo2_run_compose_wrapper \
     docker-compose.e2e.yml \

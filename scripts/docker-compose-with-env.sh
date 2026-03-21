@@ -209,6 +209,20 @@ repo_root_for_compose_wrapper() {
   cd "${script_dir}/.." && pwd
 }
 
+ensure_optional_local_env_files_exist() {
+  local repo_root env_local_path
+  repo_root="$(repo_root_for_compose_wrapper)"
+
+  for env_local_path in \
+    "${repo_root}/server/.env.local" \
+    "${repo_root}/client/.env.local"; do
+    mkdir -p "$(dirname "${env_local_path}")"
+    if [ ! -e "${env_local_path}" ]; then
+      : > "${env_local_path}"
+    fi
+  done
+}
+
 ensure_repo_bind_mount_dirs_for_profile() {
   case "${COMPOSE_SUBCOMMAND}" in
     up | start | restart | run | create)
@@ -654,6 +668,7 @@ run_compose_preflight_if_needed() {
 }
 
 parse_compose_args "$@"
+ensure_optional_local_env_files_exist
 ensure_repo_bind_mount_dirs_for_profile
 
 SOCKET_PATH="$(resolve_docker_socket)"

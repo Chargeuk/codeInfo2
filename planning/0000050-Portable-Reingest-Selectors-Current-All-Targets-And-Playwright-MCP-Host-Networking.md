@@ -1696,7 +1696,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 ### Task 9. Add host-network wrapper preflight
 
 - Repository Name: `codeInfo2`
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1711,39 +1711,49 @@ Extend the checked-in compose wrapper so it fails fast when the checked-in host-
 
 #### Subtasks
 
-1. [ ] Read `scripts/docker-compose-with-env.sh` and the new harness files under `scripts/test/bats/` together with story sections `## Proof Path Readiness` and `## Edge Cases and Failure Modes`. This task must extend the checked-in wrapper, not add a second compose launcher.
-2. [ ] Extend `scripts/docker-compose-with-env.sh` so it fails before `docker compose` for these exact prerequisite failures from the story:
+1. [x] Read `scripts/docker-compose-with-env.sh` and the new harness files under `scripts/test/bats/` together with story sections `## Proof Path Readiness` and `## Edge Cases and Failure Modes`. This task must extend the checked-in wrapper, not add a second compose launcher.
+2. [x] Extend `scripts/docker-compose-with-env.sh` so it fails before `docker compose` for these exact prerequisite failures from the story:
    - unsupported host-network environments;
    - Docker Desktop environments where host networking is unavailable or incompatible for the checked-in compose path;
    - disabled host networking where it is required;
    - occupied checked-in host ports;
    - host-networked service definitions that still contain incompatible `ports` or `networks` wiring;
    - and every failure path names the affected compose file or service plus the missing or incompatible prerequisite.
-3. [ ] Extend the shell-harness helper files or fixture binaries under `scripts/test/bats/` so the preflight tests can simulate unsupported host networking, occupied host ports, incompatible Compose service shapes, compose pass-through, and compose files without `playwright-mcp` without depending on the developer's real Docker host state. Keep these simulations deterministic so Task 9 remains runnable on a normal workstation and inside CI.
-4. [ ] Create `scripts/test/bats/docker-compose-with-env.bats` and add a shell test there that exercises the unsupported host-network environment path. Purpose: prove preflight fails before compose startup when host networking is not supported.
-5. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a conflicting checked-in host port. Purpose: prove preflight blocks startup when a required host-visible port is already occupied.
-6. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a host-networked service definition still carrying incompatible `ports` or `networks`. Purpose: prove invalid compose shapes are rejected before `docker compose` runs.
-7. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises the success-path pass-through to compose execution. Purpose: prove the wrapper still hands control to compose when all preflight conditions are satisfied.
-8. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a compose file without `playwright-mcp`. Purpose: prove preflight does not force new Playwright services into files that are out of scope for this story.
-9. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that asserts failure output names the affected compose file or service. Purpose: prove operators receive actionable preflight errors instead of a generic shell failure.
-10. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that proves the local host-network manual-testing contract still declares Chrome DevTools on `9222`. Purpose: keep the checked-in local CDP validation rule under automated shell-harness coverage.
-11. [ ] Update `projectStructure.md` after `scripts/test/bats/docker-compose-with-env.bats` is added. Document the new shell-test file path and its relationship to `scripts/docker-compose-with-env.sh` so the repository structure doc shows where host-network preflight coverage lives.
-12. [ ] Add or update the structured wrapper log marker `DEV-0000050:T09:compose_preflight_result` in `scripts/docker-compose-with-env.sh`. Include `composeFile`, `result`, `playwrightServicePresent`, and `checkedPorts`, and make sure both pass and fail outcomes are logged with the same marker. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the host-network preflight ran and produced an explicit result.
-13. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-14. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-15. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+3. [x] Extend the shell-harness helper files or fixture binaries under `scripts/test/bats/` so the preflight tests can simulate unsupported host networking, occupied host ports, incompatible Compose service shapes, compose pass-through, and compose files without `playwright-mcp` without depending on the developer's real Docker host state. Keep these simulations deterministic so Task 9 remains runnable on a normal workstation and inside CI.
+4. [x] Create `scripts/test/bats/docker-compose-with-env.bats` and add a shell test there that exercises the unsupported host-network environment path. Purpose: prove preflight fails before compose startup when host networking is not supported.
+5. [x] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a conflicting checked-in host port. Purpose: prove preflight blocks startup when a required host-visible port is already occupied.
+6. [x] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a host-networked service definition still carrying incompatible `ports` or `networks`. Purpose: prove invalid compose shapes are rejected before `docker compose` runs.
+7. [x] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises the success-path pass-through to compose execution. Purpose: prove the wrapper still hands control to compose when all preflight conditions are satisfied.
+8. [x] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a compose file without `playwright-mcp`. Purpose: prove preflight does not force new Playwright services into files that are out of scope for this story.
+9. [x] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that asserts failure output names the affected compose file or service. Purpose: prove operators receive actionable preflight errors instead of a generic shell failure.
+10. [x] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that proves the local host-network manual-testing contract still declares Chrome DevTools on `9222`. Purpose: keep the checked-in local CDP validation rule under automated shell-harness coverage.
+11. [x] Update `projectStructure.md` after `scripts/test/bats/docker-compose-with-env.bats` is added. Document the new shell-test file path and its relationship to `scripts/docker-compose-with-env.sh` so the repository structure doc shows where host-network preflight coverage lives.
+12. [x] Add or update the structured wrapper log marker `DEV-0000050:T09:compose_preflight_result` in `scripts/docker-compose-with-env.sh`. Include `composeFile`, `result`, `playwrightServicePresent`, and `checkedPorts`, and make sure both pass and fail outcomes are logged with the same marker. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the host-network preflight ran and produced an explicit result.
+13. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+14. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+15. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
-3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
+1. [x] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [x] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 
 #### Implementation notes
 
-- **to_do**
+- Re-read the checked-in compose wrapper, the vendored Bats harness from Task 8, and the Docker host-network docs before editing so Task 9 extends the existing launcher and enforces the real host-network prerequisites instead of inventing a second path.
+- Confirmed Task 9 will stay inside `scripts/docker-compose-with-env.sh` and the Task 8 Bats harness, and pulled the Docker Compose host-network rules up front so the preflight can reject `ports`/`networks` on host-networked services instead of guessing later.
+- Extended `scripts/docker-compose-with-env.sh` with one checked-in preflight path that parses rendered compose JSON, rejects invalid host-network service shapes, checks the story port matrix, and emits `DEV-0000050:T09:compose_preflight_result` on both pass and fail paths before any real compose startup.
+- Added deterministic Task 9 shell fixtures under `scripts/test/bats/fixtures/` plus `scripts/test/bats/docker-compose-with-env.bats`, so unsupported host networking, occupied host ports, invalid host-network service shapes, compose pass-through, no-Playwright files, actionable failure output, and the local `9222` Chrome DevTools contract are all covered without depending on the host Docker state.
+- Updated `projectStructure.md` as soon as the new wrapper-preflight shell suite and fake-Docker fixtures existed, so the repository structure doc now points directly at the Task 9 coverage seam and the wrapper it exercises.
+- No shared-doc updates beyond the new file ledger were needed in Task 9, so any broader documentation deltas remain deferred for Task 15.
+- `npm run lint` still fails repo-wide on the existing baseline warning set even after `npm run lint:fix`, but none of the Task 9 files participate in that TypeScript-only lint surface and the broad auto-fix spillover was restored before continuing.
+- `npm run format:check` still fails repo-wide on the existing baseline file set plus the intentionally invalid `server/src/test/fixtures/flows/invalid-json.json`; after `npm run format` touched unrelated files, those changes were restored and the Task 9 markdown/json files plus shell scripts were revalidated with targeted `prettier --check` and `bash -n`.
+- `npm run build:summary:server` passed cleanly with `warning_count: 0`, so the new host-network preflight logic and Task 9 shell fixtures did not disturb the server workspace build path.
+- `npm run test:summary:server:unit` passed cleanly at `1361` passed and `0` failed in `test-results/server-unit-tests-2026-03-21T09-03-08-800Z.log`, so the Task 9 compose-wrapper preflight and fake-Docker shell fixtures clear the full server unit/integration wrapper.
+- `npm run test:summary:server:cucumber` passed cleanly at `71` passed and `0` failed in `test-results/server-cucumber-tests-2026-03-21T09-03-08-807Z.log`, so the Task 9 wrapper and shell-fixture additions did not regress the checked-in cucumber proof path.
 
 ---
 

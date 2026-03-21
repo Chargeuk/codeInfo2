@@ -1,5 +1,36 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000050 Task 9 structural change ledger
+
+Added files:
+
+- `scripts/test/bats/docker-compose-with-env.bats`
+- `scripts/test/bats/fixtures/bin/docker-fixture`
+- `scripts/test/bats/fixtures/compose/host-network-local-valid.json`
+- `scripts/test/bats/fixtures/compose/host-network-local-invalid-shape.json`
+- `scripts/test/bats/fixtures/compose/host-network-e2e-valid.json`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `projectStructure.md`
+- `scripts/docker-compose-with-env.sh`
+- `scripts/test/bats/test_helper/common.bash`
+
+Story notes:
+
+- Task 9 keeps host-network validation inside `scripts/docker-compose-with-env.sh` so the checked-in compose launcher fails before `docker compose` starts whenever host-network prerequisites, checked ports, or service-shape rules are invalid.
+- `scripts/test/bats/docker-compose-with-env.bats` is the dedicated shell-proof file for the wrapper preflight, and it builds directly on the vendored Task 8 Bats harness instead of introducing a second shell test path.
+- The deterministic fake-Docker seam lives in `scripts/test/bats/fixtures/bin/docker-fixture` with JSON config fixtures under `scripts/test/bats/fixtures/compose/`, so Task 9 can simulate unsupported host networking, occupied ports, invalid host-network service shapes, and compose pass-through without depending on the developer host state.
+
 ## Story 0000050 Task 8 structural change ledger
 
 Added files:

@@ -1,0 +1,16 @@
+{
+  "services": {
+    "server": {
+      "image": "codeinfo2-server-e2e",
+      "network_mode": "host"
+    },
+    "client": {
+      "ports": [
+        {
+          "published": "6001",
+          "target": 5001
+        }
+      ]
+    }
+  }
+}

@@ -920,6 +920,38 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
 - No brand-new `server` or `playwright-mcp` services are added to Compose files that do not already define them.
   - Guarded by Task 9 subtask 8, Task 11 subtask 2, and Task 14 subtask 3.
 
+## Manual Playwright-MCP Log Evidence
+
+- During each Manual Playwright-MCP validation step in this story, inspect the running log stream through the product’s checked-in log surfaces for that environment, including the Logs page plus any saved wrapper output created earlier in the same task.
+- Task 1 log marker: `DEV-0000050:T01:reingest_request_shape_accepted`
+  - Expected outcome: `surface`, `targetMode`, `requestedSelector`, and `schemaSource` are present, and `targetMode` matches the request that was triggered.
+- Task 2 log marker: `DEV-0000050:T02:reingest_strict_result_normalized`
+  - Expected outcome: `sourceId`, `resolvedRepositoryId`, `status`, and `completionMode` are present, and `completionMode` matches the terminal strict-service result.
+- Task 3 log marker: `DEV-0000050:T03:reingest_targets_resolved`
+  - Expected outcome: `surface`, `targetMode`, `requestedSelector`, `resolvedCount`, and `resolvedPaths` are present, and `resolvedPaths` are in ascending canonical path order for `all`.
+- Task 4 log marker: `DEV-0000050:T04:reingest_payload_persisted`
+  - Expected outcome: `payloadKind`, `targetMode`, `repositoryCount`, and `conversationId` are present, and `payloadKind` matches the single-versus-batch transcript shape that was persisted.
+- Task 5 log marker: `DEV-0000050:T05:markdown_step_skipped`
+  - Expected outcome: `surface`, `markdownFile`, `resolvedPath`, and `reason: "empty_markdown"` are present, and the log appears only for successfully resolved whitespace-only markdown.
+- Task 6 log marker: `DEV-0000050:T06:mcp_endpoints_normalized`
+  - Expected outcome: `classicMcpUrl`, `chatMcpUrl`, `agentsMcpUrl`, `playwrightMcpUrl`, and `placeholderFree` are present, and `placeholderFree` is `true`.
+- Task 7 log marker: `DEV-0000050:T07:checked_in_mcp_contract_loaded`
+  - Expected outcome: `configPath`, `chatPortVar`, `agentsPortVar`, `playwrightUrlVar`, and `legacyFallbackUsed` are present, and `legacyFallbackUsed` is `false`.
+- Task 8 log marker: `DEV-0000050:T08:shell_harness_ready`
+  - Expected outcome: `suiteCount`, `vendorMode`, and `targetedRunSupported` are present in the shell-harness wrapper output, and `suiteCount` is greater than zero.
+- Task 9 log marker: `DEV-0000050:T09:compose_preflight_result`
+  - Expected outcome: `composeFile`, `result`, `playwrightServicePresent`, and `checkedPorts` are present, and the happy-path manual check sees `result: "passed"`.
+- Task 10 log marker: `DEV-0000050:T10:image_runtime_assets_baked`
+  - Expected outcome: `imageName`, `runtimeAssetRoots`, and `sourceBindMountRequired` are present, and `sourceBindMountRequired` is `false`.
+- Task 11 log marker: `DEV-0000050:T11:host_network_runtime_ready`
+  - Expected outcome: `composeFile`, `serverPorts`, `playwrightPort`, and `sourceBindMountCount` are present, and the active stack’s ports match the story contract with `sourceBindMountCount: 0` for source/config trees.
+- Task 12 log marker: `DEV-0000050:T12:main_stack_probe_completed`
+  - Expected outcome: `classicMcp`, `chatMcp`, `agentsMcp`, `playwrightMcp`, and `result` are present, and `result` is `passed`.
+- Task 13 log marker: `DEV-0000050:T13:e2e_host_network_config_verified`
+  - Expected outcome: `browserBaseUrl`, `mcpControlUrl`, and `baseUrlMatchesMcp` are present, both URLs are host-visible, and `baseUrlMatchesMcp` is `false` when the contracts are intentionally separate.
+- Task 14 log marker: `DEV-0000050:T14:story_validation_completed`
+  - Expected outcome: `traceabilityPass`, `manualChecksPassed`, `screenshotCount`, and `proofWrapperPassed` are present, and each final-validation boolean is `true`.
+
 ### Task 1. Extend re-ingest schema parsing for command and flow files
 
 - Already existing capabilities:
@@ -1113,9 +1145,10 @@ Add the new re-ingest request union to command and flow schema parsing so JSON f
 15. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects a flow step whose `target` is not `current` or `all`. Purpose: prove invalid flow target values fail at parse time.
 16. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects an empty or whitespace-only `sourceId`. Purpose: prove the flow schema does not accept blank selectors.
 17. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects an otherwise valid `reingest` flow step containing an unexpected extra property. Purpose: prove the strict flow step shape still rejects undeclared keys.
-18. [ ] Record any new or renamed files for later documentation updates in Task 15. Do not update `README.md`, `design.md`, or `projectStructure.md` in this task unless a new file is created here.
-19. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-20. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+18. [ ] Add or update the structured manual-validation log marker `DEV-0000050:T01:reingest_request_shape_accepted` in the command or flow execution path that first consumes the parsed re-ingest item. Include `surface`, `targetMode`, `requestedSelector`, and `schemaSource`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the schema shape accepted by Task 1 is the one that actually reached runtime.
+19. [ ] Record any new or renamed files for later documentation updates in Task 15. Do not update `README.md`, `design.md`, or `projectStructure.md` in this task unless a new file is created here.
+20. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+21. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1169,9 +1202,10 @@ Keep `runReingestRepository()` strict on one canonical repository, but extend it
 13. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `unknown_root` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the existing unknown-root failure contract.
 14. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `busy` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the busy-state retry contract.
 15. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `invalid_state` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the invalid-state failure contract.
-16. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-17. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-18. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+16. [ ] Add or update the structured manual-validation log marker `DEV-0000050:T02:reingest_strict_result_normalized` in the strict re-ingest service or its immediate caller. Include `sourceId`, `resolvedRepositoryId`, `status`, and `completionMode`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the Task 2 result contract reaches runtime unchanged.
+17. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+18. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+19. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1233,9 +1267,10 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 18. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that verifies selector and target orchestration still surfaces the existing strict-service failure categories rather than collapsing them into a generic error. Purpose: preserve downstream error handling expectations.
 19. [ ] If this task introduces a new shared orchestration helper file, update `projectStructure.md` after the helper and its tests are in place. Document the exact helper file path, the updated test file path, and the purpose of the new orchestration seam so later developers can find the selector-resolution entry point.
 20. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the `sourceId`, `current`, and `all` re-ingest orchestration flow. Purpose: document the new target-resolution architecture, ownership-resolution rules, the intermediate re-ingest result contract, and deterministic batch ordering in the repository design doc immediately after implementation.
-21. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-22. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-23. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+21. [ ] Add or update the structured manual-validation log marker `DEV-0000050:T03:reingest_targets_resolved` in the shared orchestration helper. Include `surface`, `targetMode`, `requestedSelector`, `resolvedCount`, and `resolvedPaths`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the correct owner or ordered repository list was resolved before execution begins.
+22. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+23. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+24. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1293,9 +1328,10 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
 17. [ ] Add a server unit test in `server/src/test/unit/reingest-step-lifecycle.test.ts` that exercises batch synthetic-turn content and asserts the user/assistant turn text summarizes the batch instead of naming a single `sourceId`. Purpose: prove the lifecycle no longer treats `target: "all"` as a disguised single-repository result.
 18. [ ] Add a server unit test in `server/src/test/unit/reingest-step-lifecycle.test.ts` that reads an older single-result payload and asserts it still parses correctly. Purpose: prove backward compatibility for already-stored transcript data.
 19. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the single-result and batch-result transcript lifecycle, including the one-payload `target: "all"` rule, the synthetic-turn content path, and the reused `Turn.toolCalls` persistence path. Purpose: document the new transcript contract and persistence architecture at the point where it changes.
-20. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-21. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-22. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+20. [ ] Add or update the structured manual-validation log marker `DEV-0000050:T04:reingest_payload_persisted` in the transcript lifecycle code. Include `payloadKind`, `targetMode`, `repositoryCount`, and `conversationId`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the persisted payload shape matches the story contract.
+21. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+22. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+23. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1348,9 +1384,10 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 13. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that exercises an invalid-UTF-8 decode failure. Purpose: prove decoding failures still throw exactly as before.
 14. [ ] Add a server integration test in `server/src/test/integration/commands.markdown-file.test.ts` that verifies no synthetic tool-result payload is created when a markdown-backed step is skipped for empty content. Purpose: prove the skip does not fabricate transcript output.
 15. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the blank-markdown resolution path, the skip decision point, and the preserved hard-failure paths for missing, traversal, permission, and decoding errors. Purpose: document the shared command/flow execution behavior where the skip contract changes.
-16. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-17. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-18. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+16. [ ] Add or update the structured manual-validation log marker `DEV-0000050:T05:markdown_step_skipped` in the shared markdown resolution or execution seam. Include `surface`, `markdownFile`, `resolvedPath`, and `reason: "empty_markdown"`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove empty markdown is skipped for the documented reason instead of silently ignored.
+17. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+18. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+19. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1405,9 +1442,10 @@ Finish the shared runtime placeholder normalization layer before any checked-in 
 15. [ ] Add a server unit test in `server/src/test/unit/chatModels.codex.test.ts` that exercises provider/runtime entrypoints or status probes after the refactor and asserts they use the shared endpoint contract instead of stale hard-coded MCP URLs or legacy env fallbacks. Purpose: prove bypass paths have been removed.
 16. [ ] If this task creates `server/src/test/unit/mcpStatus.test.ts` or any shared normalization helper file, update `projectStructure.md` after those files are in place. Document the new file path and its role in the runtime endpoint contract so the repository structure doc reflects the added normalization coverage.
 17. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the shared MCP placeholder-normalization flow, including placeholder resolution, unresolved-placeholder failure, the provider-status probe path, the intentional split between chat/base and agents MCP endpoints, and the precedence of the full Playwright override over derived localhost placeholder URLs. Purpose: document the runtime-config architecture where the contract is introduced.
-18. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-19. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-20. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+18. [ ] Add or update the structured manual-validation log marker `DEV-0000050:T06:mcp_endpoints_normalized` in the shared runtime normalization path. Include `classicMcpUrl`, `chatMcpUrl`, `agentsMcpUrl`, `playwrightMcpUrl`, and `placeholderFree`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the effective runtime endpoints are fully normalized and placeholder-free.
+19. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+20. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+21. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1461,9 +1499,10 @@ Move the checked-in runtime config files and env files onto the final MCP placeh
 6. [ ] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that loads the checked-in root `.env.e2e` file shape and asserts the e2e wrapper's MCP placeholders resolve from the actual repo-root env file it uses. Purpose: prove the story updates the real e2e env entrypoint instead of only the server-local copy.
 7. [ ] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that sets only legacy `CODEINFO_MCP_PORT` and asserts chat MCP placeholder normalization fails or remains unsatisfied. Purpose: prove the legacy env name no longer satisfies the checked-in contract.
 8. [ ] Add a server unit test in `server/src/test/unit/codexConfig.test.ts` that loads the migrated checked-in config files and asserts no bridge-era `playwright-mcp` hostname or hard-coded localhost MCP URL dependency remains where placeholders are now required. Purpose: prove the checked-in config migration is complete.
-9. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-10. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-11. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+9. [ ] Add or update the structured manual-validation log marker `DEV-0000050:T07:checked_in_mcp_contract_loaded` in the checked-in config or env bootstrap path. Include `configPath`, `chatPortVar`, `agentsPortVar`, `playwrightUrlVar`, and `legacyFallbackUsed`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the checked-in contract is loaded from the final env names and no legacy fallback remains active.
+10. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+11. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+12. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1506,9 +1545,10 @@ Create the reusable repo-local shell harness that later wrapper and compose task
 6. [ ] Create `scripts/test/bats/shell-harness.bats` and add a shell test there that exercises a passing harness fixture. Purpose: prove the vendored Bats harness can execute a normal success case from a clean checkout.
 7. [ ] In `scripts/test/bats/shell-harness.bats`, add a shell test that exercises an intentionally failing fixture and asserts the failure is expected. Purpose: prove the harness can report controlled failures without treating them as accidental crashes.
 8. [ ] Update `projectStructure.md` after all new shell-harness files are added in this task. Document `scripts/test-summary-shell.mjs`, the `scripts/test/bats/` tree, and the vendored Bats runtime paths so the repository structure doc reflects the new shell-test harness entry points.
-9. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-10. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-11. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+9. [ ] Add or update the structured wrapper log marker `DEV-0000050:T08:shell_harness_ready` in `scripts/test-summary-shell.mjs`. Include `suiteCount`, `vendorMode`, and `targetedRunSupported`. Purpose: later Manual Playwright-MCP validation checks this exact wrapper log line in the saved shell-harness output to prove the checked-in shell harness exists and is ready to run scoped suites.
+10. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+11. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+12. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1558,9 +1598,10 @@ Extend the checked-in compose wrapper so it fails fast when the checked-in host-
 9. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that asserts failure output names the affected compose file or service. Purpose: prove operators receive actionable preflight errors instead of a generic shell failure.
 10. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that proves the local host-network manual-testing contract still declares Chrome DevTools on `9222`. Purpose: keep the checked-in local CDP validation rule under automated shell-harness coverage.
 11. [ ] Update `projectStructure.md` after `scripts/test/bats/docker-compose-with-env.bats` is added. Document the new shell-test file path and its relationship to `scripts/docker-compose-with-env.sh` so the repository structure doc shows where host-network preflight coverage lives.
-12. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-13. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-14. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+12. [ ] Add or update the structured wrapper log marker `DEV-0000050:T09:compose_preflight_result` in `scripts/docker-compose-with-env.sh`. Include `composeFile`, `result`, `playwrightServicePresent`, and `checkedPorts`, and make sure both pass and fail outcomes are logged with the same marker. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the host-network preflight ran and produced an explicit result.
+13. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+14. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+15. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1598,9 +1639,10 @@ Update the Docker build flow so the checked-in runtime assets needed by the host
 3. [ ] Update only the `.dockerignore` files that participate in that packaging path so the required runtime assets enter the build context without broadening unrelated image scope. The target outcome from the story is that runtime application code does not depend on a repo source-tree bind mount such as `.:/app`.
 4. [ ] Reuse the existing `npm run compose:build:summary` output plus the later runtime/container inspection in Tasks 11 and 14 as the proof path for image-baked assets instead of adding a bespoke new proof script in this task.
 5. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe how checked-in runtime assets move from the repository into the image-based host-network runtime. Purpose: document the packaging architecture change that removes checked-in runtime bind mounts from the host-network model.
-6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-7. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-8. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+6. [ ] Add or update the structured log marker `DEV-0000050:T10:image_runtime_assets_baked` in the Docker packaging or compose-build summary path. Include `imageName`, `runtimeAssetRoots`, and `sourceBindMountRequired`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the built image contains the required runtime assets without depending on source-tree mounts.
+7. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+8. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+9. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1644,16 +1686,17 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
 3. [ ] Preserve the existing local Docker-socket, UID/GID, and Testcontainers-related runtime contract where it is still required for checked-in local workflows, while keeping that exception separate from the forbidden source-tree and checked-in-config bind mounts. Do not add new source-tree mounts to solve runtime issues.
 4. [ ] Prove the final host-networked Compose definitions no longer bind-mount application source trees or checked-in runtime asset trees into the runtime containers, and that any remaining persistence is limited to Docker-managed generated-output volumes plus the explicitly host-visible logs, with only deliberate non-source runtime mounts such as the local Docker socket remaining where required. Use the checked-in wrapper script with the `config` subcommand for this inspection instead of ad-hoc compose invocations so the same env-file and UID/GID rules are applied during validation.
 5. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the final host-network runtime topology, the preserved host-visible port matrix, and the allowed remaining runtime mounts. Purpose: document the checked-in runtime architecture after the compose cutover lands.
-6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-7. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-8. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+6. [ ] Add or update the structured runtime log marker `DEV-0000050:T11:host_network_runtime_ready` during stack startup or readiness reporting. Include `composeFile`, `serverPorts`, `playwrightPort`, and `sourceBindMountCount`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the running stack uses the expected host-network contract and has not reintroduced source/config bind mounts.
+7. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+8. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+9. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
 1. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
 2. [ ] `npm run compose:up`
-3. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm the host-network runtime behavior covered by this task, verify the relevant story behavior from the running UI and stack, and confirm there are no logged errors in the debug console.
+3. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm the host-network runtime behavior covered by this task, verify the relevant story behavior from the running UI and stack, and confirm there are no logged errors in the debug console. Also check the running logs for `DEV-0000050:T09:compose_preflight_result` with `result: "passed"`, `DEV-0000050:T10:image_runtime_assets_baked` with `sourceBindMountRequired: false`, and `DEV-0000050:T11:host_network_runtime_ready` with the expected `composeFile`, preserved port values, and `sourceBindMountCount: 0`.
 4. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1694,9 +1737,10 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 7. [ ] In `server/src/test/unit/test-summary-host-network-main.test.ts`, add a server unit test that asserts the failing probe emits inspectable error output rather than a generic crash. Purpose: prove later diagnosis can rely on saved wrapper output.
 8. [ ] Update `projectStructure.md` after the new proof-wrapper script, any new shared probe helper module, and `server/src/test/unit/test-summary-host-network-main.test.ts` are added. Document the new wrapper command file path and its dedicated unit-test file so the repository structure doc points to the host-network proof entry points.
 9. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the main-stack proof-wrapper probe flow and the host-visible endpoints it validates. Purpose: document the new proof-path architecture at the point where it is introduced.
-10. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-11. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-12. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+10. [ ] Add or update the structured wrapper log marker `DEV-0000050:T12:main_stack_probe_completed` in the main-stack proof wrapper. Include `classicMcp`, `chatMcp`, `agentsMcp`, `playwrightMcp`, and `result`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the reusable proof wrapper saw the expected host-network listeners and MCP surfaces.
+11. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+12. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+13. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1706,7 +1750,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 4. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
 5. [ ] `npm run compose:up`
-6. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm the proof-wrapper-related runtime behavior covered by this task, verify the relevant story behavior from the running UI and stack, and confirm there are no logged errors in the debug console.
+6. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm the proof-wrapper-related runtime behavior covered by this task, verify the relevant story behavior from the running UI and stack, and confirm there are no logged errors in the debug console. Also check the running logs and saved wrapper output for `DEV-0000050:T11:host_network_runtime_ready` with the main-stack port contract intact and `DEV-0000050:T12:main_stack_probe_completed` with `result: "passed"` and each MCP field reported as reachable.
 7. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1740,9 +1784,10 @@ Update the checked-in e2e env injection, config, and test assumptions so the e2e
 5. [ ] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts any MCP control-channel URL uses the intended host-visible value instead of a stale bridge-only address. Purpose: prove the control-channel side of the e2e path has moved to the host-network contract.
 6. [ ] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts the browser base URL and MCP control-channel URL remain separate values where the env contract expects them to differ. Purpose: prove the host-network cutover did not collapse navigation and control endpoints into one contract.
 7. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the e2e env-injection flow, the host-visible browser URL, and the separate MCP control-channel URL. Purpose: document the final e2e runtime wiring once the host-network address cutover is implemented.
-8. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-9. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-10. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+8. [ ] Add or update the structured log marker `DEV-0000050:T13:e2e_host_network_config_verified` in the e2e env/runtime-config path. Include `browserBaseUrl`, `mcpControlUrl`, and `baseUrlMatchesMcp`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the e2e runtime is using separate host-visible browser and MCP addresses.
+9. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+10. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+11. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1753,7 +1798,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 4. [ ] `npm run test:summary:e2e` Allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:e2e` after fixes.
 5. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
 6. [ ] `npm run compose:up`
-7. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm the e2e runtime behavior covered by this task, verify the relevant story behavior from the running UI and stack, and confirm there are no logged errors in the debug console.
+7. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm the e2e runtime behavior covered by this task, verify the relevant story behavior from the running UI and stack, and confirm there are no logged errors in the debug console. Also check the running logs for `DEV-0000050:T06:mcp_endpoints_normalized` with `placeholderFree: true`, `DEV-0000050:T07:checked_in_mcp_contract_loaded` with `legacyFallbackUsed: false`, `DEV-0000050:T11:host_network_runtime_ready` for the active stack, and `DEV-0000050:T13:e2e_host_network_config_verified` with host-visible URLs and `baseUrlMatchesMcp: false`.
 8. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1797,9 +1842,10 @@ This task proves the completed story against the acceptance criteria. It must re
    - and the local manual-testing Chrome DevTools contract on `9222`, keeping that `9222` endpoint as a distinct Chromium CDP surface rather than treating it as interchangeable with the Playwright MCP control URL.
 7. [ ] Inspect the saved wrapper outputs, startup reporting, and runtime logs produced during this task to prove the observability contracts introduced by the story are real in the final system. Confirm that classic/chat/agents MCP endpoints are reported separately, that actionable wrapper or compose failure text is available whenever a wrapper in this task reports failure, and that any blank-markdown skip or related informational paths still emit the documented structured context instead of silent behavior.
 8. [ ] Use Playwright MCP tools to manually verify the running product and save screenshots to `test-results/screenshots/` using the filename pattern `0000050-14-<short-name>.png`. Capture enough screenshots to prove the validated UI and runtime state from this task, not just that the page loads.
-9. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-10. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-11. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+9. [ ] Add or update the final structured validation log marker `DEV-0000050:T14:story_validation_completed` in the final proof or verification path. Include `traceabilityPass`, `manualChecksPassed`, `screenshotCount`, and `proofWrapperPassed`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the final story gate completed with the expected evidence.
+10. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+11. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+12. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
@@ -1812,7 +1858,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 6. [ ] `npm run test:summary:e2e` Allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:e2e` after fixes.
 7. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
 8. [ ] `npm run compose:up`
-9. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm story behavior and general regression from the running stack, including a check that there are no logged errors in the debug console.
+9. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm story behavior and general regression from the running stack, including a check that there are no logged errors in the debug console. Also check the running logs and saved wrapper outputs for the exact markers listed in `## Manual Playwright-MCP Log Evidence`, and treat the manual validation as passing only when the expected Task 1 through Task 14 outcomes are visible for the exercised paths.
 10. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1846,8 +1892,9 @@ Update the shared documentation and prepare the finished story for review after 
 3. [ ] Update `docs/developer-reference.md` with the final MCP URLs, env-var names, host-network prerequisites, wrapper usage, the wrapper log locations and inspection rule, the exact meaning of `CODEINFO_SERVER_PORT`, `CODEINFO_CHAT_MCP_PORT`, `CODEINFO_AGENTS_MCP_PORT`, and `CODEINFO_PLAYWRIGHT_MCP_URL` after the cutover, and the env-file precedence between `server/.env`, `server/.env.local`, `server/.env.e2e`, and the wrapper-consumed root `.env.e2e`. Purpose: keep the operator-focused reference aligned with the implemented runtime contract and the real checked-in deployment entrypoints.
 4. [ ] Update `projectStructure.md` at the repository root with every new or changed file path created by this story, including wrappers, tests, vendored shell-harness runtime files, any new runtime helper modules, and any new proof or status test files. Purpose: make the repository structure doc match the final file layout after all file-creating tasks have landed.
 5. [ ] Write the pull-request summary for this story, covering the final server contract changes, Docker/runtime changes, wrapper changes, proof-path additions, documentation updates, and the validation evidence captured in Task 14. Include the highest-risk compatibility changes called out in this story, especially the `CODEINFO_CHAT_MCP_PORT` cutover, the host-network compose shift, and the one-payload batch transcript behavior. Purpose: prepare a reviewer-facing summary that matches the implemented and validated story scope.
-6. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-7. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+6. [ ] Update `README.md` and `docs/developer-reference.md` so they explicitly list the `DEV-0000050:T01` through `DEV-0000050:T14` manual-validation log markers, where those markers are expected to appear, and how the Manual Playwright-MCP step uses them as proof evidence. Purpose: make the final review handoff explicit about the exact logs reviewers should inspect.
+7. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+8. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary-wrapper outputs already produced by Task 14 for this task. Do not attempt to rerun builds or tests without the wrapper. Only open full logs when a wrapper from Task 14 reported failure, unexpected warnings, or unknown/ambiguous counts.

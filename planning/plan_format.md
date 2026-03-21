@@ -21,11 +21,17 @@ This should only be started once all the above sections are clear and understood
 12. Record the relevant git commit hash(es) in the Git Commits section. Once they are pushed, set the task status to `Done`, and push again so both the commit IDs and updated status are captured in this document.
 13. After a task is fully documented (status, notes, commits), proceed to the next task and repeat the same process.
 
+## Additional Repositories
+
+- If this story needs work outside the current repository, list each additional repository as ``- `<alias>`: /abs/path/to/repository``.
+- The current repository is always implicit and must not be listed here.
+- If no extra repositories are needed, write exactly `- No Additional Repositories`.
+
 # Tasks
 
 ### Task 1. Task One Title
 
-- Repository Name: <The name of the repository this task is to be worked in>
+- Repository Name: exactly one of `Current Repository` or an alias listed in the story's `Additional Repositories` section
 - Task Status: The current status of the task. Use exactly one of `__to_do__`, `__in_progress__`, or `__done__`.
 - Git Commits: a comma separated list of git hashes that have been committed to implement this story.
 
@@ -69,7 +75,7 @@ Couple of sentences of what this task achieves and why it is needed. Each task s
 
 ### Task 2. Task Two Title
 
-- Repository Name: <The name of the repository this task is to be worked in>
+- Repository Name: exactly one of `Current Repository` or an alias listed in the story's `Additional Repositories` section
 - Task Status: __to_do__
 - Git Commits: **to_do**
 
@@ -98,6 +104,7 @@ task overview.
 
 ### [N]. Final Task Title
 
+- Repository Name: exactly one of `Current Repository` or an alias listed in the story's `Additional Repositories` section
 - status: **to_do**
 - Git Commits: **to_do**
 

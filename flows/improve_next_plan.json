@@ -31,7 +31,7 @@
         {
           "role": "user",
           "content": [
-            "Now you know the selected plan/spec/story, write or overwrite `codeInfoStatus/flow-state/current-plan.json` with only the selected relative plan path using the shape `{ \"plan_path\": \"planning/<story-file>.md\" }`. Do not write absolute paths. This handoff file becomes the sole plan-selection source for every later step in this flow. Commit this file, and push if you can"
+            "Now you know the selected story. Read the selected plan's `### Additional Repositories` section and write or overwrite `codeInfoStatus/flow-state/current-plan.json` using only this shape: `{ \"plan_path\": \"planning/<story-file>.md\", \"additional_repositories\": [\"/abs/path/to/repo-b\"] }`. If the plan says `- No Additional Repositories`, write an empty `additional_repositories` array. The current repository is implicit and MUST NOT be listed inside `additional_repositories`. Do not write absolute paths for `plan_path`. This handoff file becomes the sole plan-selection source for every later step in this flow. Commit this file, and push if you can"
           ]
         }
       ]
@@ -45,7 +45,7 @@
         {
           "role": "user",
           "content": [
-            "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan for this flow. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. Do NOT use code_info tools for plan selection and do NOT independently search for or select a different plan. Confirm to me what story that selected plan is, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
+            "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. If the file contains only the legacy shape `{ \"plan_path\": \"...\" }`, treat that as an empty `additional_repositories` list. The current repository is the canonical plan host and is implicitly in scope, so it must not appear inside `additional_repositories`. Verify that the selected plan file exists in the current repository, that the story number in the current repository branch name matches the story number in the selected plan filename, and that every additional repository is either already on that same story branch or can safely create or reuse that branch without overwriting local changes. If any check fails, stop and say the current-plan handoff is stale and must be regenerated. Do NOT use code_info tools for plan selection and do NOT independently search for or select a different plan. Confirm to me what story that selected plan is, list the participating repositories when there is more than one, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
           ]
         }
       ]
@@ -123,7 +123,7 @@
         {
           "role": "user",
           "content": [
-            "Commit all local changes, and if possible, git push the branch."
+            "Commit all local changes, and if possible, git push the story branch in the current repository and in every repository listed in `additional_repositories`."
           ]
         }
       ]

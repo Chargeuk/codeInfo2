@@ -20,6 +20,12 @@ Overview of where we are now, and where we would like to be once this phase has 
 
 - Create bullet points of out of scope items here
 
+### Additional Repositories
+
+- If this story needs work outside the current repository, list each additional repository as ``- `<alias>`: /abs/path/to/repository``.
+- The current repository is always implicit and must not be listed here.
+- If no extra repositories are needed, write exactly `- No Additional Repositories`.
+
 ### Questions
 
 - A list of AI generated questions that must be answered before tasking up can start

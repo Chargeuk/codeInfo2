@@ -74,6 +74,9 @@ This remains a single-repository story inside `codeInfo2`. The runtime behavior 
 - Current Docker build behavior is only partially aligned with the desired runtime model. `server/Dockerfile` and `client/Dockerfile` already copy application code into the image and build from there, which is the right direction, but the checked-in runtime assets used by the server (`codex/`, `codex_agents/`, and the checked-in flow directories) are still supplied at runtime through compose bind mounts rather than being baked into the image. This story therefore needs explicit Dockerfile/build-context work, not only compose edits, if the final host-networked runtime is not supposed to rely on host source bind mounts.
 - Current ignore-file coverage exists in `.dockerignore`, `server/.dockerignore`, and `client/.dockerignore`, but the story now needs to treat those files as part of the implementation surface whenever additional checked-in runtime assets are copied into images. The goal is to copy only the files needed to build and run the server/client images while still excluding credentials, tests, node_modules, build output, and other unnecessary context content.
 - Current host-visible port usage relevant to this story is already occupied and must be treated as a fixed inventory before choosing any new bind port: main server `5010/5011/5012`, local server `5510/5511/5512`, e2e server `6010/6011/6012`, local Playwright MCP `8931`, local Chrome DevTools `9222`, main client `5001`, local client `5501`, and e2e client `6001`. Any new host-visible port introduced by this story must be chosen against that inventory and written into the plan explicitly before implementation.
+- Current schema tooling matters for Task 1. The repo uses Zod `3.25.76`, and current documentation confirms `z.discriminatedUnion()` requires variants that differ on the discriminator value. Because every re-ingest request shape still uses `type: "reingest"`, the new schema union must be modeled as a plain `z.union()` of strict object shapes or an equivalent mutual-exclusion approach rather than as `z.discriminatedUnion('type', ...)`.
+- Current transcript persistence already uses `Turn.toolCalls` with `Schema.Types.Mixed` in `server/src/mongo/turn.ts`, so the new batch payload can fit without a Mongo schema migration. Current Mongoose behavior also minimizes empty objects by default, so backward-compatible readers should treat optional nested fields as omitted when absent rather than depending on empty-object persistence.
+- Current browser-debugging evidence confirms the local `9222` contract is a Chromium Chrome DevTools Protocol endpoint, not a generic browser-control URL. Playwright documentation only supports `connectOverCDP()` for Chromium-based browsers and accepts either `http://localhost:9222` or a CDP websocket URL, while warning that this remains distinct from the Playwright protocol and lower fidelity than direct Playwright connections.
 
 ### Missing Prerequisites Confirmed By Audit
 
@@ -927,6 +930,7 @@ Add the new re-ingest request union to command and flow schema parsing so JSON f
    - `{ "type": "reingest", "sourceId": "<selector-or-path>" }`
    - `{ "type": "reingest", "target": "current" }`
    - `{ "type": "reingest", "target": "all" }`
+   - Implement this as a plain union of strict object shapes or an equivalent mutual-exclusion helper, not as `z.discriminatedUnion('type', ...)`, because every allowed variant still has the same discriminator value.
 3. [ ] Update `server/src/flows/flowSchema.ts` with the same re-ingest union and keep the rest of the flow schema behavior unchanged.
 4. [ ] Add server unit coverage in `server/src/test/unit/agent-commands-schema.test.ts` for:
    - valid `sourceId`;
@@ -1110,7 +1114,7 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
    - existing `status` and `completionMode`
 3. [ ] Add the new `reingest_step_batch_result` payload variant with the ordered `repositories` array and `summary` object exactly as defined in the story.
 4. [ ] Update the lifecycle and persisted turn handling so one `target: "all"` run records one batch payload instead of one synthetic turn pair per repository. Reuse the existing synthetic-turn lifecycle and `Turn.toolCalls` persistence path rather than creating a second batch-only persistence channel.
-5. [ ] Keep backward compatibility for older stored single payloads by making reads tolerant of both the old and new single-result shapes.
+5. [ ] Keep backward compatibility for older stored single payloads by making reads tolerant of both the old and new single-result shapes, and do not make the reader depend on empty nested objects being persisted where Mongoose `Schema.Types.Mixed` plus default minimization may omit them.
 6. [ ] Add or update server unit coverage in the existing re-ingest payload or lifecycle tests so they prove:
    - new single payload fields;
    - batch payload fields and ordering;
@@ -1300,6 +1304,7 @@ Add the wrapper-side host-network preflight checks and the new shell harness tha
 1. [ ] Read the existing compose wrapper and summary-wrapper protocol so the new preflight and shell test path match the repo’s wrapper-first conventions.
 2. [ ] Extend `scripts/docker-compose-with-env.sh` so it fails before `docker compose` for:
    - unsupported host-network environments;
+   - Docker Desktop environments where host networking is unavailable because the Docker Desktop version or feature state is incompatible, or where Enhanced Container Isolation makes host networking unavailable;
    - disabled host networking where it is required;
    - occupied checked-in host ports;
    - host-networked service definitions that still contain incompatible `ports` or `networks` wiring;
@@ -1501,7 +1506,7 @@ This final task proves the whole story against the acceptance criteria, updates 
 7. [ ] `npm run compose:up`
 8. [ ] `npm run test:summary:host-network:main`
 9. [ ] Inspect the running containers and Compose definitions to prove the host-network runtime is using image-baked application contents rather than host source bind mounts, with only Docker-managed generated-output volumes plus the explicitly host-visible logs remaining.
-10. [ ] Verify the final runtime still supports the required traffic patterns on the documented host-visible endpoints: REST/API access, classic `/mcp`, dedicated chat MCP, agents MCP, Playwright browser control, websocket flows, screenshot capture, manual UI verification, and the local manual-testing Chrome DevTools contract on `9222`.
+10. [ ] Verify the final runtime still supports the required traffic patterns on the documented host-visible endpoints: REST/API access, classic `/mcp`, dedicated chat MCP, agents MCP, Playwright browser control, websocket flows, screenshot capture, manual UI verification, and the local manual-testing Chrome DevTools contract on `9222`, keeping that `9222` endpoint as a distinct Chromium CDP surface rather than treating it as interchangeable with the Playwright MCP control URL.
 11. [ ] `npm run compose:down`
 12. [ ] `npm run test:summary:e2e`
 13. [ ] Use Playwright MCP tools to manually verify the running product and save screenshots to `test-results/screenshots/` using the filename pattern `0000050-10-<short-name>.png`.

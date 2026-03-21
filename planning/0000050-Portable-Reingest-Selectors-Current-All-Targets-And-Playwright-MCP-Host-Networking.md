@@ -1102,6 +1102,12 @@ Finish the MCP placeholder and env-contract migration so runtime normalization, 
   - `server/src/config/codexConfig.ts`
   - `server/src/config.ts`
   - `server/src/config/startupEnv.ts`
+  - `server/src/agents/config.ts`
+  - `server/src/routes/chat.ts`
+  - `server/src/providers/mcpStatus.ts`
+  - `server/src/index.ts`
+  - `server/src/mcp2/server.ts`
+  - `server/src/mcpAgents/server.ts`
   - `codex/config.toml`
   - `codex/chat/config.toml`
   - `codex_agents/coding_agent/config.toml`
@@ -1114,11 +1120,15 @@ Finish the MCP placeholder and env-contract migration so runtime normalization, 
   - `server/.env`
   - `server/.env.local`
   - `server/.env.e2e`
+  - `server/src/test/unit/runtimeConfig.test.ts`
+  - `server/src/test/unit/codexConfig.test.ts`
+  - `server/src/test/unit/chatProviders.test.ts`
+  - `server/src/test/unit/chatModels.codex.test.ts`
 
 #### Subtasks
 
-1. [ ] Read the existing runtime normalization and codex bootstrap code so placeholder replacement stays centralized.
-2. [ ] Update the runtime normalization path so unresolved required MCP placeholders fail clearly instead of passing raw placeholder text through to the effective config.
+1. [ ] Read the existing runtime normalization, codex bootstrap, runtime consumer entrypoints, and MCP bind surfaces so placeholder replacement stays centralized instead of being reimplemented per consumer.
+2. [ ] Update the runtime normalization path so unresolved required MCP placeholders fail clearly instead of passing raw placeholder text through to the effective config, and make one shared endpoint contract feed base-config seeding, chat runtime loading, agent runtime loading, provider status probes, startup endpoint reporting, and the dedicated MCP bind surfaces.
 3. [ ] Remove checked-in reliance on `CODEINFO_MCP_PORT` and make `CODEINFO_CHAT_MCP_PORT` the single checked-in dedicated MCP env contract.
 4. [ ] Update the checked-in runtime config files to use the explicit placeholder strategy defined in the story for:
    - `CODEINFO_SERVER_PORT`
@@ -1131,7 +1141,8 @@ Finish the MCP placeholder and env-contract migration so runtime normalization, 
    - unresolved placeholders fail clearly;
    - legacy checked-in env assumptions no longer apply;
    - the resolved chat/base MCP endpoint and the resolved agents MCP endpoint stay intentionally distinct where the checked-in config expects them to differ;
-   - browser navigation URLs and MCP control-channel URLs remain separate contracts and are not normalized into the same value by accident.
+   - browser navigation URLs and MCP control-channel URLs remain separate contracts and are not normalized into the same value by accident;
+   - chat/provider/runtime entrypoints and status probes no longer bypass the shared endpoint contract with stale hard-coded MCP URLs or legacy env fallbacks.
 7. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
 8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
@@ -1143,7 +1154,9 @@ Finish the MCP placeholder and env-contract migration so runtime normalization, 
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --test-name runtimeConfig`
 6. [ ] `npm run test:summary:server:unit -- --test-name codexConfig`
-7. [ ] `npm run compose:down`
+7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts`
+8. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1197,7 +1210,8 @@ Add the wrapper-side host-network preflight checks and the new shell harness tha
    - incompatible host-network service shapes;
    - success-path pass-through to compose execution;
    - actionable failure text that includes the affected compose file or service;
-   - at least one intentionally failing harness case that proves `npm run test:summary:shell` executes the harness and reports the error path as a checked failure.
+   - at least one intentionally failing harness case that proves `npm run test:summary:shell` executes the harness and reports the error path as a checked failure;
+   - the local host-network manual-testing contract still declares Chrome DevTools on `9222` where the checked-in runtime expects it.
 7. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
 8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
@@ -1236,6 +1250,7 @@ Update the Dockerfiles, `.dockerignore` files, and checked-in Compose definition
 - Context7 `/docker/compose`
 - Files to read:
   - `server/Dockerfile`
+  - `server/entrypoint.sh`
   - `client/Dockerfile`
   - `.dockerignore`
   - `server/.dockerignore`
@@ -1243,6 +1258,8 @@ Update the Dockerfiles, `.dockerignore` files, and checked-in Compose definition
   - `docker-compose.yml`
   - `docker-compose.local.yml`
   - `docker-compose.e2e.yml`
+  - `server/src/test/support/chromaContainer.ts`
+  - `server/src/test/support/mongoContainer.ts`
 
 #### Subtasks
 
@@ -1251,14 +1268,16 @@ Update the Dockerfiles, `.dockerignore` files, and checked-in Compose definition
 3. [ ] Update the relevant `.dockerignore` files at the same time so only the required runtime assets enter the build context.
 4. [ ] Convert the scoped `server` and existing `playwright-mcp` services to the final host-network definitions:
    - direct host-visible bind ports for the server listeners;
+   - preserve the local Chrome DevTools bind contract on `9222` by keeping the required server entrypoint or environment wiring intact under host networking;
    - `8931` for local Playwright MCP;
    - `8932` for main Playwright MCP;
    - remove incompatible `ports` or `networks` definitions on host-networked services;
    - remove bridge-only service-name MCP URL assumptions;
    - keep compose files that do not already define `playwright-mcp` out of scope so no new Playwright service is introduced by this task.
-5. [ ] Prove the final host-networked Compose definitions no longer bind-mount application source trees or checked-in runtime asset trees into the runtime containers, and that any remaining persistence is limited to Docker-managed generated-output volumes plus the explicitly host-visible logs.
-6. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
-7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+5. [ ] Preserve the existing local Docker-socket, UID/GID, and Testcontainers-related runtime contract where it is still required for checked-in local workflows, while keeping that exception separate from the forbidden source-tree and checked-in-config bind mounts.
+6. [ ] Prove the final host-networked Compose definitions no longer bind-mount application source trees or checked-in runtime asset trees into the runtime containers, and that any remaining persistence is limited to Docker-managed generated-output volumes plus the explicitly host-visible logs, with only deliberate non-source runtime mounts such as the local Docker socket remaining where required.
+7. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
+8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1267,7 +1286,8 @@ Update the Dockerfiles, `.dockerignore` files, and checked-in Compose definition
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:shell`
-6. [ ] `npm run compose:down`
+6. [ ] Confirm the updated local host-network definition still preserves the checked-in Chrome DevTools `9222` contract and any required Docker-socket/Testcontainers support without reintroducing source-tree bind mounts.
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1373,7 +1393,7 @@ This final task proves the whole story against the acceptance criteria, updates 
 7. [ ] `npm run compose:up`
 8. [ ] `npm run test:summary:host-network:main`
 9. [ ] Inspect the running containers and Compose definitions to prove the host-network runtime is using image-baked application contents rather than host source bind mounts, with only Docker-managed generated-output volumes plus the explicitly host-visible logs remaining.
-10. [ ] Verify the final runtime still supports the required traffic patterns on the documented host-visible endpoints: REST/API access, classic `/mcp`, dedicated chat MCP, agents MCP, Playwright browser control, websocket flows, screenshot capture, and manual UI verification.
+10. [ ] Verify the final runtime still supports the required traffic patterns on the documented host-visible endpoints: REST/API access, classic `/mcp`, dedicated chat MCP, agents MCP, Playwright browser control, websocket flows, screenshot capture, manual UI verification, and the local manual-testing Chrome DevTools contract on `9222`.
 11. [ ] `npm run compose:down`
 12. [ ] `npm run test:summary:e2e`
 13. [ ] Use Playwright MCP tools to manually verify the running product and save screenshots to `test-results/screenshots/` using the filename pattern `0000050-10-<short-name>.png`.

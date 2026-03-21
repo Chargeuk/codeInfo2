@@ -1670,6 +1670,39 @@ describe('agent commands runner (v1)', () => {
     );
   });
 
+  test('direct command reingest surfaces selector-listing outages instead of INVALID_SOURCE_ID fallback', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-selector-outage',
+      jsonText: JSON.stringify({
+        Description: 'Reingest selector outage',
+        items: [{ type: 'reingest', sourceId: 'Repo Selected' }],
+      }),
+    });
+
+    await assert.rejects(
+      async () =>
+        runAgentCommandRunner({
+          agentName: 'a1',
+          agentHome,
+          commandName: 'reingest-selector-outage',
+          initialModelId: 'agent-model-1',
+          source: 'REST',
+          listIngestedRepositories: async () => {
+            throw new Error('ingested repository listing unavailable');
+          },
+          runAgentInstructionUnlocked: async () => ({
+            modelId: 'agent-model-1',
+          }),
+        }),
+      /ingested repository listing unavailable/,
+    );
+  });
+
   test('lock is per-conversation and does not block other conversations', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');

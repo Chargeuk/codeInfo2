@@ -2245,7 +2245,7 @@ Use only the checked-in summary-wrapper outputs already produced by Task 15 for 
 ### Task 17. Surface portable selector operational failures without misclassifying them as invalid input
 
 - Repository Name: `codeInfo2`
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits: `to_do`
 
 #### Overview
@@ -2260,28 +2260,37 @@ Close review Finding 1 by keeping the portable-selector path honest when reposit
 
 #### Subtasks
 
-1. [ ] Re-read review Finding 1, then open `server/src/ingest/reingestExecution.ts`, `server/src/mcpCommon/repositorySelector.ts`, and `server/src/ingest/reingestService.ts` together before editing. Keep the review defect visible while you work: a selector-resolution outage for `sourceId` must not be re-labeled as bad user input.
-2. [ ] Update the `sourceId` execution path so a thrown repository-listing or selector-resolution failure is surfaced as an operational/pre-start failure with actionable diagnostics instead of silently falling back to the raw selector. Keep the existing invalid-input behavior only for cases where selector resolution completed honestly and the requested selector still does not map to an ingested repository.
-3. [ ] Keep target-mode behavior aligned after the fix. `sourceId`, `current`, and `all` should not report contradictory error classes for the same underlying repository-listing outage, and any resolution log or helper output must not claim a resolved path when resolution actually failed.
-4. [ ] Add or update direct server tests that prove all of the following from the checked-in test harness:
+1. [x] Re-read review Finding 1, then open `server/src/ingest/reingestExecution.ts`, `server/src/mcpCommon/repositorySelector.ts`, and `server/src/ingest/reingestService.ts` together before editing. Keep the review defect visible while you work: a selector-resolution outage for `sourceId` must not be re-labeled as bad user input.
+2. [x] Update the `sourceId` execution path so a thrown repository-listing or selector-resolution failure is surfaced as an operational/pre-start failure with actionable diagnostics instead of silently falling back to the raw selector. Keep the existing invalid-input behavior only for cases where selector resolution completed honestly and the requested selector still does not map to an ingested repository.
+3. [x] Keep target-mode behavior aligned after the fix. `sourceId`, `current`, and `all` should not report contradictory error classes for the same underlying repository-listing outage, and any resolution log or helper output must not claim a resolved path when resolution actually failed.
+4. [x] Add or update direct server tests that prove all of the following from the checked-in test harness:
    - a valid portable selector still resolves to the canonical container path;
    - an unresolved-but-successful selector lookup still reaches the strict invalid-input validation path;
    - a selector-resolution or repository-listing exception now surfaces the real operational failure instead of `INVALID_SOURCE_ID`;
    - the changed failure path is visible through the normal caller path, not only through a private helper.
-5. [ ] If the fix changes any structured error wording, reason code, or caller-visible metadata, update only the caller/test expectations that genuinely represent the corrected contract. Do not widen the public contract beyond what the finding requires.
-6. [ ] Record any documentation or close-out delta for Task 20. Do not update shared docs in this task unless a new file is created here.
+5. [x] If the fix changes any structured error wording, reason code, or caller-visible metadata, update only the caller/test expectations that genuinely represent the corrected contract. Do not widen the public contract beyond what the finding requires.
+6. [x] Record any documentation or close-out delta for Task 20. Do not update shared docs in this task unless a new file is created here.
 
 #### Testing
 
 Use only the checked-in summary wrappers below. Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+1. [x] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
 2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:server:unit`.
 3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
 - Review disposition seed: this task was added after review pass `0000050-review-20260321T163857Z-eae3d4fc` found that the `sourceId` selector path can currently hide repository-selector operational failures by falling back too early to raw strict validation.
+- Re-read review Finding 1 together with `server/src/ingest/reingestExecution.ts`, `server/src/mcpCommon/repositorySelector.ts`, and `server/src/ingest/reingestService.ts` so the fix stays scoped to the `sourceId` selector-resolution outage and remains aligned with the already-honest `current`/`all` target modes.
+- Removed the blanket catch in `canonicalizeSelector()` so `sourceId` now preserves repository-listing and selector-resolution outages instead of silently feeding the raw selector into strict `INVALID_SOURCE_ID` validation.
+- Kept target-mode behavior aligned by making `sourceId` use the same thrown repository-listing failure path that `current` and `all` already used, and left resolution logging on the success-only path so failed lookups do not claim a resolved repository.
+- Added focused unit coverage in `server/src/test/unit/reingestExecution.test.ts` for canonical selector success, honest unresolved-selector fallback into strict invalid-input validation, and matching outage propagation across `sourceId`, `current`, and `all`.
+- Added a direct command-runner regression test in `server/src/test/unit/agent-commands-runner.test.ts` so the corrected outage is visible through the normal caller path rather than only through `executeReingestRequest()` in isolation.
+- The fix did not add a new structured reingest error code; it preserves the existing contract for honest unresolved lookups and only stops re-labeling operational selector outages as `INVALID_SOURCE_ID`.
+- Task 20 documentation delta: note that review Finding 1 is now closed by `server/src/test/unit/reingestExecution.test.ts`, the direct command-runner regression in `server/src/test/unit/agent-commands-runner.test.ts`, and the wrapper outputs from this task’s server build/unit/cucumber runs.
+- `npm run build:summary:server` initially failed on the new unit-test log helper types; switching the helper to infer its entry type from `append` fixed the compile mismatch, and the rerun passed cleanly with `warning_count: 0` and `agent_action: skip_log`.
+- **BLOCKER** Testing step 2 (`npm run test:summary:server:unit`) is still open. I first reran the full server-unit wrapper, inspected the saved wrapper log when it exposed new regressions, and fixed the command/flow harness drift that the old selector fallback had been hiding by adding explicit `listIngestedRepositories` seams to the affected direct-command tests plus the flow-command cancellation path. After those fixes, the full wrapper no longer reports `not ok` failures in the current log, but it still hangs indefinitely in `src/test/integration/flows.run.command.test.ts` under the official wrapper, and the wrapper heartbeat stays in `agent_action: wait` with a static log size. I also ran the checked-in targeted wrapper form `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts --test-name "cancellation during flow-owned command reingest"` to isolate the stall, and that targeted wrapper hangs the same way after startup logs. Missing capability: the checked-in flow-command harness does not currently produce a deterministic pass/fail signal for this post-review-fix path, so the task should be split or re-ordered if we want the selector-contract fix to land independently from the broader flow-command harness stabilization work.
 
 ### Task 18. Make docker-host port probing fail closed with actionable preflight output
 

@@ -192,19 +192,14 @@ async function canonicalizeSelector(params: {
   sourceId: string;
   listRepos: () => Promise<ListReposResult>;
 }): Promise<{ sourceId: string; repo: RepoEntry | null }> {
-  try {
-    const repo = await resolveRepositorySelector(params.sourceId, {
-      listIngestedRepositories: params.listRepos,
-    });
-    if (repo) {
-      return {
-        sourceId: normalizeContainerPath(repo.containerPath),
-        repo,
-      };
-    }
-  } catch {
-    // Fall back to the original selector so the strict service can keep its
-    // current validation categories for unresolved input.
+  const repo = await resolveRepositorySelector(params.sourceId, {
+    listIngestedRepositories: params.listRepos,
+  });
+  if (repo) {
+    return {
+      sourceId: normalizeContainerPath(repo.containerPath),
+      repo,
+    };
   }
 
   return {

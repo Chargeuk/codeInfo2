@@ -105,6 +105,15 @@ const buildRepoEntry = (params: {
   lastError: null,
 });
 
+const setAgentServiceRepoList = (repos: RepoEntry[]) => {
+  __setAgentServiceDepsForTests({
+    listIngestedRepositories: async () => ({
+      repos,
+      lockedModelId: null,
+    }),
+  });
+};
+
 const writeAgentScaffold = async (params: {
   agentsHome: string;
   agentName: string;
@@ -248,6 +257,9 @@ test('runAgentCommand bootstraps a new conversation for a reingest-only command'
       commandName: 'reingest-only-run',
       items: [{ type: 'reingest', sourceId: '/repo/source-a' }],
     });
+    setAgentServiceRepoList([
+      buildRepoEntry({ id: 'repo-a', containerPath: '/repo/source-a' }),
+    ]);
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async () => ({
         ok: true,
@@ -334,6 +346,9 @@ test('startAgentCommand bootstraps the same synthetic contract for a reingest-on
       commandName: 'reingest-only-start',
       items: [{ type: 'reingest', sourceId: '/repo/source-a' }],
     });
+    setAgentServiceRepoList([
+      buildRepoEntry({ id: 'repo-a', containerPath: '/repo/source-a' }),
+    ]);
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async () => ({
         ok: true,
@@ -410,6 +425,9 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
       commandName: 'reingest-precheck-fails',
       items: [{ type: 'reingest', sourceId: '/repo/source-a' }],
     });
+    setAgentServiceRepoList([
+      buildRepoEntry({ id: 'repo-a', containerPath: '/repo/source-a' }),
+    ]);
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async () => ({
         ok: false,
@@ -529,6 +547,9 @@ test('mixed direct-command runs preserve reingest then message execution order',
         { type: 'message', role: 'user', content: ['after'] },
       ],
     });
+    setAgentServiceRepoList([
+      buildRepoEntry({ id: 'repo-a', containerPath: '/repo/source-a' }),
+    ]);
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async () => ({
         ok: true,
@@ -591,6 +612,9 @@ test('multiple direct-command reingest items retain distinct callIds', async () 
         { type: 'reingest', sourceId: '/repo/source-a' },
       ],
     });
+    setAgentServiceRepoList([
+      buildRepoEntry({ id: 'repo-a', containerPath: '/repo/source-a' }),
+    ]);
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async () => ({
         ok: true,
@@ -1081,6 +1105,9 @@ test('mixed reingest, markdownFile, and inline content runs preserve ordering an
       relativePath: 'step.md',
       content: '# Step markdown\n\nBody',
     });
+    setAgentServiceRepoList([
+      buildRepoEntry({ id: 'repo-a', containerPath: '/repo/source-a' }),
+    ]);
     __setMarkdownFileResolverDepsForTests({
       listIngestedRepositories: async () => ({ repos: [] }) as never,
     });

@@ -2082,6 +2082,7 @@ test('cancellation during flow-owned command reingest stops later items and late
   const startedPromise = new Promise<void>((resolve) => {
     markStarted = resolve;
   });
+  const repos: RepoEntry[] = [];
   try {
     await writeRepoCommand({
       repoRoot,
@@ -2094,6 +2095,7 @@ test('cancellation during flow-owned command reingest stops later items and late
     await withFlowServer(
       async ({ wsUrl, tmpDir }) => {
         const flowName = 'repo-command-reingest-stop';
+        repos.push(buildRepoEntry({ containerPath: repoRoot, id: 'Source Repo' }));
         await fs.writeFile(
           path.join(tmpDir, `${flowName}.json`),
           JSON.stringify({
@@ -2169,6 +2171,10 @@ test('cancellation during flow-owned command reingest stops later items and late
         cleanupMemory(conversationId);
       },
       {
+        listIngestedRepositories: async () => ({
+          repos,
+          lockedModelId: null,
+        }),
         flowServiceDeps: {
           runReingestRepository: async () => {
             markStarted();

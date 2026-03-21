@@ -1369,7 +1369,7 @@ Move the checked-in runtime config files and env files onto the final MCP placeh
 
 #### Overview
 
-Create the reusable repo-local shell harness that later wrapper and compose tasks will use for shell-level proofs. This task is complete when `npm run test:summary:shell` works from a clean checkout without a globally installed Bats runtime and includes at least one passing and one intentionally failing harness case.
+Create the reusable repo-local shell harness that later wrapper and compose tasks will use for shell-level proofs. This task is complete when `npm run test:summary:shell` works from a clean checkout without a globally installed Bats runtime, discovers every checked-in `.bats` suite under `scripts/test/bats/` by default, supports targeted `--file` runs for later tasks, and includes at least one passing and one intentionally failing harness case.
 
 #### Documentation Locations
 
@@ -1385,16 +1385,18 @@ Create the reusable repo-local shell harness that later wrapper and compose task
    - fixture binaries.
 3. [ ] Check in the Bats runtime and helper libraries under `scripts/test/bats/vendor/` so the harness is runnable from a clean checkout with no global Bats installation.
 4. [ ] Add `scripts/test-summary-shell.mjs` and the root `package.json` script entry `npm run test:summary:shell` so the shell harness uses the same summary-wrapper protocol fields as the other wrappers: saved log path, heartbeat output, and final guidance.
-5. [ ] Create `scripts/test/bats/shell-harness.bats` and add a shell test there that exercises a passing harness fixture. Purpose: prove the vendored Bats harness can execute a normal success case from a clean checkout.
-6. [ ] In `scripts/test/bats/shell-harness.bats`, add a shell test that exercises an intentionally failing fixture and asserts the failure is expected. Purpose: prove the harness can report controlled failures without treating them as accidental crashes.
-7. [ ] Update `projectStructure.md` after all new shell-harness files are added in this task. Document `scripts/test-summary-shell.mjs`, the `scripts/test/bats/` tree, and the vendored Bats runtime paths so the repository structure doc reflects the new shell-test harness entry points.
-8. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-9. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+5. [ ] Implement `scripts/test-summary-shell.mjs` so it discovers every checked-in `.bats` file under `scripts/test/bats/` by default and supports one or more `--file <path>` selectors for targeted later-task runs. The wrapper must fail clearly when a requested `.bats` file does not exist and must record which shell suites were executed in the saved log so Task 9 and later tasks can prove their own files ran.
+6. [ ] Create `scripts/test/bats/shell-harness.bats` and add a shell test there that exercises a passing harness fixture. Purpose: prove the vendored Bats harness can execute a normal success case from a clean checkout.
+7. [ ] In `scripts/test/bats/shell-harness.bats`, add a shell test that exercises an intentionally failing fixture and asserts the failure is expected. Purpose: prove the harness can report controlled failures without treating them as accidental crashes.
+8. [ ] Update `projectStructure.md` after all new shell-harness files are added in this task. Document `scripts/test-summary-shell.mjs`, the `scripts/test/bats/` tree, and the vendored Bats runtime paths so the repository structure doc reflects the new shell-test harness entry points.
+9. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+10. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
-1. [ ] `npm run test:summary:shell`
-2. [ ] Confirm the shell harness run includes at least one expected failing fixture and that the saved output reports that error clearly instead of silently passing.
+1. [ ] `npm run test:summary:shell -- --file scripts/test/bats/shell-harness.bats`
+2. [ ] `npm run test:summary:shell`
+3. [ ] Confirm the shell harness run includes at least one expected failing fixture and that the saved output reports that error clearly instead of silently passing.
 
 #### Implementation notes
 
@@ -1428,21 +1430,23 @@ Extend the checked-in compose wrapper so it fails fast when the checked-in host-
    - occupied checked-in host ports;
    - host-networked service definitions that still contain incompatible `ports` or `networks` wiring;
    - and every failure path names the affected compose file or service plus the missing or incompatible prerequisite.
-3. [ ] Create `scripts/test/bats/docker-compose-with-env.bats` and add a shell test there that exercises the unsupported host-network environment path. Purpose: prove preflight fails before compose startup when host networking is not supported.
-4. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a conflicting checked-in host port. Purpose: prove preflight blocks startup when a required host-visible port is already occupied.
-5. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a host-networked service definition still carrying incompatible `ports` or `networks`. Purpose: prove invalid compose shapes are rejected before `docker compose` runs.
-6. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises the success-path pass-through to compose execution. Purpose: prove the wrapper still hands control to compose when all preflight conditions are satisfied.
-7. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a compose file without `playwright-mcp`. Purpose: prove preflight does not force new Playwright services into files that are out of scope for this story.
-8. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that asserts failure output names the affected compose file or service. Purpose: prove operators receive actionable preflight errors instead of a generic shell failure.
-9. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that proves the local host-network manual-testing contract still declares Chrome DevTools on `9222`. Purpose: keep the checked-in local CDP validation rule under automated shell-harness coverage.
-10. [ ] Update `projectStructure.md` after `scripts/test/bats/docker-compose-with-env.bats` is added. Document the new shell-test file path and its relationship to `scripts/docker-compose-with-env.sh` so the repository structure doc shows where host-network preflight coverage lives.
-11. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-12. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+3. [ ] Extend the shell-harness helper files or fixture binaries under `scripts/test/bats/` so the preflight tests can simulate unsupported host networking, occupied host ports, incompatible Compose service shapes, compose pass-through, and compose files without `playwright-mcp` without depending on the developer's real Docker host state. Keep these simulations deterministic so Task 9 remains runnable on a normal workstation and inside CI.
+4. [ ] Create `scripts/test/bats/docker-compose-with-env.bats` and add a shell test there that exercises the unsupported host-network environment path. Purpose: prove preflight fails before compose startup when host networking is not supported.
+5. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a conflicting checked-in host port. Purpose: prove preflight blocks startup when a required host-visible port is already occupied.
+6. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a host-networked service definition still carrying incompatible `ports` or `networks`. Purpose: prove invalid compose shapes are rejected before `docker compose` runs.
+7. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises the success-path pass-through to compose execution. Purpose: prove the wrapper still hands control to compose when all preflight conditions are satisfied.
+8. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a compose file without `playwright-mcp`. Purpose: prove preflight does not force new Playwright services into files that are out of scope for this story.
+9. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that asserts failure output names the affected compose file or service. Purpose: prove operators receive actionable preflight errors instead of a generic shell failure.
+10. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that proves the local host-network manual-testing contract still declares Chrome DevTools on `9222`. Purpose: keep the checked-in local CDP validation rule under automated shell-harness coverage.
+11. [ ] Update `projectStructure.md` after `scripts/test/bats/docker-compose-with-env.bats` is added. Document the new shell-test file path and its relationship to `scripts/docker-compose-with-env.sh` so the repository structure doc shows where host-network preflight coverage lives.
+12. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+13. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
-1. [ ] `npm run test:summary:shell`
-2. [ ] Confirm the saved output reports host-network preflight failures with the affected compose file or service instead of a generic shell error.
+1. [ ] `npm run test:summary:shell -- --file scripts/test/bats/docker-compose-with-env.bats`
+2. [ ] `npm run test:summary:shell`
+3. [ ] Confirm the saved output reports host-network preflight failures with the affected compose file or service instead of a generic shell error.
 
 #### Implementation notes
 
@@ -1515,7 +1519,7 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
    - remove bridge-only service-name MCP URL assumptions;
    - keep compose files that do not already define `playwright-mcp` out of scope so no new Playwright service is introduced by this task.
 3. [ ] Preserve the existing local Docker-socket, UID/GID, and Testcontainers-related runtime contract where it is still required for checked-in local workflows, while keeping that exception separate from the forbidden source-tree and checked-in-config bind mounts. Do not add new source-tree mounts to solve runtime issues.
-4. [ ] Prove the final host-networked Compose definitions no longer bind-mount application source trees or checked-in runtime asset trees into the runtime containers, and that any remaining persistence is limited to Docker-managed generated-output volumes plus the explicitly host-visible logs, with only deliberate non-source runtime mounts such as the local Docker socket remaining where required.
+4. [ ] Prove the final host-networked Compose definitions no longer bind-mount application source trees or checked-in runtime asset trees into the runtime containers, and that any remaining persistence is limited to Docker-managed generated-output volumes plus the explicitly host-visible logs, with only deliberate non-source runtime mounts such as the local Docker socket remaining where required. Use the checked-in wrapper script with the `config` subcommand for this inspection instead of ad-hoc compose invocations so the same env-file and UID/GID rules are applied during validation.
 5. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the final host-network runtime topology, the preserved host-visible port matrix, and the allowed remaining runtime mounts. Purpose: document the checked-in runtime architecture after the compose cutover lands.
 6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
@@ -1525,9 +1529,10 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
 1. [ ] `npm run compose:build:summary`
 2. [ ] `npm run compose:up`
 3. [ ] `npm run test:summary:shell`
-4. [ ] Confirm the updated local host-network definition still preserves the checked-in Chrome DevTools `9222` contract and any required Docker-socket/Testcontainers support without reintroducing source-tree bind mounts.
-5. [ ] Confirm the generated effective Compose configuration for the scoped host-networked services no longer carries incompatible `ports` or `networks` keys and does not add a new `playwright-mcp` service to compose files that previously lacked one.
-6. [ ] `npm run compose:down`
+4. [ ] `bash ./scripts/docker-compose-with-env.sh --env-file server/.env --env-file server/.env.local -f docker-compose.local.yml config`
+5. [ ] Confirm the updated local host-network definition still preserves the checked-in Chrome DevTools `9222` contract and any required Docker-socket/Testcontainers support without reintroducing source-tree bind mounts.
+6. [ ] Confirm the generated effective Compose configuration for the scoped host-networked services no longer carries incompatible `ports` or `networks` keys and does not add a new `playwright-mcp` service to compose files that previously lacked one.
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1561,20 +1566,22 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
    - the Playwright MCP route;
    - and it must fail clearly when any required listener or MCP surface is unavailable.
 3. [ ] Add the corresponding root `package.json` script entry for that proof wrapper so the checked-in command name becomes the canonical proof path used later by Task 14.
-4. [ ] Create `server/src/test/unit/test-summary-host-network-main.test.ts` and add a server unit test there that exercises a passing probe scenario. Purpose: prove the wrapper succeeds when all required main-stack MCP listeners are available.
-5. [ ] In `server/src/test/unit/test-summary-host-network-main.test.ts`, add a server unit test that exercises a failing probe scenario. Purpose: prove the wrapper reports an unavailable listener or MCP surface as a controlled failure.
-6. [ ] In `server/src/test/unit/test-summary-host-network-main.test.ts`, add a server unit test that asserts the failing probe emits inspectable error output rather than a generic crash. Purpose: prove later diagnosis can rely on saved wrapper output.
-7. [ ] Update `projectStructure.md` after the new proof-wrapper script and `server/src/test/unit/test-summary-host-network-main.test.ts` are added. Document the new wrapper command file path and its dedicated unit-test file so the repository structure doc points to the host-network proof entry points.
-8. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the main-stack proof-wrapper probe flow and the host-visible endpoints it validates. Purpose: document the new proof-path architecture at the point where it is introduced.
-9. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-10. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+4. [ ] Split the host-network probe logic into a reusable helper module that both the checked-in wrapper and automated tests can call. The helper must accept injected probe dependencies or endpoint overrides so `server/src/test/unit/test-summary-host-network-main.test.ts` can simulate passing and failing listener states without needing a live Compose stack.
+5. [ ] Create `server/src/test/unit/test-summary-host-network-main.test.ts` and add a server unit test there that exercises a passing probe scenario. Purpose: prove the wrapper succeeds when all required main-stack MCP listeners are available.
+6. [ ] In `server/src/test/unit/test-summary-host-network-main.test.ts`, add a server unit test that exercises a failing probe scenario. Purpose: prove the wrapper reports an unavailable listener or MCP surface as a controlled failure.
+7. [ ] In `server/src/test/unit/test-summary-host-network-main.test.ts`, add a server unit test that asserts the failing probe emits inspectable error output rather than a generic crash. Purpose: prove later diagnosis can rely on saved wrapper output.
+8. [ ] Update `projectStructure.md` after the new proof-wrapper script, any new shared probe helper module, and `server/src/test/unit/test-summary-host-network-main.test.ts` are added. Document the new wrapper command file path and its dedicated unit-test file so the repository structure doc points to the host-network proof entry points.
+9. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the main-stack proof-wrapper probe flow and the host-visible endpoints it validates. Purpose: document the new proof-path architecture at the point where it is introduced.
+10. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+11. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
-1. [ ] `npm run compose:up`
-2. [ ] `npm run test:summary:host-network:main`
-3. [ ] Confirm the automated coverage added in this task includes at least one failing probe case for the new proof wrapper and checks the reported error output.
-4. [ ] `npm run compose:down`
+1. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/test-summary-host-network-main.test.ts`
+2. [ ] `npm run compose:up`
+3. [ ] `npm run test:summary:host-network:main`
+4. [ ] Confirm the automated coverage added in this task includes at least one failing probe case for the new proof wrapper and checks the reported error output.
+5. [ ] `npm run compose:down`
 
 #### Implementation notes
 

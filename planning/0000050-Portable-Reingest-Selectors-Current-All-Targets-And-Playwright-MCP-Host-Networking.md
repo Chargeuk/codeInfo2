@@ -1423,7 +1423,7 @@ Extend the checked-in compose wrapper so it fails fast when the checked-in host-
 1. [ ] Read the existing compose wrapper and the new shell harness so the preflight integrates with the repo-local proof path instead of adding ad-hoc shell checks elsewhere.
 2. [ ] Extend `scripts/docker-compose-with-env.sh` so it fails before `docker compose` for:
    - unsupported host-network environments;
-   - Docker Desktop environments where host networking is unavailable because the Docker Desktop version or feature state is incompatible, or where Enhanced Container Isolation makes host networking unavailable;
+   - Docker Desktop environments where host networking is unavailable or incompatible for the checked-in compose path;
    - disabled host networking where it is required;
    - occupied checked-in host ports;
    - host-networked service definitions that still contain incompatible `ports` or `networks` wiring;
@@ -1457,7 +1457,7 @@ Extend the checked-in compose wrapper so it fails fast when the checked-in host-
 
 #### Overview
 
-Update the Docker build flow so the checked-in runtime assets needed by the host-networked server are carried by the image instead of being supplied from repo bind mounts at runtime. This task is complete when the server image includes the checked-in runtime assets it needs and the relevant `.dockerignore` files only admit the required build inputs.
+Update the Docker build flow so the checked-in runtime assets needed by the host-networked server are carried by the image instead of being supplied from repo bind mounts at runtime. This task is complete when the server image includes the checked-in runtime assets it needs and only the Dockerfiles or `.dockerignore` files that actually participate in that packaging path are changed.
 
 #### Documentation Locations
 
@@ -1466,7 +1466,6 @@ Update the Docker build flow so the checked-in runtime assets needed by the host
   - `## Edge Cases and Failure Modes`
 - Files to read:
   - `server/Dockerfile`
-  - `client/Dockerfile`
   - `.dockerignore`
   - `server/.dockerignore`
   - `client/.dockerignore`
@@ -1477,9 +1476,9 @@ Update the Docker build flow so the checked-in runtime assets needed by the host
 #### Subtasks
 
 1. [ ] Read the current Dockerfiles and Compose files and list every checked-in runtime asset that is still being bind-mounted from the repo today.
-2. [ ] Update the Docker build contexts and Dockerfiles so the checked-in runtime assets needed by the host-networked server are copied into the image instead of being required from a host source bind mount. Extend the existing `server/Dockerfile` and `client/Dockerfile` build flow instead of introducing alternate Dockerfiles or bespoke startup paths.
-3. [ ] Update the relevant `.dockerignore` files at the same time so only the required runtime assets enter the build context.
-4. [ ] Add or update proof steps that show the image-baked runtime assets are present where the later compose task expects them to be.
+2. [ ] Update the Docker build contexts and only the Dockerfiles that actually need to carry checked-in runtime assets so the host-networked server can run without repo bind mounts. Extend the existing build flow instead of introducing alternate Dockerfiles or bespoke startup paths, and do not expand client-image scope unless a checked-in runtime dependency truly requires it.
+3. [ ] Update only the `.dockerignore` files that participate in that packaging path so the required runtime assets enter the build context without broadening unrelated image scope.
+4. [ ] Reuse the existing compose-build output plus the later runtime/container inspection in Tasks 11 and 14 as the proof path for image-baked assets instead of adding a bespoke new proof script in this task.
 5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 

@@ -433,6 +433,7 @@ This remains a single-repository story inside `codeInfo2`. The proof pass below 
 - Missing prerequisite capabilities:
   - There is no dedicated batch result payload for `target: "all"` yet; `server/src/chat/reingestToolResult.ts` currently models one terminal outcome for one `sourceId`.
   - There is no runtime seam yet that accumulates ordered per-repository outcomes into one transcript item for a batch.
+  - The strict `ReingestSuccess` contract in `server/src/ingest/reingestService.ts` currently collapses internal ingest `skipped` into terminal `completed`, so the story cannot yet distinguish `reingested` versus `skipped` honestly in transcript payloads.
   - There is no explicit blank-markdown skip contract in the shared execution path; `server/src/agents/commandItemExecutor.ts` currently passes resolved markdown content straight into instruction execution.
 - Assumptions that are currently invalid:
   - It is not valid to assume that the current re-ingest transcript payload can represent multiple repositories in one result.
@@ -493,6 +494,184 @@ This remains a single-repository story inside `codeInfo2`. The proof pass below 
   - It is not valid to assume that the existing e2e path can prove fail-before-start wrapper behavior without the new shell harness.
 - Feasibility and sequencing note:
   - This area is feasible because the wrapper and summary-protocol infrastructure already exist. The prerequisite work is explicit preflight logic plus the new shell harness, and those should land alongside the Compose cutover so the final host-network path is validated the same way it is introduced.
+
+## Message Contracts And Storage Shapes
+
+This remains a single-repository contract definition inside `codeInfo2`. The files below are the contract owners and consumers for this story, and the definitions here should be treated as the target shapes for implementation rather than being rediscovered later.
+
+### 1. Re-ingest request contract for command and flow JSON
+
+- Contract owners:
+  - `server/src/agents/commandsSchema.ts`
+  - `server/src/flows/flowSchema.ts`
+- Contract consumers:
+  - `server/src/agents/commandItemExecutor.ts`
+  - `server/src/agents/commandsRunner.ts`
+  - `server/src/agents/service.ts`
+  - `server/src/flows/service.ts`
+- Target request union:
+  - Legacy selector form remains valid:
+    ```json
+    { "type": "reingest", "sourceId": "<selector-or-path>" }
+    ```
+  - New current-owner form:
+    ```json
+    { "type": "reingest", "target": "current" }
+    ```
+  - New all-repositories form:
+    ```json
+    { "type": "reingest", "target": "all" }
+    ```
+- Resolution rules:
+  - `sourceId` remains backward compatible, but it now means one of:
+    - a case-insensitive repository id;
+    - a canonical container path;
+    - a matching host path.
+  - `target: "current"` resolves from the owning repository already threaded through direct-command, flow, and flow-command execution.
+  - `target: "all"` resolves to the ordered list of all currently ingested repositories sorted by ascending canonical container path.
+  - A request object must not contain both `sourceId` and `target`.
+- Downstream compatibility rule:
+  - The strict ingest service in `server/src/ingest/reingestService.ts` stays single-repository. The orchestration layer must resolve any selector or target form into one or more canonical `sourceId` strings before calling the strict service.
+
+### 2. Strict single-repository re-ingest result contract
+
+- Contract owner:
+  - `server/src/ingest/reingestService.ts`
+- Contract consumers:
+  - `server/src/chat/reingestToolResult.ts`
+  - `server/src/agents/commandsRunner.ts`
+  - `server/src/flows/service.ts`
+- Existing fields that stay:
+  - `status`
+  - `operation`
+  - `runId`
+  - `sourceId`
+  - `durationMs`
+  - `files`
+  - `chunks`
+  - `embedded`
+  - `errorCode`
+- Required contract extension for this story:
+  - Add `resolvedRepositoryId: string | null` so result payloads can identify the selected repository without re-looking it up downstream.
+  - Add `completionMode: "reingested" | "skipped" | null` so the runtime can preserve the difference between a completed re-ingest that did work and an internal ingest terminal state of `skipped`.
+- Compatibility rule:
+  - `status` continues to use the existing terminal values `completed`, `cancelled`, and `error`.
+  - `completionMode` is only meaningful when `status === "completed"`. For `cancelled` or `error`, it must be `null`.
+  - Existing fields stay in place so current single-repository consumers can be updated in-place without a storage migration.
+
+### 3. Transcript tool-result payload contract
+
+- Contract owners:
+  - `server/src/chat/reingestToolResult.ts`
+  - `server/src/chat/reingestStepLifecycle.ts`
+- Contract consumers:
+  - `server/src/chat/interfaces/ChatInterface.ts`
+  - `server/src/mongo/repo.ts`
+  - `server/src/mongo/turn.ts`
+  - client transcript readers that already consume stored `toolCalls`
+- Single-repository payload shape:
+  - Keep the existing payload kind and step type, but extend it to preserve the request mode and the resolved repository identity:
+    ```json
+    {
+      "kind": "reingest_step_result",
+      "stepType": "reingest",
+      "targetMode": "sourceId",
+      "requestedSelector": "<original selector>",
+      "sourceId": "<canonical container path>",
+      "resolvedRepositoryId": "<repo id or null>",
+      "status": "completed",
+      "completionMode": "reingested",
+      "operation": "reembed",
+      "runId": "<run id>",
+      "files": 0,
+      "chunks": 0,
+      "embedded": 0,
+      "errorCode": null
+    }
+    ```
+  - `targetMode` is `"sourceId"` for explicit selector runs and `"current"` for owner-derived runs.
+  - `requestedSelector` stores the original `sourceId` string for explicit selector runs and `null` for `current`.
+  - `sourceId` keeps its existing meaning as the canonical resolved container path so older consumers do not lose the main identifier they already expect.
+- Batch payload shape for `target: "all"`:
+  - Introduce a new discriminated payload variant rather than overloading the single-repository shape:
+    ```json
+    {
+      "kind": "reingest_step_batch_result",
+      "stepType": "reingest",
+      "targetMode": "all",
+      "repositories": [
+        {
+          "sourceId": "<canonical container path>",
+          "resolvedRepositoryId": "<repo id or null>",
+          "status": "completed",
+          "completionMode": "reingested",
+          "runId": "<run id or null>",
+          "files": 0,
+          "chunks": 0,
+          "embedded": 0,
+          "errorCode": null,
+          "errorMessage": null
+        }
+      ],
+      "summary": {
+        "total": 1,
+        "reingested": 1,
+        "skipped": 0,
+        "failed": 0
+      }
+    }
+    ```
+  - `repositories` must remain in ascending canonical container path order.
+  - `summary.failed` counts any repository item with `status === "error"` or `status === "cancelled"`.
+  - `completionMode` is `null` when `status` is `cancelled` or `error`.
+- Validation and compatibility rule:
+  - This is a discriminated-union expansion, not a replacement. The existing single payload stays valid, and the new batch payload is added as a second `kind` variant so the repo can extend current Zod and runtime parsing without breaking older stored turns.
+  - This matches the repository evidence from `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, and `server/src/chat/interfaces/ChatInterface.ts`, and it also matches the additive discriminated-union guidance gathered from DeepWiki and Context7 for `colinhacks/zod`.
+
+### 4. Turn storage impact
+
+- Storage owner:
+  - `server/src/mongo/turn.ts`
+- Storage writer:
+  - `server/src/mongo/repo.ts`
+  - `server/src/chat/reingestStepLifecycle.ts`
+- Storage rule for this story:
+  - No new Mongo collection or top-level turn fields are required.
+  - The existing `Turn.toolCalls: Record<string, unknown> | null` shape remains the storage envelope for both `reingest_step_result` and `reingest_step_batch_result`.
+  - `Turn.runtime` remains unchanged for this story; the new re-ingest selector and batch details live inside `toolCalls`, not in a new runtime or conversation flag shape.
+- Migration expectation:
+  - Existing stored turns with the old single payload remain valid. New code must accept both the old single payload shape and the extended single or batch shapes during read and replay.
+
+### 5. Blank-markdown skip message contract
+
+- Contract owners:
+  - `server/src/flows/markdownFileResolver.ts`
+  - `server/src/agents/commandItemExecutor.ts`
+  - `server/src/flows/service.ts`
+- Contract rule:
+  - Empty-markdown skip is a log and control-flow contract, not a new persisted storage shape.
+  - When a markdown file resolves successfully but trims to empty content, the runtime must emit one info-level log entry with:
+    - `surface`: `command` or `flow`;
+    - `markdownFile`: the relative markdown reference from the step or command item;
+    - `resolvedPath`: the final resolved file path;
+    - `reason`: `empty_markdown`;
+    - execution context such as `commandName`, `flowName`, or `stepIndex` when available.
+  - The skip should not create a synthetic tool-result payload or a new database record format by itself. Existing turn persistence continues unchanged unless the surrounding flow or command already emits its own normal turns.
+
+### 6. Wrapper fail-fast output contract
+
+- Contract owner:
+  - `scripts/docker-compose-with-env.sh`
+- Contract consumers:
+  - human operators;
+  - AI agents using wrapper stdout and the saved summary logs;
+  - the new shell harness defined in `## Test Harnesses`.
+- Contract rule:
+  - Host-network prerequisite failures remain operational output, not Mongo-persisted storage.
+  - The wrapper must fail before `docker compose` execution and print which compose workflow or service failed preflight, which prerequisite was missing or incompatible, and which host port was conflicting when relevant.
+  - This fail-fast output should remain compatible with the repository's existing wrapper-first workflow by keeping diagnostics in wrapper stdout and the saved wrapper log rather than inventing a second persistence surface.
+- Evidence note:
+  - Repository contract ownership for this section came from `scripts/docker-compose-with-env.sh`, `scripts/summary-wrapper-protocol.mjs`, `server/src/mongo/turn.ts`, `server/src/mongo/repo.ts`, `server/src/chat/reingestToolResult.ts`, and `server/src/chat/reingestStepLifecycle.ts`, with additive union guidance confirmed via DeepWiki and Context7 documentation for `colinhacks/zod`.
 
 ## Test Harnesses
 

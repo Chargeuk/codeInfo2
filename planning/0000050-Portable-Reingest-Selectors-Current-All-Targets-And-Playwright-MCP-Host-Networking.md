@@ -877,12 +877,14 @@ Keep `runReingestRepository()` strict on one canonical repository, but extend it
 3. [ ] Preserve the existing validation and terminal status behavior:
    - keep `status` as `completed`, `cancelled`, or `error`;
    - keep existing failure codes and retry lists;
-   - map internal ingest `skipped` to `status: "completed"` with `completionMode: "skipped"`.
+   - map internal ingest `skipped` to `status: "completed"` with `completionMode: "skipped"`;
+   - keep the exact pre-start validation and busy-state categories unchanged for `missing`, `non_absolute`, `ambiguous_path`, `unknown_root`, `busy`, and `invalid_state`.
 4. [ ] Update `server/src/test/unit/reingestService.test.ts` so it proves:
    - completed runs set `completionMode: "reingested"`;
    - internal skipped runs set `completionMode: "skipped"`;
    - cancelled or error runs set `completionMode: null`;
-   - `resolvedRepositoryId` is populated when the repository id is known.
+   - `resolvedRepositoryId` is populated when the repository id is known;
+   - the existing validation failure codes, messages, and retry-after semantics remain unchanged.
 5. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
 6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
@@ -932,7 +934,8 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 3. [ ] Implement the `current` resolution rules exactly as the story defines them:
    - direct command uses the command owner;
    - top-level flow uses the flow owner;
-   - nested flow command uses the command owner, not the parent flow owner.
+   - nested flow command uses the command owner, not the parent flow owner;
+   - fail fast with a clear pre-start error when the current owner is missing or resolves to a repository that is not currently ingested, with no fallback to any other repository.
 4. [ ] Implement `target: "all"` behavior exactly as the story defines it:
    - gather all ingested repositories;
    - sort by ascending canonical container path;
@@ -942,9 +945,11 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 5. [ ] Add or update server unit or integration tests near the existing re-ingest runner coverage so they prove:
    - `sourceId` selector resolution by repo id and path;
    - `current` failure when there is no owning repository;
+   - `current` failure when the owning repository exists in metadata but is not currently ingested;
    - `all` ordering;
    - zero-repository `all` behavior;
-   - continue-on-failure behavior for `all`.
+   - continue-on-failure behavior for `all`;
+   - selector or target orchestration preserves the existing strict-service failure categories instead of collapsing them into a generic error.
 6. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
 7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
@@ -1124,7 +1129,9 @@ Finish the MCP placeholder and env-contract migration so runtime normalization, 
 6. [ ] Add or update server unit coverage so it proves:
    - placeholder replacement works for the checked-in config style;
    - unresolved placeholders fail clearly;
-   - legacy checked-in env assumptions no longer apply.
+   - legacy checked-in env assumptions no longer apply;
+   - the resolved chat/base MCP endpoint and the resolved agents MCP endpoint stay intentionally distinct where the checked-in config expects them to differ;
+   - browser navigation URLs and MCP control-channel URLs remain separate contracts and are not normalized into the same value by accident.
 7. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
 8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
@@ -1175,7 +1182,8 @@ Add the wrapper-side host-network preflight checks and the new shell harness tha
    - unsupported host-network environments;
    - disabled host networking where it is required;
    - occupied checked-in host ports;
-   - host-networked service definitions that still contain incompatible `ports` or `networks` wiring.
+   - host-networked service definitions that still contain incompatible `ports` or `networks` wiring;
+   - and every failure path names the affected compose file or service plus the missing or incompatible prerequisite.
 3. [ ] Add the repo-local shell harness files under `scripts/test/bats/`:
    - `.bats` test file;
    - shared helper file;
@@ -1186,7 +1194,8 @@ Add the wrapper-side host-network preflight checks and the new shell harness tha
    - unsupported host networking;
    - conflicting host ports;
    - incompatible host-network service shapes;
-   - success-path pass-through to compose execution.
+   - success-path pass-through to compose execution;
+   - actionable failure text that includes the affected compose file or service.
 7. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
 8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
@@ -1242,8 +1251,9 @@ Update the Dockerfiles, `.dockerignore` files, and checked-in Compose definition
    - `8931` for local Playwright MCP;
    - `8932` for main Playwright MCP;
    - remove incompatible `ports` or `networks` definitions on host-networked services;
-   - remove bridge-only service-name MCP URL assumptions.
-5. [ ] Keep any generated output on Docker-managed volumes except for the explicitly host-visible logs.
+   - remove bridge-only service-name MCP URL assumptions;
+   - keep compose files that do not already define `playwright-mcp` out of scope so no new Playwright service is introduced by this task.
+5. [ ] Prove the final host-networked Compose definitions no longer bind-mount application source trees or checked-in runtime asset trees into the runtime containers, and that any remaining persistence is limited to Docker-managed generated-output volumes plus the explicitly host-visible logs.
 6. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
 7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
@@ -1289,9 +1299,9 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 #### Subtasks
 
 1. [ ] Read the existing e2e wrapper and package scripts so the new proof wrapper uses the same summary-wrapper output contract.
-2. [ ] Add one checked-in summary wrapper under `scripts/` that probes the live main-stack host-visible ports `5010`, `5011`, `5012`, and `8932` after `npm run compose:up` and fails clearly when any required listener or MCP surface is unavailable.
+2. [ ] Add one checked-in summary wrapper under `scripts/` that probes the live main-stack host-visible ports `5010`, `5011`, `5012`, and `8932` after `npm run compose:up` and fails clearly when any required listener or MCP surface is unavailable, including separate checks for the classic `/mcp` route, the dedicated chat MCP route, the agents MCP route, and the Playwright MCP route.
 3. [ ] Add the corresponding root `package.json` script entry for that proof wrapper.
-4. [ ] Update any e2e env injection, checked-in e2e config, or test assumptions that would otherwise still point at stale bridge-era URLs or ports after the host-network cutover.
+4. [ ] Update any e2e env injection, checked-in e2e config, or test assumptions that would otherwise still point at stale bridge-era URLs or ports after the host-network cutover, while keeping browser navigation targets and MCP control-channel targets as separate contracts where the story requires them.
 5. [ ] Add or update automated coverage for the new proof wrapper if it is practical to unit-test its probe logic without bringing the whole stack up.
 6. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
 7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
@@ -1356,9 +1366,11 @@ This final task proves the whole story against the acceptance criteria, updates 
 6. [ ] `npm run test:summary:shell`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run test:summary:host-network:main`
-9. [ ] `npm run compose:down`
-10. [ ] `npm run test:summary:e2e`
-11. [ ] Use Playwright MCP tools to manually verify the running product and save screenshots to `test-results/screenshots/` using the filename pattern `0000050-10-<short-name>.png`.
+9. [ ] Inspect the running containers and Compose definitions to prove the host-network runtime is using image-baked application contents rather than host source bind mounts, with only Docker-managed generated-output volumes plus the explicitly host-visible logs remaining.
+10. [ ] Verify the final runtime still supports the required traffic patterns on the documented host-visible endpoints: REST/API access, classic `/mcp`, dedicated chat MCP, agents MCP, Playwright browser control, websocket flows, screenshot capture, and manual UI verification.
+11. [ ] `npm run compose:down`
+12. [ ] `npm run test:summary:e2e`
+13. [ ] Use Playwright MCP tools to manually verify the running product and save screenshots to `test-results/screenshots/` using the filename pattern `0000050-10-<short-name>.png`.
 
 #### Implementation notes
 

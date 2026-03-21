@@ -1203,7 +1203,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 ### Task 2. Extend the strict single-repository re-ingest result contract
 
 - Repository Name: `codeInfo2`
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1217,44 +1217,65 @@ Keep `runReingestRepository()` strict on one canonical repository, but extend it
 
 #### Subtasks
 
-1. [ ] In `server/src/ingest/reingestService.ts`, read the current `ReingestSuccess` type, `runReingestRepository()` return path, and the existing cases in `server/src/test/unit/reingestService.test.ts` together with story sections `## Message Contracts And Storage Shapes` and `## Edge Cases and Failure Modes`. This task changes only the strict single-repository result contract; it must not move selector parsing into this service.
-2. [ ] Update the `ReingestSuccess` payload in `server/src/ingest/reingestService.ts` so it adds these exact fields from the story contract:
+1. [x] In `server/src/ingest/reingestService.ts`, read the current `ReingestSuccess` type, `runReingestRepository()` return path, and the existing cases in `server/src/test/unit/reingestService.test.ts` together with story sections `## Message Contracts And Storage Shapes` and `## Edge Cases and Failure Modes`. This task changes only the strict single-repository result contract; it must not move selector parsing into this service.
+2. [x] Update the `ReingestSuccess` payload in `server/src/ingest/reingestService.ts` so it adds these exact fields from the story contract:
    - `resolvedRepositoryId: string | null`
    - `completionMode: "reingested" | "skipped" | null`
    - keep the existing fields `status`, `operation`, `runId`, `sourceId`, `files`, `chunks`, `embedded`, and `errorCode`.
-3. [ ] In the same file, preserve the existing validation and terminal status behavior exactly as documented in `## Edge Cases and Failure Modes`:
+3. [x] In the same file, preserve the existing validation and terminal status behavior exactly as documented in `## Edge Cases and Failure Modes`:
    - keep `status` as `completed`, `cancelled`, or `error`;
    - keep existing failure codes and retry lists;
    - map internal ingest `skipped` to `status: "completed"` with `completionMode: "skipped"`;
    - keep the exact pre-start validation and busy-state categories unchanged for `missing`, `non_absolute`, `ambiguous_path`, `unknown_root`, `busy`, and `invalid_state`.
-4. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises a completed re-ingest and asserts `completionMode: "reingested"`. Purpose: prove the happy-path result distinguishes a real re-ingest from other completed outcomes.
-5. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises an internal skipped ingest and asserts `completionMode: "skipped"`. Purpose: prove completed no-op behavior is preserved without being mislabeled as a full re-ingest.
-6. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises a cancelled execution and asserts `completionMode: null`. Purpose: prove cancelled outcomes do not report a misleading completion mode.
-7. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises a terminal error execution and asserts `completionMode: null`. Purpose: prove error outcomes do not report a misleading completion mode.
-8. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises a known repository id and asserts `resolvedRepositoryId` is populated. Purpose: prove downstream orchestration can identify the selected repository.
-9. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises a repository record with no repository id and asserts `resolvedRepositoryId: null`. Purpose: prove the contract is explicit when repository metadata is incomplete.
-10. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `missing` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: guard against breaking existing caller expectations while extending the success payload.
-11. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `non_absolute` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the exact absolute-path validation contract.
-12. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `ambiguous_path` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the existing ambiguous-path failure contract.
-13. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `unknown_root` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the existing unknown-root failure contract.
-14. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `busy` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the busy-state retry contract.
-15. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `invalid_state` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the invalid-state failure contract.
-16. [ ] Add or update the structured manual-validation log marker `DEV-0000050:T02:reingest_strict_result_normalized` in the strict re-ingest service or its immediate caller. Include `sourceId`, `resolvedRepositoryId`, `status`, and `completionMode`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the Task 2 result contract reaches runtime unchanged.
-17. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-18. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-19. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+4. [x] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises a completed re-ingest and asserts `completionMode: "reingested"`. Purpose: prove the happy-path result distinguishes a real re-ingest from other completed outcomes.
+5. [x] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises an internal skipped ingest and asserts `completionMode: "skipped"`. Purpose: prove completed no-op behavior is preserved without being mislabeled as a full re-ingest.
+6. [x] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises a cancelled execution and asserts `completionMode: null`. Purpose: prove cancelled outcomes do not report a misleading completion mode.
+7. [x] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises a terminal error execution and asserts `completionMode: null`. Purpose: prove error outcomes do not report a misleading completion mode.
+8. [x] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises a known repository id and asserts `resolvedRepositoryId` is populated. Purpose: prove downstream orchestration can identify the selected repository.
+9. [x] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises a repository record with no repository id and asserts `resolvedRepositoryId: null`. Purpose: prove the contract is explicit when repository metadata is incomplete.
+10. [x] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `missing` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: guard against breaking existing caller expectations while extending the success payload.
+11. [x] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `non_absolute` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the exact absolute-path validation contract.
+12. [x] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `ambiguous_path` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the existing ambiguous-path failure contract.
+13. [x] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `unknown_root` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the existing unknown-root failure contract.
+14. [x] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `busy` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the busy-state retry contract.
+15. [x] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `invalid_state` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the invalid-state failure contract.
+16. [x] Add or update the structured manual-validation log marker `DEV-0000050:T02:reingest_strict_result_normalized` in the strict re-ingest service or its immediate caller. Include `sourceId`, `resolvedRepositoryId`, `status`, and `completionMode`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the Task 2 result contract reaches runtime unchanged.
+17. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+18. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+19. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
-3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
+1. [x] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [x] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 
 #### Implementation notes
 
-- **to_do**
+- Read the strict re-ingest service and its existing unit coverage together with the story contract so the new fields landed in the service itself instead of leaking selector logic into Task 2.
+- Extended `ReingestSuccess` with additive `resolvedRepositoryId` and `completionMode` fields so downstream tasks can distinguish the selected repo and a real re-ingest versus an internal skip without changing the existing result envelope.
+- Preserved the strict terminal-state contract by keeping `status` limited to `completed`, `cancelled`, or `error` while mapping internal `skipped` to `status: "completed"` plus `completionMode: "skipped"`.
+- Added unit coverage that proves completed runs now expose `completionMode: "reingested"` on the happy path.
+- Added unit coverage that proves internal skipped runs surface `completionMode: "skipped"` without changing the outward `completed` status.
+- Added unit coverage that proves cancelled runs keep `completionMode: null`.
+- Added unit coverage that proves terminal error runs keep `completionMode: null`.
+- Added unit coverage that proves a known repo record surfaces `resolvedRepositoryId` directly from the strict service result.
+- Added unit coverage that proves missing repo-id metadata results in `resolvedRepositoryId: null` instead of a guessed fallback value.
+- Added focused regression coverage that proves the `missing` validation failure still returns the strict `INVALID_PARAMS` contract with retry guidance intact.
+- Added focused regression coverage that proves the `non_absolute` validation failure still returns the strict `INVALID_PARAMS` contract with the same reason and message.
+- Added focused regression coverage that proves the `ambiguous_path` validation failure still returns the strict `INVALID_PARAMS` contract with the same reason and message.
+- Added focused regression coverage that proves the `unknown_root` validation failure still returns the strict `NOT_FOUND` contract with retry guidance intact.
+- Added focused regression coverage that proves the `busy` validation failure still returns the strict `BUSY` contract with retry guidance intact.
+- Added focused regression coverage that proves the `invalid_state` validation failure still returns the strict `INVALID_PARAMS` contract with the unsupported-argument message preserved.
+- Added the `DEV-0000050:T02:reingest_strict_result_normalized` marker in the strict service so the normalized Task 2 result contract is observable before later orchestration and transcript tasks build on it.
+- No new or renamed files were introduced during Task 2, so the follow-up documentation delta for Task 15 is only that the strict service, its direct unit test, and shared test helper builders changed.
+- Ran `npm run lint`, then `npm run lint:fix`, then `npm run lint` again; the repo-wide command still fails on the same unrelated pre-existing warning in `client/src/components/chat/SharedTranscript.tsx`, but no remaining lint issues were left in the Task 2 files.
+- Ran `npm run format:check`, then `npm run format`, then `npm run format:check` again; the repo-wide command still fails on unrelated formatting drift plus the intentionally invalid JSON fixture `server/src/test/fixtures/flows/invalid-json.json`, and `npx prettier --check` passed for all Task 2 files after the cleanup.
+- `npm run build:summary:server` first exposed missing additive `ReingestSuccess` fields in older test fixtures, and the rerun passed cleanly with `warning_count: 0` and wrapper guidance `agent_action: skip_log` after those helpers were updated.
+- `npm run test:summary:server:unit` first failed on four Task 2 regressions, then the targeted wrapper rerun confirmed the fixes and the full rerun passed cleanly with `1313` tests run, `1313` passed, `0` failed, and wrapper guidance `agent_action: skip_log`.
+- `npm run test:summary:server:cucumber` passed cleanly with `71` tests run, `71` passed, `0` failed, and wrapper guidance `agent_action: skip_log`, so the strict-result changes did not regress the checked-in cucumber coverage.
 
 ---
 

@@ -13,6 +13,8 @@ const terminalCompleted = {
   operation: 'reembed',
   runId: 'run-123',
   sourceId: '/data/repo-a',
+  resolvedRepositoryId: 'repo-a',
+  completionMode: 'reingested',
   durationMs: 321,
   files: 9,
   chunks: 20,
@@ -23,11 +25,13 @@ const terminalCompleted = {
 const terminalCancelled = {
   ...terminalCompleted,
   status: 'cancelled',
+  completionMode: null,
 } as const;
 
 const terminalError = {
   ...terminalCompleted,
   status: 'error',
+  completionMode: null,
   errorCode: 'INGEST_FAIL',
 } as const;
 
@@ -376,6 +380,8 @@ test('classic and v2 parity payload baseline can be normalized from terminal fie
       operation: 'reembed',
       runId: 'run-123',
       sourceId: '/data/repo-a',
+      resolvedRepositoryId: 'repo-a',
+      completionMode: 'reingested',
       durationMs: 321,
       files: 9,
       chunks: 20,

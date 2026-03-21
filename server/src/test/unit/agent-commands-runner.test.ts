@@ -56,12 +56,16 @@ const buildReingestSuccess = (
     errorCode: string | null;
     sourceId: string;
     runId: string;
+    resolvedRepositoryId: string | null;
+    completionMode: 'reingested' | 'skipped' | null;
   }> = {},
 ) => ({
   status: 'completed' as const,
   operation: 'reembed' as const,
   runId: 'run-123',
   sourceId: '/repo/source-a',
+  resolvedRepositoryId: 'repo-a',
+  completionMode: 'reingested' as const,
   durationMs: 100,
   files: 3,
   chunks: 7,

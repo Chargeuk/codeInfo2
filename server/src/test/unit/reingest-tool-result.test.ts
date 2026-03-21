@@ -15,6 +15,8 @@ const buildOutcome = (
   operation: 'reembed',
   runId: 'run-123',
   sourceId: '/data/repo-a',
+  resolvedRepositoryId: 'repo-a',
+  completionMode: 'reingested',
   durationMs: 321,
   files: 9,
   chunks: 20,

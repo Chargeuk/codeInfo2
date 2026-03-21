@@ -35,6 +35,12 @@ case "${1:-}" in
     exit "${CODEINFO_TEST_DOCKER_COMPOSE_EXIT_CODE:-0}"
     ;;
   run)
+    if [ -n "${CODEINFO_TEST_DOCKER_RUN_STDERR:-}" ]; then
+      printf '%s\n' "${CODEINFO_TEST_DOCKER_RUN_STDERR}" >&2
+    fi
+    if [ -n "${CODEINFO_TEST_DOCKER_RUN_EXIT_CODE:-}" ]; then
+      exit "${CODEINFO_TEST_DOCKER_RUN_EXIT_CODE}"
+    fi
     occupied_ports=",${CODEINFO_TEST_DOCKER_HOST_OCCUPIED_PORTS:-},"
     port="${@: -1}"
     if [[ "${occupied_ports}" == *,"${port}",* ]]; then

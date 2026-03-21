@@ -125,3 +125,35 @@ codeinfo2_run_compose_wrapper() {
   run grep -F "run --rm --network host --entrypoint node codeinfo2-server-local" "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
   assert_success
 }
+
+@test "compose wrapper fails closed when the docker-host probe image is unavailable" {
+  codeinfo2_run_compose_wrapper \
+    docker-compose.local.yml \
+    host-network-local-missing-probe-image.json \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    CODEINFO_HOST_PORT_CHECK_SCOPE=docker_host \
+    CODEINFO_TEST_RUNNING_IN_CONTAINER=1
+
+  assert_failure
+  assert_output --partial "docker-compose.local.yml"
+  assert_output --partial "unable to verify required host port 5510"
+  assert_output --partial "probe image is unavailable"
+}
+
+@test "compose wrapper fails closed when the docker-host probe process cannot launch" {
+  codeinfo2_run_compose_wrapper \
+    docker-compose.local.yml \
+    host-network-local-valid.json \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    CODEINFO_HOST_PORT_CHECK_SCOPE=docker_host \
+    CODEINFO_TEST_RUNNING_IN_CONTAINER=1 \
+    CODEINFO_TEST_DOCKER_RUN_EXIT_CODE=125 \
+    CODEINFO_TEST_DOCKER_RUN_STDERR="probe image pull failed"
+
+  assert_failure
+  assert_output --partial "docker-compose.local.yml"
+  assert_output --partial "unable to verify required host port 5510"
+  assert_output --partial "probe image pull failed"
+  run grep -F "run --rm --network host --entrypoint node codeinfo2-server-local" "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_success
+}

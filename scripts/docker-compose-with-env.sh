@@ -29,6 +29,8 @@ docker_cmd() {
   "${DOCKER_BIN}" "$@"
 }
 
+PORT_PROBE_LAST_ERROR=""
+
 json_bool() {
   case "${1:-}" in
     1 | true | TRUE | yes | YES | on | ON)
@@ -402,6 +404,55 @@ is_port_occupied() {
   local port="$1"
   local probe_image="${2:-}"
   local occupied_ports=",${CODEINFO_TEST_OCCUPIED_PORTS:-},"
+  local probe_status
+  local had_errexit=0
+  PORT_PROBE_LAST_ERROR=""
+
+  run_docker_host_probe() {
+    local had_errexit=0
+    if [ -z "${probe_image}" ]; then
+      PORT_PROBE_LAST_ERROR="docker-host port probe image is unavailable for checked host-port validation"
+      return 2
+    fi
+
+    local probe_output probe_status
+    case "$-" in
+      *e*)
+        had_errexit=1
+        set +e
+        ;;
+    esac
+    probe_output="$(
+      docker_cmd run --rm --network host --entrypoint node "${probe_image}" -e '
+const net = require("node:net");
+const [portValue] = process.argv.slice(1);
+const port = Number(portValue);
+const socket = net.connect({ host: "127.0.0.1", port, timeout: 250 });
+const finish = (occupied) => {
+  socket.destroy();
+  process.exit(occupied ? 0 : 1);
+};
+socket.once("connect", () => finish(true));
+socket.once("timeout", () => finish(false));
+socket.once("error", () => finish(false));
+' "${port}" 2>&1
+    )"
+    probe_status=$?
+    if [ "${had_errexit}" -eq 1 ]; then
+      set -e
+    fi
+
+    case "${probe_status}" in
+      0 | 1)
+        return "${probe_status}"
+        ;;
+      *)
+        probe_output="$(printf '%s' "${probe_output}" | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g; s/^ //; s/ $//')"
+        PORT_PROBE_LAST_ERROR="docker-host port probe failed for image ${probe_image} with exit ${probe_status}${probe_output:+: ${probe_output}}"
+        return 2
+        ;;
+    esac
+  }
 
   if [[ "${occupied_ports}" == *,"${port}",* ]]; then
     return 0
@@ -412,47 +463,38 @@ is_port_occupied() {
       return 1
       ;;
     docker_host)
+      case "$-" in
+        *e*)
+          had_errexit=1
+          set +e
+          ;;
+      esac
+      run_docker_host_probe
+      probe_status=$?
+      if [ "${had_errexit}" -eq 1 ]; then
+        set -e
+      fi
+      return "${probe_status}"
       ;;
     auto)
       if [ -f "/.dockerenv" ] || [ -n "${CODEINFO_TEST_RUNNING_IN_CONTAINER:-}" ]; then
-        if [ -n "${probe_image}" ]; then
-          docker_cmd run --rm --network host --entrypoint node "${probe_image}" -e '
-const net = require("node:net");
-const [portValue] = process.argv.slice(1);
-const port = Number(portValue);
-const socket = net.connect({ host: "127.0.0.1", port, timeout: 250 });
-const finish = (occupied) => {
-  socket.destroy();
-  process.exit(occupied ? 0 : 1);
-};
-socket.once("connect", () => finish(true));
-socket.once("timeout", () => finish(false));
-socket.once("error", () => finish(false));
-' "${port}"
-          return $?
+        case "$-" in
+          *e*)
+            had_errexit=1
+            set +e
+            ;;
+        esac
+        run_docker_host_probe
+        probe_status=$?
+        if [ "${had_errexit}" -eq 1 ]; then
+          set -e
         fi
+        return "${probe_status}"
       fi
       ;;
     *)
       ;;
   esac
-
-  if [ "${CODEINFO_HOST_PORT_CHECK_SCOPE:-auto}" = "docker_host" ] && [ -n "${probe_image}" ]; then
-    docker_cmd run --rm --network host --entrypoint node "${probe_image}" -e '
-const net = require("node:net");
-const [portValue] = process.argv.slice(1);
-const port = Number(portValue);
-const socket = net.connect({ host: "127.0.0.1", port, timeout: 250 });
-const finish = (occupied) => {
-  socket.destroy();
-  process.exit(occupied ? 0 : 1);
-};
-socket.once("connect", () => finish(true));
-socket.once("timeout", () => finish(false));
-socket.once("error", () => finish(false));
-' "${port}"
-    return $?
-  fi
 
   case "${CODEINFO_TEST_DISABLE_REAL_PORT_CHECKS:-0}" in
     1 | true | TRUE | yes | YES | on | ON)
@@ -521,16 +563,39 @@ run_compose_preflight_if_needed() {
   fi
 
   if should_check_host_ports && [ -n "${checked_ports_csv}" ]; then
-    local port
+    local port port_status
     IFS=',' read -r -a checked_ports <<<"${checked_ports_csv}"
     for port in "${checked_ports[@]}"; do
-      if is_port_occupied "${port}" "${port_probe_image}"; then
-        fail_preflight \
-          "${compose_file_display}" \
-          "${playwright_service_present}" \
-          "${checked_ports_csv}" \
-          "CODEINFO compose preflight failed for ${compose_file_display}: required host port ${port} is already in use."
-      fi
+      set +e
+      is_port_occupied "${port}" "${port_probe_image}"
+      port_status=$?
+      set -e
+
+      case "${port_status}" in
+        0)
+          fail_preflight \
+            "${compose_file_display}" \
+            "${playwright_service_present}" \
+            "${checked_ports_csv}" \
+            "CODEINFO compose preflight failed for ${compose_file_display}: required host port ${port} is already in use."
+          ;;
+        1)
+          ;;
+        2)
+          fail_preflight \
+            "${compose_file_display}" \
+            "${playwright_service_present}" \
+            "${checked_ports_csv}" \
+            "CODEINFO compose preflight failed for ${compose_file_display}: unable to verify required host port ${port} because ${PORT_PROBE_LAST_ERROR}."
+          ;;
+        *)
+          fail_preflight \
+            "${compose_file_display}" \
+            "${playwright_service_present}" \
+            "${checked_ports_csv}" \
+            "CODEINFO compose preflight failed for ${compose_file_display}: host-port preflight returned unexpected status ${port_status} for port ${port}."
+          ;;
+      esac
     done
   fi
 

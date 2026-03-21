@@ -2409,7 +2409,7 @@ Use only the checked-in summary wrappers below. Do not attempt to run tests with
 ### Task 20. Make docker-host port probing fail closed with actionable preflight output
 
 - Repository Name: `codeInfo2`
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits: `to_do`
 
 #### Overview
@@ -2424,25 +2424,35 @@ Close review Finding 2 by making the compose wrapper’s docker-host port prefli
 
 #### Subtasks
 
-1. [ ] Re-read review Finding 2 and the existing Task 9 through Task 12 wrapper notes before editing `scripts/docker-compose-with-env.sh`. Keep the closure target visible while working: a broken docker-host probe must not silently degrade into a passing host-port preflight.
-2. [ ] Update `is_port_occupied()` and any related preflight helpers so the docker-host branch distinguishes between “port free,” “port occupied,” and “probe unavailable or failed.” If the docker-host probe cannot run, stop startup with actionable output that names the compose context or failing probe cause instead of implicitly continuing.
-3. [ ] Keep the wrapper-first contract honest after the change. Do not add a fallback that only works through a non-default manual invocation, and do not weaken the existing occupied-port, host-network-shape, or compose pass-through behavior that earlier tasks already proved.
-4. [ ] Extend `scripts/test/bats/docker-compose-with-env.bats` and any deterministic fixture binaries/config needed under `scripts/test/bats/fixtures/` so the checked-in shell harness proves at least:
+1. [x] Re-read review Finding 2 and the existing Task 9 through Task 12 wrapper notes before editing `scripts/docker-compose-with-env.sh`. Keep the closure target visible while working: a broken docker-host probe must not silently degrade into a passing host-port preflight.
+2. [x] Update `is_port_occupied()` and any related preflight helpers so the docker-host branch distinguishes between “port free,” “port occupied,” and “probe unavailable or failed.” If the docker-host probe cannot run, stop startup with actionable output that names the compose context or failing probe cause instead of implicitly continuing.
+3. [x] Keep the wrapper-first contract honest after the change. Do not add a fallback that only works through a non-default manual invocation, and do not weaken the existing occupied-port, host-network-shape, or compose pass-through behavior that earlier tasks already proved.
+4. [x] Extend `scripts/test/bats/docker-compose-with-env.bats` and any deterministic fixture binaries/config needed under `scripts/test/bats/fixtures/` so the checked-in shell harness proves at least:
    - the existing happy-path docker-host probe still succeeds when the probe launches;
    - a missing or failed probe image now causes a clear preflight failure instead of an implicit pass;
    - the failure output stays actionable for operators and still names the affected compose file or probe surface.
-5. [ ] Keep the change scoped to the checked-in wrapper and shell-harness path. If another unchanged launcher or selector controls this code path, open it and confirm the standard `npm run compose:*` entrypoints still execute the fixed behavior without manual overrides.
-6. [ ] Record any later documentation delta for Task 22. Do not update shared docs in this task unless a new file is created here.
+5. [x] Keep the change scoped to the checked-in wrapper and shell-harness path. If another unchanged launcher or selector controls this code path, open it and confirm the standard `npm run compose:*` entrypoints still execute the fixed behavior without manual overrides.
+6. [x] Record any later documentation delta for Task 22. Do not update shared docs in this task unless a new file is created here.
 
 #### Testing
 
 Use only the checked-in summary wrappers below. Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run test:summary:shell` If `failed > 0`, inspect the exact log path printed by the summary under `logs/test-summaries/`, then diagnose with wrapper-supported targeted args only if needed. After fixes, rerun full `npm run test:summary:shell`.
+1. [x] `npm run test:summary:shell` If `failed > 0`, inspect the exact log path printed by the summary under `logs/test-summaries/`, then diagnose with wrapper-supported targeted args only if needed. After fixes, rerun full `npm run test:summary:shell`.
 
 #### Implementation notes
 
 - Review disposition seed: this task was added after review pass `0000050-review-20260321T163857Z-eae3d4fc` found that the docker-host probe branch can currently return a raw probe-launch failure to the caller, which the wrapper then treats as “port not occupied” instead of a fail-fast preflight error.
+- Re-read review Finding 2 together with the earlier host-network wrapper notes before editing so the fix stayed scoped to the broken docker-host probe branch rather than reopening the already-validated host-network contract.
+- Updated `scripts/docker-compose-with-env.sh` so host-port preflight now treats docker-host probe results as a three-state contract: `occupied`, `free`, or `probe unavailable/failed`, with the last state failing closed through the normal compose preflight error path.
+- Kept the wrapper-first behavior intact by leaving the existing occupied-port, host-network shape, and compose pass-through checks unchanged; only the ambiguous probe-launch path now fails closed with actionable compose-file and port-specific output.
+- Extended the checked-in shell harness by adding deterministic docker-fixture support for forced `docker run` probe failures and a new compose fixture for the missing-probe-image case.
+- Added shell coverage in `scripts/test/bats/docker-compose-with-env.bats` for both fail-closed branches: unavailable probe image and docker-host probe process launch failure, while preserving the existing happy-path docker-host probe assertion.
+- Confirmed the normal `npm run compose:*` entrypoints still flow through `scripts/docker-compose-with-env.sh` by re-checking the root `package.json` scripts instead of introducing any alternate launcher.
+- Task 22 documentation delta: cite the Task 20 shell wrapper log as direct proof that docker-host probe failures now fail closed with actionable output through the standard compose wrapper path.
+- The first shell-wrapper rerun surfaced two real wrapper bugs instead of a contract miss: a missing `;;` in the new case branch and an `errexit`-state leak that caused the legitimate “port free” result to abort the script before preflight could inspect it.
+- Fixed the wrapper bugs, corrected the missing-probe-image compose fixture so it no longer inherited a fallback image from `playwright-mcp`, and reran the full shell summary wrapper to a clean pass.
+- `npm run test:summary:shell` now passes with `tests run: 12`, `passed: 12`, `failed: 0`, `agent_action: skip_log`, saved log `logs/test-summaries/shell-tests-2026-03-21T20-21-31-397Z.log`.
 
 ### Task 21. Correct the remaining MCP env-name documentation drift from Story 0000050
 

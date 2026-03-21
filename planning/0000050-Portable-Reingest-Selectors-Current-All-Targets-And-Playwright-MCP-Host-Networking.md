@@ -1363,6 +1363,7 @@ This final task proves the whole story against the acceptance criteria, updates 
 - `README.md`
 - `design.md`
 - `projectStructure.md`
+- `docs/developer-reference.md`
 - Context7 `/docker/compose`
 - Context7 `/microsoft/playwright`
 - Context7 `/typicode/husky`
@@ -1378,9 +1379,10 @@ This final task proves the whole story against the acceptance criteria, updates 
    - the single and batch re-ingest payloads;
    - the blank-markdown skip behavior;
    - the host-networked runtime and proof-wrapper flow.
-4. [ ] Update `projectStructure.md` with every new or changed file path created by this story, including wrappers, tests, vendored shell-harness runtime files, and any new server modules.
-5. [ ] Write the pull-request summary covering all tasks in this story, including server contract changes, Docker/runtime changes, wrapper changes, and proof-path additions.
-6. [ ] Run repo-wide lint and format gates as the last subtask for the story.
+4. [ ] Update `docs/developer-reference.md` so it no longer documents stale MCP URLs, stale env-var names, or bridge-only networking assumptions after the host-network and `CODEINFO_CHAT_MCP_PORT` cutover.
+5. [ ] Update `projectStructure.md` with every new or changed file path created by this story, including wrappers, tests, vendored shell-harness runtime files, and any new server modules.
+6. [ ] Write the pull-request summary covering all tasks in this story, including server contract changes, Docker/runtime changes, wrapper changes, and proof-path additions.
+7. [ ] Run repo-wide lint and format gates as the last subtask for the story.
 
 #### Testing
 

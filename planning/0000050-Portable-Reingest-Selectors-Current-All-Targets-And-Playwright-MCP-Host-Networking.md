@@ -2352,7 +2352,7 @@ Use only the checked-in summary wrappers below. Do not attempt to run tests with
 ### Task 19. Surface portable selector operational failures without misclassifying them as invalid input
 
 - Repository Name: `codeInfo2`
-- Task Status: **in_progress**
+- Task Status: **completed**
 - Git Commits: `ef51de1d` `DEV-[50] - Start task 17 selector outage contract fix`; `8a3d0c07` `DEV-[50] - Continue task 18 selector outage close-out`
 
 #### Overview
@@ -2383,7 +2383,7 @@ Close review Finding 1 by keeping the portable-selector path honest when reposit
 Use only the checked-in summary wrappers below. Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
 1. [x] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:server:unit`.
+2. [x] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:server:unit`.
 3. [x] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
@@ -2403,6 +2403,7 @@ Use only the checked-in summary wrappers below. Do not attempt to run tests with
 - Updated the stale unresolved-selector expectation in `server/src/test/unit/reingestExecution.test.ts` to the honest strict-service `NOT_FOUND` contract that applies once selector lookup succeeds but no ingested root matches.
 - Targeted wrapper reruns now pass for `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/unit/agent-commands-runner.test.ts`, and `server/src/test/integration/flows.run.errors.test.ts`, which confirms the Task 19 regression fix and its dependent harness expectations are aligned before the full-suite rerun.
 - `npm run test:summary:server:cucumber` passed cleanly with `71` tests run, `71` passed, `0` failed, and `agent_action: skip_log`; saved log: `test-results/server-cucumber-tests-2026-03-21T18-34-17-838Z.log`.
+- Task 18’s repaired full wrapper proof now closes this task’s deferred server-unit gate as well: `test-results/server-unit-tests-2026-03-21T20-01-43-197Z.log` ends with `tests 1372`, `pass 1372`, `fail 0`, so the selector-contract fix now has honest full-wrapper proof in addition to its targeted and cucumber coverage.
 - Story repair: the active blocker proved this task had become too large and was assuming a full-suite baseline that does not currently exist. New Task 18 now owns the unrelated loop-flow wrapper stabilization work, so this task stays focused on selector behavior plus the rerun of its own full-wrapper proof after that prerequisite lands.
 
 ### Task 20. Make docker-host port probing fail closed with actionable preflight output

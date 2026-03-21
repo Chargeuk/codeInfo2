@@ -1,5 +1,185 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000050 Task 16 structural change ledger
+
+Added files:
+
+- `planning/0000050-pr-summary.md`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `docs/developer-reference.md`
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 16 lands the final Story 50 close-out in the shared documentation set and adds `planning/0000050-pr-summary.md` as the reviewer-facing summary artifact for the completed story.
+- The README and developer reference now document the validated host-network runtime, wrapper-first proof path, evidence locations, and the `DEV-0000050:T01` through `DEV-0000050:T14` manual-proof marker checklist.
+- The design close-out adds one consolidated Story 50 contract section so reviewers can see the final re-ingest, transcript, blank-markdown, host-network, and proof-wrapper model in one place instead of reconstructing it from task-by-task notes.
+
+## Story 0000050 Task 15 structural change ledger
+
+Added files:
+
+- `scripts/emit-task14-validation-marker.mjs`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+
+Story notes:
+
+- Task 15 reused the already-landed runtime stack and evidence paths, then added `scripts/emit-task14-validation-marker.mjs` as the checked-in helper that emits the final `DEV-0000050:T14:story_validation_completed` marker.
+- Manual proof artifacts for the final validation live under `playwright-output-local/0000050-14-*.png`, while the reusable wrapper outputs remain under `logs/test-summaries/` and `test-results/`.
+
+## Story 0000050 Task 14 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `.prettierignore`
+- `client/src/components/Markdown.tsx`
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/components/chat/VirtualizedTranscript.tsx`
+- `client/src/components/ingest/ActiveRunCard.tsx`
+- `client/src/components/ingest/IngestForm.tsx`
+- `client/src/config/previewAllowedHosts.ts`
+- `client/src/config/runtimeConfig.ts`
+- `client/src/hooks/useConversations.ts`
+- `client/src/hooks/useIngestModels.ts`
+- `client/src/hooks/useIngestRoots.ts`
+- `client/src/test/baseUrl.env.test.ts`
+- `client/src/test/chatPage.flags.approval.payload.test.tsx`
+- `client/src/test/chatPage.flags.reasoning.payload.test.tsx`
+- `client/src/test/chatPage.focusRefresh.test.tsx`
+- `client/src/test/chatPage.models.test.tsx`
+- `client/src/test/chatPage.workingFolder.test.tsx`
+- `client/src/test/config/previewAllowedHosts.test.ts`
+- `client/src/test/conversationsApi.workingFolder.test.ts`
+- `client/src/test/logging/transport.test.ts`
+- `client/src/test/useChatWs.test.ts`
+- `client/src/test/useIngestRoots.test.tsx`
+- `codeInfoStatus/flow-state/current-plan.json`
+- `codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-evidence.md`
+- `codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md`
+- `codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-evidence.md`
+- `codeInfoStatus/reviews/0000047-20260315T201134Z-edfbd11e-evidence.md`
+- `codeInfoStatus/reviews/0000047-external-review-input.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260318T005340Z-c547031b-evidence.md`
+- `codeInfoStatus/reviews/0000049-20260319T110609Z-719900be-evidence.md`
+- `codeInfoStatus/reviews/0000049-20260319T130208Z-644b72c6-evidence.md`
+- `codeInfo_simple_stories/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `codeinfo_markdown/check_all_changes_are_tasked_up.md`
+- `codeinfo_markdown/code_info_task_search.md`
+- `codeinfo_markdown/create_final_summary.md`
+- `codeinfo_markdown/create_new_story.md`
+- `codeinfo_markdown/create_simple_story.md`
+- `codeinfo_markdown/deployment_tasks_setup.md`
+- `codeinfo_markdown/documentation_tasks_update.md`
+- `codeinfo_markdown/ensure_testing_steps_are_correct.md`
+- `codeinfo_markdown/junior_developer_tasks.md`
+- `codeinfo_markdown/linting_tasks_setup.md`
+- `codeinfo_markdown/logline_tasks.md`
+- `codeinfo_markdown/qa.md`
+- `codeinfo_markdown/screenshot_test_tasks.md`
+- `codeinfo_markdown/select_next_plan_and_branch.md`
+- `codeinfo_markdown/subtasks_for_linting.md`
+- `codex_agents/planning_agent/commands/create_new_story.json`
+- `codex_agents/planning_agent/commands/qa.json`
+- `flows/implement_next_plan.json`
+- `flows/improve_next_plan.json`
+- `flows/improve_task_implement_plan.json`
+- `flows/ingest_external_review_plan.json`
+- `flows/review_plan.json`
+- `flows/task_and_implement_plan.json`
+- `planning/0000007-ingest-visibility.md`
+- `planning/0000008-tool-visibility.md`
+- `planning/0000010-codex-cli-integration.md`
+- `planning/0000013-conversation-persistence.md`
+- `planning/0000018-agent-commands.md`
+- `planning/0000019-chat-page-ux.md`
+- `planning/0000020-ingest-delta-reembed-and-ingest-page-ux.md`
+- `planning/0000021-agents-chat-unification.md`
+- `planning/0000022-ingest-ws-streaming-and-layout.md`
+- `planning/0000023-conversation-sidebar-fixes.md`
+- `planning/0000024-chat-bubble-metadata-and-agent-steps.md`
+- `planning/0000025-summary-first-retrieval.md`
+- `planning/0000026-codex-models-and-flag-defaults-via-env.md`
+- `planning/0000027-flows-mode.md`
+- `planning/0000028-agents-chat-gui-consistency.md`
+- `planning/0000029-flow-agent-transcripts-and-inflight-hydration.md`
+- `planning/0000030-flow-page-stability-ui.md`
+- `planning/0000031-codex-device-auth-relogin.md`
+- `planning/0000032-tree-sitter-ast-index.md`
+- `planning/0000033-ast-language-support.md`
+- `planning/0000034-ingested-repo-commands-flows.md`
+- `planning/0000035-mcp-keepalive-defaults-reingest-and-chat-rendering.md`
+- `planning/0000036-openai-embeddings-provider-locking.md`
+- `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`
+- `planning/0000038-agent-ux-stop-and-ingest-status.md`
+- `planning/0000039-agents-command-info-and-working-folder-prompts.md`
+- `planning/0000041-corporate-registry-and-certificate-overrides-via-codeinfo-env.md`
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `planning/0000046-prevent-blank-embedding-inputs-and-unintended-conversation-switch-stops.md`
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `planning/plan_format.md`
+- `planning/plan_format_no_tasks.md`
+- `server/src/ingest/pathMap.ts`
+- `server/src/routes/conversations.ts`
+- `server/src/test/integration/flows.run.loop.test.ts`
+- `server/src/test/integration/flows.run.working-folder.test.ts`
+- `server/src/test/support/chromaContainer.ts`
+- `server/src/test/unit/agents-router-run.test.ts`
+- `server/src/test/unit/chat-interface-run-persistence.test.ts`
+- `server/src/test/unit/chatValidators.test.ts`
+- `server/src/test/unit/openai-ingest-retries-config.test.ts`
+- `server/src/workingFolders/state.ts`
+
+Story notes:
+
+- Task 14 repaired the root repo-quality baseline rather than adding new product files: it added one narrow `.prettierignore` exception for the intentional invalid JSON fixture, kept the safe repo-wide lint autofixes, and normalized the tracked-file formatting drift with the checked-in root `npm run format` path.
+- The only behavior change in Task 14 was the `SharedTranscript.tsx` dependency cleanup needed to satisfy the restored root lint gate; the remainder of the diff was import-order or formatting-only normalization required to make the root gates pass honestly again.
+
 ## Story 0000050 Task 12 structural change ledger
 
 Added files:

@@ -5060,6 +5060,55 @@ flowchart TD
     Helper --> UnitTests[server/src/test/unit/test-summary-host-network-main.test.ts]
 ```
 
+## Story 0000050 final contract summary
+
+- Re-ingest requests now support three explicit target modes across commands, flow steps, and flow-owned command items:
+  - `sourceId: "<selector>"`
+  - `target: "current"`
+  - `target: "all"`
+- The shared orchestration seam in `server/src/ingest/reingestExecution.ts` resolves those requests into one intermediate result family before persistence:
+  - single target: `{ kind: "single", targetMode, requestedSelector, resolvedSourceId, outcome }`
+  - batch target: `{ kind: "batch", targetMode: "all", requestedSelector: null, repositories, summary }`
+- Persisted transcript payloads stay on one synthetic user turn plus one synthetic assistant turn, with `reingest_step_result` for single-target runs and `reingest_step_batch_result` for ordered `target: "all"` runs.
+- Blank markdown remains a repository-resolution feature, not a transcript feature. Missing, traversal, decode, and read failures still fail the step, while whitespace-only markdown now exits through the explicit Task 5 skip seam and does not fabricate turns or tool-call payloads.
+- The final runtime contract keeps four distinct host-visible surfaces:
+  - REST plus classic `/mcp` on `CODEINFO_SERVER_PORT`
+  - dedicated chat MCP on `CODEINFO_CHAT_MCP_PORT`
+  - dedicated agents MCP on `CODEINFO_AGENTS_MCP_PORT`
+  - Playwright control on the full URL `CODEINFO_PLAYWRIGHT_MCP_URL`
+- Host-network Compose is validated, but browser navigation and Playwright control remain intentionally split. Chrome DevTools `9222` is a separate CDP/manual-debug surface and not a replacement for Playwright MCP.
+- Final proof is wrapper-first: build/test summaries, compose build, compose up, the checked-in main-stack host-network probe wrapper, saved screenshots in `playwright-output-local/`, and the runtime marker `DEV-0000050:T14:story_validation_completed`.
+
+```mermaid
+flowchart TD
+    Request["reingest request"] --> Mode{sourceId | current | all}
+    Mode --> Resolve["reingestExecution.ts resolves targets"]
+    Resolve --> Single["kind=single"]
+    Resolve --> Batch["kind=batch"]
+    Single --> PersistSingle["reingest_step_result"]
+    Batch --> PersistBatch["reingest_step_batch_result + summary"]
+    PersistSingle --> Transcript["synthetic user + assistant turns"]
+    PersistBatch --> Transcript
+    Markdown["markdownFile resolution"] --> Blank{trimmed content empty?}
+    Blank -->|yes| Skip["DEV-0000050:T05:markdown_step_skipped"]
+    Blank -->|no| Transcript
+    Skip --> NoTurns["no turns or tool payloads persisted"]
+```
+
+```mermaid
+flowchart LR
+    Build["summary wrappers"] --> ComposeBuild["npm run compose:build:summary"]
+    ComposeBuild --> ComposeUp["npm run compose:up"]
+    ComposeUp --> Rest["REST + classic /mcp : CODEINFO_SERVER_PORT"]
+    ComposeUp --> ChatMcp["chat MCP : CODEINFO_CHAT_MCP_PORT"]
+    ComposeUp --> AgentsMcp["agents MCP : CODEINFO_AGENTS_MCP_PORT"]
+    ComposeUp --> Playwright["Playwright MCP : CODEINFO_PLAYWRIGHT_MCP_URL"]
+    ComposeUp --> Cdp["Chrome DevTools :9222 (manual only)"]
+    Playwright --> Probe["npm run test:summary:host-network:main"]
+    Probe --> Screens["playwright-output-local/0000050-14-*.png"]
+    Screens --> Marker["DEV-0000050:T14:story_validation_completed"]
+```
+
 ### ChatInterface event buffering & persistence
 
 - The server unifies chat execution behind `ChatInterface` (`server/src/chat/interfaces/ChatInterface.ts`) with provider-specific subclasses (`ChatInterfaceCodex`, `ChatInterfaceLMStudio`) selected via `getChatInterface(provider)` (`server/src/chat/factory.ts`).

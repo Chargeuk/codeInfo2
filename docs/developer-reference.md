@@ -160,6 +160,94 @@ Use this document for API contracts, protocol details, and advanced runtime beha
 - Logging readers live in [`server/src/logger.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/logger.ts) and the wrapper assets [`scripts/test-summary-server-unit.mjs`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/scripts/test-summary-server-unit.mjs), [`scripts/test-summary-server-cucumber.mjs`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/scripts/test-summary-server-cucumber.mjs), [`server/package.json`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/package.json), [`docker-compose.yml`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.yml), [`docker-compose.local.yml`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.local.yml), and [`docker-compose.e2e.yml`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.e2e.yml): `CODEINFO_LOG_FILE_PATH`, `CODEINFO_LOG_LEVEL`, `CODEINFO_LOG_BUFFER_MAX`, `CODEINFO_LOG_MAX_CLIENT_BYTES`, `CODEINFO_LOG_INGEST_WS_THROTTLE_MS`, and `CODEINFO_LOG_FILE_ROTATE`.
 - Only the renamed `CODEINFO_*` server names above are supported in checked-in defaults, wrappers, and docs; pre-cutover generic server env names are intentionally omitted from this reference and remain unsupported.
 
+### Story 50 host-network runtime contract
+
+- The validated checked-in host-network runtime uses these host-visible addresses:
+  - client UI: `http://host.docker.internal:5001`
+  - REST API plus classic `POST /mcp`: `http://host.docker.internal:5010`
+  - dedicated chat MCP listener: `http://host.docker.internal:5011`
+  - dedicated agents MCP listener: `http://host.docker.internal:5012`
+  - Playwright MCP control URL: `http://host.docker.internal:8932/mcp`
+  - local manual-debug Chrome DevTools discovery: `http://host.docker.internal:9222`
+- E2E keeps the same split on host-visible addresses:
+  - browser base URL: `http://host.docker.internal:6001`
+  - REST API plus classic `POST /mcp`: `http://host.docker.internal:6010`
+  - chat MCP: `http://host.docker.internal:6011`
+  - agents MCP: `http://host.docker.internal:6012`
+  - Playwright MCP control still points at the main-stack URL `http://host.docker.internal:8932/mcp`
+- Port/env meanings after the Story 50 cutover:
+  - `CODEINFO_SERVER_PORT`: Express REST port and the classic `POST /mcp` surface on the same listener
+  - `CODEINFO_CHAT_MCP_PORT`: dedicated chat MCP listener; do not treat it as an alias of `CODEINFO_SERVER_PORT`
+  - `CODEINFO_AGENTS_MCP_PORT`: dedicated agents MCP listener
+  - `CODEINFO_PLAYWRIGHT_MCP_URL`: full URL for Playwright control; it is not derived from the other MCP port env vars and stays distinct from browser navigation and Chrome DevTools
+- Runtime prerequisites:
+  - the checked-in host-network Compose files require a Docker runtime that supports host networking
+  - `host.docker.internal` must resolve for the host and for the containerized agent/browser tooling
+  - checked-out repositories intended for host-visible working-folder and ingest selection should live under `${HOME}/Documents/dev`
+  - host Codex auth should be available via `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}`
+
+### Story 50 env-file precedence
+
+- `server/.env` is the base server runtime defaults file.
+- `server/.env.local` overrides `server/.env` for compose-driven local and main-stack runs.
+- `server/.env.e2e` provides server runtime defaults for the e2e stack.
+- Root `.env.e2e` is different: it is consumed by the checked-in e2e wrappers and Compose interpolation path, not as a replacement for `server/.env.e2e`.
+- Client e2e runtime defaults stay in `client/.env.e2e`.
+- In practice:
+  - `npm run compose`, `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` use `server/.env` plus `server/.env.local`
+  - `npm run test:summary:e2e` and the e2e compose path use root `.env.e2e` for wrapper/Compose interpolation and still rely on `server/.env.e2e` plus `client/.env.e2e` inside the runtime images
+
+### Story 50 wrapper-first validation and evidence
+
+- Checked-in summary-wrapper commands used for the final validated story state:
+  - `npm run build:summary:server`
+  - `npm run build:summary:client`
+  - `npm run test:summary:server:unit`
+  - `npm run test:summary:server:cucumber`
+  - `npm run test:summary:client`
+  - `npm run test:summary:e2e`
+  - `npm run compose:build:summary`
+  - `npm run compose:up`
+  - `npm run test:summary:host-network:main`
+  - `npm run compose:down`
+- Wrapper log rule:
+  - when a wrapper reports clean success with `agent_action: skip_log`, do not open the saved log just to inspect it
+  - only open the saved log when the wrapper reports failure, unexpected warnings, or ambiguous/unknown counts
+- Story 50 evidence locations:
+  - `logs/test-summaries/build-server-latest.log`
+  - `logs/test-summaries/build-client-latest.log`
+  - `logs/test-summaries/compose-build-latest.log`
+  - `logs/test-summaries/host-network-main-latest.log`
+  - `logs/test-summaries/e2e-tests-latest.log`
+  - `test-results/client-tests-2026-03-21T16-17-21-781Z.log`
+  - `playwright-output-local/0000050-14-chat-ready.png`
+  - `playwright-output-local/0000050-14-logs-proof.png`
+  - `scripts/emit-task14-validation-marker.mjs`
+
+### Story 50 manual validation markers
+
+- Manual Playwright-MCP proof uses the marker set below as the reviewer checklist:
+  - `DEV-0000050:T01:reingest_request_shape_accepted` — runtime `/logs`
+  - `DEV-0000050:T02:reingest_strict_result_normalized` — runtime `/logs`
+  - `DEV-0000050:T03:reingest_targets_resolved` — runtime `/logs`
+  - `DEV-0000050:T04:reingest_payload_persisted` — runtime `/logs`
+  - `DEV-0000050:T05:markdown_step_skipped` — runtime `/logs`
+  - `DEV-0000050:T06:mcp_endpoints_normalized` — runtime `/logs`
+  - `DEV-0000050:T07:checked_in_mcp_contract_loaded` — runtime `/logs`
+  - `DEV-0000050:T08:shell_harness_ready` — shell wrapper output
+  - `DEV-0000050:T09:compose_preflight_result` — compose wrapper output
+  - `DEV-0000050:T10:image_runtime_assets_baked` — `logs/test-summaries/compose-build-latest.log`
+  - `DEV-0000050:T11:host_network_runtime_ready` — runtime startup logs and `/logs`
+  - `DEV-0000050:T12:main_stack_probe_completed` — `logs/test-summaries/host-network-main-latest.log`
+  - `DEV-0000050:T13:e2e_host_network_config_verified` — `logs/test-summaries/e2e-tests-latest.log`
+  - `DEV-0000050:T14:story_validation_completed` — runtime `/logs`
+- The final manual proof path is:
+  1. validate the saved wrapper outputs first
+  2. browse the running UI at `http://host.docker.internal:5001`
+  3. confirm the marker rows are visible in `/logs`
+  4. compare the saved screenshots in `playwright-output-local/0000050-14-*.png`
+  5. confirm the final `T14` marker includes `traceabilityPass`, `manualChecksPassed`, `screenshotCount`, and `proofWrapperPassed`
+
 ### Story 48 lookup and working-folder contract
 
 - Repository lookup order is one shared server contract:

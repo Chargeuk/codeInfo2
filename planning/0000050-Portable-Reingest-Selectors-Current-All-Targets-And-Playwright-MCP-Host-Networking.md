@@ -978,17 +978,22 @@ Add the new re-ingest request union to command and flow schema parsing so JSON f
    ]);
    ```
 3. [ ] In `server/src/flows/flowSchema.ts`, mirror the same `reingest` union for flow steps and keep the rest of the `flowStepUnionSchema()` behavior unchanged. The end result must leave `llm`, `break`, `command`, and `startLoop` validation exactly as-is while only broadening the `reingest` step shape.
-4. [ ] In `server/src/test/unit/agent-commands-schema.test.ts`, add or update parse tests that call the real command-file parser and prove these exact cases from `## Message Contracts And Storage Shapes`:
-   - valid `sourceId`;
-   - valid `target: "current"`;
-   - valid `target: "all"`;
-   - rejection when both `sourceId` and `target` are present;
-   - rejection when `target` is not one of `current` or `all`;
-   - rejection when `sourceId` is empty or whitespace-only;
-   - rejection when an unexpected extra property is present on a strict `reingest` item.
-5. [ ] In `server/src/test/unit/flows-schema.test.ts`, add the same pass/fail coverage for flow-step parsing so command and flow files enforce the same contract. Keep the tests close to the existing `reingest` schema coverage so later developers can find both parser paths quickly, including the empty-selector and extra-key corner cases.
-6. [ ] Record any new or renamed files for later documentation updates in Task 15. Do not update `README.md`, `design.md`, or `projectStructure.md` in this task unless a new file is created here.
-7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+4. [ ] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that parses a command file containing `{ "type": "reingest", "sourceId": "<selector-or-path>" }`. Purpose: prove the happy-path command schema still accepts explicit selector/path re-ingest items.
+5. [ ] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that parses a command file containing `{ "type": "reingest", "target": "current" }`. Purpose: prove the command schema accepts the new current-repository target.
+6. [ ] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that parses a command file containing `{ "type": "reingest", "target": "all" }`. Purpose: prove the command schema accepts the new all-repositories target.
+7. [ ] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that rejects a command item containing both `sourceId` and `target`. Purpose: prove the union is mutually exclusive instead of silently accepting ambiguous input.
+8. [ ] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that rejects a command item whose `target` is not `current` or `all`. Purpose: prove invalid target values fail at parse time.
+9. [ ] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that rejects an empty or whitespace-only `sourceId`. Purpose: prove the command schema does not accept blank selectors.
+10. [ ] Add a server unit test in `server/src/test/unit/agent-commands-schema.test.ts` that rejects an otherwise valid `reingest` item containing an unexpected extra property. Purpose: prove the strict object shape still rejects undeclared keys.
+11. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that parses a flow step containing `{ "type": "reingest", "sourceId": "<selector-or-path>" }`. Purpose: prove the happy-path flow schema still accepts explicit selector/path re-ingest steps.
+12. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that parses a flow step containing `{ "type": "reingest", "target": "current" }`. Purpose: prove the flow schema accepts the new current-repository target.
+13. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that parses a flow step containing `{ "type": "reingest", "target": "all" }`. Purpose: prove the flow schema accepts the new all-repositories target.
+14. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects a flow step containing both `sourceId` and `target`. Purpose: prove flow parsing keeps the same mutual-exclusion rule as command parsing.
+15. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects a flow step whose `target` is not `current` or `all`. Purpose: prove invalid flow target values fail at parse time.
+16. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects an empty or whitespace-only `sourceId`. Purpose: prove the flow schema does not accept blank selectors.
+17. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects an otherwise valid `reingest` flow step containing an unexpected extra property. Purpose: prove the strict flow step shape still rejects undeclared keys.
+18. [ ] Record any new or renamed files for later documentation updates in Task 15. Do not update `README.md`, `design.md`, or `projectStructure.md` in this task unless a new file is created here.
+19. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1033,15 +1038,20 @@ Keep `runReingestRepository()` strict on one canonical repository, but extend it
    - keep existing failure codes and retry lists;
    - map internal ingest `skipped` to `status: "completed"` with `completionMode: "skipped"`;
    - keep the exact pre-start validation and busy-state categories unchanged for `missing`, `non_absolute`, `ambiguous_path`, `unknown_root`, `busy`, and `invalid_state`.
-4. [ ] In `server/src/test/unit/reingestService.test.ts`, add or update tests around the actual `runReingestRepository()` result so they prove:
-   - completed runs set `completionMode: "reingested"`;
-   - internal skipped runs set `completionMode: "skipped"`;
-   - cancelled or error runs set `completionMode: null`;
-   - `resolvedRepositoryId` is populated when the repository id is known;
-   - `resolvedRepositoryId` stays `null` when the underlying repo metadata has no repository id to report;
-   - the existing validation failure codes, messages, and retry-after semantics remain unchanged for `missing`, `non_absolute`, `ambiguous_path`, `unknown_root`, `busy`, and `invalid_state`.
-5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+4. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises a completed re-ingest and asserts `completionMode: "reingested"`. Purpose: prove the happy-path result distinguishes a real re-ingest from other completed outcomes.
+5. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises an internal skipped ingest and asserts `completionMode: "skipped"`. Purpose: prove completed no-op behavior is preserved without being mislabeled as a full re-ingest.
+6. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises a cancelled execution and asserts `completionMode: null`. Purpose: prove cancelled outcomes do not report a misleading completion mode.
+7. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises a terminal error execution and asserts `completionMode: null`. Purpose: prove error outcomes do not report a misleading completion mode.
+8. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises a known repository id and asserts `resolvedRepositoryId` is populated. Purpose: prove downstream orchestration can identify the selected repository.
+9. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that exercises a repository record with no repository id and asserts `resolvedRepositoryId: null`. Purpose: prove the contract is explicit when repository metadata is incomplete.
+10. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `missing` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: guard against breaking existing caller expectations while extending the success payload.
+11. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `non_absolute` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the exact absolute-path validation contract.
+12. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `ambiguous_path` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the existing ambiguous-path failure contract.
+13. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `unknown_root` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the existing unknown-root failure contract.
+14. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `busy` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the busy-state retry contract.
+15. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `invalid_state` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the invalid-state failure contract.
+16. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+17. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1088,21 +1098,20 @@ Implement the shared server-side orchestration that resolves the three re-ingest
    - execute sequentially;
    - return an empty batch result when there are zero repositories;
    - continue after a per-repository failure and record that failure instead of aborting the batch.
-5. [ ] Add or update server unit or integration tests near the existing re-ingest runner coverage, especially around `server/src/test/integration/commands.reingest.test.ts`, so they prove:
-   - `sourceId` selector resolution by repo id and path;
-   - duplicate case-insensitive repository ids still resolve through the existing selector helper rule of picking the latest ingest instead of failing ambiguous;
-   - direct-command `target: "current"` uses the command owner on the happy path;
-   - top-level-flow `target: "current"` uses the flow owner on the happy path;
-   - nested command-item `target: "current"` uses the nested command owner rather than the parent flow owner on the happy path;
-   - `current` failure when there is no owning repository;
-   - `current` failure when the owning repository exists in metadata but is not currently ingested;
-   - `all` ordering;
-   - zero-repository `all` behavior;
-   - continue-on-failure behavior for `all`;
-   - `all` still returns the successful and skipped entries after an earlier repository failure instead of truncating the batch;
-   - selector or target orchestration preserves the existing strict-service failure categories instead of collapsing them into a generic error.
-6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+5. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that uses a repo id selector and proves `sourceId` resolution still reaches the canonical repository path. Purpose: preserve the happy-path selector contract for repository ids.
+6. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that uses an absolute path selector and proves explicit path-based re-ingest still works. Purpose: preserve backward compatibility for existing path-only workflows.
+7. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that sets up duplicate case-insensitive repository ids and proves the selector helper still picks the latest ingest instead of failing ambiguous. Purpose: preserve the existing repository-selector tie-break behavior called for by the story.
+8. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that exercises direct-command `target: "current"` on the happy path. Purpose: prove the command owner is used when a command file re-ingests its own repository.
+9. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that exercises top-level-flow `target: "current"` on the happy path. Purpose: prove the flow owner is used when a flow step re-ingests the current flow repository.
+10. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that exercises nested command-item `target: "current"` on the happy path. Purpose: prove nested command execution uses the command owner rather than the parent flow owner.
+11. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that exercises `target: "current"` when there is no owning repository. Purpose: prove the step fails fast instead of falling back to another repository.
+12. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that exercises `target: "current"` when the owner exists in metadata but is not currently ingested. Purpose: prove the missing-ingest error happens before strict execution starts.
+13. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that exercises `target: "all"` with multiple repositories and asserts ascending canonical path order. Purpose: prove deterministic batch ordering.
+14. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that exercises `target: "all"` when there are zero ingested repositories. Purpose: prove the corner case returns an empty batch instead of crashing or fabricating work.
+15. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that exercises `target: "all"` with a failing repository followed by successful or skipped repositories. Purpose: prove the batch continues after failure and preserves later outcomes instead of truncating the run.
+16. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that verifies selector and target orchestration still surfaces the existing strict-service failure categories rather than collapsing them into a generic error. Purpose: preserve downstream error handling expectations.
+17. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+18. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1148,17 +1157,17 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
 3. [ ] Add the new `reingest_step_batch_result` payload variant in the same area with the ordered `repositories` array and `summary` object from `## Message Contracts And Storage Shapes`. The batch payload must represent one `target: "all"` action, not one payload per repository.
 4. [ ] Update `server/src/chat/reingestStepLifecycle.ts` so one `target: "all"` run records one batch payload instead of one synthetic turn pair per repository. Reuse the existing synthetic-turn lifecycle and `Turn.toolCalls` persistence path rather than creating a second batch-only persistence channel.
 5. [ ] Keep backward compatibility for older stored single payloads by making the payload reader tolerant of both the old and new single-result shapes. In `server/src/mongo/turn.ts`, remember that `toolCalls` stays `Schema.Types.Mixed`, so the read path must tolerate omitted optional nested fields rather than depending on empty-object persistence.
-6. [ ] Add or update server unit coverage in `server/src/test/unit/reingest-tool-result.test.ts` and `server/src/test/unit/reingest-step-lifecycle.test.ts` so they prove:
-   - new single payload fields;
-   - batch payload fields and ordering;
-   - batch payload summary counts for mixed `reingested`, `skipped`, and `failed` outcomes;
-   - batch payload entries keep the failed repository error text when one repository fails inside `target: "all"`;
-   - empty `target: "all"` runs still persist one batch payload with an empty repository list instead of omitting the transcript item;
-   - lifecycle persistence still uses `Turn.toolCalls`;
-   - older single payloads remain readable;
-   - `targetMode`, `requestedSelector`, and `resolvedRepositoryId` are preserved for both selector-driven and `current`-target single results.
-7. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+6. [ ] Add a server unit test in `server/src/test/unit/reingest-tool-result.test.ts` that builds a single-result payload and asserts the new single payload fields are present. Purpose: prove the happy-path transcript contract now exposes the added single-result fields.
+7. [ ] Add a server unit test in `server/src/test/unit/reingest-tool-result.test.ts` that builds a selector-driven single-result payload and asserts `targetMode`, `requestedSelector`, and `resolvedRepositoryId` are preserved. Purpose: prove explicit-selector transcript metadata survives serialization.
+8. [ ] Add a server unit test in `server/src/test/unit/reingest-tool-result.test.ts` that builds a `target: "current"` single-result payload and asserts `targetMode`, `requestedSelector`, and `resolvedRepositoryId` are preserved. Purpose: prove current-target transcript metadata survives serialization.
+9. [ ] Add a server unit test in `server/src/test/unit/reingest-tool-result.test.ts` that builds a batch payload and asserts repository ordering is preserved. Purpose: prove the batch transcript keeps deterministic repository order.
+10. [ ] Add a server unit test in `server/src/test/unit/reingest-tool-result.test.ts` that builds a mixed-outcome batch payload and asserts the `summary` counts for `reingested`, `skipped`, and `failed`. Purpose: prove the batch summary can be trusted by UI and logs without recomputation.
+11. [ ] Add a server unit test in `server/src/test/unit/reingest-tool-result.test.ts` that builds a batch payload containing a failed repository and asserts the repository-level error text is preserved. Purpose: prove failure detail is not dropped from batch transcript entries.
+12. [ ] Add a server unit test in `server/src/test/unit/reingest-step-lifecycle.test.ts` that persists an empty `target: "all"` run and asserts one batch payload is still stored with an empty repository list. Purpose: prove the empty-batch corner case still leaves an explicit transcript record.
+13. [ ] Add a server unit test in `server/src/test/unit/reingest-step-lifecycle.test.ts` that exercises a batch run and asserts lifecycle persistence still uses `Turn.toolCalls`. Purpose: prove the new batch mode reuses the existing persistence path instead of creating a second channel.
+14. [ ] Add a server unit test in `server/src/test/unit/reingest-step-lifecycle.test.ts` that reads an older single-result payload and asserts it still parses correctly. Purpose: prove backward compatibility for already-stored transcript data.
+15. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+16. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1202,16 +1211,18 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
    - `reason: "empty_markdown"`
    - plus any available command or flow context already present at the call site.
 4. [ ] Ensure the skip only applies to successful empty-content reads. Missing files, absolute paths, traversal attempts, permission failures, invalid UTF-8, and other existing resolver errors in `server/src/flows/markdownFileResolver.ts` must still fail exactly as they do today.
-5. [ ] Add or update tests in `server/src/test/unit/markdown-file-resolver.test.ts` and `server/src/test/integration/commands.markdown-file.test.ts` so they prove:
-   - whitespace-only markdown is skipped for direct commands;
-   - whitespace-only markdown is skipped for flows;
-   - newline-only markdown and space-only markdown both take the skip path;
-   - the emitted info log includes `surface`, `markdownFile`, `resolvedPath`, and `reason: "empty_markdown"`;
-   - missing-file and traversal failures are still treated as hard failures rather than skip cases;
-   - permission or UTF-8 failures still throw;
-   - no synthetic tool-result payload is created just because a markdown file was skipped.
-6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+5. [ ] Add a server integration test in `server/src/test/integration/commands.markdown-file.test.ts` that exercises a direct command whose resolved markdown file contains only whitespace. Purpose: prove the happy-path skip behavior works for direct command execution.
+6. [ ] Add a server integration test in `server/src/test/integration/commands.markdown-file.test.ts` that exercises a flow step whose resolved markdown file contains only whitespace. Purpose: prove the same skip behavior works for flow execution through the shared seam.
+7. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that covers a newline-only markdown file. Purpose: prove the skip logic trims line-break-only content correctly.
+8. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that covers a space-only markdown file. Purpose: prove the skip logic trims plain-space content correctly.
+9. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that asserts the emitted info log includes `surface`, `markdownFile`, `resolvedPath`, and `reason: "empty_markdown"`. Purpose: prove the documented log contract is emitted exactly where operators need it.
+10. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that exercises a missing markdown file. Purpose: prove missing-file failures remain hard failures rather than skip cases.
+11. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that exercises a traversal attempt. Purpose: prove traversal protection remains a hard failure rather than a skip case.
+12. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that exercises a permission-denied read failure. Purpose: prove file permission failures still throw exactly as before.
+13. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that exercises an invalid-UTF-8 decode failure. Purpose: prove decoding failures still throw exactly as before.
+14. [ ] Add a server integration test in `server/src/test/integration/commands.markdown-file.test.ts` that verifies no synthetic tool-result payload is created when a markdown-backed step is skipped for empty content. Purpose: prove the skip does not fabricate transcript output.
+15. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+16. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1255,14 +1266,16 @@ Finish the shared runtime placeholder normalization layer before any checked-in 
    - `CODEINFO_PLAYWRIGHT_MCP_URL`
 3. [ ] Make one shared endpoint contract feed base-config seeding, chat runtime loading, agent runtime loading, provider status probes, startup endpoint reporting, and the dedicated MCP bind surfaces. Keep the intentional split between chat/base MCP and agents MCP intact; do not collapse them into one URL.
 4. [ ] Remove any stale runtime-code bypasses that still hard-code MCP URLs or legacy env fallbacks outside the shared normalization path, especially in startup reporting and provider status code.
-5. [ ] Add or update server unit coverage in `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/codexConfig.test.ts`, `server/src/test/unit/chatProviders.test.ts`, and `server/src/test/unit/chatModels.codex.test.ts` so it proves:
-   - placeholder replacement works for the checked-in config style for `${CODEINFO_SERVER_PORT}`, `${CODEINFO_CHAT_MCP_PORT}`, `${CODEINFO_AGENTS_MCP_PORT}`, and `CODEINFO_PLAYWRIGHT_MCP_URL`;
-   - unresolved placeholders fail clearly;
-   - the resolved chat/base MCP endpoint and the resolved agents MCP endpoint stay intentionally distinct where the checked-in config expects them to differ;
-   - browser navigation URLs and MCP control-channel URLs remain separate contracts and are not normalized into the same value by accident;
-   - chat/provider/runtime entrypoints and status probes no longer bypass the shared endpoint contract with stale hard-coded MCP URLs or legacy env fallbacks.
-6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+5. [ ] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that resolves a checked-in config using `${CODEINFO_SERVER_PORT}`. Purpose: prove server-port placeholders normalize through the shared runtime path.
+6. [ ] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that resolves a checked-in config using `${CODEINFO_CHAT_MCP_PORT}`. Purpose: prove the chat MCP placeholder normalizes through the shared runtime path.
+7. [ ] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that resolves a checked-in config using `${CODEINFO_AGENTS_MCP_PORT}`. Purpose: prove the agents MCP placeholder normalizes through the shared runtime path.
+8. [ ] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that resolves a checked-in config using `CODEINFO_PLAYWRIGHT_MCP_URL`. Purpose: prove the Playwright full-URL override normalizes through the same shared contract.
+9. [ ] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that leaves a required placeholder unresolved and asserts a clear failure. Purpose: prove raw placeholder text cannot leak into the effective runtime config.
+10. [ ] Add a server unit test in `server/src/test/unit/codexConfig.test.ts` that loads distinct chat/base and agents MCP values and asserts they remain different. Purpose: prove the intentional endpoint split is preserved by normalization.
+11. [ ] Add a server unit test in `server/src/test/unit/chatProviders.test.ts` that keeps browser navigation URLs and MCP control-channel URLs different. Purpose: prove normalization does not collapse unrelated browser and MCP contracts into one value.
+12. [ ] Add a server unit test in `server/src/test/unit/chatModels.codex.test.ts` that exercises provider/runtime entrypoints or status probes after the refactor and asserts they use the shared endpoint contract instead of stale hard-coded MCP URLs or legacy env fallbacks. Purpose: prove bypass paths have been removed.
+13. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+14. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1310,13 +1323,12 @@ Move the checked-in runtime config files and env files onto the final MCP placeh
    - `CODEINFO_PLAYWRIGHT_MCP_URL`
    - remove hard-coded MCP URLs such as `http://localhost:5010/mcp`, `http://localhost:5011/mcp`, or bridge-era `playwright-mcp` hostnames where the story says placeholders should be used instead.
 3. [ ] Update the checked-in env files so they match the final placeholder and port contract and remove checked-in reliance on `CODEINFO_MCP_PORT`. After this task, the checked-in dedicated MCP env name must be `CODEINFO_CHAT_MCP_PORT`.
-4. [ ] Add or update tests in `server/src/test/unit/runtimeConfig.test.ts` and `server/src/test/unit/codexConfig.test.ts` so they prove:
-   - the checked-in file style still normalizes correctly with the new placeholder tokens;
-   - checked-in chat MCP placeholders resolve only from `CODEINFO_CHAT_MCP_PORT`;
-   - legacy `CODEINFO_MCP_PORT` by itself no longer satisfies the checked-in chat MCP contract;
-   - checked-in config files no longer depend on bridge-era `playwright-mcp` hostnames or hard-coded localhost MCP URLs.
-5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+4. [ ] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that loads the checked-in file style with the new placeholder tokens and asserts successful normalization. Purpose: prove the migrated checked-in config format remains runnable.
+5. [ ] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that sets `CODEINFO_CHAT_MCP_PORT` and asserts the checked-in chat MCP placeholders resolve from that value. Purpose: prove the new env contract is wired correctly.
+6. [ ] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that sets only legacy `CODEINFO_MCP_PORT` and asserts chat MCP placeholder normalization fails or remains unsatisfied. Purpose: prove the legacy env name no longer satisfies the checked-in contract.
+7. [ ] Add a server unit test in `server/src/test/unit/codexConfig.test.ts` that loads the migrated checked-in config files and asserts no bridge-era `playwright-mcp` hostname or hard-coded localhost MCP URL dependency remains where placeholders are now required. Purpose: prove the checked-in config migration is complete.
+8. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+9. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1353,9 +1365,10 @@ Create the reusable repo-local shell harness that later wrapper and compose task
    - fixture binaries.
 3. [ ] Check in the Bats runtime and helper libraries under `scripts/test/bats/vendor/` so the harness is runnable from a clean checkout with no global Bats installation.
 4. [ ] Add `scripts/test-summary-shell.mjs` and the root `package.json` script entry `npm run test:summary:shell` so the shell harness uses the same summary-wrapper protocol fields as the other wrappers: saved log path, heartbeat output, and final guidance.
-5. [ ] Add at least one passing harness case and at least one intentionally failing harness case so the harness itself is proven before later tasks add host-network-specific checks. The failing case must be expected and asserted, not treated as an accidental crash.
-6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+5. [ ] Create `scripts/test/bats/shell-harness.bats` and add a shell test there that exercises a passing harness fixture. Purpose: prove the vendored Bats harness can execute a normal success case from a clean checkout.
+6. [ ] In `scripts/test/bats/shell-harness.bats`, add a shell test that exercises an intentionally failing fixture and asserts the failure is expected. Purpose: prove the harness can report controlled failures without treating them as accidental crashes.
+7. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1394,16 +1407,15 @@ Extend the checked-in compose wrapper so it fails fast when the checked-in host-
    - occupied checked-in host ports;
    - host-networked service definitions that still contain incompatible `ports` or `networks` wiring;
    - and every failure path names the affected compose file or service plus the missing or incompatible prerequisite.
-3. [ ] Add shell harness coverage under `scripts/test/bats/` for:
-   - unsupported host networking;
-   - conflicting host ports;
-   - incompatible host-network service shapes;
-   - success-path pass-through to compose execution;
-   - compose files that do not define `playwright-mcp` still pass preflight without being forced to add that service;
-   - actionable failure text that includes the affected compose file or service.
-4. [ ] Add shell harness coverage that proves the local host-network manual-testing contract still declares Chrome DevTools on `9222` where the checked-in runtime expects it. This proof belongs in the harness because the story explicitly treats local-stack-specific validation as a shell-level proof path.
-5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+3. [ ] Create `scripts/test/bats/docker-compose-with-env.bats` and add a shell test there that exercises the unsupported host-network environment path. Purpose: prove preflight fails before compose startup when host networking is not supported.
+4. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a conflicting checked-in host port. Purpose: prove preflight blocks startup when a required host-visible port is already occupied.
+5. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a host-networked service definition still carrying incompatible `ports` or `networks`. Purpose: prove invalid compose shapes are rejected before `docker compose` runs.
+6. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises the success-path pass-through to compose execution. Purpose: prove the wrapper still hands control to compose when all preflight conditions are satisfied.
+7. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a compose file without `playwright-mcp`. Purpose: prove preflight does not force new Playwright services into files that are out of scope for this story.
+8. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that asserts failure output names the affected compose file or service. Purpose: prove operators receive actionable preflight errors instead of a generic shell failure.
+9. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that proves the local host-network manual-testing contract still declares Chrome DevTools on `9222`. Purpose: keep the checked-in local CDP validation rule under automated shell-harness coverage.
+10. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+11. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1522,9 +1534,11 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
    - the Playwright MCP route;
    - and it must fail clearly when any required listener or MCP surface is unavailable.
 3. [ ] Add the corresponding root `package.json` script entry for that proof wrapper so the checked-in command name becomes the canonical proof path used later by Task 14.
-4. [ ] Add or update automated coverage for the new proof wrapper so it executes the wrapper or its probe layer with at least one passing scenario and at least one failing probe scenario, and checks that the failure path emits inspectable error output instead of only a generic crash.
-5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+4. [ ] Create `server/src/test/unit/test-summary-host-network-main.test.ts` and add a server unit test there that exercises a passing probe scenario. Purpose: prove the wrapper succeeds when all required main-stack MCP listeners are available.
+5. [ ] In `server/src/test/unit/test-summary-host-network-main.test.ts`, add a server unit test that exercises a failing probe scenario. Purpose: prove the wrapper reports an unavailable listener or MCP surface as a controlled failure.
+6. [ ] In `server/src/test/unit/test-summary-host-network-main.test.ts`, add a server unit test that asserts the failing probe emits inspectable error output rather than a generic crash. Purpose: prove later diagnosis can rely on saved wrapper output.
+7. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1559,10 +1573,11 @@ Update the checked-in e2e env injection, config, and test assumptions so the e2e
 1. [ ] Read `scripts/test-summary-e2e.mjs`, `docker-compose.e2e.yml`, `.env.e2e`, `e2e/playwright.config.ts`, and the checked-in `e2e` tests together with story sections `## Proof Path Readiness` and `## Final Validation`.
 2. [ ] Update any checked-in e2e env injection, checked-in e2e config, or test assumptions that would otherwise still point at stale bridge-era URLs or ports after the host-network cutover. The end result must use the real host-visible addresses from the story’s port matrix.
 3. [ ] Keep browser navigation targets and MCP control-channel targets as separate contracts where the story requires them. Do not replace one with the other just because both are host-visible URLs.
-4. [ ] Add or update automated coverage so the checked-in e2e path proves it is using the intended host-visible addresses rather than stale bridge-only assumptions.
-   - Include one assertion that the browser base URL and any MCP control-channel URL remain separate values where the checked-in env contract expects them to differ.
-5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+4. [ ] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts the runtime uses the intended host-visible base URL instead of a stale bridge-only address. Purpose: prove the browser-facing side of the e2e path has moved to the host-network contract.
+5. [ ] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts any MCP control-channel URL uses the intended host-visible value instead of a stale bridge-only address. Purpose: prove the control-channel side of the e2e path has moved to the host-network contract.
+6. [ ] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts the browser base URL and MCP control-channel URL remain separate values where the env contract expects them to differ. Purpose: prove the host-network cutover did not collapse navigation and control endpoints into one contract.
+7. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 

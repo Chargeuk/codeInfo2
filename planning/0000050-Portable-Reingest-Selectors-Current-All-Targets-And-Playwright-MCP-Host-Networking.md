@@ -400,3 +400,26 @@ This remains a single-repository story inside `codeInfo2`. The runtime behavior 
 - `server/.dockerignore`
 - `client/.dockerignore`
 - `scripts/docker-compose-with-env.sh`
+
+## Test Harnesses
+
+- This story should keep most verification in the harnesses the repository already has. No new harness type is needed for re-ingest schema changes, re-ingest orchestration, batch result payloads, blank-markdown skip behavior, MCP placeholder normalization, or end-to-end runtime checks. Those should extend the existing server `node:test` suites under `server/src/test/unit` and `server/src/test/integration`, the server cucumber suites under `server/src/test/features` and `server/src/test/steps`, the client Jest suites under `client/src/test`, and the existing summary-wrapper entry points in `scripts/test-summary-server-unit.mjs`, `scripts/test-summary-server-cucumber.mjs`, `scripts/test-summary-client.mjs`, and `scripts/test-summary-e2e.mjs`.
+- This story does require one genuinely new harness type: a shell-wrapper preflight harness for `scripts/docker-compose-with-env.sh`. The repository currently has no shell-script test runner or shell-wrapper fixture harness, and story `0000050` adds fail-before-start behavior that existing unit, integration, cucumber, client, and Playwright coverage cannot prove cleanly because those harnesses only see application behavior after startup or after a Node runner has already taken control.
+- Create that new harness alongside the wrapper code it owns so the responsibility stays in one place:
+  - `scripts/test/bats/docker-compose-with-env.bats` should hold the executable shell test cases for wrapper preflight behavior;
+  - `scripts/test/bats/test_helper/common.bash` should provide shared repo-root discovery, temp-directory setup, PATH overrides, and reusable assertion helpers;
+  - `scripts/test/bats/fixtures/bin/` should contain stub executables such as fake `docker`, `uname`, and any port-probe helper used by the wrapper so tests can force Linux versus Darwin behavior, Docker Desktop host-network support states, docker-context responses, and occupied-port cases without touching the real host daemon;
+  - `scripts/test-summary-shell.mjs` should be added as the summary-wrapper entry point for this harness so shell tests follow the same wrapper-first output contract and saved-log behavior already used elsewhere in the repository;
+  - root `package.json` should expose that wrapper through one dedicated script such as `test:summary:shell`.
+- Use `bats-core` for this new harness. DeepWiki and Context7 both document that Bats keeps Bash test suites maintainable with `.bats` files, shared helper loading, and `setup_file` or `setup` or `teardown` functions. The planned wrapper tests should use `run -1` or `run !` for expected preflight failures and `run --separate-stderr` when the wrapper is expected to place the user-facing prerequisite message on stderr.
+- The minimum shell-harness scenarios for this story are:
+  - host networking unsupported or disabled for the checked-in compose workflow causes the wrapper to exit before `docker compose` is invoked and prints the missing prerequisite clearly;
+  - a checked-in host-visible port required by the selected compose file is already in use, and the wrapper exits before `docker compose` is invoked and names the conflicting port;
+  - a supported environment with clear ports reaches the compose exec path and preserves the expected env-file and compose arguments;
+  - an unsupported host-network service shape still present in the compose configuration causes a fail-fast wrapper exit before container startup.
+- Do not add another new harness type for readiness or listener validation. Those checks should extend the existing compose and e2e path instead of creating a second new framework:
+  - startup or teardown proof stays in `scripts/test-summary-e2e.mjs` and the compose wrappers;
+  - runtime listener and contract coverage stays in existing server unit or integration suites and any related fixture helpers already under `server/src/test/support`.
+- The evidence for this section comes from current repository inspection and external harness documentation:
+  - repository facts from `package.json`, `scripts/test-summary-server-unit.mjs`, `scripts/test-summary-server-cucumber.mjs`, `scripts/test-summary-client.mjs`, `scripts/test-summary-e2e.mjs`, `scripts/summary-wrapper-protocol.mjs`, and `scripts/docker-compose-with-env.sh`;
+  - shell-harness guidance from DeepWiki and Context7 documentation for `bats-core`, which both describe `.bats` file organization, helper loading, and `run`-based exit-code or stdout or stderr assertions.

@@ -2296,7 +2296,7 @@ Use only the checked-in summary wrappers below. Do not attempt to run tests with
 
 - Repository Name: `codeInfo2`
 - Task Status: **in_progress**
-- Git Commits: `ef51de1d` `DEV-[50] - Start task 17 selector outage contract fix`
+- Git Commits: `ef51de1d` `DEV-[50] - Start task 17 selector outage contract fix`; `8a3d0c07` `DEV-[50] - Continue task 18 selector outage close-out`
 
 #### Overview
 

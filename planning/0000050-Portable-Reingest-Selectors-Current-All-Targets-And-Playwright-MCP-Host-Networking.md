@@ -959,8 +959,8 @@ Add the new re-ingest request union to command and flow schema parsing so JSON f
 
 #### Documentation Locations
 
-- Zod discriminated unions: Context7 `/colinhacks/zod`
-- TypeScript unions and strict typing: https://www.typescriptlang.org/docs/
+- Zod unions and discriminated unions: Context7 `/colinhacks/zod`. Use this to confirm the allowed union constructors and why same-literal `type: "reingest"` branches cannot use `discriminatedUnion`.
+- TypeScript unions and strict typing: https://www.typescriptlang.org/docs/. Use this to confirm the final inferred request types stay narrow and do not silently widen to optional `sourceId` plus optional `target`.
 
 #### Subtasks
 
@@ -1016,8 +1016,8 @@ Keep `runReingestRepository()` strict on one canonical repository, but extend it
 
 #### Documentation Locations
 
-- TypeScript types and unions: https://www.typescriptlang.org/docs/
-- Node.js test runner: https://nodejs.org/api/test.html
+- TypeScript types and unions: https://www.typescriptlang.org/docs/. Use this to keep the extended success payload strongly typed while preserving the existing result union.
+- Node.js test runner: https://nodejs.org/api/test.html. Use this for the exact `node:test` assertion and subtest patterns already used by the repo’s server unit suite.
 
 #### Subtasks
 
@@ -1067,8 +1067,8 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 
 #### Documentation Locations
 
-- TypeScript control flow and helper extraction: https://www.typescriptlang.org/docs/
-- Node.js test runner for targeted unit and integration coverage: https://nodejs.org/api/test.html
+- TypeScript control flow and helper extraction: https://www.typescriptlang.org/docs/. Use this to structure the shared orchestration helper without widening types or duplicating resolution branches.
+- Node.js test runner for targeted unit and integration coverage: https://nodejs.org/api/test.html. Use this for the targeted server tests that prove ordering, fail-fast behavior, and continue-on-failure handling.
 
 #### Subtasks
 
@@ -1124,8 +1124,8 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
 
 #### Documentation Locations
 
-- Mongoose mixed/object persistence behavior: Context7 `/automattic/mongoose`
-- Node.js test runner: https://nodejs.org/api/test.html
+- Mongoose mixed/object persistence behavior: Context7 `/automattic/mongoose`. Use this to confirm how `Schema.Types.Mixed` and omitted nested fields behave so the batch payload remains backward compatible without a Mongo migration.
+- Node.js test runner: https://nodejs.org/api/test.html. Use this for the payload-builder and lifecycle tests that exercise the real synthetic-turn persistence path.
 
 #### Subtasks
 
@@ -1176,8 +1176,8 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 
 #### Documentation Locations
 
-- Node.js filesystem and text decoding APIs: https://nodejs.org/api/fs.html and https://nodejs.org/api/util.html
-- Node.js test runner: https://nodejs.org/api/test.html
+- Node.js filesystem and text decoding APIs: https://nodejs.org/api/fs.html and https://nodejs.org/api/util.html. Use these to keep the empty-markdown skip limited to successful reads while preserving current file-error handling.
+- Node.js test runner: https://nodejs.org/api/test.html. Use this for the unit and integration tests that prove skip-versus-fail behavior.
 
 #### Subtasks
 
@@ -1226,9 +1226,9 @@ Finish the shared runtime placeholder normalization layer before any checked-in 
 
 #### Documentation Locations
 
-- TOML syntax basics: https://toml.io/en/
-- TypeScript config-object shaping: https://www.typescriptlang.org/docs/
-- Node.js test runner: https://nodejs.org/api/test.html
+- TOML syntax basics: https://toml.io/en/v1.1.0. Use this to confirm how literal placeholder strings are represented in checked-in TOML without relying on nonexistent native env interpolation.
+- TypeScript config-object shaping: https://www.typescriptlang.org/docs/. Use this to keep the normalized config object strongly typed across the runtime entrypoints.
+- Node.js test runner: https://nodejs.org/api/test.html. Use this for the server tests that prove placeholder normalization, unresolved-placeholder failure, and endpoint separation.
 
 #### Subtasks
 
@@ -1274,9 +1274,9 @@ Move the checked-in runtime config files and env files onto the final MCP placeh
 
 #### Documentation Locations
 
-- TOML format and field syntax: https://toml.io/en/
-- TypeScript config-object shaping: https://www.typescriptlang.org/docs/
-- Node.js test runner: https://nodejs.org/api/test.html
+- TOML format and field syntax: https://toml.io/en/v1.1.0. Use this when rewriting checked-in config files so placeholder tokens remain valid TOML strings and tables.
+- TypeScript config-object shaping: https://www.typescriptlang.org/docs/. Use this to keep the config-reader expectations aligned with the migrated checked-in file shapes.
+- Node.js test runner: https://nodejs.org/api/test.html. Use this for the normalization tests that prove the migrated checked-in files still parse and resolve correctly.
 
 #### Subtasks
 
@@ -1322,8 +1322,8 @@ Create the reusable repo-local shell harness that later wrapper and compose task
 
 #### Documentation Locations
 
-- DeepWiki and Context7 `bats-core`
-- Node.js child process and stream handling: https://nodejs.org/api/child_process.html and https://nodejs.org/api/stream.html
+- bats-core documentation: https://bats-core.readthedocs.io/en/stable/. Use this for the correct `.bats` file structure, helper loading, and vendored-runtime expectations.
+- Node.js child process and stream handling: https://nodejs.org/api/child_process.html and https://nodejs.org/api/stream.html. Use these for the wrapper that runs the shell harness and captures saved-log output cleanly.
 
 #### Subtasks
 
@@ -1361,9 +1361,9 @@ Extend the checked-in compose wrapper so it fails fast when the checked-in host-
 
 #### Documentation Locations
 
-- DeepWiki `docker/docs` host-network behavior notes
-- Context7 `/docker/compose`
-- Shell scripting reference: https://www.gnu.org/software/bash/manual/bash.html
+- Docker host networking behavior: DeepWiki `docker/docs` plus https://docs.docker.com/engine/network/tutorials/host/. Use these to confirm the host-network prerequisites and the direct-host-port rules the wrapper must enforce before startup.
+- Docker Compose service rules: Context7 `/docker/compose`. Use this to confirm that host-networked services cannot keep incompatible `ports` or `networks` configuration.
+- Bash manual: https://www.gnu.org/software/bash/manual/bash.html. Use this for portable shell control flow in `docker-compose-with-env.sh`.
 
 #### Subtasks
 
@@ -1408,8 +1408,8 @@ Update the Docker build flow so the checked-in runtime assets needed by the host
 
 #### Documentation Locations
 
-- Docker build contexts and ignore files: Context7 `/docker/docs`
-- Dockerfile reference: Context7 `/docker/docs`
+- Docker build contexts and ignore files: Context7 `/docker/docs`. Use this to keep the image-baking task focused on required build inputs instead of broadening unrelated image scope.
+- Dockerfile reference: Context7 `/docker/docs`. Use this for the correct copy/build layering when moving checked-in runtime assets into the image.
 
 #### Subtasks
 
@@ -1442,9 +1442,9 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
 
 #### Documentation Locations
 
-- Context7 `/docker/compose`
-- DeepWiki `docker/docs` host-network behavior notes
-- Shell scripting reference: https://www.gnu.org/software/bash/manual/bash.html
+- Docker Compose service rules: Context7 `/docker/compose`. Use this to apply `network_mode: host` correctly and remove incompatible keys from the scoped services.
+- Docker host networking behavior: DeepWiki `docker/docs` plus https://docs.docker.com/engine/network/tutorials/host/. Use these to keep the compose cutover aligned with the checked-in host-visible port matrix and prerequisites.
+- Bash manual: https://www.gnu.org/software/bash/manual/bash.html. Use this only where shell-entrypoint behavior must remain correct for the `9222` Chrome DevTools contract.
 
 #### Subtasks
 
@@ -1488,8 +1488,8 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 
 #### Documentation Locations
 
-- Playwright connectivity and browser probing: Context7 `/microsoft/playwright`
-- Node.js child process and stream handling: https://nodejs.org/api/child_process.html and https://nodejs.org/api/stream.html
+- Playwright connectivity and browser probing: Context7 `/microsoft/playwright` plus https://playwright.dev/docs/next/api/class-browsertype. Use these to confirm `connectOverCDP()` behavior and the expected browser-probe surface for `http://localhost:9222` and related runtime checks.
+- Node.js child process and stream handling: https://nodejs.org/api/child_process.html and https://nodejs.org/api/stream.html. Use these for the proof wrapper’s process execution and log-capture behavior.
 
 #### Subtasks
 
@@ -1530,8 +1530,8 @@ Update the checked-in e2e env injection, config, and test assumptions so the e2e
 
 #### Documentation Locations
 
-- Playwright config and base URL handling: Context7 `/microsoft/playwright`
-- Docker/Compose environment wiring: Context7 `/docker/compose`
+- Playwright config and base URL handling: Context7 `/microsoft/playwright`. Use this to keep the checked-in Playwright config and e2e wrapper aligned with the final host-visible addresses.
+- Docker/Compose environment wiring: Context7 `/docker/compose`. Use this to confirm how the e2e stack should receive host-visible URLs after the host-network cutover.
 
 #### Subtasks
 
@@ -1564,8 +1564,9 @@ This task proves the completed story against the acceptance criteria. It must re
 
 #### Documentation Locations
 
-- Context7 `/docker/compose`
-- Context7 `/microsoft/playwright`
+- Docker/Compose runtime validation: Context7 `/docker/compose` plus https://docs.docker.com/engine/network/tutorials/host/. Use these for the final host-network runtime checks and port expectations.
+- Playwright runtime validation: Context7 `/microsoft/playwright` plus https://playwright.dev/docs/next/api/class-browsertype. Use these for the final browser-control and CDP validation work.
+- Cucumber guide for reliable automated test execution: https://cucumber.io/docs/guides/continuous-integration/. Use this because this task runs the checked-in cucumber wrapper as part of the final validation pass and needs a current guide under the required `/docs/guides/` path.
 
 #### Subtasks
 
@@ -1617,8 +1618,9 @@ Update the shared documentation and prepare the finished story for review after 
 
 #### Documentation Locations
 
-- Docker/Compose runtime documentation: Context7 `/docker/compose`
-- Playwright runtime and screenshot documentation: Context7 `/microsoft/playwright`
+- Docker/Compose runtime documentation: Context7 `/docker/compose` plus https://docs.docker.com/engine/network/tutorials/host/. Use these when updating docs so the host-network contract and prerequisites are described accurately.
+- Playwright runtime and screenshot documentation: Context7 `/microsoft/playwright` plus https://playwright.dev/docs/next/api/class-browsertype. Use these when documenting the proof wrappers, screenshots, and Chrome DevTools validation behavior.
+- Cucumber guides for validation workflow context: https://cucumber.io/docs/guides/testable-architecture/ and https://cucumber.io/docs/guides/continuous-integration/. Use these to keep the close-out notes grounded in reliable automated test usage rather than UI-only proof.
 - Any external documentation sources recorded in the earlier tasks when they introduced new commands or runtime contracts
 
 #### Subtasks

@@ -2273,13 +2273,11 @@ Close review Finding 1 by keeping the portable-selector path honest when reposit
 
 #### Testing
 
-Use the checked-in wrapper-first paths so the changed server contract is proven through the normal unit suite rather than ad hoc commands.
+Use only the checked-in summary wrappers below. Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/reingestExecution.test.ts` or the exact checked-in test file that carries the new Finding 1 proof if that file name differs after implementation.
-2. [ ] `npm run test:summary:server:unit`
-3. [ ] `npm run build:summary:server`
-4. [ ] `npm run lint`
-5. [ ] `npm run format:check`
+1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -2315,12 +2313,9 @@ Close review Finding 2 by making the compose wrapper’s docker-host port prefli
 
 #### Testing
 
-Use only the checked-in summary shell wrapper and root quality gates below so the wrapper proof stays inside the standard repo test path.
+Use only the checked-in summary wrappers below. Do not attempt to run tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run test:summary:shell -- --file scripts/test/bats/docker-compose-with-env.bats`
-2. [ ] `npm run test:summary:shell`
-3. [ ] `npm run lint`
-4. [ ] `npm run format:check`
+1. [ ] `npm run test:summary:shell` If `failed > 0`, inspect the exact log path printed by the summary under `logs/test-summaries/`, then diagnose with wrapper-supported targeted args only if needed. After fixes, rerun full `npm run test:summary:shell`.
 
 #### Implementation notes
 
@@ -2352,11 +2347,9 @@ Close review Finding 3 by making the final Story 50 docs describe the same MCP e
 
 #### Testing
 
-Use simple repo-proof steps that directly validate the documentation contract and keep the shared doc baseline clean.
+This task is documentation-only. Do not attempt to run tests without using the wrapper. No standalone app-level suite is required here; Task 20 owns the full wrapper-first regression pass after these wording fixes land.
 
-1. [ ] `rg -n 'CODEINFO_MCP_PORT|CODEINFO_CHAT_MCP_PORT' README.md design.md docs/developer-reference.md planning/0000050-pr-summary.md`
-2. [ ] `npm run lint`
-3. [ ] `npm run format:check`
+1. [ ] No standalone wrapper run is required in this task because it only corrects Story 50 documentation wording. Verify the wording change directly in the edited docs, then rely on Task 20 for the full wrapper-first regression pass.
 
 #### Implementation notes
 
@@ -2395,20 +2388,18 @@ Revalidate Story 0000050 after the code review fixes from Tasks 17 through 19 la
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run test:summary:server:unit`
-4. [ ] `npm run test:summary:server:cucumber`
-5. [ ] `npm run test:summary:shell`
-6. [ ] `npm run test:summary:client`
-7. [ ] `npm run test:summary:e2e`
-8. [ ] `npm run compose:build:summary`
+1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] `npm run test:summary:shell` If `failed > 0`, inspect the exact log path printed by the summary under `logs/test-summaries/`, then diagnose with wrapper-supported targeted args only if needed. After fixes, rerun full `npm run test:summary:shell`.
+6. [ ] `npm run test:summary:client` If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:client`.
+7. [ ] `npm run test:summary:e2e` Allow up to 7 minutes. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:e2e`.
+8. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
 9. [ ] `npm run compose:up`
-10. [ ] `npm run test:summary:host-network:main`
+10. [ ] `npm run test:summary:host-network:main` If status is `failed` or the summary reports ambiguous counts, inspect `logs/test-summaries/host-network-main-latest.log` before retrying.
 11. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm Story 50 behavior and review-fix closure from the running stack, including a check that there are no logged errors in the debug console and that the expected Story 50 proof markers remain visible for the exercised paths.
 12. [ ] `npm run compose:down`
-13. [ ] `npm run lint`
-14. [ ] `npm run format:check`
 
 #### Implementation notes
 

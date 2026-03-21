@@ -19,9 +19,15 @@ The first target is the current repository for the currently executing workflow 
 
 The second target is all currently ingested repositories. This is useful for maintenance or refresh workflows where the user wants one workflow action to refresh every indexed repository without authoring one step per repository. Because the ingest layer already enforces a global lock, this story should treat "all repositories" as a deterministic sequential operation rather than a parallel fan-out. Existing delta and skipped behavior in the ingest layer should continue to keep no-op repositories relatively cheap, but the story should still assume that "all repositories" means one re-ingest operation per ingested repository in a predictable order. The user has decided that conversation history for this mode should use a dedicated batch result payload rather than emitting one existing per-repository tool result into the transcript for every repository.
 
+Current-repository and all-repositories targeting are additions to the workflow contract, not replacements for the existing explicit selector shape. Backward-compatible `sourceId` steps stay valid, while the broader runtime contract should also allow explicit target shapes such as `{ "type": "reingest", "target": "current" }` and `{ "type": "reingest", "target": "all" }`. For `target: "all"`, deterministic order should be defined concretely as ascending canonical container path order so implementation and tests use one stable ordering rule.
+
+The dedicated batch result for `target: "all"` also needs a concrete minimum contract. One transcript item should represent the whole batch and should include enough structured data for the UI, logs, and tests to reason about the outcome without reconstructing it from per-repository messages. At minimum that payload should identify that the target mode was `all`, preserve the ordered list of repositories attempted, and record for each repository the resolved repository identity, canonical container path, and terminal outcome (`reingested`, `skipped`, or `failed`) plus an error message when the outcome is `failed`.
+
 This story should preserve the current blocking re-ingest semantics. A workflow step should still wait for each re-ingest target to reach a terminal outcome before moving on. Pre-start validation failures should still fail the relevant workflow step early with a clear message. Terminal ingest failures should still be recorded as structured outcomes rather than being silently swallowed.
 
 This story also tightens one part of the markdown-file workflow contract used by commands and flows. If a loaded markdown file resolves successfully but its content is empty or contains only whitespace, the runtime should not try to execute that instruction as an empty prompt. Instead, that specific flow or command step should be skipped, and the system should emit an info-level log entry that makes it clear the step was skipped because the resolved markdown content was empty. This keeps reusable prompt files safe to leave temporarily blank without turning them into confusing no-op agent calls or avoidable failures.
+
+That empty-markdown skip behavior should be implemented with a concrete log contract. The runtime should only skip when the markdown file resolved successfully but the final content is empty after whitespace trimming, and the info-level log entry should explicitly state the execution surface (`command` or `flow`), the resolved markdown file path, and that the step was skipped because the resolved markdown content was empty or whitespace-only.
 
 In addition to the workflow re-ingest work, this story also includes an explicit host-networking implementation for the checked-in manual-testing and runtime containers that expose MCP surfaces. The current stack still relies on bridge networking assumptions for the `playwright-mcp` container and on published-port mapping for the `server` container. The user has now fixed the desired direction for this story: move the checked-in `server` and `playwright-mcp` containers onto host networking where they already exist, so manual testing and Codex MCP connections no longer depend on bridge-only service DNS assumptions.
 
@@ -41,6 +47,8 @@ This broader host-networking scope means the story must also plan the supporting
 - give each host-networked Playwright MCP service a deliberate host port strategy so checked-in stacks do not clash when run together;
 - replace hard-coded MCP endpoints in checked-in runtime config files with explicit named placeholders that identify which server-owned MCP port or environment-aware URL override should be applied before runtime config is passed to Codex or related MCP consumers;
 - keep browser navigation targets and agent control-channel endpoints as separate concerns rather than assuming they are the same URL.
+
+For this story, "fail fast" on host-networking prerequisites should also be concrete. If a checked-in compose wrapper is run in an environment where the required host-network contract is unsupported or incompatible, the wrapper output should stop before container startup and explain which compose file or service cannot use the checked-in host-network setup and what prerequisite is missing or incompatible.
 
 One preparatory compatibility pass has already been completed before implementation of this story begins. The server runtime now understands the planned MCP placeholder contracts in memory, it temporarily accepts the future `CODEINFO_CHAT_MCP_PORT` name alongside the legacy `CODEINFO_MCP_PORT` contract, and the local compose stack has been restarted and validated after that pre-work. This means the story can now proceed using the sequenced approach below without the currently running local stack immediately breaking as soon as checked-in `config.toml` files move to the new placeholder style.
 
@@ -64,12 +72,15 @@ Current repository evidence shows that the checked-in Compose files do not all d
 - Command items running inside a flow command step can re-ingest the current repository of the executing command file rather than implicitly using only the parent flow repository.
 - Command and flow re-ingest support an explicit "all repositories" mode.
 - "All repositories" mode re-ingests repositories sequentially in a deterministic order and waits for each one to reach a terminal outcome before continuing.
+- For `target: "all"`, deterministic order is defined as ascending canonical container path order of the currently ingested repositories.
 - "All repositories" mode records one dedicated batch result payload in conversation history rather than one existing single-repository result per repository.
+- The dedicated batch result payload for `target: "all"` contains one ordered result entry per attempted repository, including the resolved repository identity, canonical container path, terminal outcome (`reingested`, `skipped`, or `failed`), and error text when a repository fails.
 - If a "current repository" target resolves to a repository that is not currently ingested, the step fails fast with a clear pre-start error instead of silently falling back to another repository.
 - The low-level single-repository re-ingest service remains the canonical strict container-path execution layer, with selector expansion handled above it.
 - Structured re-ingest result recording remains intact for direct commands, dedicated flow re-ingest steps, and command items executed inside flows.
 - If a command or flow markdown file resolves successfully but contains only empty or whitespace-only content, that step is skipped rather than executed as an empty prompt.
 - Empty-markdown skips emit an info-level log entry that clearly states the step was skipped because the resolved markdown content was empty.
+- Empty-markdown skip logs also include the execution surface (`command` or `flow`) and the resolved markdown file path so the skipped step can be identified directly from logs and tests.
 - Every checked-in Docker Compose file that defines a `server` service is updated to use host networking.
 - Each host-networked server service preserves the checked-in host-visible port contract for that stack unless a documented clash requires a different value.
 - The checked-in default server port strategy remains `5010`/`5011`/`5012` for `docker-compose.yml`, `5510`/`5511`/`5512` for `docker-compose.local.yml`, and `6010`/`6011`/`6012` for `docker-compose.e2e.yml`.
@@ -89,6 +100,7 @@ Current repository evidence shows that the checked-in Compose files do not all d
 - The checked-in shared-home runtime config files under `codex/` that are actually consumed at runtime are updated alongside `codex_agents/*`, while `config.toml.example` is updated as sample/documentation coverage only.
 - The implementation keeps the browser navigation target and the agent control-channel endpoint conceptually separate where that is required for host-networked manual testing.
 - The compose wrapper and supporting documentation validate or fail fast on the host-networking prerequisites required by the checked-in `server` and `playwright-mcp` services for the supported environments.
+- Host-networking prerequisite failures are reported before startup with an actionable message that names the affected compose file or service and the missing or incompatible prerequisite.
 - The resulting local manual-testing setup still supports the existing server and Playwright MCP traffic patterns used by this product, including REST/API access, Codex MCP access, browser control, websocket flows, screenshots, and manual UI verification.
 
 ### Out Of Scope
@@ -241,8 +253,9 @@ Current repository evidence shows that the checked-in Compose files do not all d
 - Top-level flows already track the owning flow repository during flow loading. Reuse that repository identity when resolving `current` for dedicated flow re-ingest steps.
 - Flow command execution should carry the selected command-file repository identity through nested command execution so `current` resolves from the command file being executed, not automatically from the parent flow repository.
 - For `all repositories`, derive the target set from `listIngestedRepositories()` and sort deterministically before execution so repeated runs are predictable.
+- Define that deterministic sort concretely as ascending canonical container path order and use that same order in runtime execution, transcript payloads, and tests.
 - Execute `all repositories` sequentially because the ingest layer already enforces a global lock and current re-ingest is blocking. Any attempt to parallelize would only add contention and complexity.
-- Preserve the existing rule that terminal ingest results are recorded as structured outcomes for commands and flows. For `all repositories`, introduce a dedicated batch payload instead of repeating the existing single-repository tool-result shape once per repository in conversation history.
+- Preserve the existing rule that terminal ingest results are recorded as structured outcomes for commands and flows. For `all repositories`, introduce a dedicated batch payload instead of repeating the existing single-repository tool-result shape once per repository in conversation history, and keep the payload shape explicit enough for a junior developer to implement: one batch item containing the ordered attempted repositories plus each repository's identity, canonical container path, terminal outcome, and optional failure message.
 - Reuse or extract the current MCP canonicalization pattern so command and flow runtime logic matches the behavior already used by the existing MCP re-ingest surfaces.
 - Add direct command tests, dedicated flow-step tests, and flow-command nested tests that prove:
   - repo-name selectors work;
@@ -252,6 +265,7 @@ Current repository evidence shows that the checked-in Compose files do not all d
   - non-ingested `current` repositories fail fast with a clear message;
   - resolved markdown files that are empty or whitespace-only are skipped with an info-level log instead of being executed as empty prompts.
 - Implement the empty-markdown behavior at the shared markdown-file execution layer used by both flows and commands so both surfaces stay aligned and do not drift into separate edge-case handling.
+- Make the empty-markdown info log part of the contract, not an afterthought: include the surface, resolved markdown path, and skip reason in the shared execution layer so commands and flows emit the same message shape.
 - Treat the MCP compatibility pass as already complete. The remaining story work should assume the runtime can now understand the future placeholder contracts after the validated pre-story restart, rather than spending early story tasks re-solving that same compatibility problem.
 - Sequence the story in three broad phases:
   - first, the command and flow re-ingest behavior changes plus empty-markdown skip handling;
@@ -282,6 +296,7 @@ Current repository evidence shows that the checked-in Compose files do not all d
 - Prefer names that reflect the actual product surface rather than raw port numbers. The chosen Playwright contract name remains `CODEINFO_PLAYWRIGHT_MCP_URL`, and the CodeInfo side should use `CODEINFO_SERVER_PORT`, `CODEINFO_CHAT_MCP_PORT`, and `CODEINFO_AGENTS_MCP_PORT` inside checked-in localhost URL placeholders so each Compose file can supply values that stay aligned with the real listener contracts without inventing a fourth bind port for the classic `/mcp` surface.
 - Keep browser-navigation URLs and agent-control MCP URLs as separate concerns. Host networking is being introduced so the browser launched by Playwright can use `localhost` semantics against host-published applications. That does not automatically mean the agent control channel should use the same URL.
 - Use the existing compose-wrapper layer and documentation as the place to validate or fail fast on host-networking prerequisites for supported environments.
+- Make the wrapper failure output actionable: it should say which compose file or service is blocked and what prerequisite is missing or incompatible before any containers are started.
 - Validate the implementation through the manual-testing workflows that already depend on the checked-in server and Playwright MCP endpoints, including screenshot capture, browser-control flows, and MCP connectivity from both chat and agent runtime config paths.
 - Expect likely changes in:
   - `codex/chat/config.toml`;

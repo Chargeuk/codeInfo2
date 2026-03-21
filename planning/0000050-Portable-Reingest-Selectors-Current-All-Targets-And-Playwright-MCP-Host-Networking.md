@@ -401,6 +401,99 @@ This remains a single-repository story inside `codeInfo2`. The runtime behavior 
 - `client/.dockerignore`
 - `scripts/docker-compose-with-env.sh`
 
+## Feasibility Proof Pass
+
+This remains a single-repository story inside `codeInfo2`. The proof pass below makes the implementation status explicit for each major implementation area so the story does not assume missing seams already exist.
+
+### 1. Re-ingest contract expansion for `sourceId`, `current`, and `all`
+
+- Already existing capabilities:
+  - Command and flow files already support a strict `type: "reingest"` step with `sourceId` in `server/src/agents/commandsSchema.ts` and `server/src/flows/flowSchema.ts`.
+  - The ingest layer already has a strict single-repository re-ingest service in `server/src/ingest/reingestService.ts`.
+  - Repository lookup by case-insensitive id and by canonical path already exists in `server/src/mcpCommon/repositorySelector.ts`, including the current "latest ingest wins" behavior for duplicate ids.
+  - Command and flow execution already carry ownership context that can support a future `current` resolver, including `sourceId` and `flowSourceId` handling in `server/src/agents/commandItemExecutor.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts`.
+- Missing prerequisite capabilities:
+  - No schema or runtime contract currently accepts `target: "current"` or `target: "all"`; those unions must be added first in `server/src/agents/commandsSchema.ts`, `server/src/flows/flowSchema.ts`, and any validation layers that consume those types.
+  - No orchestration seam currently expands one re-ingest request into an ordered list of canonical repositories before calling the strict service.
+  - No current runtime path records deterministic `all` ordering or sequential fan-out above `runReingestRepository`.
+- Assumptions that are currently invalid:
+  - It is not valid to assume that existing re-ingest code can accept `current` or `all` by configuration alone; the current code only understands `sourceId`.
+  - It is not valid to assume that `repositorySelector` already powers re-ingest execution semantics; it is a lookup helper, not an `all`-target execution layer.
+  - It is not valid to assume that deterministic `all` ordering already exists anywhere in the re-ingest runtime.
+- Feasibility and sequencing note:
+  - This area is feasible without upstream repository changes because the strict service, repository lookup helper, and ownership context already exist. The prerequisite work is local orchestration and schema expansion inside this repository, and it must happen before any transcript or UI contract work for `target: "all"`.
+
+### 2. Batch result recording and blank-markdown skip behavior
+
+- Already existing capabilities:
+  - Single re-ingest transcript payload construction already exists in `server/src/chat/reingestToolResult.ts`, with lifecycle integration in `server/src/chat/reingestStepLifecycle.ts`.
+  - Shared markdown resolution already exists in `server/src/flows/markdownFileResolver.ts`.
+  - Both commands and flows already call shared markdown-backed execution seams through `server/src/agents/commandItemExecutor.ts` and `server/src/flows/service.ts`.
+  - Existing tests already cover markdown resolution and single re-ingest payload behavior in `server/src/test/unit/markdown-file-resolver.test.ts`, `server/src/test/integration/commands.markdown-file.test.ts`, and `server/src/test/unit/reingest-tool-result.test.ts`.
+- Missing prerequisite capabilities:
+  - There is no dedicated batch result payload for `target: "all"` yet; `server/src/chat/reingestToolResult.ts` currently models one terminal outcome for one `sourceId`.
+  - There is no runtime seam yet that accumulates ordered per-repository outcomes into one transcript item for a batch.
+  - There is no explicit blank-markdown skip contract in the shared execution path; `server/src/agents/commandItemExecutor.ts` currently passes resolved markdown content straight into instruction execution.
+- Assumptions that are currently invalid:
+  - It is not valid to assume that the current re-ingest transcript payload can represent multiple repositories in one result.
+  - It is not valid to assume that empty or whitespace-only markdown content is already skipped; the current code resolves content and passes it through.
+  - It is not valid to assume the current tests already prove skip logging or batch payload ordering.
+- Feasibility and sequencing note:
+  - This area is feasible because the single-result lifecycle and shared markdown resolver already exist. The prerequisite work is the new batch payload shape plus one shared skip guard above the existing execution calls, and those should land immediately after re-ingest target expansion so the batch runtime and transcript contract are designed together.
+
+### 3. MCP endpoint placeholder normalization and env migration
+
+- Already existing capabilities:
+  - Runtime config normalization already supports `${ENV}` replacement and direct full-value placeholder replacement in `server/src/config/runtimeConfig.ts`.
+  - The codex bootstrap path already rewrites server MCP URLs in `server/src/config/codexConfig.ts`.
+  - Distinct MCP listener ports already exist in runtime config and server startup: `server/src/config.ts`, `server/src/mcp2/server.ts`, `server/src/mcpAgents/server.ts`, and `server/src/index.ts`.
+  - The temporary env migration seam already exists because `server/src/config.ts` currently reads `CODEINFO_CHAT_MCP_PORT` and falls back to `CODEINFO_MCP_PORT`.
+- Missing prerequisite capabilities:
+  - The checked-in TOML files under `codex/` and `codex_agents/` have not yet been fully migrated to one explicit placeholder strategy.
+  - The codex bootstrap replacement path still includes literal `5010` rewrite behavior in `server/src/config/codexConfig.ts`, so the repository still depends partly on legacy hard-coded MCP URL assumptions.
+  - The final end state still needs one shared, audited placeholder contract across runtime config, bootstrap config, env files, tests, and docs before the legacy `CODEINFO_MCP_PORT` fallback can be removed.
+- Assumptions that are currently invalid:
+  - It is not valid to assume that all checked-in config assets already use the new placeholder contract.
+  - It is not valid to assume that the legacy env name can be removed today without first migrating the checked-in configs and tests that still depend on it.
+  - It is not valid to assume that all MCP surfaces currently resolve from a single centralized placeholder implementation; some bootstrap behavior still relies on literal rewrites.
+- Feasibility and sequencing note:
+  - This area is feasible because the runtime already has placeholder normalization and separate MCP listeners. The prerequisite work is a complete local migration sweep plus cleanup of the temporary fallback, and it should happen before Compose host-network cutover so the checked-in config files already describe the final endpoint contract.
+
+### 4. Docker and Compose host-network runtime changes
+
+- Already existing capabilities:
+  - The server and client are already built into images from `server/Dockerfile` and `client/Dockerfile`; the story does not need a brand-new image-build system.
+  - The checked-in compose files already define the current host-visible port inventory for the server stacks in `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`.
+  - Separate MCP listeners already exist in the server runtime, so binding the host-visible server ports directly is technically possible once Compose wiring changes.
+- Missing prerequisite capabilities:
+  - None of the checked-in compose files currently use `network_mode: host` for the scoped `server` and `playwright-mcp` services.
+  - The checked-in compose files still rely on `ports`, bridge networks, `host.docker.internal`, and bind-mounted checked-in runtime assets, so the final host-network runtime model and packaging rules are not implemented yet.
+  - The checked-in main stack still configures `playwright-mcp` on `8931`, so the plan’s separate main-stack Playwright port must be made real during implementation to avoid a clash with the local stack.
+  - The wrapper and compose definitions do not yet encode the final host-network prerequisite checks or explicit port-conflict validation.
+- Assumptions that are currently invalid:
+  - It is not valid to assume that current Compose `ports` mappings can stay in place for host-networked services. Official Docker docs say published ports are discarded in host network mode and the container process must bind the intended host port directly.
+  - It is not valid to assume that host networking is universally available; official Docker docs say it is supported on Linux Docker Engine and on Docker Desktop `4.34+` only when the feature is enabled.
+  - It is not valid to assume that the current bridge-style service DNS and host-gateway assumptions will remain correct after the `server` and `playwright-mcp` services move to host networking.
+- Feasibility and sequencing note:
+  - This area is feasible because the images, runtime listeners, and port inventory already exist, but it has the heaviest prerequisite work. The config and env migration should finish first, then the Compose and Docker packaging changes can move the checked-in stacks to their final host-network shape without leaving stale endpoint assumptions behind.
+
+### 5. Wrapper preflight and proof-oriented validation
+
+- Already existing capabilities:
+  - `scripts/docker-compose-with-env.sh` already centralizes Compose startup, env-file handling, Docker socket resolution, and UID or GID behavior, so there is an existing upstream place to enforce host-network prerequisites.
+  - The repository already has wrapper-first test and build patterns in `scripts/summary-wrapper-protocol.mjs`, `scripts/test-summary-server-unit.mjs`, `scripts/test-summary-client.mjs`, `scripts/test-summary-server-cucumber.mjs`, and `scripts/test-summary-e2e.mjs`.
+  - The server already exposes `/health` on the main API listener in `server/src/index.ts`, and `server/src/providers/mcpStatus.ts` already has an MCP URL probe helper.
+- Missing prerequisite capabilities:
+  - The Compose wrapper does not yet perform host-network support checks, port-availability checks, or fail-fast validation for unsupported service shapes.
+  - There is no dedicated shell-script harness yet for wrapper preflight behavior; that is why this story now includes the new `## Test Harnesses` section.
+  - There is no checked-in proof contract yet for MCP listener readiness on the dedicated MCP listeners or on Playwright MCP.
+- Assumptions that are currently invalid:
+  - It is not valid to assume the existing wrapper already proves host-network readiness or port safety before `docker compose` runs.
+  - It is not valid to assume that `/health` exists for every listener the story needs to validate.
+  - It is not valid to assume that the existing e2e path can prove fail-before-start wrapper behavior without the new shell harness.
+- Feasibility and sequencing note:
+  - This area is feasible because the wrapper and summary-protocol infrastructure already exist. The prerequisite work is explicit preflight logic plus the new shell harness, and those should land alongside the Compose cutover so the final host-network path is validated the same way it is introduced.
+
 ## Test Harnesses
 
 - This story should keep most verification in the harnesses the repository already has. No new harness type is needed for re-ingest schema changes, re-ingest orchestration, batch result payloads, blank-markdown skip behavior, MCP placeholder normalization, or end-to-end runtime checks. Those should extend the existing server `node:test` suites under `server/src/test/unit` and `server/src/test/integration`, the server cucumber suites under `server/src/test/features` and `server/src/test/steps`, the client Jest suites under `client/src/test`, and the existing summary-wrapper entry points in `scripts/test-summary-server-unit.mjs`, `scripts/test-summary-server-cucumber.mjs`, `scripts/test-summary-client.mjs`, and `scripts/test-summary-e2e.mjs`.

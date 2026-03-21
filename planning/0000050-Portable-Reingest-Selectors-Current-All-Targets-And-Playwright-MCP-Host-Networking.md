@@ -959,15 +959,8 @@ Add the new re-ingest request union to command and flow schema parsing so JSON f
 
 #### Documentation Locations
 
-- Story sections to read before changing code:
-  - `## Message Contracts And Storage Shapes`
-  - `## Edge Cases and Failure Modes`
 - Zod discriminated unions: Context7 `/colinhacks/zod`
-- Files to read:
-  - `server/src/agents/commandsSchema.ts`
-  - `server/src/flows/flowSchema.ts`
-  - `server/src/test/unit/agent-commands-schema.test.ts`
-  - `server/src/test/unit/flows-schema.test.ts`
+- TypeScript unions and strict typing: https://www.typescriptlang.org/docs/
 
 #### Subtasks
 
@@ -1023,13 +1016,8 @@ Keep `runReingestRepository()` strict on one canonical repository, but extend it
 
 #### Documentation Locations
 
-- Story sections to read before changing code:
-  - `## Message Contracts And Storage Shapes`
-  - `## Edge Cases and Failure Modes`
-- Files to read:
-  - `server/src/ingest/reingestService.ts`
-  - `server/src/test/unit/reingestService.test.ts`
-  - `server/src/mcpCommon/repositorySelector.ts`
+- TypeScript types and unions: https://www.typescriptlang.org/docs/
+- Node.js test runner: https://nodejs.org/api/test.html
 
 #### Subtasks
 
@@ -1079,17 +1067,8 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 
 #### Documentation Locations
 
-- Story sections to read before changing code:
-  - `## Feasibility Proof Pass`
-  - `## Message Contracts And Storage Shapes`
-  - `## Edge Cases and Failure Modes`
-- Files to read:
-  - `server/src/agents/commandsRunner.ts`
-  - `server/src/flows/service.ts`
-  - `server/src/agents/service.ts`
-  - `server/src/agents/commandItemExecutor.ts`
-  - `server/src/mcpCommon/repositorySelector.ts`
-  - `server/src/ingest/reingestService.ts`
+- TypeScript control flow and helper extraction: https://www.typescriptlang.org/docs/
+- Node.js test runner for targeted unit and integration coverage: https://nodejs.org/api/test.html
 
 #### Subtasks
 
@@ -1145,17 +1124,8 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
 
 #### Documentation Locations
 
-- Story sections to read before changing code:
-  - `## Message Contracts And Storage Shapes`
-  - `## Edge Cases and Failure Modes`
-- Files to read:
-  - `server/src/chat/reingestToolResult.ts`
-  - `server/src/chat/reingestStepLifecycle.ts`
-  - `server/src/chat/interfaces/ChatInterface.ts`
-  - `server/src/mongo/turn.ts`
-  - `server/src/mongo/repo.ts`
-  - `server/src/test/unit/reingest-tool-result.test.ts`
-  - `server/src/test/unit/reingest-step-lifecycle.test.ts`
+- Mongoose mixed/object persistence behavior: Context7 `/automattic/mongoose`
+- Node.js test runner: https://nodejs.org/api/test.html
 
 #### Subtasks
 
@@ -1206,15 +1176,8 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 
 #### Documentation Locations
 
-- Story sections to read before changing code:
-  - `## Message Contracts And Storage Shapes`
-  - `## Edge Cases and Failure Modes`
-- Files to read:
-  - `server/src/flows/markdownFileResolver.ts`
-  - `server/src/agents/commandItemExecutor.ts`
-  - `server/src/flows/service.ts`
-  - `server/src/test/unit/markdown-file-resolver.test.ts`
-  - `server/src/test/integration/commands.markdown-file.test.ts`
+- Node.js filesystem and text decoding APIs: https://nodejs.org/api/fs.html and https://nodejs.org/api/util.html
+- Node.js test runner: https://nodejs.org/api/test.html
 
 #### Subtasks
 
@@ -1263,24 +1226,9 @@ Finish the shared runtime placeholder normalization layer before any checked-in 
 
 #### Documentation Locations
 
-- Story sections to read before changing code:
-  - `## Message Contracts And Storage Shapes`
-  - `## Edge Cases and Failure Modes`
-- Files to read:
-  - `server/src/config/runtimeConfig.ts`
-  - `server/src/config/codexConfig.ts`
-  - `server/src/config.ts`
-  - `server/src/config/startupEnv.ts`
-  - `server/src/agents/config.ts`
-  - `server/src/routes/chat.ts`
-  - `server/src/providers/mcpStatus.ts`
-  - `server/src/index.ts`
-  - `server/src/mcp2/server.ts`
-  - `server/src/mcpAgents/server.ts`
-  - `server/src/test/unit/runtimeConfig.test.ts`
-  - `server/src/test/unit/codexConfig.test.ts`
-  - `server/src/test/unit/chatProviders.test.ts`
-  - `server/src/test/unit/chatModels.codex.test.ts`
+- TOML syntax basics: https://toml.io/en/
+- TypeScript config-object shaping: https://www.typescriptlang.org/docs/
+- Node.js test runner: https://nodejs.org/api/test.html
 
 #### Subtasks
 
@@ -1326,25 +1274,9 @@ Move the checked-in runtime config files and env files onto the final MCP placeh
 
 #### Documentation Locations
 
-- Story sections to read before changing code:
-  - `## Message Contracts And Storage Shapes`
-  - `## Edge Cases and Failure Modes`
-  - `## Final Validation`
-- Files to read:
-  - `codex/config.toml`
-  - `codex/chat/config.toml`
-  - `codex_agents/coding_agent/config.toml`
-  - `codex_agents/lmstudio_agent/config.toml`
-  - `codex_agents/planning_agent/config.toml`
-  - `codex_agents/research_agent/config.toml`
-  - `codex_agents/tasking_agent/config.toml`
-  - `codex_agents/vllm_agent/config.toml`
-  - `config.toml.example`
-  - `server/.env`
-  - `server/.env.local`
-  - `server/.env.e2e`
-  - `server/src/test/unit/runtimeConfig.test.ts`
-  - `server/src/test/unit/codexConfig.test.ts`
+- TOML format and field syntax: https://toml.io/en/
+- TypeScript config-object shaping: https://www.typescriptlang.org/docs/
+- Node.js test runner: https://nodejs.org/api/test.html
 
 #### Subtasks
 
@@ -1390,14 +1322,8 @@ Create the reusable repo-local shell harness that later wrapper and compose task
 
 #### Documentation Locations
 
-- Story sections to read before changing code:
-  - `## Test Harnesses`
-  - `## Proof Path Readiness`
 - DeepWiki and Context7 `bats-core`
-- Files to read:
-  - `scripts/summary-wrapper-protocol.mjs`
-  - `scripts/summary-wrapper-protocol-fixture.mjs`
-  - `package.json`
+- Node.js child process and stream handling: https://nodejs.org/api/child_process.html and https://nodejs.org/api/stream.html
 
 #### Subtasks
 
@@ -1435,14 +1361,9 @@ Extend the checked-in compose wrapper so it fails fast when the checked-in host-
 
 #### Documentation Locations
 
-- Story sections to read before changing code:
-  - `## Proof Path Readiness`
-  - `## Edge Cases and Failure Modes`
 - DeepWiki `docker/docs` host-network behavior notes
 - Context7 `/docker/compose`
-- Files to read:
-  - `scripts/docker-compose-with-env.sh`
-  - `scripts/test/bats/`
+- Shell scripting reference: https://www.gnu.org/software/bash/manual/bash.html
 
 #### Subtasks
 
@@ -1487,17 +1408,8 @@ Update the Docker build flow so the checked-in runtime assets needed by the host
 
 #### Documentation Locations
 
-- Story sections to read before changing code:
-  - `## Feasibility Proof Pass`
-  - `## Edge Cases and Failure Modes`
-- Files to read:
-  - `server/Dockerfile`
-  - `.dockerignore`
-  - `server/.dockerignore`
-  - `client/.dockerignore`
-  - `docker-compose.yml`
-  - `docker-compose.local.yml`
-  - `docker-compose.e2e.yml`
+- Docker build contexts and ignore files: Context7 `/docker/docs`
+- Dockerfile reference: Context7 `/docker/docs`
 
 #### Subtasks
 
@@ -1530,18 +1442,9 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
 
 #### Documentation Locations
 
-- Story sections to read before changing code:
-  - `## Feasibility Proof Pass`
-  - `## Edge Cases and Failure Modes`
-  - `## Final Validation`
 - Context7 `/docker/compose`
-- Files to read:
-  - `server/entrypoint.sh`
-  - `docker-compose.yml`
-  - `docker-compose.local.yml`
-  - `docker-compose.e2e.yml`
-  - `server/src/test/support/chromaContainer.ts`
-  - `server/src/test/support/mongoContainer.ts`
+- DeepWiki `docker/docs` host-network behavior notes
+- Shell scripting reference: https://www.gnu.org/software/bash/manual/bash.html
 
 #### Subtasks
 
@@ -1585,15 +1488,8 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 
 #### Documentation Locations
 
-- Story sections to read before changing code:
-  - `## Proof Path Readiness`
-  - `## Final Validation`
-- Files to read:
-  - `scripts/summary-wrapper-protocol.mjs`
-  - `scripts/summary-wrapper-protocol-fixture.mjs`
-  - `scripts/test-summary-e2e.mjs`
-  - `package.json`
-  - `docker-compose.yml`
+- Playwright connectivity and browser probing: Context7 `/microsoft/playwright`
+- Node.js child process and stream handling: https://nodejs.org/api/child_process.html and https://nodejs.org/api/stream.html
 
 #### Subtasks
 
@@ -1634,15 +1530,8 @@ Update the checked-in e2e env injection, config, and test assumptions so the e2e
 
 #### Documentation Locations
 
-- Story sections to read before changing code:
-  - `## Proof Path Readiness`
-  - `## Final Validation`
-- Files to read:
-  - `scripts/test-summary-e2e.mjs`
-  - `docker-compose.e2e.yml`
-  - `.env.e2e`
-  - `e2e/playwright.config.ts`
-  - `e2e` test files that assume the current URLs
+- Playwright config and base URL handling: Context7 `/microsoft/playwright`
+- Docker/Compose environment wiring: Context7 `/docker/compose`
 
 #### Subtasks
 
@@ -1675,9 +1564,6 @@ This task proves the completed story against the acceptance criteria. It must re
 
 #### Documentation Locations
 
-- Story sections to read before changing code:
-  - `## Acceptance Criteria`
-  - `## Final Validation`
 - Context7 `/docker/compose`
 - Context7 `/microsoft/playwright`
 
@@ -1731,11 +1617,9 @@ Update the shared documentation and prepare the finished story for review after 
 
 #### Documentation Locations
 
-- `README.md`
-- `design.md`
-- `projectStructure.md`
-- `docs/developer-reference.md`
-- Any documentation sources recorded in the earlier tasks when they introduced new files or commands
+- Docker/Compose runtime documentation: Context7 `/docker/compose`
+- Playwright runtime and screenshot documentation: Context7 `/microsoft/playwright`
+- Any external documentation sources recorded in the earlier tasks when they introduced new commands or runtime contracts
 
 #### Subtasks
 

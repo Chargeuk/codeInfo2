@@ -799,6 +799,18 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
   - Every task in this story belongs to the single repository `codeInfo2`.
   - No task currently mixes work across repositories, so no repository split is required.
 
+## Repository Ownership Audit
+
+- Story ownership result:
+  - This story affects exactly one repository: `codeInfo2`.
+  - No task in this story should be split across repositories because there is no second repository involved in the planned work.
+- Step-level ownership rule for the finalised task list:
+  - Every task, subtask, testing step, and final validation step below belongs exclusively to repository `codeInfo2`.
+  - No subtask, testing step, or final validation step in this story touches any other repository.
+  - No cross-repository prerequisite or `npm link` proof path is required for this story because there is no library-consumer repository split.
+- Sequencing consequence:
+  - All task sequencing, proof paths, and final validation steps below should be interpreted as single-repository `codeInfo2` work only.
+
 ### Task 1. Extend re-ingest schema parsing for command and flow files
 
 - Already existing capabilities:

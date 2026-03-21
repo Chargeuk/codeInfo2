@@ -993,8 +993,6 @@ Add the new re-ingest request union to command and flow schema parsing so JSON f
 16. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects an empty or whitespace-only `sourceId`. Purpose: prove the flow schema does not accept blank selectors.
 17. [ ] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects an otherwise valid `reingest` flow step containing an unexpected extra property. Purpose: prove the strict flow step shape still rejects undeclared keys.
 18. [ ] Record any new or renamed files for later documentation updates in Task 15. Do not update `README.md`, `design.md`, or `projectStructure.md` in this task unless a new file is created here.
-19. [ ] Run repo-wide lint and format gates as the last subtask for this task.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1004,6 +1002,8 @@ Add the new re-ingest request union to command and flow schema parsing so JSON f
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-schema.test.ts`
 6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flows-schema.test.ts`
 7. [ ] `npm run compose:down`
+8. [ ] `npm run lint`
+9. [ ] `npm run format:check`
 
 #### Implementation notes
 
@@ -1051,8 +1051,6 @@ Keep `runReingestRepository()` strict on one canonical repository, but extend it
 14. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `busy` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the busy-state retry contract.
 15. [ ] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `invalid_state` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the invalid-state failure contract.
 16. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-17. [ ] Run repo-wide lint and format gates as the last subtask for this task.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1061,6 +1059,8 @@ Keep `runReingestRepository()` strict on one canonical repository, but extend it
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`
 6. [ ] `npm run compose:down`
+7. [ ] `npm run lint`
+8. [ ] `npm run format:check`
 
 #### Implementation notes
 
@@ -1116,8 +1116,6 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 19. [ ] If this task introduces a new shared orchestration helper file, update `projectStructure.md` after the helper and its tests are in place. Document the exact helper file path, the updated test file path, and the purpose of the new orchestration seam so later developers can find the selector-resolution entry point.
 20. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the `sourceId`, `current`, and `all` re-ingest orchestration flow. Purpose: document the new target-resolution architecture, ownership-resolution rules, the intermediate re-ingest result contract, and deterministic batch ordering in the repository design doc immediately after implementation.
 21. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-22. [ ] Run repo-wide lint and format gates as the last subtask for this task.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1128,6 +1126,8 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 6. [ ] `npm run test:summary:server:unit -- --test-name reingest`
 7. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint`
+10. [ ] `npm run format:check`
 
 #### Implementation notes
 
@@ -1179,8 +1179,6 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
 18. [ ] Add a server unit test in `server/src/test/unit/reingest-step-lifecycle.test.ts` that reads an older single-result payload and asserts it still parses correctly. Purpose: prove backward compatibility for already-stored transcript data.
 19. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the single-result and batch-result transcript lifecycle, including the one-payload `target: "all"` rule, the synthetic-turn content path, and the reused `Turn.toolCalls` persistence path. Purpose: document the new transcript contract and persistence architecture at the point where it changes.
 20. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-21. [ ] Run repo-wide lint and format gates as the last subtask for this task.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1190,6 +1188,8 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/reingest-tool-result.test.ts`
 6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/reingest-step-lifecycle.test.ts`
 7. [ ] `npm run compose:down`
+8. [ ] `npm run lint`
+9. [ ] `npm run format:check`
 
 #### Implementation notes
 
@@ -1236,8 +1236,6 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 14. [ ] Add a server integration test in `server/src/test/integration/commands.markdown-file.test.ts` that verifies no synthetic tool-result payload is created when a markdown-backed step is skipped for empty content. Purpose: prove the skip does not fabricate transcript output.
 15. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the blank-markdown resolution path, the skip decision point, and the preserved hard-failure paths for missing, traversal, permission, and decoding errors. Purpose: document the shared command/flow execution behavior where the skip contract changes.
 16. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-17. [ ] Run repo-wide lint and format gates as the last subtask for this task.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1247,6 +1245,8 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/markdown-file-resolver.test.ts`
 6. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/commands.markdown-file.test.ts`
 7. [ ] `npm run compose:down`
+8. [ ] `npm run lint`
+9. [ ] `npm run format:check`
 
 #### Implementation notes
 
@@ -1294,8 +1294,6 @@ Finish the shared runtime placeholder normalization layer before any checked-in 
 15. [ ] If this task creates `server/src/test/unit/mcpStatus.test.ts` or any shared normalization helper file, update `projectStructure.md` after those files are in place. Document the new file path and its role in the runtime endpoint contract so the repository structure doc reflects the added normalization coverage.
 16. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the shared MCP placeholder-normalization flow, including placeholder resolution, unresolved-placeholder failure, the provider-status probe path, and the intentional split between chat/base and agents MCP endpoints. Purpose: document the runtime-config architecture where the contract is introduced.
 17. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-18. [ ] Run repo-wide lint and format gates as the last subtask for this task.
-
 #### Testing
 
 1. [ ] `npm run test:summary:server:unit -- --test-name runtimeConfig`
@@ -1303,6 +1301,8 @@ Finish the shared runtime placeholder normalization layer before any checked-in 
 3. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts`
 4. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/mcpStatus.test.ts`
 5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts`
+6. [ ] `npm run lint`
+7. [ ] `npm run format:check`
 
 #### Implementation notes
 
@@ -1348,12 +1348,12 @@ Move the checked-in runtime config files and env files onto the final MCP placeh
 6. [ ] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that sets only legacy `CODEINFO_MCP_PORT` and asserts chat MCP placeholder normalization fails or remains unsatisfied. Purpose: prove the legacy env name no longer satisfies the checked-in contract.
 7. [ ] Add a server unit test in `server/src/test/unit/codexConfig.test.ts` that loads the migrated checked-in config files and asserts no bridge-era `playwright-mcp` hostname or hard-coded localhost MCP URL dependency remains where placeholders are now required. Purpose: prove the checked-in config migration is complete.
 8. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-9. [ ] Run repo-wide lint and format gates as the last subtask for this task.
-
 #### Testing
 
 1. [ ] `npm run test:summary:server:unit -- --test-name runtimeConfig`
 2. [ ] `npm run test:summary:server:unit -- --test-name codexConfig`
+3. [ ] `npm run lint`
+4. [ ] `npm run format:check`
 
 #### Implementation notes
 
@@ -1390,13 +1390,13 @@ Create the reusable repo-local shell harness that later wrapper and compose task
 7. [ ] In `scripts/test/bats/shell-harness.bats`, add a shell test that exercises an intentionally failing fixture and asserts the failure is expected. Purpose: prove the harness can report controlled failures without treating them as accidental crashes.
 8. [ ] Update `projectStructure.md` after all new shell-harness files are added in this task. Document `scripts/test-summary-shell.mjs`, the `scripts/test/bats/` tree, and the vendored Bats runtime paths so the repository structure doc reflects the new shell-test harness entry points.
 9. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-10. [ ] Run repo-wide lint and format gates as the last subtask for this task.
-
 #### Testing
 
 1. [ ] `npm run test:summary:shell -- --file scripts/test/bats/shell-harness.bats`
 2. [ ] `npm run test:summary:shell`
 3. [ ] Confirm the shell harness run includes at least one expected failing fixture and that the saved output reports that error clearly instead of silently passing.
+4. [ ] `npm run lint`
+5. [ ] `npm run format:check`
 
 #### Implementation notes
 
@@ -1440,13 +1440,13 @@ Extend the checked-in compose wrapper so it fails fast when the checked-in host-
 10. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that proves the local host-network manual-testing contract still declares Chrome DevTools on `9222`. Purpose: keep the checked-in local CDP validation rule under automated shell-harness coverage.
 11. [ ] Update `projectStructure.md` after `scripts/test/bats/docker-compose-with-env.bats` is added. Document the new shell-test file path and its relationship to `scripts/docker-compose-with-env.sh` so the repository structure doc shows where host-network preflight coverage lives.
 12. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-13. [ ] Run repo-wide lint and format gates as the last subtask for this task.
-
 #### Testing
 
 1. [ ] `npm run test:summary:shell -- --file scripts/test/bats/docker-compose-with-env.bats`
 2. [ ] `npm run test:summary:shell`
 3. [ ] Confirm the saved output reports host-network preflight failures with the affected compose file or service instead of a generic shell error.
+4. [ ] `npm run lint`
+5. [ ] `npm run format:check`
 
 #### Implementation notes
 
@@ -1478,11 +1478,11 @@ Update the Docker build flow so the checked-in runtime assets needed by the host
 4. [ ] Reuse the existing `npm run compose:build:summary` output plus the later runtime/container inspection in Tasks 11 and 14 as the proof path for image-baked assets instead of adding a bespoke new proof script in this task.
 5. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe how checked-in runtime assets move from the repository into the image-based host-network runtime. Purpose: document the packaging architecture change that removes checked-in runtime bind mounts from the host-network model.
 6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
-
 #### Testing
 
 1. [ ] `npm run compose:build:summary`
+2. [ ] `npm run lint`
+3. [ ] `npm run format:check`
 
 #### Implementation notes
 
@@ -1522,8 +1522,6 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
 4. [ ] Prove the final host-networked Compose definitions no longer bind-mount application source trees or checked-in runtime asset trees into the runtime containers, and that any remaining persistence is limited to Docker-managed generated-output volumes plus the explicitly host-visible logs, with only deliberate non-source runtime mounts such as the local Docker socket remaining where required. Use the checked-in wrapper script with the `config` subcommand for this inspection instead of ad-hoc compose invocations so the same env-file and UID/GID rules are applied during validation.
 5. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the final host-network runtime topology, the preserved host-visible port matrix, and the allowed remaining runtime mounts. Purpose: document the checked-in runtime architecture after the compose cutover lands.
 6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
-
 #### Testing
 
 1. [ ] `npm run compose:build:summary`
@@ -1533,6 +1531,8 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
 5. [ ] Confirm the updated local host-network definition still preserves the checked-in Chrome DevTools `9222` contract and any required Docker-socket/Testcontainers support without reintroducing source-tree bind mounts.
 6. [ ] Confirm the generated effective Compose configuration for the scoped host-networked services no longer carries incompatible `ports` or `networks` keys and does not add a new `playwright-mcp` service to compose files that previously lacked one.
 7. [ ] `npm run compose:down`
+8. [ ] `npm run lint`
+9. [ ] `npm run format:check`
 
 #### Implementation notes
 
@@ -1573,8 +1573,6 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 8. [ ] Update `projectStructure.md` after the new proof-wrapper script, any new shared probe helper module, and `server/src/test/unit/test-summary-host-network-main.test.ts` are added. Document the new wrapper command file path and its dedicated unit-test file so the repository structure doc points to the host-network proof entry points.
 9. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the main-stack proof-wrapper probe flow and the host-visible endpoints it validates. Purpose: document the new proof-path architecture at the point where it is introduced.
 10. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-11. [ ] Run repo-wide lint and format gates as the last subtask for this task.
-
 #### Testing
 
 1. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/test-summary-host-network-main.test.ts`
@@ -1582,6 +1580,8 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 3. [ ] `npm run test:summary:host-network:main`
 4. [ ] Confirm the automated coverage added in this task includes at least one failing probe case for the new proof wrapper and checks the reported error output.
 5. [ ] `npm run compose:down`
+6. [ ] `npm run lint`
+7. [ ] `npm run format:check`
 
 #### Implementation notes
 
@@ -1615,11 +1615,11 @@ Update the checked-in e2e env injection, config, and test assumptions so the e2e
 6. [ ] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts the browser base URL and MCP control-channel URL remain separate values where the env contract expects them to differ. Purpose: prove the host-network cutover did not collapse navigation and control endpoints into one contract.
 7. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the e2e env-injection flow, the host-visible browser URL, and the separate MCP control-channel URL. Purpose: document the final e2e runtime wiring once the host-network address cutover is implemented.
 8. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-9. [ ] Run repo-wide lint and format gates as the last subtask for this task.
-
 #### Testing
 
 1. [ ] `npm run test:summary:e2e`
+2. [ ] `npm run lint`
+3. [ ] `npm run format:check`
 
 #### Implementation notes
 
@@ -1660,8 +1660,6 @@ This task proves the completed story against the acceptance criteria. It must re
    - and the local manual-testing Chrome DevTools contract on `9222`, keeping that `9222` endpoint as a distinct Chromium CDP surface rather than treating it as interchangeable with the Playwright MCP control URL.
 5. [ ] Use Playwright MCP tools to manually verify the running product and save screenshots to `test-results/screenshots/` using the filename pattern `0000050-10-<short-name>.png`. Capture enough screenshots to prove the validated UI and runtime state from this task, not just that the page loads.
 6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
-
 #### Testing
 
 1. [ ] `npm run build:summary:server`
@@ -1674,6 +1672,8 @@ This task proves the completed story against the acceptance criteria. It must re
 8. [ ] `npm run test:summary:host-network:main`
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test:summary:e2e`
+11. [ ] `npm run lint`
+12. [ ] `npm run format:check`
 
 #### Implementation notes
 
@@ -1706,11 +1706,11 @@ Update the shared documentation and prepare the finished story for review after 
 3. [ ] Update `docs/developer-reference.md` with the final MCP URLs, env-var names, host-network prerequisites, wrapper usage, and the exact meaning of `CODEINFO_SERVER_PORT`, `CODEINFO_CHAT_MCP_PORT`, `CODEINFO_AGENTS_MCP_PORT`, and `CODEINFO_PLAYWRIGHT_MCP_URL` after the cutover. Purpose: keep the operator-focused reference aligned with the implemented runtime contract.
 4. [ ] Update `projectStructure.md` at the repository root with every new or changed file path created by this story, including wrappers, tests, vendored shell-harness runtime files, any new runtime helper modules, and any new proof or status test files. Purpose: make the repository structure doc match the final file layout after all file-creating tasks have landed.
 5. [ ] Write the pull-request summary for this story, covering the final server contract changes, Docker/runtime changes, wrapper changes, proof-path additions, documentation updates, and the validation evidence captured in Task 14. Include the highest-risk compatibility changes called out in this story, especially the `CODEINFO_CHAT_MCP_PORT` cutover, the host-network compose shift, and the one-payload batch transcript behavior. Purpose: prepare a reviewer-facing summary that matches the implemented and validated story scope.
-6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
-
 #### Testing
 
 1. [ ] Review the saved outputs and screenshots from Task 14 and confirm the documentation and PR summary match the final validated behavior.
+2. [ ] `npm run lint`
+3. [ ] `npm run format:check`
 
 #### Implementation notes
 

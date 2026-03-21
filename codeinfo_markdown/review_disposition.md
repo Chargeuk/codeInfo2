@@ -85,6 +85,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 14. When the review is assessing the planned work, it MUST explicitly state whether each acceptance criterion has direct proof, indirect proof, or missing proof, and whether the implemented code is appropriately succinct for the required behavior or contains simplification opportunities.
 15. Even when there are no findings, the `Post-Implementation Code Review` section MUST state whether the generic adversarial checklist had direct proof, indirect proof, or missing proof for:
     - execution-routing or harness dependence;
+    - default launcher, wrapper, dispatcher, CI, or startup-path inclusion;
     - shared-state or concurrency safety;
     - reader and writer atomicity or partial-write tolerance;
     - cleanup ownership or stale-state safety;

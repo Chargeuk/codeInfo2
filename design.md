@@ -4867,7 +4867,40 @@ flowchart LR
   D --> T[Top 2 by distance]
   T --> X[Truncate chunks]
   X --> M[Apply total cap]
-  M --> O[Return capped results]
+    M --> O[Return capped results]
+```
+
+## Story 0000050 Task 4: re-ingest transcript payload lifecycle
+
+- Task 4 keeps the existing synthetic-turn and `Turn.toolCalls` persistence channel, but it widens the re-ingest tool payload contract so transcript readers can distinguish richer single-target metadata from one true batch result.
+- `server/src/chat/reingestToolResult.ts` now owns two payload shapes:
+  - `reingest_step_result` for `sourceId` and `current` single-target runs;
+  - `reingest_step_batch_result` for one `target: "all"` batch run.
+- The single payload stays backward compatible on `sourceId` while adding `targetMode`, `requestedSelector`, `resolvedRepositoryId`, normalized `outcome`, and `completionMode`.
+- The batch payload stores one ordered `repositories` array plus a precomputed `summary` object, so later readers and validation paths do not need to recompute counts or reconstruct ordering from multiple synthetic turns.
+- `server/src/chat/reingestStepLifecycle.ts` still persists one user turn and one assistant turn for a re-ingest action, but batch runs now summarize the whole batch in those synthetic turns rather than pretending they were a single-repository result.
+- Older stored single-result payloads remain readable because the lifecycle parser normalizes omitted optional fields from the mixed `toolCalls` payload instead of assuming the latest nested shape is always present.
+- The Task 4 persistence proof marker is `DEV-0000050:T04:reingest_payload_persisted`, emitted after assistant-turn persistence with `payloadKind`, `targetMode`, `repositoryCount`, and `conversationId`.
+
+```mermaid
+sequenceDiagram
+    participant Exec as Re-ingest execution
+    participant Builder as reingestToolResult.ts
+    participant Lifecycle as reingestStepLifecycle.ts
+    participant Persist as Turn.toolCalls
+    participant Reader as Transcript readers
+
+    Exec->>Builder: single result or batch result
+    alt single target
+        Builder->>Lifecycle: reingest_step_result
+    else target: all
+        Builder->>Lifecycle: reingest_step_batch_result
+    end
+    Lifecycle->>Lifecycle: build synthetic user/assistant text
+    Lifecycle->>Persist: assistant turn with toolCalls.calls[0]
+    Lifecycle-->>Lifecycle: DEV-0000050:T04:reingest_payload_persisted
+    Persist->>Reader: stored mixed payload
+    Reader->>Reader: normalize older single-result payloads if fields are omitted
 ```
 
 ### ChatInterface event buffering & persistence

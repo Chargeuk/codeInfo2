@@ -964,7 +964,7 @@ describe('agent commands runner (v1)', () => {
         ok: true,
         value: buildReingestSuccess({ status: 'completed' }),
       }),
-      buildReingestToolResult: ({ callId, outcome }) => ({
+      buildReingestToolResult: ({ callId, execution }) => ({
         type: 'tool-result',
         callId,
         name: 'reingest_repository',
@@ -972,14 +972,24 @@ describe('agent commands runner (v1)', () => {
         result: {
           kind: 'reingest_step_result',
           stepType: 'reingest',
-          sourceId: outcome.sourceId,
-          status: outcome.status,
-          operation: outcome.operation,
-          runId: outcome.runId,
-          files: outcome.files,
-          chunks: outcome.chunks,
-          embedded: outcome.embedded,
-          errorCode: outcome.errorCode,
+          sourceId:
+            execution.kind === 'single' ? execution.outcome.sourceId : '',
+          status:
+            execution.kind === 'single'
+              ? execution.outcome.status
+              : 'completed',
+          operation:
+            execution.kind === 'single'
+              ? execution.outcome.operation
+              : 'reembed',
+          runId:
+            execution.kind === 'single' ? execution.outcome.runId : 'run-batch',
+          files: execution.kind === 'single' ? execution.outcome.files : 0,
+          chunks: execution.kind === 'single' ? execution.outcome.chunks : 0,
+          embedded:
+            execution.kind === 'single' ? execution.outcome.embedded : 0,
+          errorCode:
+            execution.kind === 'single' ? execution.outcome.errorCode : null,
         },
         error: null,
       }),
@@ -1084,7 +1094,7 @@ describe('agent commands runner (v1)', () => {
     });
 
     assert.deepEqual(reingestCalls, ['/repo/a', '/repo/b', '/repo/c']);
-    assert.deepEqual(lifecycleCalls, []);
+    assert.deepEqual(lifecycleCalls, ['reingest-all-batch']);
     assert.deepEqual(messageSteps, [2]);
 
     const resolutionLog = query({
@@ -1177,7 +1187,7 @@ describe('agent commands runner (v1)', () => {
         ok: true,
         value: buildReingestSuccess({ status: 'cancelled' }),
       }),
-      buildReingestToolResult: ({ callId, outcome }) => ({
+      buildReingestToolResult: ({ callId, execution }) => ({
         type: 'tool-result',
         callId,
         name: 'reingest_repository',
@@ -1185,14 +1195,22 @@ describe('agent commands runner (v1)', () => {
         result: {
           kind: 'reingest_step_result',
           stepType: 'reingest',
-          sourceId: outcome.sourceId,
-          status: outcome.status,
-          operation: outcome.operation,
-          runId: outcome.runId,
-          files: outcome.files,
-          chunks: outcome.chunks,
-          embedded: outcome.embedded,
-          errorCode: outcome.errorCode,
+          sourceId:
+            execution.kind === 'single' ? execution.outcome.sourceId : '',
+          status:
+            execution.kind === 'single' ? execution.outcome.status : 'error',
+          operation:
+            execution.kind === 'single'
+              ? execution.outcome.operation
+              : 'reembed',
+          runId:
+            execution.kind === 'single' ? execution.outcome.runId : 'run-batch',
+          files: execution.kind === 'single' ? execution.outcome.files : 0,
+          chunks: execution.kind === 'single' ? execution.outcome.chunks : 0,
+          embedded:
+            execution.kind === 'single' ? execution.outcome.embedded : 0,
+          errorCode:
+            execution.kind === 'single' ? execution.outcome.errorCode : null,
         },
         error: null,
       }),
@@ -1246,7 +1264,7 @@ describe('agent commands runner (v1)', () => {
           errorCode: 'WAIT_TIMEOUT',
         }),
       }),
-      buildReingestToolResult: ({ callId, outcome }) => ({
+      buildReingestToolResult: ({ callId, execution }) => ({
         type: 'tool-result',
         callId,
         name: 'reingest_repository',
@@ -1254,14 +1272,22 @@ describe('agent commands runner (v1)', () => {
         result: {
           kind: 'reingest_step_result',
           stepType: 'reingest',
-          sourceId: outcome.sourceId,
-          status: outcome.status,
-          operation: outcome.operation,
-          runId: outcome.runId,
-          files: outcome.files,
-          chunks: outcome.chunks,
-          embedded: outcome.embedded,
-          errorCode: outcome.errorCode,
+          sourceId:
+            execution.kind === 'single' ? execution.outcome.sourceId : '',
+          status:
+            execution.kind === 'single' ? execution.outcome.status : 'error',
+          operation:
+            execution.kind === 'single'
+              ? execution.outcome.operation
+              : 'reembed',
+          runId:
+            execution.kind === 'single' ? execution.outcome.runId : 'run-batch',
+          files: execution.kind === 'single' ? execution.outcome.files : 0,
+          chunks: execution.kind === 'single' ? execution.outcome.chunks : 0,
+          embedded:
+            execution.kind === 'single' ? execution.outcome.embedded : 0,
+          errorCode:
+            execution.kind === 'single' ? execution.outcome.errorCode : null,
         },
         error: null,
       }),
@@ -1308,7 +1334,7 @@ describe('agent commands runner (v1)', () => {
         ok: true,
         value: buildReingestSuccess({ status: 'completed' }),
       }),
-      buildReingestToolResult: ({ callId, outcome }) => ({
+      buildReingestToolResult: ({ callId, execution }) => ({
         type: 'tool-result',
         callId,
         name: 'reingest_repository',
@@ -1316,14 +1342,24 @@ describe('agent commands runner (v1)', () => {
         result: {
           kind: 'reingest_step_result',
           stepType: 'reingest',
-          sourceId: outcome.sourceId,
-          status: outcome.status,
-          operation: outcome.operation,
-          runId: outcome.runId,
-          files: outcome.files,
-          chunks: outcome.chunks,
-          embedded: outcome.embedded,
-          errorCode: outcome.errorCode,
+          sourceId:
+            execution.kind === 'single' ? execution.outcome.sourceId : '',
+          status:
+            execution.kind === 'single'
+              ? execution.outcome.status
+              : 'completed',
+          operation:
+            execution.kind === 'single'
+              ? execution.outcome.operation
+              : 'reembed',
+          runId:
+            execution.kind === 'single' ? execution.outcome.runId : 'run-batch',
+          files: execution.kind === 'single' ? execution.outcome.files : 0,
+          chunks: execution.kind === 'single' ? execution.outcome.chunks : 0,
+          embedded:
+            execution.kind === 'single' ? execution.outcome.embedded : 0,
+          errorCode:
+            execution.kind === 'single' ? execution.outcome.errorCode : null,
         },
         error: null,
       }),

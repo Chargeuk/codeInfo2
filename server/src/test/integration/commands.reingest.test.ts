@@ -280,8 +280,13 @@ test('runAgentCommand bootstraps a new conversation for a reingest-only command'
           result: {
             kind: 'reingest_step_result',
             stepType: 'reingest',
+            targetMode: 'sourceId',
+            requestedSelector: '/repo/source-a',
             sourceId: '/repo/source-a',
+            resolvedRepositoryId: 'repo-a',
+            outcome: 'reingested',
             status: 'completed',
+            completionMode: 'reingested',
             operation: 'reembed',
             runId: 'run-123',
             files: 3,

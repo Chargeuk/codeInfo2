@@ -2813,21 +2813,21 @@ async function runFlowUnlocked(params: {
                 runToken: params.runToken,
               });
 
+              const callId = flowServiceDeps.createCallId();
+              const toolResult = flowServiceDeps.buildReingestToolResult({
+                callId,
+                execution: result.value,
+              });
+
+              await flowServiceDeps.runReingestStepLifecycle({
+                conversationId: params.conversationId,
+                modelId: await getAgentModelId(agent.configPath),
+                source: params.source,
+                command,
+                toolResult,
+              });
+
               if (result.value.kind === 'single') {
-                const callId = flowServiceDeps.createCallId();
-                const toolResult = flowServiceDeps.buildReingestToolResult({
-                  callId,
-                  outcome: result.value.outcome,
-                });
-
-                await flowServiceDeps.runReingestStepLifecycle({
-                  conversationId: params.conversationId,
-                  modelId: await getAgentModelId(agent.configPath),
-                  source: params.source,
-                  command,
-                  toolResult,
-                });
-
                 let stopAfter = false;
                 if (pendingCancelAfterWait) {
                   await emitStoppedFlowStep({
@@ -2982,22 +2982,19 @@ async function runFlowUnlocked(params: {
       return 'failed';
     }
 
-    let callId: string | null = null;
-    if (result.value.kind === 'single') {
-      callId = flowServiceDeps.createCallId();
-      const toolResult = flowServiceDeps.buildReingestToolResult({
-        callId,
-        outcome: result.value.outcome,
-      });
+    const callId = flowServiceDeps.createCallId();
+    const toolResult = flowServiceDeps.buildReingestToolResult({
+      callId,
+      execution: result.value,
+    });
 
-      await flowServiceDeps.runReingestStepLifecycle({
-        conversationId: params.conversationId,
-        modelId: params.modelId,
-        source: params.source,
-        command,
-        toolResult,
-      });
-    }
+    await flowServiceDeps.runReingestStepLifecycle({
+      conversationId: params.conversationId,
+      modelId: params.modelId,
+      source: params.source,
+      command,
+      toolResult,
+    });
 
     const pendingCancel = consumePendingConversationCancel({
       conversationId: params.conversationId,

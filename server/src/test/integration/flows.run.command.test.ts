@@ -1868,8 +1868,13 @@ test('flow-owned command reingest results persist through assistant toolCalls st
             result: {
               kind: 'reingest_step_result',
               stepType: 'reingest',
+              targetMode: 'sourceId',
+              requestedSelector: '/repo/source-a',
               sourceId: '/repo/source-a',
+              resolvedRepositoryId: 'repo-a',
+              outcome: 'reingested',
               status: 'completed',
+              completionMode: 'reingested',
               operation: 'reembed',
               runId: 'run-123',
               files: 3,

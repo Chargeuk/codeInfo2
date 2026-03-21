@@ -345,22 +345,19 @@ export async function runAgentCommandRunner(
           );
         }
 
-        let callId: string | null = null;
-        if (result.value.kind === 'single') {
-          callId = commandRunnerDeps.createCallId();
-          const toolResult = commandRunnerDeps.buildReingestToolResult({
-            callId,
-            outcome: result.value.outcome,
-          });
+        const callId = commandRunnerDeps.createCallId();
+        const toolResult = commandRunnerDeps.buildReingestToolResult({
+          callId,
+          execution: result.value,
+        });
 
-          await commandRunnerDeps.runReingestStepLifecycle({
-            conversationId,
-            modelId,
-            source: params.source,
-            command: stepMeta,
-            toolResult,
-          });
-        }
+        await commandRunnerDeps.runReingestStepLifecycle({
+          conversationId,
+          modelId,
+          source: params.source,
+          command: stepMeta,
+          toolResult,
+        });
 
         consumePendingCommandStop();
         const continuedToNextItem =

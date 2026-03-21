@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 
 import type { ToolEvent } from '../../chat/inflightRegistry.js';
+import type { ChatToolResultEvent } from '../../chat/interfaces/ChatInterface.js';
 import {
   __resetReingestStepLifecycleDepsForTests,
   __setReingestStepLifecycleDepsForTests,
@@ -54,15 +55,24 @@ const buildOutcome = (
 
 const buildHarness = (params?: {
   toolOutcome?: Partial<ReingestTerminalOutcome>;
+  toolResult?: ChatToolResultEvent;
   useMemoryPersistence?: boolean;
   command?: TurnCommandMetadata;
   modelId?: string;
   source?: TurnSource;
 }) => {
-  const toolResult = buildReingestToolResult({
-    callId: 'reingest-step-1',
-    outcome: buildOutcome(params?.toolOutcome),
-  });
+  const toolResult =
+    params?.toolResult ??
+    buildReingestToolResult({
+      callId: 'reingest-step-1',
+      execution: {
+        kind: 'single',
+        targetMode: 'sourceId',
+        requestedSelector: '/repo/source-a',
+        resolvedSourceId: '/repo/source-a',
+        outcome: buildOutcome(params?.toolOutcome),
+      },
+    });
   const order: string[] = [];
   const publishedUserTurns: Array<Record<string, unknown>> = [];
   const publishedToolEvents: Array<Record<string, unknown>> = [];
@@ -366,6 +376,202 @@ test('publishes tool_event before final assistant-turn completion', async () => 
   );
 });
 
+test('persists one explicit batch payload for an empty target-all run', async () => {
+  const harness = buildHarness({
+    toolResult: buildReingestToolResult({
+      callId: 'reingest-batch-empty',
+      execution: {
+        kind: 'batch',
+        targetMode: 'all',
+        requestedSelector: null,
+        repositories: [],
+      },
+    }),
+  });
+
+  await harness.run();
+
+  const assistantTurn = harness.persistedTurns.find(
+    (turn) => turn.role === 'assistant',
+  );
+  assert.ok(assistantTurn);
+  assert.deepEqual(assistantTurn.toolCalls, {
+    calls: [harness.toolResult],
+  });
+  assert.deepEqual(
+    (
+      assistantTurn.toolCalls as {
+        calls: Array<{ result: { repositories: Array<unknown> } }>;
+      }
+    ).calls[0].result.repositories,
+    [],
+  );
+});
+
+test('empty batch payload keeps a zeroed summary object', async () => {
+  const harness = buildHarness({
+    toolResult: buildReingestToolResult({
+      callId: 'reingest-batch-empty-summary',
+      execution: {
+        kind: 'batch',
+        targetMode: 'all',
+        requestedSelector: null,
+        repositories: [],
+      },
+    }),
+  });
+
+  await harness.run();
+
+  const assistantTurn = harness.persistedTurns.find(
+    (turn) => turn.role === 'assistant',
+  );
+  assert.ok(assistantTurn);
+  assert.deepEqual(
+    (
+      assistantTurn.toolCalls as {
+        calls: Array<{ result: { summary: Record<string, number> } }>;
+      }
+    ).calls[0].result.summary,
+    {
+      reingested: 0,
+      skipped: 0,
+      failed: 0,
+    },
+  );
+});
+
+test('batch reingest persistence stays on Turn.toolCalls instead of a second channel', async () => {
+  const harness = buildHarness({
+    toolResult: buildReingestToolResult({
+      callId: 'reingest-batch-toolcalls',
+      execution: {
+        kind: 'batch',
+        targetMode: 'all',
+        requestedSelector: null,
+        repositories: [
+          {
+            sourceId: '/repo/a',
+            resolvedRepositoryId: 'repo-a',
+            outcome: 'reingested',
+            status: 'completed',
+            completionMode: 'reingested',
+            runId: 'run-a',
+            files: 4,
+            chunks: 12,
+            embedded: 12,
+            errorCode: null,
+            errorMessage: null,
+          },
+        ],
+      },
+    }),
+  });
+
+  await harness.run();
+
+  assert.equal(harness.persistedTurns.length, 2);
+  assert.equal(harness.persistedTurns[0].toolCalls, null);
+  assert.deepEqual(harness.persistedTurns[1].toolCalls, {
+    calls: [harness.toolResult],
+  });
+});
+
+test('batch synthetic turn content summarizes the run instead of naming one sourceId', async () => {
+  const harness = buildHarness({
+    toolResult: buildReingestToolResult({
+      callId: 'reingest-batch-summary-content',
+      execution: {
+        kind: 'batch',
+        targetMode: 'all',
+        requestedSelector: null,
+        repositories: [
+          {
+            sourceId: '/repo/a',
+            resolvedRepositoryId: 'repo-a',
+            outcome: 'reingested',
+            status: 'completed',
+            completionMode: 'reingested',
+            runId: 'run-a',
+            files: 4,
+            chunks: 12,
+            embedded: 12,
+            errorCode: null,
+            errorMessage: null,
+          },
+          {
+            sourceId: '/repo/b',
+            resolvedRepositoryId: 'repo-b',
+            outcome: 'failed',
+            status: 'error',
+            completionMode: null,
+            runId: null,
+            files: 0,
+            chunks: 0,
+            embedded: 0,
+            errorCode: 'WAIT_TIMEOUT',
+            errorMessage: 'Timed out waiting for lock.',
+          },
+        ],
+      },
+    }),
+  });
+
+  await harness.run();
+
+  assert.equal(
+    harness.publishedUserTurns[0].content,
+    'Record re-ingest result for all ingested repositories',
+  );
+  const assistantTurn = harness.persistedTurns.find(
+    (turn) => turn.role === 'assistant',
+  );
+  assert.ok(assistantTurn);
+  assert.equal(
+    assistantTurn.content,
+    'Batch re-ingest recorded for 2 repositories (1 reingested, 0 skipped, 1 failed).',
+  );
+});
+
+test('older single-result payloads still parse and persist correctly', async () => {
+  const legacyToolResult: ChatToolResultEvent = {
+    type: 'tool-result',
+    callId: 'legacy-reingest-step',
+    name: 'reingest_repository',
+    stage: 'success',
+    result: {
+      kind: 'reingest_step_result',
+      stepType: 'reingest',
+      sourceId: '/repo/legacy',
+      status: 'completed',
+      operation: 'reembed',
+      runId: 'legacy-run',
+      files: 2,
+      chunks: 8,
+      embedded: 8,
+      errorCode: null,
+    },
+    error: null,
+  };
+  const harness = buildHarness({
+    toolResult: legacyToolResult,
+  });
+
+  await harness.run();
+
+  assert.equal(
+    harness.publishedUserTurns[0].content,
+    'Record re-ingest result for /repo/legacy',
+  );
+  const assistantTurn = harness.persistedTurns.find(
+    (turn) => turn.role === 'assistant',
+  );
+  assert.ok(assistantTurn);
+  assert.deepEqual(assistantTurn.toolCalls, {
+    calls: [legacyToolResult],
+  });
+});
+
 test('passes through caller-supplied model, source, and command metadata', async () => {
   const command: TurnCommandMetadata = {
     name: 'flow',
@@ -400,7 +606,11 @@ test('passes through caller-supplied model, source, and command metadata', async
   assert.equal(harness.persistedTurns[0].source, 'REST');
   assert.deepEqual(harness.persistedTurns[0].command, command);
   assert.equal(
-    harness.appendLogs.at(-1)?.message,
+    harness.appendLogs[0]?.message,
     'DEV-0000045:T8:reingest_lifecycle_published',
+  );
+  assert.equal(
+    harness.appendLogs[1]?.message,
+    'DEV-0000050:T04:reingest_payload_persisted',
   );
 });

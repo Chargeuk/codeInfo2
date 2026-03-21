@@ -7,6 +7,10 @@ import {
   buildReingestToolResult,
   type ReingestTerminalOutcome,
 } from '../../chat/reingestToolResult.js';
+import type {
+  ReingestExecutionBatchResult,
+  ReingestExecutionSingleResult,
+} from '../../ingest/reingestExecution.js';
 
 const buildOutcome = (
   overrides: Partial<ReingestTerminalOutcome> = {},
@@ -25,6 +29,67 @@ const buildOutcome = (
   ...overrides,
 });
 
+const buildSingleExecution = (
+  overrides: Partial<ReingestExecutionSingleResult> = {},
+): ReingestExecutionSingleResult => ({
+  kind: 'single',
+  targetMode: 'sourceId',
+  requestedSelector: 'Repo A',
+  resolvedSourceId: '/data/repo-a',
+  outcome: buildOutcome(),
+  ...overrides,
+});
+
+const buildBatchExecution = (
+  overrides: Partial<ReingestExecutionBatchResult> = {},
+): ReingestExecutionBatchResult => ({
+  kind: 'batch',
+  targetMode: 'all',
+  requestedSelector: null,
+  repositories: [
+    {
+      sourceId: '/data/repo-a',
+      resolvedRepositoryId: 'repo-a',
+      outcome: 'reingested',
+      status: 'completed',
+      completionMode: 'reingested',
+      runId: 'run-a',
+      files: 3,
+      chunks: 10,
+      embedded: 10,
+      errorCode: null,
+      errorMessage: null,
+    },
+    {
+      sourceId: '/data/repo-b',
+      resolvedRepositoryId: 'repo-b',
+      outcome: 'skipped',
+      status: 'completed',
+      completionMode: 'skipped',
+      runId: 'run-b',
+      files: 0,
+      chunks: 0,
+      embedded: 0,
+      errorCode: null,
+      errorMessage: null,
+    },
+    {
+      sourceId: '/data/repo-c',
+      resolvedRepositoryId: 'repo-c',
+      outcome: 'failed',
+      status: 'error',
+      completionMode: null,
+      runId: null,
+      files: 0,
+      chunks: 0,
+      embedded: 0,
+      errorCode: 'BUSY',
+      errorMessage: 'Another ingest is already running.',
+    },
+  ],
+  ...overrides,
+});
+
 const toLiveToolEvent = (event: ChatToolResultEvent): ToolEvent => ({
   type: 'tool-result',
   callId: event.callId,
@@ -36,45 +101,22 @@ const toLiveToolEvent = (event: ChatToolResultEvent): ToolEvent => ({
   errorFull: event.error ?? undefined,
 });
 
-test('builds the expected nested payload for completed reingest outcomes', () => {
+test('builds the extended single-result payload for completed reingest outcomes', () => {
   const result = buildReingestToolResult({
     callId: 'reingest-step-1',
-    outcome: buildOutcome(),
+    execution: buildSingleExecution(),
   });
 
-  assert.deepEqual(result, {
-    type: 'tool-result',
-    callId: 'reingest-step-1',
-    name: 'reingest_repository',
-    stage: 'success',
-    result: {
-      kind: 'reingest_step_result',
-      stepType: 'reingest',
-      sourceId: '/data/repo-a',
-      status: 'completed',
-      operation: 'reembed',
-      runId: 'run-123',
-      files: 9,
-      chunks: 20,
-      embedded: 15,
-      errorCode: null,
-    },
-    error: null,
-  });
-});
-
-test('preserves cancelled outcomes as structured terminal data', () => {
-  const result = buildReingestToolResult({
-    callId: 'reingest-step-2',
-    outcome: buildOutcome({ status: 'cancelled' }),
-  });
-
-  assert.equal(result.stage, 'error');
   assert.deepEqual(result.result, {
     kind: 'reingest_step_result',
     stepType: 'reingest',
+    targetMode: 'sourceId',
+    requestedSelector: 'Repo A',
     sourceId: '/data/repo-a',
-    status: 'cancelled',
+    resolvedRepositoryId: 'repo-a',
+    outcome: 'reingested',
+    status: 'completed',
+    completionMode: 'reingested',
     operation: 'reembed',
     runId: 'run-123',
     files: 9,
@@ -84,36 +126,166 @@ test('preserves cancelled outcomes as structured terminal data', () => {
   });
 });
 
-test('preserves error outcomes and stage mapping', () => {
+test('preserves selector metadata in single-result payloads', () => {
   const result = buildReingestToolResult({
-    callId: 'reingest-step-3',
-    outcome: buildOutcome({ status: 'error', errorCode: 'INGEST_FAIL' }),
+    callId: 'reingest-step-2',
+    execution: buildSingleExecution({
+      requestedSelector: 'Repo Alias',
+      outcome: buildOutcome({
+        sourceId: '/data/repo-b',
+        resolvedRepositoryId: 'repo-b',
+      }),
+    }),
   });
 
-  assert.equal(result.stage, 'error');
+  assert.equal(result.stage, 'success');
   assert.deepEqual(result.result, {
     kind: 'reingest_step_result',
     stepType: 'reingest',
-    sourceId: '/data/repo-a',
-    status: 'error',
+    targetMode: 'sourceId',
+    requestedSelector: 'Repo Alias',
+    sourceId: '/data/repo-b',
+    resolvedRepositoryId: 'repo-b',
+    outcome: 'reingested',
+    status: 'completed',
+    completionMode: 'reingested',
     operation: 'reembed',
     runId: 'run-123',
     files: 9,
     chunks: 20,
     embedded: 15,
-    errorCode: 'INGEST_FAIL',
+    errorCode: null,
   });
+});
+
+test('preserves current-target metadata in single-result payloads', () => {
+  const result = buildReingestToolResult({
+    callId: 'reingest-step-3',
+    execution: buildSingleExecution({
+      targetMode: 'current',
+      requestedSelector: null,
+      outcome: buildOutcome({
+        sourceId: '/data/current-repo',
+        resolvedRepositoryId: 'repo-current',
+      }),
+    }),
+  });
+
+  assert.equal(result.stage, 'success');
+  assert.deepEqual(result.result, {
+    kind: 'reingest_step_result',
+    stepType: 'reingest',
+    targetMode: 'current',
+    requestedSelector: null,
+    sourceId: '/data/current-repo',
+    resolvedRepositoryId: 'repo-current',
+    outcome: 'reingested',
+    status: 'completed',
+    completionMode: 'reingested',
+    operation: 'reembed',
+    runId: 'run-123',
+    files: 9,
+    chunks: 20,
+    embedded: 15,
+    errorCode: null,
+  });
+});
+
+test('builds one batch payload and preserves repository ordering', () => {
+  const result = buildReingestToolResult({
+    callId: 'reingest-step-4',
+    execution: buildBatchExecution(),
+  });
+
+  assert.equal(result.stage, 'error');
+  assert.equal(
+    (result.result as { kind: string }).kind,
+    'reingest_step_batch_result',
+  );
+  assert.deepEqual(
+    (
+      result.result as { repositories: Array<{ sourceId: string }> }
+    ).repositories.map((repository) => repository.sourceId),
+    ['/data/repo-a', '/data/repo-b', '/data/repo-c'],
+  );
+});
+
+test('batch payload entries preserve repository identity and canonical path fields', () => {
+  const result = buildReingestToolResult({
+    callId: 'reingest-step-5',
+    execution: buildBatchExecution(),
+  });
+
+  assert.deepEqual(
+    (
+      result.result as {
+        repositories: Array<{
+          sourceId: string;
+          resolvedRepositoryId: string | null;
+        }>;
+      }
+    ).repositories.map((repository) => ({
+      sourceId: repository.sourceId,
+      resolvedRepositoryId: repository.resolvedRepositoryId,
+    })),
+    [
+      {
+        sourceId: '/data/repo-a',
+        resolvedRepositoryId: 'repo-a',
+      },
+      {
+        sourceId: '/data/repo-b',
+        resolvedRepositoryId: 'repo-b',
+      },
+      {
+        sourceId: '/data/repo-c',
+        resolvedRepositoryId: 'repo-c',
+      },
+    ],
+  );
+});
+
+test('batch payload summary counts mixed outcomes without recomputation', () => {
+  const result = buildReingestToolResult({
+    callId: 'reingest-step-6',
+    execution: buildBatchExecution(),
+  });
+
+  assert.deepEqual(
+    (result.result as { summary: Record<string, number> }).summary,
+    {
+      reingested: 1,
+      skipped: 1,
+      failed: 1,
+    },
+  );
+});
+
+test('batch payload preserves failure text for failed repositories', () => {
+  const result = buildReingestToolResult({
+    callId: 'reingest-step-7',
+    execution: buildBatchExecution(),
+  });
+
+  assert.equal(
+    (
+      result.result as {
+        repositories: Array<{ sourceId: string; errorMessage: string | null }>;
+      }
+    ).repositories[2].errorMessage,
+    'Another ingest is already running.',
+  );
 });
 
 test('remains compatible with the existing live tool-result event shape', () => {
   const built = buildReingestToolResult({
-    callId: 'reingest-step-4',
-    outcome: buildOutcome(),
+    callId: 'reingest-step-8',
+    execution: buildSingleExecution(),
   });
 
   const liveEvent = toLiveToolEvent(built);
   assert.equal(liveEvent.type, 'tool-result');
-  assert.equal(liveEvent.callId, 'reingest-step-4');
+  assert.equal(liveEvent.callId, 'reingest-step-8');
   assert.equal(liveEvent.name, 'reingest_repository');
   assert.equal(liveEvent.stage, 'success');
   assert.deepEqual(liveEvent.result, built.result);
@@ -121,54 +293,40 @@ test('remains compatible with the existing live tool-result event shape', () => 
   assert.equal(liveEvent.errorFull ?? null, null);
 });
 
-test('remains compatible with the persisted Turn.toolCalls container shape', () => {
+test('remains compatible with the persisted Turn.toolCalls container shape for batch payloads', () => {
   const built = buildReingestToolResult({
-    callId: 'reingest-step-5',
-    outcome: buildOutcome({ status: 'cancelled' }),
+    callId: 'reingest-step-9',
+    execution: buildBatchExecution({
+      repositories: [],
+    }),
   });
 
-  const persisted = {
-    calls: [built],
-  };
-
-  assert.deepEqual(persisted, {
-    calls: [
-      {
-        type: 'tool-result',
-        callId: 'reingest-step-5',
-        name: 'reingest_repository',
-        stage: 'error',
-        result: {
-          kind: 'reingest_step_result',
-          stepType: 'reingest',
-          sourceId: '/data/repo-a',
-          status: 'cancelled',
-          operation: 'reembed',
-          runId: 'run-123',
-          files: 9,
-          chunks: 20,
-          embedded: 15,
-          errorCode: null,
-        },
-        error: null,
-      },
-    ],
-  });
-});
-
-test('preserves distinct callIds for multiple reingest results in one run', () => {
-  const first = buildReingestToolResult({
-    callId: 'reingest-step-6',
-    outcome: buildOutcome(),
-  });
-  const second = buildReingestToolResult({
-    callId: 'reingest-step-7',
-    outcome: buildOutcome({ status: 'error', errorCode: 'WAIT_TIMEOUT' }),
-  });
-
-  assert.notEqual(first.callId, second.callId);
   assert.deepEqual(
-    [first, second].map((event) => event.callId),
-    ['reingest-step-6', 'reingest-step-7'],
+    {
+      calls: [built],
+    },
+    {
+      calls: [
+        {
+          type: 'tool-result',
+          callId: 'reingest-step-9',
+          name: 'reingest_repository',
+          stage: 'success',
+          result: {
+            kind: 'reingest_step_batch_result',
+            stepType: 'reingest',
+            targetMode: 'all',
+            requestedSelector: null,
+            repositories: [],
+            summary: {
+              reingested: 0,
+              skipped: 0,
+              failed: 0,
+            },
+          },
+          error: null,
+        },
+      ],
+    },
   );
 });

@@ -1173,6 +1173,7 @@ Add the wrapper-side host-network preflight checks and the new shell harness tha
 - Files to read:
   - `scripts/docker-compose-with-env.sh`
   - `scripts/summary-wrapper-protocol.mjs`
+  - `scripts/summary-wrapper-protocol-fixture.mjs`
   - `package.json`
 
 #### Subtasks
@@ -1195,7 +1196,8 @@ Add the wrapper-side host-network preflight checks and the new shell harness tha
    - conflicting host ports;
    - incompatible host-network service shapes;
    - success-path pass-through to compose execution;
-   - actionable failure text that includes the affected compose file or service.
+   - actionable failure text that includes the affected compose file or service;
+   - at least one intentionally failing harness case that proves `npm run test:summary:shell` executes the harness and reports the error path as a checked failure.
 7. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
 8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
@@ -1206,7 +1208,8 @@ Add the wrapper-side host-network preflight checks and the new shell harness tha
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:shell`
-6. [ ] `npm run compose:down`
+6. [ ] Confirm the shell harness run includes at least one expected failing fixture and that the saved output reports that error clearly instead of silently passing.
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1288,6 +1291,8 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
   - `## Proof Path Readiness`
   - `## Final Validation`
 - Files to read:
+  - `scripts/summary-wrapper-protocol.mjs`
+  - `scripts/summary-wrapper-protocol-fixture.mjs`
   - `scripts/test-summary-e2e.mjs`
   - `package.json`
   - `docker-compose.yml`
@@ -1302,7 +1307,7 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 2. [ ] Add one checked-in summary wrapper under `scripts/` that probes the live main-stack host-visible ports `5010`, `5011`, `5012`, and `8932` after `npm run compose:up` and fails clearly when any required listener or MCP surface is unavailable, including separate checks for the classic `/mcp` route, the dedicated chat MCP route, the agents MCP route, and the Playwright MCP route.
 3. [ ] Add the corresponding root `package.json` script entry for that proof wrapper.
 4. [ ] Update any e2e env injection, checked-in e2e config, or test assumptions that would otherwise still point at stale bridge-era URLs or ports after the host-network cutover, while keeping browser navigation targets and MCP control-channel targets as separate contracts where the story requires them.
-5. [ ] Add or update automated coverage for the new proof wrapper if it is practical to unit-test its probe logic without bringing the whole stack up.
+5. [ ] Add or update automated coverage for the new proof wrapper so it executes the wrapper or its probe layer with at least one passing scenario and at least one failing probe scenario, and checks that the failure path emits inspectable error output instead of only a generic crash.
 6. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
 7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
@@ -1313,8 +1318,9 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 3. [ ] `npm run compose:build:summary`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:host-network:main`
-6. [ ] `npm run compose:down`
-7. [ ] `npm run test:summary:e2e`
+6. [ ] Confirm the automated coverage added in this task includes at least one failing probe case for the new proof wrapper and checks the reported error output.
+7. [ ] `npm run compose:down`
+8. [ ] `npm run test:summary:e2e`
 
 #### Implementation notes
 

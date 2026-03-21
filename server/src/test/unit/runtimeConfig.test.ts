@@ -17,6 +17,7 @@ import {
   mergeProjectsFromBaseIntoRuntime,
   mergeRuntimeConfigWithBaseConfig,
   minimizeBaseConfigToProjectsOnly,
+  normalizeCodeinfoRuntimeConfigPlaceholders,
   normalizeContext7RuntimeConfig,
   normalizeRuntimeConfig,
   readAndNormalizeRuntimeTomlConfig,
@@ -28,6 +29,10 @@ import {
 } from '../../config/runtimeConfig.js';
 
 const originalContext7ApiKey = process.env.CODEINFO_CONTEXT7_API_KEY;
+const originalServerPort = process.env.CODEINFO_SERVER_PORT;
+const originalChatMcpPort = process.env.CODEINFO_CHAT_MCP_PORT;
+const originalAgentsMcpPort = process.env.CODEINFO_AGENTS_MCP_PORT;
+const originalPlaywrightMcpUrl = process.env.CODEINFO_PLAYWRIGHT_MCP_URL;
 
 afterEach(() => {
   mock.restoreAll();
@@ -35,6 +40,26 @@ afterEach(() => {
     delete process.env.CODEINFO_CONTEXT7_API_KEY;
   } else {
     process.env.CODEINFO_CONTEXT7_API_KEY = originalContext7ApiKey;
+  }
+  if (originalServerPort === undefined) {
+    delete process.env.CODEINFO_SERVER_PORT;
+  } else {
+    process.env.CODEINFO_SERVER_PORT = originalServerPort;
+  }
+  if (originalChatMcpPort === undefined) {
+    delete process.env.CODEINFO_CHAT_MCP_PORT;
+  } else {
+    process.env.CODEINFO_CHAT_MCP_PORT = originalChatMcpPort;
+  }
+  if (originalAgentsMcpPort === undefined) {
+    delete process.env.CODEINFO_AGENTS_MCP_PORT;
+  } else {
+    process.env.CODEINFO_AGENTS_MCP_PORT = originalAgentsMcpPort;
+  }
+  if (originalPlaywrightMcpUrl === undefined) {
+    delete process.env.CODEINFO_PLAYWRIGHT_MCP_URL;
+  } else {
+    process.env.CODEINFO_PLAYWRIGHT_MCP_URL = originalPlaywrightMcpUrl;
   }
 });
 
@@ -919,6 +944,47 @@ describe('runtimeConfig merge and validation', () => {
 });
 
 describe('runtimeConfig Context7 overlay', () => {
+  it('replaces MCP placeholder values in memory before validation', () => {
+    process.env.CODEINFO_SERVER_PORT = '5510';
+    process.env.CODEINFO_CHAT_MCP_PORT = '5511';
+    process.env.CODEINFO_AGENTS_MCP_PORT = '5512';
+    process.env.CODEINFO_PLAYWRIGHT_MCP_URL = 'http://localhost:8931/mcp';
+
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
+      mcp_servers: {
+        code_info: {
+          command: 'npx',
+          args: ['-y', 'mcp-remote', 'http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp'],
+        },
+        ingest: {
+          url: 'http://localhost:${CODEINFO_SERVER_PORT}/mcp',
+        },
+        agents: {
+          url: 'http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp',
+        },
+        playwright: {
+          url: 'CODEINFO_PLAYWRIGHT_MCP_URL',
+        },
+      },
+    });
+
+    assert.deepEqual(normalized.mcp_servers, {
+      code_info: {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:5511/mcp'],
+      },
+      ingest: {
+        url: 'http://localhost:5510/mcp',
+      },
+      agents: {
+        url: 'http://localhost:5512/mcp',
+      },
+      playwright: {
+        url: 'http://localhost:8931/mcp',
+      },
+    });
+  });
+
   it('replaces REPLACE_WITH_CONTEXT7_API_KEY in memory from CODEINFO_CONTEXT7_API_KEY', () => {
     process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
 

@@ -91,6 +91,7 @@ export function applyResolvedServerPortToCodexConfig(
 ): string {
   const port = resolveServerPort(env);
   return configText
+    .replaceAll('${CODEINFO_SERVER_PORT}', port)
     .replaceAll('http://localhost:5010/mcp', `http://localhost:${port}/mcp`)
     .replaceAll('http://server:5010/mcp', `http://server:${port}/mcp`)
     .replaceAll(serverPortPlaceholder, port);

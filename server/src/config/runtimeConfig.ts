@@ -101,6 +101,8 @@ const CONTEXT7_PLACEHOLDER_API_KEYS = new Set([
   'REPLACE_WITH_CONTEXT7_API_KEY',
   'ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866',
 ]);
+const CODEINFO_ENV_PLACEHOLDER_PATTERN = /\$\{([A-Z0-9_]+)\}/g;
+const DIRECT_CODEINFO_ENV_PLACEHOLDERS = new Set(['CODEINFO_PLAYWRIGHT_MCP_URL']);
 const CHAT_CONFIG_TEMPLATE = [
   'model = "gpt-5.3-codex"',
   'model_reasoning_effort = "high"',
@@ -150,6 +152,52 @@ function getUsableContext7EnvApiKey(): string | undefined {
   }
   const trimmed = raw.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function getUsableCodeinfoEnvValue(
+  key: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const raw = env[key];
+  if (typeof raw !== 'string') {
+    return undefined;
+  }
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function replaceCodeinfoEnvPlaceholdersInString(
+  value: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const directPlaceholder = value.trim();
+  if (DIRECT_CODEINFO_ENV_PLACEHOLDERS.has(directPlaceholder)) {
+    return getUsableCodeinfoEnvValue(directPlaceholder, env) ?? value;
+  }
+
+  return value.replace(CODEINFO_ENV_PLACEHOLDER_PATTERN, (match, key) => {
+    return getUsableCodeinfoEnvValue(key, env) ?? match;
+  });
+}
+
+function replaceCodeinfoEnvPlaceholders(
+  value: unknown,
+  env: NodeJS.ProcessEnv = process.env,
+): unknown {
+  if (typeof value === 'string') {
+    return replaceCodeinfoEnvPlaceholdersInString(value, env);
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => replaceCodeinfoEnvPlaceholders(entry, env));
+  }
+  if (isRecord(value)) {
+    const normalized: Record<string, unknown> = {};
+    for (const [key, entryValue] of Object.entries(value)) {
+      normalized[key] = replaceCodeinfoEnvPlaceholders(entryValue, env);
+    }
+    return normalized;
+  }
+  return value;
 }
 
 function isPlaceholderEquivalentContext7Key(value: unknown): boolean {
@@ -252,6 +300,13 @@ export function normalizeContext7RuntimeConfig(
     config: normalized,
     mode: result.mode,
   };
+}
+
+export function normalizeCodeinfoRuntimeConfigPlaceholders(
+  input: RuntimeTomlConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): RuntimeTomlConfig {
+  return replaceCodeinfoEnvPlaceholders(cloneConfig(input), env) as RuntimeTomlConfig;
 }
 
 export function normalizeRuntimeConfig(
@@ -836,7 +891,10 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       baseConfig,
       runtimeConfig!,
     );
-    const context7Result = normalizeContext7RuntimeConfig(mergeResult.merged);
+    const placeholderResult = normalizeCodeinfoRuntimeConfigPlaceholders(
+      mergeResult.merged,
+    );
+    const context7Result = normalizeContext7RuntimeConfig(placeholderResult);
     const validated = validateRuntimeConfig(context7Result.config, {
       pathLabel: params.surface,
     });

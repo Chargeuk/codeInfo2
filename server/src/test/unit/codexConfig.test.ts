@@ -64,6 +64,18 @@ describe('codexConfig', () => {
     assert.match(rewritten, /http:\/\/server:5710\/mcp/);
   });
 
+  it('applyResolvedServerPortToCodexConfig rewrites CODEINFO_SERVER_PORT placeholders', () => {
+    const rewritten = applyResolvedServerPortToCodexConfig(
+      'host = "http://localhost:${CODEINFO_SERVER_PORT}/mcp"',
+      {
+        CODEINFO_SERVER_PORT: '5710',
+      },
+    );
+
+    assert.match(rewritten, /http:\/\/localhost:5710\/mcp/);
+    assert.doesNotMatch(rewritten, /\$\{CODEINFO_SERVER_PORT\}/u);
+  });
+
   it('ensureCodexConfigSeeded writes the in-code template when config.toml is missing', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;

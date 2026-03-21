@@ -146,6 +146,35 @@ test('runtime server env rename inventory is surfaced through startup env resolu
   }
 });
 
+test('runtime startup env resolution also surfaces CODEINFO_CHAT_MCP_PORT when it is defined', () => {
+  const serverRoot = createServerRoot();
+  const targetEnv: Record<string, string | undefined> = {};
+
+  writeEnvFile(
+    serverRoot,
+    '.env',
+    ['CODEINFO_CHAT_MCP_PORT=6511', ''].join('\n'),
+  );
+
+  const result = loadStartupEnv({ serverRoot, targetEnv });
+  const resolutions = resolveCodeinfoEnvResolutions({
+    env: targetEnv,
+    loadResult: result,
+  });
+
+  assert.equal(targetEnv.CODEINFO_CHAT_MCP_PORT, '6511');
+  assert.equal(
+    resolutions.find((entry) => entry.name === 'CODEINFO_CHAT_MCP_PORT')
+      ?.defined,
+    true,
+  );
+  assert.equal(
+    resolutions.find((entry) => entry.name === 'CODEINFO_CHAT_MCP_PORT')
+      ?.source,
+    'server/.env',
+  );
+});
+
 test('runtime pre-seeded renamed CODEINFO values override file defaults', () => {
   const serverRoot = createServerRoot();
   const targetEnv: Record<string, string | undefined> = {

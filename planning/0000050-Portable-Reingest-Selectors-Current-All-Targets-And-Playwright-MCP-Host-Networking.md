@@ -997,13 +997,11 @@ Add the new re-ingest request union to command and flow schema parsing so JSON f
 20. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-schema.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flows-schema.test.ts`
-7. [ ] `npm run compose:down`
+Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 
 #### Implementation notes
 
@@ -1055,12 +1053,11 @@ Keep `runReingestRepository()` strict on one canonical repository, but extend it
 18. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`
-6. [ ] `npm run compose:down`
+Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 
 #### Implementation notes
 
@@ -1120,14 +1117,11 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 23. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-runner.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --test-name reingest`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts`
-8. [ ] `npm run compose:down`
+Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 
 #### Implementation notes
 
@@ -1183,13 +1177,11 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
 22. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/reingest-tool-result.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/reingest-step-lifecycle.test.ts`
-7. [ ] `npm run compose:down`
+Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 
 #### Implementation notes
 
@@ -1240,13 +1232,11 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 18. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/markdown-file-resolver.test.ts`
-6. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/commands.markdown-file.test.ts`
-7. [ ] `npm run compose:down`
+Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 
 #### Implementation notes
 
@@ -1298,11 +1288,11 @@ Finish the shared runtime placeholder normalization layer before any checked-in 
 19. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
-1. [ ] `npm run test:summary:server:unit -- --test-name runtimeConfig`
-2. [ ] `npm run test:summary:server:unit -- --test-name codexConfig`
-3. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts`
-4. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/mcpStatus.test.ts`
-5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts`
+Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 
 #### Implementation notes
 
@@ -1352,8 +1342,11 @@ Move the checked-in runtime config files and env files onto the final MCP placeh
 10. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
-1. [ ] `npm run test:summary:server:unit -- --test-name runtimeConfig`
-2. [ ] `npm run test:summary:server:unit -- --test-name codexConfig`
+Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 
 #### Implementation notes
 
@@ -1394,9 +1387,11 @@ Create the reusable repo-local shell harness that later wrapper and compose task
 11. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
-1. [ ] `npm run test:summary:shell -- --file scripts/test/bats/shell-harness.bats`
-2. [ ] `npm run test:summary:shell`
-3. [ ] Confirm the shell harness run includes at least one expected failing fixture and that the saved output reports that error clearly instead of silently passing.
+Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 
 #### Implementation notes
 
@@ -1444,9 +1439,11 @@ Extend the checked-in compose wrapper so it fails fast when the checked-in host-
 14. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
-1. [ ] `npm run test:summary:shell -- --file scripts/test/bats/docker-compose-with-env.bats`
-2. [ ] `npm run test:summary:shell`
-3. [ ] Confirm the saved output reports host-network preflight failures with the affected compose file or service instead of a generic shell error.
+Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 
 #### Implementation notes
 
@@ -1482,7 +1479,9 @@ Update the Docker build flow so the checked-in runtime assets needed by the host
 8. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
-1. [ ] `npm run compose:build:summary`
+Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
 
 #### Implementation notes
 
@@ -1526,13 +1525,12 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
 8. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
-1. [ ] `npm run compose:build:summary`
+Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
 2. [ ] `npm run compose:up`
-3. [ ] `npm run test:summary:shell`
-4. [ ] `bash ./scripts/docker-compose-with-env.sh --env-file server/.env --env-file server/.env.local -f docker-compose.local.yml config`
-5. [ ] Confirm the updated local host-network definition still preserves the checked-in Chrome DevTools `9222` contract and any required Docker-socket/Testcontainers support without reintroducing source-tree bind mounts.
-6. [ ] Confirm the generated effective Compose configuration for the scoped host-networked services no longer carries incompatible `ports` or `networks` keys and does not add a new `playwright-mcp` service to compose files that previously lacked one.
-7. [ ] `npm run compose:down`
+3. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm the host-network runtime behavior covered by this task, verify the relevant story behavior from the running UI and stack, and confirm there are no logged errors in the debug console.
+4. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1577,11 +1575,15 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 12. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
-1. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/test-summary-host-network-main.test.ts`
-2. [ ] `npm run compose:up`
-3. [ ] `npm run test:summary:host-network:main`
-4. [ ] Confirm the automated coverage added in this task includes at least one failing probe case for the new proof wrapper and checks the reported error output.
-5. [ ] `npm run compose:down`
+Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
+4. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
+5. [ ] `npm run compose:up`
+6. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm the proof-wrapper-related runtime behavior covered by this task, verify the relevant story behavior from the running UI and stack, and confirm there are no logged errors in the debug console.
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1619,7 +1621,16 @@ Update the checked-in e2e env injection, config, and test assumptions so the e2e
 10. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
-1. [ ] `npm run test:summary:e2e`
+Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:client` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/client-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:client` after fixes.
+4. [ ] `npm run test:summary:e2e` Allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:e2e` after fixes.
+5. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
+6. [ ] `npm run compose:up`
+7. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm the e2e runtime behavior covered by this task, verify the relevant story behavior from the running UI and stack, and confirm there are no logged errors in the debug console.
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1664,16 +1675,18 @@ This task proves the completed story against the acceptance criteria. It must re
 8. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run test:summary:server:unit`
-5. [ ] `npm run test:summary:server:cucumber`
-6. [ ] `npm run test:summary:shell`
-7. [ ] `npm run compose:up`
-8. [ ] `npm run test:summary:host-network:main`
-9. [ ] `npm run compose:down`
-10. [ ] `npm run test:summary:e2e`
+Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+4. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
+5. [ ] `npm run test:summary:client` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/client-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:client` after fixes.
+6. [ ] `npm run test:summary:e2e` Allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:e2e` after fixes.
+7. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
+8. [ ] `npm run compose:up`
+9. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm story behavior and general regression from the running stack, including a check that there are no logged errors in the debug console.
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1709,6 +1722,8 @@ Update the shared documentation and prepare the finished story for review after 
 6. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 7. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
+
+Use only the checked-in summary-wrapper outputs already produced by Task 14 for this task. Do not attempt to rerun builds or tests without the wrapper. Only open full logs when a wrapper from Task 14 reported failure, unexpected warnings, or unknown/ambiguous counts.
 
 1. [ ] Review the saved outputs and screenshots from Task 14 and confirm the documentation and PR summary match the final validated behavior.
 
